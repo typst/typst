@@ -300,8 +300,10 @@ impl Packed<RawElem> {
     #[comemo::memoize]
     fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
-
         let text = elem.text();
+
+        // If the lines contain tab characters ("\t"), we need to replace them
+        // with spaces according to the style chain.
         let lines = match text {
             RawContent::Lines(lines) if !lines.iter().any(|(s, _)| s.contains('\t')) => {
                 lines.clone()
@@ -339,7 +341,12 @@ impl Packed<RawElem> {
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let text = text.get();
+            let text = lines
+                .clone()
+                .into_iter()
+                .map(|(s, _)| s)
+                .collect::<Vec<_>>()
+                .join("\n");
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
