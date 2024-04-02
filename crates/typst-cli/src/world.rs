@@ -200,15 +200,16 @@ impl World for SystemWorld {
             Now::System(time) => time.get_or_init(Utc::now),
         };
 
-        let naive = match offset {
+        // The time with the specified UTC offset, or within the local time zone.
+        let with_offset = match offset {
             None => now.naive_local(),
             Some(o) => now.naive_utc() + chrono::Duration::try_hours(o)?,
         };
 
         Datetime::from_ymd(
-            naive.year(),
-            naive.month().try_into().ok()?,
-            naive.day().try_into().ok()?,
+            with_offset.year(),
+            with_offset.month().try_into().ok()?,
+            with_offset.day().try_into().ok()?,
         )
     }
 }
