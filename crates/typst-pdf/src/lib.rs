@@ -18,10 +18,10 @@ use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
-use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
-use typst::layout::{Abs, Dir, Em, Transform};
+use typst::layout::{Abs, Dir, Em, Frame, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
@@ -124,6 +124,8 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+    /// Deduplicates emojis
+    emoji_font_map: EmojiFontMap,
 
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
@@ -156,6 +158,7 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
+            emoji_font_map: EmojiFontMap::new(),
             dests: vec![],
             loc_to_dest: HashMap::new(),
         }
@@ -453,6 +456,88 @@ where
 
     fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
+    }
+}
+
+struct Emoji {
+    gid: u16,
+    width: f64,
+    image: Frame,
+}
+
+struct EmojiFont {
+    refs: Vec<Ref>,
+    // glyph id, instruction ids
+    // index % 256 is the index in the type3 font
+    emojis: Vec<Emoji>,
+    bbox: Rect,
+}
+
+struct EmojiFontMap {
+    map: HashMap<Font, EmojiFont>,
+    all_refs: Vec<Ref>,
+}
+
+impl EmojiFontMap {
+    fn new() -> Self {
+        Self { map: HashMap::new(), all_refs: Vec::new() }
+    }
+
+    fn items(&self) -> impl IntoIterator<Item = &EmojiFont> {
+        self.map.values()
+    }
+
+    fn take(&mut self) -> Self {
+        let map = std::mem::take(&mut self.map);
+        EmojiFontMap { map, all_refs: self.all_refs.clone() }
+    }
+
+    fn get<F>(
+        &mut self,
+        alloc: &mut Ref,
+        font: &Font,
+        glyph: u16,
+        width: f64,
+        instructions: F,
+    ) -> (Ref, u8)
+    where
+        F: Fn() -> Frame,
+    {
+        let font = self.map.entry(font.clone()).or_insert_with(|| {
+            let global_bbox = font.ttf().global_bounding_box();
+            let bbox = Rect::new(
+                font.to_em(global_bbox.x_min).to_font_units(),
+                font.to_em(global_bbox.y_min).to_font_units(),
+                font.to_em(global_bbox.x_max).to_font_units(),
+                font.to_em(global_bbox.y_max).to_font_units(),
+            );
+            EmojiFont { bbox, refs: Vec::new(), emojis: Vec::new() }
+        });
+
+        let index = match font.emojis.iter().position(|emoji| emoji.gid == glyph) {
+            // If we already know this glyph, at requested resolution (or better)
+            // return it
+            Some(index_of_glyph) if font.emojis[index_of_glyph].width >= width => {
+                return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
+            }
+            // If we already know it but at a lower resolution, overwrite it with the high-res version
+            Some(index_of_glyph) => index_of_glyph,
+            // Otherwise, allocate a new Emoji in the font, and a new Type3 font if needed
+            None => {
+                let new_index = font.emojis.len();
+                if new_index % 256 == 0 {
+                    let new_ref = alloc.bump();
+                    self.all_refs.push(new_ref);
+                    font.refs.push(new_ref);
+                }
+                new_index
+            }
+        };
+
+        font.emojis
+            .insert(index, Emoji { gid: glyph, width, image: instructions() });
+
+        (font.refs[index / 256], index as u8)
     }
 }
 

@@ -8,12 +8,14 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use ttf_parser::GlyphId;
 use typst::introspection::Meta;
 use typst::layout::{
-    Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
+    Abs, Axes, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::{Destination, Numbering};
-use typst::text::{Case, Font, TextItem};
+use typst::syntax::Span;
+use typst::text::{Case, Font, Glyph, TextItem};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
@@ -44,17 +46,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     let page_ref = ctx.alloc.bump();
 
     let size = frame.size();
-    let mut ctx = PageContext {
-        parent: ctx,
-        page_ref,
-        uses_opacities: false,
-        content: Content::new(),
-        state: State::new(size),
-        saves: vec![],
-        bottom: 0.0,
-        links: vec![],
-        resources: HashMap::default(),
-    };
+    let mut ctx = PageContext::new(ctx, page_ref, size);
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
@@ -113,6 +105,11 @@ fn write_global_resources(ctx: &mut PdfContext) -> Ref {
     for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
         let name = eco_format!("F{}", f);
         fonts.pair(Name(name.as_bytes()), font_ref);
+    }
+
+    for font in &ctx.emoji_font_map.all_refs {
+        let name = eco_format!("Ef{}", font.get());
+        fonts.pair(Name(name.as_bytes()), font);
     }
 
     fonts.finish();
@@ -431,11 +428,27 @@ pub struct PageContext<'a, 'b> {
     pub content: Content,
     state: State,
     saves: Vec<State>,
-    bottom: f32,
+    pub bottom: f32,
     uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
     /// Keep track of the resources being used in the page.
     pub resources: HashMap<PageResource, usize>,
+}
+
+impl<'a, 'b> PageContext<'a, 'b> {
+    pub fn new(parent: &'a mut PdfContext<'b>, page_ref: Ref, size: Size) -> Self {
+        PageContext {
+            parent,
+            page_ref,
+            uses_opacities: false,
+            content: Content::new(),
+            state: State::new(size),
+            saves: vec![],
+            bottom: 0.0,
+            links: vec![],
+            resources: HashMap::default(),
+        }
+    }
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -548,7 +561,7 @@ impl PageContext<'_, '_> {
         self.set_external_graphics_state(&ExtGState { stroke_opacity, fill_opacity });
     }
 
-    fn transform(&mut self, transform: Transform) {
+    pub fn transform(&mut self, transform: Transform) {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         self.state.transform = self.state.transform.pre_concat(transform);
         if self.state.container_transform.is_identity() {
@@ -663,7 +676,7 @@ impl PageContext<'_, '_> {
 }
 
 /// Encode a frame into the content stream.
-fn write_frame(ctx: &mut PageContext, frame: &Frame) {
+pub(crate) fn write_frame(ctx: &mut PageContext, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
@@ -711,6 +724,129 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+    // If the text run contains either only emojis or normal text
+    // we can render it directly
+    let sbix = match text.font.ttf().tables().sbix {
+        None => {
+            write_normal_text(ctx, pos, text);
+            return;
+        }
+        Some(sbix) => sbix,
+    };
+
+    let strike = sbix.best_strike(text.size.to_f32() as u16).unwrap();
+    let is_emoji = |g: &Glyph| strike.get(GlyphId(g.id)).is_some();
+    let emoji_count = text.glyphs.iter().filter(|g| is_emoji(*g)).count();
+
+    if emoji_count == text.glyphs.len() {
+        write_emojis(ctx, pos, text);
+    } else if emoji_count == 0 {
+        write_text(ctx, pos, text)
+    } else {
+        // Otherwise we need to split it in smaller text runs
+        let mut offset = 0;
+        let mut position_in_run = Em::zero();
+        while offset < text.glyphs.len() {
+            // Start a new text run where the last one ended
+            let start = offset;
+            // Determine if this is an emoji-only or a text-only run
+            let in_emoji_group = is_emoji(&text.glyphs[start]);
+            // Determine the index of the last glyph of the run
+            let end = start
+                + text.glyphs[start..]
+                    .iter()
+                    .position(|g| is_emoji(&g) != in_emoji_group)
+                    .unwrap_or(text.glyphs.len() - start);
+
+            // Build a sub text-run
+            let text_start = text.glyphs[start].range().start;
+            let text_end = text.glyphs[end - 1].range().end;
+
+            let new_text_item = TextItem {
+                text: EcoString::from(&text.text[text_start..text_end]),
+                // Glyphs ranges need to be re-mapped to the new text
+                glyphs: text.glyphs[start..end]
+                    .iter()
+                    .map(|g| Glyph {
+                        range: (g.range.start - text_start as u16)
+                            ..(g.range.end - text_start as u16),
+                        ..*g
+                    })
+                    .collect(),
+                font: text.font.clone(),
+                fill: text.fill.clone(),
+                stroke: text.stroke.clone(),
+                ..*text
+            };
+
+            // Adjust the position of the run on the line
+            let pos = pos + Point::new(position_in_run.at(text.size), Abs::zero());
+            // Actually write the text or emojis
+            if in_emoji_group {
+                write_emojis(ctx, pos, &new_text_item);
+            } else {
+                write_normal_text(ctx, pos, &new_text_item);
+            }
+
+            position_in_run += new_text_item.glyphs.iter().map(|g| g.x_advance).sum();
+            offset = end;
+        }
+    }
+}
+
+// Encodes a text run made only of emojis into the content stream
+fn write_emojis(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
+    if let Some(sbix) = text.font.ttf().tables().sbix {
+        for glyph in &text.glyphs {
+            let ppem = text.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
+            let raster_image =
+                sbix.best_strike(ppem as u16).unwrap().get(GlyphId(glyph.id)).unwrap();
+            let (font, index) = ctx.parent.emoji_font_map.get(
+                &mut ctx.parent.alloc,
+                &text.font,
+                glyph.id,
+                ppem,
+                || {
+                    let mut frame = Frame::new(
+                        Axes::new(Abs::cm(1.0), Abs::cm(1.0)),
+                        typst::layout::FrameKind::Soft,
+                    );
+                    frame.push(
+                        Point::zero(),
+                        FrameItem::Image(
+                            Image::new(
+                                raster_image.data.into(),
+                                typst::visualize::ImageFormat::Raster(
+                                    typst::visualize::RasterFormat::Png,
+                                ),
+                                None,
+                            )
+                            .unwrap(),
+                            Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
+                            Span::detached(),
+                        ),
+                    );
+                    frame
+                },
+            );
+            ctx.state.font = None;
+            ctx.content.set_font(
+                Name(eco_format!("Ef{}", font.get()).as_bytes()),
+                text.size.to_f32(),
+            );
+            ctx.content.begin_text();
+            ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+            ctx.content.show(Str(&[index]));
+            ctx.content.end_text();
+        }
+    }
+}
+
+// Encodes a text run (without any emoji) into the content stream
+fn write_normal_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
