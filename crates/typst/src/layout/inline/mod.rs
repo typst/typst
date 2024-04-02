@@ -1245,7 +1245,7 @@ fn commit(
     line: &Line,
     width: Abs,
     full: Abs,
-    can_shrink: bool,
+    shrink: bool,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
@@ -1292,12 +1292,12 @@ fn commit(
     let mut justification_ratio = 0.0;
     let mut extra_justification = Abs::zero();
 
-    let shrink = line.shrinkability();
+    let shrinkability = line.shrinkability();
     let stretch = line.stretchability();
-    if remaining < Abs::zero() && shrink > Abs::zero() && can_shrink {
+    if remaining < Abs::zero() && shrinkability > Abs::zero() && shrink {
         // Attempt to reduce the length of the line, using shrinkability.
-        justification_ratio = (remaining / shrink).max(-1.0);
-        remaining = (remaining + shrink).min(Abs::zero());
+        justification_ratio = (remaining / shrinkability).max(-1.0);
+        remaining = (remaining + shrinkability).min(Abs::zero());
     } else if line.justify && fr.is_zero() {
         // Attempt to increase the length of the line, using stretchability.
         if stretch > Abs::zero() {
