@@ -37,7 +37,7 @@
 // Content.
 #raw(lang: "typc", repr[*Hey*]) \
 #raw(lang: "typc", repr[A _sequence_]) \
-#raw(lang: "typc", repr[A _longer_ sequence])
+#raw(lang: "typc", repr[A _longer_ *sequence*!])
 
 // Functions.
 #let f(x) = x

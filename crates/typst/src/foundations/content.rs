@@ -900,10 +900,11 @@ impl Repr for SequenceElem {
         if self.children.is_empty() {
             "[]".into()
         } else {
-            crate::foundations::repr::pretty_sum(
+            let elements = crate::foundations::repr::pretty_array_like(
                 &self.children.iter().map(|c| c.inner.elem.repr()).collect::<Vec<_>>(),
-            )
-            .into()
+                false,
+            );
+            eco_format!("sequence{}", elements)
         }
     }
 }

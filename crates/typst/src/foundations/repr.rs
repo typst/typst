@@ -198,49 +198,6 @@ pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> Str
     buf
 }
 
-/// Formats a sum of multiple elements.
-///
-/// Tries to format horizontally, but falls back to vertical formatting if the pieces are too long.
-pub fn pretty_sum(pieces: &[impl AsRef<str>]) -> String {
-    const MAX_WIDTH: usize = 50;
-    const INLINE_PLUS: &str = " + ";
-
-    let mut buf = String::from("(");
-    let len = pieces.iter().map(|s| s.as_ref().len()).sum::<usize>()
-        + INLINE_PLUS.len() * pieces.len().saturating_sub(1)
-        + 2;
-
-    if len <= MAX_WIDTH && pieces.iter().all(|s| !s.as_ref().contains('\n')) {
-        for (i, piece) in pieces.iter().enumerate() {
-            if i > 0 {
-                buf.push_str(INLINE_PLUS);
-            }
-            buf.push_str(piece.as_ref());
-        }
-    } else {
-        buf.push('\n');
-        for (i, piece) in pieces.iter().enumerate() {
-            if i == 0 {
-                buf.push_str("  ");
-                buf.push_str(piece.as_ref().trim());
-            } else {
-                buf.push_str("    + ");
-                for (j, line) in piece.as_ref().lines().enumerate() {
-                    if j > 0 {
-                        buf.push_str("    ")
-                    }
-                    buf.push_str(line)
-                }
-            }
-            buf.push('\n');
-        }
-    }
-
-    buf.push(')');
-
-    buf
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
