@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
