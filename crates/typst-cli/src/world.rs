@@ -43,8 +43,8 @@ pub struct SystemWorld {
     slots: Mutex<HashMap<FileId, FileSlot>>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
-    /// Reset between compilations if not fixed.
-    today: Today,
+    /// Reset between compilations if not [`Now::Fixed`].
+    now: Now,
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
@@ -105,9 +105,9 @@ impl SystemWorld {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 
-        let today = match command.source_date_epoch {
-            Some(time) => Today::Fixed(time),
-            None => Today::System(OnceLock::new()),
+        let now = match command.source_date_epoch {
+            Some(time) => Now::Fixed(time),
+            None => Now::System(OnceLock::new()),
         };
 
         Ok(Self {
@@ -118,7 +118,7 @@ impl SystemWorld {
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
-            today,
+            now,
             export_cache: ExportCache::new(),
         })
     }
@@ -152,7 +152,7 @@ impl SystemWorld {
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
-        if let Today::System(time_lock) = &mut self.today {
+        if let Now::System(time_lock) = &mut self.now {
             time_lock.take();
         }
     }
@@ -195,14 +195,14 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        let today = match &self.today {
-            Today::Fixed(time) => time,
-            Today::System(time) => time.get_or_init(Utc::now),
+        let now = match &self.now {
+            Now::Fixed(time) => time,
+            Now::System(time) => time.get_or_init(Utc::now),
         };
 
         let naive = match offset {
-            None => today.naive_local(),
-            Some(o) => today.naive_utc() + chrono::Duration::try_hours(o)?,
+            None => now.naive_local(),
+            Some(o) => now.naive_utc() + chrono::Duration::try_hours(o)?,
         };
 
         Datetime::from_ymd(
@@ -396,7 +396,7 @@ fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
 }
 
 /// The current date and time.
-enum Today {
+enum Now {
     /// The date and time if the environment `SOURCE_DATE_EPOCH` is set.
     /// Used for reproducible builds.
     Fixed(DateTime<Utc>),
