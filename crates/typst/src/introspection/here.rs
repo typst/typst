@@ -1,3 +1,5 @@
+use comemo::Tracked;
+
 use crate::diag::HintedStrResult;
 use crate::foundations::{func, Context};
 use crate::introspection::Location;
@@ -44,7 +46,7 @@ use crate::introspection::Location;
 #[func(contextual)]
 pub fn here(
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
 ) -> HintedStrResult<Location> {
     context.location()
 }

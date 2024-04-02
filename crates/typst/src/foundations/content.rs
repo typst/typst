@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Deref, DerefMut};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 use smallvec::smallvec;
@@ -345,7 +346,7 @@ impl Content {
     pub fn styled_with_recipe(
         self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         recipe: Recipe,
     ) -> SourceResult<Self> {
         if recipe.selector.is_none() {

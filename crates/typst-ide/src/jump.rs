@@ -4,7 +4,7 @@ use ecow::EcoString;
 use typst::introspection::Meta;
 use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Document};
-use typst::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
+use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
 use typst::World;
 
@@ -115,10 +115,15 @@ pub fn jump_from_cursor(
     source: &Source,
     cursor: usize,
 ) -> Option<Position> {
-    let node = LinkedNode::new(source.root()).leaf_at(cursor)?;
-    if node.kind() != SyntaxKind::Text {
-        return None;
+    fn is_text(node: &LinkedNode) -> bool {
+        node.get().kind() == SyntaxKind::Text
     }
+
+    let root = LinkedNode::new(source.root());
+    let node = root
+        .leaf_at(cursor, Side::Before)
+        .filter(is_text)
+        .or_else(|| root.leaf_at(cursor, Side::After).filter(is_text))?;
 
     let span = node.span();
     for (i, page) in document.pages.iter().enumerate() {

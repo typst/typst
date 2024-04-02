@@ -203,29 +203,3 @@
   // Robert got grade B on other exams.
   ..(table.cell(y: 4, fill: aqua)[B],) * 2,
 )
-
----
-// Error: 5:3-5:39 cell position too large
-#grid(
-  columns: 3,
-  rows: 2em,
-  fill: (x, y) => if calc.odd(x + y) { red.lighten(50%) } else { green },
-  grid.cell(y: 6148914691236517206)[a],
-)
-
----
-// Error: 5:3-5:46 cell position too large
-#table(
-  columns: 3,
-  rows: 2em,
-  fill: (x, y) => if calc.odd(x + y) { red.lighten(50%) } else { green },
-  table.cell(x: 2, y: 6148914691236517206)[a],
-)
-
----
-// Error: 3:3-3:45 cell would span an exceedingly large position
-// Hint: 3:3-3:45 try reducing the cell's rowspan or colspan
-#grid(
-  columns: 500,
-  grid.cell(rowspan: 6148914691236517206)[a]
-)

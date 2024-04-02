@@ -83,7 +83,17 @@ pub struct ImageElem {
     /// A text describing the image.
     pub alt: Option<EcoString>,
 
-    /// How the image should adjust itself to a given area.
+    /// How the image should adjust itself to a given area (the area is defined
+    /// by the `width` and `height` fields). Note that `fit` doesn't visually
+    /// change anything if the area's aspect ratio is the same as the image's
+    /// one.
+    ///
+    /// ```example
+    /// #set page(width: 300pt, height: 50pt, margin: 10pt)
+    /// #image("tiger.jpg", width: 100%, fit: "cover")
+    /// #image("tiger.jpg", width: 100%, fit: "contain")
+    /// #image("tiger.jpg", width: 100%, fit: "stretch")
+    /// ```
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
 }
@@ -293,15 +303,20 @@ impl LocalName for Packed<ImageElem> {
 
 impl Figurable for Packed<ImageElem> {}
 
-/// How an image should adjust itself to a given area.
+/// How an image should adjust itself to a given area,
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ImageFit {
-    /// The image should completely cover the area. This is the default.
+    /// The image should completely cover the area (preserves aspect ratio by
+    /// cropping the image only horizontally or vertically). This is the
+    /// default.
     Cover,
-    /// The image should be fully contained in the area.
+    /// The image should be fully contained in the area (preserves aspect
+    /// ratio; doesn't crop the image; one dimension can be narrower than
+    /// specified).
     Contain,
     /// The image should be stretched so that it exactly fills the area, even if
-    /// this means that the image will be distorted.
+    /// this means that the image will be distorted (doesn't preserve aspect
+    /// ratio and doesn't crop the image).
     Stretch,
 }
 

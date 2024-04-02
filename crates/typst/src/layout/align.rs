@@ -603,11 +603,11 @@ where
     V: Reflect,
 {
     fn input() -> CastInfo {
-        H::input() + V::input()
+        Alignment::input()
     }
 
     fn output() -> CastInfo {
-        H::output() + V::output()
+        Alignment::output()
     }
 
     fn castable(value: &Value) -> bool {

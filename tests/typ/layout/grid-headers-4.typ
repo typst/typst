@@ -56,3 +56,57 @@
   ),
   [a\ b]
 )
+
+---
+// Test header stroke priority edge case (last header row removed)
+#set page(height: 8em)
+#table(
+  columns: 2,
+  stroke: black,
+  gutter: (auto, 3pt),
+  table.header(
+    [c], [d],
+  ),
+  ..(table.cell(stroke: aqua)[d],) * 8,
+)
+
+---
+// Yellow line should be kept here
+#set text(6pt)
+#table(
+  column-gutter: 3pt,
+  inset: 1pt,
+  table.header(
+    [a],
+    table.hline(stroke: yellow),
+  ),
+  table.cell(rowspan: 2)[b]
+)
+
+---
+// Red line should be kept here
+#set page(height: 6em)
+#set text(6pt)
+#table(
+  column-gutter: 3pt,
+  inset: 1pt,
+  table.header(
+    table.hline(stroke: red, position: bottom),
+    [a],
+  ),
+  [a],
+  table.cell(stroke: aqua)[b]
+)
+
+---
+#set page(height: 7em)
+#set text(6pt)
+#let full-block = block(width: 2em, height: 100%, fill: red)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  table.header(
+    [a], full-block, table.cell(rowspan: 2, full-block),
+    [b]
+  )
+)

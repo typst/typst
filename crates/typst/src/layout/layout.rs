@@ -1,3 +1,5 @@
+use comemo::Track;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -11,7 +13,7 @@ use crate::syntax::Span;
 /// (width and height).
 ///
 /// The given function must accept a single parameter, `size`, which is a
-/// dictionary with keys `width` and `height`, both of type [`length`.
+/// dictionary with keys `width` and `height`, both of type [`length`].
 ///
 /// ```example
 /// #let text = lorem(30)
@@ -84,7 +86,7 @@ impl LayoutMultiple for Packed<LayoutElem> {
         let context = Context::new(Some(loc), Some(styles));
         let result = self
             .func()
-            .call(engine, &context, [dict! { "width" => x, "height" => y }])?
+            .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
             .display();
         result.layout(engine, styles, regions)
     }

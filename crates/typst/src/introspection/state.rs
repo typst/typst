@@ -1,4 +1,4 @@
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::diag::{bail, At, SourceResult};
@@ -249,7 +249,7 @@ impl State {
             match elem.update() {
                 StateUpdate::Set(value) => state = value.clone(),
                 StateUpdate::Func(func) => {
-                    state = func.call(&mut engine, &Context::none(), [state])?
+                    state = func.call(&mut engine, Context::none().track(), [state])?
                 }
             }
             stops.push(state.clone());
@@ -287,7 +287,7 @@ impl State {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
     ) -> SourceResult<Value> {
@@ -310,7 +310,7 @@ impl State {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// The place at which the state's value should be retrieved.
@@ -327,7 +327,7 @@ impl State {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// _Compatibility:_ This argument only exists for compatibility with
@@ -364,9 +364,9 @@ impl State {
         StateUpdateElem::new(self.key, update).pack().spanned(span)
     }
 
-    /// **Deprection planned:** Use [`get`]($state.get) instead.
-    ///
     /// Displays the current value of the state.
+    ///
+    /// **Deprecation planned:** Use [`get`]($state.get) instead.
     #[func]
     pub fn display(
         self,
@@ -428,9 +428,9 @@ impl Show for Packed<StateUpdateElem> {
     }
 }
 
-/// **Deprection planned.**
-///
 /// Executes a display of a state.
+///
+/// **Deprecation planned.**
 #[elem(Construct, Locatable, Show)]
 struct StateDisplayElem {
     /// The state.
@@ -451,7 +451,7 @@ impl Show for Packed<StateDisplayElem> {
         let context = Context::new(Some(location), Some(styles));
         let value = self.state().at_loc(engine, location)?;
         Ok(match self.func() {
-            Some(func) => func.call(engine, &context, [value])?.display(),
+            Some(func) => func.call(engine, context.track(), [value])?.display(),
             None => value.display(),
         })
     }

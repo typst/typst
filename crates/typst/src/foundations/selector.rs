@@ -304,7 +304,7 @@ impl LocatableSelector {
     pub fn resolve_unique(
         &self,
         introspector: Tracked<Introspector>,
-        context: &Context,
+        context: Tracked<Context>,
     ) -> HintedStrResult<Location> {
         match &self.0 {
             Selector::Location(loc) => Ok(*loc),

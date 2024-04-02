@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
@@ -213,7 +213,7 @@ impl Counter {
 
     /// The counter for the given element.
     pub fn of(func: Element) -> Self {
-        Self::construct(CounterKey::Selector(Selector::Elem(func, None)))
+        Self::new(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
     /// Gets the current and final value of the state combined in one state.
@@ -271,7 +271,7 @@ impl Counter {
         let context = Context::new(Some(loc), Some(styles));
         Ok(self
             .at_loc(engine, loc)?
-            .display(engine, &context, numbering)?
+            .display(engine, context.track(), numbering)?
             .display())
     }
 
@@ -392,7 +392,7 @@ impl Counter {
         };
 
         let context = Context::new(Some(location), styles);
-        state.display(engine, &context, &numbering)
+        state.display(engine, context.track(), &numbering)
     }
 }
 
@@ -405,14 +405,14 @@ impl Counter {
         ///
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
-        /// - If this is a `{<label>}`, counts through all elements with that
-        ///   label,
-        /// - If this is an element function or selector, counts through its
-        ///   elements,
-        /// - If this is the [`page`] function, counts through pages.
+        /// - If it is the [`page`] function, counts through pages,
+        /// - If it is a [selector], counts through elements that matches with the
+        ///   selector. For example,
+        ///   - provide an element function: counts elements of that type,
+        ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
-        Self(key)
+        Self::new(key)
     }
 
     /// Retrieves the value of the counter at the current location. Always
@@ -425,7 +425,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
     ) -> SourceResult<CounterState> {
@@ -446,7 +446,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The call span of the display.
         span: Span,
         /// A [numbering pattern or a function]($numbering), which specifies how
@@ -468,8 +468,8 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> SourceResult<Value> {
-        if let Some(loc) = context.location {
-            self.display_impl(engine, loc, numbering, both, context.styles)
+        if let Ok(loc) = context.location() {
+            self.display_impl(engine, loc, numbering, both, context.styles().ok())
         } else {
             Ok(CounterDisplayElem::new(self, numbering, both)
                 .pack()
@@ -494,7 +494,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// The place at which the counter's value should be retrieved.
@@ -512,7 +512,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// _Compatibility:_ This argument only exists for compatibility with
@@ -669,7 +669,7 @@ impl CounterState {
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
                 *self = func
-                    .call(engine, &Context::none(), self.0.iter().copied())?
+                    .call(engine, Context::none().track(), self.0.iter().copied())?
                     .cast()
                     .at(func.span())?
             }
@@ -700,7 +700,7 @@ impl CounterState {
     pub fn display(
         &self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         numbering: &Numbering,
     ) -> SourceResult<Value> {
         numbering.apply(engine, context, &self.0)
@@ -748,9 +748,9 @@ impl Count for Packed<CounterUpdateElem> {
     }
 }
 
-/// **Deprection planned.**
-///
 /// Executes a display of a counter.
+///
+/// **Deprecation planned.**
 #[elem(Construct, Locatable, Show)]
 pub struct CounterDisplayElem {
     /// The counter.

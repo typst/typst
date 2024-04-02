@@ -1,3 +1,5 @@
+use comemo::{Track, Tracked};
+
 use crate::diag::{HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -37,7 +39,7 @@ pub fn locate(
     /// The engine.
     engine: &mut Engine,
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
     /// The span of the `locate` call.
     span: Span,
     /// A selector that should match exactly one element. This element will be
@@ -106,6 +108,6 @@ impl Show for Packed<LocateElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let location = self.location().unwrap();
         let context = Context::new(Some(location), Some(styles));
-        Ok(self.func().call(engine, &context, [location])?.display())
+        Ok(self.func().call(engine, context.track(), [location])?.display())
     }
 }

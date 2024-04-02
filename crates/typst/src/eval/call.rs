@@ -278,7 +278,7 @@ pub(crate) fn call_closure(
     route: Tracked<Route>,
     locator: Tracked<Locator>,
     tracer: TrackedMut<Tracer>,
-    context: &Context,
+    context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
     let (name, params, body) = match closure.node.cast::<ast::Closure>() {

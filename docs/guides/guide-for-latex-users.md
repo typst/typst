@@ -10,8 +10,6 @@ out Typst. We will explore the main differences between these two systems from a
 user perspective. Although Typst is not built upon LaTeX and has a different
 syntax, you will learn how to use your LaTeX skills to get a head start.
 
-<!-- Mention that Typst is not built upon LaTeX -->
-
 Just like LaTeX, Typst is a markup-based typesetting system: You compose your
 document in a text file and mark it up with commands and other syntax. Then, you
 use a compiler to typeset the source file into a PDF. However, Typst also
@@ -419,10 +417,12 @@ show rule.
 </div>
 
 In the web app, you can choose from predefined templates or even
-create your own using the template wizard. You can also check out the
+create your own using the template wizard. Locally, you can use the
+`typst init` CLI to create a new project from a template. Check out
+[the list of templates]($universe/search/?kind=templates) published on Typst
+Universe, our official package ecosystem. You can also take a look at the
 [`awesome-typst` repository](https://github.com/qjcg/awesome-typst) to find
-templates made by the community. We plan to add support for templates to Typst's
-package manager in the future.
+community templates that aren't yet available as packages.
 
 You can also [create your own, custom templates.]($tutorial/making-a-template)
 They are shorter and more readable than the corresponding LaTeX `.sty` files by
@@ -452,13 +452,13 @@ and their corresponding Typst functions.
 | enumitem                        | [`list`], [`enum`], [`terms`] functions    |
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
-a built-in [package manager]($packages) where the community can share their
-creations and automations. Let's take, for instance, the _tablex_ package: This
-package allows you to customize your tables in ways the built-in table does not
-yet support. To use tablex in your document, you can just write:
+a built-in [package manager]($universe) where the community can share their
+creations and automations. Let's take, for instance, the _cetz_ package: This
+package allows you to create complex drawings and plots. To use cetz in your
+document, you can just write:
 
 ```typ
-#import "@preview/tablex:0.0.5": tablex, gridx
+#import "@preview/cetz:0.2.1"
 ```
 
 (The `@preview` is a _namespace_ that is used while the package manager is still

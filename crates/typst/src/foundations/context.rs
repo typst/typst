@@ -1,3 +1,5 @@
+use comemo::Track;
+
 use crate::diag::{bail, Hint, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -28,7 +30,10 @@ impl<'a> Context<'a> {
     pub fn new(location: Option<Location>, styles: Option<StyleChain<'a>>) -> Self {
         Self { location, styles }
     }
+}
 
+#[comemo::track]
+impl<'a> Context<'a> {
     /// Try to extract the location.
     pub fn location(&self) -> HintedStrResult<Location> {
         require(self.location)
@@ -75,6 +80,6 @@ impl Show for Packed<ContextElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let loc = self.location().unwrap();
         let context = Context::new(Some(loc), Some(styles));
-        Ok(self.func.call::<[Value; 0]>(engine, &context, [])?.display())
+        Ok(self.func.call::<[Value; 0]>(engine, context.track(), [])?.display())
     }
 }

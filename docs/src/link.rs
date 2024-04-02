@@ -20,7 +20,7 @@ pub fn resolve(link: &str, base: &str) -> StrResult<String> {
         route.push_str(tail);
     }
 
-    if !route.contains('#') && !route.ends_with('/') {
+    if !route.contains(['#', '?']) && !route.ends_with('/') {
         route.push('/');
     }
 
@@ -45,9 +45,9 @@ fn resolve_known(head: &str, base: &str) -> Option<String> {
         "$scripting" => format!("{base}reference/scripting"),
         "$context" => format!("{base}reference/context"),
         "$guides" => format!("{base}guides"),
-        "$packages" => format!("{base}packages"),
         "$changelog" => format!("{base}changelog"),
         "$community" => format!("{base}community"),
+        "$universe" => "https://typst.app/universe".into(),
         _ => return None,
     })
 }
@@ -87,17 +87,23 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
         return Ok(route);
     }
 
-    let mut route = format!("{}reference/{}/{name}/", base, category.name());
+    let mut route = format!("{}reference/{}/{name}", base, category.name());
     if let Some(next) = parts.next() {
-        if value.field(next).is_ok() {
-            route.push_str("#definitions-");
+        if let Ok(field) = value.field(next) {
+            route.push_str("/#definitions-");
             route.push_str(next);
+            if let Some(next) = parts.next() {
+                if field.cast::<Func>().is_ok_and(|func| func.param(next).is_some()) {
+                    route.push('-');
+                    route.push_str(next);
+                }
+            }
         } else if value
             .clone()
             .cast::<Func>()
             .is_ok_and(|func| func.param(next).is_some())
         {
-            route.push_str("#parameters-");
+            route.push_str("/#parameters-");
             route.push_str(next);
         } else {
             bail!("field {next} not found");

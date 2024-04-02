@@ -3,16 +3,17 @@ use std::fmt::{Debug, Formatter};
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, FromValue, Func,
-    IntoValue, Reflect, Repr, Value, Version,
+    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
+    IntoValue, Reflect, Repr, Str, Value, Version,
 };
 use crate::syntax::Span;
 
@@ -222,8 +223,11 @@ impl Array {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
-    /// Inserts a value into the array at the specified index. Fails with an
-    /// error if the index is out of bounds.
+    /// Inserts a value into the array at the specified index, shifting all
+    /// subsequent elements to the right. Fails with an error if the index is
+    /// out of bounds.
+    ///
+    /// To replace an element of an array, use [`at`]($array.at).
     #[func]
     pub fn insert(
         &mut self,
@@ -301,7 +305,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<Value>> {
@@ -325,7 +329,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
@@ -402,7 +406,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<Array> {
@@ -427,7 +431,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item.
         mapper: Func,
     ) -> SourceResult<Array> {
@@ -536,7 +540,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The initial value to start with.
         init: Value,
         /// The folding function. Must have two parameters: One for the
@@ -598,7 +602,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
@@ -618,7 +622,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
@@ -765,7 +769,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// If given, applies this function to the elements in the array to
@@ -815,7 +819,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]
@@ -849,6 +853,34 @@ impl Array {
         }
 
         Ok(Self(out))
+    }
+
+    /// Converts an array of pairs into a dictionary.
+    /// The first value of each pair is the key, the second the value.
+    ///
+    /// If the same key occurs multiple times, the last value is selected.
+    ///
+    /// ```example
+    /// (("apples", 2), ("peaches", 3), ("apples", 5)).to-dict()
+    /// ```
+    #[func]
+    pub fn to_dict(self) -> StrResult<Dict> {
+        self.into_iter()
+            .map(|value| {
+                let value_ty = value.ty();
+                let pair = value.cast::<Array>().map_err(|_| {
+                    eco_format!("expected (str, any) pairs, found {}", value_ty)
+                })?;
+                if let [key, value] = pair.as_slice() {
+                    let key = key.clone().cast::<Str>().map_err(|_| {
+                        eco_format!("expected key of type str, found {}", value.ty())
+                    })?;
+                    Ok((key, value.clone()))
+                } else {
+                    bail!("expected pairs of length 2, found length {}", pair.len());
+                }
+            })
+            .collect()
     }
 }
 

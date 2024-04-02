@@ -9,7 +9,7 @@ use crate::foundations::StyleChain;
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{Abs, Corner, Em, Frame, FrameItem, Point, Size};
 use crate::math::{
-    scaled_font_size, styled_char, EquationElem, Limits, MathContext, MathSize, Scaled,
+    scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled,
 };
 use crate::syntax::Span;
 use crate::text::{Font, Glyph, Lang, TextElem, TextItem};
@@ -234,7 +234,6 @@ impl GlyphFragment {
         c: char,
         span: Span,
     ) -> Option<Self> {
-        let c = styled_char(styles, c);
         let id = ctx.ttf.glyph_index(c)?;
         let id = Self::adjust_glyph_index(ctx, id);
         Some(Self::with_id(ctx, styles, c, id, span))

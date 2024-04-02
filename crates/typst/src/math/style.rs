@@ -289,16 +289,19 @@ pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
 ///
 /// <https://www.w3.org/TR/mathml-core/#new-text-transform-mappings>
 /// <https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols>
-pub fn styled_char(styles: StyleChain, c: char) -> char {
+pub fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
     use MathVariant::*;
 
     let variant = EquationElem::variant_in(styles);
     let bold = EquationElem::bold_in(styles);
-    let italic = EquationElem::italic_in(styles).unwrap_or(matches!(
-        c,
-        'a'..='z' | 'ı' | 'ȷ' | 'A'..='Z' | 'α'..='ω' |
-        '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
-    ));
+    let italic = EquationElem::italic_in(styles).unwrap_or(
+        auto_italic
+            && matches!(
+                c,
+                'a'..='z' | 'ı' | 'ȷ' | 'A'..='Z' | 'α'..='ω' |
+                '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
+            ),
+    );
 
     if let Some(c) = basic_exception(c) {
         return c;

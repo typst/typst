@@ -1,3 +1,4 @@
+use comemo::Track;
 use ecow::eco_format;
 
 use crate::diag::{bail, At, Hint, SourceResult};
@@ -76,10 +77,10 @@ use crate::text::TextElem;
 ///   let el = it.element
 ///   if el != none and el.func() == eq {
 ///     // Override equation references.
-///     numbering(
+///     link(el.location(),numbering(
 ///       el.numbering,
 ///       ..counter(eq).at(el.location())
-///     )
+///     ))
 ///   } else {
 ///     // Other references as usual.
 ///     it
@@ -275,9 +276,9 @@ impl Supplement {
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => {
-                func.call(engine, &Context::new(None, Some(styles)), args)?.display()
-            }
+            Supplement::Func(func) => func
+                .call(engine, Context::new(None, Some(styles)).track(), args)?
+                .display(),
         })
     }
 }

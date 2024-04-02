@@ -146,17 +146,17 @@
 )
 
 ---
-// Error: 14-28 cannot place a grid header within another header
+// Error: 14-28 cannot place a grid header within another header or footer
 #grid.header(grid.header[a])
 
 ---
-// Error: 14-29 cannot place a table header within another header
+// Error: 14-29 cannot place a table header within another header or footer
 #grid.header(table.header[a])
 
 ---
-// Error: 15-29 cannot place a grid header within another header
+// Error: 15-29 cannot place a grid header within another header or footer
 #table.header(grid.header[a])
 
 ---
-// Error: 15-30 cannot place a table header within another header
+// Error: 15-30 cannot place a table header within another header or footer
 #table.header(table.header[a])

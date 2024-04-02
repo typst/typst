@@ -425,9 +425,9 @@ impl Outlinable for Packed<FigureElem> {
 /// specific kind.
 ///
 /// In addition to its `pos` and `body`, the `caption` also provides the
-/// figure's `kind`, `supplement`, `counter`, `numbering`, and `location` as
-/// fields. These parts can be used in [`where`]($function.where) selectors and
-/// show rules to build a completely custom caption.
+/// figure's `kind`, `supplement`, `counter`, and `numbering` as fields. These
+/// parts can be used in [`where`]($function.where) selectors and show rules to
+/// build a completely custom caption.
 ///
 /// ```example
 /// #show figure.caption: emph
@@ -437,7 +437,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Show)]
+#[elem(name = "caption", Synthesize, Show)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -543,6 +543,14 @@ impl FigureCaption {
                 TextElem::region_in(styles),
             ))
         })
+    }
+}
+
+impl Synthesize for Packed<FigureCaption> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
+        let elem = self.as_mut();
+        elem.push_separator(Smart::Custom(elem.get_separator(styles)));
+        Ok(())
     }
 }
 

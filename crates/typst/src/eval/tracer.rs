@@ -18,7 +18,7 @@ pub struct Tracer {
 }
 
 impl Tracer {
-    /// The maximum number of inspeted values.
+    /// The maximum number of inspected values.
     pub const MAX_VALUES: usize = 10;
 
     /// Create a new tracer.
@@ -74,9 +74,9 @@ impl Tracer {
     }
 
     /// Trace a value for the span.
-    pub fn value(&mut self, v: Value, s: Option<Styles>) {
+    pub fn value(&mut self, value: Value, styles: Option<Styles>) {
         if self.values.len() < Self::MAX_VALUES {
-            self.values.push((v, s));
+            self.values.push((value, styles));
         }
     }
 }

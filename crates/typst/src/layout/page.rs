@@ -3,6 +3,8 @@ use std::num::NonZeroUsize;
 use std::ptr;
 use std::str::FromStr;
 
+use comemo::Track;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -691,7 +693,7 @@ impl Marginal {
         Ok(match self {
             Self::Content(content) => Cow::Borrowed(content),
             Self::Func(func) => Cow::Owned(
-                func.call(engine, &Context::new(None, Some(styles)), [page])?
+                func.call(engine, Context::new(None, Some(styles)).track(), [page])?
                     .display(),
             ),
         })

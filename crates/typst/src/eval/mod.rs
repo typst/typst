@@ -63,7 +63,7 @@ pub fn eval(
     let context = Context::none();
     let scopes = Scopes::new(Some(world.library()));
     let root = source.root();
-    let mut vm = Vm::new(engine, &context, scopes, root.span());
+    let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
     // Check for well-formedness unless we are in trace mode.
     let errors = root.errors();
@@ -131,7 +131,7 @@ pub fn eval_string(
     // Prepare VM.
     let context = Context::none();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, &context, scopes, root.span());
+    let mut vm = Vm::new(engine, context.track(), scopes, root.span());
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.

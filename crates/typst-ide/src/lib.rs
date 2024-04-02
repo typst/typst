@@ -1,4 +1,4 @@
-//! Capabilities for IDE support.
+//! Capabilities for Typst IDE support.
 
 mod analyze;
 mod complete;

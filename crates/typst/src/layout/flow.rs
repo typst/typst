@@ -244,21 +244,27 @@ impl<'a> FlowLayouter<'a> {
             )?
             .into_frames();
 
-        let mut sticky = self.items.len();
-        for (i, item) in self.items.iter().enumerate().rev() {
-            match *item {
-                FlowItem::Absolute(_, _) => {}
-                FlowItem::Frame { sticky: true, .. } => sticky = i,
-                _ => break,
-            }
-        }
-
         if let Some(first) = lines.first() {
             while !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
+                let mut sticky = self.items.len();
+                for (i, item) in self.items.iter().enumerate().rev() {
+                    match *item {
+                        FlowItem::Absolute(_, _) => {}
+                        FlowItem::Frame { sticky: true, .. } => sticky = i,
+                        _ => break,
+                    }
+                }
+
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
                 self.finish_region(engine, false)?;
+                let in_last = self.regions.in_last();
+
                 for item in carry {
                     self.layout_item(engine, item)?;
+                }
+
+                if in_last {
+                    break;
                 }
             }
         }

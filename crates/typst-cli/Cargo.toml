@@ -10,6 +10,7 @@ edition = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
+readme = { workspace = true }
 
 [[bin]]
 name = "typst"
@@ -31,7 +32,6 @@ chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
-ctrlc = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 env_proxy = { workspace = true }
@@ -51,7 +51,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
-siphasher = { workspace = true }
+shell-escape = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
 toml = { workspace = true }
