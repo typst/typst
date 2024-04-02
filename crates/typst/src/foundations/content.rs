@@ -901,17 +901,11 @@ impl Repr for SequenceElem {
         if self.children.is_empty() {
             "[]".into()
         } else {
-            eco_format!(
-                "[{}]",
-                crate::foundations::repr::pretty_array_like(
-                    &self
-                        .children
-                        .iter()
-                        .map(|c| c.inner.elem.repr())
-                        .collect::<Vec<_>>(),
-                    false
-                )
-            )
+            let elements = crate::foundations::repr::pretty_array_like(
+                &self.children.iter().map(|c| c.inner.elem.repr()).collect::<Vec<_>>(),
+                false,
+            );
+            eco_format!("sequence{}", elements)
         }
     }
 }

@@ -67,15 +67,16 @@ pub struct CompileCommand {
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Path to output file (PDF, PNG, or SVG)
-    #[clap(required_if_eq("input", "-"))]
-    pub output: Option<PathBuf>,
+    /// Path to output file (PDF, PNG, or SVG), use `-` to write output to stdout
+    #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
+    pub output: Option<Output>,
 
     /// The format of the output file, inferred from the extension by default
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
-    /// Opens the output file using the default viewer after compilation
+    /// Opens the output file using the default viewer after compilation.
+    /// Ignored if output is stdout
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
@@ -184,6 +185,24 @@ pub enum Input {
     Path(PathBuf),
 }
 
+/// An output that is either stdout or a real path.
+#[derive(Debug, Clone)]
+pub enum Output {
+    /// Stdout, represented by `-`.
+    Stdout,
+    /// A non-empty path.
+    Path(PathBuf),
+}
+
+impl Display for Output {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Output::Stdout => f.pad("stdout"),
+            Output::Path(path) => path.display().fmt(f),
+        }
+    }
+}
+
 /// The clap value parser used by `SharedArgs.input`
 fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
     if value.is_empty() {
@@ -192,6 +211,18 @@ fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
         Ok(Input::Stdin)
     } else {
         Ok(Input::Path(value.into()))
+    }
+}
+
+/// The clap value parser used by `CompileCommand.output`
+fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
+    // Empty value also handled by clap for `Option<Output>`
+    if value.is_empty() {
+        Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+    } else if value == "-" {
+        Ok(Output::Stdout)
+    } else {
+        Ok(Output::Path(value.into()))
     }
 }
 
