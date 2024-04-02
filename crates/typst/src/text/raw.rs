@@ -324,12 +324,8 @@ impl Packed<RawElem> {
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let text = lines
-                .clone()
-                .into_iter()
-                .map(|(s, _)| s)
-                .collect::<Vec<_>>()
-                .join("\n");
+            let text =
+                lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
