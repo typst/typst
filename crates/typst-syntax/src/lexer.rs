@@ -352,9 +352,9 @@ impl Lexer<'_> {
 
     fn inline_raw(&mut self, start: usize, end: usize, backticks: usize) {
         self.s.jump(start + backticks);
-        let inner_end = end - backticks;
 
-        while let (true, Some(c)) = (self.s.cursor() < inner_end, self.s.peek()) {
+        while self.s.cursor() < end - backticks {
+            let c = self.s.peek().unwrap(); // Valid, as we are not at end of file.
             if is_newline(c) {
                 self.push_raw(SyntaxKind::Text);
                 self.s.eat_newline();
