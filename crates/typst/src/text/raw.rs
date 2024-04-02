@@ -300,22 +300,7 @@ impl Packed<RawElem> {
     #[comemo::memoize]
     fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
-
-        let text = elem.text();
-        let lines = match text {
-            RawContent::Lines(lines) if !lines.iter().any(|(s, _)| s.contains('\t')) => {
-                lines.clone()
-            }
-            _ => {
-                let mut text = text.get();
-                if text.contains('\t') {
-                    let tab_size = RawElem::tab_size_in(styles);
-                    text = align_tabs(&text, tab_size);
-                }
-                let lines = split_newlines(&text);
-                lines.into_iter().map(|line| (line.into(), self.span())).collect()
-            }
-        };
+        let lines = preprocess(elem.text(), styles, self.span());
 
         let count = lines.len() as i64;
         let lang = elem
@@ -339,7 +324,8 @@ impl Packed<RawElem> {
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let text = text.get();
+            let text =
+                lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
@@ -681,6 +667,28 @@ impl<'a> ThemedHighlighter<'a> {
             std::mem::swap(&mut scopes, &mut self.scopes);
         }
     }
+}
+
+fn preprocess(
+    text: &RawContent,
+    styles: StyleChain,
+    span: Span,
+) -> EcoVec<(EcoString, Span)> {
+    if let RawContent::Lines(lines) = text {
+        if lines.iter().all(|(s, _)| !s.contains('\t')) {
+            return lines.clone();
+        }
+    }
+
+    let mut text = text.get();
+    if text.contains('\t') {
+        let tab_size = RawElem::tab_size_in(styles);
+        text = align_tabs(&text, tab_size);
+    }
+    split_newlines(&text)
+        .into_iter()
+        .map(|line| (line.into(), span))
+        .collect()
 }
 
 /// Style a piece of text with a syntect style.
