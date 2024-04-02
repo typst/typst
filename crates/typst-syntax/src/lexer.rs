@@ -27,9 +27,9 @@ pub(super) struct Lexer<'s> {
 pub(super) enum LexMode {
     /// Text and markup.
     Markup,
-    /// Math mode, i.e. those in `$ .. $`.
+    /// Math atoms, operators, etc.
     Math,
-    /// Code mode, e.g. `#let a = 1`, `#{ ... }`.
+    /// Keywords, literals and operators.
     Code,
     /// The contents of a raw block.
     Raw,
@@ -90,9 +90,8 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`].
-    ///
-    /// Note: the token could be a trivia. Use `next_non_trivia` if needed.
+    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
+    /// token could be a [trivia](SyntaxKind::is_trivia).
     pub fn next(&mut self) -> SyntaxKind {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
@@ -121,16 +120,6 @@ impl Lexer<'_> {
             },
 
             None => SyntaxKind::Eof,
-        }
-    }
-
-    pub fn next_non_trivia(&mut self) -> SyntaxKind {
-        loop {
-            let next = self.next();
-            // Loop is terminatable, since SyntaxKind::Eof is not a trivia.
-            if !next.is_trivia() {
-                break next;
-            }
         }
     }
 
