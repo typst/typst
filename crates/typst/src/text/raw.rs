@@ -678,24 +678,21 @@ fn preprocess(
     styles: StyleChain,
     span: Span,
 ) -> EcoVec<(EcoString, Span)> {
-    // If the lines contain tab characters ("\t"), replace them with spaces according
-    // to the style chain.
-    match text {
-        RawContent::Lines(lines) if !lines.iter().any(|(s, _)| s.contains('\t')) => {
-            lines.clone()
-        }
-        _ => {
-            let mut text = text.get();
-            if text.contains('\t') {
-                let tab_size = RawElem::tab_size_in(styles);
-                text = align_tabs(&text, tab_size);
-            }
-            split_newlines(&text)
-                .into_iter()
-                .map(|line| (line.into(), span))
-                .collect()
+    if let RawContent::Lines(lines) = text {
+        if lines.iter().all(|(s, _)| !s.contains('\t')) {
+            return lines.clone();
         }
     }
+
+    let mut text = text.get();
+    if text.contains('\t') {
+        let tab_size = RawElem::tab_size_in(styles);
+        text = align_tabs(&text, tab_size);
+    }
+    split_newlines(&text)
+        .into_iter()
+        .map(|line| (line.into(), span))
+        .collect()
 }
 
 /// Style a piece of text with a syntect style.
