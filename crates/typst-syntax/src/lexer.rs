@@ -352,17 +352,25 @@ impl Lexer<'_> {
 
     fn inline_raw(&mut self, start: usize, end: usize, backticks: usize) {
         self.s.jump(start + backticks);
-        let inner = self.s.to(end - backticks);
-        for line in split_newlines(inner).into_iter() {
-            self.s.eat_newline();
-            self.push_raw(SyntaxKind::RawTrimmed);
-            self.s.advance(line.len());
-            self.push_raw(SyntaxKind::Text);
+
+        while self.s.cursor() < end - backticks {
+            if let Some(c) = self.s.peek() {
+                if is_newline(c) {
+                    self.push_raw(SyntaxKind::Text);
+                    self.s.eat_newline();
+                    self.push_raw(SyntaxKind::RawTrimmed);
+                    continue;
+                }
+                self.s.eat();
+            }
         }
+        self.push_raw(SyntaxKind::Text);
+
         self.s.jump(end);
     }
 
-    /// Push the current cursor as a breakpoint that marks the end of a segment.
+    /// Push the current cursor that marks the end of a raw segment of
+    /// the given `kind`.
     fn push_raw(&mut self, kind: SyntaxKind) {
         let end = self.s.cursor();
         self.raw.push((kind, end));
