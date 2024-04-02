@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
-use chrono::{DateTime, Datelike, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
@@ -202,8 +202,11 @@ impl World for SystemWorld {
 
         // The time with the specified UTC offset, or within the local time zone.
         let with_offset = match offset {
-            None => now.naive_local(),
-            Some(o) => now.naive_utc() + chrono::Duration::try_hours(o)?,
+            None => now.with_timezone(&Local).fixed_offset(),
+            Some(hours) => {
+                let seconds = i32::try_from(hours).ok()?.checked_mul(3600)?;
+                now.with_timezone(&FixedOffset::east_opt(seconds)?)
+            }
         };
 
         Datetime::from_ymd(
