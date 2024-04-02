@@ -575,7 +575,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
                 // Typst supports them, so we apply a transform if needed
                 // Because this operation is expensive according to tiny-skia's
                 // docs, we prefer to not apply it if not needed
-                let transform = sk::Transform::from_scale(w / w.abs(), h / h.abs());
+                let transform = sk::Transform::from_scale(w.signum(), h.signum());
                 let rect = sk::Rect::from_xywh(0.0, 0.0, w.abs(), h.abs())?;
                 rect.transform(transform)?
             } else {
@@ -972,8 +972,8 @@ fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform.pre_scale(
-                    container_size.x.signum().to_f32() / state.pixel_per_pt,
-                    container_size.y.signum().to_f32() / state.pixel_per_pt,
+                    container_size.x.signum() as f32 / state.pixel_per_pt,
+                    container_size.y.signum() as f32 / state.pixel_per_pt,
                 ),
             );
 

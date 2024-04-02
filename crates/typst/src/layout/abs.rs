@@ -119,12 +119,8 @@ impl Abs {
     }
 
     /// Returns a number that represent the sign of this length
-    pub fn signum(self) -> Self {
-        if self.0.get().is_sign_negative() {
-            Self::raw(-1.0)
-        } else {
-            Self::raw(1.0)
-        }
+    pub fn signum(self) -> f64 {
+        self.0.get().signum()
     }
 }
 
