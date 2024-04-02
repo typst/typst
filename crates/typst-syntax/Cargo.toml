@@ -12,10 +12,6 @@ categories = { workspace = true }
 keywords = { workspace = true }
 readme = { workspace = true }
 
-[lib]
-doctest = false
-bench = false
-
 [dependencies]
 comemo = { workspace = true }
 ecow = { workspace = true }
