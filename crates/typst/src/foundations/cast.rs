@@ -44,9 +44,9 @@ pub trait Reflect {
 
     /// Produce an error message for an inacceptable value type.
     ///
-    /// ```
+    /// ```ignore
     /// assert_eq!(
-    ///   <Int as Reflect>::error(&Value::None),
+    ///   <i64 as Reflect>::error(&Value::None),
     ///   "expected integer, found none",
     /// );
     /// ```

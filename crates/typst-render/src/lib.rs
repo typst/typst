@@ -570,7 +570,18 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
         Geometry::Rect(size) => {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
-            let rect = sk::Rect::from_xywh(0.0, 0.0, w, h)?;
+            let rect = if w < 0.0 || h < 0.0 {
+                // Skia doesn't normally allow for negative dimensions, but
+                // Typst supports them, so we apply a transform if needed
+                // Because this operation is expensive according to tiny-skia's
+                // docs, we prefer to not apply it if not needed
+                let transform = sk::Transform::from_scale(w.signum(), h.signum());
+                let rect = sk::Rect::from_xywh(0.0, 0.0, w.abs(), h.abs())?;
+                rect.transform(transform)?
+            } else {
+                sk::Rect::from_xywh(0.0, 0.0, w, h)?
+            };
+
             sk::PathBuilder::from_rect(rect)
         }
         Geometry::Path(ref path) => convert_path(path)?,
@@ -941,8 +952,10 @@ fn to_sk_paint<'a>(
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
-            let width = (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
-            let height = (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
+            let width =
+                (container_size.x.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
+            let height =
+                (container_size.y.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
 
             *pixmap = Some(cached(
                 gradient,
@@ -958,8 +971,10 @@ fn to_sk_paint<'a>(
                 sk::SpreadMode::Pad,
                 sk::FilterQuality::Nearest,
                 1.0,
-                fill_transform
-                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+                fill_transform.pre_scale(
+                    container_size.x.signum() as f32 / state.pixel_per_pt,
+                    container_size.y.signum() as f32 / state.pixel_per_pt,
+                ),
             );
 
             sk_paint.anti_alias = gradient.anti_alias();

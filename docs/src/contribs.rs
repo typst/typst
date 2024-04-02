@@ -9,6 +9,7 @@ use crate::{Html, Resolver};
 /// Build HTML detailing the contributors between two tags.
 pub fn contributors(resolver: &dyn Resolver, from: &str, to: &str) -> Option<Html> {
     let staff = ["laurmaedje", "reknih"];
+    let bots = ["dependabot[bot]"];
 
     // Determine number of contributions per person.
     let mut contributors = HashMap::<String, Contributor>::new();
@@ -26,7 +27,10 @@ pub fn contributors(resolver: &dyn Resolver, from: &str, to: &str) -> Option<Htm
     // Keep only non-staff people.
     let mut contributors: Vec<_> = contributors
         .into_values()
-        .filter(|c| !staff.contains(&c.login.as_str()))
+        .filter(|c| {
+            let login = c.login.as_str();
+            !staff.contains(&login) && !bots.contains(&login)
+        })
         .collect();
 
     // Sort by highest number of commits.

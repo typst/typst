@@ -2,6 +2,7 @@
 
 use std::hash::Hash;
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::thread::ThreadId;
 use std::time::{Duration, SystemTime};
 
@@ -11,13 +12,7 @@ use serde::{Serialize, Serializer};
 use typst_syntax::Span;
 
 /// Whether the timer is enabled. Defaults to `false`.
-///
-/// # Safety
-/// This is unsafe because it is a global variable that is not thread-safe.
-/// But at worst, if we have a race condition, we will just be missing some
-/// events. So it's not a big deal. And it avoids needing to do an atomic
-/// operation every time we want to check if the timer is enabled.
-static mut ENABLED: bool = false;
+static ENABLED: AtomicBool = AtomicBool::new(false);
 
 /// The global event recorder.
 static RECORDER: Mutex<Recorder> = Mutex::new(Recorder::new());
@@ -64,15 +59,13 @@ enum EventKind {
 /// Enable the timer.
 #[inline]
 pub fn enable() {
-    unsafe {
-        ENABLED = true;
-    }
+    ENABLED.store(true, Relaxed);
 }
 
 /// Whether the timer is enabled.
 #[inline]
 pub fn is_enabled() -> bool {
-    unsafe { ENABLED }
+    ENABLED.load(Relaxed)
 }
 
 /// Clears the recorded events.
