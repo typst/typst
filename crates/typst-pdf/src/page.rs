@@ -827,7 +827,7 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
         Geometry::Rect(size) => {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
-            if w > 0.0 && h > 0.0 {
+            if w.abs() > f32::EPSILON && h.abs() > f32::EPSILON {
                 ctx.content.rect(x, y, w, h);
             }
         }
