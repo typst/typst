@@ -354,8 +354,7 @@ impl Lexer<'_> {
         self.s.jump(start + backticks);
 
         while self.s.cursor() < end - backticks {
-            let c = self.s.peek().unwrap(); // Valid, as we are not at end of file.
-            if is_newline(c) {
+            if self.s.at(is_newline) {
                 self.push_raw(SyntaxKind::Text);
                 self.s.eat_newline();
                 self.push_raw(SyntaxKind::RawTrimmed);
