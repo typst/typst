@@ -88,8 +88,10 @@ impl Lexer<'_> {
     }
 }
 
-/// Shared.
+/// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
+    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
+    /// token could be a [trivia](SyntaxKind::is_trivia).
     pub fn next(&mut self) -> SyntaxKind {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
@@ -121,6 +123,7 @@ impl Lexer<'_> {
         }
     }
 
+    /// Eat whitespace characters greedily.
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
         let newlines = match c {
@@ -760,7 +763,7 @@ impl ScannerExt for Scanner<'_> {
     }
 }
 
-/// Whether a character will become a Space token in Typst
+/// Whether a character will become a [`SyntaxKind::Space`] token.
 #[inline]
 fn is_space(character: char, mode: LexMode) -> bool {
     match mode {

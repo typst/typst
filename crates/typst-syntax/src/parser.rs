@@ -1748,15 +1748,27 @@ impl<'s> Parser<'s> {
         }
     }
 
+    fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
+        loop {
+            let next = lexer.next();
+            // Loop is terminatable, because SyntaxKind::Eof is not a trivia.
+            if !next.is_trivia() {
+                break next;
+            }
+        }
+    }
+
     fn lex(&mut self) {
         self.current_start = self.lexer.cursor();
         self.current = self.lexer.next();
+
+        // Special cases to handle newlines in code mode.
         if self.lexer.mode() == LexMode::Code
             && self.lexer.newline()
             && match self.newline_modes.last() {
                 Some(NewlineMode::Continue) => false,
                 Some(NewlineMode::Contextual) => !matches!(
-                    self.lexer.clone().next(),
+                    Self::next_non_trivia(&mut self.lexer.clone()),
                     SyntaxKind::Else | SyntaxKind::Dot
                 ),
                 Some(NewlineMode::Stop) => true,
