@@ -197,25 +197,23 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
             pdf_font.bbox(font.bbox);
             pdf_font.matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
-            {
-                let mut char_procs = pdf_font.char_procs();
-                for (gid, instructions_ref) in &glyphs_to_instructions {
-                    char_procs.pair(
-                        Name(eco_format!("glyph{gid}").as_bytes()),
-                        *instructions_ref,
-                    );
-                }
+            let mut char_procs = pdf_font.char_procs();
+            for (gid, instructions_ref) in &glyphs_to_instructions {
+                char_procs
+                    .pair(Name(eco_format!("glyph{gid}").as_bytes()), *instructions_ref);
             }
-            {
-                let mut encoding = pdf_font.encoding_custom();
-                let mut differences = encoding.differences();
-                for gid in glyphs_to_instructions.keys() {
-                    differences.consecutive(
-                        *gid as u8,
-                        vec![Name(eco_format!("glyph{gid}").as_bytes())],
-                    );
-                }
+            char_procs.finish();
+
+            let mut encoding = pdf_font.encoding_custom();
+            let mut differences = encoding.differences();
+            for gid in glyphs_to_instructions.keys() {
+                differences.consecutive(
+                    *gid as u8,
+                    vec![Name(eco_format!("glyph{gid}").as_bytes())],
+                );
             }
+            differences.finish();
+            encoding.finish();
 
             let first = 0;
             let last = (end - start) as u8;
