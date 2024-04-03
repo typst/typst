@@ -69,7 +69,7 @@ impl Glyph {
 /// A slice of a [`TextItem`].
 pub struct TextItemView<'a> {
     /// The whole item this is a part of
-    item: &'a TextItem,
+    pub item: &'a TextItem,
     /// The range of text covered by this slice
     text_range: Range<usize>,
     /// The glyphs of this slice
@@ -120,13 +120,5 @@ impl<'a> TextItemView<'a> {
             .map(|g| g.x_advance)
             .sum::<Em>()
             .at(self.item.size)
-    }
-}
-
-impl<'a> std::ops::Deref for TextItemView<'a> {
-    type Target = TextItem;
-
-    fn deref(&self) -> &Self::Target {
-        self.item
     }
 }

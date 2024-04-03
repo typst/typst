@@ -778,13 +778,13 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let y = pos.y.to_f32();
 
     for glyph in text.glyphs() {
-        let ppem = text.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
+        let ppem = text.item.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
         let raster_image =
-            text.font.ttf().glyph_raster_image(GlyphId(glyph.id), ppem as u16)
+            text.item.font.ttf().glyph_raster_image(GlyphId(glyph.id), ppem as u16)
             .expect("write_text guarantees that we can render all glyphs of this text run as emojis");
         let (font, index) = ctx.parent.color_font_map.get(
             &mut ctx.parent.alloc,
-            &text.font,
+            &text.item.font,
             glyph.id,
             ppem,
             || {
@@ -814,7 +814,7 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
         ctx.state.font = None;
         ctx.content.set_font(
             Name(eco_format!("Cf{}", font.get()).as_bytes()),
-            text.size.to_f32(),
+            text.item.size.to_f32(),
         );
         ctx.content.begin_text();
         ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
@@ -828,9 +828,9 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
-    *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyph_range.len();
+    *ctx.parent.languages.entry(text.item.lang).or_insert(0) += text.glyph_range.len();
 
-    let glyph_set = ctx.parent.glyph_sets.entry(text.font.clone()).or_default();
+    let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
     for g in text.glyphs() {
         let t = text.text();
         let segment = &t[g.range()];
@@ -838,9 +838,9 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     }
 
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
-    ctx.set_fill(&text.fill, true, fill_transform);
+    ctx.set_fill(&text.item.fill, true, fill_transform);
 
-    let stroke = text.stroke.as_ref().and_then(|stroke| {
+    let stroke = text.item.stroke.as_ref().and_then(|stroke| {
         if stroke.thickness.to_f32() > 0.0 {
             Some(stroke)
         } else {
@@ -855,8 +855,8 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
         ctx.set_text_rendering_mode(TextRenderingMode::Fill);
     }
 
-    ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
+    ctx.set_font(&text.item.font, text.item.size);
+    ctx.set_opacities(text.item.stroke.as_ref(), Some(&text.item.fill));
     ctx.content.begin_text();
 
     // Position the text.
@@ -881,11 +881,11 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             adjustment = Em::zero();
         }
 
-        let cid = crate::font::glyph_cid(&text.font, glyph.id);
+        let cid = crate::font::glyph_cid(&text.item.font, glyph.id);
         encoded.push((cid >> 8) as u8);
         encoded.push((cid & 0xff) as u8);
 
-        if let Some(advance) = text.font.advance(glyph.id) {
+        if let Some(advance) = text.item.font.advance(glyph.id) {
             adjustment += glyph.x_advance - advance;
         }
 
