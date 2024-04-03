@@ -65,3 +65,68 @@ impl Glyph {
         usize::from(self.range.start)..usize::from(self.range.end)
     }
 }
+
+/// A slice of a [`TextItem`].
+pub struct TextItemView<'a> {
+    /// The whole item this is a part of
+    item: &'a TextItem,
+    /// The range of text covered by this slice
+    text_range: Range<usize>,
+    /// The glyphs of this slice
+    pub glyph_range: Range<usize>,
+}
+
+impl<'a> TextItemView<'a> {
+    /// Build a TextItemView that
+    pub fn all_of(text: &'a TextItem) -> Self {
+        Self::from_glyph_range(text, 0..text.glyphs.len())
+    }
+
+    /// Build a new [`TextItemView`] from a [`TextItem`] and
+    /// a range of glyphs.
+    pub fn from_glyph_range(text: &'a TextItem, range: Range<usize>) -> Self {
+        let text_start = text.glyphs[range.start].range().start;
+        let text_end = text.glyphs[range.end - 1].range().end;
+        TextItemView {
+            item: text,
+            text_range: text_start..text_end,
+            glyph_range: range,
+        }
+    }
+
+    /// Obtains a glyph in this slice, remapping the range
+    /// that it represents in the original text so that it
+    /// is relative to the start of the slice
+    pub fn glyph_at(&self, index: usize) -> Glyph {
+        let g = &self.item.glyphs[self.glyph_range.start + index];
+        Glyph {
+            range: (g.range.start - self.text_range.start as u16)
+                ..(g.range.end - self.text_range.start as u16),
+            ..*g
+        }
+    }
+
+    pub fn glyphs(&self) -> impl Iterator<Item = Glyph> + '_ {
+        (0..self.glyph_range.len()).map(|index| self.glyph_at(index))
+    }
+
+    pub fn text(&self) -> &str {
+        &self.item.text[self.text_range.clone()]
+    }
+
+    pub fn width(&self) -> Abs {
+        self.item.glyphs[self.glyph_range.clone()]
+            .iter()
+            .map(|g| g.x_advance)
+            .sum::<Em>()
+            .at(self.item.size)
+    }
+}
+
+impl<'a> std::ops::Deref for TextItemView<'a> {
+    type Target = TextItem;
+
+    fn deref(&self) -> &Self::Target {
+        self.item
+    }
+}

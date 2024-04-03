@@ -15,7 +15,7 @@ use typst::layout::{
 };
 use typst::model::{Destination, Numbering};
 use typst::syntax::Span;
-use typst::text::{Case, Font, Glyph, TextItem};
+use typst::text::{Case, Font, Glyph, TextItem, TextItemView};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
@@ -726,12 +726,9 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     // If the text run contains either only emojis or normal text
     // we can render it directly
-    let sbix = match text.font.ttf().tables().sbix {
-        None => {
-            write_normal_text(ctx, pos, text);
-            return;
-        }
-        Some(sbix) => sbix,
+    let Some(sbix) = text.font.ttf().tables().sbix else {
+        write_normal_text(ctx, pos, TextItemView::all_of(text));
+        return;
     };
 
     let strike = sbix.best_strike(text.size.to_f32() as u16).unwrap();
@@ -739,13 +736,13 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     let emoji_count = text.glyphs.iter().filter(|g| is_emoji(*g)).count();
 
     if emoji_count == text.glyphs.len() {
-        write_emojis(ctx, pos, text);
+        write_emojis(ctx, pos, TextItemView::all_of(text));
     } else if emoji_count == 0 {
-        write_text(ctx, pos, text)
+        write_normal_text(ctx, pos, TextItemView::all_of(text));
     } else {
         // Otherwise we need to split it in smaller text runs
         let mut offset = 0;
-        let mut position_in_run = Em::zero();
+        let mut position_in_run = Abs::zero();
         while offset < text.glyphs.len() {
             // Start a new text run where the last one ended
             let start = offset;
@@ -759,102 +756,84 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
                     .unwrap_or(text.glyphs.len() - start);
 
             // Build a sub text-run
-            let text_start = text.glyphs[start].range().start;
-            let text_end = text.glyphs[end - 1].range().end;
-
-            let new_text_item = TextItem {
-                text: EcoString::from(&text.text[text_start..text_end]),
-                // Glyphs ranges need to be re-mapped to the new text
-                glyphs: text.glyphs[start..end]
-                    .iter()
-                    .map(|g| Glyph {
-                        range: (g.range.start - text_start as u16)
-                            ..(g.range.end - text_start as u16),
-                        ..*g
-                    })
-                    .collect(),
-                font: text.font.clone(),
-                fill: text.fill.clone(),
-                stroke: text.stroke.clone(),
-                ..*text
-            };
+            let text_item_view = TextItemView::from_glyph_range(text, start..end);
 
             // Adjust the position of the run on the line
-            let pos = pos + Point::new(position_in_run.at(text.size), Abs::zero());
+            let pos = pos + Point::new(position_in_run, Abs::zero());
+            position_in_run += text_item_view.width();
+            offset = end;
             // Actually write the text or emojis
             if in_emoji_group {
-                write_emojis(ctx, pos, &new_text_item);
+                write_emojis(ctx, pos, text_item_view);
             } else {
-                write_normal_text(ctx, pos, &new_text_item);
+                write_normal_text(ctx, pos, text_item_view);
             }
-
-            position_in_run += new_text_item.glyphs.iter().map(|g| g.x_advance).sum();
-            offset = end;
         }
     }
 }
 
 // Encodes a text run made only of emojis into the content stream
-fn write_emojis(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
-    if let Some(sbix) = text.font.ttf().tables().sbix {
-        for glyph in &text.glyphs {
-            let ppem = text.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
-            let raster_image =
-                sbix.best_strike(ppem as u16).unwrap().get(GlyphId(glyph.id)).unwrap();
-            let (font, index) = ctx.parent.color_font_map.get(
-                &mut ctx.parent.alloc,
-                &text.font,
-                glyph.id,
-                ppem,
-                || {
-                    let mut frame = Frame::new(
-                        Axes::new(Abs::cm(1.0), Abs::cm(1.0)),
-                        typst::layout::FrameKind::Soft,
-                    );
-                    frame.push(
-                        Point::zero(),
-                        FrameItem::Image(
-                            Image::new(
-                                raster_image.data.into(),
-                                typst::visualize::ImageFormat::Raster(
-                                    typst::visualize::RasterFormat::Png,
-                                ),
-                                None,
-                            )
-                            .unwrap(),
-                            Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
-                            Span::detached(),
-                        ),
-                    );
-                    frame
-                },
-            );
-            ctx.state.font = None;
-            ctx.content.set_font(
-                Name(eco_format!("Cf{}", font.get()).as_bytes()),
-                text.size.to_f32(),
-            );
-            ctx.content.begin_text();
-            ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
-            ctx.content.show(Str(&[index]));
-            ctx.content.end_text();
-        }
+    for glyph in text.glyphs() {
+        let ppem = text.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
+        let raster_image =
+            text.font.ttf().glyph_raster_image(GlyphId(glyph.id), ppem as u16)
+            .expect("write_text guarantees that we can render all glyphs of this text run as emojis");
+        let (font, index) = ctx.parent.color_font_map.get(
+            &mut ctx.parent.alloc,
+            &text.font,
+            glyph.id,
+            ppem,
+            || {
+                let mut frame = Frame::new(
+                    // TODO: are these dimensions correct
+                    Axes::new(Abs::cm(1.0), Abs::cm(1.0)),
+                    typst::layout::FrameKind::Soft,
+                );
+                frame.push(
+                    Point::zero(),
+                    FrameItem::Image(
+                        Image::new(
+                            raster_image.data.into(),
+                            typst::visualize::ImageFormat::Raster(
+                                typst::visualize::RasterFormat::Png,
+                            ),
+                            None,
+                        )
+                        .unwrap(),
+                        Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
+                        Span::detached(),
+                    ),
+                );
+                frame
+            },
+        );
+        ctx.state.font = None;
+        ctx.content.set_font(
+            Name(eco_format!("Cf{}", font.get()).as_bytes()),
+            text.size.to_f32(),
+        );
+        ctx.content.begin_text();
+        ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+        ctx.content.show(Str(&[index]));
+        ctx.content.end_text();
     }
 }
 
 // Encodes a text run (without any emoji) into the content stream
-fn write_normal_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
-    *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
+    *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyph_range.len();
 
     let glyph_set = ctx.parent.glyph_sets.entry(text.font.clone()).or_default();
-    for g in &text.glyphs {
-        let segment = &text.text[g.range()];
+    for g in text.glyphs() {
+        let t = text.text();
+        let segment = &t[g.range()];
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
@@ -889,7 +868,7 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     let mut encoded = vec![];
 
     // Write the glyphs with kerning adjustments.
-    for glyph in &text.glyphs {
+    for glyph in text.glyphs() {
         adjustment += glyph.x_offset;
 
         if !adjustment.is_zero() {
