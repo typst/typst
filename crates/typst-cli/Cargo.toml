@@ -62,6 +62,7 @@ zip = { workspace = true, optional = true }
 openssl = { workspace = true }
 
 [build-dependencies]
+chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 clap_mangen = { workspace = true }

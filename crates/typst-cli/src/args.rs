@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use clap::builder::ValueParser;
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
@@ -167,6 +168,12 @@ pub struct SharedArgs {
     )]
     pub font_paths: Vec<PathBuf>,
 
+    /// The document's creation date formatted as a UNIX timestamp.
+    ///
+    /// For more information, see <https://reproducible-builds.org/specs/source-date-epoch/>.
+    #[clap(env = "SOURCE_DATE_EPOCH", value_parser = parse_source_date_epoch)]
+    pub source_date_epoch: Option<DateTime<Utc>>,
+
     /// The format to emit diagnostics in
     #[clap(
         long,
@@ -174,6 +181,15 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+}
+
+/// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
+fn parse_source_date_epoch(raw: &str) -> Result<DateTime<Utc>, String> {
+    let timestamp: i64 = raw
+        .parse()
+        .map_err(|err| format!("timestamp must be decimal integer ({err})"))?;
+    DateTime::from_timestamp(timestamp, 0)
+        .ok_or_else(|| "timestamp out of range".to_string())
 }
 
 /// An input that is either stdin or a real path.
