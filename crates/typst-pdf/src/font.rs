@@ -164,14 +164,14 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         stream.finish();
     }
 
-    let emoji_font_map = ctx.emoji_font_map.take();
+    let emoji_font_map = ctx.color_font_map.take();
     for font in emoji_font_map.items() {
         for (font_index, subfont_id) in font.refs.iter().enumerate() {
             let mut glyphs_to_instructions = BTreeMap::new();
 
             let start = font_index * 256;
-            let end = (start + 256).min(font.emojis.len());
-            for (cid, emoji) in font.emojis[start..end].iter().enumerate() {
+            let end = (start + 256).min(font.glyphs.len());
+            for (cid, emoji) in font.glyphs[start..end].iter().enumerate() {
                 let page_ref = ctx.alloc.bump();
                 // create a fake page context for write_frame
                 // we are only interested in the contents of the page

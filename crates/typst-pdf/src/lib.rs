@@ -125,7 +125,7 @@ struct PdfContext<'a> {
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
     /// Deduplicates emojis
-    emoji_font_map: EmojiFontMap,
+    color_font_map: ColorFontMap,
 
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
@@ -158,7 +158,7 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
-            emoji_font_map: EmojiFontMap::new(),
+            color_font_map: ColorFontMap::new(),
             dests: vec![],
             loc_to_dest: HashMap::new(),
         }
@@ -459,37 +459,37 @@ where
     }
 }
 
-struct Emoji {
+struct ColorFontMap {
+    map: HashMap<Font, ColorFont>,
+    all_refs: Vec<Ref>,
+}
+
+struct ColorFont {
+    refs: Vec<Ref>,
+    // glyph id, instruction ids
+    // index % 256 is the index in the type3 font
+    glyphs: Vec<ColorGlyph>,
+    bbox: Rect,
+}
+
+struct ColorGlyph {
     gid: u16,
     width: f64,
     image: Frame,
 }
 
-struct EmojiFont {
-    refs: Vec<Ref>,
-    // glyph id, instruction ids
-    // index % 256 is the index in the type3 font
-    emojis: Vec<Emoji>,
-    bbox: Rect,
-}
-
-struct EmojiFontMap {
-    map: HashMap<Font, EmojiFont>,
-    all_refs: Vec<Ref>,
-}
-
-impl EmojiFontMap {
+impl ColorFontMap {
     fn new() -> Self {
         Self { map: HashMap::new(), all_refs: Vec::new() }
     }
 
-    fn items(&self) -> impl IntoIterator<Item = &EmojiFont> {
+    fn items(&self) -> impl IntoIterator<Item = &ColorFont> {
         self.map.values()
     }
 
     fn take(&mut self) -> Self {
         let map = std::mem::take(&mut self.map);
-        EmojiFontMap { map, all_refs: self.all_refs.clone() }
+        ColorFontMap { map, all_refs: self.all_refs.clone() }
     }
 
     fn get<F>(
@@ -511,20 +511,20 @@ impl EmojiFontMap {
                 font.to_em(global_bbox.x_max).to_font_units(),
                 font.to_em(global_bbox.y_max).to_font_units(),
             );
-            EmojiFont { bbox, refs: Vec::new(), emojis: Vec::new() }
+            ColorFont { bbox, refs: Vec::new(), glyphs: Vec::new() }
         });
 
-        let index = match font.emojis.iter().position(|emoji| emoji.gid == glyph) {
+        let index = match font.glyphs.iter().position(|emoji| emoji.gid == glyph) {
             // If we already know this glyph, at requested resolution (or better)
             // return it
-            Some(index_of_glyph) if font.emojis[index_of_glyph].width >= width => {
+            Some(index_of_glyph) if font.glyphs[index_of_glyph].width >= width => {
                 return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
             }
             // If we already know it but at a lower resolution, overwrite it with the high-res version
             Some(index_of_glyph) => index_of_glyph,
             // Otherwise, allocate a new Emoji in the font, and a new Type3 font if needed
             None => {
-                let new_index = font.emojis.len();
+                let new_index = font.glyphs.len();
                 if new_index % 256 == 0 {
                     let new_ref = alloc.bump();
                     self.all_refs.push(new_ref);
@@ -534,8 +534,8 @@ impl EmojiFontMap {
             }
         };
 
-        font.emojis
-            .insert(index, Emoji { gid: glyph, width, image: instructions() });
+        font.glyphs
+            .insert(index, ColorGlyph { gid: glyph, width, image: instructions() });
 
         (font.refs[index / 256], index as u8)
     }

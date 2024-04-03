@@ -107,8 +107,8 @@ fn write_global_resources(ctx: &mut PdfContext) -> Ref {
         fonts.pair(Name(name.as_bytes()), font_ref);
     }
 
-    for font in &ctx.emoji_font_map.all_refs {
-        let name = eco_format!("Ef{}", font.get());
+    for font in &ctx.color_font_map.all_refs {
+        let name = eco_format!("Cf{}", font.get());
         fonts.pair(Name(name.as_bytes()), font);
     }
 
@@ -804,7 +804,7 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             let ppem = text.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
             let raster_image =
                 sbix.best_strike(ppem as u16).unwrap().get(GlyphId(glyph.id)).unwrap();
-            let (font, index) = ctx.parent.emoji_font_map.get(
+            let (font, index) = ctx.parent.color_font_map.get(
                 &mut ctx.parent.alloc,
                 &text.font,
                 glyph.id,
@@ -834,7 +834,7 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             );
             ctx.state.font = None;
             ctx.content.set_font(
-                Name(eco_format!("Ef{}", font.get()).as_bytes()),
+                Name(eco_format!("Cf{}", font.get()).as_bytes()),
                 text.size.to_f32(),
             );
             ctx.content.begin_text();
