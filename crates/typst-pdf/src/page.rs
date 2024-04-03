@@ -733,7 +733,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
 
     let strike = sbix.best_strike(text.size.to_f32() as u16).unwrap();
     let is_emoji = |g: &Glyph| strike.get(GlyphId(g.id)).is_some();
-    let emoji_count = text.glyphs.iter().filter(|g| is_emoji(*g)).count();
+    let emoji_count = text.glyphs.iter().filter(|g| is_emoji(g)).count();
 
     if emoji_count == text.glyphs.len() {
         write_emojis(ctx, pos, TextItemView::all_of(text));
@@ -752,7 +752,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             let end = start
                 + text.glyphs[start..]
                     .iter()
-                    .position(|g| is_emoji(&g) != in_emoji_group)
+                    .position(|g| is_emoji(g) != in_emoji_group)
                     .unwrap_or(text.glyphs.len() - start);
 
             // Build a sub text-run
