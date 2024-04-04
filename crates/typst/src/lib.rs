@@ -271,7 +271,7 @@ macro_rules! delegate_for_ptr {
 
 delegate_for_ptr!(W for std::boxed::Box<W>);
 delegate_for_ptr!(W for std::sync::Arc<W>);
-delegate_for_ptr!(W for std::rc::Rc<W>);
+delegate_for_ptr!(W for &W);
 
 /// Helper methods on [`World`] implementations.
 pub trait WorldExt {
