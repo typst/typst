@@ -218,10 +218,11 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             encoding.finish();
 
             let first = 0;
-            let last = (end - start) as u8;
-            pdf_font.first_char(first).last_char(last).widths(
-                std::iter::repeat(100.0).take(last as usize - first as usize + 1),
-            );
+            let last = (end - 1 - start) as u8;
+            pdf_font.first_char(first);
+            pdf_font.last_char(last);
+            pdf_font
+                .widths(std::iter::repeat(1.0).take(last as usize - first as usize + 1));
         }
     }
 }

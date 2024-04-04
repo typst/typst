@@ -771,6 +771,13 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
+    let mut last_font = None;
+
+    ctx.content.begin_text();
+    ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+    // so that the next call to ctx.set_font() will change the font
+    // one that displays regular glyphs and not color glyphs
+    ctx.state.font = None;
     for glyph in text.glyphs() {
         let ppem = text.item.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
         let raster_image =
@@ -798,6 +805,8 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
                             None,
                         )
                         .unwrap(),
+                        // TODO: this should match the ratio of the image
+                        // even if it is not square (with x being 1.0)
                         Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
                         Span::detached(),
                     ),
@@ -805,16 +814,17 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
                 frame
             },
         );
-        ctx.state.font = None;
-        ctx.content.set_font(
-            Name(eco_format!("Cf{}", font.get()).as_bytes()),
-            text.item.size.to_f32(),
-        );
-        ctx.content.begin_text();
-        ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+        if last_font != Some(font.get()) {
+            ctx.content.set_font(
+                Name(eco_format!("Cf{}", font.get()).as_bytes()),
+                text.item.size.to_f32(),
+            );
+            last_font = Some(font.get());
+        }
+
         ctx.content.show(Str(&[index]));
-        ctx.content.end_text();
     }
+    ctx.content.end_text();
 }
 
 // Encodes a text run (without any emoji) into the content stream
