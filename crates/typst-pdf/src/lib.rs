@@ -489,13 +489,8 @@ impl ColorFontMap {
         Self { map: HashMap::new(), all_refs: Vec::new() }
     }
 
-    fn items(&self) -> impl IntoIterator<Item = &ColorFont> {
-        self.map.values()
-    }
-
-    fn take(&mut self) -> Self {
-        let map = std::mem::take(&mut self.map);
-        ColorFontMap { map, all_refs: self.all_refs.clone() }
+    fn take_map(&mut self) -> HashMap<Font, ColorFont> {
+        std::mem::take(&mut self.map)
     }
 
     fn get<F>(

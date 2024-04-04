@@ -164,8 +164,8 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         stream.finish();
     }
 
-    let emoji_font_map = ctx.color_font_map.take();
-    for font in emoji_font_map.items() {
+    let emoji_font_map = ctx.color_font_map.take_map();
+    for (_font_info, font) in emoji_font_map {
         for (font_index, subfont_id) in font.refs.iter().enumerate() {
             let mut glyphs_to_instructions = BTreeMap::new();
 
