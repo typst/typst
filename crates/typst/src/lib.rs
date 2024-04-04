@@ -233,10 +233,7 @@ pub trait World {
 
 macro_rules! delegate_for_ptr {
     ($W:ident for $ptr:ty) => {
-        impl<$W: World> World for $ptr
-        where
-            $ptr: Deref<Target = $W>,
-        {
+        impl<$W: World> World for $ptr {
             fn library(&self) -> &Prehashed<Library> {
                 self.deref().library()
             }
