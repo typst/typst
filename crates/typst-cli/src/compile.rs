@@ -2,15 +2,15 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use time::{OffsetDateTime, PrimitiveDateTime};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
-use typst::foundations::{Datetime, Smart};
+use typst::foundations::Smart;
 use typst::layout::Frame;
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
@@ -166,27 +166,17 @@ fn export(
 
 /// Export to a PDF.
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    let timestamp = convert_datetime(
-        command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
-    );
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp);
+    let timestamp = command
+        .common
+        .creation_timestamp
+        .unwrap_or_else(OffsetDateTime::now_utc);
+    let timestamp = PrimitiveDateTime::new(timestamp.date(), timestamp.time()).into();
+    let buffer = typst_pdf::pdf(document, Smart::Auto, Some(timestamp));
     command
         .output()
         .write(&buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
-}
-
-/// Convert [`chrono::DateTime`] to [`Datetime`]
-fn convert_datetime(date_time: chrono::DateTime<chrono::Utc>) -> Option<Datetime> {
-    Datetime::from_ymd_hms(
-        date_time.year(),
-        date_time.month().try_into().ok()?,
-        date_time.day().try_into().ok()?,
-        date_time.hour().try_into().ok()?,
-        date_time.minute().try_into().ok()?,
-        date_time.second().try_into().ok()?,
-    )
 }
 
 /// An image format to export in.

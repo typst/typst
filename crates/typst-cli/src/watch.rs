@@ -10,6 +10,8 @@ use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
+use time::macros::format_description;
+use time::OffsetDateTime;
 use typst::diag::{bail, StrResult};
 
 use crate::args::{CompileCommand, Input, Output};
@@ -267,8 +269,14 @@ pub enum Status {
 impl Status {
     /// Clear the terminal and render the status message.
     pub fn print(&self, command: &CompileCommand) -> io::Result<()> {
+        const TIME_FORMAT: &[time::format_description::FormatItem<'_>] =
+            format_description!("[hour]:[minute]:[second]");
+
         let output = command.output();
-        let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
+        let timestamp = match OffsetDateTime::now_local() {
+            Ok(time) => time.format(&TIME_FORMAT).unwrap(),
+            Err(_) => OffsetDateTime::now_utc().format(&TIME_FORMAT).unwrap() + " UTC",
+        };
         let color = self.color();
 
         let mut out = terminal::out();

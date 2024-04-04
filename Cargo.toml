@@ -32,7 +32,6 @@ base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
-chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 ciborium = "0.2.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 clap_complete = "4.2.1"

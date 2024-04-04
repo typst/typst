@@ -1,10 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
 use clap::builder::ValueParser;
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
+use time::OffsetDateTime;
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -177,7 +177,7 @@ pub struct SharedArgs {
         value_name = "UNIX_TIMESTAMP",
         value_parser = parse_source_date_epoch,
     )]
-    pub creation_timestamp: Option<DateTime<Utc>>,
+    pub creation_timestamp: Option<OffsetDateTime>,
 
     /// The format to emit diagnostics in
     #[clap(
@@ -189,12 +189,12 @@ pub struct SharedArgs {
 }
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
-fn parse_source_date_epoch(raw: &str) -> Result<DateTime<Utc>, String> {
+fn parse_source_date_epoch(raw: &str) -> Result<OffsetDateTime, String> {
     let timestamp: i64 = raw
         .parse()
         .map_err(|err| format!("timestamp must be decimal integer ({err})"))?;
-    DateTime::from_timestamp(timestamp, 0)
-        .ok_or_else(|| "timestamp out of range".to_string())
+    OffsetDateTime::from_unix_timestamp(timestamp)
+        .map_err(|_| "timestamp out of range".to_string())
 }
 
 /// An input that is either stdin or a real path.

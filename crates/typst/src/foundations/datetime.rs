@@ -124,6 +124,8 @@ pub enum Datetime {
 
 impl Datetime {
     /// Create a datetime from year, month, and day.
+    ///
+    /// Month and day both start at one.
     pub fn from_ymd(year: i32, month: u8, day: u8) -> Option<Self> {
         Some(Datetime::Date(
             time::Date::from_calendar_date(year, time::Month::try_from(month).ok()?, day)
@@ -490,6 +492,12 @@ impl Sub for Datetime {
             (Self::Time(a), Self::Time(b)) => Ok((a - b).into()),
             (a, b) => bail!("cannot subtract {} from {}", b.kind(), a.kind()),
         }
+    }
+}
+
+impl From<PrimitiveDateTime> for Datetime {
+    fn from(value: PrimitiveDateTime) -> Self {
+        Datetime::Datetime(value)
     }
 }
 

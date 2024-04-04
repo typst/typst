@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use time::{OffsetDateTime, UtcOffset};
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -197,22 +197,22 @@ impl World for SystemWorld {
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = match &self.now {
             Now::Fixed(time) => time,
-            Now::System(time) => time.get_or_init(Utc::now),
+            Now::System(time) => time.get_or_init(OffsetDateTime::now_utc),
         };
 
         // The time with the specified UTC offset, or within the local time zone.
         let with_offset = match offset {
-            None => now.with_timezone(&Local).fixed_offset(),
+            None => now.checked_to_offset(UtcOffset::local_offset_at(*now).ok()?)?,
             Some(hours) => {
-                let seconds = i32::try_from(hours).ok()?.checked_mul(3600)?;
-                now.with_timezone(&FixedOffset::east_opt(seconds)?)
+                let hours = i8::try_from(hours).ok()?;
+                now.checked_to_offset(UtcOffset::from_hms(hours, 0, 0).ok()?)?
             }
         };
 
         Datetime::from_ymd(
             with_offset.year(),
-            with_offset.month().try_into().ok()?,
-            with_offset.day().try_into().ok()?,
+            with_offset.month().into(),
+            with_offset.day(),
         )
     }
 }
@@ -403,9 +403,9 @@ fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
 enum Now {
     /// The date and time if the environment `SOURCE_DATE_EPOCH` is set.
     /// Used for reproducible builds.
-    Fixed(DateTime<Utc>),
+    Fixed(OffsetDateTime),
     /// The current date and time if the time is not externally fixed.
-    System(OnceLock<DateTime<Utc>>),
+    System(OnceLock<OffsetDateTime>),
 }
 
 /// An error that occurs during world construction.

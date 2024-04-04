@@ -25,7 +25,6 @@ typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
 typst-timing = { workspace = true }
-chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
@@ -51,6 +50,7 @@ serde_yaml = { workspace = true }
 shell-escape = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
+time = { workspace = true, features = ["local-offset"] }
 toml = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
@@ -62,11 +62,11 @@ zip = { workspace = true, optional = true }
 openssl = { workspace = true }
 
 [build-dependencies]
-chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 clap_mangen = { workspace = true }
 semver = { workspace = true }
+time = { workspace = true }
 
 [features]
 default = ["embed-fonts"]
