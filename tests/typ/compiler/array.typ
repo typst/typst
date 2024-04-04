@@ -336,6 +336,122 @@
 #((1, 2),).to-dict()
 
 ---
+// Test the `vector-add` method.
+#test(().vector-add(), ())
+#test((1, 10).vector-add((2, 20)), (3, 30))
+#test((1, 10).vector-add((2, 20), (3, 30)), (6, 60))
+
+---
+// Error: 21-23 expected array of length 2, found length 0
+#(1, 10).vector-add(())
+
+---
+// Error: 21-25 expected array of length 2, found length 1
+#(1, 10).vector-add((2,))
+
+---
+// Error: 21-30 expected array of length 2, found length 3
+#(1, 10).vector-add((2,20,30))
+
+---
+// Error: 21-38 unexpected argument: val
+#(1, 10).vector-add(val: "applicable")
+
+---
+// Error: 30-47 unexpected argument: val
+#(1, 10).vector-add((2, 10), val: "applicable")
+
+---
+// Error: 30-47 cannot add integer and string
+#(1, 10).vector-add((2, 10), (0, "applicable"))
+
+---
+// Test the `vector-sub` method.
+#test(().vector-sub(), ())
+#test((10, 100).vector-sub((5, 2)), (5, 98))
+#test((10, 100).vector-sub((5, 2), (2, 50)), (3, 48))
+
+---
+// Error: 21-23 expected array of length 2, found length 0
+#(1, 10).vector-sub(())
+
+---
+// Error: 21-25 expected array of length 2, found length 1
+#(1, 10).vector-sub((2,))
+
+---
+// Error: 21-30 expected array of length 2, found length 3
+#(1, 10).vector-sub((2,20,30))
+
+---
+// Error: 21-38 unexpected argument: val
+#(1, 10).vector-sub(val: "applicable")
+
+---
+// Error: 30-47 unexpected argument: val
+#(1, 10).vector-sub((2, 10), val: "applicable")
+
+---
+// Error: 30-47 cannot subtract string from integer
+#(1, 10).vector-sub((2, 10), (0, "applicable"))
+
+---
+// Test the `vector-mul` method.
+#test(().vector-mul(), ())
+#test((1, 10).vector-mul((2, 20)), (2, 200))
+#test((1, 10).vector-mul((2, 20), (3, 30)), (6, 6000))
+
+---
+// Error: 21-23 expected array of length 2, found length 0
+#(1, 10).vector-mul(())
+
+---
+// Error: 21-25 expected array of length 2, found length 1
+#(1, 10).vector-mul((2,))
+
+---
+// Error: 21-30 expected array of length 2, found length 3
+#(1, 10).vector-mul((2,20,30))
+
+---
+// Error: 21-38 unexpected argument: val
+#(1, 10).vector-mul(val: "applicable")
+
+---
+// Error: 30-47 unexpected argument: val
+#(1, 10).vector-mul((2, 10), val: "applicable")
+
+---
+// Test the `vector-div` method.
+#test(().vector-div(), ())
+#test((10, 100).vector-div((2, 5)), (5, 20))
+#test((10, 100).vector-div((2, 5), (5, 4)), (1, 5))
+
+---
+// Error: 21-23 expected array of length 2, found length 0
+#(1, 10).vector-div(())
+
+---
+// Error: 21-25 expected array of length 2, found length 1
+#(1, 10).vector-div((2,))
+
+---
+// Error: 21-30 expected array of length 2, found length 3
+#(1, 10).vector-div((2,20,30))
+
+---
+// Error: 21-38 unexpected argument: val
+#(1, 10).vector-div(val: "applicable")
+
+---
+// Error: 30-47 unexpected argument: val
+#(1, 10).vector-div((2, 10), val: "applicable")
+
+---
+// Error: 30-47 cannot divide float by string
+#(1, 10).vector-div((2, 10), (1, "applicable"))
+
+---
 // Error: 9-26 unexpected argument: val
 #().zip(val: "applicable")
 

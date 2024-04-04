@@ -1,5 +1,8 @@
+use core::mem::ManuallyDrop;
+use core::ptr::NonNull;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
+use std::mem;
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
@@ -143,6 +146,106 @@ impl Array {
             .ok_or_else(|| format!("cannot repeat this array {n} times"))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
+    }
+}
+
+impl Array {
+    /// Performs an operation on the contents of arrays element-by-element,
+    /// that is, for example, element-by-element addition of the contents
+    /// of several arrays. In case of subtraction, all elements of subsequent
+    /// arrays will be subtracted from the elements of the first array.
+    ///
+    /// The arguments must be arrays of the same length as `self`, otherwise
+    /// the function will return an error.
+    ///
+    /// This uses function pointer to reduce the amount of code generated,
+    /// but this will be eliminated by LLVM optimization.
+    #[inline]
+    fn vector_ops(
+        self,
+        args: &mut Args,
+        func: fn(Value, Value) -> StrResult<Value>,
+    ) -> SourceResult<Array> {
+        let arrays = args.all_with_span_and::<Array>(|array| {
+            if array.len() != self.len() {
+                return Err(format!(
+                    "expected array of length {}, found length {}",
+                    self.len(),
+                    array.len()
+                )
+                .into());
+            }
+            Ok(array)
+        })?;
+
+        // Fast path for zero argument.
+        if arrays.is_empty() {
+            return Ok(self);
+        }
+
+        // Help structure to avoid double drop in case of panic or early return
+        struct DropGuard<'a> {
+            array: &'a mut ManuallyDrop<Array>,
+            ptr: NonNull<Value>,
+        }
+
+        impl Drop for DropGuard<'_> {
+            fn drop(&mut self) {
+                // If we are here, then we are in the process of exiting the function
+                // early and to avoid a memory leak we need to call `ManuallyDrop::drop`.
+                // Early exit can only occur when calling `func`, and therefore we have
+                // already `read` and dropped one of the `Values` in the array. Therefore,
+                // if we simply call `ManuallyDrop::drop`, this will result in a double
+                // drop of that value. Hence, before calling drop, we simply overwrite
+                // the old value with the new default one.
+                //
+                // SAFETY: About `ptr::write` see below, they are the same. We're in a drop
+                // of glue, so `ManuallyDrop::drop` will be called once. As for the owner,
+                // so it is a ManuallyDrop, so the compiler will simply forget about it.
+                unsafe {
+                    self.ptr.as_ptr().write(Default::default());
+                    ManuallyDrop::drop(self.array);
+                }
+            }
+        }
+
+        // To prevent values from being cloned in each loop, we will use `ptr::read` and
+        // `ptr::write`. Because of this, we use "ManuallyDrop" to make sure that we don't have
+        //  a double drop in case of panic in `func` or early return (because of `?` operator)
+        let mut array = ManuallyDrop::new(self);
+        let mut guard = DropGuard {
+            array: &mut array,
+            // It's okay, it will never be read
+            ptr: NonNull::dangling(),
+        };
+
+        let slice = guard.array.0.make_mut();
+        for (span, array) in arrays {
+            for (right, left) in slice.iter_mut().zip(array) {
+                guard.ptr = NonNull::from(right);
+                // SAFETY:
+                // 1. The `guard.ptr` is valid for reading, properly aligned, and points
+                //    to a properly initialized value since we are reading from a
+                //    mutable reference.
+                // 2. In case of panic of `func` this value will be dropped, but this
+                //    is ok since the source is wrapped in `ManuallyDrop`, so there
+                //    is no double drop of the value
+                // 3. Guard will take care of proper dropping of the array, both in
+                //    case of panic and in case of early exit using the `?` operator
+                let value = func(unsafe { guard.ptr.as_ptr().read() }, left).at(span)?;
+                // SAFETY:
+                // 1. We don't use dereferencing because it drops the old value, which
+                //    we definitely don't need, since we already passed the old value
+                //    to the function `func`, where it was already safely dropped.
+                // 2. The `guard.ptr` is valid for writes and properly aligned since we
+                //    got it from a mutable reference.
+                unsafe { guard.ptr.as_ptr().write(value) };
+            }
+        }
+
+        mem::forget(guard);
+        // Everything went ok, so we extract the value from the ManuallyDrop.
+        Ok(ManuallyDrop::into_inner(array))
     }
 }
 
@@ -572,6 +675,114 @@ impl Array {
             acc = ops::add(acc, item)?;
         }
         Ok(acc)
+    }
+
+    /// Performs an addition of elements of arrays by adding the corresponding
+    /// entries together (works for all types that can be added).
+    ///
+    /// Returns an array where the `i`th element is the sum of `i`th
+    /// elements of all original arrays.
+    ///
+    /// If the added arrays are of different lengths, this function returns
+    /// an error.
+    ///
+    /// This function is variadic, meaning that you can add multiple arrays
+    /// together at once: `{(1, 4).vector-add((2, 5), (3, 6))}` returns
+    /// `{(6, 15)}`.
+    #[func]
+    pub fn vector_add(
+        self,
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: &mut Args,
+        /// The arrays to add with.
+        #[external]
+        #[variadic]
+        others: Vec<Array>,
+    ) -> SourceResult<Array> {
+        self.vector_ops(args, ops::add)
+    }
+
+    /// Performs a subtraction of elements of arrays by subtracting the
+    /// corresponding entries from the first one (works for all types that
+    /// can be subtracted).
+    ///
+    /// Returns an array in which the `i`th element is the result of subtracting
+    /// all `i`th elements of subsequent arrays from the `i`th element of the
+    /// first array.
+    ///
+    /// If the subtracted arrays are of different lengths, this function returns
+    /// an error.
+    ///
+    /// This function is variadic, meaning that you can subtract multiple arrays
+    /// together at once: `{(10, 12).vector-sub((2, 5), (3, 6))}` returns
+    /// `{(5, 1)}`.
+    #[func]
+    pub fn vector_sub(
+        self,
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: &mut Args,
+        /// The arrays to sub with.
+        #[external]
+        #[variadic]
+        others: Vec<Array>,
+    ) -> SourceResult<Array> {
+        self.vector_ops(args, ops::sub)
+    }
+
+    /// Performs a multiplication of elements of arrays by multiplying
+    /// the corresponding entries together (works for all types that can
+    /// be multiplied).
+    ///
+    /// Returns an array where the `i`th element is the multiplication
+    /// of `i`th elements of all original arrays.
+    ///
+    /// If the multiplied arrays are of different lengths, this function
+    /// returns an error.
+    ///
+    /// This function is variadic, meaning that you can multiply multiple
+    /// arrays together at once: `{(2, 4).vector-mul((2, 5), (3, 6))}`
+    /// returns `{(12, 120)}`.
+    #[func]
+    pub fn vector_mul(
+        self,
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: &mut Args,
+        /// The arrays to mul with.
+        #[external]
+        #[variadic]
+        others: Vec<Array>,
+    ) -> SourceResult<Array> {
+        self.vector_ops(args, ops::mul)
+    }
+
+    /// Performs a division of elements of arrays by dividing the corresponding
+    /// entries from the first one (works for all types that can be divided).
+    ///
+    /// Returns an array in which the `i`th element is the result of dividing
+    /// the `i`th element of the first array to all `i`th elements of
+    /// subsequent arrays.
+    ///
+    /// If the divided arrays are of different lengths, this function returns
+    /// an error.
+    ///
+    /// This function is variadic, meaning that you can divide multiple arrays
+    /// together at once: `{(30, 64).vector-div((5, 2), (3, 8))}` returns
+    /// `{(2, 4)}`.
+    #[func]
+    pub fn vector_div(
+        self,
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: &mut Args,
+        /// The arrays to div with.
+        #[external]
+        #[variadic]
+        others: Vec<Array>,
+    ) -> SourceResult<Array> {
+        self.vector_ops(args, ops::div)
     }
 
     /// Calculates the product all items (works for all types that can be

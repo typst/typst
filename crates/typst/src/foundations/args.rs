@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{
     func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
 };
@@ -180,6 +180,40 @@ impl Args {
             let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
             match T::from_value(spanned) {
                 Ok(val) => list.push(val),
+                Err(err) => errors.push(SourceDiagnostic::error(span, err)),
+            }
+            false
+        });
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(list)
+    }
+
+    /// Find and consume all castable positional arguments with
+    /// additional checking.
+    ///
+    /// Returns the value as well as its span.
+    pub fn all_with_span_and<T>(
+        &mut self,
+        f: impl Fn(T) -> StrResult<T>,
+    ) -> SourceResult<Vec<(Span, T)>>
+    where
+        T: FromValue<Spanned<Value>>,
+    {
+        let mut list = vec![];
+        let mut errors = eco_vec![];
+        self.items.retain(|item| {
+            if item.name.is_some() {
+                return true;
+            };
+            let span = item.value.span;
+            let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
+            match T::from_value(spanned) {
+                Ok(val) => match f(val) {
+                    Ok(val) => list.push((span, val)),
+                    Err(err) => errors.push(SourceDiagnostic::error(span, err)),
+                },
                 Err(err) => errors.push(SourceDiagnostic::error(span, err)),
             }
             false
