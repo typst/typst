@@ -779,7 +779,9 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     // one that displays regular glyphs and not color glyphs
     ctx.state.font = None;
     for glyph in text.glyphs() {
-        let ppem = text.item.size.to_f32() as f64 / ctx.state.transform.sy.abs(); // not sure about that
+        // artificially choose better resolutions of color glyphs, as they tend
+        // to appear pixelated even at low zoom levels otherwise
+        let ppem = 2.0 * text.item.size.to_f32() as f64;
         let raster_image =
             text.item.font.ttf().glyph_raster_image(GlyphId(glyph.id), ppem as u16)
             .expect("write_text guarantees that we can render all glyphs of this text run as emojis");
