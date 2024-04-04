@@ -41,7 +41,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     paren: [l: '(', r: ')', t: '⏜', b: '⏝'],
     brace: [l: '{', r: '}', t: '⏞', b: '⏟'],
     bracket: [l: '[', l.double: '⟦', r: ']', r.double: '⟧', t: '⎴', b: '⎵'],
-    turtle: [l: '〔', r: '〕', t: '⏠', b: '⏡'],
+    shell: [l: '〔', r: '〕', t: '⏠', b: '⏡'],
     bar: [v: '|', v.double: '‖', v.triple: '⦀', v.broken: '¦', v.circle: '⦶', h: '―'],
     fence: [l: '⧘', l.double: '⧚', r: '⧙', r.double: '⧛', dotted: '⦙'],
     angle: [
