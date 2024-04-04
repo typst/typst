@@ -167,7 +167,7 @@ fn export(
 /// Export to a PDF.
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let timestamp = convert_datetime(
-        command.common.source_date_epoch.unwrap_or_else(chrono::Utc::now),
+        command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
     let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp);
     command

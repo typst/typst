@@ -171,8 +171,13 @@ pub struct SharedArgs {
     /// The document's creation date formatted as a UNIX timestamp.
     ///
     /// For more information, see <https://reproducible-builds.org/specs/source-date-epoch/>.
-    #[clap(env = "SOURCE_DATE_EPOCH", value_parser = parse_source_date_epoch)]
-    pub source_date_epoch: Option<DateTime<Utc>>,
+    #[clap(
+        long = "creation-timestamp",
+        env = "SOURCE_DATE_EPOCH",
+        value_name = "UNIX_TIMESTAMP",
+        value_parser = parse_source_date_epoch,
+    )]
+    pub creation_timestamp: Option<DateTime<Utc>>,
 
     /// The format to emit diagnostics in
     #[clap(
