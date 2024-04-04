@@ -1,8 +1,7 @@
-use core::mem::ManuallyDrop;
+use core::mem::{self, ManuallyDrop};
 use core::ptr::NonNull;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
-use std::mem;
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
