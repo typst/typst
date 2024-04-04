@@ -41,7 +41,7 @@ fn markup(
 ) {
     let m = p.marker();
     let mut nesting: usize = 0;
-    while !p.eof() {
+    while !p.end() {
         match p.current() {
             SyntaxKind::LeftBracket => nesting += 1,
             SyntaxKind::RightBracket if nesting > 0 => nesting -= 1,
@@ -76,7 +76,7 @@ pub(super) fn reparse_markup(
     mut stop: impl FnMut(SyntaxKind) -> bool,
 ) -> Option<Vec<SyntaxNode>> {
     let mut p = Parser::new(text, range.start, LexMode::Markup);
-    while !p.eof() && p.current_start() < range.end {
+    while !p.end() && p.current_start() < range.end {
         match p.current() {
             SyntaxKind::LeftBracket => *nesting += 1,
             SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
@@ -179,7 +179,7 @@ fn raw(p: &mut Parser) {
     p.assert(SyntaxKind::RawDelim);
 
     // Eats until the closing delimiter.
-    while !p.eof() && !p.at(SyntaxKind::RawDelim) {
+    while !p.end() && !p.at(SyntaxKind::RawDelim) {
         p.eat();
     }
 
@@ -272,7 +272,7 @@ fn equation(p: &mut Parser) {
 /// Parses the contents of a mathematical equation: `x^2 + 1`.
 fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     let m = p.marker();
-    while !p.eof() && !stop(p) {
+    while !p.end() && !stop(p) {
         if p.at_set(set::MATH_EXPR) {
             math_expr(p);
         } else {
@@ -285,7 +285,7 @@ fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
 /// Parses a single math expression: This includes math elements like
 /// attachment, fractions, and roots, and embedded code expressions.
 fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, SyntaxKind::Eof)
+    math_expr_prec(p, 0, SyntaxKind::End)
 }
 
 /// Parses a math expression with at least the given precedence.
@@ -369,7 +369,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     // Whether there were _any_ primes in the loop.
     let mut primed = false;
 
-    while !p.eof() && !p.at(stop) {
+    while !p.end() && !p.at(stop) {
         if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
             p.eat();
             p.wrap(m, SyntaxKind::Math);
@@ -429,7 +429,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 
         if p.eat_if(SyntaxKind::Underscore) || (!primed && p.eat_if(SyntaxKind::Hat)) {
             let m3 = p.marker();
-            math_expr_prec(p, prec, SyntaxKind::Eof);
+            math_expr_prec(p, prec, SyntaxKind::End);
             math_unparen(p, m3);
         }
 
@@ -449,7 +449,7 @@ fn math_delimited(p: &mut Parser) {
     let m = p.marker();
     p.eat();
     let m2 = p.marker();
-    while !p.eof() && !p.at(SyntaxKind::Dollar) {
+    while !p.end() && !p.at(SyntaxKind::Dollar) {
         if math_class(p.current_text()) == Some(MathClass::Closing) {
             p.wrap(m2, SyntaxKind::Math);
             p.eat();
@@ -507,7 +507,7 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
             Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
         }
         SyntaxKind::Slash => {
-            Some((SyntaxKind::MathFrac, SyntaxKind::Eof, ast::Assoc::Left, 1))
+            Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
         }
         _ => None,
     }
@@ -523,7 +523,7 @@ fn math_args(p: &mut Parser) {
     let mut array = p.marker();
     let mut arg = p.marker();
 
-    while !p.eof() && !p.at(SyntaxKind::Dollar) {
+    while !p.end() && !p.at(SyntaxKind::Dollar) {
         if namable
             && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
             && p.text[p.current_end()..].starts_with(':')
@@ -612,19 +612,19 @@ fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
 
 /// Parses a sequence of code expressions.
 fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
-    while !p.eof() && !stop(p) {
+    while !p.end() && !stop(p) {
         p.enter_newline_mode(NewlineMode::Contextual);
 
         let at_expr = p.at_set(set::CODE_EXPR);
         if at_expr {
             code_expr(p);
-            if !p.eof() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
+            if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
                 p.expected("semicolon or line break");
             }
         }
 
         p.exit_newline_mode();
-        if !at_expr && !p.eof() {
+        if !at_expr && !p.end() {
             p.unexpected();
         }
     }
@@ -647,14 +647,14 @@ fn embedded_code_expr(p: &mut Parser) {
     code_expr_prec(p, true, 0);
 
     // Consume error for things like `#12p` or `#"abc\"`.#
-    if !at && !p.current().is_trivia() && !p.eof() {
+    if !at && !p.current().is_trivia() && !p.end() {
         p.unexpected();
     }
 
     let semi =
         (stmt || p.directly_at(SyntaxKind::Semicolon)) && p.eat_if(SyntaxKind::Semicolon);
 
-    if stmt && !semi && !p.eof() && !p.at(SyntaxKind::RightBracket) {
+    if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
         p.expected("semicolon or line break");
     }
 
@@ -1561,8 +1561,8 @@ impl<'s> Parser<'s> {
         set.contains(self.current)
     }
 
-    fn eof(&self) -> bool {
-        self.at(SyntaxKind::Eof)
+    fn end(&self) -> bool {
+        self.at(SyntaxKind::End)
     }
 
     fn directly_at(&self, kind: SyntaxKind) -> bool {
@@ -1751,7 +1751,7 @@ impl<'s> Parser<'s> {
     fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
         loop {
             let next = lexer.next();
-            // Loop is terminatable, because SyntaxKind::Eof is not a trivia.
+            // Loop is terminatable, because SyntaxKind::End is not a trivia.
             if !next.is_trivia() {
                 break next;
             }
@@ -1775,7 +1775,7 @@ impl<'s> Parser<'s> {
                 None => false,
             }
         {
-            self.current = SyntaxKind::Eof;
+            self.current = SyntaxKind::End;
         }
     }
 }

@@ -273,8 +273,8 @@ pub enum SyntaxKind {
     BlockComment,
     /// An invalid sequence of characters.
     Error,
-    /// The end of the file.
-    Eof,
+    /// The end of token stream.
+    End,
 }
 
 impl SyntaxKind {
@@ -295,7 +295,7 @@ impl SyntaxKind {
     pub fn is_terminator(self) -> bool {
         matches!(
             self,
-            Self::Eof
+            Self::End
                 | Self::Semicolon
                 | Self::RightBrace
                 | Self::RightParen
@@ -493,7 +493,7 @@ impl SyntaxKind {
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Error => "syntax error",
-            Self::Eof => "end of file",
+            Self::End => "end of tokens",
         }
     }
 }
