@@ -69,6 +69,7 @@ pub fn pdf(
     pattern::write_patterns(&mut ctx);
     write_named_destinations(&mut ctx);
     page::write_page_tree(&mut ctx);
+    page::write_global_resources(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
 }
@@ -97,6 +98,8 @@ struct PdfContext<'a> {
     alloc: Ref,
     /// The ID of the page tree.
     page_tree_ref: Ref,
+    /// The ID of the globally shared Resources dictionnary
+    global_resources_ref: Ref,
     /// The IDs of written pages.
     page_refs: Vec<Ref>,
     /// The IDs of written fonts.
@@ -137,6 +140,7 @@ impl<'a> PdfContext<'a> {
     fn new(document: &'a Document) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
+        let global_resources_ref = alloc.bump();
         Self {
             document,
             pdf: Pdf::new(),
@@ -145,6 +149,7 @@ impl<'a> PdfContext<'a> {
             languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
+            global_resources_ref,
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],

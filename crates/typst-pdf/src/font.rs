@@ -195,6 +195,8 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             }
 
             let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
+            // TODO: font descriptor
+            pdf_font.pair(Name(b"Resources"), ctx.global_resources_ref);
             pdf_font.bbox(font.bbox);
             pdf_font.matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
             let mut char_procs = pdf_font.char_procs();

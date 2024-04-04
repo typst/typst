@@ -77,10 +77,8 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
 
 /// Write the page tree.
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
-    let resources_ref = write_global_resources(ctx);
-
     for i in 0..ctx.pages.len() {
-        write_page(ctx, i, resources_ref);
+        write_page(ctx, i);
     }
 
     ctx.pdf
@@ -94,10 +92,8 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-fn write_global_resources(ctx: &mut PdfContext) -> Ref {
-    let resource_ref = ctx.alloc.bump();
-
-    let mut resources = ctx.pdf.indirect(resource_ref).start::<Resources>();
+pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
+    let mut resources = ctx.pdf.indirect(ctx.global_resources_ref).start::<Resources>();
     ctx.colors
         .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
 
@@ -146,12 +142,10 @@ fn write_global_resources(ctx: &mut PdfContext) -> Ref {
 
     // Write all of the functions used by the document.
     ctx.colors.write_functions(&mut ctx.pdf);
-
-    resource_ref
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, i: usize, resources_ref: Ref) {
+fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
@@ -162,7 +156,7 @@ fn write_page(ctx: &mut PdfContext, i: usize, resources_ref: Ref) {
     let h = page.size.y.to_f32();
     page_writer.media_box(Rect::new(0.0, 0.0, w, h));
     page_writer.contents(content_id);
-    page_writer.pair(Name(b"Resources"), resources_ref);
+    page_writer.pair(Name(b"Resources"), ctx.global_resources_ref);
 
     if page.uses_opacities {
         page_writer
