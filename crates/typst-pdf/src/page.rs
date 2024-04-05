@@ -720,13 +720,18 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     // If the text run contains either only emojis or normal text
     // we can render it directly
-    let Some(sbix) = text.font.ttf().tables().sbix else {
+    let tables = text.font.ttf().tables();
+    let has_color_glyphs = tables.sbix.is_some()
+        || tables.cbdt.is_some()
+        || tables.svg.is_some()
+        || tables.colr.is_some();
+    if !has_color_glyphs {
         write_normal_text(ctx, pos, TextItemView::all_of(text));
         return;
     };
 
-    let strike = sbix.best_strike(text.size.to_f32() as u16).unwrap();
-    let is_emoji = |g: &Glyph| strike.get(GlyphId(g.id)).is_some();
+    let is_emoji =
+        |g: &Glyph| text.font.ttf().glyph_raster_image(GlyphId(g.id), 160).is_some();
     let emoji_count = text.glyphs.iter().filter(|g| is_emoji(g)).count();
 
     if emoji_count == text.glyphs.len() {
