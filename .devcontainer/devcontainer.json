@@ -1,9 +1,13 @@
 {
-    "image": "mcr.microsoft.com/devcontainers/rust:1.74",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
     "features": {
-        "ghcr.io/devcontainers/features/nix:1": {
-            "extraNixConfig": "experimental-features = nix-command flakes" 
+        "ghcr.io/devcontainers/features/rust:1": {
+            "version": "1.74"
         },
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-    }
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+        "ghcr.io/devcontainers/features/nix:1": {
+            "extraNixConfig": "experimental-features = nix-command flakes"
+        }
+    },
+    "postCreateCommand": "sudo apt update; sudo apt install -y acl; sudo setfacl -k /tmp"
 }
