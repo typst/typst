@@ -55,6 +55,16 @@ Lריווח #h(1cm) R
 ב #text("12:00 - 13:00",dir:ltr) בצהריים
 
 ---
+// Mixing raw
+#set text(lang: "he")
+לדוג. `if a == b:` זה תנאי
+#set raw(lang:"python")
+לדוג. `if a == b:` זה תנאי
+
+#show raw: set text(dir:rtl)
+לתכנת בעברית `אם א == ב:`
+
+---
 // Test setting a vertical direction.
 // Ref: false
 
