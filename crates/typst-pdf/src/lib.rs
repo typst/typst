@@ -475,7 +475,6 @@ struct ColorFont {
     // index % 256 is the index in the type3 font
     glyphs: Vec<ColorGlyph>,
     bbox: Rect,
-    descender: Abs,
 }
 
 struct ColorGlyph {
@@ -502,7 +501,7 @@ impl ColorFontMap {
         instructions: F,
     ) -> (Ref, u8)
     where
-        F: Fn(Abs) -> Frame,
+        F: Fn() -> Frame,
     {
         let font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
@@ -512,14 +511,7 @@ impl ColorFontMap {
                 font.to_em(global_bbox.x_max).to_font_units(),
                 font.to_em(global_bbox.y_max).to_font_units(),
             );
-            let descender =
-                Abs::raw(-font.ttf().descender() as f64 / (bbox.y2 - bbox.y1) as f64);
-            ColorFont {
-                bbox,
-                refs: Vec::new(),
-                glyphs: Vec::new(),
-                descender,
-            }
+            ColorFont { bbox, refs: Vec::new(), glyphs: Vec::new() }
         });
 
         let index = match font.glyphs.iter().position(|emoji| emoji.gid == glyph) {
@@ -542,14 +534,8 @@ impl ColorFontMap {
             }
         };
 
-        font.glyphs.insert(
-            index,
-            ColorGlyph {
-                gid: glyph,
-                width,
-                image: instructions(font.descender),
-            },
-        );
+        font.glyphs
+            .insert(index, ColorGlyph { gid: glyph, width, image: instructions() });
 
         (font.refs[index / 256], index as u8)
     }

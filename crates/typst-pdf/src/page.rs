@@ -795,14 +795,14 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             &text.item.font,
             glyph.id,
             ppem,
-            |descender| {
+            || {
                 let mut frame = Frame::new(
                     // TODO: are these dimensions correct
                     Axes::new(Abs::cm(1.0), Abs::cm(1.0)),
                     typst::layout::FrameKind::Soft,
                 );
                 frame.push(
-                    Point::new(Abs::zero(), descender),
+                    Point::zero(),
                     FrameItem::Image(
                         Image::new(
                             raster_image.data.into(),
