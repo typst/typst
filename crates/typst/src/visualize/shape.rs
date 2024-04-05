@@ -1108,18 +1108,8 @@ impl ControlPoints {
             + 2.0 * (o.y - c_i.y).to_raw() * (c_i.y - c_o.y).to_raw();
         let c = (c_i.x - c_o.x).to_raw().powi(2) + (c_i.y - c_o.y).to_raw().powi(2)
             - r.to_raw().powi(2);
-        let t = (-b + self.calculate_discriminant(a, b, c).sqrt()) / (2.0 * a);
+        let t = (-b + (b * b - 4.0 * a * c).max(0.0).sqrt()) / (2.0 * a);
         c_i + t * (o - c_i)
-    }
-
-    /// Discriminant of quadratic formula for the mid-outer corner.
-    fn calculate_discriminant(&self, a: f64, b: f64, c: f64) -> f64 {
-        let discriminant = b * b - 4.0 * a * c;
-        if discriminant < 0.0 {
-            0.0
-        } else {
-            discriminant
-        }
     }
 
     /// Middle of the corner in the middle of the stroke.
