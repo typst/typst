@@ -21,7 +21,7 @@ use pdf_writer::writers::Destination;
 use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
-use typst::layout::{Abs, Dir, Em, Frame, Ratio, Transform};
+use typst::layout::{Abs, Dir, Em, Frame, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
@@ -475,16 +475,12 @@ struct ColorFont {
     // index % 256 is the index in the type3 font
     glyphs: Vec<ColorGlyph>,
     bbox: Rect,
-    // The y coordinate of a point sitting at the middle
-    // between the ascender line and the descender line
-    // It is proportional to the font size
-    mid_point: Ratio,
+    descender: Abs,
 }
 
 struct ColorGlyph {
     gid: u16,
-    // Pixels per em
-    ppem: u16,
+    width: f64,
     image: Frame,
 }
 
@@ -502,11 +498,11 @@ impl ColorFontMap {
         alloc: &mut Ref,
         font: &Font,
         glyph: u16,
-        ppem: u16,
+        width: f64,
         instructions: F,
     ) -> (Ref, u8)
     where
-        F: Fn(Ratio) -> Frame,
+        F: Fn(Abs) -> Frame,
     {
         let font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
@@ -516,21 +512,20 @@ impl ColorFontMap {
                 font.to_em(global_bbox.x_max).to_font_units(),
                 font.to_em(global_bbox.y_max).to_font_units(),
             );
-            let bbox_height = (bbox.y2 - bbox.y1) as f64;
-            let mid_point = (font.ttf().ascender() + font.ttf().descender()) / 2;
-            let mid_point = Ratio::new(mid_point as f64 / bbox_height);
+            let descender =
+                Abs::raw(-font.ttf().descender() as f64 / (bbox.y2 - bbox.y1) as f64);
             ColorFont {
                 bbox,
                 refs: Vec::new(),
                 glyphs: Vec::new(),
-                mid_point,
+                descender,
             }
         });
 
         let index = match font.glyphs.iter().position(|emoji| emoji.gid == glyph) {
             // If we already know this glyph, at requested resolution (or better)
             // return it
-            Some(index_of_glyph) if font.glyphs[index_of_glyph].ppem >= ppem => {
+            Some(index_of_glyph) if font.glyphs[index_of_glyph].width >= width => {
                 return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
             }
             // If we already know it but at a lower resolution, overwrite it with the high-res version
@@ -551,8 +546,8 @@ impl ColorFontMap {
             index,
             ColorGlyph {
                 gid: glyph,
-                ppem,
-                image: instructions(font.mid_point),
+                width,
+                image: instructions(font.descender),
             },
         );
 

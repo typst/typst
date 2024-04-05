@@ -786,8 +786,7 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     for glyph in text.glyphs() {
         // artificially choose better resolutions of color glyphs, as they tend
         // to appear pixelated even at low zoom levels otherwise
-        const DPI: f32 = 144.0;
-        let ppem = text.item.size.to_f32() * DPI / 72.0;
+        let ppem = 2.0 * text.item.size.to_f32() as f64;
         let raster_image =
             text.item.font.ttf().glyph_raster_image(GlyphId(glyph.id), ppem as u16)
             .expect("write_text guarantees that we can render all glyphs of this text run as emojis");
@@ -795,20 +794,15 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             &mut ctx.parent.alloc,
             &text.item.font,
             glyph.id,
-            raster_image.pixels_per_em,
-            |mid_point| {
-                // For an explanation of this vertical shift calculation, see
-                // [`typst_render::render_bitmap_glyph`] and
-                // [`typst_pdf::ColorFont::mid_point`]
-                let image_mid_point = 0.5;
-                let vertical_shift = Abs::raw(image_mid_point - mid_point.get());
+            ppem,
+            |descender| {
                 let mut frame = Frame::new(
                     // TODO: are these dimensions correct
                     Axes::new(Abs::cm(1.0), Abs::cm(1.0)),
                     typst::layout::FrameKind::Soft,
                 );
                 frame.push(
-                    Point::new(Abs::zero(), vertical_shift),
+                    Point::new(Abs::zero(), descender),
                     FrameItem::Image(
                         Image::new(
                             raster_image.data.into(),
