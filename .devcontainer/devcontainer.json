@@ -1,0 +1,9 @@
+{
+    "image": "mcr.microsoft.com/devcontainers/rust:1.74",
+    "features": {
+        "ghcr.io/devcontainers/features/nix:1": {
+            "extraNixConfig": "experimental-features = nix-command flakes" 
+        },
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    }
+}
