@@ -348,13 +348,24 @@ fn render_bitmap_glyph(
     }
     let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
 
-    // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
-    // and maybe also for Noto Color Emoji. And: Is the size calculation
-    // correct?
     let h = text.size;
     let w = (image.width() / image.height()) * h;
     let dx = (raster.x as f32) / (image.width() as f32) * size;
-    let dy = (raster.y as f32) / (image.height() as f32) * size;
+    // If color glyphs (well, at least emojis) sit on the baseline, they seem
+    // misplaced. A solution to have something more visually satisfying is to
+    // center them between the ascender and descender lines. This is what Apple
+    // seems to do on Mac OS/iOS, even if they also render the emojis bigger
+    // than here (they seem to fill the whole space between the ascender and descender
+    // line, instead of just using the font size for their height).
+    let bbox = text.font.ttf().global_bounding_box();
+    let bbox_height = (bbox.y_max - bbox.y_min) as f32;
+    let mid_point = (text.font.ttf().ascender() + text.font.ttf().descender()) as f32
+        / 2.0
+        / bbox_height
+        * size;
+    let image_mid_point = h / 2.0;
+    let vertical_shift = image_mid_point.to_f32() - mid_point;
+    let dy = ((raster.y as f32) / (image.height() as f32)) * size - vertical_shift;
     render_image(
         canvas,
         state.pre_translate(Point::new(Abs::raw(dx as _), Abs::raw((-size - dy) as _))),
