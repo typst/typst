@@ -104,11 +104,19 @@ fn print_summary(
     out.set_color(&gray)?;
     write!(out, "> ")?;
     out.reset()?;
-    writeln!(out, "cd {}", project_dir.display())?;
+    writeln!(
+        out,
+        "cd {}",
+        shell_escape::escape(project_dir.display().to_string().into()),
+    )?;
     out.set_color(&gray)?;
     write!(out, "> ")?;
     out.reset()?;
-    writeln!(out, "typst watch {}", template.entrypoint)?;
+    writeln!(
+        out,
+        "typst watch {}",
+        shell_escape::escape(template.entrypoint.to_string().into()),
+    )?;
     writeln!(out)?;
     Ok(())
 }

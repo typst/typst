@@ -22,6 +22,10 @@
 #1.7em \
 #(1cm + 0em) \
 #(2em + 10pt) \
+#(100% + (2em + 2pt)) \
+#(100% + 0pt) \
+#(100% - 2em + 2pt) \
+#(100% - 2pt) \
 #2.3fr
 
 ---
@@ -35,7 +39,9 @@
 #repr("a\n[]\"\u{1F680}string")
 
 // Content.
-#raw(lang: "typc", repr[*Hey*])
+#raw(lang: "typc", repr[*Hey*]) \
+#raw(lang: "typc", repr[A _sequence_]) \
+#raw(lang: "typc", repr[A _longer_ *sequence*!])
 
 // Functions.
 #let f(x) = x

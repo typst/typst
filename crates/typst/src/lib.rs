@@ -57,7 +57,7 @@ pub mod visualize;
 pub use typst_syntax as syntax;
 
 use std::collections::HashSet;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
@@ -230,6 +230,48 @@ pub trait World {
         &[]
     }
 }
+
+macro_rules! delegate_for_ptr {
+    ($W:ident for $ptr:ty) => {
+        impl<$W: World> World for $ptr {
+            fn library(&self) -> &Prehashed<Library> {
+                self.deref().library()
+            }
+
+            fn book(&self) -> &Prehashed<FontBook> {
+                self.deref().book()
+            }
+
+            fn main(&self) -> Source {
+                self.deref().main()
+            }
+
+            fn source(&self, id: FileId) -> FileResult<Source> {
+                self.deref().source(id)
+            }
+
+            fn file(&self, id: FileId) -> FileResult<Bytes> {
+                self.deref().file(id)
+            }
+
+            fn font(&self, index: usize) -> Option<Font> {
+                self.deref().font(index)
+            }
+
+            fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+                self.deref().today(offset)
+            }
+
+            fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
+                self.deref().packages()
+            }
+        }
+    };
+}
+
+delegate_for_ptr!(W for std::boxed::Box<W>);
+delegate_for_ptr!(W for std::sync::Arc<W>);
+delegate_for_ptr!(W for &W);
 
 /// Helper methods on [`World`] implementations.
 pub trait WorldExt {

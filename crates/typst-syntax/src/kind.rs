@@ -32,7 +32,7 @@ pub enum SyntaxKind {
     RawLang,
     /// A raw delimiter consisting of 1 or 3+ backticks: `` ` ``.
     RawDelim,
-    /// A sequence of whitespace to ignore in a raw block: `    `.
+    /// A sequence of whitespace to ignore in a raw text: `    `.
     RawTrimmed,
     /// A hyperlink: `https://typst.org`.
     Link,
