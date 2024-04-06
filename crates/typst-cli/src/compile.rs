@@ -1,6 +1,6 @@
-use std::fs;
-use std::io::Write;
-use std::path::Path;
+use std::fs::{self, File};
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -117,6 +117,25 @@ pub fn compile_once(
 
             print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+            if let Some(ref makefile_deps) = command.makefile_deps {
+                // Validation in main.rs ensures --makefile-deps can only be
+                // specified when output is provided and is not stdout.
+                let Some(Output::Path(ref output)) = command.output else {
+                    unreachable!()
+                };
+                let root = world.root().to_path_buf();
+                create_makefile_deps(
+                    makefile_deps,
+                    output,
+                    world.dependencies().map(|dep| {
+                        dep.strip_prefix(&root).map(Path::to_path_buf).unwrap_or(dep)
+                    }),
+                )
+                .map_err(|err| {
+                    eco_format!("failed to create Makefile dependencies file ({err})")
+                })?;
+            }
 
             if let Some(open) = command.open.take() {
                 if let Output::Path(file) = command.output() {
@@ -333,6 +352,55 @@ impl ExportCache {
 
         cache.with_upgraded(|cache| std::mem::replace(&mut cache[i], hash) == hash)
     }
+}
+
+/// Writes a Makefile rule describing the relationship between `output` and
+/// `dependencies` to `makefile_deps_path`.
+fn create_makefile_deps(
+    makefile_deps_path: &Path,
+    output: &Path,
+    dependencies: impl Iterator<Item = PathBuf>,
+) -> io::Result<()> {
+    // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
+    // perfect as some special characters can't be escaped.
+    fn munge(p: &Path) -> String {
+        let s = p.to_string_lossy();
+        let mut res = String::with_capacity(s.len());
+        let mut slashes = 0;
+        for c in s.chars() {
+            match c {
+                '\\' => slashes += 1,
+                '$' => {
+                    res.push('$');
+                    slashes = 0;
+                }
+                ' ' | '\t' => {
+                    // `munge`'s source contains a comment here that says: "A
+                    // space or tab preceded by 2N+1 backslashes represents N
+                    // backslashes followed by space..."
+                    res.push_str(&"\\".repeat(slashes + 1));
+                    slashes = 0;
+                }
+                '#' => {
+                    res.push('\\');
+                    slashes = 0;
+                }
+                _ => slashes = 0,
+            };
+            res.push(c);
+        }
+        res
+    }
+
+    let mut file = File::create(makefile_deps_path)?;
+    file.write_all(munge(output).as_bytes())?;
+    file.write_all(b":")?;
+    for dependency in dependencies {
+        file.write_all(b" ")?;
+        file.write_all(munge(&dependency).as_bytes())?;
+    }
+    file.write_all(b"\n")?;
+    Ok(())
 }
 
 /// Opens the given file using:

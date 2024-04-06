@@ -16,7 +16,9 @@ use std::cell::Cell;
 use std::io::{self, Write};
 use std::process::ExitCode;
 
-use clap::Parser;
+use args::{Input, Output};
+use clap::error::ErrorKind;
+use clap::{CommandFactory, Parser};
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use once_cell::sync::Lazy;
@@ -30,7 +32,32 @@ thread_local! {
 }
 
 /// The parsed commandline arguments.
-static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
+static ARGS: Lazy<CliArguments> = Lazy::new(|| {
+    let args = CliArguments::parse();
+
+    // Validate the combination of input, output, and makefile_deps. There may
+    // be a more elegant way to do this once the following issue is addressed:
+    // https://github.com/clap-rs/clap/issues/3008. Don't change this without
+    // ensuring it won't break the use of makefile_deps in compile.rs
+    let (Command::Compile(ref command) | Command::Watch(ref command)) = args.command
+    else {
+        return args;
+    };
+    if command.makefile_deps.is_none()
+        || matches!(
+            (&command.common.input, &command.output),
+            (Input::Path(_), Some(Output::Path(_)))
+        )
+    {
+        return args;
+    }
+    CliArguments::command()
+        .error(
+            ErrorKind::ArgumentConflict,
+            "use of --makefile-deps requires INPUT and OUTPUT paths",
+        )
+        .exit()
+});
 
 /// Entry point.
 fn main() -> ExitCode {
