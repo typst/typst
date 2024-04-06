@@ -301,7 +301,7 @@ pub fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
                 'a'..='z' | 'ı' | 'ȷ' | 'A'..='Z' | 'α'..='ω' |
                 '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
             )
-            && variant != Bb,
+            && matches!(variant, Sans | Serif),
     );
 
     if let Some(c) = basic_exception(c) {
