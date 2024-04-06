@@ -9,5 +9,5 @@
             "extraNixConfig": "experimental-features = nix-command flakes"
         }
     },
-    "postCreateCommand": "sudo apt update; sudo apt install -y acl; sudo setfacl -k /tmp"
+    "postCreateCommand": "sudo apt update; sudo apt install -y acl pkg-config; sudo setfacl -k /tmp"
 }
