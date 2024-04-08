@@ -231,8 +231,8 @@ The body of a loop can be a code or content block:
 - `{while condition [..]}`
 
 ## Fields
-You can use the `fields` function to list the fields of a value and you can
-use _dot notation_ to access fields on a value.
+You can use _dot notation_ to access fields on a value. For values of type
+`content`, you can also use the `fields` function to list the fields.
 
 The value in question can be either:
 - a [dictionary] that has the specified key,
