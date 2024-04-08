@@ -894,7 +894,7 @@ fn linebreak_optimized<'a>(
     let mut lines = Vec::with_capacity(16);
     breakpoints(p, |end, breakpoint| {
         let k = table.len();
-        let eof = end == p.bidi.text.len();
+        let is_end = end == p.bidi.text.len();
         let mut best: Option<Entry> = None;
 
         // Find the optimal predecessor.
@@ -946,7 +946,7 @@ fn linebreak_optimized<'a>(
                     active += 1;
                 }
                 MAX_COST
-            } else if breakpoint == Breakpoint::Mandatory || eof {
+            } else if breakpoint == Breakpoint::Mandatory || is_end {
                 // This is a mandatory break and the line is not overfull, so
                 // all breakpoints before this one become inactive since no line
                 // can span above the mandatory break.
@@ -964,7 +964,7 @@ fn linebreak_optimized<'a>(
             };
 
             // Penalize runts.
-            if k == i + 1 && eof {
+            if k == i + 1 && is_end {
                 cost += RUNT_COST;
             }
 
