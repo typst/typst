@@ -73,8 +73,8 @@ pub struct CompileCommand {
     pub output: Option<Output>,
 
     /// Output a Makefile rule describing the current compilation
-    #[clap(long = "makefile-deps", value_name = "PATH")]
-    pub makefile_deps: Option<PathBuf>,
+    #[clap(long = "make-deps", value_name = "PATH")]
+    pub make_deps: Option<PathBuf>,
 
     /// The format of the output file, inferred from the extension by default
     #[arg(long = "format", short = 'f')]

@@ -118,24 +118,7 @@ pub fn compile_once(
             print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
-            if let Some(ref makefile_deps) = command.makefile_deps {
-                // Validation in main.rs ensures --makefile-deps can only be
-                // specified when output is provided and is not stdout.
-                let Some(Output::Path(ref output)) = command.output else {
-                    unreachable!()
-                };
-                let root = world.root().to_path_buf();
-                create_makefile_deps(
-                    makefile_deps,
-                    output,
-                    world.dependencies().map(|dep| {
-                        dep.strip_prefix(&root).map(Path::to_path_buf).unwrap_or(dep)
-                    }),
-                )
-                .map_err(|err| {
-                    eco_format!("failed to create Makefile dependencies file ({err})")
-                })?;
-            }
+            write_make_deps(world, command)?;
 
             if let Some(open) = command.open.take() {
                 if let Output::Path(file) = command.output() {
@@ -354,17 +337,21 @@ impl ExportCache {
     }
 }
 
-/// Writes a Makefile rule describing the relationship between `output` and
-/// `dependencies` to `makefile_deps_path`.
-fn create_makefile_deps(
-    makefile_deps_path: &Path,
-    output: &Path,
-    dependencies: impl Iterator<Item = PathBuf>,
-) -> io::Result<()> {
+/// Writes a Makefile rule describing the relationship between the output and
+/// its dependencies to the path specified by the --make-deps argument, if it
+/// was provided.
+fn write_make_deps(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<()> {
+    let Some(ref make_deps_path) = command.make_deps else { return Ok(()) };
+    let Output::Path(output_path) = command.output() else {
+        bail!("failed to create make dependencies file because output was stdout")
+    };
+    let Ok(output_path) = output_path.into_os_string().into_string() else {
+        bail!("failed to create make dependencies file because output path was not valid unicode")
+    };
+
     // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
     // perfect as some special characters can't be escaped.
-    fn munge(p: &Path) -> String {
-        let s = p.to_string_lossy();
+    fn munge(s: &str) -> String {
         let mut res = String::with_capacity(s.len());
         let mut slashes = 0;
         for c in s.chars() {
@@ -394,15 +381,38 @@ fn create_makefile_deps(
         res
     }
 
-    let mut file = File::create(makefile_deps_path)?;
-    file.write_all(munge(output).as_bytes())?;
-    file.write_all(b":")?;
-    for dependency in dependencies {
-        file.write_all(b" ")?;
-        file.write_all(munge(&dependency).as_bytes())?;
+    fn write(
+        make_deps_path: &Path,
+        output_path: String,
+        root: PathBuf,
+        dependencies: impl Iterator<Item = PathBuf>,
+    ) -> io::Result<()> {
+        let mut file = File::create(make_deps_path)?;
+
+        file.write_all(munge(&output_path).as_bytes())?;
+        file.write_all(b":")?;
+        for dependency in dependencies {
+            let Some(dependency) =
+                dependency.strip_prefix(&root).unwrap_or(&dependency).to_str()
+            else {
+                // Silently skip paths that aren't valid unicode so we still
+                // produce a rule that will work for the other paths that can be
+                // processed.
+                continue;
+            };
+
+            file.write_all(b" ")?;
+            file.write_all(munge(dependency).as_bytes())?;
+        }
+        file.write_all(b"\n")?;
+
+        Ok(())
     }
-    file.write_all(b"\n")?;
-    Ok(())
+
+    write(make_deps_path, output_path, world.root().to_owned(), world.dependencies())
+        .map_err(|err| {
+            eco_format!("failed to create make dependencies file due to IO error ({err})")
+        })
 }
 
 /// Opens the given file using:
