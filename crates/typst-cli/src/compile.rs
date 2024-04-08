@@ -378,7 +378,9 @@ fn create_makefile_deps(
                     // `munge`'s source contains a comment here that says: "A
                     // space or tab preceded by 2N+1 backslashes represents N
                     // backslashes followed by space..."
-                    res.push_str(&"\\".repeat(slashes + 1));
+                    for _ in 0..slashes + 1 {
+                        res.push('\\');
+                    }
                     slashes = 0;
                 }
                 '#' => {
