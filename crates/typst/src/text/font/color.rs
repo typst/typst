@@ -9,16 +9,20 @@ use crate::text::TextItem;
 
 /// A SVG document with information about its dimensions
 pub struct SizedSvg {
+    /// The declared width of the SVG
     pub width: f32,
+    /// The declared height of the SVG
     pub height: f32,
+    /// The computed bounding box of the root element
     pub bbox: usvg::Rect,
+    /// The SVG document
     pub tree: Tree,
 }
 
-/// Retrieves and prepare the SVG document for a given glyph, if it exists.
+/// Retrieve and measure the SVG document for a given glyph, if it exists.
 ///
-/// This function decodes compressed SVG if needed, and computes a transform
-/// that can be used to render it correctly.
+/// This function decodes compressed SVG if needed, and computes dimensions
+/// of the glyph.
 pub fn get_svg_glyph<'a>(text: &'a TextItem, glyph: GlyphId) -> Option<SizedSvg> {
     let mut data = text.font.ttf().glyph_svg_image(glyph)?.data;
 

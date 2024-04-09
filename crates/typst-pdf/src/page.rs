@@ -821,31 +821,42 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
 
             let mut data = tree.to_string(&usvg::XmlOptions::default());
 
-            let width = bbox.width();
-            let height = bbox.height();
-            let left = bbox.left();
-            let top = bbox.top();
-            let bottom = bbox.bottom();
+            let width = bbox.width() as f64;
+            let height = bbox.height() as f64;
+            let left = bbox.left() as f64;
+            let top = bbox.top() as f64;
+            let bottom = bbox.bottom() as f64;
+            let upem = text.item.font.units_per_em();
 
-            fix_svg(&mut data);
+            // The SVG coordinates and the font coordinates are not the same:
+            // the Y axis is mirrored. But the origin of the axes are the same
+            // (which means that the horizontal axis in the SVG document
+            // corresponds to the baseline). See the reference for more details:
+            // https://learn.microsoft.com/en-us/typography/opentype/spec/svg#coordinate-systems-and-glyph-metrics
+            // If we used the SVG document as it is, svg2pdf would produce a
+            // cropped glyph (only what is under the baseline would be visible).
+            // So we need to embed the original SVG in another one that has the
+            // exact dimensions of the glyph, with a transform to make it fit.
+            // We also need to remove the viewBox, height and width attributes
+            // from the inner SVG, otherwise usvg takes into account these
+            // values to clip the embedded SVG.
+            make_svg_unsized(&mut data);
             let wrapper_svg = format!(
                 r#"
-            <svg
-                width="{width}"
-                height="{height}"
-                viewBox="0 0 {width} {height}"
-                xmlns="http://www.w3.org/2000/svg">
-                <g transform="matrix(1 0 0 1 {tx} {ty})">
-                  {inner}
-                </g>
-            </svg>
+                <svg
+                    width="{width}"
+                    height="{height}"
+                    viewBox="0 0 {width} {height}"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <g transform="matrix(1 0 0 1 {tx} {ty})">
+                    {inner}
+                    </g>
+                </svg>
             "#,
                 inner = data,
                 tx = -left,
                 ty = -top,
             );
-
-            let upem = text.item.font.units_per_em();
 
             (
                 Image::new(
@@ -856,8 +867,8 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
                     None,
                 )
                 .unwrap(),
-                Point::new(Abs::pt(left as f64 / upem), Abs::pt(bottom as f64 / upem)),
-                Axes::new(Abs::pt(width as f64 / upem), Abs::pt(height as f64 / upem)),
+                Point::new(Abs::pt(left / upem), Abs::pt(bottom / upem)),
+                Axes::new(Abs::pt(width / upem), Abs::pt(height / upem)),
             )
         } else {
             unreachable!("write_text guarantees that we can render all glyphs of this text run as emojis");
@@ -890,13 +901,17 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     ctx.content.end_text();
 }
 
-fn fix_svg(svg: &mut String) {
-    let mut s = unscanny::Scanner::new(&svg);
-    s.eat_until("<svg");
-    s.eat_if("<svg");
+/// Remove all size specifications (viewBox, width and height attributes) from a
+/// SVG document
+fn make_svg_unsized(svg: &mut String) {
     let mut viewbox_range = None;
     let mut width_range = None;
     let mut height_range = None;
+
+    let mut s = unscanny::Scanner::new(&svg);
+
+    s.eat_until("<svg");
+    s.eat_if("<svg");
     while !s.eat_if('>') {
         s.eat_whitespace();
         let start = s.cursor();
@@ -921,6 +936,9 @@ fn fix_svg(svg: &mut String) {
         }
     }
 
+    /// Because we will remove some attributes, other ranges may need to be shifted
+    /// This function returns a mutable reference to a range (a) if it should be shifted after
+    /// another range (b) was deleted
     fn should_shift<'a, 'b>(
         a: &'a mut Option<std::ops::Range<usize>>,
         b: &'b std::ops::Range<usize>,
@@ -950,7 +968,7 @@ fn fix_svg(svg: &mut String) {
         }
     }
 
-    // change the width
+    // remove the width attribute
     if let Some(range) = width_range {
         svg.replace_range(range.clone(), "");
 
@@ -961,7 +979,7 @@ fn fix_svg(svg: &mut String) {
         }
     }
 
-    // change the height
+    // remove the height attribute
     if let Some(range) = height_range {
         svg.replace_range(range, "");
     }
