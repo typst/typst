@@ -28,6 +28,7 @@ ciborium = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
 ecow = { workspace = true }
+flate2 = { workspace = true }
 fontdb = { workspace = true }
 hayagriva = { workspace = true }
 hypher = { workspace = true }

@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
+use crate::color::PaintEncode;
+use crate::extg::ExtGState;
+use crate::image::deferred_image;
+use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
@@ -8,6 +12,7 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use svg2pdf::usvg::TreeWriting;
 use ttf_parser::GlyphId;
 use typst::introspection::Meta;
 use typst::layout::{
@@ -15,16 +20,12 @@ use typst::layout::{
 };
 use typst::model::{Destination, Numbering};
 use typst::syntax::Span;
+use typst::text::color::SizedSvg;
 use typst::text::{Case, Font, Glyph, TextItem, TextItemView};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
-
-use crate::color::PaintEncode;
-use crate::extg::ExtGState;
-use crate::image::deferred_image;
-use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
@@ -720,7 +721,8 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     // If the text run contains either only emojis or normal text
     // we can render it directly
-    let tables = text.font.ttf().tables();
+    let ttf = text.font.ttf();
+    let tables = ttf.tables();
     let has_color_glyphs = tables.sbix.is_some()
         || tables.cbdt.is_some()
         || tables.svg.is_some()
@@ -730,8 +732,11 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         return;
     };
 
-    let is_emoji =
-        |g: &Glyph| text.font.ttf().glyph_raster_image(GlyphId(g.id), 160).is_some();
+    let is_emoji = |g: &Glyph| {
+        let glyph_id = GlyphId(g.id);
+        ttf.glyph_raster_image(glyph_id, 160).is_some()
+            || ttf.glyph_svg_image(glyph_id).is_some()
+    };
     let emoji_count = text.glyphs.iter().filter(|g| is_emoji(g)).count();
 
     if emoji_count == text.glyphs.len() {
@@ -783,13 +788,80 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     // so that the next call to ctx.set_font() will change the font
     // one that displays regular glyphs and not color glyphs
     ctx.state.font = None;
+
+    let ttf = text.item.font.ttf();
     for glyph in text.glyphs() {
         // artificially choose better resolutions of color glyphs, as they tend
         // to appear pixelated even at low zoom levels otherwise
         let ppem = 2.0 * text.item.size.to_f32() as f64;
-        let raster_image =
-            text.item.font.ttf().glyph_raster_image(GlyphId(glyph.id), ppem as u16)
-            .expect("write_text guarantees that we can render all glyphs of this text run as emojis");
+        let glyph_id = GlyphId(glyph.id);
+        let (image, pos, size) = if let Some(raster_image) =
+            ttf.glyph_raster_image(glyph_id, ppem as u16)
+        {
+            (
+                Image::new(
+                    raster_image.data.into(),
+                    typst::visualize::ImageFormat::Raster(
+                        typst::visualize::RasterFormat::Png,
+                    ),
+                    None,
+                )
+                .unwrap(),
+                Point::zero(),
+                // TODO: this should match the ratio of the image
+                // even if it is not square (with x being 1.0)
+                Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
+            )
+        } else if ttf.glyph_svg_image(glyph_id).is_some() {
+            let Some(SizedSvg { tree, bbox, .. }) =
+                typst::text::color_font::get_svg_glyph(text.item, glyph_id)
+            else {
+                continue;
+            };
+
+            let mut data = tree.to_string(&usvg::XmlOptions::default());
+
+            let width = bbox.width();
+            let height = bbox.height();
+            let left = bbox.left();
+            let top = bbox.top();
+            let bottom = bbox.bottom();
+
+            fix_svg(&mut data);
+            let wrapper_svg = format!(
+                r#"
+            <svg
+                width="{width}"
+                height="{height}"
+                viewBox="0 0 {width} {height}"
+                xmlns="http://www.w3.org/2000/svg">
+                <g transform="matrix(1 0 0 1 {tx} {ty})">
+                  {inner}
+                </g>
+            </svg>
+            "#,
+                inner = data,
+                tx = -left,
+                ty = -top,
+            );
+
+            let upem = text.item.font.units_per_em();
+
+            (
+                Image::new(
+                    wrapper_svg.as_bytes().into(),
+                    typst::visualize::ImageFormat::Vector(
+                        typst::visualize::VectorFormat::Svg,
+                    ),
+                    None,
+                )
+                .unwrap(),
+                Point::new(Abs::pt(left as f64 / upem), Abs::pt(bottom as f64 / upem)),
+                Axes::new(Abs::pt(width as f64 / upem), Abs::pt(height as f64 / upem)),
+            )
+        } else {
+            unreachable!("write_text guarantees that we can render all glyphs of this text run as emojis");
+        };
         let (font, index) = ctx.parent.color_font_map.get(
             &mut ctx.parent.alloc,
             &text.item.font,
@@ -797,27 +869,11 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             ppem,
             || {
                 let mut frame = Frame::new(
-                    // TODO: are these dimensions correct
-                    Axes::new(Abs::cm(1.0), Abs::cm(1.0)),
+                    // TODO: are these dimensions correct?
+                    Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
                     typst::layout::FrameKind::Soft,
                 );
-                frame.push(
-                    Point::zero(),
-                    FrameItem::Image(
-                        Image::new(
-                            raster_image.data.into(),
-                            typst::visualize::ImageFormat::Raster(
-                                typst::visualize::RasterFormat::Png,
-                            ),
-                            None,
-                        )
-                        .unwrap(),
-                        // TODO: this should match the ratio of the image
-                        // even if it is not square (with x being 1.0)
-                        Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
-                        Span::detached(),
-                    ),
-                );
+                frame.push(pos, FrameItem::Image(image, size, Span::detached()));
                 frame
             },
         );
@@ -832,6 +888,83 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
         ctx.content.show(Str(&[index]));
     }
     ctx.content.end_text();
+}
+
+fn fix_svg(svg: &mut String) {
+    let mut s = unscanny::Scanner::new(&svg);
+    s.eat_until("<svg");
+    s.eat_if("<svg");
+    let mut viewbox_range = None;
+    let mut width_range = None;
+    let mut height_range = None;
+    while !s.eat_if('>') {
+        s.eat_whitespace();
+        let start = s.cursor();
+        let attr_name = s.eat_until('=').trim();
+        s.eat(); // eat the equal
+        s.eat(); // eat the quote
+        let mut escaped = false;
+        while escaped || !s.eat_if('"') {
+            escaped = s.eat() == Some('\\');
+        }
+        match attr_name {
+            "viewBox" => {
+                viewbox_range = Some(start..s.cursor());
+            }
+            "width" => {
+                width_range = Some(start..s.cursor());
+            }
+            "height" => {
+                height_range = Some(start..s.cursor());
+            }
+            _ => {}
+        }
+    }
+
+    fn should_shift<'a, 'b>(
+        a: &'a mut Option<std::ops::Range<usize>>,
+        b: &'b std::ops::Range<usize>,
+    ) -> Option<&'a mut std::ops::Range<usize>> {
+        // Is a after b?
+        let is_after = a.as_ref().map(|r| r.start > b.end).unwrap_or(false);
+        if is_after {
+            a.as_mut()
+        } else {
+            None
+        }
+    }
+
+    // remove the viewBox attribute
+    if let Some(range) = viewbox_range {
+        svg.replace_range(range.clone(), "");
+
+        let shift = range.len();
+        if let Some(ref mut width_range) = should_shift(&mut width_range, &range) {
+            width_range.start -= shift;
+            width_range.end -= shift;
+        }
+
+        if let Some(ref mut height_range) = should_shift(&mut height_range, &range) {
+            height_range.start -= shift;
+            height_range.end -= shift;
+        }
+    }
+
+    // change the width
+    if let Some(range) = width_range {
+        svg.replace_range(range.clone(), "");
+
+        let shift = range.len();
+        if let Some(ref mut height_range) = should_shift(&mut height_range, &range) {
+            height_range.start -= shift;
+            height_range.end -= shift;
+        }
+    }
+
+    // change the height
+    if let Some(range) = height_range {
+        svg.replace_range(range, "");
+    }
 }
 
 // Encodes a text run (without any emoji) into the content stream

@@ -5,7 +5,7 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
-use typst::layout::{Abs, Axes, Ratio, Transform};
+use typst::layout::{Abs, Ratio, Transform};
 use typst::text::Font;
 use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
@@ -175,14 +175,14 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
                 let page_ref = ctx.alloc.bump();
                 // create a fake page context for write_frame
                 // we are only interested in the contents of the page
-                let size = Axes::new(Abs::pt(1.0), Abs::pt(1.0));
+                let size = emoji.image.size();
                 let mut page_ctx = PageContext::new(ctx, page_ref, size);
                 page_ctx.bottom = size.y.to_f32();
                 page_ctx.transform(Transform {
                     sx: Ratio::one(),
                     ky: Ratio::zero(),
                     kx: Ratio::zero(),
-                    sy: Ratio::new(-1.0),
+                    sy: size.aspect_ratio() * -1.0,
                     tx: Abs::zero(),
                     ty: size.y,
                 });

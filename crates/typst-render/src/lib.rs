@@ -1,12 +1,11 @@
 //! Rendering of Typst documents into raster images.
 
-use std::io::Read;
 use std::sync::Arc;
 
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use pixglyph::Bitmap;
-use resvg::tiny_skia::IntRect;
+use sk::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst::introspection::Meta;
@@ -14,12 +13,12 @@ use typst::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst::model::Document;
+use typst::text::color::SizedSvg;
 use typst::text::{Font, TextItem};
 use typst::visualize::{
     Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
     LineJoin, Paint, Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
 };
-use usvg::TreeParsing;
 
 /// Export a frame into a raster image.
 ///
@@ -254,59 +253,16 @@ fn render_svg_glyph(
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
-    let ts = &state.transform;
-    let mut data = text.font.ttf().glyph_svg_image(id)?.data;
-
-    // Decompress SVGZ.
-    let mut decoded = vec![];
-    if data.starts_with(&[0x1f, 0x8b]) {
-        let mut decoder = flate2::read::GzDecoder::new(data);
-        decoder.read_to_end(&mut decoded).ok()?;
-        data = &decoded;
-    }
-
-    // Parse XML.
-    let xml = std::str::from_utf8(data).ok()?;
-    let document = roxmltree::Document::parse(xml).ok()?;
-    let root = document.root_element();
-
-    // Parse SVG.
-    let opts = usvg::Options::default();
-    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-    tree.calculate_bounding_boxes();
-    let view_box = tree.view_box.rect;
-
-    // If there's no viewbox defined, use the em square for our scale
-    // transformation ...
-    let upem = text.font.units_per_em() as f32;
-    let (mut width, mut height) = (upem, upem);
-
-    // ... but if there's a viewbox or width, use that.
-    if root.has_attribute("viewBox") || root.has_attribute("width") {
-        width = view_box.width();
-    }
-
-    // Same as for width.
-    if root.has_attribute("viewBox") || root.has_attribute("height") {
-        height = view_box.height();
-    }
-
-    let size = text.size.to_f32();
-    let ts = ts.pre_scale(size / width, size / height);
-
-    // Compute the space we need to draw our glyph.
-    // See https://github.com/RazrFalcon/resvg/issues/602 for why
-    // using the svg size is problematic here.
-    let mut bbox = usvg::BBox::default();
-    if let Some(tree_bbox) = tree.root.bounding_box {
-        bbox = bbox.expand(tree_bbox);
-    }
+    let ts = state.transform;
+    let SizedSvg { width, height, bbox, tree } =
+        typst::text::color_font::get_svg_glyph(&text, id)?;
 
     // Compute the bbox after the transform is applied.
     // We add a nice 5px border along the bounding box to
-    // be on the safe size. We also compute the intersection
-    // with the canvas rectangle
-    let bbox = bbox.transform(ts)?.to_rect()?.round_out()?;
+    // be on the safe size.
+    let size = text.size.to_pt() as f32;
+    let ts = ts.pre_scale(size / width, size / height);
+    let bbox = bbox.transform(ts)?.round_out()?;
     let bbox = IntRect::from_xywh(
         bbox.left() - 5,
         bbox.y() - 5,

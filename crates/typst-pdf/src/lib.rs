@@ -501,7 +501,7 @@ impl ColorFontMap {
         instructions: F,
     ) -> (Ref, u8)
     where
-        F: Fn() -> Frame,
+        F: FnOnce() -> Frame,
     {
         let font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
