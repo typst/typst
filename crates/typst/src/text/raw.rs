@@ -443,6 +443,7 @@ impl ShowSet for Packed<RawElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
         out.set(TextElem::set_overhang(false));
+        out.set(TextElem::set_lang(Lang::ENGLISH));
         out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));

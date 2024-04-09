@@ -450,10 +450,10 @@ fn collect<'a>(
             let prev = full.len();
             let dir = TextElem::dir_in(styles);
             if dir != outer_dir {
-                // Insert "Explicit Directional Isolate".
+                // Insert "Explicit Directional Embedding".
                 match dir {
-                    Dir::LTR => full.push('\u{2066}'),
-                    Dir::RTL => full.push('\u{2067}'),
+                    Dir::LTR => full.push('\u{202A}'),
+                    Dir::RTL => full.push('\u{202B}'),
                     _ => {}
                 }
             }
@@ -465,8 +465,8 @@ fn collect<'a>(
             }
 
             if dir != outer_dir {
-                // Insert "Pop Directional Isolate".
-                full.push('\u{2069}');
+                // Insert "Pop Directional Formatting".
+                full.push('\u{202C}');
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<HElem>() {
