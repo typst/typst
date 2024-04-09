@@ -288,7 +288,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::LineComment => Some(Tag::Comment),
         SyntaxKind::BlockComment => Some(Tag::Comment),
         SyntaxKind::Error => Some(Tag::Error),
-        SyntaxKind::Eof => None,
+        SyntaxKind::End => None,
     }
 }
 

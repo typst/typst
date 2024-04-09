@@ -10,7 +10,7 @@ use typst::foundations::{
 };
 use typst::model::Document;
 use typst::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
+    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Side, Source, SyntaxKind,
 };
 use typst::text::RawElem;
 use typst::visualize::Color;
@@ -1033,7 +1033,7 @@ impl<'a> CompletionContext<'a> {
     ) -> Option<Self> {
         let text = source.text();
         let library = world.library();
-        let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
+        let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
         Some(Self {
             world,
             document,

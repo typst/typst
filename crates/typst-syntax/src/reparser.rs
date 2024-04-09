@@ -160,7 +160,7 @@ fn try_reparse(
         // Stop parsing early if this kind is encountered.
         let stop_kind = match parent_kind {
             Some(_) => SyntaxKind::RightBracket,
-            None => SyntaxKind::Eof,
+            None => SyntaxKind::End,
         };
 
         // Reparse!
