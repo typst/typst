@@ -492,3 +492,19 @@
 --- array-unclosed ---
 // Error: 3-4 unclosed delimiter
 #{(}
+
+--- array-append ---
+// Test the `append` method.
+#test(().append(), ())
+#test((1,).append(), (1,))
+#test((1,).append(()), (1,))
+#test(("a", "b", "c").append((1, 2, 3)), ("a", "b", "c", 1, 2, 3))
+#test(("a", "b", "c").append((1, 2, 3), (5, 6)), ("a", "b", "c", 1, 2, 3, 5, 6))
+
+--- array-append-wrong-input-1 ---
+// Error: 23-26 expected array, found string
+#(true, false).append("5")
+
+--- array-append-wrong-input-2 ---
+// Error: 20-21 expected array, found integer
+#("a", "b").append(1)

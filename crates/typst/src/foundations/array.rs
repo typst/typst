@@ -882,6 +882,30 @@ impl Array {
             })
             .collect()
     }
+
+    /// Takes arrays and creates a new array that sequentially contains
+    /// all the elements of the provided arrays.
+    ///
+    /// In other words, joins all provided lists onto the end of the first list.
+    ///
+    /// This function is variadic, meaning that you can append multiple
+    /// arrays at once: `{(1, 2).append(("A", "B"), (10, 20))}` returns
+    /// `{(1, 2, "A", "B", 10, 20)}`.
+    ///
+    #[func]
+    pub fn append(
+        mut self,
+        /// The arrays to append.
+        #[variadic]
+        others: Vec<Array>,
+    ) -> SourceResult<Array> {
+        self.0.reserve(others.iter().map(|x| x.0.len()).sum());
+        for array in others {
+            self.0.extend(array.0)
+        }
+
+        Ok(self)
+    }
 }
 
 /// A value that can be cast to bytes.
