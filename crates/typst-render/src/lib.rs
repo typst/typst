@@ -255,7 +255,7 @@ fn render_svg_glyph(
 ) -> Option<()> {
     let ts = state.transform;
     let SizedSvg { width, height, bbox, tree } =
-        typst::text::color_font::get_svg_glyph(&text, id)?;
+        typst::text::color_font::get_svg_glyph(text, id)?;
 
     // Compute the bbox after the transform is applied.
     // We add a nice 5px border along the bounding box to

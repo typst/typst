@@ -23,7 +23,7 @@ pub struct SizedSvg {
 ///
 /// This function decodes compressed SVG if needed, and computes dimensions
 /// of the glyph.
-pub fn get_svg_glyph<'a>(text: &'a TextItem, glyph: GlyphId) -> Option<SizedSvg> {
+pub fn get_svg_glyph(text: &TextItem, glyph: GlyphId) -> Option<SizedSvg> {
     let mut data = text.font.ttf().glyph_svg_image(glyph)?.data;
 
     // Decompress SVGZ.

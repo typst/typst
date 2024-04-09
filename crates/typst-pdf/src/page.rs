@@ -908,7 +908,7 @@ fn make_svg_unsized(svg: &mut String) {
     let mut width_range = None;
     let mut height_range = None;
 
-    let mut s = unscanny::Scanner::new(&svg);
+    let mut s = unscanny::Scanner::new(svg);
 
     s.eat_until("<svg");
     s.eat_if("<svg");
@@ -939,9 +939,9 @@ fn make_svg_unsized(svg: &mut String) {
     /// Because we will remove some attributes, other ranges may need to be shifted
     /// This function returns a mutable reference to a range (a) if it should be shifted after
     /// another range (b) was deleted
-    fn should_shift<'a, 'b>(
+    fn should_shift<'a>(
         a: &'a mut Option<std::ops::Range<usize>>,
-        b: &'b std::ops::Range<usize>,
+        b: &std::ops::Range<usize>,
     ) -> Option<&'a mut std::ops::Range<usize>> {
         // Is a after b?
         let is_after = a.as_ref().map(|r| r.start > b.end).unwrap_or(false);
