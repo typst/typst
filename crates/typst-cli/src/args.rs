@@ -72,6 +72,10 @@ pub struct CompileCommand {
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
 
+    /// Output a Makefile rule describing the current compilation
+    #[clap(long = "make-deps", value_name = "PATH")]
+    pub make_deps: Option<PathBuf>,
+
     /// The format of the output file, inferred from the extension by default
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,

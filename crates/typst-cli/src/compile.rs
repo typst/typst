@@ -1,6 +1,6 @@
-use std::fs;
-use std::io::Write;
-use std::path::Path;
+use std::fs::{self, File};
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -117,6 +117,8 @@ pub fn compile_once(
 
             print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+            write_make_deps(world, command)?;
 
             if let Some(open) = command.open.take() {
                 if let Output::Path(file) = command.output() {
@@ -333,6 +335,84 @@ impl ExportCache {
 
         cache.with_upgraded(|cache| std::mem::replace(&mut cache[i], hash) == hash)
     }
+}
+
+/// Writes a Makefile rule describing the relationship between the output and
+/// its dependencies to the path specified by the --make-deps argument, if it
+/// was provided.
+fn write_make_deps(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<()> {
+    let Some(ref make_deps_path) = command.make_deps else { return Ok(()) };
+    let Output::Path(output_path) = command.output() else {
+        bail!("failed to create make dependencies file because output was stdout")
+    };
+    let Ok(output_path) = output_path.into_os_string().into_string() else {
+        bail!("failed to create make dependencies file because output path was not valid unicode")
+    };
+
+    // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
+    // perfect as some special characters can't be escaped.
+    fn munge(s: &str) -> String {
+        let mut res = String::with_capacity(s.len());
+        let mut slashes = 0;
+        for c in s.chars() {
+            match c {
+                '\\' => slashes += 1,
+                '$' => {
+                    res.push('$');
+                    slashes = 0;
+                }
+                ' ' | '\t' => {
+                    // `munge`'s source contains a comment here that says: "A
+                    // space or tab preceded by 2N+1 backslashes represents N
+                    // backslashes followed by space..."
+                    for _ in 0..slashes + 1 {
+                        res.push('\\');
+                    }
+                    slashes = 0;
+                }
+                '#' => {
+                    res.push('\\');
+                    slashes = 0;
+                }
+                _ => slashes = 0,
+            };
+            res.push(c);
+        }
+        res
+    }
+
+    fn write(
+        make_deps_path: &Path,
+        output_path: String,
+        root: PathBuf,
+        dependencies: impl Iterator<Item = PathBuf>,
+    ) -> io::Result<()> {
+        let mut file = File::create(make_deps_path)?;
+
+        file.write_all(munge(&output_path).as_bytes())?;
+        file.write_all(b":")?;
+        for dependency in dependencies {
+            let Some(dependency) =
+                dependency.strip_prefix(&root).unwrap_or(&dependency).to_str()
+            else {
+                // Silently skip paths that aren't valid unicode so we still
+                // produce a rule that will work for the other paths that can be
+                // processed.
+                continue;
+            };
+
+            file.write_all(b" ")?;
+            file.write_all(munge(dependency).as_bytes())?;
+        }
+        file.write_all(b"\n")?;
+
+        Ok(())
+    }
+
+    write(make_deps_path, output_path, world.root().to_owned(), world.dependencies())
+        .map_err(|err| {
+            eco_format!("failed to create make dependencies file due to IO error ({err})")
+        })
 }
 
 /// Opens the given file using:
