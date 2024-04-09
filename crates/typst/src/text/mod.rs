@@ -37,10 +37,10 @@ use ttf_parser::Rect;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::Packed;
 use crate::foundations::{
-    cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
-    NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain,
+    cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
+    Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
@@ -462,48 +462,41 @@ pub struct TextElem {
     #[ghost]
     pub hyphenate: Hyphenate,
 
-    /// The "cost" of hyphenation when laying out text.
-    /// A higher cost means the layout engine will hyphenate less often.
-    /// Costs are specified as a ratio of the default cost,
-    /// so `50%` will make text layout twice as eager to hyphenate,
-    /// while `200%` (or 2) will make it half as eager.
+    /// The "cost" of various choices when laying out text. A higher cost means
+    /// the layout engine will make the choice less often. Costs are specified
+    /// as a ratio of the default cost, so `50%` will make text layout twice as
+    /// eager to make a given choice, while `200%` (or 2) will make it half as
+    /// eager.
     ///
-    /// Hyphenation is generally avoided by placing the whole word on the next line,
-    /// so a higher runt cost can result in awkward justification spacing.
+    /// Currently, the following costs can be customized:
+    /// - `hyphenation`: splitting a word across multiple lines
+    /// - `runt`: ending a paragraph with a line with a single word
+    /// - `widow`: leaving a single line of paragraph on the next page
+    /// - `orphan`: leaving single line of paragraph on the previous page
     ///
-    /// The default cost is an acceptable balance,
-    /// but some may find that it hyphenates too eagerly,
-    /// breaking the flow of dense prose.
-    /// A cost of 6 (six times the normal cost) may work better for such contexts.
-    pub hyphenation_cost: Option<Ratio>,
-
-    /// The "cost" of runts (lines with a single word) when laying out text.
-    /// A higher cost means the layout engine will try harder to avoid runts.
-    /// Costs are specified as a ratio of the default cost,
-    /// so `50%` will make text layout try half as hard to avoid runts,
-    /// while `200%` (or 2) will make it try twice as hard.
+    /// Hyphenation is generally avoided by placing the whole word on the next
+    /// line, so a higher hyphenation cost can result in awkward justification
+    /// spacing.
     ///
-    /// Runts are avoided by placing more or fewer words on previous lines,
-    /// so a higher runt cost can result in more awkward in justification spacing.
+    /// Runts are avoided by placing more or fewer words on previous lines, so a
+    /// higher runt cost can result in more awkward in justification spacing.
     ///
-    /// The default cost is an acceptable balance,
-    /// but some may find that it produces too many runts,
-    /// which some style guides strongly discourage.
-    /// A cost of 6 (six times the normal cost) may work better for such contexts.
-    pub runt_cost: Option<Ratio>,
-
-    /// Whether to prevent widows (single line of paragraph on the next page)
-    /// and orphans (single line of paragraph on the previous page).
+    /// Text layout prevents widows and orphans by default because they are
+    /// generally discouraged by style guides. However, in some contexts they
+    /// should not be avoided because the prevention method, which moves a line
+    /// to the next page, can result in an uneven number of lines between pages,
+    /// which leads to asymmetry and breaking the flow of dense prose. This
+    /// option allows disabling any such modification. (Currently, 0% disables
+    /// widow/orphan avoidance and anything else, including the default of
+    /// `auto`, enables it. More nuanced cost specification for these
+    /// modifications is planned for the future.)
     ///
-    /// Text layout prevents widows and orphans by default
-    /// because they are generally discouraged by style guides.
-    /// However, in some contexts they should not be avoided because
-    /// the prevention method, which moves a line to the next page,
-    /// can result in an uneven number of lines between pages,
-    /// which leads to asymmetry and breaking the flow of dense prose.
-    /// This option allows disabling any such modification.
-    #[default(true)]
-    pub prevent_widows_and_orphans: bool,
+    /// The default costs are an acceptable balance, but some may find that it
+    /// hyphenates or avoids runs too eagerly, breaking the flow of dense prose.
+    /// A cost of 600% (six times the normal cost) may work better for such
+    /// contexts.
+    #[fold]
+    pub costs: Costs,
 
     /// Whether to apply kerning.
     ///
@@ -1206,4 +1199,45 @@ impl Fold for WeightDelta {
     fn fold(self, outer: Self) -> Self {
         Self(outer.0 + self.0)
     }
+}
+
+/// Costs that are updated (prioritizing the later value) when folded.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[non_exhaustive] // We may add more costs in the future.
+pub struct Costs {
+    pub hyphenation: Smart<Ratio>,
+    pub runt: Smart<Ratio>,
+    pub widow: Smart<Ratio>,
+    pub orphan: Smart<Ratio>,
+}
+
+impl Fold for Costs {
+    fn fold(self, other: Self) -> Self {
+        Self {
+            hyphenation: other.hyphenation.or(self.hyphenation),
+            runt: other.runt.or(self.runt),
+            widow: other.widow.or(self.widow),
+            orphan: other.orphan.or(self.orphan),
+        }
+    }
+}
+
+cast! {
+    Costs,
+    self => dict![
+        "hyphenation" => self.hyphenation,
+        "runt" => self.runt,
+        "widow" => self.widow,
+        "orphan" => self.orphan,
+    ].into_value(),
+    mut v: Dict => {
+        let ret = Self {
+            hyphenation: v.take("hyphenation").ok().unwrap_or(Value::Auto).cast()?,
+            runt: v.take("runt").ok().unwrap_or(Value::Auto).cast()?,
+            widow: v.take("widow").ok().unwrap_or(Value::Auto).cast()?,
+            orphan: v.take("orphan").ok().unwrap_or(Value::Auto).cast()?,
+        };
+        v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
+        ret
+    },
 }

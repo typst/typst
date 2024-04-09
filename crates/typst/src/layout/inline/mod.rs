@@ -17,7 +17,7 @@ use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
-    Point, Regions, Size, Sizing, Spacing,
+    Point, Ratio, Regions, Size, Sizing, Spacing,
 };
 use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
@@ -116,11 +116,7 @@ struct Preparation<'a> {
     spans: SpanMapper,
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
-    /// See `linebreak_optimized` for the meaning of this cost parameter.
-    hyphenation_cost: Option<f64>,
-    /// See `linebreak_optimized` for the meaning of this cost parameter.
-    runt_cost: Option<f64>,
-    prevent_widows_and_orphans: bool,
+    costs: crate::text::Costs,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
@@ -634,23 +630,14 @@ fn prepare<'a>(
         add_cjk_latin_spacing(&mut items);
     }
 
+    let costs = TextElem::costs_in(styles);
+
     Ok(Preparation {
         bidi,
         items,
         spans,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
-        hyphenation_cost: shared_get(styles, children, TextElem::hyphenation_cost_in)
-            .flatten()
-            .map(|x| x.get()),
-        runt_cost: shared_get(styles, children, TextElem::runt_cost_in)
-            .flatten()
-            .map(|x| x.get()),
-        prevent_widows_and_orphans: shared_get(
-            styles,
-            children,
-            TextElem::prevent_widows_and_orphans_in,
-        )
-        .unwrap_or(true),
+        costs,
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
@@ -898,8 +885,8 @@ fn linebreak_optimized<'a>(
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
 
-    let hyph_cost = p.hyphenation_cost.unwrap_or(1.0) * DEFAULT_HYPH_COST;
-    let runt_cost = p.runt_cost.unwrap_or(1.0) * DEFAULT_RUNT_COST;
+    let hyph_cost = DEFAULT_HYPH_COST * p.costs.hyphenation.unwrap_or(Ratio::one()).get();
+    let runt_cost = DEFAULT_RUNT_COST * p.costs.runt.unwrap_or(Ratio::one()).get();
 
     // Dynamic programming table.
     let mut active = 0;
@@ -1241,14 +1228,17 @@ fn finalize(
         .map(|line| commit(engine, p, line, width, region.y))
         .collect::<SourceResult<_>>()?;
 
-    if p.prevent_widows_and_orphans {
+    // `auto` and positive ratios enable prevention, while zero and negative ratios disable it.
+    if !p.costs.orphan.is_custom_and(|cost| cost.get() <= 0.0) {
         // Prevent orphans.
         if frames.len() >= 2 && !frames[1].is_empty() {
             let second = frames.remove(1);
             let first = &mut frames[0];
             merge(first, second, p.leading);
         }
+    }
 
+    if !p.costs.widow.is_custom_and(|cost| cost.get() <= 0.0) {
         // Prevent widows.
         let len = frames.len();
         if len >= 2 && !frames[len - 2].is_empty() {

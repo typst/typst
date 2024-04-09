@@ -57,7 +57,7 @@ It's a #emph[Tree]beard.
 
 #sample
 #pagebreak()
-#set text(prevent-widows-and-orphans: false)
+#set text(costs: (widow: 0%, orphan: 0%))
 #sample
 
 ---
@@ -67,7 +67,7 @@ It's a #emph[Tree]beard.
 
 #sample
 #pagebreak()
-#set text(runt-cost: 10000%)
+#set text(costs: (runt: 10000%))
 #sample
 
 ---
@@ -78,7 +78,7 @@ It's a #emph[Tree]beard.
 
 #sample
 #pagebreak()
-#set text(runt-cost: 0%)
+#set text(costs: (runt: 0%))
 #sample
 
 ---
@@ -88,5 +88,20 @@ It's a #emph[Tree]beard.
 
 #sample
 #pagebreak()
-#set text(hyphenation-cost: 10000%)
+#set text(costs: (hyphenation: 10000%))
 #sample
+
+---
+// Error: 18-45 expected ratio or auto, found string
+#set text(costs: (hyphenation: "wrong type"))
+
+---
+// Error: 18-52 unexpected key "invalid-key", valid keys are "hyphenation", "runt", "widow", and "orphan"
+#set text(costs: (hyphenation: 1%, invalid-key: 3%))
+
+---
+#set text(costs: (hyphenation: 1%, runt: 2%))
+#set text(costs: (runt: auto, widow: 3%))
+#context {
+  assert.eq(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: auto))
+}
