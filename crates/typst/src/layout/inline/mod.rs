@@ -979,17 +979,6 @@ fn linebreak_optimized<'a>(
                 cost += hyph_cost;
             }
 
-            if pred
-                .line
-                .items()
-                .next()
-                .and_then(|item| item.text())
-                .and_then(|text| text.glyphs.first())
-                .map_or(false, |glyph| glyph.c == '—')
-            {
-                cost += 10.0;
-            }
-
             // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
             // where r is the ratio, p=50 is the penalty, and a=3000 is consecutive the penalty.
             // We divide the whole formula by 10, resulting (0.01 + |r|^3 + p)^2 + a,
