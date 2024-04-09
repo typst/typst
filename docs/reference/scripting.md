@@ -231,8 +231,11 @@ The body of a loop can be a code or content block:
 - `{while condition [..]}`
 
 ## Fields
-You can use _dot notation_ to access fields on a value. The value in question
-can be either:
+You can use _dot notation_ to access fields on a value. For values of type
+[`content`], you can also use the [`fields`]($content.fields) function to list
+the fields.
+
+The value in question can be either:
 - a [dictionary] that has the specified key,
 - a [symbol] that has the specified modifier,
 - a [module] containing the specified definition,
@@ -242,13 +245,15 @@ can be either:
   element was constructed.
 
 ```example
+#let it = [= Heading]
+#it.body \
+#it.depth \
+#it.fields()
+
 #let dict = (greet: "Hello")
 #dict.greet \
 #emoji.face
 
-#let it = [= Heading]
-#it.body \
-#it.depth
 ```
 
 ## Methods

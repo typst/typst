@@ -95,7 +95,7 @@ impl Lexer<'_> {
     pub fn next(&mut self) -> SyntaxKind {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
-                return SyntaxKind::Eof;
+                return SyntaxKind::End;
             };
             self.s.jump(end);
             return kind;
@@ -119,7 +119,7 @@ impl Lexer<'_> {
                 LexMode::Raw => unreachable!(),
             },
 
-            None => SyntaxKind::Eof,
+            None => SyntaxKind::End,
         }
     }
 

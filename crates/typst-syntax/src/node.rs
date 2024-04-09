@@ -303,7 +303,7 @@ impl SyntaxNode {
     /// In contrast to `default()`, this is a const fn.
     pub(super) const fn arbitrary() -> Self {
         Self(Repr::Leaf(LeafNode {
-            kind: SyntaxKind::Eof,
+            kind: SyntaxKind::End,
             text: EcoString::new(),
             span: Span::detached(),
         }))
