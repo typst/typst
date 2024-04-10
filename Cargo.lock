@@ -2525,6 +2525,7 @@ dependencies = [
  "comemo",
  "csv",
  "ecow",
+ "flate2",
  "fontdb",
  "hayagriva",
  "hypher",
@@ -2698,12 +2699,14 @@ dependencies = [
  "bytemuck",
  "comemo",
  "ecow",
+ "flate2",
  "image",
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
  "subsetter",
  "svg2pdf",
+ "tiny-skia",
  "ttf-parser",
  "typst",
  "typst-assets",
@@ -2711,6 +2714,7 @@ dependencies = [
  "typst-timing",
  "unicode-properties",
  "unscanny",
+ "usvg",
  "xmp-writer",
 ]
 
@@ -2720,7 +2724,6 @@ version = "0.11.0"
 dependencies = [
  "bytemuck",
  "comemo",
- "flate2",
  "image",
  "pixglyph",
  "resvg",
