@@ -906,6 +906,11 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
         }
 
         ctx.content.show(Str(&[index]));
+
+        let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
+        glyph_set
+            .entry(font.get() as u16 * 256 + index as u16)
+            .or_insert_with(|| text.text()[glyph.range()].into());
     }
     ctx.content.end_text();
 }

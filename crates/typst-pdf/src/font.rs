@@ -26,8 +26,9 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 #[typst_macros::time(name = "write fonts")]
 pub(crate) fn write_fonts(ctx: &mut PdfContext) {
     let emoji_font_map = ctx.color_font_map.take_map();
-    for (_font_info, font) in emoji_font_map {
+    for (font_info, font) in emoji_font_map {
         for (font_index, subfont_id) in font.refs.iter().enumerate() {
+            let cmap_ref = ctx.alloc.bump();
             let mut glyphs_to_instructions = BTreeMap::new();
 
             let start = font_index * 256;
@@ -84,6 +85,30 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             pdf_font.last_char(last);
             pdf_font
                 .widths(std::iter::repeat(1.0).take(last as usize - first as usize + 1));
+            pdf_font.to_unicode(cmap_ref);
+            pdf_font.finish();
+
+            // Encode a CMAP to make it possible to search or copy glyphs
+
+            // To avoid maintaining a separate glyph set structure for Type3
+            // fonts, a hack is used: the glyph ID is only in the
+            // less-significant byte (as there can only be 256 of them per
+            // font), the rest stores the Type3 font Ref.
+            let full_glyph_set = ctx.glyph_sets.get_mut(&font_info).unwrap();
+            // We retrieve only the part relevant for this font
+            let glyph_set = full_glyph_set
+                .iter()
+                .filter(|(k, _)| *k / 256 == subfont_id.get() as u16)
+                .map(|(k, v)| (k % 256, v));
+
+            // And we write it
+            let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
+            for (g, text) in glyph_set {
+                if !text.is_empty() {
+                    cmap.pair_with_multiple(g, text.chars());
+                }
+            }
+            ctx.pdf.cmap(cmap_ref, &cmap.finish());
         }
     }
 
