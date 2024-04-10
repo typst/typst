@@ -25,6 +25,68 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
 pub(crate) fn write_fonts(ctx: &mut PdfContext) {
+    let emoji_font_map = ctx.color_font_map.take_map();
+    for (_font_info, font) in emoji_font_map {
+        for (font_index, subfont_id) in font.refs.iter().enumerate() {
+            let mut glyphs_to_instructions = BTreeMap::new();
+
+            let start = font_index * 256;
+            let end = (start + 256).min(font.glyphs.len());
+            for (cid, emoji) in font.glyphs[start..end].iter().enumerate() {
+                let page_ref = ctx.alloc.bump();
+                // create a fake page context for write_frame
+                // we are only interested in the contents of the page
+                let size = emoji.image.size();
+                let mut page_ctx = PageContext::new(ctx, page_ref, size);
+                page_ctx.bottom = size.y.to_f32();
+                page_ctx.transform(Transform {
+                    sx: Ratio::one(),
+                    ky: Ratio::zero(),
+                    kx: Ratio::zero(),
+                    sy: size.aspect_ratio() * -1.0,
+                    tx: Abs::zero(),
+                    ty: size.y,
+                });
+                page_ctx.content.start_color_glyph(emoji.image.width().to_f32());
+                write_frame(&mut page_ctx, &emoji.image);
+                let stream = page_ctx.content.finish();
+                ctx.pdf.stream(page_ref, &stream);
+
+                glyphs_to_instructions.insert(cid, page_ref);
+            }
+
+            let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
+            // TODO: font descriptor
+            pdf_font.pair(Name(b"Resources"), ctx.global_resources_ref);
+            pdf_font.bbox(font.bbox);
+            pdf_font.matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+            let mut char_procs = pdf_font.char_procs();
+            for (gid, instructions_ref) in &glyphs_to_instructions {
+                char_procs
+                    .pair(Name(eco_format!("glyph{gid}").as_bytes()), *instructions_ref);
+            }
+            char_procs.finish();
+
+            let mut encoding = pdf_font.encoding_custom();
+            let mut differences = encoding.differences();
+            for gid in glyphs_to_instructions.keys() {
+                differences.consecutive(
+                    *gid as u8,
+                    vec![Name(eco_format!("glyph{gid}").as_bytes())],
+                );
+            }
+            differences.finish();
+            encoding.finish();
+
+            let first = 0;
+            let last = (end - 1 - start) as u8;
+            pdf_font.first_char(first);
+            pdf_font.last_char(last);
+            pdf_font
+                .widths(std::iter::repeat(1.0).take(last as usize - first as usize + 1));
+        }
+    }
+
     for font in ctx.font_map.items() {
         let type0_ref = ctx.alloc.bump();
         let cid_ref = ctx.alloc.bump();
@@ -162,68 +224,6 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         }
 
         stream.finish();
-    }
-
-    let emoji_font_map = ctx.color_font_map.take_map();
-    for (_font_info, font) in emoji_font_map {
-        for (font_index, subfont_id) in font.refs.iter().enumerate() {
-            let mut glyphs_to_instructions = BTreeMap::new();
-
-            let start = font_index * 256;
-            let end = (start + 256).min(font.glyphs.len());
-            for (cid, emoji) in font.glyphs[start..end].iter().enumerate() {
-                let page_ref = ctx.alloc.bump();
-                // create a fake page context for write_frame
-                // we are only interested in the contents of the page
-                let size = emoji.image.size();
-                let mut page_ctx = PageContext::new(ctx, page_ref, size);
-                page_ctx.bottom = size.y.to_f32();
-                page_ctx.transform(Transform {
-                    sx: Ratio::one(),
-                    ky: Ratio::zero(),
-                    kx: Ratio::zero(),
-                    sy: size.aspect_ratio() * -1.0,
-                    tx: Abs::zero(),
-                    ty: size.y,
-                });
-                page_ctx.content.start_color_glyph(emoji.image.width().to_f32());
-                write_frame(&mut page_ctx, &emoji.image);
-                let stream = page_ctx.content.finish();
-                ctx.pdf.stream(page_ref, &stream);
-
-                glyphs_to_instructions.insert(cid, page_ref);
-            }
-
-            let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
-            // TODO: font descriptor
-            pdf_font.pair(Name(b"Resources"), ctx.global_resources_ref);
-            pdf_font.bbox(font.bbox);
-            pdf_font.matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
-            let mut char_procs = pdf_font.char_procs();
-            for (gid, instructions_ref) in &glyphs_to_instructions {
-                char_procs
-                    .pair(Name(eco_format!("glyph{gid}").as_bytes()), *instructions_ref);
-            }
-            char_procs.finish();
-
-            let mut encoding = pdf_font.encoding_custom();
-            let mut differences = encoding.differences();
-            for gid in glyphs_to_instructions.keys() {
-                differences.consecutive(
-                    *gid as u8,
-                    vec![Name(eco_format!("glyph{gid}").as_bytes())],
-                );
-            }
-            differences.finish();
-            encoding.finish();
-
-            let first = 0;
-            let last = (end - 1 - start) as u8;
-            pdf_font.first_char(first);
-            pdf_font.last_char(last);
-            pdf_font
-                .widths(std::iter::repeat(1.0).take(last as usize - first as usize + 1));
-        }
     }
 }
 
