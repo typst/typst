@@ -88,7 +88,7 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let root_id = ctx.alloc.bump();
     let start_ref = ctx.alloc;
 
-    write_bookmark(ctx, root_id, &mut tree, &mut vec![]);
+    write_bookmark(ctx, root_id, &tree, &mut vec![]);
 
     ctx.pdf
         .outline(root_id)
@@ -162,7 +162,7 @@ fn write_outline_item(
         node.element.numbering().as_ref()
     {
         // Apply the numbering pattern to `numbers` and concatenate with the node's element body
-        format!("{} {}", pattern.apply(&numbers), node.element.body().plain_text().trim())
+        format!("{} {}", pattern.apply(numbers), node.element.body().plain_text().trim())
     } else {
         // Fallback if no numbering pattern is present; adjust as necessary
         node.element.body().plain_text().trim().to_string()
@@ -190,10 +190,10 @@ fn write_outline_item(
 }
 
 // write bookmark with number
-fn write_bookmark<'a>(
+fn write_bookmark(
     ctx: &mut PdfContext,
     root_id: Ref,
-    nodes: &[HeadingNode<'a>],
+    nodes: &[HeadingNode],
     numbers: &mut Vec<usize>,
 ) {
     let len = nodes.len();
