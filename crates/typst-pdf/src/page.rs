@@ -803,7 +803,6 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             ppem,
             || {
                 let mut frame = Frame::new(
-                    // TODO: are these dimensions correct?
                     Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
                     typst::layout::FrameKind::Soft,
                 );
@@ -820,9 +819,8 @@ fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
                     )
                     .unwrap();
                     let position = Point::zero();
-                    // TODO: this should match the ratio of the image
-                    // even if it is not square (with x being 1.0)
-                    let size = Axes::new(Abs::pt(1.0), Abs::pt(1.0));
+                    let y = image.width() / image.height();
+                    let size = Axes::new(Abs::pt(1.0), Abs::pt(y));
                     frame.push(position, FrameItem::Image(image, size, Span::detached()));
                 } else if ttf.glyph_svg_image(glyph_id).is_some() {
                     let Some(SizedSvg { tree, bbox, .. }) =

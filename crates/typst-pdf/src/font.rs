@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
+use pdf_writer::writers::FontDescriptor;
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
 use typst::layout::{Abs, Ratio, Transform};
@@ -29,6 +30,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
     for (font_info, font) in emoji_font_map {
         for (font_index, subfont_id) in font.refs.iter().enumerate() {
             let cmap_ref = ctx.alloc.bump();
+            let descriptor_ref = ctx.alloc.bump();
             let mut glyphs_to_instructions = BTreeMap::new();
 
             let start = font_index * 256;
@@ -86,6 +88,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             pdf_font
                 .widths(std::iter::repeat(1.0).take(last as usize - first as usize + 1));
             pdf_font.to_unicode(cmap_ref);
+            pdf_font.font_descriptor(descriptor_ref);
             pdf_font.finish();
 
             // Encode a CMAP to make it possible to search or copy glyphs
@@ -109,6 +112,16 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
                 }
             }
             ctx.pdf.cmap(cmap_ref, &cmap.finish());
+
+            let postscript_name = font_info
+                .find_name(name_id::POST_SCRIPT_NAME)
+                .unwrap_or_else(|| "unknown".to_string());
+
+            let base_font = eco_format!("COLOR{font_index:x}+{postscript_name}");
+
+            let font_descriptor =
+                font_descriptor(&mut ctx.pdf, descriptor_ref, &font_info, &base_font);
+            font_descriptor.finish()
         }
     }
 
@@ -121,7 +134,6 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         ctx.font_refs.push(type0_ref);
 
         let glyph_set = ctx.glyph_sets.get_mut(font).unwrap();
-        let metrics = font.metrics();
         let ttf = font.ttf();
 
         // Do we have a TrueType or CFF font?
@@ -192,47 +204,6 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         width_writer.finish();
         cid.finish();
 
-        let mut flags = FontFlags::empty();
-        flags.set(FontFlags::SERIF, postscript_name.contains("Serif"));
-        flags.set(FontFlags::FIXED_PITCH, ttf.is_monospaced());
-        flags.set(FontFlags::ITALIC, ttf.is_italic());
-        flags.insert(FontFlags::SYMBOLIC);
-        flags.insert(FontFlags::SMALL_CAP);
-
-        let global_bbox = ttf.global_bounding_box();
-        let bbox = Rect::new(
-            font.to_em(global_bbox.x_min).to_font_units(),
-            font.to_em(global_bbox.y_min).to_font_units(),
-            font.to_em(global_bbox.x_max).to_font_units(),
-            font.to_em(global_bbox.y_max).to_font_units(),
-        );
-
-        let italic_angle = ttf.italic_angle().unwrap_or(0.0);
-        let ascender = metrics.ascender.to_font_units();
-        let descender = metrics.descender.to_font_units();
-        let cap_height = metrics.cap_height.to_font_units();
-        let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
-
-        // Write the font descriptor (contains metrics about the font).
-        let mut font_descriptor = ctx.pdf.font_descriptor(descriptor_ref);
-        font_descriptor
-            .name(Name(base_font.as_bytes()))
-            .flags(flags)
-            .bbox(bbox)
-            .italic_angle(italic_angle)
-            .ascent(ascender)
-            .descent(descender)
-            .cap_height(cap_height)
-            .stem_v(stem_v);
-
-        if is_cff {
-            font_descriptor.font_file3(data_ref);
-        } else {
-            font_descriptor.font_file2(data_ref);
-        }
-
-        font_descriptor.finish();
-
         // Write the /ToUnicode character map, which maps glyph ids back to
         // unicode codepoints to enable copying out of the PDF.
         let cmap = create_cmap(font, glyph_set);
@@ -249,7 +220,64 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         }
 
         stream.finish();
+
+        let mut font_descriptor =
+            font_descriptor(&mut ctx.pdf, descriptor_ref, font, &base_font);
+        if is_cff {
+            font_descriptor.font_file3(data_ref);
+        } else {
+            font_descriptor.font_file2(data_ref);
+        }
+        font_descriptor.finish();
     }
+}
+
+fn font_descriptor<'a>(
+    pdf: &'a mut pdf_writer::Pdf,
+    descriptor_ref: pdf_writer::Ref,
+    font: &'a Font,
+    base_font: &EcoString,
+) -> FontDescriptor<'a> {
+    let ttf = font.ttf();
+    let metrics = font.metrics();
+    let postscript_name = font
+        .find_name(name_id::POST_SCRIPT_NAME)
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let mut flags = FontFlags::empty();
+    flags.set(FontFlags::SERIF, postscript_name.contains("Serif"));
+    flags.set(FontFlags::FIXED_PITCH, ttf.is_monospaced());
+    flags.set(FontFlags::ITALIC, ttf.is_italic());
+    flags.insert(FontFlags::SYMBOLIC);
+    flags.insert(FontFlags::SMALL_CAP);
+
+    let global_bbox = ttf.global_bounding_box();
+    let bbox = Rect::new(
+        font.to_em(global_bbox.x_min).to_font_units(),
+        font.to_em(global_bbox.y_min).to_font_units(),
+        font.to_em(global_bbox.x_max).to_font_units(),
+        font.to_em(global_bbox.y_max).to_font_units(),
+    );
+
+    let italic_angle = ttf.italic_angle().unwrap_or(0.0);
+    let ascender = metrics.ascender.to_font_units();
+    let descender = metrics.descender.to_font_units();
+    let cap_height = metrics.cap_height.to_font_units();
+    let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
+
+    // Write the font descriptor (contains metrics about the font).
+    let mut font_descriptor = pdf.font_descriptor(descriptor_ref);
+    font_descriptor
+        .name(Name(base_font.as_bytes()))
+        .flags(flags)
+        .bbox(bbox)
+        .italic_angle(italic_angle)
+        .ascent(ascender)
+        .descent(descender)
+        .cap_height(cap_height)
+        .stem_v(stem_v);
+
+    font_descriptor
 }
 
 /// Subset a font to the given glyphs.
