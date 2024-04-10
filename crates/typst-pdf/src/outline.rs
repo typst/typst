@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use pdf_writer::{Finish, Ref, TextStr};
 use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
-use typst::model::HeadingElem;
+use typst::model::{HeadingElem, Numbering, Refable};
 
 use crate::{AbsExt, PdfContext};
 
@@ -87,12 +87,8 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 
     let root_id = ctx.alloc.bump();
     let start_ref = ctx.alloc;
-    let len = tree.len();
 
-    let mut prev_ref = None;
-    for (i, node) in tree.iter().enumerate() {
-        prev_ref = Some(write_outline_item(ctx, node, root_id, prev_ref, i + 1 == len));
-    }
+    write_bookmark(ctx, root_id, &mut tree, &mut vec![]);
 
     ctx.pdf
         .outline(root_id)
@@ -138,6 +134,7 @@ fn write_outline_item(
     node: &HeadingNode,
     parent_ref: Ref,
     prev_ref: Option<Ref>,
+    numbers: &mut Vec<usize>,
     is_last: bool,
 ) -> Ref {
     let id = ctx.alloc.bump();
@@ -160,8 +157,18 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    let body = node.element.body();
-    outline.title(TextStr(body.plain_text().trim()));
+    // Try to extract a `NumberingPattern` and apply it if possible, otherwise, fallback to a default body
+    let body = if let Some(Numbering::Pattern(pattern)) =
+        node.element.numbering().as_ref()
+    {
+        // Apply the numbering pattern to `numbers` and concatenate with the node's element body
+        format!("{} {}", pattern.apply(&numbers), node.element.body().plain_text().trim())
+    } else {
+        // Fallback if no numbering pattern is present; adjust as necessary
+        node.element.body().plain_text().trim().to_string()
+    };
+
+    outline.title(TextStr(&body));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
@@ -177,16 +184,34 @@ fn write_outline_item(
 
     outline.finish();
 
-    let mut prev_ref = None;
-    for (i, child) in node.children.iter().enumerate() {
-        prev_ref = Some(write_outline_item(
-            ctx,
-            child,
-            id,
-            prev_ref,
-            i + 1 == node.children.len(),
-        ));
-    }
+    write_bookmark(ctx, id, &node.children, numbers);
 
     id
+}
+
+// write bookmark with number
+fn write_bookmark<'a>(
+    ctx: &mut PdfContext,
+    root_id: Ref,
+    nodes: &[HeadingNode<'a>],
+    numbers: &mut Vec<usize>,
+) {
+    let len = nodes.len();
+    let mut prev_ref = None;
+    let mut start_number = 0;
+    let mut numbering_ref = None;
+
+    for (i, node) in nodes.iter().enumerate() {
+        if numbering_ref != node.element.numbering() {
+            numbering_ref = node.element.numbering();
+            start_number = 1;
+        }
+
+        numbers.push(start_number);
+
+        prev_ref =
+            Some(write_outline_item(ctx, node, root_id, prev_ref, numbers, i + 1 == len));
+        start_number += 1;
+        numbers.pop();
+    }
 }
