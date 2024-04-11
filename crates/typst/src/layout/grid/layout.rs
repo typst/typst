@@ -2692,6 +2692,10 @@ impl<'a> GridLayouter<'a> {
         height: Abs,
         y: usize,
     ) -> SourceResult<Frame> {
+        if !self.width.is_finite() {
+            bail!(self.span, "cannot create grid with infinite width");
+        }
+
         if !height.is_finite() {
             bail!(self.span, "cannot create grid with infinite height");
         }
