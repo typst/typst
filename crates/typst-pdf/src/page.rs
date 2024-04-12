@@ -142,15 +142,35 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
     // Write all of the functions used by the document.
     ctx.colors.write_functions(&mut ctx.pdf);
 
-    // Also write the resources for Type3 fonts, that only contains images
+    // Also write the resources for Type3 fonts, that only contains images,
+    // color spaces and regular fonts (COLR glyphs depend on them).
     let mut resources =
         ctx.pdf.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+
+    ctx.colors
+        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
+
     let mut images = resources.x_objects();
     for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
         let name = eco_format!("Im{}", im);
         images.pair(Name(name.as_bytes()), image_ref);
     }
     images.finish();
+
+    let mut fonts = resources.fonts();
+    for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
+        let name = eco_format!("F{}", f);
+        fonts.pair(Name(name.as_bytes()), font_ref);
+    }
+    fonts.finish();
+
+    let mut ext_gs_states = resources.ext_g_states();
+    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
+        let name = eco_format!("Gs{}", gs);
+        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
+    }
+    ext_gs_states.finish();
+
     resources.finish();
 }
 
