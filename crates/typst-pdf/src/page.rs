@@ -12,20 +12,17 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use svg2pdf::usvg::TreeWriting;
 use ttf_parser::GlyphId;
 use typst::introspection::Meta;
 use typst::layout::{
-    Abs, Axes, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
+    Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::{Destination, Numbering};
-use typst::syntax::Span;
-use typst::text::color::SizedSvg;
+use typst::text::color;
 use typst::text::{Case, Font, Glyph, TextItem, TextItemView};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
-    Color, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Rgb,
-    Shape,
+    FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
 
 /// Construct page objects.
@@ -803,7 +800,6 @@ fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     // one that displays regular glyphs and not color glyphs
     ctx.state.font = None;
 
-    let ttf = text.item.font.ttf();
     for glyph in text.glyphs() {
         // artificially choose better resolutions of color glyphs, as they tend
         // to appear pixelated even at low zoom levels otherwise
@@ -813,99 +809,7 @@ fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             &text.item.font,
             glyph.id,
             ppem,
-            || {
-                let mut frame = Frame::new(
-                    Axes::new(Abs::pt(1.0), Abs::pt(1.0)),
-                    typst::layout::FrameKind::Soft,
-                );
-
-                let glyph_id = GlyphId(glyph.id);
-                if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, ppem as u16)
-                {
-                    let image = Image::new(
-                        raster_image.data.into(),
-                        typst::visualize::ImageFormat::Raster(
-                            typst::visualize::RasterFormat::Png,
-                        ),
-                        None,
-                    )
-                    .unwrap();
-                    let position = Point::zero();
-                    let y = image.width() / image.height();
-                    let size = Axes::new(Abs::pt(1.0), Abs::pt(y));
-                    frame.push(position, FrameItem::Image(image, size, Span::detached()));
-                } else if ttf.glyph_svg_image(glyph_id).is_some() {
-                    let Some(SizedSvg { tree, bbox, .. }) =
-                        typst::text::color_font::get_svg_glyph(text.item, glyph_id)
-                    else {
-                        // Return an empty frame if we were not able to
-                        // parse and measure the SVG
-                        return frame;
-                    };
-
-                    let mut data = tree.to_string(&usvg::XmlOptions::default());
-
-                    let width = bbox.width() as f64;
-                    let height = bbox.height() as f64;
-                    let left = bbox.left() as f64;
-                    let top = bbox.top() as f64;
-                    let bottom = bbox.bottom() as f64;
-                    let upem = text.item.font.units_per_em();
-
-                    // The SVG coordinates and the font coordinates are not the same:
-                    // the Y axis is mirrored. But the origin of the axes are the same
-                    // (which means that the horizontal axis in the SVG document
-                    // corresponds to the baseline). See the reference for more details:
-                    // https://learn.microsoft.com/en-us/typography/opentype/spec/svg#coordinate-systems-and-glyph-metrics
-                    // If we used the SVG document as it is, svg2pdf would produce a
-                    // cropped glyph (only what is under the baseline would be visible).
-                    // So we need to embed the original SVG in another one that has the
-                    // exact dimensions of the glyph, with a transform to make it fit.
-                    // We also need to remove the viewBox, height and width attributes
-                    // from the inner SVG, otherwise usvg takes into account these
-                    // values to clip the embedded SVG.
-                    make_svg_unsized(&mut data);
-                    let wrapper_svg = format!(
-                        r#"
-                        <svg
-                            width="{width}"
-                            height="{height}"
-                            viewBox="0 0 {width} {height}"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <g transform="matrix(1 0 0 1 {tx} {ty})">
-                            {inner}
-                            </g>
-                        </svg>
-                    "#,
-                        inner = data,
-                        tx = -left,
-                        ty = -top,
-                    );
-
-                    let image = Image::new(
-                        wrapper_svg.as_bytes().into(),
-                        typst::visualize::ImageFormat::Vector(
-                            typst::visualize::VectorFormat::Svg,
-                        ),
-                        None,
-                    )
-                    .unwrap();
-                    let position =
-                        Point::new(Abs::pt(left / upem), Abs::pt(bottom / upem));
-                    let size = Axes::new(Abs::pt(width / upem), Abs::pt(height / upem));
-                    frame.push(position, FrameItem::Image(image, size, Span::detached()));
-                } else if ttf.is_color_glyph(glyph_id) {
-                    let mut painter = ColrPainter {
-                        text: text.item,
-                        frame: &mut frame,
-                        foreground: Color::BLACK,
-                        current_glyph: glyph_id,
-                    };
-                    ttf.paint_color_glyph(glyph_id, 0, &mut painter);
-                }
-
-                frame
-            },
+            || color::frame_for_glyph(&text, &glyph),
         );
         if last_font != Some(font.get()) {
             ctx.content.set_font(
@@ -923,143 +827,6 @@ fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             .or_insert_with(|| text.text()[glyph.range()].into());
     }
     ctx.content.end_text();
-}
-
-/// Remove all size specifications (viewBox, width and height attributes) from a
-/// SVG document
-fn make_svg_unsized(svg: &mut String) {
-    let mut viewbox_range = None;
-    let mut width_range = None;
-    let mut height_range = None;
-
-    let mut s = unscanny::Scanner::new(svg);
-
-    s.eat_until("<svg");
-    s.eat_if("<svg");
-    while !s.eat_if('>') {
-        s.eat_whitespace();
-        let start = s.cursor();
-        let attr_name = s.eat_until('=').trim();
-        s.eat(); // eat the equal
-        s.eat(); // eat the quote
-        let mut escaped = false;
-        while escaped || !s.eat_if('"') {
-            escaped = s.eat() == Some('\\');
-        }
-        match attr_name {
-            "viewBox" => {
-                viewbox_range = Some(start..s.cursor());
-            }
-            "width" => {
-                width_range = Some(start..s.cursor());
-            }
-            "height" => {
-                height_range = Some(start..s.cursor());
-            }
-            _ => {}
-        }
-    }
-
-    /// Because we will remove some attributes, other ranges may need to be shifted
-    /// This function returns a mutable reference to a range (a) if it should be shifted after
-    /// another range (b) was deleted
-    fn should_shift<'a>(
-        a: &'a mut Option<std::ops::Range<usize>>,
-        b: &std::ops::Range<usize>,
-    ) -> Option<&'a mut std::ops::Range<usize>> {
-        // Is a after b?
-        let is_after = a.as_ref().map(|r| r.start > b.end).unwrap_or(false);
-        if is_after {
-            a.as_mut()
-        } else {
-            None
-        }
-    }
-
-    // remove the viewBox attribute
-    if let Some(range) = viewbox_range {
-        svg.replace_range(range.clone(), "");
-
-        let shift = range.len();
-        if let Some(ref mut width_range) = should_shift(&mut width_range, &range) {
-            width_range.start -= shift;
-            width_range.end -= shift;
-        }
-
-        if let Some(ref mut height_range) = should_shift(&mut height_range, &range) {
-            height_range.start -= shift;
-            height_range.end -= shift;
-        }
-    }
-
-    // remove the width attribute
-    if let Some(range) = width_range {
-        svg.replace_range(range.clone(), "");
-
-        let shift = range.len();
-        if let Some(ref mut height_range) = should_shift(&mut height_range, &range) {
-            height_range.start -= shift;
-            height_range.end -= shift;
-        }
-    }
-
-    // remove the height attribute
-    if let Some(range) = height_range {
-        svg.replace_range(range, "");
-    }
-}
-struct ColrPainter<'f, 't> {
-    frame: &'f mut Frame,
-    /// The original text item
-    text: &'t TextItem,
-    current_glyph: GlyphId,
-    foreground: Color,
-}
-
-impl<'f, 't> ColrPainter<'f, 't> {
-    fn paint(&mut self, color: Color) {
-        self.frame.push(
-            // With images, the position corresponds to the top-left corner,
-            // but in the case of text it matches the baseline-left point.
-            // Here, we move the glyph one unit down to compensate for that.
-            Point::new(Abs::zero(), Abs::pt(1.0)),
-            FrameItem::Text(TextItem {
-                font: self.text.font.clone(),
-                size: Abs::pt(1.0),
-                fill: Paint::Solid(color),
-                stroke: None,
-                lang: self.text.lang,
-                text: self.text.text.clone(),
-                glyphs: vec![Glyph {
-                    id: self.current_glyph.0,
-                    x_advance: Em::zero(), // Advance is not relevant here as we will draw glyph on top of each other anyway
-                    x_offset: Em::zero(),  // Same
-                    range: 0..self.text.text.len() as u16,
-                    span: (Span::detached(), 0),
-                }],
-            }),
-        )
-    }
-}
-
-impl<'f, 't> ttf_parser::colr::Painter for ColrPainter<'f, 't> {
-    fn outline(&mut self, glyph_id: GlyphId) {
-        self.current_glyph = glyph_id;
-    }
-
-    fn paint_foreground(&mut self) {
-        self.paint(self.foreground)
-    }
-
-    fn paint_color(&mut self, color: ttf_parser::RgbaColor) {
-        let color = Color::Rgb(Rgb::new(
-            color.red as f32 / 255.0,
-            color.green as f32 / 255.0,
-            color.blue as f32 / 255.0,
-            color.alpha as f32 / 255.0,
-        ));
-        self.paint(color);
-    }
 }
 
 // Encodes a text run (without any color glyph) into the content stream

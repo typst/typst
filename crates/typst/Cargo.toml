@@ -69,6 +69,7 @@ unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
+unscanny = { workspace = true }
 usvg = { workspace = true }
 wasmi = { workspace = true }
 

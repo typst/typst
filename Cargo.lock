@@ -2572,6 +2572,7 @@ dependencies = [
  "unicode-math-class",
  "unicode-script",
  "unicode-segmentation",
+ "unscanny",
  "usvg",
  "wasmi",
 ]
