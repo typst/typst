@@ -1403,3 +1403,34 @@ impl<'a> CompletionContext<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use typst::eval::Tracer;
+
+    use super::autocomplete;
+    use crate::tests::TestWorld;
+
+    #[track_caller]
+    fn test(text: &str, cursor: usize, contains: &[&str], excludes: &[&str]) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world, &mut Tracer::new()).ok();
+        let (_, completions) =
+            autocomplete(&world, doc.as_ref(), &world.main, cursor, true)
+                .unwrap_or_default();
+
+        let labels: Vec<_> = completions.iter().map(|c| c.label.as_str()).collect();
+        for item in contains {
+            assert!(labels.contains(item), "{item:?} was not contained in {labels:?}");
+        }
+        for item in excludes {
+            assert!(!labels.contains(item), "{item:?} was not excluded in {labels:?}");
+        }
+    }
+
+    #[test]
+    fn test_autocomplete() {
+        test("#i", 2, &["int", "if conditional"], &["foo"]);
+        test("#().", 4, &["insert", "remove", "len", "all"], &["foo"]);
+    }
+}
