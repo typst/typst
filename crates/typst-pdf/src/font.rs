@@ -26,8 +26,8 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
 pub(crate) fn write_fonts(ctx: &mut PdfContext) {
-    let emoji_font_map = ctx.color_font_map.take_map();
-    for (font_info, font) in emoji_font_map {
+    let color_font_map = ctx.color_font_map.take_map();
+    for (font_info, font) in color_font_map {
         for (font_index, subfont_id) in font.refs.iter().enumerate() {
             let cmap_ref = ctx.alloc.bump();
             let descriptor_ref = ctx.alloc.bump();
@@ -35,11 +35,11 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
 
             let start = font_index * 256;
             let end = (start + 256).min(font.glyphs.len());
-            for (cid, emoji) in font.glyphs[start..end].iter().enumerate() {
+            for (cid, color_glyph) in font.glyphs[start..end].iter().enumerate() {
                 let page_ref = ctx.alloc.bump();
                 // create a fake page context for write_frame
                 // we are only interested in the contents of the page
-                let size = emoji.image.size();
+                let size = color_glyph.image.size();
                 let mut page_ctx = PageContext::new(ctx, page_ref, size);
                 page_ctx.bottom = size.y.to_f32();
                 page_ctx.content.start_color_glyph(1.0);
@@ -51,7 +51,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
                     tx: Abs::zero(),
                     ty: size.y,
                 });
-                write_frame(&mut page_ctx, &emoji.image);
+                write_frame(&mut page_ctx, &color_glyph.image);
                 let stream = page_ctx.content.finish();
                 ctx.pdf.stream(page_ref, &stream);
 

@@ -135,7 +135,7 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
-    /// Deduplicates emojis
+    /// Deduplicates color glyphs
     color_font_map: ColorFontMap,
 
     /// A sorted list of all named destinations.
@@ -524,25 +524,26 @@ impl ColorFontMap {
             ColorFont { bbox, refs: Vec::new(), glyphs: Vec::new() }
         });
 
-        let index = match font.glyphs.iter().position(|emoji| emoji.gid == glyph) {
-            // If we already know this glyph, at requested resolution (or better)
-            // return it
-            Some(index_of_glyph) if font.glyphs[index_of_glyph].width >= width => {
-                return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
-            }
-            // If we already know it but at a lower resolution, overwrite it with the high-res version
-            Some(index_of_glyph) => index_of_glyph,
-            // Otherwise, allocate a new Emoji in the font, and a new Type3 font if needed
-            None => {
-                let new_index = font.glyphs.len();
-                if new_index % 256 == 0 {
-                    let new_ref = alloc.bump();
-                    self.all_refs.push(new_ref);
-                    font.refs.push(new_ref);
+        let index =
+            match font.glyphs.iter().position(|color_glyph| color_glyph.gid == glyph) {
+                // If we already know this glyph, at requested resolution (or better)
+                // return it
+                Some(index_of_glyph) if font.glyphs[index_of_glyph].width >= width => {
+                    return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
                 }
-                new_index
-            }
-        };
+                // If we already know it but at a lower resolution, overwrite it with the high-res version
+                Some(index_of_glyph) => index_of_glyph,
+                // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font if needed
+                None => {
+                    let new_index = font.glyphs.len();
+                    if new_index % 256 == 0 {
+                        let new_ref = alloc.bump();
+                        self.all_refs.push(new_ref);
+                        font.refs.push(new_ref);
+                    }
+                    new_index
+                }
+            };
 
         font.glyphs
             .insert(index, ColorGlyph { gid: glyph, width, image: instructions() });

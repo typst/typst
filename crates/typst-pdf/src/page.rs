@@ -731,10 +731,11 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
-    // If the text run contains either only emojis or normal text
-    // we can render it directly
     let ttf = text.font.ttf();
     let tables = ttf.tables();
+
+    // If the text run contains either only color glyphs (used for emojis for
+    // example) or normal text we can render it directly
     let has_color_glyphs = tables.sbix.is_some()
         || tables.cbdt.is_some()
         || tables.svg.is_some()
@@ -744,17 +745,17 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         return;
     };
 
-    let is_emoji = |g: &Glyph| {
+    let is_color_glyph = |g: &Glyph| {
         let glyph_id = GlyphId(g.id);
         ttf.glyph_raster_image(glyph_id, 160).is_some()
             || ttf.glyph_svg_image(glyph_id).is_some()
             || ttf.is_color_glyph(glyph_id)
     };
-    let emoji_count = text.glyphs.iter().filter(|g| is_emoji(g)).count();
+    let color_glyph_count = text.glyphs.iter().filter(|g| is_color_glyph(g)).count();
 
-    if emoji_count == text.glyphs.len() {
-        write_emojis(ctx, pos, TextItemView::all_of(text));
-    } else if emoji_count == 0 {
+    if color_glyph_count == text.glyphs.len() {
+        write_color_glyphs(ctx, pos, TextItemView::all_of(text));
+    } else if color_glyph_count == 0 {
         write_normal_text(ctx, pos, TextItemView::all_of(text));
     } else {
         // Otherwise we need to split it in smaller text runs
@@ -763,13 +764,13 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         while offset < text.glyphs.len() {
             // Start a new text run where the last one ended
             let start = offset;
-            // Determine if this is an emoji-only or a text-only run
-            let in_emoji_group = is_emoji(&text.glyphs[start]);
+            // Determine if this is a color-only or a text-only run
+            let in_colored_group = is_color_glyph(&text.glyphs[start]);
             // Determine the index of the last glyph of the run
             let end = start
                 + text.glyphs[start..]
                     .iter()
-                    .position(|g| is_emoji(g) != in_emoji_group)
+                    .position(|g| is_color_glyph(g) != in_colored_group)
                     .unwrap_or(text.glyphs.len() - start);
 
             // Build a sub text-run
@@ -779,9 +780,9 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             let pos = pos + Point::new(position_in_run, Abs::zero());
             position_in_run += text_item_view.width();
             offset = end;
-            // Actually write the text or emojis
-            if in_emoji_group {
-                write_emojis(ctx, pos, text_item_view);
+            // Actually write the sub text-run
+            if in_colored_group {
+                write_color_glyphs(ctx, pos, text_item_view);
             } else {
                 write_normal_text(ctx, pos, text_item_view);
             }
@@ -789,8 +790,8 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     }
 }
 
-// Encodes a text run made only of emojis into the content stream
-fn write_emojis(ctx: &mut PageContext, pos: Point, text: TextItemView) {
+// Encodes a text run made only of color glyphs into the content stream
+fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -1061,7 +1062,7 @@ impl<'f, 't> ttf_parser::colr::Painter for ColrPainter<'f, 't> {
     }
 }
 
-// Encodes a text run (without any emoji) into the content stream
+// Encodes a text run (without any color glyph) into the content stream
 fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
