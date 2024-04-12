@@ -144,6 +144,17 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
 
     // Write all of the functions used by the document.
     ctx.colors.write_functions(&mut ctx.pdf);
+
+    // Also write the resources for Type3 fonts, that only contains images
+    let mut resources =
+        ctx.pdf.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+    let mut images = resources.x_objects();
+    for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
+        let name = eco_format!("Im{}", im);
+        images.pair(Name(name.as_bytes()), image_ref);
+    }
+    images.finish();
+    resources.finish();
 }
 
 /// Write a page tree node.

@@ -100,6 +100,14 @@ struct PdfContext<'a> {
     page_tree_ref: Ref,
     /// The ID of the globally shared Resources dictionnary
     global_resources_ref: Ref,
+    /// The ID of the resource dictionnary shared by Type3 fonts
+    ///
+    /// Type3 fonts cannot use the global resources, as it would
+    /// create some kind of infinite recursion (they are themselves
+    /// present in that dictionnary), which Acrobat doesn't appreciate
+    /// (it fails to parse the font) even if the specification seems
+    /// to allow it.
+    type3_font_resources_ref: Ref,
     /// The IDs of written pages.
     page_refs: Vec<Ref>,
     /// The IDs of written fonts.
@@ -141,6 +149,7 @@ impl<'a> PdfContext<'a> {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         let global_resources_ref = alloc.bump();
+        let type3_font_resources_ref = alloc.bump();
         Self {
             document,
             pdf: Pdf::new(),
@@ -150,6 +159,7 @@ impl<'a> PdfContext<'a> {
             alloc,
             page_tree_ref,
             global_resources_ref,
+            type3_font_resources_ref,
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],

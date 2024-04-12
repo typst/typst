@@ -42,6 +42,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
                 let size = emoji.image.size();
                 let mut page_ctx = PageContext::new(ctx, page_ref, size);
                 page_ctx.bottom = size.y.to_f32();
+                page_ctx.content.start_color_glyph(1.0);
                 page_ctx.transform(Transform {
                     sx: Ratio::one(),
                     ky: Ratio::zero(),
@@ -50,7 +51,6 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
                     tx: Abs::zero(),
                     ty: size.y,
                 });
-                page_ctx.content.start_color_glyph(emoji.image.width().to_f32());
                 write_frame(&mut page_ctx, &emoji.image);
                 let stream = page_ctx.content.finish();
                 ctx.pdf.stream(page_ref, &stream);
@@ -59,8 +59,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             }
 
             let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
-            // TODO: font descriptor
-            pdf_font.pair(Name(b"Resources"), ctx.global_resources_ref);
+            pdf_font.pair(Name(b"Resources"), ctx.type3_font_resources_ref);
             pdf_font.bbox(font.bbox);
             pdf_font.matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
             let mut char_procs = pdf_font.char_procs();
