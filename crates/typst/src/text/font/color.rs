@@ -78,9 +78,9 @@ pub fn get_svg_glyph(text: &TextItem, glyph: GlyphId) -> Option<SizedSvg> {
 
 pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
     let ttf = text.item.font.ttf();
+    let upem = Abs::pt(ttf.units_per_em() as f64);
 
-    let mut frame =
-        Frame::new(Axes::new(Abs::pt(1.0), Abs::pt(1.0)), typst::layout::FrameKind::Soft);
+    let mut frame = Frame::new(Axes::new(upem, upem), typst::layout::FrameKind::Soft);
 
     let ppem = text.item.size.to_pt() * 2.0;
     let glyph_id = GlyphId(glyph.id);
@@ -92,8 +92,8 @@ pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
         )
         .unwrap();
         let position = Point::zero();
-        let y = image.width() / image.height();
-        let size = Axes::new(Abs::pt(1.0), Abs::pt(y));
+        let aspect_ratio = image.width() / image.height();
+        let size = Axes::new(upem, upem * aspect_ratio);
         frame.push(position, FrameItem::Image(image, size, Span::detached()));
     } else if ttf.glyph_svg_image(glyph_id).is_some() {
         let Some(SizedSvg { tree, bbox, .. }) =

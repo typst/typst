@@ -6,7 +6,7 @@ use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::writers::FontDescriptor;
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
-use typst::layout::{Abs, Ratio, Transform};
+use typst::layout::{Abs, Em, Ratio, Transform};
 use typst::text::Font;
 use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
@@ -35,14 +35,20 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
 
             let start = font_index * 256;
             let end = (start + 256).min(font.glyphs.len());
+            let mut widths = Vec::new();
             for (cid, color_glyph) in font.glyphs[start..end].iter().enumerate() {
                 let page_ref = ctx.alloc.bump();
+                let width = font_info
+                    .advance(color_glyph.gid)
+                    .unwrap_or(Em::new(1.0))
+                    .to_font_units();
+                widths.push(width);
                 // create a fake page context for write_frame
                 // we are only interested in the contents of the page
                 let size = color_glyph.image.size();
                 let mut page_ctx = PageContext::new(ctx, page_ref, size);
                 page_ctx.bottom = size.y.to_f32();
-                page_ctx.content.start_color_glyph(1.0);
+                page_ctx.content.start_color_glyph(width);
                 page_ctx.transform(Transform {
                     sx: Ratio::one(),
                     ky: Ratio::zero(),
@@ -61,7 +67,8 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
             pdf_font.pair(Name(b"Resources"), ctx.type3_font_resources_ref);
             pdf_font.bbox(font.bbox);
-            pdf_font.matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+            let scale_factor = font_info.ttf().units_per_em() as f32;
+            pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
             let mut char_procs = pdf_font.char_procs();
             for (gid, instructions_ref) in &glyphs_to_instructions {
                 char_procs
@@ -84,8 +91,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             let last = (end - 1 - start) as u8;
             pdf_font.first_char(first);
             pdf_font.last_char(last);
-            pdf_font
-                .widths(std::iter::repeat(1.0).take(last as usize - first as usize + 1));
+            pdf_font.widths(widths);
             pdf_font.to_unicode(cmap_ref);
             pdf_font.font_descriptor(descriptor_ref);
             pdf_font.finish();
