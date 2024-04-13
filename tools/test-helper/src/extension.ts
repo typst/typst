@@ -254,6 +254,7 @@ class TestHelper {
       "--",
       ...(this.scale != 1.0 ? ["--scale", `${this.scale}`] : []),
       "--exact",
+      "--verbose",
       name,
       ...(update ? ["--update"] : []),
     ]);

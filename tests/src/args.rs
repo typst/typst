@@ -7,7 +7,7 @@ pub struct CliArguments {
     /// The command to run.
     #[command(subcommand)]
     pub command: Option<Command>,
-    /// All the tests that contains the filter string will be run.
+    /// All the tests that contain the filter string will be run.
     pub filter: Vec<String>,
     /// Runs only the tests with the exact specified `filter` names.
     #[arg(short, long)]
@@ -33,7 +33,7 @@ pub struct CliArguments {
     #[arg(short, long)]
     pub verbose: bool,
     /// How many threads to spawn when running the tests.
-    #[arg(long)]
+    #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
 }
 
