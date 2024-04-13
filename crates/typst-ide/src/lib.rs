@@ -90,3 +90,88 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
     detail
 }
+
+#[cfg(test)]
+mod tests {
+    use comemo::Prehashed;
+    use once_cell::sync::Lazy;
+    use typst::diag::{FileError, FileResult};
+    use typst::foundations::{Bytes, Datetime};
+    use typst::syntax::{FileId, Source};
+    use typst::text::{Font, FontBook};
+    use typst::{Library, World};
+
+    /// A world for IDE testing.
+    pub struct TestWorld {
+        pub main: Source,
+        base: &'static TestBase,
+    }
+
+    impl TestWorld {
+        /// Create a new world for a single test.
+        ///
+        /// This is cheap because the shared base for all test runs is lazily
+        /// initialized just once.
+        pub fn new(text: &str) -> Self {
+            static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
+            let main = Source::detached(text);
+            Self { main, base: &*BASE }
+        }
+    }
+
+    impl World for TestWorld {
+        fn library(&self) -> &Prehashed<Library> {
+            &self.base.library
+        }
+
+        fn book(&self) -> &Prehashed<FontBook> {
+            &self.base.book
+        }
+
+        fn main(&self) -> Source {
+            self.main.clone()
+        }
+
+        fn source(&self, id: FileId) -> FileResult<Source> {
+            if id == self.main.id() {
+                Ok(self.main.clone())
+            } else {
+                Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            }
+        }
+
+        fn file(&self, id: FileId) -> FileResult<Bytes> {
+            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+        }
+
+        fn font(&self, index: usize) -> Option<Font> {
+            Some(self.base.fonts[index].clone())
+        }
+
+        fn today(&self, _: Option<i64>) -> Option<Datetime> {
+            None
+        }
+    }
+
+    /// Shared foundation of all test worlds.
+    struct TestBase {
+        library: Prehashed<Library>,
+        book: Prehashed<FontBook>,
+        fonts: Vec<Font>,
+    }
+
+    impl Default for TestBase {
+        fn default() -> Self {
+            let fonts: Vec<_> = typst_assets::fonts()
+                .chain(typst_dev_assets::fonts())
+                .flat_map(|data| Font::iter(Bytes::from_static(data)))
+                .collect();
+
+            Self {
+                library: Prehashed::new(Library::default()),
+                book: Prehashed::new(FontBook::from_fonts(&fonts)),
+                fonts,
+            }
+        }
+    }
+}

@@ -118,12 +118,14 @@ fn register_pattern(
     // Render the body.
     let (_, content) = construct_page(ctx.parent, pattern.frame());
 
-    let pdf_pattern = PdfPattern {
+    let mut pdf_pattern = PdfPattern {
         transform,
         pattern: pattern.clone(),
         content: content.content.wait().clone(),
         resources: content.resources.into_iter().collect(),
     };
+
+    pdf_pattern.resources.sort();
 
     ctx.parent.pattern_map.insert(pdf_pattern)
 }

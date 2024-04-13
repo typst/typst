@@ -42,13 +42,13 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
 
 /// Export a document with potentially multiple pages into a single raster image.
 ///
-/// The padding will be added around and between the individual frames.
+/// The gap will be added between the individual frames.
 pub fn render_merged(
     document: &Document,
     pixel_per_pt: f32,
     frame_fill: Color,
-    padding: Abs,
-    padding_fill: Color,
+    gap: Abs,
+    gap_fill: Color,
 ) -> sk::Pixmap {
     let pixmaps: Vec<_> = document
         .pages
@@ -56,19 +56,18 @@ pub fn render_merged(
         .map(|page| render(&page.frame, pixel_per_pt, frame_fill))
         .collect();
 
-    let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
-    let pxw =
-        2 * padding + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
-    let pxh =
-        padding + pixmaps.iter().map(|pixmap| pixmap.height() + padding).sum::<u32>();
+    let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
+    let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
+    let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
+        + gap * pixmaps.len().saturating_sub(1) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(to_sk_color(padding_fill));
+    canvas.fill(to_sk_color(gap_fill));
 
-    let [x, mut y] = [padding; 2];
+    let mut y = 0;
     for pixmap in pixmaps {
         canvas.draw_pixmap(
-            x as i32,
+            0,
             y as i32,
             pixmap.as_ref(),
             &sk::PixmapPaint::default(),
@@ -76,7 +75,7 @@ pub fn render_merged(
             None,
         );
 
-        y += pixmap.height() + padding;
+        y += pixmap.height() + gap;
     }
 
     canvas
