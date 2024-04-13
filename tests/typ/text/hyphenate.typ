@@ -84,7 +84,7 @@ It's a #emph[Tree]beard.
 ---
 #set par(justify: true)
 
-#let sample = [we've increase the hyphenation cost.]
+#let sample = [we've increased the hyphenation cost.]
 
 #sample
 #pagebreak()
