@@ -106,7 +106,9 @@ pub struct TextElem {
     ///
     /// - Locally, Typst uses your installed system fonts. In addition, you can
     ///   use the `--font-path` argument or `TYPST_FONT_PATHS` environment
-    ///   variable to add directories that should be scanned for fonts.
+    ///   variable to add directories that should be scanned for fonts. Run
+    ///   `typst fonts` to see the fonts that Typst has discovered on your
+    ///   system.
     ///
     /// ```example
     /// #set text(font: "PT Sans")
