@@ -1,0 +1,130 @@
+// Test t and b attachments, part 1.
+
+--- math-attach-postscripts ---
+// Test basics, postscripts.
+$f_x + t^b + V_1^2 + attach(A, t: alpha, b: beta)$
+
+--- math-attach-prescripts ---
+// Test basics, prescripts. Notably, the upper and lower prescripts' content need to be
+// aligned on the right edge of their bounding boxes, not on the left as in postscripts.
+$
+attach(upright(O), bl: 8, tl: 16, br: 2, tr: 2-),
+attach("Pb", bl: 82, tl: 207) + attach(upright(e), bl: -1, tl: 0) + macron(v)_e \
+$
+
+--- math-attach-mixed ---
+// A mixture of attachment positioning schemes.
+$
+attach(a, tl: u),   attach(a, tr: v),   attach(a, bl: x),
+attach(a, br: y),   limits(a)^t,        limits(a)_b \
+
+attach(a, tr: v, t: t),
+attach(a, tr: v, br: y),
+attach(a, br: y, b: b),
+attach(limits(a), b: b, bl: x),
+attach(a, tl: u, bl: x),
+attach(limits(a), t: t, tl: u) \
+
+attach(a, tl: u, tr: v),
+attach(limits(a), t: t, br: y),
+attach(limits(a), b: b, tr: v),
+attach(a, bl: x, br: y),
+attach(limits(a), b: b, tl: u),
+attach(limits(a), t: t, bl: u),
+limits(a)^t_b \
+
+attach(a, tl: u, tr: v, bl: x, br: y),
+attach(limits(a), t: t, bl: x, br: y, b: b),
+attach(limits(a), t: t, tl: u, tr: v, b: b),
+attach(limits(a), tl: u, bl: x, t: t, b: b),
+attach(limits(a), t: t, b: b, tr: v, br: y),
+attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
+$
+
+--- math-attach-followed-by-func-call ---
+// Test function call after subscript.
+$pi_1(Y), a_f(x), a^zeta (x), a^abs(b)_sqrt(c) \
+ a^subset.eq (x), a_(zeta(x)), pi_(1(Y)), a^(abs(b))_(sqrt(c))$
+
+--- math-attach-nested ---
+// Test associativity and scaling.
+$ 1/(V^2^3^4^5),
+  frac(
+    attach(
+      limits(V), br: attach(2, br: 3), b: attach(limits(2), b: 3)),
+    attach(
+      limits(V), tl: attach(2, tl: 3), t: attach(limits(2), t: 3))),
+  attach(Omega,
+    tl: attach(2, tl: attach(3, tl: attach(4, tl: 5))),
+    tr: attach(2, tr: attach(3, tr: attach(4, tr: 5))),
+    bl: attach(2, bl: attach(3, bl: attach(4, bl: 5))),
+    br: attach(2, br: attach(3, br: attach(4, br: 5))),
+  )
+$
+
+--- math-attach-high ---
+// Test high subscript and superscript.
+$ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
+  sqrt(attach(a, tl: 1/2, bl: 3/4)),
+  sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
+
+--- math-attach-descender-collision ---
+// Test for no collisions between descenders/ascenders and attachments
+
+$ sup_(x in P_i) quad inf_(x in P_i) $
+$ op("fff",limits: #true)^(y) quad op("yyy", limits:#true)_(f) $
+
+--- math-attach-to-group ---
+// Test frame base.
+$ (-1)^n + (1/2 + 3)^(-1/2) $
+
+--- math-attach-horizontal-align ---
+#set text(size: 8pt)
+
+// Test that the attachments are aligned horizontally.
+$ x_1 p_1 frak(p)_1 2_1 dot_1 lg_1 !_1 \\_1 ]_1 "ip"_1 op("iq")_1 \
+  x^1 b^1 frak(b)^1 2^1 dot^1 lg^1 !^1 \\^1 ]^1 "ib"^1 op("id")^1 \
+  x_1 y_1 "_"_1 x^1 l^1 "`"^1 attach(I,tl:1,bl:1,tr:1,br:1)
+  scripts(sum)_1^1 integral_1^1 abs(1/2)_1^1 \
+  x^1_1, "("b y")"^1_1 != (b y)^1_1, "[∫]"_1 [integral]_1 $
+
+--- math-attach-limit ---
+// Test limit.
+$ lim_(n->oo \ n "grows") sum_(k=0 \ k in NN)^n k $
+
+--- math-attach-force-scripts-and-limits ---
+// Test forcing scripts and limits.
+$ limits(A)_1^2 != A_1^2 $
+$ scripts(sum)_1^2 != sum_1^2 $
+$ limits(integral)_a^b != integral_a^b $
+
+--- issue-math-attach-realize-panic ---
+// Error: 25-29 unknown variable: oops
+$ attach(A, t: #context oops) $
+
+--- math-attach-show-limit ---
+// Show and let rules for limits and scripts
+#let eq = $ ∫_a^b iota_a^b $
+#eq
+#show "∫": math.limits
+#show math.iota: math.limits.with(inline: false)
+#eq
+$iota_a^b$
+
+--- math-attach-default-placement ---
+// Test default of limit attachments on relations at all sizes
+#set page(width: auto)
+$ a =^"def" b quad a lt.eq_"really" b quad  a arrow.r.long.squiggly^"slowly" b $
+$a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
+
+$a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.long.squiggly)^"slowly" b$
+
+--- math-attach-integral ---
+// Test default of scripts attachments on integrals at display size
+$ integral.sect_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
+$integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
+
+--- math-attach-large-operator ---
+// Test default of limit attachments on large operators at display size only
+$ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
+$tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
