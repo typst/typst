@@ -92,7 +92,7 @@ It's a #emph[Tree]beard.
 #sample
 
 ---
-// Error: 18-45 expected ratio or auto, found string
+// Error: 18-45 expected ratio, found string
 #set text(costs: (hyphenation: "wrong type"))
 
 ---
@@ -101,7 +101,7 @@ It's a #emph[Tree]beard.
 
 ---
 #set text(costs: (hyphenation: 1%, runt: 2%))
-#set text(costs: (runt: auto, widow: 3%))
+#set text(costs: (widow: 3%))
 #context {
-  assert.eq(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: auto))
+  assert.eq(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))
 }

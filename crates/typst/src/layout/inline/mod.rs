@@ -17,7 +17,7 @@ use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
-    Point, Ratio, Regions, Size, Sizing, Spacing,
+    Point, Regions, Size, Sizing, Spacing,
 };
 use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
@@ -886,8 +886,8 @@ fn linebreak_optimized<'a>(
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
 
-    let hyph_cost = DEFAULT_HYPH_COST * p.costs.hyphenation.unwrap_or(Ratio::one()).get();
-    let runt_cost = DEFAULT_RUNT_COST * p.costs.runt.unwrap_or(Ratio::one()).get();
+    let hyph_cost = DEFAULT_HYPH_COST * p.costs.hyphenation().get();
+    let runt_cost = DEFAULT_RUNT_COST * p.costs.runt().get();
 
     // Dynamic programming table.
     let mut active = 0;
@@ -1219,8 +1219,8 @@ fn finalize(
         .map(|line| commit(engine, p, line, width, region.y, shrink))
         .collect::<SourceResult<_>>()?;
 
-    // `auto` and positive ratios enable prevention, while zero and negative ratios disable it.
-    if !p.costs.orphan.is_custom_and(|cost| cost.get() <= 0.0) {
+    // Positive ratios enable prevention, while zero and negative ratios disable it.
+    if p.costs.orphan().get() > 0.0 {
         // Prevent orphans.
         if frames.len() >= 2 && !frames[1].is_empty() {
             let second = frames.remove(1);
@@ -1228,8 +1228,7 @@ fn finalize(
             merge(first, second, p.leading);
         }
     }
-
-    if !p.costs.widow.is_custom_and(|cost| cost.get() <= 0.0) {
+    if p.costs.widow().get() > 0.0 {
         // Prevent widows.
         let len = frames.len();
         if len >= 2 && !frames[len - 2].is_empty() {

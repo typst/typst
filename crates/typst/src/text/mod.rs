@@ -40,7 +40,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
     Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
-    StyleChain, Value,
+    StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
@@ -465,8 +465,7 @@ pub struct TextElem {
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
     /// as a ratio of the default cost, so `50%` will make text layout twice as
-    /// eager to make a given choice, while `200%` (or 2) will make it half as
-    /// eager.
+    /// eager to make a given choice, while `200%` will make it half as eager.
     ///
     /// Currently, the following costs can be customized:
     /// - `hyphenation`: splitting a word across multiple lines
@@ -483,18 +482,25 @@ pub struct TextElem {
     ///
     /// Text layout prevents widows and orphans by default because they are
     /// generally discouraged by style guides. However, in some contexts they
-    /// should not be avoided because the prevention method, which moves a line
-    /// to the next page, can result in an uneven number of lines between pages,
-    /// which leads to asymmetry and breaking the flow of dense prose. This
-    /// option allows disabling any such modification. (Currently, 0% disables
-    /// widow/orphan avoidance and anything else, including the default of
-    /// `auto`, enables it. More nuanced cost specification for these
-    /// modifications is planned for the future.)
+    /// are allowed because the prevention method, which moves a line to the
+    /// next page, can result in an uneven number of lines between pages.
+    /// The `widow` and `orphan` costs allow disabling these modifications.
+    /// (Currently, 0% allows widows/orphans; anything else, including the
+    /// default of `auto`, prevents them. More nuanced cost specification for
+    /// these modifications is planned for the future.)
     ///
     /// The default costs are an acceptable balance, but some may find that it
     /// hyphenates or avoids runs too eagerly, breaking the flow of dense prose.
     /// A cost of 600% (six times the normal cost) may work better for such
     /// contexts.
+    ///
+    /// ```example
+    /// #set text(costs: (hyphenation: 200%))
+    /// #set text(costs: (runt: 20%)) // Merged with previous.
+    /// #set text(costs: (hyphenation: 10%)) // Merged, and `hyphenation` overrides previous.
+    ///
+    /// #context assert.eq(text.costs, (hyphenation: 10%, runt: 20%))
+    /// ```
     #[fold]
     pub costs: Costs,
 
@@ -1205,13 +1211,40 @@ impl Fold for WeightDelta {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[non_exhaustive] // We may add more costs in the future.
 pub struct Costs {
-    pub hyphenation: Smart<Ratio>,
-    pub runt: Smart<Ratio>,
-    pub widow: Smart<Ratio>,
-    pub orphan: Smart<Ratio>,
+    pub hyphenation: Option<Ratio>,
+    pub runt: Option<Ratio>,
+    pub widow: Option<Ratio>,
+    pub orphan: Option<Ratio>,
+}
+
+impl Costs {
+    #[inline]
+    #[must_use]
+    pub fn hyphenation(&self) -> Ratio {
+        self.hyphenation.unwrap_or(Ratio::one())
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn runt(&self) -> Ratio {
+        self.runt.unwrap_or(Ratio::one())
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn widow(&self) -> Ratio {
+        self.widow.unwrap_or(Ratio::one())
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn orphan(&self) -> Ratio {
+        self.orphan.unwrap_or(Ratio::one())
+    }
 }
 
 impl Fold for Costs {
+    #[inline]
     fn fold(self, other: Self) -> Self {
         Self {
             hyphenation: other.hyphenation.or(self.hyphenation),
@@ -1225,17 +1258,17 @@ impl Fold for Costs {
 cast! {
     Costs,
     self => dict![
-        "hyphenation" => self.hyphenation,
-        "runt" => self.runt,
-        "widow" => self.widow,
-        "orphan" => self.orphan,
+        "hyphenation" => self.hyphenation(),
+        "runt" => self.runt(),
+        "widow" => self.widow(),
+        "orphan" => self.orphan(),
     ].into_value(),
     mut v: Dict => {
         let ret = Self {
-            hyphenation: v.take("hyphenation").ok().unwrap_or(Value::Auto).cast()?,
-            runt: v.take("runt").ok().unwrap_or(Value::Auto).cast()?,
-            widow: v.take("widow").ok().unwrap_or(Value::Auto).cast()?,
-            orphan: v.take("orphan").ok().unwrap_or(Value::Auto).cast()?,
+            hyphenation: v.take("hyphenation").ok().map(|v| v.cast()).transpose()?,
+            runt: v.take("runt").ok().map(|v| v.cast()).transpose()?,
+            widow: v.take("widow").ok().map(|v| v.cast()).transpose()?,
+            orphan: v.take("orphan").ok().map(|v| v.cast()).transpose()?,
         };
         v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
         ret
