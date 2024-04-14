@@ -218,16 +218,16 @@ impl OutputTemplate {
         }
 
         let other_templates = ["{t}", "{0t}"];
-        Self::INDEXABLE.iter().chain(other_templates.iter()).fold(
-            Ok(output.to_string()),
+        Self::INDEXABLE.iter().chain(other_templates.iter()).try_fold(
+            output.to_string(),
             |out, template| {
                 let replacement = match *template {
-                    "{p}" => format!("{}", this_page),
+                    "{p}" => format!("{this_page}"),
                     "{0p}" | "{n}" => format!("{:01$}", this_page, width(total_pages)),
-                    "{t}" | "{0t}" => format!("{}", total_pages),
+                    "{t}" | "{0t}" => format!("{total_pages}"),
                     _ => bail!("unhandled template placeholder {template}"),
                 };
-                out.map(|out| out.replace(template, replacement.as_str()))
+                Ok(out.replace(template, replacement.as_str()))
             },
         )
     }
