@@ -4,9 +4,6 @@
   "displayName": "Typst Test Helper",
   "description": "Helps to run, compare and update Typst tests.",
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.71.0"
-  },
   "categories": [
     "Other"
   ],
@@ -97,8 +94,12 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.88.0",
     "@types/node": "18.x",
+    "@types/vscode": "^1.88.0",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "vscode": "^1.88.0"
   }
 }
+
