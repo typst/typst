@@ -45,6 +45,23 @@ use crate::World;
 /// )
 /// ```
 ///
+/// # Datetime and [duration]($duration)
+///
+/// You can get a [duration]($duration) by subtracting two datetime.
+/// You can also get a new datetime via adding or subtracting a [duration]($duration)
+/// ``` example
+/// #let datetime_duration = datetime(day: 1, month: 3, year: 2024) - datetime(day: 1, month: 1, year: 2024)
+/// #datetime_duration.hours()
+///
+/// #let two_days_duration = duration(days: 2)
+///
+/// #let two_days_ago = datetime(day: 1, month: 3, year: 2024) - two_days_duration
+/// #two_days_ago.display()
+///
+/// #let two_days_later = datetime(day: 1, month: 3, year: 2024) + two_days_duration
+/// #two_days_later.display()
+/// ```
+///
 /// # Format
 /// You can specify a customized formatting using the
 /// [`display`]($datetime.display) method. The format of a datetime is
