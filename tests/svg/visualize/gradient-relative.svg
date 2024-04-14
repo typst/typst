@@ -1,0 +1,440 @@
+<svg class="typst-doc" viewBox="0 0 210 415" width="210" height="415" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(0 0)">
+            <path class="typst-shape" fill="url(#gD19C1BD6A315890ADE6669C6E74C5701)" d="M 0 0 L 0 200 L 200 200 L 200 0 Z "/>
+        </g>
+        <g transform="translate(-0 -0)">
+            <path class="typst-shape" fill="url(#gD19C1BD6A315890ADE6669C6E74C5701)" d="M 0 0 L 0 100 L 100 100 L 100 0 Z "/>
+        </g>
+        <g transform="translate(100 10)">
+            <path class="typst-shape" fill="url(#g14A9E609CCF2D355E8728D7E6D6D2D96)" d="M 0 0 L 0 90 L 90 90 L 90 0 Z "/>
+        </g>
+        <g transform="translate(55 100)">
+            <g class="typst-group">
+                <g transform="matrix(0.7071067811865476 0.7071067811865475 -0.7071067811865475 0.7071067811865476 45 -18.63961030678928)">
+                    <g transform="translate(-0 -0)">
+                        <path class="typst-shape" fill="url(#g842AAB21EE97F0F1659A1BCD32D331AF)" d="M 0 0 L 0 90 L 90 90 L 90 0 Z "/>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 210)">
+        <g transform="translate(0 0)">
+            <path class="typst-shape" fill="url(#g8F532804BD60473875D6AC86228B2067)" d="M 0 0 L 0 200 L 200 200 L 200 0 Z "/>
+        </g>
+        <g transform="translate(-0 -0)">
+            <path class="typst-shape" fill="url(#gB198986A3D4F7FDDAD4085619FBDB624)" d="M 0 0 L 0 100 L 100 100 L 100 0 Z "/>
+        </g>
+        <g transform="translate(100 10)">
+            <path class="typst-shape" fill="url(#gCAF7A644EE2F83913E23F99B49EC93B0)" d="M 0 0 L 0 90 L 90 90 L 90 0 Z "/>
+        </g>
+        <g transform="translate(55 100)">
+            <g class="typst-group">
+                <g transform="matrix(0.7071067811865476 0.7071067811865475 -0.7071067811865475 0.7071067811865476 45 -18.63961030678928)">
+                    <g transform="translate(-0 -0)">
+                        <path class="typst-shape" fill="url(#gCAF7A644EE2F83913E23F99B49EC93B0)" d="M 0 0 L 0 90 L 90 90 L 90 0 Z "/>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <defs id="gradients">
+        <linearGradient id="f62E1AA47CA45966F7114E6109F0EE0AC" spreadMethod="pad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="Ratio(Scalar(0.0))" stop-color="#ff4136"/>
+            <stop offset="Ratio(Scalar(0.005291005291005291))" stop-color="#fc443b"/>
+            <stop offset="Ratio(Scalar(0.010582010582010581))" stop-color="#f9473f"/>
+            <stop offset="Ratio(Scalar(0.015873015873015872))" stop-color="#f74a44"/>
+            <stop offset="Ratio(Scalar(0.021164021164021163))" stop-color="#f44c48"/>
+            <stop offset="Ratio(Scalar(0.026455026455026454))" stop-color="#f14f4b"/>
+            <stop offset="Ratio(Scalar(0.031746031746031744))" stop-color="#ee514f"/>
+            <stop offset="Ratio(Scalar(0.037037037037037035))" stop-color="#eb5353"/>
+            <stop offset="Ratio(Scalar(0.042328042328042326))" stop-color="#e95556"/>
+            <stop offset="Ratio(Scalar(0.047619047619047616))" stop-color="#e65759"/>
+            <stop offset="Ratio(Scalar(0.05291005291005291))" stop-color="#e3595c"/>
+            <stop offset="Ratio(Scalar(0.0582010582010582))" stop-color="#e05a5f"/>
+            <stop offset="Ratio(Scalar(0.06349206349206349))" stop-color="#dd5c62"/>
+            <stop offset="Ratio(Scalar(0.06878306878306878))" stop-color="#da5e65"/>
+            <stop offset="Ratio(Scalar(0.07407407407407407))" stop-color="#d85f68"/>
+            <stop offset="Ratio(Scalar(0.07936507936507936))" stop-color="#d5616b"/>
+            <stop offset="Ratio(Scalar(0.08465608465608465))" stop-color="#d2626e"/>
+            <stop offset="Ratio(Scalar(0.08994708994708994))" stop-color="#cf6371"/>
+            <stop offset="Ratio(Scalar(0.09523809523809523))" stop-color="#cc6473"/>
+            <stop offset="Ratio(Scalar(0.10052910052910052))" stop-color="#c96676"/>
+            <stop offset="Ratio(Scalar(0.10582010582010581))" stop-color="#c66779"/>
+            <stop offset="Ratio(Scalar(0.1111111111111111))" stop-color="#c3687b"/>
+            <stop offset="Ratio(Scalar(0.1164021164021164))" stop-color="#c0697e"/>
+            <stop offset="Ratio(Scalar(0.12169312169312169))" stop-color="#bd6a80"/>
+            <stop offset="Ratio(Scalar(0.12698412698412698))" stop-color="#ba6b83"/>
+            <stop offset="Ratio(Scalar(0.13227513227513227))" stop-color="#b76c85"/>
+            <stop offset="Ratio(Scalar(0.13756613756613756))" stop-color="#b46d88"/>
+            <stop offset="Ratio(Scalar(0.14285714285714285))" stop-color="#b16d8a"/>
+            <stop offset="Ratio(Scalar(0.14814814814814814))" stop-color="#ae6e8d"/>
+            <stop offset="Ratio(Scalar(0.15343915343915343))" stop-color="#ab6f8f"/>
+            <stop offset="Ratio(Scalar(0.15873015873015872))" stop-color="#a86f91"/>
+            <stop offset="Ratio(Scalar(0.164021164021164))" stop-color="#a57094"/>
+            <stop offset="Ratio(Scalar(0.1693121693121693))" stop-color="#a27196"/>
+            <stop offset="Ratio(Scalar(0.1746031746031746))" stop-color="#9f7198"/>
+            <stop offset="Ratio(Scalar(0.17989417989417988))" stop-color="#9b729b"/>
+            <stop offset="Ratio(Scalar(0.18518518518518517))" stop-color="#98729d"/>
+            <stop offset="Ratio(Scalar(0.19047619047619047))" stop-color="#95739f"/>
+            <stop offset="Ratio(Scalar(0.19576719576719576))" stop-color="#9273a1"/>
+            <stop offset="Ratio(Scalar(0.20105820105820105))" stop-color="#8e74a4"/>
+            <stop offset="Ratio(Scalar(0.20634920634920634))" stop-color="#8b74a6"/>
+            <stop offset="Ratio(Scalar(0.21164021164021163))" stop-color="#8874a8"/>
+            <stop offset="Ratio(Scalar(0.21693121693121692))" stop-color="#8475aa"/>
+            <stop offset="Ratio(Scalar(0.2222222222222222))" stop-color="#8175ac"/>
+            <stop offset="Ratio(Scalar(0.2275132275132275))" stop-color="#7d75af"/>
+            <stop offset="Ratio(Scalar(0.2328042328042328))" stop-color="#7a75b1"/>
+            <stop offset="Ratio(Scalar(0.23809523809523808))" stop-color="#7676b3"/>
+            <stop offset="Ratio(Scalar(0.24338624338624337))" stop-color="#7276b5"/>
+            <stop offset="Ratio(Scalar(0.24867724867724866))" stop-color="#6e76b7"/>
+            <stop offset="Ratio(Scalar(0.25396825396825395))" stop-color="#6a76b9"/>
+            <stop offset="Ratio(Scalar(0.25925925925925924))" stop-color="#6676bc"/>
+            <stop offset="Ratio(Scalar(0.26455026455026454))" stop-color="#6276be"/>
+            <stop offset="Ratio(Scalar(0.2698412698412698))" stop-color="#5e76c0"/>
+            <stop offset="Ratio(Scalar(0.2751322751322751))" stop-color="#5a76c2"/>
+            <stop offset="Ratio(Scalar(0.2804232804232804))" stop-color="#5576c4"/>
+            <stop offset="Ratio(Scalar(0.2857142857142857))" stop-color="#5076c6"/>
+            <stop offset="Ratio(Scalar(0.291005291005291))" stop-color="#4b76c8"/>
+            <stop offset="Ratio(Scalar(0.2962962962962963))" stop-color="#4676ca"/>
+            <stop offset="Ratio(Scalar(0.30158730158730157))" stop-color="#4076cd"/>
+            <stop offset="Ratio(Scalar(0.30687830687830686))" stop-color="#3a75cf"/>
+            <stop offset="Ratio(Scalar(0.31216931216931215))" stop-color="#3375d1"/>
+            <stop offset="Ratio(Scalar(0.31746031746031744))" stop-color="#2c75d3"/>
+            <stop offset="Ratio(Scalar(0.32275132275132273))" stop-color="#2375d5"/>
+            <stop offset="Ratio(Scalar(0.328042328042328))" stop-color="#1674d7"/>
+            <stop offset="Ratio(Scalar(0.3333333333333333))" stop-color="#0074d9"/>
+            <stop offset="Ratio(Scalar(0.3333333333333333))" stop-color="#0074d9"/>
+            <stop offset="Ratio(Scalar(0.3386243386243386))" stop-color="#0076d7"/>
+            <stop offset="Ratio(Scalar(0.3439153439153439))" stop-color="#0078d6"/>
+            <stop offset="Ratio(Scalar(0.3492063492063492))" stop-color="#007ad4"/>
+            <stop offset="Ratio(Scalar(0.3544973544973545))" stop-color="#007bd2"/>
+            <stop offset="Ratio(Scalar(0.35978835978835977))" stop-color="#007dd1"/>
+            <stop offset="Ratio(Scalar(0.36507936507936506))" stop-color="#007fcf"/>
+            <stop offset="Ratio(Scalar(0.37037037037037035))" stop-color="#0081cd"/>
+            <stop offset="Ratio(Scalar(0.37566137566137564))" stop-color="#0082cc"/>
+            <stop offset="Ratio(Scalar(0.38095238095238093))" stop-color="#0084ca"/>
+            <stop offset="Ratio(Scalar(0.3862433862433862))" stop-color="#0086c8"/>
+            <stop offset="Ratio(Scalar(0.3915343915343915))" stop-color="#0087c6"/>
+            <stop offset="Ratio(Scalar(0.3968253968253968))" stop-color="#0089c5"/>
+            <stop offset="Ratio(Scalar(0.4021164021164021))" stop-color="#008bc3"/>
+            <stop offset="Ratio(Scalar(0.4074074074074074))" stop-color="#008cc1"/>
+            <stop offset="Ratio(Scalar(0.4126984126984127))" stop-color="#008ebf"/>
+            <stop offset="Ratio(Scalar(0.41798941798941797))" stop-color="#008fbe"/>
+            <stop offset="Ratio(Scalar(0.42328042328042326))" stop-color="#0091bc"/>
+            <stop offset="Ratio(Scalar(0.42857142857142855))" stop-color="#0092ba"/>
+            <stop offset="Ratio(Scalar(0.43386243386243384))" stop-color="#0094b8"/>
+            <stop offset="Ratio(Scalar(0.43915343915343913))" stop-color="#0095b6"/>
+            <stop offset="Ratio(Scalar(0.4444444444444444))" stop-color="#0097b4"/>
+            <stop offset="Ratio(Scalar(0.4497354497354497))" stop-color="#0098b2"/>
+            <stop offset="Ratio(Scalar(0.455026455026455))" stop-color="#009ab0"/>
+            <stop offset="Ratio(Scalar(0.4603174603174603))" stop-color="#009baf"/>
+            <stop offset="Ratio(Scalar(0.4656084656084656))" stop-color="#009cad"/>
+            <stop offset="Ratio(Scalar(0.4708994708994709))" stop-color="#009eab"/>
+            <stop offset="Ratio(Scalar(0.47619047619047616))" stop-color="#009fa9"/>
+            <stop offset="Ratio(Scalar(0.48148148148148145))" stop-color="#00a1a7"/>
+            <stop offset="Ratio(Scalar(0.48677248677248675))" stop-color="#00a2a5"/>
+            <stop offset="Ratio(Scalar(0.49206349206349204))" stop-color="#00a3a3"/>
+            <stop offset="Ratio(Scalar(0.4973544973544973))" stop-color="#00a5a0"/>
+            <stop offset="Ratio(Scalar(0.5026455026455026))" stop-color="#00a69e"/>
+            <stop offset="Ratio(Scalar(0.5079365079365079))" stop-color="#00a79c"/>
+            <stop offset="Ratio(Scalar(0.5132275132275133))" stop-color="#00a99a"/>
+            <stop offset="Ratio(Scalar(0.5185185185185185))" stop-color="#00aa98"/>
+            <stop offset="Ratio(Scalar(0.5238095238095237))" stop-color="#00ab96"/>
+            <stop offset="Ratio(Scalar(0.5291005291005291))" stop-color="#00ad93"/>
+            <stop offset="Ratio(Scalar(0.5343915343915344))" stop-color="#00ae91"/>
+            <stop offset="Ratio(Scalar(0.5396825396825397))" stop-color="#00af8f"/>
+            <stop offset="Ratio(Scalar(0.5449735449735449))" stop-color="#00b08d"/>
+            <stop offset="Ratio(Scalar(0.5502645502645502))" stop-color="#00b28a"/>
+            <stop offset="Ratio(Scalar(0.5555555555555556))" stop-color="#00b388"/>
+            <stop offset="Ratio(Scalar(0.5608465608465608))" stop-color="#00b485"/>
+            <stop offset="Ratio(Scalar(0.566137566137566))" stop-color="#00b683"/>
+            <stop offset="Ratio(Scalar(0.5714285714285714))" stop-color="#02b780"/>
+            <stop offset="Ratio(Scalar(0.5767195767195767))" stop-color="#05b87d"/>
+            <stop offset="Ratio(Scalar(0.582010582010582))" stop-color="#09b97b"/>
+            <stop offset="Ratio(Scalar(0.5873015873015872))" stop-color="#0dba78"/>
+            <stop offset="Ratio(Scalar(0.5925925925925926))" stop-color="#10bc75"/>
+            <stop offset="Ratio(Scalar(0.5978835978835979))" stop-color="#13bd72"/>
+            <stop offset="Ratio(Scalar(0.6031746031746031))" stop-color="#15be6f"/>
+            <stop offset="Ratio(Scalar(0.6084656084656084))" stop-color="#18bf6c"/>
+            <stop offset="Ratio(Scalar(0.6137566137566137))" stop-color="#1ac069"/>
+            <stop offset="Ratio(Scalar(0.6190476190476191))" stop-color="#1cc266"/>
+            <stop offset="Ratio(Scalar(0.6243386243386243))" stop-color="#1fc362"/>
+            <stop offset="Ratio(Scalar(0.6296296296296295))" stop-color="#21c45f"/>
+            <stop offset="Ratio(Scalar(0.6349206349206349))" stop-color="#23c55b"/>
+            <stop offset="Ratio(Scalar(0.6402116402116402))" stop-color="#25c657"/>
+            <stop offset="Ratio(Scalar(0.6455026455026455))" stop-color="#27c753"/>
+            <stop offset="Ratio(Scalar(0.6507936507936507))" stop-color="#29c94f"/>
+            <stop offset="Ratio(Scalar(0.656084656084656))" stop-color="#2aca4a"/>
+            <stop offset="Ratio(Scalar(0.6613756613756614))" stop-color="#2ccb45"/>
+            <stop offset="Ratio(Scalar(0.6666666666666666))" stop-color="#2ecc40"/>
+            <stop offset="Ratio(Scalar(0.6666666666666666))" stop-color="#2ecc40"/>
+            <stop offset="Ratio(Scalar(0.671957671957672))" stop-color="#36ca45"/>
+            <stop offset="Ratio(Scalar(0.6772486772486772))" stop-color="#3dc84a"/>
+            <stop offset="Ratio(Scalar(0.6825396825396826))" stop-color="#43c64e"/>
+            <stop offset="Ratio(Scalar(0.6878306878306878))" stop-color="#48c452"/>
+            <stop offset="Ratio(Scalar(0.6931216931216931))" stop-color="#4dc256"/>
+            <stop offset="Ratio(Scalar(0.6984126984126984))" stop-color="#52c159"/>
+            <stop offset="Ratio(Scalar(0.7037037037037037))" stop-color="#56bf5d"/>
+            <stop offset="Ratio(Scalar(0.708994708994709))" stop-color="#5abd60"/>
+            <stop offset="Ratio(Scalar(0.7142857142857143))" stop-color="#5ebb63"/>
+            <stop offset="Ratio(Scalar(0.7195767195767195))" stop-color="#61b966"/>
+            <stop offset="Ratio(Scalar(0.7248677248677249))" stop-color="#64b769"/>
+            <stop offset="Ratio(Scalar(0.7301587301587301))" stop-color="#67b56c"/>
+            <stop offset="Ratio(Scalar(0.7354497354497355))" stop-color="#6ab36f"/>
+            <stop offset="Ratio(Scalar(0.7407407407407407))" stop-color="#6db172"/>
+            <stop offset="Ratio(Scalar(0.746031746031746))" stop-color="#70af74"/>
+            <stop offset="Ratio(Scalar(0.7513227513227513))" stop-color="#72ad77"/>
+            <stop offset="Ratio(Scalar(0.7566137566137566))" stop-color="#75ab79"/>
+            <stop offset="Ratio(Scalar(0.7619047619047619))" stop-color="#77a97c"/>
+            <stop offset="Ratio(Scalar(0.7671957671957672))" stop-color="#7aa67e"/>
+            <stop offset="Ratio(Scalar(0.7724867724867724))" stop-color="#7ca480"/>
+            <stop offset="Ratio(Scalar(0.7777777777777778))" stop-color="#7ea282"/>
+            <stop offset="Ratio(Scalar(0.783068783068783))" stop-color="#80a085"/>
+            <stop offset="Ratio(Scalar(0.7883597883597884))" stop-color="#829e87"/>
+            <stop offset="Ratio(Scalar(0.7936507936507936))" stop-color="#849c89"/>
+            <stop offset="Ratio(Scalar(0.798941798941799))" stop-color="#869a8b"/>
+            <stop offset="Ratio(Scalar(0.8042328042328042))" stop-color="#88988d"/>
+            <stop offset="Ratio(Scalar(0.8095238095238095))" stop-color="#89958f"/>
+            <stop offset="Ratio(Scalar(0.8148148148148148))" stop-color="#8b9391"/>
+            <stop offset="Ratio(Scalar(0.8201058201058201))" stop-color="#8d9193"/>
+            <stop offset="Ratio(Scalar(0.8253968253968254))" stop-color="#8e8f95"/>
+            <stop offset="Ratio(Scalar(0.8306878306878307))" stop-color="#908c97"/>
+            <stop offset="Ratio(Scalar(0.8359788359788359))" stop-color="#918a99"/>
+            <stop offset="Ratio(Scalar(0.8412698412698413))" stop-color="#93889a"/>
+            <stop offset="Ratio(Scalar(0.8465608465608465))" stop-color="#94859c"/>
+            <stop offset="Ratio(Scalar(0.8518518518518519))" stop-color="#96839e"/>
+            <stop offset="Ratio(Scalar(0.8571428571428571))" stop-color="#9780a0"/>
+            <stop offset="Ratio(Scalar(0.8624338624338624))" stop-color="#987ea2"/>
+            <stop offset="Ratio(Scalar(0.8677248677248677))" stop-color="#9a7ba3"/>
+            <stop offset="Ratio(Scalar(0.873015873015873))" stop-color="#9b79a5"/>
+            <stop offset="Ratio(Scalar(0.8783068783068783))" stop-color="#9c76a7"/>
+            <stop offset="Ratio(Scalar(0.8835978835978836))" stop-color="#9d74a8"/>
+            <stop offset="Ratio(Scalar(0.8888888888888888))" stop-color="#9e71aa"/>
+            <stop offset="Ratio(Scalar(0.8941798941798942))" stop-color="#a06eac"/>
+            <stop offset="Ratio(Scalar(0.8994708994708994))" stop-color="#a16bad"/>
+            <stop offset="Ratio(Scalar(0.9047619047619048))" stop-color="#a268af"/>
+            <stop offset="Ratio(Scalar(0.91005291005291))" stop-color="#a365b0"/>
+            <stop offset="Ratio(Scalar(0.9153439153439153))" stop-color="#a462b2"/>
+            <stop offset="Ratio(Scalar(0.9206349206349207))" stop-color="#a55fb3"/>
+            <stop offset="Ratio(Scalar(0.9259259259259259))" stop-color="#a65cb5"/>
+            <stop offset="Ratio(Scalar(0.9312169312169312))" stop-color="#a759b6"/>
+            <stop offset="Ratio(Scalar(0.9365079365079365))" stop-color="#a855b8"/>
+            <stop offset="Ratio(Scalar(0.9417989417989419))" stop-color="#a852b9"/>
+            <stop offset="Ratio(Scalar(0.9470899470899471))" stop-color="#a94ebb"/>
+            <stop offset="Ratio(Scalar(0.9523809523809523))" stop-color="#aa4abc"/>
+            <stop offset="Ratio(Scalar(0.9576719576719577))" stop-color="#ab46be"/>
+            <stop offset="Ratio(Scalar(0.962962962962963))" stop-color="#ac42bf"/>
+            <stop offset="Ratio(Scalar(0.9682539682539683))" stop-color="#ad3dc1"/>
+            <stop offset="Ratio(Scalar(0.9735449735449735))" stop-color="#ad38c2"/>
+            <stop offset="Ratio(Scalar(0.9788359788359788))" stop-color="#ae32c3"/>
+            <stop offset="Ratio(Scalar(0.9841269841269842))" stop-color="#af2cc5"/>
+            <stop offset="Ratio(Scalar(0.9894179894179894))" stop-color="#b024c6"/>
+            <stop offset="Ratio(Scalar(0.9947089947089947))" stop-color="#b01bc8"/>
+            <stop offset="Ratio(Scalar(1.0))" stop-color="#b10dc9"/>
+        </linearGradient>
+        <linearGradient id="fD8A20D4E387E68CAFAD2BFDF0C932F9D" spreadMethod="pad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="Ratio(Scalar(0.0))" stop-color="#ff4136"/>
+            <stop offset="Ratio(Scalar(0.005291005291005291))" stop-color="#fc443b"/>
+            <stop offset="Ratio(Scalar(0.010582010582010581))" stop-color="#f9473f"/>
+            <stop offset="Ratio(Scalar(0.015873015873015872))" stop-color="#f74a44"/>
+            <stop offset="Ratio(Scalar(0.021164021164021163))" stop-color="#f44c48"/>
+            <stop offset="Ratio(Scalar(0.026455026455026454))" stop-color="#f14f4b"/>
+            <stop offset="Ratio(Scalar(0.031746031746031744))" stop-color="#ee514f"/>
+            <stop offset="Ratio(Scalar(0.037037037037037035))" stop-color="#eb5353"/>
+            <stop offset="Ratio(Scalar(0.042328042328042326))" stop-color="#e95556"/>
+            <stop offset="Ratio(Scalar(0.047619047619047616))" stop-color="#e65759"/>
+            <stop offset="Ratio(Scalar(0.05291005291005291))" stop-color="#e3595c"/>
+            <stop offset="Ratio(Scalar(0.0582010582010582))" stop-color="#e05a5f"/>
+            <stop offset="Ratio(Scalar(0.06349206349206349))" stop-color="#dd5c62"/>
+            <stop offset="Ratio(Scalar(0.06878306878306878))" stop-color="#da5e65"/>
+            <stop offset="Ratio(Scalar(0.07407407407407407))" stop-color="#d85f68"/>
+            <stop offset="Ratio(Scalar(0.07936507936507936))" stop-color="#d5616b"/>
+            <stop offset="Ratio(Scalar(0.08465608465608465))" stop-color="#d2626e"/>
+            <stop offset="Ratio(Scalar(0.08994708994708994))" stop-color="#cf6371"/>
+            <stop offset="Ratio(Scalar(0.09523809523809523))" stop-color="#cc6473"/>
+            <stop offset="Ratio(Scalar(0.10052910052910052))" stop-color="#c96676"/>
+            <stop offset="Ratio(Scalar(0.10582010582010581))" stop-color="#c66779"/>
+            <stop offset="Ratio(Scalar(0.1111111111111111))" stop-color="#c3687b"/>
+            <stop offset="Ratio(Scalar(0.1164021164021164))" stop-color="#c0697e"/>
+            <stop offset="Ratio(Scalar(0.12169312169312169))" stop-color="#bd6a80"/>
+            <stop offset="Ratio(Scalar(0.12698412698412698))" stop-color="#ba6b83"/>
+            <stop offset="Ratio(Scalar(0.13227513227513227))" stop-color="#b76c85"/>
+            <stop offset="Ratio(Scalar(0.13756613756613756))" stop-color="#b46d88"/>
+            <stop offset="Ratio(Scalar(0.14285714285714285))" stop-color="#b16d8a"/>
+            <stop offset="Ratio(Scalar(0.14814814814814814))" stop-color="#ae6e8d"/>
+            <stop offset="Ratio(Scalar(0.15343915343915343))" stop-color="#ab6f8f"/>
+            <stop offset="Ratio(Scalar(0.15873015873015872))" stop-color="#a86f91"/>
+            <stop offset="Ratio(Scalar(0.164021164021164))" stop-color="#a57094"/>
+            <stop offset="Ratio(Scalar(0.1693121693121693))" stop-color="#a27196"/>
+            <stop offset="Ratio(Scalar(0.1746031746031746))" stop-color="#9f7198"/>
+            <stop offset="Ratio(Scalar(0.17989417989417988))" stop-color="#9b729b"/>
+            <stop offset="Ratio(Scalar(0.18518518518518517))" stop-color="#98729d"/>
+            <stop offset="Ratio(Scalar(0.19047619047619047))" stop-color="#95739f"/>
+            <stop offset="Ratio(Scalar(0.19576719576719576))" stop-color="#9273a1"/>
+            <stop offset="Ratio(Scalar(0.20105820105820105))" stop-color="#8e74a4"/>
+            <stop offset="Ratio(Scalar(0.20634920634920634))" stop-color="#8b74a6"/>
+            <stop offset="Ratio(Scalar(0.21164021164021163))" stop-color="#8874a8"/>
+            <stop offset="Ratio(Scalar(0.21693121693121692))" stop-color="#8475aa"/>
+            <stop offset="Ratio(Scalar(0.2222222222222222))" stop-color="#8175ac"/>
+            <stop offset="Ratio(Scalar(0.2275132275132275))" stop-color="#7d75af"/>
+            <stop offset="Ratio(Scalar(0.2328042328042328))" stop-color="#7a75b1"/>
+            <stop offset="Ratio(Scalar(0.23809523809523808))" stop-color="#7676b3"/>
+            <stop offset="Ratio(Scalar(0.24338624338624337))" stop-color="#7276b5"/>
+            <stop offset="Ratio(Scalar(0.24867724867724866))" stop-color="#6e76b7"/>
+            <stop offset="Ratio(Scalar(0.25396825396825395))" stop-color="#6a76b9"/>
+            <stop offset="Ratio(Scalar(0.25925925925925924))" stop-color="#6676bc"/>
+            <stop offset="Ratio(Scalar(0.26455026455026454))" stop-color="#6276be"/>
+            <stop offset="Ratio(Scalar(0.2698412698412698))" stop-color="#5e76c0"/>
+            <stop offset="Ratio(Scalar(0.2751322751322751))" stop-color="#5a76c2"/>
+            <stop offset="Ratio(Scalar(0.2804232804232804))" stop-color="#5576c4"/>
+            <stop offset="Ratio(Scalar(0.2857142857142857))" stop-color="#5076c6"/>
+            <stop offset="Ratio(Scalar(0.291005291005291))" stop-color="#4b76c8"/>
+            <stop offset="Ratio(Scalar(0.2962962962962963))" stop-color="#4676ca"/>
+            <stop offset="Ratio(Scalar(0.30158730158730157))" stop-color="#4076cd"/>
+            <stop offset="Ratio(Scalar(0.30687830687830686))" stop-color="#3a75cf"/>
+            <stop offset="Ratio(Scalar(0.31216931216931215))" stop-color="#3375d1"/>
+            <stop offset="Ratio(Scalar(0.31746031746031744))" stop-color="#2c75d3"/>
+            <stop offset="Ratio(Scalar(0.32275132275132273))" stop-color="#2375d5"/>
+            <stop offset="Ratio(Scalar(0.328042328042328))" stop-color="#1674d7"/>
+            <stop offset="Ratio(Scalar(0.3333333333333333))" stop-color="#0074d9"/>
+            <stop offset="Ratio(Scalar(0.3333333333333333))" stop-color="#0074d9"/>
+            <stop offset="Ratio(Scalar(0.3386243386243386))" stop-color="#0076d7"/>
+            <stop offset="Ratio(Scalar(0.3439153439153439))" stop-color="#0078d6"/>
+            <stop offset="Ratio(Scalar(0.3492063492063492))" stop-color="#007ad4"/>
+            <stop offset="Ratio(Scalar(0.3544973544973545))" stop-color="#007bd2"/>
+            <stop offset="Ratio(Scalar(0.35978835978835977))" stop-color="#007dd1"/>
+            <stop offset="Ratio(Scalar(0.36507936507936506))" stop-color="#007fcf"/>
+            <stop offset="Ratio(Scalar(0.37037037037037035))" stop-color="#0081cd"/>
+            <stop offset="Ratio(Scalar(0.37566137566137564))" stop-color="#0082cc"/>
+            <stop offset="Ratio(Scalar(0.38095238095238093))" stop-color="#0084ca"/>
+            <stop offset="Ratio(Scalar(0.3862433862433862))" stop-color="#0086c8"/>
+            <stop offset="Ratio(Scalar(0.3915343915343915))" stop-color="#0087c6"/>
+            <stop offset="Ratio(Scalar(0.3968253968253968))" stop-color="#0089c5"/>
+            <stop offset="Ratio(Scalar(0.4021164021164021))" stop-color="#008bc3"/>
+            <stop offset="Ratio(Scalar(0.4074074074074074))" stop-color="#008cc1"/>
+            <stop offset="Ratio(Scalar(0.4126984126984127))" stop-color="#008ebf"/>
+            <stop offset="Ratio(Scalar(0.41798941798941797))" stop-color="#008fbe"/>
+            <stop offset="Ratio(Scalar(0.42328042328042326))" stop-color="#0091bc"/>
+            <stop offset="Ratio(Scalar(0.42857142857142855))" stop-color="#0092ba"/>
+            <stop offset="Ratio(Scalar(0.43386243386243384))" stop-color="#0094b8"/>
+            <stop offset="Ratio(Scalar(0.43915343915343913))" stop-color="#0095b6"/>
+            <stop offset="Ratio(Scalar(0.4444444444444444))" stop-color="#0097b4"/>
+            <stop offset="Ratio(Scalar(0.4497354497354497))" stop-color="#0098b2"/>
+            <stop offset="Ratio(Scalar(0.455026455026455))" stop-color="#009ab0"/>
+            <stop offset="Ratio(Scalar(0.4603174603174603))" stop-color="#009baf"/>
+            <stop offset="Ratio(Scalar(0.4656084656084656))" stop-color="#009cad"/>
+            <stop offset="Ratio(Scalar(0.4708994708994709))" stop-color="#009eab"/>
+            <stop offset="Ratio(Scalar(0.47619047619047616))" stop-color="#009fa9"/>
+            <stop offset="Ratio(Scalar(0.48148148148148145))" stop-color="#00a1a7"/>
+            <stop offset="Ratio(Scalar(0.48677248677248675))" stop-color="#00a2a5"/>
+            <stop offset="Ratio(Scalar(0.49206349206349204))" stop-color="#00a3a3"/>
+            <stop offset="Ratio(Scalar(0.4973544973544973))" stop-color="#00a5a0"/>
+            <stop offset="Ratio(Scalar(0.5026455026455026))" stop-color="#00a69e"/>
+            <stop offset="Ratio(Scalar(0.5079365079365079))" stop-color="#00a79c"/>
+            <stop offset="Ratio(Scalar(0.5132275132275133))" stop-color="#00a99a"/>
+            <stop offset="Ratio(Scalar(0.5185185185185185))" stop-color="#00aa98"/>
+            <stop offset="Ratio(Scalar(0.5238095238095237))" stop-color="#00ab96"/>
+            <stop offset="Ratio(Scalar(0.5291005291005291))" stop-color="#00ad93"/>
+            <stop offset="Ratio(Scalar(0.5343915343915344))" stop-color="#00ae91"/>
+            <stop offset="Ratio(Scalar(0.5396825396825397))" stop-color="#00af8f"/>
+            <stop offset="Ratio(Scalar(0.5449735449735449))" stop-color="#00b08d"/>
+            <stop offset="Ratio(Scalar(0.5502645502645502))" stop-color="#00b28a"/>
+            <stop offset="Ratio(Scalar(0.5555555555555556))" stop-color="#00b388"/>
+            <stop offset="Ratio(Scalar(0.5608465608465608))" stop-color="#00b485"/>
+            <stop offset="Ratio(Scalar(0.566137566137566))" stop-color="#00b683"/>
+            <stop offset="Ratio(Scalar(0.5714285714285714))" stop-color="#02b780"/>
+            <stop offset="Ratio(Scalar(0.5767195767195767))" stop-color="#05b87d"/>
+            <stop offset="Ratio(Scalar(0.582010582010582))" stop-color="#09b97b"/>
+            <stop offset="Ratio(Scalar(0.5873015873015872))" stop-color="#0dba78"/>
+            <stop offset="Ratio(Scalar(0.5925925925925926))" stop-color="#10bc75"/>
+            <stop offset="Ratio(Scalar(0.5978835978835979))" stop-color="#13bd72"/>
+            <stop offset="Ratio(Scalar(0.6031746031746031))" stop-color="#15be6f"/>
+            <stop offset="Ratio(Scalar(0.6084656084656084))" stop-color="#18bf6c"/>
+            <stop offset="Ratio(Scalar(0.6137566137566137))" stop-color="#1ac069"/>
+            <stop offset="Ratio(Scalar(0.6190476190476191))" stop-color="#1cc266"/>
+            <stop offset="Ratio(Scalar(0.6243386243386243))" stop-color="#1fc362"/>
+            <stop offset="Ratio(Scalar(0.6296296296296295))" stop-color="#21c45f"/>
+            <stop offset="Ratio(Scalar(0.6349206349206349))" stop-color="#23c55b"/>
+            <stop offset="Ratio(Scalar(0.6402116402116402))" stop-color="#25c657"/>
+            <stop offset="Ratio(Scalar(0.6455026455026455))" stop-color="#27c753"/>
+            <stop offset="Ratio(Scalar(0.6507936507936507))" stop-color="#29c94f"/>
+            <stop offset="Ratio(Scalar(0.656084656084656))" stop-color="#2aca4a"/>
+            <stop offset="Ratio(Scalar(0.6613756613756614))" stop-color="#2ccb45"/>
+            <stop offset="Ratio(Scalar(0.6666666666666666))" stop-color="#2ecc40"/>
+            <stop offset="Ratio(Scalar(0.6666666666666666))" stop-color="#2ecc40"/>
+            <stop offset="Ratio(Scalar(0.671957671957672))" stop-color="#36ca45"/>
+            <stop offset="Ratio(Scalar(0.6772486772486772))" stop-color="#3dc84a"/>
+            <stop offset="Ratio(Scalar(0.6825396825396826))" stop-color="#43c64e"/>
+            <stop offset="Ratio(Scalar(0.6878306878306878))" stop-color="#48c452"/>
+            <stop offset="Ratio(Scalar(0.6931216931216931))" stop-color="#4dc256"/>
+            <stop offset="Ratio(Scalar(0.6984126984126984))" stop-color="#52c159"/>
+            <stop offset="Ratio(Scalar(0.7037037037037037))" stop-color="#56bf5d"/>
+            <stop offset="Ratio(Scalar(0.708994708994709))" stop-color="#5abd60"/>
+            <stop offset="Ratio(Scalar(0.7142857142857143))" stop-color="#5ebb63"/>
+            <stop offset="Ratio(Scalar(0.7195767195767195))" stop-color="#61b966"/>
+            <stop offset="Ratio(Scalar(0.7248677248677249))" stop-color="#64b769"/>
+            <stop offset="Ratio(Scalar(0.7301587301587301))" stop-color="#67b56c"/>
+            <stop offset="Ratio(Scalar(0.7354497354497355))" stop-color="#6ab36f"/>
+            <stop offset="Ratio(Scalar(0.7407407407407407))" stop-color="#6db172"/>
+            <stop offset="Ratio(Scalar(0.746031746031746))" stop-color="#70af74"/>
+            <stop offset="Ratio(Scalar(0.7513227513227513))" stop-color="#72ad77"/>
+            <stop offset="Ratio(Scalar(0.7566137566137566))" stop-color="#75ab79"/>
+            <stop offset="Ratio(Scalar(0.7619047619047619))" stop-color="#77a97c"/>
+            <stop offset="Ratio(Scalar(0.7671957671957672))" stop-color="#7aa67e"/>
+            <stop offset="Ratio(Scalar(0.7724867724867724))" stop-color="#7ca480"/>
+            <stop offset="Ratio(Scalar(0.7777777777777778))" stop-color="#7ea282"/>
+            <stop offset="Ratio(Scalar(0.783068783068783))" stop-color="#80a085"/>
+            <stop offset="Ratio(Scalar(0.7883597883597884))" stop-color="#829e87"/>
+            <stop offset="Ratio(Scalar(0.7936507936507936))" stop-color="#849c89"/>
+            <stop offset="Ratio(Scalar(0.798941798941799))" stop-color="#869a8b"/>
+            <stop offset="Ratio(Scalar(0.8042328042328042))" stop-color="#88988d"/>
+            <stop offset="Ratio(Scalar(0.8095238095238095))" stop-color="#89958f"/>
+            <stop offset="Ratio(Scalar(0.8148148148148148))" stop-color="#8b9391"/>
+            <stop offset="Ratio(Scalar(0.8201058201058201))" stop-color="#8d9193"/>
+            <stop offset="Ratio(Scalar(0.8253968253968254))" stop-color="#8e8f95"/>
+            <stop offset="Ratio(Scalar(0.8306878306878307))" stop-color="#908c97"/>
+            <stop offset="Ratio(Scalar(0.8359788359788359))" stop-color="#918a99"/>
+            <stop offset="Ratio(Scalar(0.8412698412698413))" stop-color="#93889a"/>
+            <stop offset="Ratio(Scalar(0.8465608465608465))" stop-color="#94859c"/>
+            <stop offset="Ratio(Scalar(0.8518518518518519))" stop-color="#96839e"/>
+            <stop offset="Ratio(Scalar(0.8571428571428571))" stop-color="#9780a0"/>
+            <stop offset="Ratio(Scalar(0.8624338624338624))" stop-color="#987ea2"/>
+            <stop offset="Ratio(Scalar(0.8677248677248677))" stop-color="#9a7ba3"/>
+            <stop offset="Ratio(Scalar(0.873015873015873))" stop-color="#9b79a5"/>
+            <stop offset="Ratio(Scalar(0.8783068783068783))" stop-color="#9c76a7"/>
+            <stop offset="Ratio(Scalar(0.8835978835978836))" stop-color="#9d74a8"/>
+            <stop offset="Ratio(Scalar(0.8888888888888888))" stop-color="#9e71aa"/>
+            <stop offset="Ratio(Scalar(0.8941798941798942))" stop-color="#a06eac"/>
+            <stop offset="Ratio(Scalar(0.8994708994708994))" stop-color="#a16bad"/>
+            <stop offset="Ratio(Scalar(0.9047619047619048))" stop-color="#a268af"/>
+            <stop offset="Ratio(Scalar(0.91005291005291))" stop-color="#a365b0"/>
+            <stop offset="Ratio(Scalar(0.9153439153439153))" stop-color="#a462b2"/>
+            <stop offset="Ratio(Scalar(0.9206349206349207))" stop-color="#a55fb3"/>
+            <stop offset="Ratio(Scalar(0.9259259259259259))" stop-color="#a65cb5"/>
+            <stop offset="Ratio(Scalar(0.9312169312169312))" stop-color="#a759b6"/>
+            <stop offset="Ratio(Scalar(0.9365079365079365))" stop-color="#a855b8"/>
+            <stop offset="Ratio(Scalar(0.9417989417989419))" stop-color="#a852b9"/>
+            <stop offset="Ratio(Scalar(0.9470899470899471))" stop-color="#a94ebb"/>
+            <stop offset="Ratio(Scalar(0.9523809523809523))" stop-color="#aa4abc"/>
+            <stop offset="Ratio(Scalar(0.9576719576719577))" stop-color="#ab46be"/>
+            <stop offset="Ratio(Scalar(0.962962962962963))" stop-color="#ac42bf"/>
+            <stop offset="Ratio(Scalar(0.9682539682539683))" stop-color="#ad3dc1"/>
+            <stop offset="Ratio(Scalar(0.9735449735449735))" stop-color="#ad38c2"/>
+            <stop offset="Ratio(Scalar(0.9788359788359788))" stop-color="#ae32c3"/>
+            <stop offset="Ratio(Scalar(0.9841269841269842))" stop-color="#af2cc5"/>
+            <stop offset="Ratio(Scalar(0.9894179894179894))" stop-color="#b024c6"/>
+            <stop offset="Ratio(Scalar(0.9947089947089947))" stop-color="#b01bc8"/>
+            <stop offset="Ratio(Scalar(1.0))" stop-color="#b10dc9"/>
+        </linearGradient>
+    </defs>
+    <defs id="gradient-refs">
+        <linearGradient gradientTransform="matrix(200 0 0 200 -5 -5)" id="gD19C1BD6A315890ADE6669C6E74C5701" href="#f62E1AA47CA45966F7114E6109F0EE0AC" xlink:href="#f62E1AA47CA45966F7114E6109F0EE0AC"/>
+        <linearGradient gradientTransform="matrix(200 0 0 200 -105 -15)" id="g14A9E609CCF2D355E8728D7E6D6D2D96" href="#f62E1AA47CA45966F7114E6109F0EE0AC" xlink:href="#f62E1AA47CA45966F7114E6109F0EE0AC"/>
+        <linearGradient gradientTransform="matrix(141.4213562373095 -141.42135623730948 141.42135623730948 141.4213562373095 -135.3122292025696 13.180194846605346)" id="g842AAB21EE97F0F1659A1BCD32D331AF" href="#f62E1AA47CA45966F7114E6109F0EE0AC" xlink:href="#f62E1AA47CA45966F7114E6109F0EE0AC"/>
+        <linearGradient gradientTransform="matrix(200 0 0 200 0 0)" id="g8F532804BD60473875D6AC86228B2067" href="#fD8A20D4E387E68CAFAD2BFDF0C932F9D" xlink:href="#fD8A20D4E387E68CAFAD2BFDF0C932F9D"/>
+        <linearGradient gradientTransform="matrix(100 0 0 100 0 0)" id="gB198986A3D4F7FDDAD4085619FBDB624" href="#fD8A20D4E387E68CAFAD2BFDF0C932F9D" xlink:href="#fD8A20D4E387E68CAFAD2BFDF0C932F9D"/>
+        <linearGradient gradientTransform="matrix(90 0 0 90 0 0)" id="gCAF7A644EE2F83913E23F99B49EC93B0" href="#fD8A20D4E387E68CAFAD2BFDF0C932F9D" xlink:href="#fD8A20D4E387E68CAFAD2BFDF0C932F9D"/>
+    </defs>
+</svg>

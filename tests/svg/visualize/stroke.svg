@@ -1,0 +1,177 @@
+<svg class="typst-doc" viewBox="0 0 130 621.1640625" width="130pt" height="621.1640625pt" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 25)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 40)">
+            <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="1.5" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 55)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="3 3" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 70)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="4" stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 60 0 "/>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 90)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="3 2 1 2" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 25)">
+            <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="3 2 1 2" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 40)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 60 0 "/>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 145)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 20 L 20 20 L 20 0 Z "/>
+        </g>
+        <g transform="translate(10 45)">
+            <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="3 3" d="M 0 0 L 20 0 "/>
+        </g>
+        <g transform="translate(10 45)">
+            <path class="typst-shape" fill="#ff4136" d="M 19.5 0.5 L 20.5 -0.5 L 20.5 -0.5 L 20.5 20.5 L -0.5 20.5 L -0.5 -0.5 L 0.5 0.5 L 0.5 19.5 L 19.5 19.5 Z "/>
+        </g>
+        <g transform="translate(10 80)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="5" stroke-linecap="butt" stroke-linejoin="round" stroke-miterlimit="4" d="M 0 0 L 0 20 L 20 20 L 20 0 Z "/>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 260)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="1 1" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 25)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="1 1 4 2" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 40)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="5" stroke-dasharray="1 1 4 2" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 55)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="" d="M 0 0 L 60 0 "/>
+        </g>
+        <g transform="translate(10 70)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="1 3 9" d="M 0 0 L 60 0 "/>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 345)">
+        <g transform="translate(10 10)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <g class="typst-group">
+                            <g>
+                                <g transform="translate(0 0)">
+                                    <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="4" stroke-linecap="butt" stroke-linejoin="round" stroke-miterlimit="4" d="M 0 20 L 15 0 L 0 40 L 15 45 Z "/>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                    <g transform="translate(25 0)">
+                        <g class="typst-group">
+                            <g>
+                                <g transform="translate(0 0)">
+                                    <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="4" stroke-linecap="butt" stroke-linejoin="bevel" stroke-miterlimit="4" d="M 0 20 L 15 0 L 0 40 L 15 45 Z "/>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                    <g transform="translate(50 0)">
+                        <g class="typst-group">
+                            <g>
+                                <g transform="translate(0 0)">
+                                    <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="4" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 20 L 15 0 L 0 40 L 15 45 Z "/>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                    <g transform="translate(75 0)">
+                        <g class="typst-group">
+                            <g>
+                                <g transform="translate(0 0)">
+                                    <path class="typst-shape" fill="none" stroke="#0074d9" stroke-width="4" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="20" d="M 0 20 L 15 0 L 0 40 L 15 45 Z "/>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 415)">
+        <g transform="translate(10 32)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 10 L 10 10 L 10 0 Z "/>
+        </g>
+        <g transform="translate(10 54)">
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 10 L 10 10 L 10 0 Z "/>
+        </g>
+        <g transform="translate(10 76)">
+            <path class="typst-shape" fill="#0074d9" stroke="#ff4136" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 10 L 10 10 L 10 0 Z "/>
+        </g>
+        <g transform="translate(10 98)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 30 0 "/>
+        </g>
+        <g transform="translate(10 110)">
+            <path class="typst-shape" fill="none" stroke="#ff4136" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dashoffset="0" stroke-dasharray="0 1" d="M 0 0 L 30 0 "/>
+        </g>
+        <g transform="translate(15 133.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(31.9482421875 133.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(10 150.58203125)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 16.582031 "/>
+                    </g>
+                    <g transform="translate(16.9482421875 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 16.582031 "/>
+                    </g>
+                    <g transform="translate(32.8271484375 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 16.582031 "/>
+                    </g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 32.82715 0 "/>
+                    </g>
+                    <g transform="translate(0 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 32.82715 0 "/>
+                    </g>
+                    <g transform="translate(5 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(21.9482421875 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 179.1640625)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 C -4 0 54 0 50 0 C 46 0 4 0 0 0 C -4 0 54 0 50 0 C 46 0 4 0 0 0 Z "/>
+        </g>
+        <g transform="translate(10 191.1640625)">
+            <path class="typst-shape" fill="#ff4136" stroke="#000000" stroke-width="0" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 C -4 0 54 0 50 0 C 46 0 4 0 0 0 C -4 0 54 0 50 0 C 46 0 4 0 0 0 Z "/>
+        </g>
+    </g>
+    <defs id="glyph">
+        <symbol id="g3D9BDB6E44359424FB1D3FC6EC3DFF4C" overflow="visible">
+            <path d="M 2.631836 2.8320313 L 4.399414 2.8320313 L 3.461914 5.551758 L 3.3984375 5.551758 L 2.3779297 2.9638672 Q 2.3486328 2.8857422 2.4072266 2.8588867 Q 2.4658203 2.8320313 2.631836 2.8320313 Z M 1.5478516 0.7910156 Q 1.5380859 0.6933594 1.5185547 0.6176758 Q 1.4990234 0.5419922 1.574707 0.49072266 Q 1.6503906 0.43945313 1.6943359 0.41015625 Q 1.7382813 0.38085938 1.8603516 0.3564453 Q 1.9824219 0.33203125 2.0507813 0.32714844 Q 2.1191406 0.32226563 2.241211 0.3076172 Q 2.2802734 0.25878906 2.2802734 0.13916016 Q 2.2802734 0.01953125 2.241211 -0.01953125 Q 1.4990234 0 0.96191406 0 Q 0.5908203 0 0.068359375 -0.01953125 Q 0.01953125 0.01953125 0.01953125 0.13916016 Q 0.01953125 0.25878906 0.068359375 0.3076172 Q 0.44921875 0.33691406 0.6689453 0.4638672 Q 0.8886719 0.5908203 1.0693359 1.0205078 L 3.3398438 6.381836 Q 3.5595703 6.381836 3.8916016 6.5820313 L 5.9521484 0.859375 Q 6.0302734 0.6298828 6.184082 0.5102539 Q 6.3378906 0.390625 6.4697266 0.36132813 Q 6.6015625 0.33203125 6.850586 0.3076172 Q 6.899414 0.25878906 6.899414 0.13916016 Q 6.899414 0.01953125 6.850586 -0.01953125 Q 6.1523438 0 5.708008 0 Q 5.1367188 0 4.399414 -0.01953125 Q 4.3603516 0.01953125 4.3603516 0.13916016 Q 4.3603516 0.25878906 4.399414 0.3076172 Q 4.4873047 0.3173828 4.538574 0.31982422 Q 4.5898438 0.32226563 4.67041 0.33203125 Q 4.7509766 0.34179688 4.794922 0.3515625 Q 4.838867 0.36132813 4.8999023 0.37109375 Q 4.9609375 0.38085938 4.995117 0.3955078 Q 5.029297 0.41015625 5.070801 0.4345703 Q 5.1123047 0.45898438 5.126953 0.48339844 Q 5.1416016 0.5078125 5.15625 0.5444336 Q 5.1708984 0.5810547 5.1660156 0.625 Q 5.161133 0.6689453 5.1416016 0.71777344 L 4.560547 2.4121094 L 2.4511719 2.4121094 Q 2.2705078 2.4121094 2.2045898 2.3754883 Q 2.1386719 2.3388672 2.0996094 2.241211 L 1.5478516 0.7910156 Z "/>
+        </symbol>
+        <symbol id="gF21E4AC14CBB8A2538D3D1B2BB0C9414" overflow="visible">
+            <path d="M 1.9091797 5.498047 L 1.9091797 3.6621094 L 2.6513672 3.6621094 Q 4.0722656 3.6621094 4.0722656 4.8095703 Q 4.0722656 5.498047 3.6816406 5.8129883 Q 3.2910156 6.1279297 2.7783203 6.1279297 Q 2.3388672 6.1279297 2.1655273 6.0742188 Q 1.9921875 6.020508 1.9506836 5.913086 Q 1.9091797 5.805664 1.9091797 5.498047 Z M 1.9091797 3.3203125 L 1.9091797 1.1816406 Q 1.9091797 0.703125 2.0751953 0.5053711 Q 2.241211 0.3076172 2.7392578 0.3076172 Q 3.7890625 0.3076172 4.165039 0.6640625 Q 4.5410156 1.0205078 4.5410156 1.6503906 Q 4.5410156 2.3828125 4.055176 2.8515625 Q 3.569336 3.3203125 2.5976563 3.3203125 L 1.9091797 3.3203125 Z M 1.4794922 6.4501953 Q 1.6601563 6.4501953 2.109375 6.459961 Q 2.5585938 6.4697266 2.7294922 6.4697266 Q 4.8779297 6.4697266 4.8779297 4.9316406 Q 4.8779297 4.5410156 4.604492 4.1796875 Q 4.3310547 3.8183594 3.930664 3.618164 L 3.930664 3.5986328 Q 4.6289063 3.3984375 5.048828 2.9589844 Q 5.46875 2.5195313 5.46875 1.8408203 Q 5.46875 1.4892578 5.349121 1.1791992 Q 5.229492 0.8691406 4.9609375 0.5883789 Q 4.692383 0.3076172 4.177246 0.14404297 Q 3.6621094 -0.01953125 2.9492188 -0.01953125 Q 2.4707031 -0.01953125 2.0410156 -0.009765625 Q 1.6113281 0 1.4892578 0 Q 0.9716797 0 0.19042969 -0.01953125 Q 0.14160156 0.01953125 0.14160156 0.13916016 Q 0.14160156 0.25878906 0.19042969 0.3076172 Q 0.7519531 0.32714844 0.9057617 0.4736328 Q 1.0595703 0.6201172 1.0595703 1.2207031 L 1.0595703 5.229492 Q 1.0595703 5.830078 0.9057617 5.974121 Q 0.7519531 6.118164 0.19042969 6.1376953 Q 0.14160156 6.176758 0.14160156 6.298828 Q 0.14160156 6.4208984 0.19042969 6.4697266 Q 0.9716797 6.4501953 1.4794922 6.4501953 Z "/>
+        </symbol>
+    </defs>
+</svg>

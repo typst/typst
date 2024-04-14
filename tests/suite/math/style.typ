@@ -1,0 +1,34 @@
+// Test text styling in math.
+
+--- math-style-italic-default ---
+// Test italic defaults.
+$a, A, delta, ϵ, diff, Delta, ϴ$
+
+--- math-style ---
+// Test forcing a specific style.
+$A, italic(A), upright(A), bold(A), bold(upright(A)), \
+ serif(A), sans(A), cal(A), frak(A), mono(A), bb(A), \
+ italic(diff), upright(diff), \
+ bb("hello") + bold(cal("world")), \
+ mono("SQRT")(x) wreath mono(123 + 456)$
+
+--- math-style-exceptions ---
+// Test a few style exceptions.
+$h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta)) \
+ bb(d), bb(italic(d)), italic(bb(d)), bb(e), bb(italic(e)), italic(bb(e)) \
+ bb(i), bb(italic(i)), italic(bb(i)), bb(j), bb(italic(j)), italic(bb(j)) \
+ bb(D), bb(italic(D)), italic(bb(D))$
+
+--- math-style-greek-exceptions ---
+// Test a few greek exceptions.
+$bb(Gamma) , bb(gamma), bb(Pi), bb(pi), bb(sum)$
+
+--- math-style-hebrew-exceptions ---
+// Test hebrew exceptions.
+$aleph, beth, gimel, daleth$
+
+--- issue-3650-italic-equation ---
+_abc $sin(x) "abc"$_ \
+$italic(sin(x) "abc" #box[abc])$ \
+*abc $sin(x) "abc"$* \
+$bold(sin(x) "abc" #box[abc])$ \

@@ -377,7 +377,7 @@ pub struct EncodedPage {
 }
 
 /// Represents a resource being used in a PDF page by its name.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct PageResource {
     kind: ResourceKind,
     name: EcoString,
@@ -390,7 +390,7 @@ impl PageResource {
 }
 
 /// A kind of resource being used in a PDF page.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ResourceKind {
     XObject,
     Font,

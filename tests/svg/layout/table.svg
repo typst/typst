@@ -1,0 +1,1135 @@
+<svg class="typst-doc" viewBox="0 0 130 973.71484375" width="130pt" height="973.71484375pt" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 16.582031 L 33.333332 16.582031 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(43.33333333333333 26.58203125)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 33.41797 L 33.333332 33.41797 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(76.66666666666666 10)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 16.582031 L 33.333332 16.582031 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(10 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(43.33333333333333 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(76.66666666666666 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(109.99999999999999 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(9 10)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(9 26.58203125)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(9 60)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(15 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(48.33333333333333 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(81.66666666666666 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(81.66666666666666 38.1640625)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g2D3C72B90F0789CC06DCB51614ECA808" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(81.66666666666666 51.24609375)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g6FA65585E1EEAEB8EA1427B7866A0078" x="0" fill="#000000"/>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 80)">
+        <g transform="translate(43.33333333333333 10)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 50 L 33.333332 50 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(10 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(43.33333333333333 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(76.66666666666666 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(109.99999999999999 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 52 "/>
+        </g>
+        <g transform="translate(9 10)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(9 60)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(81.66666666666666 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g75D91B0A57F766017508A5DA871B46F8" x="0" fill="#000000"/>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 155)">
+        <g transform="translate(10 26.58203125)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 16.582031 L 33.333332 16.582031 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(43.33333333333333 10)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 16.582031 L 33.333332 16.582031 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(76.66666666666666 26.58203125)">
+            <path class="typst-shape" fill="#aaaaaa" d="M 0 0 L 0 16.582031 L 33.333332 16.582031 L 33.333332 0 Z "/>
+        </g>
+        <g transform="translate(10 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 35.164063 "/>
+        </g>
+        <g transform="translate(43.33333333333333 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 35.164063 "/>
+        </g>
+        <g transform="translate(76.66666666666666 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 35.164063 "/>
+        </g>
+        <g transform="translate(109.99999999999999 9)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 35.164063 "/>
+        </g>
+        <g transform="translate(9 10)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(9 26.58203125)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(9 43.1640625)">
+            <path class="typst-shape" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 102 0 "/>
+        </g>
+        <g transform="translate(81.66666666666666 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gCBBD13C7D50FDB82A725137D874F116B" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(15 38.1640625)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g5C05AE35C42DA7BE4030804AEDD4A38A" x="0" fill="#000000"/>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 230)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#2ecc40" d="M 0 0 L 0 16.582031 L 16.948242 16.582031 L 16.948242 0 Z "/>
+        </g>
+        <g transform="translate(26.9482421875 10)">
+            <path class="typst-shape" fill="#2ecc40" d="M 0 0 L 0 16.582031 L 15.878906 16.582031 L 15.878906 0 Z "/>
+        </g>
+        <g transform="translate(42.8271484375 10)">
+            <path class="typst-shape" fill="#2ecc40" d="M 0 0 L 0 16.582031 L 16.45996 16.582031 L 16.45996 0 Z "/>
+        </g>
+        <g transform="translate(15 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(31.9482421875 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(47.8271484375 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 271.58203125)">
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(43.33333333333333 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(76.66666666666666 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(109.99999999999999 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+        </g>
+        <g transform="translate(9.5 26.58203125)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+        </g>
+        <g transform="translate(15 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(57.06054687499999 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(98.54003906249999 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(10.000000000000007 38.58203125)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(33.33333333333333 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(66.66666666666666 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(99.99999999999999 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+                    </g>
+                    <g transform="translate(13.192545572916664 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(47.06054687499999 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(80.10335286458331 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 341.74609375)">
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+        </g>
+        <g transform="translate(36.9482421875 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+        </g>
+        <g transform="translate(62.8271484375 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+        </g>
+        <g transform="translate(89.287109375 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 80.28711 0 "/>
+        </g>
+        <g transform="translate(9.5 36.58203125)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 80.28711 0 "/>
+        </g>
+        <g transform="translate(20 26.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(46.9482421875 26.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(72.8271484375 26.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(10 48.58203125)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(16.9482421875 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(32.8271484375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(49.287109375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 50.28711 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 26.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 50.28711 0 "/>
+                    </g>
+                    <g transform="translate(5 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(21.9482421875 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(37.8271484375 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 87.1640625)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(33.333333333333336 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(66.66666666666667 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(100 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 26.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+                    </g>
+                    <g transform="translate(20 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(53.333333333333336 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(86.66666666666667 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 125.74609375)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 20.582031 "/>
+                    </g>
+                    <g transform="translate(31.9482421875 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 20.582031 "/>
+                    </g>
+                    <g transform="translate(62.8271484375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 20.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 63.82715 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 19.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 63.82715 0 "/>
+                    </g>
+                    <g transform="translate(20 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(51.9482421875 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 157.328125)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="#7fdbff" d="M 0 0 L 0 6.5820313 L 11.948242 6.5820313 L 11.948242 0 Z "/>
+                    </g>
+                    <g transform="translate(0 6.58203125)">
+                        <path class="typst-shape" fill="#ff851b" d="M 0 0 L 0 16.582031 L 11.948242 16.582031 L 11.948242 0 Z "/>
+                    </g>
+                    <g transform="translate(11.9482421875 0)">
+                        <path class="typst-shape" fill="#6cbad9" d="M 0 0 L 0 6.5820313 L 10.878906 6.5820313 L 10.878906 0 Z "/>
+                    </g>
+                    <g transform="translate(11.9482421875 6.58203125)">
+                        <path class="typst-shape" fill="#d97117" d="M 0 0 L 0 16.582031 L 10.878906 16.582031 L 10.878906 0 Z "/>
+                    </g>
+                    <g transform="translate(22.8271484375 0)">
+                        <path class="typst-shape" fill="#5999b3" d="M 0 0 L 0 6.5820313 L 11.459961 6.5820313 L 11.459961 0 Z "/>
+                    </g>
+                    <g transform="translate(22.8271484375 6.58203125)">
+                        <path class="typst-shape" fill="#b35d13" d="M 0 0 L 0 16.582031 L 11.459961 16.582031 L 11.459961 0 Z "/>
+                    </g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 24.164063 "/>
+                    </g>
+                    <g transform="translate(11.9482421875 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 24.164063 "/>
+                    </g>
+                    <g transform="translate(22.8271484375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 24.164063 "/>
+                    </g>
+                    <g transform="translate(34.287109375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 24.164063 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 35.28711 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 6.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 35.28711 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 23.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 35.28711 0 "/>
+                    </g>
+                    <g transform="translate(0 6.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(16.9482421875 6.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(27.8271484375 6.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(0 18.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(16.9482421875 18.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(27.8271484375 18.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 192.4921875)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="#7fdbff" d="M 0 0 L 0 26.582031 L 6.948242 26.582031 L 6.948242 0 Z "/>
+                    </g>
+                    <g transform="translate(6.9482421875 0)">
+                        <path class="typst-shape" fill="#6cbad9" d="M 0 0 L 0 26.582031 L 15.878906 26.582031 L 15.878906 0 Z "/>
+                    </g>
+                    <g transform="translate(22.8271484375 0)">
+                        <path class="typst-shape" fill="#5999b3" d="M 0 0 L 0 26.582031 L 26.45996 26.582031 L 26.45996 0 Z "/>
+                    </g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(6.9482421875 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(22.8271484375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(49.287109375 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 27.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 50.28711 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 26.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 50.28711 0 "/>
+                    </g>
+                    <g transform="translate(0 6.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(11.9482421875 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(32.8271484375 16.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 575.8203125)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 4.5654297 16.582031 L 4.5654297 0 Z "/>
+        </g>
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(14.5654296875 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 5.5654297 0 "/>
+        </g>
+        <g transform="translate(9.5 26.58203125)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 5.5654297 0 "/>
+        </g>
+        <g transform="translate(10 16.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g4A9B86D0250C0C708D196C23668AB959" x="0" fill="#000000"/>
+            </g>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 617.40234375)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(10 26.58203125)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(10 43.1640625)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(10 59.74609375)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(40 10)">
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(40 26.58203125)">
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(40 43.1640625)">
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(40 59.74609375)">
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+        </g>
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 67.328125 "/>
+        </g>
+        <g transform="translate(40 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 67.328125 "/>
+        </g>
+        <g transform="translate(70 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 67.328125 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 61 0 "/>
+        </g>
+        <g transform="translate(9.5 26.58203125)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 61 0 "/>
+        </g>
+        <g transform="translate(9.5 43.1640625)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 61 0 "/>
+        </g>
+        <g transform="translate(9.5 59.74609375)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 61 0 "/>
+        </g>
+        <g transform="translate(9.5 76.328125)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 61 0 "/>
+        </g>
+        <g transform="translate(15 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(45 21.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(28.5400390625 38.1640625)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(57.9931640625 38.1640625)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g2D3C72B90F0789CC06DCB51614ECA808" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(15 54.74609375)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g6FA65585E1EEAEB8EA1427B7866A0078" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(45 54.74609375)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g75D91B0A57F766017508A5DA871B46F8" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(28.154296875 71.328125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gCBBD13C7D50FDB82A725137D874F116B" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(57.7001953125 71.328125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g5C05AE35C42DA7BE4030804AEDD4A38A" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(10 88.328125)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 21.58203125)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 43.1640625)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 64.74609375)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(30 0)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(30 21.58203125)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(30 43.1640625)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(30 64.74609375)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(60 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(60 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(60 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(60 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 21.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 21.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 38.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 38.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 43.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 43.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 59.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 59.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 64.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 64.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 81.328125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(29.5 81.328125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(5 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(35 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(18.5400390625 33.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(47.9931640625 33.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g2D3C72B90F0789CC06DCB51614ECA808" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(5 54.74609375)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g6FA65585E1EEAEB8EA1427B7866A0078" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(35 54.74609375)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g75D91B0A57F766017508A5DA871B46F8" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(18.154296875 76.328125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gCBBD13C7D50FDB82A725137D874F116B" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(47.7001953125 76.328125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g5C05AE35C42DA7BE4030804AEDD4A38A" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 181.65625)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 16.58203125)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 33.1640625)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 49.74609375)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 0)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 16.58203125)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 33.1640625)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 49.74609375)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 16.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 32.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 49.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 16.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 32.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 49.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 16.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 32.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 49.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 16.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 32.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 49.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 33.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 33.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 33.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 33.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 49.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 49.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 49.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 49.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 66.328125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 66.328125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(5 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(40 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(18.5400390625 28.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(52.9931640625 28.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g2D3C72B90F0789CC06DCB51614ECA808" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(5 44.74609375)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g6FA65585E1EEAEB8EA1427B7866A0078" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(40 44.74609375)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g75D91B0A57F766017508A5DA871B46F8" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(18.154296875 61.328125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gCBBD13C7D50FDB82A725137D874F116B" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(52.7001953125 61.328125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g5C05AE35C42DA7BE4030804AEDD4A38A" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 259.984375)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(0 0)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 21.58203125)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 43.1640625)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 64.74609375)">
+                        <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 0)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 21.58203125)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 43.1640625)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(35 64.74609375)">
+                        <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 16.582031 L 30 16.582031 L 30 0 Z "/>
+                    </g>
+                    <g transform="translate(0 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(0 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(30 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(35 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 -0.5)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 21.08203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 42.6640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(65 64.24609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+                    </g>
+                    <g transform="translate(-0.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 0)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 16.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 21.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 21.58203125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 38.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 38.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 43.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 43.1640625)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 59.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 59.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 64.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 64.74609375)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(-0.5 81.328125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(34.5 81.328125)">
+                        <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 31 0 "/>
+                    </g>
+                    <g transform="translate(5 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g3D9BDB6E44359424FB1D3FC6EC3DFF4C" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(40 11.58203125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gF21E4AC14CBB8A2538D3D1B2BB0C9414" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(18.5400390625 33.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g725472A9FA1C3CA93FB5F0BEEEB9E809" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(52.9931640625 33.1640625)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g2D3C72B90F0789CC06DCB51614ECA808" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(5 54.74609375)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g6FA65585E1EEAEB8EA1427B7866A0078" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(40 54.74609375)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g75D91B0A57F766017508A5DA871B46F8" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(18.154296875 76.328125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#gCBBD13C7D50FDB82A725137D874F116B" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                    <g transform="translate(52.7001953125 76.328125)">
+                        <g class="typst-text" transform="scale(1, -1)">
+                            <use xlink:href="#g5C05AE35C42DA7BE4030804AEDD4A38A" x="0" fill="#000000"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <defs id="glyph">
+        <symbol id="g3D9BDB6E44359424FB1D3FC6EC3DFF4C" overflow="visible">
+            <path d="M 2.631836 2.8320313 L 4.399414 2.8320313 L 3.461914 5.551758 L 3.3984375 5.551758 L 2.3779297 2.9638672 Q 2.3486328 2.8857422 2.4072266 2.8588867 Q 2.4658203 2.8320313 2.631836 2.8320313 Z M 1.5478516 0.7910156 Q 1.5380859 0.6933594 1.5185547 0.6176758 Q 1.4990234 0.5419922 1.574707 0.49072266 Q 1.6503906 0.43945313 1.6943359 0.41015625 Q 1.7382813 0.38085938 1.8603516 0.3564453 Q 1.9824219 0.33203125 2.0507813 0.32714844 Q 2.1191406 0.32226563 2.241211 0.3076172 Q 2.2802734 0.25878906 2.2802734 0.13916016 Q 2.2802734 0.01953125 2.241211 -0.01953125 Q 1.4990234 0 0.96191406 0 Q 0.5908203 0 0.068359375 -0.01953125 Q 0.01953125 0.01953125 0.01953125 0.13916016 Q 0.01953125 0.25878906 0.068359375 0.3076172 Q 0.44921875 0.33691406 0.6689453 0.4638672 Q 0.8886719 0.5908203 1.0693359 1.0205078 L 3.3398438 6.381836 Q 3.5595703 6.381836 3.8916016 6.5820313 L 5.9521484 0.859375 Q 6.0302734 0.6298828 6.184082 0.5102539 Q 6.3378906 0.390625 6.4697266 0.36132813 Q 6.6015625 0.33203125 6.850586 0.3076172 Q 6.899414 0.25878906 6.899414 0.13916016 Q 6.899414 0.01953125 6.850586 -0.01953125 Q 6.1523438 0 5.708008 0 Q 5.1367188 0 4.399414 -0.01953125 Q 4.3603516 0.01953125 4.3603516 0.13916016 Q 4.3603516 0.25878906 4.399414 0.3076172 Q 4.4873047 0.3173828 4.538574 0.31982422 Q 4.5898438 0.32226563 4.67041 0.33203125 Q 4.7509766 0.34179688 4.794922 0.3515625 Q 4.838867 0.36132813 4.8999023 0.37109375 Q 4.9609375 0.38085938 4.995117 0.3955078 Q 5.029297 0.41015625 5.070801 0.4345703 Q 5.1123047 0.45898438 5.126953 0.48339844 Q 5.1416016 0.5078125 5.15625 0.5444336 Q 5.1708984 0.5810547 5.1660156 0.625 Q 5.161133 0.6689453 5.1416016 0.71777344 L 4.560547 2.4121094 L 2.4511719 2.4121094 Q 2.2705078 2.4121094 2.2045898 2.3754883 Q 2.1386719 2.3388672 2.0996094 2.241211 L 1.5478516 0.7910156 Z "/>
+        </symbol>
+        <symbol id="gF21E4AC14CBB8A2538D3D1B2BB0C9414" overflow="visible">
+            <path d="M 1.9091797 5.498047 L 1.9091797 3.6621094 L 2.6513672 3.6621094 Q 4.0722656 3.6621094 4.0722656 4.8095703 Q 4.0722656 5.498047 3.6816406 5.8129883 Q 3.2910156 6.1279297 2.7783203 6.1279297 Q 2.3388672 6.1279297 2.1655273 6.0742188 Q 1.9921875 6.020508 1.9506836 5.913086 Q 1.9091797 5.805664 1.9091797 5.498047 Z M 1.9091797 3.3203125 L 1.9091797 1.1816406 Q 1.9091797 0.703125 2.0751953 0.5053711 Q 2.241211 0.3076172 2.7392578 0.3076172 Q 3.7890625 0.3076172 4.165039 0.6640625 Q 4.5410156 1.0205078 4.5410156 1.6503906 Q 4.5410156 2.3828125 4.055176 2.8515625 Q 3.569336 3.3203125 2.5976563 3.3203125 L 1.9091797 3.3203125 Z M 1.4794922 6.4501953 Q 1.6601563 6.4501953 2.109375 6.459961 Q 2.5585938 6.4697266 2.7294922 6.4697266 Q 4.8779297 6.4697266 4.8779297 4.9316406 Q 4.8779297 4.5410156 4.604492 4.1796875 Q 4.3310547 3.8183594 3.930664 3.618164 L 3.930664 3.5986328 Q 4.6289063 3.3984375 5.048828 2.9589844 Q 5.46875 2.5195313 5.46875 1.8408203 Q 5.46875 1.4892578 5.349121 1.1791992 Q 5.229492 0.8691406 4.9609375 0.5883789 Q 4.692383 0.3076172 4.177246 0.14404297 Q 3.6621094 -0.01953125 2.9492188 -0.01953125 Q 2.4707031 -0.01953125 2.0410156 -0.009765625 Q 1.6113281 0 1.4892578 0 Q 0.9716797 0 0.19042969 -0.01953125 Q 0.14160156 0.01953125 0.14160156 0.13916016 Q 0.14160156 0.25878906 0.19042969 0.3076172 Q 0.7519531 0.32714844 0.9057617 0.4736328 Q 1.0595703 0.6201172 1.0595703 1.2207031 L 1.0595703 5.229492 Q 1.0595703 5.830078 0.9057617 5.974121 Q 0.7519531 6.118164 0.19042969 6.1376953 Q 0.14160156 6.176758 0.14160156 6.298828 Q 0.14160156 6.4208984 0.19042969 6.4697266 Q 0.9716797 6.4501953 1.4794922 6.4501953 Z "/>
+        </symbol>
+        <symbol id="g725472A9FA1C3CA93FB5F0BEEEB9E809" overflow="visible">
+            <path d="M 3.569336 -0.09765625 Q 2.03125 -0.09765625 1.2011719 0.8105469 Q 0.37109375 1.71875 0.37109375 3.100586 Q 0.37109375 3.881836 0.64941406 4.5751953 Q 0.9277344 5.2685547 1.4306641 5.732422 Q 2.3583984 6.5820313 3.5791016 6.5820313 Q 4.296875 6.5820313 4.98291 6.3598633 Q 5.6689453 6.1376953 5.7714844 6.1279297 Q 5.9228516 5.2978516 5.991211 4.580078 Q 5.8007813 4.482422 5.6591797 4.53125 Q 5.151367 6.2109375 3.4716797 6.2109375 Q 2.5976563 6.2109375 1.875 5.3222656 Q 1.2792969 4.5898438 1.2792969 3.2910156 Q 1.2792969 2.1386719 1.9335938 1.2231445 Q 2.5878906 0.3076172 3.5595703 0.3076172 Q 4.2578125 0.3076172 4.8046875 0.56396484 Q 5.3515625 0.8203125 5.8789063 1.4013672 Q 6.0302734 1.4013672 6.1083984 1.25 Q 5.078125 -0.09765625 3.569336 -0.09765625 Z "/>
+        </symbol>
+        <symbol id="g2D3C72B90F0789CC06DCB51614ECA808" overflow="visible">
+            <path d="M 1.9091797 0.83984375 Q 1.9091797 0.57128906 2.1142578 0.44677734 Q 2.319336 0.32226563 2.9980469 0.32226563 Q 3.569336 0.32226563 4.008789 0.43701172 Q 4.448242 0.5517578 4.8291016 0.8203125 Q 5.209961 1.0888672 5.415039 1.5991211 Q 5.620117 2.109375 5.620117 2.8417969 Q 5.620117 3.4521484 5.4711914 4.0112305 Q 5.3222656 4.5703125 5 5.061035 Q 4.6777344 5.551758 4.099121 5.8398438 Q 3.5205078 6.1279297 2.7490234 6.1279297 Q 1.9091797 6.1279297 1.9091797 5.6396484 L 1.9091797 0.83984375 Z M 1.4794922 6.4501953 Q 1.640625 6.4501953 2.1850586 6.459961 Q 2.7294922 6.4697266 3.1298828 6.4697266 Q 4.5703125 6.4697266 5.576172 5.476074 Q 6.5820313 4.482422 6.5820313 3.0810547 Q 6.5820313 2.2021484 6.2768555 1.5649414 Q 5.9716797 0.9277344 5.4663086 0.59814453 Q 4.9609375 0.2685547 4.4262695 0.12451172 Q 3.8916016 -0.01953125 3.3105469 -0.01953125 Q 2.709961 -0.01953125 2.150879 -0.009765625 Q 1.5917969 0 1.4892578 0 Q 0.9716797 0 0.19042969 -0.01953125 Q 0.14160156 0.01953125 0.14160156 0.13916016 Q 0.14160156 0.25878906 0.19042969 0.3076172 Q 0.7519531 0.32714844 0.9057617 0.4736328 Q 1.0595703 0.6201172 1.0595703 1.2207031 L 1.0595703 5.229492 Q 1.0595703 5.830078 0.9057617 5.974121 Q 0.7519531 6.118164 0.19042969 6.1376953 Q 0.14160156 6.176758 0.14160156 6.298828 Q 0.14160156 6.4208984 0.19042969 6.4697266 Q 0.99121094 6.4501953 1.4794922 6.4501953 Z "/>
+        </symbol>
+        <symbol id="g6FA65585E1EEAEB8EA1427B7866A0078" overflow="visible">
+            <path d="M 2.8076172 3.6083984 Q 3.4179688 3.6083984 3.5595703 3.7280273 Q 3.7011719 3.8476563 3.7207031 4.291992 Q 3.7597656 4.3408203 3.8793945 4.3408203 Q 3.9990234 4.3408203 4.0478516 4.291992 Q 4.0283203 3.8134766 4.0283203 3.4277344 Q 4.0283203 3.0664063 4.0478516 2.5488281 Q 3.9990234 2.5 3.8793945 2.5 Q 3.7597656 2.5 3.7207031 2.5488281 Q 3.7011719 2.8173828 3.659668 2.9345703 Q 3.618164 3.0517578 3.4179688 3.1420898 Q 3.2177734 3.2324219 2.8076172 3.2324219 L 1.8994141 3.2324219 L 1.8994141 1.0205078 Q 1.8994141 0.6689453 2.0239258 0.52978516 Q 2.1484375 0.390625 2.4609375 0.390625 L 3.618164 0.390625 Q 4.5703125 0.390625 4.9316406 1.6992188 Q 5.1123047 1.7382813 5.2783203 1.6503906 Q 5.15625 0.859375 4.9121094 -0.01953125 Q 4.111328 0 3.6279297 0 L 1.4794922 0 Q 0.91796875 0 0.18066406 -0.01953125 Q 0.14160156 0.01953125 0.14160156 0.13916016 Q 0.14160156 0.25878906 0.18066406 0.3076172 Q 0.7421875 0.32714844 0.8959961 0.4736328 Q 1.0498047 0.6201172 1.0498047 1.2207031 L 1.0498047 5.229492 Q 1.0498047 5.830078 0.8959961 5.974121 Q 0.7421875 6.118164 0.18066406 6.1376953 Q 0.14160156 6.176758 0.14160156 6.298828 Q 0.14160156 6.4208984 0.18066406 6.4697266 Q 0.9814453 6.4501953 1.4697266 6.4501953 L 4.0185547 6.4501953 Q 4.2773438 6.4501953 4.5117188 6.489258 Q 4.5507813 6.489258 4.5507813 6.459961 Q 4.6289063 6.118164 4.770508 5.0097656 Q 4.609375 4.9316406 4.4384766 4.9609375 Q 4.248047 5.5615234 4.038086 5.805664 Q 3.828125 6.0498047 3.3105469 6.0498047 L 2.5585938 6.0498047 Q 2.1679688 6.0498047 2.0336914 5.9057617 Q 1.8994141 5.7617188 1.8994141 5.4101563 L 1.8994141 3.6083984 L 2.8076172 3.6083984 Z "/>
+        </symbol>
+        <symbol id="g75D91B0A57F766017508A5DA871B46F8" overflow="visible">
+            <path d="M 2.8320313 3.2324219 L 1.8994141 3.2324219 L 1.8994141 1.2207031 Q 1.8994141 0.6201172 2.055664 0.47607422 Q 2.211914 0.33203125 2.7685547 0.3076172 Q 2.8173828 0.25878906 2.8198242 0.13916016 Q 2.8222656 0.01953125 2.7685547 -0.01953125 Q 2.0703125 0 1.4794922 0 Q 0.87890625 0 0.18066406 -0.01953125 Q 0.14160156 0.01953125 0.14160156 0.13916016 Q 0.14160156 0.25878906 0.18066406 0.3076172 Q 0.7421875 0.32714844 0.8959961 0.4736328 Q 1.0498047 0.6201172 1.0498047 1.2207031 L 1.0498047 5.229492 Q 1.0498047 5.830078 0.8959961 5.974121 Q 0.7421875 6.118164 0.18066406 6.1376953 Q 0.14160156 6.176758 0.14160156 6.298828 Q 0.14160156 6.4208984 0.18066406 6.4697266 Q 0.9814453 6.4501953 1.4697266 6.4501953 L 4.0234375 6.4501953 Q 4.2871094 6.4501953 4.4921875 6.489258 Q 4.526367 6.489258 4.53125 6.459961 Q 4.638672 5.883789 4.7509766 5.0097656 Q 4.6191406 4.9609375 4.4384766 4.9609375 Q 4.3164063 5.3515625 4.177246 5.5615234 Q 4.038086 5.7714844 3.7280273 5.9106445 Q 3.4179688 6.0498047 2.9101563 6.0498047 L 2.4609375 6.0498047 Q 2.1191406 6.0498047 2.0092773 5.930176 Q 1.8994141 5.810547 1.8994141 5.4101563 L 1.8994141 3.6083984 L 2.8320313 3.6083984 Q 3.4423828 3.6083984 3.581543 3.7280273 Q 3.7207031 3.8476563 3.7402344 4.291992 Q 3.7792969 4.3408203 3.8989258 4.3408203 Q 4.0185547 4.3408203 4.0722656 4.291992 Q 4.0527344 3.774414 4.0478516 3.4277344 Q 4.0478516 3.046875 4.0722656 2.5488281 Q 4.0234375 2.5 3.9013672 2.5 Q 3.7792969 2.5 3.7402344 2.5488281 Q 3.7207031 2.8173828 3.6791992 2.9345703 Q 3.6376953 3.0517578 3.4399414 3.1420898 Q 3.2421875 3.2324219 2.8320313 3.2324219 Z "/>
+        </symbol>
+        <symbol id="gCBBD13C7D50FDB82A725137D874F116B" overflow="visible">
+            <path d="M 3.7695313 6.5820313 Q 4.2578125 6.5820313 4.633789 6.491699 Q 5.0097656 6.401367 5.324707 6.2817383 Q 5.6396484 6.1621094 5.8496094 6.1279297 Q 6.040039 5.2783203 6.0791016 4.5898438 Q 5.908203 4.5214844 5.751953 4.53125 Q 5.6396484 4.9121094 5.510254 5.1708984 Q 5.3808594 5.4296875 5.1464844 5.690918 Q 4.9121094 5.9521484 4.53125 6.086426 Q 4.1503906 6.220703 3.6279297 6.220703 Q 2.7197266 6.220703 2.0239258 5.3808594 Q 1.328125 4.5410156 1.328125 3.2714844 Q 1.328125 2.5830078 1.5942383 1.9067383 Q 1.8603516 1.2304688 2.4291992 0.7446289 Q 2.9980469 0.25878906 3.75 0.25878906 Q 4.9023438 0.25878906 5.2978516 0.63964844 L 5.2978516 2.1679688 Q 5.2978516 2.446289 5.1245117 2.5292969 Q 4.951172 2.6123047 4.482422 2.6513672 Q 4.4433594 2.7001953 4.440918 2.8295898 Q 4.4384766 2.9589844 4.482422 3.0078125 Q 5.361328 2.9882813 5.7177734 2.9882813 Q 6.1279297 2.9882813 6.611328 3.0078125 Q 6.6601563 2.9589844 6.6601563 2.8295898 Q 6.6601563 2.7001953 6.611328 2.6513672 Q 6.3720703 2.631836 6.262207 2.5268555 Q 6.1523438 2.421875 6.1523438 2.1679688 L 6.1523438 1.0107422 Q 6.1523438 0.859375 6.3085938 0.7324219 Q 5.336914 -0.09765625 3.5205078 -0.09765625 Q 2.109375 -0.09765625 1.2402344 0.80078125 Q 0.37109375 1.6992188 0.37109375 3.071289 Q 0.37109375 4.1210938 0.87646484 4.9414063 Q 1.3818359 5.7617188 2.150879 6.171875 Q 2.9199219 6.5820313 3.7695313 6.5820313 Z "/>
+        </symbol>
+        <symbol id="g5C05AE35C42DA7BE4030804AEDD4A38A" overflow="visible">
+            <path d="M 6.1816406 1.2207031 Q 6.1816406 0.6201172 6.335449 0.47607422 Q 6.489258 0.33203125 7.0507813 0.3076172 Q 7.0996094 0.25878906 7.0996094 0.13916016 Q 7.0996094 0.01953125 7.0507813 -0.01953125 Q 6.171875 0 5.7617188 0 Q 5.361328 0 4.458008 -0.01953125 Q 4.4189453 0.01953125 4.4189453 0.13916016 Q 4.4189453 0.25878906 4.458008 0.3076172 Q 5.0195313 0.32714844 5.1757813 0.4736328 Q 5.3320313 0.6201172 5.3320313 1.2207031 L 5.3320313 3.2080078 L 1.9091797 3.2080078 L 1.9091797 1.2207031 Q 1.9091797 0.6201172 2.0654297 0.47607422 Q 2.2216797 0.33203125 2.7783203 0.3076172 Q 2.8173828 0.25878906 2.8198242 0.13916016 Q 2.8222656 0.01953125 2.7783203 -0.01953125 Q 1.8994141 0 1.4892578 0 Q 1.0693359 0 0.19042969 -0.01953125 Q 0.14160156 0.01953125 0.14160156 0.13916016 Q 0.14160156 0.25878906 0.19042969 0.3076172 Q 0.7519531 0.32714844 0.9057617 0.4736328 Q 1.0595703 0.6201172 1.0595703 1.2207031 L 1.0595703 5.229492 Q 1.0595703 5.830078 0.9057617 5.974121 Q 0.7519531 6.118164 0.19042969 6.1376953 Q 0.14160156 6.176758 0.14160156 6.298828 Q 0.14160156 6.4208984 0.19042969 6.4697266 Q 0.95214844 6.4501953 1.4794922 6.4501953 Q 2.0214844 6.4501953 2.7783203 6.4697266 Q 2.8173828 6.4208984 2.8198242 6.3012695 Q 2.8222656 6.1816406 2.7783203 6.1376953 Q 2.2167969 6.118164 2.0629883 5.974121 Q 1.9091797 5.830078 1.9091797 5.229492 L 1.9091797 3.6279297 L 5.3320313 3.6279297 L 5.3320313 5.229492 Q 5.3320313 5.830078 5.1757813 5.974121 Q 5.0195313 6.118164 4.458008 6.1376953 Q 4.4189453 6.176758 4.4189453 6.298828 Q 4.4189453 6.4208984 4.458008 6.4697266 Q 5.336914 6.4501953 5.751953 6.4501953 Q 6.2304688 6.4501953 7.0507813 6.4697266 Q 7.0996094 6.4208984 7.0996094 6.3012695 Q 7.0996094 6.1816406 7.0507813 6.1376953 Q 6.489258 6.118164 6.335449 5.974121 Q 6.1816406 5.830078 6.1816406 5.229492 L 6.1816406 1.2207031 Z "/>
+        </symbol>
+        <symbol id="g4A9B86D0250C0C708D196C23668AB959" overflow="visible">
+            <path d="M 2.9296875 2.3291016 L 2.1386719 2.1191406 Q 1.1865234 1.8798828 1.1914063 1.0205078 Q 1.1914063 0.7519531 1.3745117 0.52978516 Q 1.5576172 0.3076172 1.9091797 0.3076172 Q 2.2509766 0.3076172 2.788086 0.7519531 Q 2.9296875 0.8642578 2.9296875 1.0107422 L 2.9296875 2.3291016 Z M 2.9296875 0.47851563 L 2.9101563 0.47851563 L 2.709961 0.32226563 Q 2.1679688 -0.09765625 1.6210938 -0.09765625 Q 0.36132813 -0.09765625 0.36132813 0.9814453 Q 0.36132813 1.4794922 0.8154297 1.8603516 Q 1.2695313 2.241211 2.0117188 2.4316406 L 2.8710938 2.6416016 Q 2.9296875 2.6611328 2.9296875 2.758789 Q 2.9296875 4.057617 2.1191406 4.057617 Q 1.7871094 4.057617 1.5527344 3.9526367 Q 1.3183594 3.8476563 1.3183594 3.6376953 Q 1.3183594 3.4960938 1.3378906 3.4423828 Q 1.3671875 3.383789 1.3720703 3.2617188 Q 1.3720703 3.149414 1.2353516 3.034668 Q 1.0986328 2.9199219 0.8984375 2.9199219 Q 0.546875 2.9199219 0.5517578 3.28125 Q 0.5517578 3.7011719 1.0668945 4.04541 Q 1.5820313 4.3896484 2.2021484 4.3896484 Q 3.7109375 4.3896484 3.7109375 2.7001953 L 3.7109375 1.2304688 Q 3.7109375 1.0205078 3.7158203 0.9008789 Q 3.7207031 0.78125 3.75 0.63964844 Q 3.7792969 0.49804688 3.8452148 0.43945313 Q 3.9111328 0.38085938 4.008789 0.38085938 Q 4.189453 0.38085938 4.379883 0.5419922 Q 4.5214844 0.4638672 4.5507813 0.2685547 Q 4.169922 -0.10253906 3.5986328 -0.09765625 Q 3.256836 -0.09765625 3.1176758 0.05126953 Q 2.9785156 0.20019531 2.9296875 0.47851563 Z "/>
+        </symbol>
+    </defs>
+</svg>

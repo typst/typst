@@ -1,0 +1,60 @@
+<svg class="typst-doc" viewBox="0 0 130 228" width="130pt" height="228pt" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 111 "/>
+        </g>
+        <g transform="translate(52.51975 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 111 "/>
+        </g>
+        <g transform="translate(110 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 111 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+        </g>
+        <g transform="translate(9.5 50)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+        </g>
+        <g transform="translate(9.5 120)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 101 0 "/>
+        </g>
+        <g transform="translate(15 15)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 L 0 30 L 32.51975 30 L 32.51975 0 Z "/>
+        </g>
+        <g transform="translate(57.51975 15)">
+            <path class="typst-shape" fill="#0074d9" d="M 0 0 L 0 30 L 47.48025 30 L 47.48025 0 Z "/>
+        </g>
+        <g transform="translate(15 55)">
+            <path class="typst-shape" fill="#2ecc40" d="M 0 0 L 0 60 L 32.51975 60 L 32.51975 0 Z "/>
+        </g>
+    </g>
+    <g transform="matrix(1 0 0 1 5 160)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 10 L 100 10 L 100 0 Z "/>
+        </g>
+        <g transform="translate(10 33.08203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#gB637B8D13469665CEA9A9BBDC345D88" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(18.505859375 26.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 10 L 91.49414 10 L 91.49414 0 Z "/>
+        </g>
+        <g transform="translate(18.505859375 49.58203125)">
+            <g class="typst-text" transform="scale(1, -1)">
+                <use xlink:href="#g81FB694AE8458CB51DB7927283EC9784" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(27.255859375 43)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" d="M 0 0 L 0 10 L 82.74414 10 L 82.74414 0 Z "/>
+        </g>
+    </g>
+    <defs id="glyph">
+        <symbol id="gB637B8D13469665CEA9A9BBDC345D88" overflow="visible">
+            <path d="M 0.6201172 2.2998047 Q 0.6201172 2.7685547 0.95458984 3.1054688 Q 1.2890625 3.4423828 1.7602539 3.4423828 Q 2.2314453 3.4423828 2.565918 3.1054688 Q 2.9003906 2.7685547 2.9003906 2.2998047 Q 2.9003906 1.8310547 2.565918 1.496582 Q 2.2314453 1.1621094 1.7602539 1.1621094 Q 1.2890625 1.1621094 0.95458984 1.496582 Q 0.6201172 1.8310547 0.6201172 2.2998047 Z "/>
+        </symbol>
+        <symbol id="g81FB694AE8458CB51DB7927283EC9784" overflow="visible">
+            <path d="M 0.7324219 0.83984375 L 0.7324219 3.7988281 L 3.3691406 2.319336 L 0.7324219 0.83984375 Z "/>
+        </symbol>
+    </defs>
+</svg>
