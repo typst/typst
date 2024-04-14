@@ -198,6 +198,41 @@ enum ImageExportFormat {
     Svg,
 }
 
+struct OutputTemplate;
+
+impl OutputTemplate {
+    const INDEXABLE: [&'static str; 3] = ["{p}", "{0p}", "{n}"];
+
+    fn has_indexable_template(output: &str) -> bool {
+        Self::INDEXABLE.iter().any(|template| output.contains(template))
+    }
+
+    fn indexable_template() -> [&'static str; 3] {
+        Self::INDEXABLE
+    }
+
+    fn format(output: &str, this_page: usize, total_pages: usize) -> StrResult<String> {
+        // Find the base 10 width of number `i`
+        fn width(i: usize) -> usize {
+            1 + i.checked_ilog10().unwrap_or(0) as usize
+        }
+
+        let other_templates = ["{t}", "{0t}"];
+        Self::INDEXABLE.iter().chain(other_templates.iter()).fold(
+            Ok(output.to_string()),
+            |out, template| {
+                let replacement = match *template {
+                    "{p}" => format!("{}", this_page),
+                    "{0p}" | "{n}" => format!("{:01$}", this_page, width(total_pages)),
+                    "{t}" | "{0t}" => format!("{}", total_pages),
+                    _ => bail!("unhandled template placeholder {template}"),
+                };
+                out.map(|out| out.replace(template, replacement.as_str()))
+            },
+        )
+    }
+}
+
 /// Export to one or multiple images.
 fn export_image(
     world: &mut SystemWorld,
@@ -206,24 +241,25 @@ fn export_image(
     watching: bool,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
-    // Determine whether we have a `{n}` numbering.
     let output = command.output();
+    // Determine whether we have indexable templates in output
     let can_handle_multiple = match output {
         Output::Stdout => false,
-        Output::Path(ref output) => output.to_str().unwrap_or_default().contains("{n}"),
+        Output::Path(ref output) => {
+            OutputTemplate::has_indexable_template(output.to_str().unwrap_or_default())
+        }
     };
     if !can_handle_multiple && document.pages.len() > 1 {
-        let s = match output {
+        let path_err = format!(
+            "without a page number template ({}) in output path",
+            OutputTemplate::indexable_template().join(", ")
+        );
+        let err = match output {
             Output::Stdout => "to stdout",
-            Output::Path(_) => "without `{n}` in output path",
+            Output::Path(_) => path_err.as_str(),
         };
-        bail!("cannot export multiple images {s}");
+        bail!("cannot export multiple images {err}");
     }
-
-    // Find a number width that accommodates all pages. For instance, the
-    // first page should be numbered "001" if there are between 100 and
-    // 999 pages.
-    let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
 
     let cache = world.export_cache();
 
@@ -238,10 +274,11 @@ fn export_image(
                 Output::Path(ref path) => {
                     let storage;
                     let path = if can_handle_multiple {
-                        storage = path
-                            .to_str()
-                            .unwrap_or_default()
-                            .replace("{n}", &format!("{:0width$}", i + 1));
+                        storage = OutputTemplate::format(
+                            path.to_str().unwrap_or_default(),
+                            i + 1,
+                            document.pages.len(),
+                        )?;
                         Path::new(&storage)
                     } else {
                         path
