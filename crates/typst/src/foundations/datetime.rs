@@ -49,7 +49,7 @@ use crate::World;
 ///
 /// You can get a [duration]($duration) by subtracting two datetime.
 /// You can also get a new datetime via adding or subtracting a [duration]($duration)
-/// ``` example
+/// ```example
 /// #let datetime_duration = datetime(day: 1, month: 3, year: 2024) - datetime(day: 1, month: 1, year: 2024)
 /// #datetime_duration.hours()
 ///
