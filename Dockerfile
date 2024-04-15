@@ -1,3 +1,7 @@
+ARG CREATED
+ARG REVISION
+ARG TARGETPLATFORM
+
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
 FROM --platform=$BUILDPLATFORM rust:alpine AS build
 COPY --from=xx / /
@@ -11,7 +15,6 @@ RUN --mount=type=cache,target=/root/.cargo/git/db \
     CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
     cargo fetch
 
-ARG TARGETPLATFORM
 RUN xx-apk add --no-cache musl-dev openssl-dev openssl-libs-static
 RUN --mount=type=cache,target=/root/.cargo/git/db \
     --mount=type=cache,target=/root/.cargo/registry/cache \
@@ -23,5 +26,16 @@ RUN --mount=type=cache,target=/root/.cargo/git/db \
     xx-verify target/release/typst
 
 FROM alpine:latest
-WORKDIR /root/
+LABEL org.opencontainers.image.authors="The Typst Project Developers <hello@typst.app>"
+LABEL org.opencontainers.image.created=${CREATED}
+LABEL org.opencontainers.image.description="A markup-based typesetting system"
+LABEL org.opencontainers.image.documentation="https://typst.app/docs"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.revision=${REVISION}
+LABEL org.opencontainers.image.source="https://github.com/typst/typst"
+LABEL org.opencontainers.image.title="Typst Docker image"
+LABEL org.opencontainers.image.url="https://typst.app"
+LABEL org.opencontainers.image.vendor="Typst"
+
 COPY --from=build  /app/target/release/typst /bin
+ENTRYPOINT [ "/bin/typst" ]

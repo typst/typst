@@ -32,6 +32,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Get current date
+        run: echo "TYPST_BUILD_DATE=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" >> ${GITHUB_ENV}"
+
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v3.1.0
         with:
@@ -59,12 +62,15 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            REVISION=${{ github.sha }}
+            CREATED=${{ env.TYPST_BUILD_DATE }}
 
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"     
+          touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
