@@ -126,7 +126,6 @@ impl Selector {
     pub fn matches(&self, target: &Content, styles: Option<StyleChain>) -> bool {
         match self {
             Self::Elem(element, dict) => {
-                // TODO: Optimize field access to not clone.
                 target.func() == *element
                     && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
                         target.get(*id, styles).as_ref() == Some(value)
