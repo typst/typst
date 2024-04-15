@@ -84,7 +84,10 @@ pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
             None,
         )
         .unwrap();
-        let position = Point::zero();
+        let position = Point::new(
+            upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
+            upem * -raster_image.y as f64 / raster_image.pixels_per_em as f64,
+        );
         let aspect_ratio = image.width() / image.height();
         let size = Axes::new(upem, upem * aspect_ratio);
         frame.push(position, FrameItem::Image(image, size, Span::detached()));
