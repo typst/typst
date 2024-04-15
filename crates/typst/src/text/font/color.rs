@@ -12,6 +12,16 @@ use crate::{
     visualize::{Color, Image, Paint, Rgb},
 };
 
+use super::Font;
+
+pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
+    let ttf = font.ttf();
+    let glyph_id = GlyphId(g.id);
+    ttf.glyph_raster_image(glyph_id, 160).is_some()
+        || ttf.glyph_svg_image(glyph_id).is_some()
+        || ttf.is_color_glyph(glyph_id)
+}
+
 /// A SVG document with information about its dimensions
 pub struct SizedSvg {
     /// The declared width of the SVG
@@ -76,6 +86,10 @@ pub fn get_svg_glyph(text: &TextItem, glyph: GlyphId) -> Option<SizedSvg> {
     Some(SizedSvg { width, height, bbox: bbox.to_rect()?, tree })
 }
 
+/// Returns a frame with the glyph drawn inside
+///
+/// The glyphs are sized in font units, [`text.item.size`] is
+/// not taken into account.
 pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
     let ttf = text.item.font.ttf();
     let upem = Abs::pt(ttf.units_per_em() as f64);
@@ -111,7 +125,6 @@ pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
         let left = bbox.left() as f64;
         let top = bbox.top() as f64;
         let bottom = bbox.bottom() as f64;
-        let upem = text.item.font.units_per_em();
 
         // The SVG coordinates and the font coordinates are not the same:
         // the Y axis is mirrored. But the origin of the axes are the same
@@ -149,8 +162,8 @@ pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
             None,
         )
         .unwrap();
-        let position = Point::new(Abs::pt(left / upem), Abs::pt(bottom / upem));
-        let size = Axes::new(Abs::pt(width / upem), Abs::pt(height / upem));
+        let position = Point::new(Abs::pt(left), Abs::pt(bottom));
+        let size = Axes::new(Abs::pt(width), Abs::pt(height));
         frame.push(position, FrameItem::Image(image, size, Span::detached()));
     } else if ttf.is_color_glyph(glyph_id) {
         let mut painter = ColrPainter {
@@ -262,10 +275,10 @@ impl<'f, 't> ColrPainter<'f, 't> {
             // With images, the position corresponds to the top-left corner,
             // but in the case of text it matches the baseline-left point.
             // Here, we move the glyph one unit down to compensate for that.
-            Point::new(Abs::zero(), Abs::pt(1.0)),
+            Point::new(Abs::zero(), Abs::pt(self.text.font.units_per_em() as f64)),
             FrameItem::Text(TextItem {
                 font: self.text.font.clone(),
-                size: Abs::pt(1.0),
+                size: Abs::pt(self.text.font.units_per_em() as f64),
                 fill: Paint::Solid(color),
                 stroke: None,
                 lang: self.text.lang,

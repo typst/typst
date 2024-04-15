@@ -12,14 +12,13 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use ttf_parser::GlyphId;
 use typst::introspection::Meta;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::{Destination, Numbering};
-use typst::text::color;
-use typst::text::{Case, Font, Glyph, TextItem, TextItemView};
+use typst::text::color::{self, is_color_glyph};
+use typst::text::{Case, Font, TextItem, TextItemView};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
@@ -762,13 +761,8 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         return;
     };
 
-    let is_color_glyph = |g: &Glyph| {
-        let glyph_id = GlyphId(g.id);
-        ttf.glyph_raster_image(glyph_id, 160).is_some()
-            || ttf.glyph_svg_image(glyph_id).is_some()
-            || ttf.is_color_glyph(glyph_id)
-    };
-    let color_glyph_count = text.glyphs.iter().filter(|g| is_color_glyph(g)).count();
+    let color_glyph_count =
+        text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
 
     if color_glyph_count == text.glyphs.len() {
         write_color_glyphs(ctx, pos, TextItemView::all_of(text));
@@ -782,12 +776,12 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             // Start a new text run where the last one ended
             let start = offset;
             // Determine if this is a color-only or a text-only run
-            let in_colored_group = is_color_glyph(&text.glyphs[start]);
+            let in_colored_group = is_color_glyph(&text.font, &text.glyphs[start]);
             // Determine the index of the last glyph of the run
             let end = start
                 + text.glyphs[start..]
                     .iter()
-                    .position(|g| is_color_glyph(g) != in_colored_group)
+                    .position(|g| is_color_glyph(&text.font, g) != in_colored_group)
                     .unwrap_or(text.glyphs.len() - start);
 
             // Build a sub text-run

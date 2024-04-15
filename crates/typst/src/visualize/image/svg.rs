@@ -30,7 +30,9 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let tree = usvg::Tree::from_data(&data, &options()).map_err(format_usvg_error)?;
+        let mut tree =
+            usvg::Tree::from_data(&data, &options()).map_err(format_usvg_error)?;
+        tree.calculate_bounding_boxes();
         Ok(Self(Arc::new(Repr {
             data,
             size: tree_size(&tree),
