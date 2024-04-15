@@ -21,7 +21,7 @@ pub use self::kind::SyntaxKind;
 pub use self::lexer::{
     is_id_continue, is_id_start, is_ident, is_newline, link_prefix, split_newlines,
 };
-pub use self::node::{LinkedChildren, LinkedNode, SyntaxError, SyntaxNode};
+pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
 pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::VirtualPath;
 pub use self::source::Source;

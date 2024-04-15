@@ -40,13 +40,13 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
 
 /// Export a document with potentially multiple pages into a single raster image.
 ///
-/// The padding will be added around and between the individual frames.
+/// The gap will be added between the individual frames.
 pub fn render_merged(
     document: &Document,
     pixel_per_pt: f32,
     frame_fill: Color,
-    padding: Abs,
-    padding_fill: Color,
+    gap: Abs,
+    gap_fill: Color,
 ) -> sk::Pixmap {
     let pixmaps: Vec<_> = document
         .pages
@@ -54,19 +54,18 @@ pub fn render_merged(
         .map(|page| render(&page.frame, pixel_per_pt, frame_fill))
         .collect();
 
-    let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
-    let pxw =
-        2 * padding + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
-    let pxh =
-        padding + pixmaps.iter().map(|pixmap| pixmap.height() + padding).sum::<u32>();
+    let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
+    let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
+    let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
+        + gap * pixmaps.len().saturating_sub(1) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(to_sk_color(padding_fill));
+    canvas.fill(to_sk_color(gap_fill));
 
-    let [x, mut y] = [padding; 2];
+    let mut y = 0;
     for pixmap in pixmaps {
         canvas.draw_pixmap(
-            x as i32,
+            0,
             y as i32,
             pixmap.as_ref(),
             &sk::PixmapPaint::default(),
@@ -74,7 +73,7 @@ pub fn render_merged(
             None,
         );
 
-        y += pixmap.height() + padding;
+        y += pixmap.height() + gap;
     }
 
     canvas
@@ -470,7 +469,18 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
         Geometry::Rect(size) => {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
-            let rect = sk::Rect::from_xywh(0.0, 0.0, w, h)?;
+            let rect = if w < 0.0 || h < 0.0 {
+                // Skia doesn't normally allow for negative dimensions, but
+                // Typst supports them, so we apply a transform if needed
+                // Because this operation is expensive according to tiny-skia's
+                // docs, we prefer to not apply it if not needed
+                let transform = sk::Transform::from_scale(w.signum(), h.signum());
+                let rect = sk::Rect::from_xywh(0.0, 0.0, w.abs(), h.abs())?;
+                rect.transform(transform)?
+            } else {
+                sk::Rect::from_xywh(0.0, 0.0, w, h)?
+            };
+
             sk::PathBuilder::from_rect(rect)
         }
         Geometry::Path(ref path) => convert_path(path)?,
@@ -841,8 +851,10 @@ fn to_sk_paint<'a>(
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
-            let width = (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
-            let height = (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
+            let width =
+                (container_size.x.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
+            let height =
+                (container_size.y.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
 
             *pixmap = Some(cached(
                 gradient,
@@ -858,8 +870,10 @@ fn to_sk_paint<'a>(
                 sk::SpreadMode::Pad,
                 sk::FilterQuality::Nearest,
                 1.0,
-                fill_transform
-                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+                fill_transform.pre_scale(
+                    container_size.x.signum() as f32 / state.pixel_per_pt,
+                    container_size.y.signum() as f32 / state.pixel_per_pt,
+                ),
             );
 
             sk_paint.anti_alias = gradient.anti_alias();

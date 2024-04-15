@@ -73,7 +73,9 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         resources_map.finish();
         tiling_pattern
             .matrix(transform_to_array(
-                transform.pre_concat(Transform::scale(Ratio::one(), -Ratio::one())),
+                transform
+                    .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
+                    .post_concat(Transform::translate(Abs::zero(), pattern.spacing().y)),
             ))
             .filter(Filter::FlateDecode);
     }
@@ -82,7 +84,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
 /// A pattern and its transform.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PdfPattern {
-    /// The transform to apply to the gradient.
+    /// The transform to apply to the pattern.
     pub transform: Transform,
     /// The pattern to paint.
     pub pattern: Pattern,
@@ -116,12 +118,14 @@ fn register_pattern(
     // Render the body.
     let (_, content) = construct_page(ctx.parent, pattern.frame());
 
-    let pdf_pattern = PdfPattern {
+    let mut pdf_pattern = PdfPattern {
         transform,
         pattern: pattern.clone(),
         content: content.content.wait().clone(),
         resources: content.resources.into_iter().collect(),
     };
+
+    pdf_pattern.resources.sort();
 
     ctx.parent.pattern_map.insert(pdf_pattern)
 }

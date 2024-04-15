@@ -9,7 +9,6 @@ mod outline;
 mod page;
 mod pattern;
 
-use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::Arc;

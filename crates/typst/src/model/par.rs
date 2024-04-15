@@ -96,6 +96,15 @@ pub struct ParElem {
     #[resolve]
     pub hanging_indent: Length,
 
+    /// Indicates wheter an overflowing line should be shrunk.
+    ///
+    /// This property is set to `false` on raw blocks, because shrinking a line
+    /// could visually break the indentation.
+    #[ghost]
+    #[internal]
+    #[default(true)]
+    pub shrink: bool,
+
     /// The contents of the paragraph.
     #[external]
     #[required]

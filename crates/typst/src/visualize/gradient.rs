@@ -29,7 +29,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// - As the fill of text:
 ///   `{set text(fill: gradient.linear(..))}`
 /// - As a color map you can [sample]($gradient.sample) from:
-///   `{gradient.linear(..).sample(0.5)}`
+///   `{gradient.linear(..).sample(50%)}`
 ///
 /// # Examples
 /// ```example

@@ -12,11 +12,6 @@ categories = { workspace = true }
 keywords = { workspace = true }
 readme = { workspace = true }
 
-[lib]
-test = false
-doctest = false
-bench = false
-
 [dependencies]
 typst = { workspace = true }
 comemo = { workspace = true }
@@ -25,6 +20,11 @@ if_chain = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 unscanny = { workspace = true }
+
+[dev-dependencies]
+typst-assets = { workspace = true }
+typst-dev-assets = { workspace = true }
+once_cell = { workspace = true }
 
 [lints]
 workspace = true

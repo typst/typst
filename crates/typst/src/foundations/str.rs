@@ -491,11 +491,11 @@ impl Str {
     #[func]
     pub fn trim(
         &self,
-        /// The pattern to search for.
+        /// The pattern to search for. If `{none}`, trims white spaces.
         #[default]
         pattern: Option<StrPattern>,
-        /// Can be `start` or `end` to only trim the start or end of the string.
-        /// If omitted, both sides are trimmed.
+        /// Can be `{start}` or `{end}` to only trim the start or end of the
+        /// string. If omitted, both sides are trimmed.
         #[named]
         at: Option<StrSide>,
         /// Whether to repeatedly removes matches of the pattern or just once.
@@ -535,16 +535,16 @@ impl Str {
             }
             Some(StrPattern::Regex(re)) => {
                 let s = self.as_str();
-                let mut last = 0;
+                let mut last = None;
                 let mut range = 0..s.len();
 
                 for m in re.find_iter(s) {
                     // Does this match follow directly after the last one?
-                    let consecutive = last == m.start();
+                    let consecutive = last == Some(m.start());
 
-                    // As long as we're consecutive and still trimming at the
-                    // start, trim.
-                    start &= consecutive;
+                    // As long as we're at the beginning or in a consecutive run
+                    // of matches, and we're still trimming at the start, trim.
+                    start &= m.start() == 0 || consecutive;
                     if start {
                         range.start = m.end();
                         start &= repeat;
@@ -556,11 +556,11 @@ impl Str {
                         range.end = m.start();
                     }
 
-                    last = m.end();
+                    last = Some(m.end());
                 }
 
                 // Is the last match directly at the end?
-                if last < s.len() {
+                if last.is_some_and(|last| last < s.len()) {
                     range.end = s.len();
                 }
 

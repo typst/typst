@@ -12,10 +12,6 @@ repository = { workspace = true }
 license = { workspace = true }
 readme = { workspace = true }
 
-[lib]
-doctest = false
-bench = false
-
 [dependencies]
 typst-assets = { workspace = true }
 typst-macros = { workspace = true }

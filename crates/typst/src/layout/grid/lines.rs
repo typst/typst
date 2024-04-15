@@ -597,7 +597,7 @@ pub(super) fn hline_stroke_at_column(
 
 #[cfg(test)]
 mod test {
-    use super::super::layout::{Entry, RowPiece};
+    use super::super::layout::Entry;
     use super::*;
     use crate::foundations::Content;
     use crate::layout::{Axes, Cell, Sides, Sizing};
