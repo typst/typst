@@ -256,10 +256,10 @@ impl<'f, 't> ColrPainter<'f, 't> {
             // With images, the position corresponds to the top-left corner,
             // but in the case of text it matches the baseline-left point.
             // Here, we move the glyph one unit down to compensate for that.
-            Point::new(Abs::zero(), Abs::pt(self.text.font.units_per_em() as f64)),
+            Point::new(Abs::zero(), Abs::pt(self.text.font.units_per_em())),
             FrameItem::Text(TextItem {
                 font: self.text.font.clone(),
-                size: Abs::pt(self.text.font.units_per_em() as f64),
+                size: Abs::pt(self.text.font.units_per_em()),
                 fill: Paint::Solid(color),
                 stroke: None,
                 lang: self.text.lang,
