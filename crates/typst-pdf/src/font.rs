@@ -143,6 +143,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             // Allocate some IDs.
             let cmap_ref = ctx.alloc.bump();
             let descriptor_ref = ctx.alloc.bump();
+            let widths_ref = ctx.alloc.bump();
             // And a map between glyph IDs and the instructions to draw this
             // glyph.
             let mut glyphs_to_instructions = Vec::new();
@@ -192,7 +193,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
             pdf_font.first_char(0);
             pdf_font.last_char(glyph_count as u8);
-            pdf_font.widths(widths);
+            pdf_font.pair(Name(b"Widths"), widths_ref);
             pdf_font.to_unicode(cmap_ref);
             pdf_font.font_descriptor(descriptor_ref);
 
@@ -235,6 +236,9 @@ fn write_color_fonts(ctx: &mut PdfContext) {
                 .unwrap_or_else(|| "unknown".to_string());
             let base_font = eco_format!("COLOR{font_index:x}+{postscript_name}");
             write_font_descriptor(&mut ctx.pdf, descriptor_ref, &font, &base_font);
+
+            // Write the widths array
+            ctx.pdf.indirect(widths_ref).array().items(widths);
         }
     }
 }
