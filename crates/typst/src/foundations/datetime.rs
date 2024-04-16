@@ -45,21 +45,27 @@ use crate::World;
 /// )
 /// ```
 ///
-/// # Datetime and [duration]($duration)
+/// # Datetime and [Duration]($duration)
 ///
-/// You can get a [duration]($duration) by subtracting two datetime.
-/// You can also get a new datetime via adding or subtracting a [duration]($duration)
+/// You can get a duration by subtracting two datetime:
 /// ```example
-/// #let datetime_duration = datetime(day: 1, month: 3, year: 2024) - datetime(day: 1, month: 1, year: 2024)
-/// #datetime_duration.hours()
+/// #let first-of-march = datetime(day: 1, month: 3, year: 2024)
+/// #let first-of-jan = datetime(day: 1, month: 1, year: 2024)
+/// #let distance = first-of-march - first-of-jan
+/// #distance.hours()
+/// ```
 ///
-/// #let two_days_duration = duration(days: 2)
+/// You can also add/subtract a datetime and a duration to retrieve a new,
+/// offset datetime:
+/// ```example
+/// #let date = datetime(day: 1, month: 3, year: 2024)
+/// #let two-days = duration(days: 2)
+/// #let two-days-earlier = date - two-days
+/// #let two-days-later = date + two-days
 ///
-/// #let two_days_ago = datetime(day: 1, month: 3, year: 2024) - two_days_duration
-/// #two_days_ago.display()
-///
-/// #let two_days_later = datetime(day: 1, month: 3, year: 2024) + two_days_duration
-/// #two_days_later.display()
+/// #date.display() \
+/// #two-days-earlier.display() \
+/// #two-days-later.display()
 /// ```
 ///
 /// # Format
