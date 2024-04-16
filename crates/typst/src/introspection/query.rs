@@ -13,58 +13,50 @@ use crate::introspection::Location;
 ///
 
 /// # Finding elements
-/// In the example below, we create a custom page header that displays the text
-/// "Typst Academy" in small capitals and the current section title. On the
-/// first page, the section title is omitted because the header is before the
-/// first section heading.
+/// In the example below, we manually create a table of contents instead of
+/// using the [`outline`] function.
 ///
-/// To realize this layout, we open a `context` and then query for all headings
-/// after the [current location]($here). The code within the context block
-/// runs twice: Once per page.
-///
-/// - On the first page the query for all headings before the current location
-///   yields an empty array: There are no previous headings. We check for this
-///   case and just display "Typst Academy".
-///
-/// - For the second page, we retrieve the last element from the query's result.
-///   This is the latest heading before the current position and as such, it is
-///   the heading of the section we are currently in. We access its content
-///   through the `body` field and display it alongside "Typst Academy".
+/// To do this, we first query for all headings in the document at level 1 and
+/// after the current location. Querying only for headings at level 1 ensures
+/// that sub-headings are not included in the table of contents and after
+/// `here()` ensures that the "Table of Contents" heading is not included.
 ///
 /// ```example
 /// >>> #set page(
-/// >>>   width: 240pt,
-/// >>>   height: 180pt,
-/// >>>   margin: (top: 35pt, rest: 15pt),
-/// >>>   header-ascent: 12pt,
+/// >>>  width: 240pt,
+/// >>>  height: 180pt,
+/// >>>  margin: (top: 20pt, bottom: 35pt)
 /// >>> )
-/// #set page(header: context {
-///   let elems = query(
-///     selector(heading).before(here()),
+/// #set page(numbering: "1")
+///
+/// = Table of Contents
+/// \
+/// #context {
+///   let chapters = query(
+///     selector(heading.where(level: 1)).after(here())
 ///   )
-///   let academy = smallcaps[
-///     Typst Academy
-///   ]
-///   if elems.len() == 0 {
-///     align(right, academy)
-///   } else {
-///     let body = elems.last().body
-///     academy + h(1fr) + emph(body)
+///   for chapter in chapters {
+///     let page_number = chapter.location().page()
+///     [#chapter.body #h(1fr) #page_number \ ]
 ///   }
-/// })
+/// }
+///
+/// #pagebreak()
 ///
 /// = Introduction
-/// #lorem(23)
+/// #lorem(10)
+///
+/// == Sub-Heading
+/// #lorem(8)
+///
+/// #pagebreak()
 ///
 /// = Background
-/// #lorem(30)
-///
-/// = Analysis
-/// #lorem(15)
+/// #lorem(18)
 /// ```
 ///
-/// You can get the location of the elements returned by `query` with
-/// [`location`]($content.location).
+/// To get the page numbers, we first get the location of the elements returned
+/// by `query` with [`location`]($content.location).
 ///
 /// # A word of caution { #caution }
 /// To resolve all your queries, Typst evaluates and layouts parts of the
