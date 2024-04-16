@@ -222,13 +222,19 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             // To avoid maintaining a separate glyph set structure for Type3
             // fonts, a hack is used: the glyph ID is only in the
             // less-significant byte (as there can only be 256 of them per
-            // font), the rest stores the Type3 font Ref.
+            // font), the rest stores the index of the Type3 font in
+            // `ColorFontMap::all_refs`.
             let full_glyph_set = ctx.glyph_sets.get_mut(&font_info).unwrap();
+            let global_font_index =
+                ctx.color_font_map.all_refs.iter().position(|r| r == subfont_id);
             // We retrieve only the part relevant for this font
-            let glyph_set = full_glyph_set
-                .iter()
-                .filter(|(k, _)| *k / 256 == subfont_id.get() as u16)
-                .map(|(k, v)| (k % 256, v));
+            let glyph_set = full_glyph_set.iter().filter_map(|(k, v)| {
+                if *k / 256 == global_font_index? as u16 {
+                    Some((k % 256, v))
+                } else {
+                    None
+                }
+            });
 
             // And we write it
             let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);

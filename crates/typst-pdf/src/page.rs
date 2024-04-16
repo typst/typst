@@ -913,9 +913,13 @@ fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
 
         ctx.content.show(Str(&[index]));
 
-        glyph_set
-            .entry(font.get() as u16 * 256 + index as u16)
-            .or_insert_with(|| text.text()[glyph.range()].into());
+        if let Some(font_index) =
+            ctx.parent.color_font_map.all_refs.iter().position(|r| *r == font)
+        {
+            glyph_set
+                .entry(font_index as u16 * 256 + index as u16)
+                .or_insert_with(|| text.text()[glyph.range()].into());
+        }
     }
     ctx.content.end_text();
 }
