@@ -91,9 +91,45 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
 pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
+    let images_ref = ctx.alloc.bump();
+    let patterns_ref = ctx.alloc.bump();
+    let ext_gs_states_ref = ctx.alloc.bump();
+    let color_spaces_ref = ctx.alloc.bump();
+
+    let mut images = ctx.pdf.indirect(images_ref).dict();
+    for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
+        let name = eco_format!("Im{}", im);
+        images.pair(Name(name.as_bytes()), image_ref);
+    }
+    images.finish();
+
+    let mut patterns = ctx.pdf.indirect(patterns_ref).dict();
+    for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
+        let name = eco_format!("Gr{}", gr);
+        patterns.pair(Name(name.as_bytes()), gradient_ref);
+    }
+
+    for (pattern_ref, p) in ctx.pattern_map.pdf_indices(&ctx.pattern_refs) {
+        let name = eco_format!("P{}", p);
+        patterns.pair(Name(name.as_bytes()), pattern_ref);
+    }
+    patterns.finish();
+
+    let mut ext_gs_states = ctx.pdf.indirect(ext_gs_states_ref).dict();
+    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
+        let name = eco_format!("Gs{}", gs);
+        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
+    }
+    ext_gs_states.finish();
+
+    let color_spaces = ctx.pdf.indirect(color_spaces_ref).dict();
+    ctx.colors.write_color_spaces(color_spaces, &mut ctx.alloc);
+
     let mut resources = ctx.pdf.indirect(ctx.global_resources_ref).start::<Resources>();
-    ctx.colors
-        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
+    resources.pair(Name(b"XObject"), images_ref);
+    resources.pair(Name(b"Pattern"), patterns_ref);
+    resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
+    resources.pair(Name(b"ColorSpace"), color_spaces_ref);
 
     let mut fonts = resources.fonts();
     for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
@@ -105,72 +141,32 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
         let name = eco_format!("Cf{}", font.get());
         fonts.pair(Name(name.as_bytes()), font);
     }
-
     fonts.finish();
 
-    let mut images = resources.x_objects();
-    for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
-        let name = eco_format!("Im{}", im);
-        images.pair(Name(name.as_bytes()), image_ref);
-    }
-
-    images.finish();
-
-    let mut patterns = resources.patterns();
-    for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
-        let name = eco_format!("Gr{}", gr);
-        patterns.pair(Name(name.as_bytes()), gradient_ref);
-    }
-
-    for (pattern_ref, p) in ctx.pattern_map.pdf_indices(&ctx.pattern_refs) {
-        let name = eco_format!("P{}", p);
-        patterns.pair(Name(name.as_bytes()), pattern_ref);
-    }
-
-    patterns.finish();
-
-    let mut ext_gs_states = resources.ext_g_states();
-    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
-        let name = eco_format!("Gs{}", gs);
-        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
-    }
-    ext_gs_states.finish();
-
     resources.finish();
-
-    // Write all of the functions used by the document.
-    ctx.colors.write_functions(&mut ctx.pdf);
 
     // Also write the resources for Type3 fonts, that only contains images,
     // color spaces and regular fonts (COLR glyphs depend on them).
-    let mut resources =
-        ctx.pdf.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+    if !ctx.color_font_map.all_refs.is_empty() {
+        let mut resources =
+            ctx.pdf.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+        resources.pair(Name(b"XObject"), images_ref);
+        resources.pair(Name(b"Pattern"), patterns_ref);
+        resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
+        resources.pair(Name(b"ColorSpace"), color_spaces_ref);
 
-    ctx.colors
-        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
+        let mut fonts = resources.fonts();
+        for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
+            let name = eco_format!("F{}", f);
+            fonts.pair(Name(name.as_bytes()), font_ref);
+        }
+        fonts.finish();
 
-    let mut images = resources.x_objects();
-    for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
-        let name = eco_format!("Im{}", im);
-        images.pair(Name(name.as_bytes()), image_ref);
+        resources.finish();
     }
-    images.finish();
 
-    let mut fonts = resources.fonts();
-    for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
-        let name = eco_format!("F{}", f);
-        fonts.pair(Name(name.as_bytes()), font_ref);
-    }
-    fonts.finish();
-
-    let mut ext_gs_states = resources.ext_g_states();
-    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
-        let name = eco_format!("Gs{}", gs);
-        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
-    }
-    ext_gs_states.finish();
-
-    resources.finish();
+    // Write all of the functions used by the document.
+    ctx.colors.write_functions(&mut ctx.pdf);
 }
 
 /// Write a page tree node.
