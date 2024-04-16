@@ -103,7 +103,7 @@ struct PdfContext<'a> {
     ///
     /// Type3 fonts cannot use the global resources, as it would create some
     /// kind of infinite recursion (they are themselves present in that
-    /// dictionnary), which Acrobat doesn't appreciate (it fails to parse the
+    /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
     /// font) even if the specification seems to allow it.
     type3_font_resources_ref: Ref,
     /// The IDs of written pages.
