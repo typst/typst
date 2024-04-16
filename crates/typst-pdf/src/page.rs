@@ -19,7 +19,7 @@ use typst::layout::{
 use typst::model::{Destination, Numbering};
 use typst::text::color::{self, is_color_glyph};
 use typst::text::{Case, Font, TextItem, TextItemView};
-use typst::util::{Deferred, Numeric};
+use typst::util::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
@@ -779,27 +779,20 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         // Otherwise we need to split it in smaller text runs
         let mut offset = 0;
         let mut position_in_run = Abs::zero();
-        while offset < text.glyphs.len() {
-            // Start a new text run where the last one ended
-            let start = offset;
-            // Determine if this is a color-only or a text-only run
-            let in_colored_group = is_color_glyph(&text.font, &text.glyphs[start]);
-            // Determine the index of the last glyph of the run
-            let end = start
-                + text.glyphs[start..]
-                    .iter()
-                    .position(|g| is_color_glyph(&text.font, g) != in_colored_group)
-                    .unwrap_or(text.glyphs.len() - start);
+        for (color, sub_run) in
+            text.glyphs.group_by_key(|g| is_color_glyph(&text.font, g))
+        {
+            let end = offset + sub_run.len();
 
             // Build a sub text-run
-            let text_item_view = TextItemView::from_glyph_range(text, start..end);
+            let text_item_view = TextItemView::from_glyph_range(text, offset..end);
 
             // Adjust the position of the run on the line
             let pos = pos + Point::new(position_in_run, Abs::zero());
             position_in_run += text_item_view.width();
             offset = end;
             // Actually write the sub text-run
-            if in_colored_group {
+            if color {
                 write_color_glyphs(ctx, pos, text_item_view);
             } else {
                 write_normal_text(ctx, pos, text_item_view);
