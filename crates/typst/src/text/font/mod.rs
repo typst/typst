@@ -1,13 +1,13 @@
 //! Font handling.
 
-mod book;
 pub mod color;
+
+mod book;
 mod exceptions;
 mod variant;
 
 pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
 pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
-pub use color as color_font;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};

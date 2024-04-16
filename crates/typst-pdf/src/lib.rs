@@ -97,15 +97,14 @@ struct PdfContext<'a> {
     alloc: Ref,
     /// The ID of the page tree.
     page_tree_ref: Ref,
-    /// The ID of the globally shared Resources dictionnary
+    /// The ID of the globally shared Resources dictionary.
     global_resources_ref: Ref,
-    /// The ID of the resource dictionnary shared by Type3 fonts
+    /// The ID of the resource dictionary shared by Type3 fonts.
     ///
-    /// Type3 fonts cannot use the global resources, as it would
-    /// create some kind of infinite recursion (they are themselves
-    /// present in that dictionnary), which Acrobat doesn't appreciate
-    /// (it fails to parse the font) even if the specification seems
-    /// to allow it.
+    /// Type3 fonts cannot use the global resources, as it would create some
+    /// kind of infinite recursion (they are themselves present in that
+    /// dictionnary), which Acrobat doesn't appreciate (it fails to parse the
+    /// font) even if the specification seems to allow it.
     type3_font_resources_ref: Ref,
     /// The IDs of written pages.
     page_refs: Vec<Ref>,
@@ -134,7 +133,7 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
-    /// Deduplicates color glyphs
+    /// Deduplicates color glyphs.
     color_font_map: ColorFontMap,
 
     /// A sorted list of all named destinations.
@@ -473,40 +472,61 @@ where
     }
 }
 
+/// A mapping between `Font`s and all the corresponding `ColorFont`s.
+///
+/// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
+/// font, and fonts generally have more color glyphs than that.
 struct ColorFontMap {
+    /// The mapping itself
     map: HashMap<Font, ColorFont>,
+    /// A list of all PDF indirect references to Type3 font objects.
     all_refs: Vec<Ref>,
 }
 
+/// A collection of Type3 font, belonging to the same TTF font.
 struct ColorFont {
+    /// A list of references to Type3 font objects for this font family.
     refs: Vec<Ref>,
-    // glyph id, instruction ids
-    // index % 256 is the index in the type3 font
+    /// The list of all color glyphs in this family.
+    ///
+    /// The index in this vector modulo 256 corresponds to the index in one of
+    /// the Type3 fonts in `refs` (the `n`-th in the vector, where `n` is the
+    /// quotient of the index divided by 256).
     glyphs: Vec<ColorGlyph>,
+    /// The global bounding box of the font.
     bbox: Rect,
 }
 
+/// A single color glyph.
 struct ColorGlyph {
+    /// The ID of the glyph.
     gid: u16,
-    width: f64,
+    /// A frame that contains the glyph.
     image: Frame,
 }
 
 impl ColorFontMap {
+    /// Creates a new empty mapping
     fn new() -> Self {
         Self { map: HashMap::new(), all_refs: Vec::new() }
     }
 
+    /// Takes the contents of the mapping.
+    ///
+    /// After calling this function, the mapping will be empty.
     fn take_map(&mut self) -> HashMap<Font, ColorFont> {
         std::mem::take(&mut self.map)
     }
 
+    /// Obtains the reference to a Type3 font, and an index in this font
+    /// that can be used to draw a color glyph.
+    ///
+    /// The glyphs will be de-duplicated if needed.
     fn get<F>(
         &mut self,
         alloc: &mut Ref,
         font: &Font,
         glyph: u16,
-        width: f64,
         instructions: F,
     ) -> (Ref, u8)
     where
@@ -525,14 +545,12 @@ impl ColorFontMap {
 
         let index =
             match font.glyphs.iter().position(|color_glyph| color_glyph.gid == glyph) {
-                // If we already know this glyph, at requested resolution (or better)
-                // return it
-                Some(index_of_glyph) if font.glyphs[index_of_glyph].width >= width => {
+                // If we already know this glyph, return it.
+                Some(index_of_glyph) => {
                     return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
                 }
-                // If we already know it but at a lower resolution, overwrite it with the high-res version
-                Some(index_of_glyph) => index_of_glyph,
-                // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font if needed
+                // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
+                // if needed
                 None => {
                     let new_index = font.glyphs.len();
                     if new_index % 256 == 0 {
@@ -545,7 +563,7 @@ impl ColorFontMap {
             };
 
         font.glyphs
-            .insert(index, ColorGlyph { gid: glyph, width, image: instructions() });
+            .insert(index, ColorGlyph { gid: glyph, image: instructions() });
 
         (font.refs[index / 256], index as u8)
     }

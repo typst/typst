@@ -808,49 +808,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     }
 }
 
-// Encodes a text run made only of color glyphs into the content stream
-fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
-    let x = pos.x.to_f32();
-    let y = pos.y.to_f32();
-
-    let mut last_font = None;
-
-    ctx.content.begin_text();
-    ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
-    // so that the next call to ctx.set_font() will change the font
-    // one that displays regular glyphs and not color glyphs
-    ctx.state.font = None;
-
-    for glyph in text.glyphs() {
-        // artificially choose better resolutions of color glyphs, as they tend
-        // to appear pixelated even at low zoom levels otherwise
-        let ppem = 2.0 * text.item.size.to_f32() as f64;
-        let (font, index) = ctx.parent.color_font_map.get(
-            &mut ctx.parent.alloc,
-            &text.item.font,
-            glyph.id,
-            ppem,
-            || color::frame_for_glyph(&text, &glyph),
-        );
-        if last_font != Some(font.get()) {
-            ctx.content.set_font(
-                Name(eco_format!("Cf{}", font.get()).as_bytes()),
-                text.item.size.to_f32(),
-            );
-            last_font = Some(font.get());
-        }
-
-        ctx.content.show(Str(&[index]));
-
-        let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
-        glyph_set
-            .entry(font.get() as u16 * 256 + index as u16)
-            .or_insert_with(|| text.text()[glyph.range()].into());
-    }
-    ctx.content.end_text();
-}
-
-// Encodes a text run (without any color glyph) into the content stream
+// Encodes a text run (without any color glyph) into the content stream.
 fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
@@ -925,6 +883,47 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
 
     items.finish();
     positioned.finish();
+    ctx.content.end_text();
+}
+
+// Encodes a text run made only of color glyphs into the content stream
+fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
+    let mut last_font = None;
+
+    ctx.content.begin_text();
+    ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+    // So that the next call to ctx.set_font() will change the font to one that
+    // displays regular glyphs and not color glyphs.
+    ctx.state.font = None;
+
+    let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
+
+    for glyph in text.glyphs() {
+        // Retrieve the Type3 font reference and the glyph index in the font.
+        let (font, index) = ctx.parent.color_font_map.get(
+            &mut ctx.parent.alloc,
+            &text.item.font,
+            glyph.id,
+            || color::frame_for_glyph(&text, &glyph),
+        );
+
+        if last_font != Some(font.get()) {
+            ctx.content.set_font(
+                Name(eco_format!("Cf{}", font.get()).as_bytes()),
+                text.item.size.to_f32(),
+            );
+            last_font = Some(font.get());
+        }
+
+        ctx.content.show(Str(&[index]));
+
+        glyph_set
+            .entry(font.get() as u16 * 256 + index as u16)
+            .or_insert_with(|| text.text()[glyph.range()].into());
+    }
     ctx.content.end_text();
 }
 
