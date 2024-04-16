@@ -2,12 +2,13 @@
 
 use std::io::Read;
 
+use ecow::EcoString;
 use ttf_parser::GlyphId;
 use usvg::{Tree, TreeParsing, TreeWriting};
 
 use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
-use crate::text::{Glyph, TextItem, TextItemView};
+use crate::text::{Glyph, Lang, TextItem, TextItemView};
 use crate::visualize::{Color, Image, Paint, Rgb};
 
 use super::Font;
@@ -26,21 +27,26 @@ pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
 /// The glyphs are sized in font units, [`text.item.size`] is not taken into
 /// account.
 pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
-    let ttf = text.item.font.ttf();
-    let upem = Abs::pt(ttf.units_per_em() as f64);
-    let glyph_id = GlyphId(glyph.id);
+    #[comemo::memoize]
+    fn cached(font: &Font, fill: &Paint, glyph_id: u16) -> Frame {
+        let ttf = font.ttf();
+        let upem = Abs::pt(ttf.units_per_em() as f64);
+        let glyph_id = GlyphId(glyph_id);
 
-    let mut frame = Frame::soft(Size::splat(upem));
+        let mut frame = Frame::soft(Size::splat(upem));
 
-    if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
-        draw_raster_glyph(&mut frame, upem, raster_image);
-    } else if ttf.glyph_svg_image(glyph_id).is_some() {
-        draw_svg_glyph(&mut frame, upem, text, glyph_id);
-    } else if ttf.is_color_glyph(glyph_id) {
-        draw_colr_glyph(&mut frame, text, glyph_id);
+        if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
+            draw_raster_glyph(&mut frame, upem, raster_image);
+        } else if ttf.glyph_svg_image(glyph_id).is_some() {
+            draw_svg_glyph(&mut frame, upem, font, glyph_id);
+        } else if ttf.is_color_glyph(glyph_id) {
+            draw_colr_glyph(&mut frame, font, fill, glyph_id);
+        }
+
+        frame
     }
 
-    frame
+    cached(&text.item.font, &text.item.fill, glyph.id)
 }
 
 /// Draws a raster glyph in a frame.
@@ -65,14 +71,14 @@ fn draw_raster_glyph(
 }
 
 /// Draws a COLR glyph in a frame.
-fn draw_colr_glyph(frame: &mut Frame, text: &TextItemView, glyph_id: GlyphId) {
-    let mut painter = ColrPainter { text: text.item, frame, current_glyph: glyph_id };
-    text.item.font.ttf().paint_color_glyph(glyph_id, 0, &mut painter);
+fn draw_colr_glyph(frame: &mut Frame, font: &Font, fill: &Paint, glyph_id: GlyphId) {
+    let mut painter = ColrPainter { font, fill, current_glyph: glyph_id, frame };
+    font.ttf().paint_color_glyph(glyph_id, 0, &mut painter);
 }
 
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(frame: &mut Frame, upem: Abs, text: &TextItemView, glyph_id: GlyphId) {
-    let Some(SizedSvg { tree, bbox }) = get_svg_glyph(text.item, glyph_id) else {
+fn draw_svg_glyph(frame: &mut Frame, upem: Abs, font: &Font, glyph_id: GlyphId) {
+    let Some(SizedSvg { tree, bbox }) = get_svg_glyph(font, glyph_id) else {
         // Don't draw anything in case we were not able to parse and measure the
         // SVG.
         return;
@@ -213,11 +219,13 @@ fn make_svg_unsized(svg: &mut String) {
 
 /// Draws COLR glyphs in a frame.
 struct ColrPainter<'f, 't> {
-    /// The frame in which to draw
+    /// The frame in which to draw.
     frame: &'f mut Frame,
-    /// The original text item
-    text: &'t TextItem,
-    /// The glyph that will be drawn the next time `ColrPainter::paint` is called
+    /// The font of the text.
+    font: &'t Font,
+    /// The fill of the text, to use in case glyph color is not specified.
+    fill: &'t Paint,
+    /// The glyph that will be drawn the next time `ColrPainter::paint` is called.
     current_glyph: GlyphId,
 }
 
@@ -227,21 +235,21 @@ impl<'f, 't> ColrPainter<'f, 't> {
             // With images, the position corresponds to the top-left corner, but
             // in the case of text it matches the baseline-left point. Here, we
             // move the glyph one unit down to compensate for that.
-            Point::new(Abs::zero(), Abs::pt(self.text.font.units_per_em())),
+            Point::new(Abs::zero(), Abs::pt(self.font.units_per_em())),
             FrameItem::Text(TextItem {
-                font: self.text.font.clone(),
-                size: Abs::pt(self.text.font.units_per_em()),
+                font: self.font.clone(),
+                size: Abs::pt(self.font.units_per_em()),
                 fill,
                 stroke: None,
-                lang: self.text.lang,
-                text: self.text.text.clone(),
+                lang: Lang::ENGLISH,
+                text: EcoString::new(),
                 glyphs: vec![Glyph {
                     id: self.current_glyph.0,
                     // Advance is not relevant here as we will draw glyph on top
                     // of each other anyway
                     x_advance: Em::zero(),
                     x_offset: Em::zero(),
-                    range: 0..self.text.text.len() as u16,
+                    range: 0..0,
                     span: (Span::detached(), 0),
                 }],
             }),
@@ -255,7 +263,7 @@ impl<'f, 't> ttf_parser::colr::Painter for ColrPainter<'f, 't> {
     }
 
     fn paint_foreground(&mut self) {
-        self.paint(self.text.fill.clone())
+        self.paint(self.fill.clone())
     }
 
     fn paint_color(&mut self, color: ttf_parser::RgbaColor) {
@@ -281,8 +289,8 @@ pub struct SizedSvg {
 ///
 /// This function decodes compressed SVG if needed, and computes dimensions of
 /// the glyph.
-fn get_svg_glyph(text: &TextItem, glyph: GlyphId) -> Option<SizedSvg> {
-    let mut data = text.font.ttf().glyph_svg_image(glyph)?.data;
+fn get_svg_glyph(font: &Font, glyph: GlyphId) -> Option<SizedSvg> {
+    let mut data = font.ttf().glyph_svg_image(glyph)?.data;
 
     // Decompress SVGZ.
     let mut decoded = vec![];
