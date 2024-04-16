@@ -24,14 +24,17 @@ You may want to [make yourself an alias](#making-an-alias) like:
 testit
 ```
 
-Running all tests whose paths contain the string `page` or `stack`.
+Running all tests whose names contain the string `page` or `stack`. Note each
+`.typ` file in this directory can contain multiple tests, each of which is a
+section of Typst code following `--- {name} ---`.
 ```bash
+# Add --verbose to list which tests were run.
 testit page stack
 ```
 
-Running a test with the exact filename `page.typ`.
+Running a test with the exact test name `math-attach-mixed`.
 ```bash
-testit --exact page.typ
+testit --exact math-attach-mixed
 ```
 
 To make the integration tests go faster they don't generate PDFs by default.
