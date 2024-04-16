@@ -147,13 +147,15 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             // glyph.
             let mut glyphs_to_instructions = Vec::new();
 
-            let scale_factor = font.ttf().units_per_em() as f32;
-
-            // Write the instructions for each glyph.
             let start = font_index * 256;
             let end = (start + 256).min(color_font.glyphs.len());
             let glyph_count = end - 1 - start;
             let mut widths = Vec::new();
+            let mut gids = Vec::new();
+
+            let scale_factor = font.ttf().units_per_em() as f32;
+
+            // Write the instructions for each glyph.
             for color_glyph in &color_font.glyphs[start..end] {
                 let instructions_stream_ref = ctx.alloc.bump();
                 let width =
@@ -179,6 +181,8 @@ fn write_color_fonts(ctx: &mut PdfContext) {
 
                 // Use this stream as instructions to draw the glyph.
                 glyphs_to_instructions.push(instructions_stream_ref);
+
+                gids.push(color_glyph.gid);
             }
 
             // Write the Type3 font object.
@@ -212,29 +216,15 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             pdf_font.finish();
 
             // Encode a CMAP to make it possible to search or copy glyphs.
-            //
-            // To avoid maintaining a separate glyph set structure for Type3
-            // fonts, a hack is used: the glyph ID is only in the
-            // less-significant byte (as there can only be 256 of them per
-            // font), the rest stores the index of the Type3 font in
-            // `ColorFontMap::all_refs`.
-            let full_glyph_set = ctx.glyph_sets.get_mut(&font).unwrap();
-            let global_font_index =
-                ctx.color_font_map.all_refs.iter().position(|r| r == subfont_id);
-            // We retrieve only the part relevant for this font
-            let glyph_set = full_glyph_set.iter().filter_map(|(k, v)| {
-                if *k / 256 == global_font_index? as u16 {
-                    Some((k % 256, v))
-                } else {
-                    None
-                }
-            });
-
-            // And we write it
+            let glyph_set = ctx.glyph_sets.get_mut(&font).unwrap();
             let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
-            for (g, text) in glyph_set {
+            for (index, gid) in gids.iter().enumerate() {
+                let Some(text) = glyph_set.get(gid) else {
+                    continue;
+                };
+
                 if !text.is_empty() {
-                    cmap.pair_with_multiple(g, text.chars());
+                    cmap.pair_with_multiple(index as u16, text.chars());
                 }
             }
             ctx.pdf.cmap(cmap_ref, &cmap.finish());

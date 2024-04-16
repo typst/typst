@@ -497,6 +497,9 @@ struct ColorFont {
     glyphs: Vec<ColorGlyph>,
     /// The global bounding box of the font.
     bbox: Rect,
+    /// A mapping between glyph IDs and character indices in the `glyphs`
+    /// vector.
+    glyph_indices: BTreeMap<u16, usize>,
 }
 
 /// A single color glyph.
@@ -533,17 +536,18 @@ impl ColorFontMap {
                 font.to_em(global_bbox.x_max).to_font_units(),
                 font.to_em(global_bbox.y_max).to_font_units(),
             );
-            ColorFont { bbox, refs: Vec::new(), glyphs: Vec::new() }
+            ColorFont {
+                bbox,
+                refs: Vec::new(),
+                glyphs: Vec::new(),
+                glyph_indices: BTreeMap::new(),
+            }
         });
 
-        let index = match color_font
-            .glyphs
-            .iter()
-            .position(|color_glyph| color_glyph.gid == gid)
-        {
+        let index = match color_font.glyph_indices.get(&gid) {
             // If we already know this glyph, return it.
             Some(index_of_glyph) => {
-                return (color_font.refs[index_of_glyph / 256], index_of_glyph as u8);
+                return (color_font.refs[index_of_glyph / 256], *index_of_glyph as u8);
             }
             // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
             // if needed
@@ -554,6 +558,7 @@ impl ColorFontMap {
                     self.all_refs.push(new_ref);
                     color_font.refs.push(new_ref);
                 }
+                color_font.glyph_indices.insert(gid, new_index);
                 new_index
             }
         };
