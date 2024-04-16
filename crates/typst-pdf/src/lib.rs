@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use indexmap::IndexMap;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
 use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
@@ -22,6 +23,7 @@ use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
 use typst::layout::{Abs, Dir, Em, Frame, Transform};
 use typst::model::{Document, HeadingElem};
+use typst::text::color::frame_for_glyph;
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
@@ -478,7 +480,7 @@ where
 /// font, and fonts generally have more color glyphs than that.
 struct ColorFontMap {
     /// The mapping itself
-    map: HashMap<Font, ColorFont>,
+    map: IndexMap<Font, ColorFont>,
     /// A list of all PDF indirect references to Type3 font objects.
     all_refs: Vec<Ref>,
 }
@@ -502,19 +504,19 @@ struct ColorGlyph {
     /// The ID of the glyph.
     gid: u16,
     /// A frame that contains the glyph.
-    image: Frame,
+    frame: Frame,
 }
 
 impl ColorFontMap {
     /// Creates a new empty mapping
     fn new() -> Self {
-        Self { map: HashMap::new(), all_refs: Vec::new() }
+        Self { map: IndexMap::new(), all_refs: Vec::new() }
     }
 
     /// Takes the contents of the mapping.
     ///
     /// After calling this function, the mapping will be empty.
-    fn take_map(&mut self) -> HashMap<Font, ColorFont> {
+    fn take_map(&mut self) -> IndexMap<Font, ColorFont> {
         std::mem::take(&mut self.map)
     }
 
@@ -522,17 +524,8 @@ impl ColorFontMap {
     /// that can be used to draw a color glyph.
     ///
     /// The glyphs will be de-duplicated if needed.
-    fn get<F>(
-        &mut self,
-        alloc: &mut Ref,
-        font: &Font,
-        glyph: u16,
-        instructions: F,
-    ) -> (Ref, u8)
-    where
-        F: FnOnce() -> Frame,
-    {
-        let font = self.map.entry(font.clone()).or_insert_with(|| {
+    fn get(&mut self, alloc: &mut Ref, font: &Font, gid: u16) -> (Ref, u8) {
+        let color_font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
             let bbox = Rect::new(
                 font.to_em(global_bbox.x_min).to_font_units(),
@@ -543,29 +536,34 @@ impl ColorFontMap {
             ColorFont { bbox, refs: Vec::new(), glyphs: Vec::new() }
         });
 
-        let index =
-            match font.glyphs.iter().position(|color_glyph| color_glyph.gid == glyph) {
-                // If we already know this glyph, return it.
-                Some(index_of_glyph) => {
-                    return (font.refs[index_of_glyph / 256], index_of_glyph as u8);
+        let index = match color_font
+            .glyphs
+            .iter()
+            .position(|color_glyph| color_glyph.gid == gid)
+        {
+            // If we already know this glyph, return it.
+            Some(index_of_glyph) => {
+                return (color_font.refs[index_of_glyph / 256], index_of_glyph as u8);
+            }
+            // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
+            // if needed
+            None => {
+                let new_index = color_font.glyphs.len();
+                if new_index % 256 == 0 {
+                    let new_ref = alloc.bump();
+                    self.all_refs.push(new_ref);
+                    color_font.refs.push(new_ref);
                 }
-                // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
-                // if needed
-                None => {
-                    let new_index = font.glyphs.len();
-                    if new_index % 256 == 0 {
-                        let new_ref = alloc.bump();
-                        self.all_refs.push(new_ref);
-                        font.refs.push(new_ref);
-                    }
-                    new_index
-                }
-            };
+                new_index
+            }
+        };
 
-        font.glyphs
-            .insert(index, ColorGlyph { gid: glyph, image: instructions() });
+        let instructions = frame_for_glyph(font, gid);
+        color_font
+            .glyphs
+            .insert(index, ColorGlyph { gid, frame: instructions });
 
-        (font.refs[index / 256], index as u8)
+        (color_font.refs[index / 256], index as u8)
     }
 }
 

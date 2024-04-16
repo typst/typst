@@ -2705,6 +2705,7 @@ dependencies = [
  "ecow",
  "flate2",
  "image",
+ "indexmap 2.2.5",
  "miniz_oxide",
  "once_cell",
  "pdf-writer",

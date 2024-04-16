@@ -13,7 +13,7 @@ use typst::layout::{
 };
 use typst::model::Document;
 use typst::text::color::{frame_for_glyph, is_color_glyph};
-use typst::text::{Font, TextItem, TextItemView};
+use typst::text::{Font, TextItem};
 use typst::visualize::{
     Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
     LineJoin, Paint, Path, PathItem, Pattern, RelativeTo, Shape,
@@ -249,7 +249,7 @@ fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
                 .pre_translate(Point::new(Abs::raw(offset as _), -text.size))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
-            let glyph_frame = frame_for_glyph(&TextItemView::all_of(text), glyph);
+            let glyph_frame = frame_for_glyph(&text.font, glyph.id);
 
             render_frame(canvas, state, &glyph_frame);
         } else {

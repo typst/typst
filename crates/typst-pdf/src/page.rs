@@ -17,7 +17,7 @@ use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::{Destination, Numbering};
-use typst::text::color::{self, is_color_glyph};
+use typst::text::color::is_color_glyph;
 use typst::text::{Case, Font, TextItem, TextItemView};
 use typst::util::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
@@ -44,7 +44,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     let page_ref = ctx.alloc.bump();
 
     let size = frame.size();
-    let mut ctx = PageContext::new(ctx, page_ref, size);
+    let mut ctx = PageContext::new(ctx, size);
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
@@ -63,7 +63,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     let page = EncodedPage {
         size,
         content: deflate_deferred(ctx.content.finish()),
-        id: ctx.page_ref,
+        id: page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
         label: None,
@@ -454,7 +454,6 @@ impl PageResource {
 /// An exporter for the contents of a single PDF page.
 pub struct PageContext<'a, 'b> {
     pub(crate) parent: &'a mut PdfContext<'b>,
-    page_ref: Ref,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -466,10 +465,9 @@ pub struct PageContext<'a, 'b> {
 }
 
 impl<'a, 'b> PageContext<'a, 'b> {
-    pub fn new(parent: &'a mut PdfContext<'b>, page_ref: Ref, size: Size) -> Self {
+    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
         PageContext {
             parent,
-            page_ref,
             uses_opacities: false,
             content: Content::new(),
             state: State::new(size),
@@ -766,7 +764,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     if !has_color_glyphs {
         write_normal_text(ctx, pos, TextItemView::all_of(text));
         return;
-    };
+    }
 
     let color_glyph_count =
         text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
@@ -900,7 +898,6 @@ fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
             &mut ctx.parent.alloc,
             &text.item.font,
             glyph.id,
-            || color::frame_for_glyph(&text, &glyph),
         );
 
         if last_font != Some(font.get()) {

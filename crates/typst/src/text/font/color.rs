@@ -4,14 +4,12 @@ use std::io::Read;
 
 use ecow::EcoString;
 use ttf_parser::GlyphId;
-use usvg::{Tree, TreeParsing, TreeWriting};
+use usvg::{TreeParsing, TreeWriting};
 
 use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
-use crate::text::{Glyph, Lang, TextItem, TextItemView};
+use crate::text::{Font, Glyph, Lang, TextItem};
 use crate::visualize::{Color, Image, Paint, Rgb};
-
-use super::Font;
 
 /// Tells if a glyph is a color glyph or not in a given font.
 pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
@@ -26,27 +24,23 @@ pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
 ///
 /// The glyphs are sized in font units, [`text.item.size`] is not taken into
 /// account.
-pub fn frame_for_glyph(text: &TextItemView, glyph: &Glyph) -> Frame {
-    #[comemo::memoize]
-    fn cached(font: &Font, fill: &Paint, glyph_id: u16) -> Frame {
-        let ttf = font.ttf();
-        let upem = Abs::pt(ttf.units_per_em() as f64);
-        let glyph_id = GlyphId(glyph_id);
+#[comemo::memoize]
+pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
+    let ttf = font.ttf();
+    let upem = Abs::pt(ttf.units_per_em() as f64);
+    let glyph_id = GlyphId(glyph_id);
 
-        let mut frame = Frame::soft(Size::splat(upem));
+    let mut frame = Frame::soft(Size::splat(upem));
 
-        if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
-            draw_raster_glyph(&mut frame, upem, raster_image);
-        } else if ttf.glyph_svg_image(glyph_id).is_some() {
-            draw_svg_glyph(&mut frame, upem, font, glyph_id);
-        } else if ttf.is_color_glyph(glyph_id) {
-            draw_colr_glyph(&mut frame, font, fill, glyph_id);
-        }
-
-        frame
+    if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
+        draw_raster_glyph(&mut frame, upem, raster_image);
+    } else if ttf.glyph_svg_image(glyph_id).is_some() {
+        draw_svg_glyph(&mut frame, upem, font, glyph_id);
+    } else if ttf.is_color_glyph(glyph_id) {
+        draw_colr_glyph(&mut frame, font, glyph_id);
     }
 
-    cached(&text.item.font, &text.item.fill, glyph.id)
+    frame
 }
 
 /// Draws a raster glyph in a frame.
@@ -63,7 +57,7 @@ fn draw_raster_glyph(
     .unwrap();
     let position = Point::new(
         upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
-        upem * -raster_image.y as f64 / raster_image.pixels_per_em as f64,
+        upem * -(raster_image.y as f64) / raster_image.pixels_per_em as f64,
     );
     let aspect_ratio = image.width() / image.height();
     let size = Axes::new(upem, upem * aspect_ratio);
@@ -71,18 +65,104 @@ fn draw_raster_glyph(
 }
 
 /// Draws a COLR glyph in a frame.
-fn draw_colr_glyph(frame: &mut Frame, font: &Font, fill: &Paint, glyph_id: GlyphId) {
-    let mut painter = ColrPainter { font, fill, current_glyph: glyph_id, frame };
+fn draw_colr_glyph(frame: &mut Frame, font: &Font, glyph_id: GlyphId) {
+    let mut painter = ColrPainter { font, current_glyph: glyph_id, frame };
     font.ttf().paint_color_glyph(glyph_id, 0, &mut painter);
 }
 
+/// Draws COLR glyphs in a frame.
+struct ColrPainter<'f, 't> {
+    /// The frame in which to draw.
+    frame: &'f mut Frame,
+    /// The font of the text.
+    font: &'t Font,
+    /// The glyph that will be drawn the next time `ColrPainter::paint` is called.
+    current_glyph: GlyphId,
+}
+
+impl<'f, 't> ColrPainter<'f, 't> {
+    fn paint(&mut self, fill: Paint) {
+        self.frame.push(
+            // With images, the position corresponds to the top-left corner, but
+            // in the case of text it matches the baseline-left point. Here, we
+            // move the glyph one unit down to compensate for that.
+            Point::new(Abs::zero(), Abs::pt(self.font.units_per_em())),
+            FrameItem::Text(TextItem {
+                font: self.font.clone(),
+                size: Abs::pt(self.font.units_per_em()),
+                fill,
+                stroke: None,
+                lang: Lang::ENGLISH,
+                text: EcoString::new(),
+                glyphs: vec![Glyph {
+                    id: self.current_glyph.0,
+                    // Advance is not relevant here as we will draw glyph on top
+                    // of each other anyway
+                    x_advance: Em::zero(),
+                    x_offset: Em::zero(),
+                    range: 0..0,
+                    span: (Span::detached(), 0),
+                }],
+            }),
+        )
+    }
+}
+
+impl<'f, 't> ttf_parser::colr::Painter for ColrPainter<'f, 't> {
+    fn outline(&mut self, glyph_id: GlyphId) {
+        self.current_glyph = glyph_id;
+    }
+
+    fn paint_foreground(&mut self) {
+        // Default to black if no color was specified
+        self.paint(Paint::Solid(Color::BLACK))
+    }
+
+    fn paint_color(&mut self, color: ttf_parser::RgbaColor) {
+        let color = Color::Rgb(Rgb::new(
+            color.red as f32 / 255.0,
+            color.green as f32 / 255.0,
+            color.blue as f32 / 255.0,
+            color.alpha as f32 / 255.0,
+        ));
+        self.paint(Paint::Solid(color));
+    }
+}
+
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(frame: &mut Frame, upem: Abs, font: &Font, glyph_id: GlyphId) {
-    let Some(SizedSvg { tree, bbox }) = get_svg_glyph(font, glyph_id) else {
-        // Don't draw anything in case we were not able to parse and measure the
-        // SVG.
-        return;
-    };
+fn draw_svg_glyph(
+    frame: &mut Frame,
+    upem: Abs,
+    font: &Font,
+    glyph_id: GlyphId,
+) -> Option<()> {
+    let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;
+
+    // Decompress SVGZ.
+    let mut decoded = vec![];
+    if data.starts_with(&[0x1f, 0x8b]) {
+        let mut decoder = flate2::read::GzDecoder::new(data);
+        decoder.read_to_end(&mut decoded).ok()?;
+        data = &decoded;
+    }
+
+    // Parse XML.
+    let xml = std::str::from_utf8(data).ok()?;
+    let document = roxmltree::Document::parse(xml).ok()?;
+
+    // Parse SVG.
+    let opts = usvg::Options::default();
+    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+
+    // Compute the space we need to draw our glyph.
+    // See https://github.com/RazrFalcon/resvg/issues/602 for why
+    // using the svg size is problematic here.
+    tree.calculate_bounding_boxes();
+    let mut bbox = usvg::BBox::default();
+    if let Some(tree_bbox) = tree.root.bounding_box {
+        bbox = bbox.expand(tree_bbox);
+    }
+    let bbox = bbox.to_rect()?;
 
     let mut data = tree.to_string(&usvg::XmlOptions::default());
 
@@ -122,7 +202,7 @@ fn draw_svg_glyph(frame: &mut Frame, upem: Abs, font: &Font, glyph_id: GlyphId) 
     );
 
     let image = Image::new(
-        wrapper_svg.as_bytes().into(),
+        wrapper_svg.into_bytes().into(),
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
     )
@@ -130,6 +210,8 @@ fn draw_svg_glyph(frame: &mut Frame, upem: Abs, font: &Font, glyph_id: GlyphId) 
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Axes::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
+
+    Some(())
 }
 
 /// Remove all size specifications (viewBox, width and height attributes) from a
@@ -143,7 +225,7 @@ fn make_svg_unsized(svg: &mut String) {
 
     s.eat_until("<svg");
     s.eat_if("<svg");
-    while !s.eat_if('>') {
+    while !s.eat_if('>') && !s.done() {
         s.eat_whitespace();
         let start = s.cursor();
         let attr_name = s.eat_until('=').trim();
@@ -151,171 +233,29 @@ fn make_svg_unsized(svg: &mut String) {
         s.eat();
         s.eat();
         let mut escaped = false;
-        while escaped || !s.eat_if('"') {
+        while (escaped || !s.eat_if('"')) && !s.done() {
             escaped = s.eat() == Some('\\');
         }
         match attr_name {
-            "viewBox" => {
-                viewbox_range = Some(start..s.cursor());
-            }
-            "width" => {
-                width_range = Some(start..s.cursor());
-            }
-            "height" => {
-                height_range = Some(start..s.cursor());
-            }
+            "viewBox" => viewbox_range = Some(start..s.cursor()),
+            "width" => width_range = Some(start..s.cursor()),
+            "height" => height_range = Some(start..s.cursor()),
             _ => {}
-        }
-    }
-
-    /// Because we will remove some attributes, other ranges may need to be
-    /// shifted This function returns a mutable reference to a range (a) if it
-    /// should be shifted after another range (b) was deleted
-    fn should_shift<'a>(
-        a: &'a mut Option<std::ops::Range<usize>>,
-        b: &std::ops::Range<usize>,
-    ) -> Option<&'a mut std::ops::Range<usize>> {
-        // Is a after b?
-        let is_after = a.as_ref().map(|r| r.start > b.end).unwrap_or(false);
-        if is_after {
-            a.as_mut()
-        } else {
-            None
         }
     }
 
     // Remove the `viewBox` attribute.
     if let Some(range) = viewbox_range {
-        svg.replace_range(range.clone(), "");
-
-        let shift = range.len();
-        if let Some(ref mut width_range) = should_shift(&mut width_range, &range) {
-            width_range.start -= shift;
-            width_range.end -= shift;
-        }
-
-        if let Some(ref mut height_range) = should_shift(&mut height_range, &range) {
-            height_range.start -= shift;
-            height_range.end -= shift;
-        }
+        svg.replace_range(range.clone(), &" ".repeat(range.len()));
     }
 
     // Remove the `width` attribute.
     if let Some(range) = width_range {
-        svg.replace_range(range.clone(), "");
-
-        let shift = range.len();
-        if let Some(ref mut height_range) = should_shift(&mut height_range, &range) {
-            height_range.start -= shift;
-            height_range.end -= shift;
-        }
+        svg.replace_range(range.clone(), &" ".repeat(range.len()));
     }
 
     // Remove the `height` attribute.
     if let Some(range) = height_range {
         svg.replace_range(range, "");
     }
-}
-
-/// Draws COLR glyphs in a frame.
-struct ColrPainter<'f, 't> {
-    /// The frame in which to draw.
-    frame: &'f mut Frame,
-    /// The font of the text.
-    font: &'t Font,
-    /// The fill of the text, to use in case glyph color is not specified.
-    fill: &'t Paint,
-    /// The glyph that will be drawn the next time `ColrPainter::paint` is called.
-    current_glyph: GlyphId,
-}
-
-impl<'f, 't> ColrPainter<'f, 't> {
-    fn paint(&mut self, fill: Paint) {
-        self.frame.push(
-            // With images, the position corresponds to the top-left corner, but
-            // in the case of text it matches the baseline-left point. Here, we
-            // move the glyph one unit down to compensate for that.
-            Point::new(Abs::zero(), Abs::pt(self.font.units_per_em())),
-            FrameItem::Text(TextItem {
-                font: self.font.clone(),
-                size: Abs::pt(self.font.units_per_em()),
-                fill,
-                stroke: None,
-                lang: Lang::ENGLISH,
-                text: EcoString::new(),
-                glyphs: vec![Glyph {
-                    id: self.current_glyph.0,
-                    // Advance is not relevant here as we will draw glyph on top
-                    // of each other anyway
-                    x_advance: Em::zero(),
-                    x_offset: Em::zero(),
-                    range: 0..0,
-                    span: (Span::detached(), 0),
-                }],
-            }),
-        )
-    }
-}
-
-impl<'f, 't> ttf_parser::colr::Painter for ColrPainter<'f, 't> {
-    fn outline(&mut self, glyph_id: GlyphId) {
-        self.current_glyph = glyph_id;
-    }
-
-    fn paint_foreground(&mut self) {
-        self.paint(self.fill.clone())
-    }
-
-    fn paint_color(&mut self, color: ttf_parser::RgbaColor) {
-        let color = Color::Rgb(Rgb::new(
-            color.red as f32 / 255.0,
-            color.green as f32 / 255.0,
-            color.blue as f32 / 255.0,
-            color.alpha as f32 / 255.0,
-        ));
-        self.paint(Paint::Solid(color));
-    }
-}
-
-/// A SVG document with information about its dimensions
-pub struct SizedSvg {
-    /// The computed bounding box of the root element
-    pub bbox: usvg::Rect,
-    /// The SVG document
-    pub tree: Tree,
-}
-
-/// Retrieve and measure the SVG document for a given glyph, if it exists.
-///
-/// This function decodes compressed SVG if needed, and computes dimensions of
-/// the glyph.
-fn get_svg_glyph(font: &Font, glyph: GlyphId) -> Option<SizedSvg> {
-    let mut data = font.ttf().glyph_svg_image(glyph)?.data;
-
-    // Decompress SVGZ.
-    let mut decoded = vec![];
-    if data.starts_with(&[0x1f, 0x8b]) {
-        let mut decoder = flate2::read::GzDecoder::new(data);
-        decoder.read_to_end(&mut decoded).ok()?;
-        data = &decoded;
-    }
-
-    // Parse XML.
-    let xml = std::str::from_utf8(data).ok()?;
-    let document = roxmltree::Document::parse(xml).ok()?;
-
-    // Parse SVG.
-    let opts = usvg::Options::default();
-    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-
-    // Compute the space we need to draw our glyph.
-    // See https://github.com/RazrFalcon/resvg/issues/602 for why
-    // using the svg size is problematic here.
-    tree.calculate_bounding_boxes();
-    let mut bbox = usvg::BBox::default();
-    if let Some(tree_bbox) = tree.root.bounding_box {
-        bbox = bbox.expand(tree_bbox);
-    }
-
-    Some(SizedSvg { bbox: bbox.to_rect()?, tree })
 }
