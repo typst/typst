@@ -45,9 +45,8 @@ use crate::World;
 /// )
 /// ```
 ///
-/// # Datetime and [Duration]($duration)
-///
-/// You can get a duration by subtracting two datetime:
+/// # Datetime and Duration
+/// You can get a [duration] by subtracting two datetime:
 /// ```example
 /// #let first-of-march = datetime(day: 1, month: 3, year: 2024)
 /// #let first-of-jan = datetime(day: 1, month: 1, year: 2024)
