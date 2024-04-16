@@ -393,6 +393,28 @@ enum DecoLine {
     },
 }
 
+/// Generate a highlight frame given position and size
+/// (Only Highlight for now)
+pub(crate) fn decorate_highlight(
+    deco: &Decoration,
+    pos: Point,
+    size: Size,
+) -> Option<Vec<(Point, FrameItem)>> {
+    if let DecoLine::Highlight { fill, stroke, top_edge: _, bottom_edge: _, radius } =
+        &deco.line
+    {
+        let rects = styled_rect(size, *radius, Some(fill.clone()), stroke.clone());
+        let origin = Point::new(pos.x - deco.extent, pos.y);
+        return Some(
+            rects
+                .into_iter()
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached())))
+                .collect(),
+        );
+    }
+    None
+}
+
 /// Add line decorations to a single run of shaped text.
 pub(crate) fn decorate(
     frame: &mut Frame,

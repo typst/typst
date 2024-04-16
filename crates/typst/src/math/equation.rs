@@ -19,8 +19,8 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
-    TextElem,
+    decorate_highlight, families, variant, Font, FontFamily, FontList, FontWeight, Lang,
+    LocalName, Region, TextElem,
 };
 use crate::util::{option_eq, NonZeroExt, Numeric};
 use crate::World;
@@ -204,6 +204,27 @@ impl MathParItem {
     }
 }
 
+/// Computes the origin position and the size of the bounding box that covers
+/// a list of boxes from left to right
+fn compute_bounding_box(pos_and_sizes: &[(Point, Size)]) -> (Point, Size) {
+    let mut start_pos_x = Abs::inf();
+    let mut start_pos_y = Abs::inf();
+    let mut size_x = Abs::zero();
+    let mut size_y = Abs::zero();
+
+    for (p, s) in pos_and_sizes {
+        let s = s.to_point();
+
+        start_pos_x.set_min(p.x);
+        start_pos_y.set_min(p.y);
+
+        size_x.set_max(p.x + s.x);
+        size_y.set_max(s.y)
+    }
+
+    (Point::new(start_pos_x, start_pos_y), Size::new(size_x, size_y))
+}
+
 impl Packed<EquationElem> {
     pub fn layout_inline(
         &self,
@@ -223,7 +244,63 @@ impl Packed<EquationElem> {
         } else {
             vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
         };
+        let mut pos_and_sizes: Vec<(Point, Size)> = Vec::new();
+        let mut x = Abs::zero();
 
+        // helper function to determine the vertical offset for a frame from MathParItem
+        let get_vertical_shift_fn = |frame: &Frame| {
+            let font_size = scaled_font_size(&ctx, styles);
+            let slack = ParElem::leading_in(styles) * 0.7;
+            let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
+            let ascent = top_edge.max(frame.ascent() - slack);
+            ascent - frame.baseline()
+        };
+
+        for (idx, item) in items.iter().enumerate() {
+            match item {
+                MathParItem::Frame(frame) => {
+                    // determine the coordinates of the frame in the MathParItem Array
+                    let y = get_vertical_shift_fn(frame);
+                    let pos = Point::new(x, y);
+                    let size = Size::new(frame.width().abs(), frame.height().abs());
+                    pos_and_sizes.push((pos, size));
+                    x += frame.width();
+                }
+                MathParItem::Space(space_width) => {
+                    // A MarhParItem can also be space (consumes a width), in the latter
+                    // case, we need to update the running x-coordinate
+                    // also note that we compute starting from the first non-space MathParItem
+                    if idx != 0 {
+                        x += *space_width;
+                    }
+                }
+            }
+        }
+        // computing the origin position and the size of the bounding box of the entire MathParItem
+        // Array.
+        let (pos, size) = compute_bounding_box(&pos_and_sizes);
+
+        for item in &mut items {
+            let MathParItem::Frame(ref mut frame) = item else { continue };
+            let decos = TextElem::deco_in(styles);
+            let y_off_set = get_vertical_shift_fn(frame);
+            let new_pos = Point::new(pos.x, pos.y - y_off_set);
+            for deco in &decos {
+                // Note that here we in fact only handle highlight.
+                // will be refactored and support
+                //
+                // todo: Other line decorations as provided in `deco.rs`
+                // Note that Highlight is added to the background of the frames, while other
+                // decoration such as strike is add as the foreground on top of the MathParItem
+                // frames, so needs a different procedure.
+                if let Some(highlight_pos_and_frameitem) =
+                    decorate_highlight(deco, new_pos, size)
+                {
+                    frame.prepend_multiple(highlight_pos_and_frameitem);
+                }
+            }
+            break;
+        }
         for item in &mut items {
             let MathParItem::Frame(frame) = item else { continue };
 
