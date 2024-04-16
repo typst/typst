@@ -92,8 +92,8 @@ It's a #emph[Tree]beard.
 #sample
 
 ---
-// Error: 18-45 expected ratio, found string
-#set text(costs: (hyphenation: "wrong type"))
+// Error: 18-37 expected ratio, found auto
+#set text(costs: (hyphenation: auto))
 
 ---
 // Error: 18-52 unexpected key "invalid-key", valid keys are "hyphenation", "runt", "widow", and "orphan"
