@@ -1,0 +1,42 @@
+<svg class="typst-doc" viewBox="0 0 130 34" width="130pt" height="34pt" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 10)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(-0 -0)">
+                        <path class="typst-shape" fill="url(#pD8A511EB248B91CB92F3EB4AD467157B)" d="M 0 0 L 0 1 L 8 1 L 8 0 Z "/>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(10 13)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(-0 -0)">
+                        <path class="typst-shape" fill="url(#p5440CA4A83ED9F1FB2C104F731454F42)" d="M 0 0 L 0 1 L 8 1 L 8 0 Z "/>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <defs id="patterns">
+        <pattern id="tDF727A663846C57BB39AA1ADC476BF2B" width="1" height="1" patternUnits="userSpaceOnUse" viewBox="0 0 1.000 1.000">
+            <g>
+                <g transform="translate(-0 -0)">
+                    <path class="typst-shape" fill="#000000" d="M 0 0 L 0 1 L 1 1 L 1 0 Z "/>
+                </g>
+            </g>
+        </pattern>
+        <pattern id="tC41BC4C3F643A7C1871BD28955B994BF" width="2" height="1" patternUnits="userSpaceOnUse" viewBox="0 0 2.000 1.000">
+            <g>
+                <g transform="translate(-0 -0)">
+                    <path class="typst-shape" fill="#000000" d="M 0 0 L 0 1 L 1 1 L 1 0 Z "/>
+                </g>
+            </g>
+        </pattern>
+    </defs>
+    <defs id="pattern-refs">
+        <pattern patternTransform="matrix(1 0 0 1 0 0)" id="pD8A511EB248B91CB92F3EB4AD467157B" href="#tDF727A663846C57BB39AA1ADC476BF2B" xlink:href="#tDF727A663846C57BB39AA1ADC476BF2B"/>
+        <pattern patternTransform="matrix(1 0 0 1 0 0)" id="p5440CA4A83ED9F1FB2C104F731454F42" href="#tC41BC4C3F643A7C1871BD28955B994BF" xlink:href="#tC41BC4C3F643A7C1871BD28955B994BF"/>
+    </defs>
+</svg>

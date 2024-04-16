@@ -167,11 +167,6 @@ cast! {
 /// This function is not intended to be called directly. Instead, it is used
 /// in set and show rules to customize footnote listings.
 ///
-/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
-/// beginning of the document in order to work correctly.
-/// See [here](https://github.com/typst/typst/issues/1348#issuecomment-1566316463)
-/// for more information.
-///
 /// ```example
 /// #show footnote.entry: set text(red)
 ///
@@ -179,6 +174,12 @@ cast! {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
+///
+/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
+/// beginning of the document in order to work correctly. See [here][issue] for
+/// more information.
+///
+/// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 #[elem(name = "entry", title = "Footnote Entry", Show, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine

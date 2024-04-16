@@ -241,7 +241,7 @@ struct FileSlot {
 }
 
 impl FileSlot {
-    /// Create a new path slot.
+    /// Create a new file slot.
     fn new(id: FileId) -> Self {
         Self { id, file: SlotCell::new(), source: SlotCell::new() }
     }
