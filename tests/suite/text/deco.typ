@@ -83,3 +83,17 @@ We can also specify a customized value
 #highlight(stroke: 2pt + blue)[abc]
 #highlight(stroke: (top: blue, left: red, bottom: green, right: orange))[abc]
 #highlight(stroke: 1pt, radius: 3pt)[#lorem(5)]
+
+--- highlight-inline-math ---
+// Test highlight for inline math equation.
+#highlight[$a$], #highlight[$a_n$], #highlight[$a_n b$]
+#highlight[$a_n = C_0 a_(n-1)$]
+#highlight[$1/2 < (x+1)/2$]
+
+--- highlight-block-math ---
+// Test highlight for block math equation.
+#highlight[$ sum_(k=1)^n k = (n(n+1)) / 2 $]
+
+--- highlight-partial-in-block-math ---
+// Test partial highlight in a block math equation.
+$ sum_(k=1)^n k = #highlight[(n(n+1))] / 3 $
