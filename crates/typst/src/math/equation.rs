@@ -339,7 +339,7 @@ impl LayoutSingle for Packed<EquationElem> {
             .multiline_frame_builder(&ctx, styles);
 
         let Some(numbering) = (**self).numbering(styles) else {
-            return Ok(equation_builder.build());
+            return Ok(equation_builder.build(styles));
         };
 
         let pod = Regions::one(regions.base(), Axes::splat(false));
@@ -365,6 +365,7 @@ impl LayoutSingle for Packed<EquationElem> {
             AlignElem::alignment_in(styles).resolve(styles).x,
             regions.size.x,
             full_number_width,
+            styles,
         );
 
         Ok(frame)
@@ -500,6 +501,7 @@ fn add_equation_number(
     equation_align: FixedAlignment,
     region_size_x: Abs,
     full_number_width: Abs,
+    styles: StyleChain,
 ) -> Frame {
     let first = equation_builder
         .frames
@@ -513,7 +515,7 @@ fn add_equation_number(
         .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
             (frame.size(), *point)
         });
-    let mut equation = equation_builder.build();
+    let mut equation = equation_builder.build(styles);
 
     let width = if region_size_x.is_finite() {
         region_size_x

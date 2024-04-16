@@ -9,6 +9,8 @@ use crate::math::{
     MathFragment, MathParItem, MathSize,
 };
 use crate::model::ParElem;
+use crate::text::decorate_highlight;
+use crate::text::TextElem;
 
 use super::fragment::SpacingFragment;
 
@@ -142,7 +144,7 @@ impl MathRun {
         if !self.is_multiline() {
             self.into_line_frame(&[], AlignElem::alignment_in(styles).resolve(styles).x)
         } else {
-            self.multiline_frame_builder(ctx, styles).build()
+            self.multiline_frame_builder(ctx, styles).build(styles)
         }
     }
 
@@ -382,10 +384,18 @@ pub struct MathRunFrameBuilder {
 
 impl MathRunFrameBuilder {
     /// Consumes the builder and returns a [`Frame`].
-    pub fn build(self) -> Frame {
+    pub fn build(self, styles: StyleChain) -> Frame {
         let mut frame = Frame::soft(self.size);
         for (sub, pos) in self.frames.into_iter() {
             frame.push_frame(pos, sub);
+        }
+        let decos = TextElem::deco_in(styles);
+        for deco in &decos {
+            if let Some(highlight_pos_and_frameitem) =
+                decorate_highlight(deco, Point::zero(), frame.size())
+            {
+                frame.prepend_multiple(highlight_pos_and_frameitem);
+            }
         }
         frame
     }
