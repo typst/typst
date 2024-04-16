@@ -21,6 +21,9 @@ use crate::introspection::Location;
 /// that sub-headings are not included in the table of contents and after
 /// `here()` ensures that the "Table of Contents" heading is not included.
 ///
+/// Note that we open a `context` to be able to use the `query` function. The
+/// code within the context block runs once per page.
+///
 /// ```example
 /// >>> #set page(
 /// >>>  width: 240pt,
