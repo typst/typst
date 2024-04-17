@@ -1247,12 +1247,12 @@ impl Costs {
 
 impl Fold for Costs {
     #[inline]
-    fn fold(self, other: Self) -> Self {
+    fn fold(self, outer: Self) -> Self {
         Self {
-            hyphenation: other.hyphenation.or(self.hyphenation),
-            runt: other.runt.or(self.runt),
-            widow: other.widow.or(self.widow),
-            orphan: other.orphan.or(self.orphan),
+            hyphenation: self.hyphenation.or(outer.hyphenation),
+            runt: self.runt.or(outer.runt),
+            widow: self.widow.or(outer.widow),
+            orphan: self.orphan.or(outer.orphan),
         }
     }
 }
