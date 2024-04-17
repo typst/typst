@@ -223,7 +223,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
                 };
 
                 if !text.is_empty() {
-                    cmap.pair_with_multiple(index as u16, text.chars());
+                    cmap.pair_with_multiple(index as u8, text.chars());
                 }
             }
             ctx.pdf.cmap(cmap_ref, &cmap.finish());
