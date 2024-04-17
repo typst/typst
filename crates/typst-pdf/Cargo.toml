@@ -21,7 +21,6 @@ base64 = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-flate2 = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 miniz_oxide = { workspace = true }
@@ -29,11 +28,9 @@ once_cell = { workspace = true }
 pdf-writer = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
-tiny-skia = { workspace = true }
 ttf-parser = { workspace = true }
 unicode-properties = { workspace = true }
 unscanny = { workspace = true }
-usvg = { workspace = true }
 xmp-writer = { workspace = true }
 
 [lints]

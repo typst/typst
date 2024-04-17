@@ -2703,7 +2703,6 @@ dependencies = [
  "bytemuck",
  "comemo",
  "ecow",
- "flate2",
  "image",
  "indexmap 2.2.5",
  "miniz_oxide",
@@ -2711,7 +2710,6 @@ dependencies = [
  "pdf-writer",
  "subsetter",
  "svg2pdf",
- "tiny-skia",
  "ttf-parser",
  "typst",
  "typst-assets",
@@ -2719,7 +2717,6 @@ dependencies = [
  "typst-timing",
  "unicode-properties",
  "unscanny",
- "usvg",
  "xmp-writer",
 ]
 
