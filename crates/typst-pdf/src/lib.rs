@@ -544,31 +544,25 @@ impl ColorFontMap {
             }
         });
 
-        let index = match color_font.glyph_indices.get(&gid) {
+        if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
             // If we already know this glyph, return it.
-            Some(index_of_glyph) => {
-                return (color_font.refs[index_of_glyph / 256], *index_of_glyph as u8);
-            }
+            (color_font.refs[index_of_glyph / 256], *index_of_glyph as u8)
+        } else {
             // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
             // if needed
-            None => {
-                let new_index = color_font.glyphs.len();
-                if new_index % 256 == 0 {
-                    let new_ref = alloc.bump();
-                    self.all_refs.push(new_ref);
-                    color_font.refs.push(new_ref);
-                }
-                color_font.glyph_indices.insert(gid, new_index);
-                new_index
+            let index = color_font.glyphs.len();
+            if index % 256 == 0 {
+                let new_ref = alloc.bump();
+                self.all_refs.push(new_ref);
+                color_font.refs.push(new_ref);
             }
-        };
 
-        let instructions = frame_for_glyph(font, gid);
-        color_font
-            .glyphs
-            .insert(index, ColorGlyph { gid, frame: instructions });
+            let instructions = frame_for_glyph(font, gid);
+            color_font.glyphs.push(ColorGlyph { gid, frame: instructions });
+            color_font.glyph_indices.insert(gid, index);
 
-        (color_font.refs[index / 256], index as u8)
+            (color_font.refs[index / 256], index as u8)
+        }
     }
 }
 
