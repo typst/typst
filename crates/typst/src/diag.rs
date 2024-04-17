@@ -21,7 +21,7 @@ use crate::{World, WorldExt};
 ///
 /// You can also emit hints with the `; hint: "..."` syntax.
 ///
-/// ```
+/// ```ignore
 /// bail!("bailing with a {}", "string result");
 /// bail!(span, "bailing with a {}", "source result");
 /// bail!(
@@ -81,7 +81,7 @@ macro_rules! __error {
 ///
 /// You can also emit hints with the `; hint: "..."` syntax.
 ///
-/// ```
+/// ```ignore
 /// warning!(span, "warning with a {}", "source result");
 /// warning!(
 ///     span, "warning with a {}", "source result";

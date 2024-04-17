@@ -1,125 +1,105 @@
 {
-  "name": "test-helper",
+  "name": "typst-test-helper",
   "publisher": "typst",
   "displayName": "Typst Test Helper",
   "description": "Helps to run, compare and update Typst tests.",
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.71.0"
-  },
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "onCommand:Typst.test-helper.openFromSource",
-    "onCommand:Typst.test-helper.refreshFromSource",
-    "onCommand:Typst.test-helper.refreshFromPreview",
-    "onCommand:Typst.test-helper.runFromSource",
-    "onCommand:Typst.test-helper.runFromPreview",
-    "onCommand:Typst.test-helper.updateFromSource",
-    "onCommand:Typst.test-helper.updateFromPreview",
-    "onCommand:Typst.test-helper.copyImageFilePathFromPreviewContext"
+    "workspaceContains:tests/suite/playground.typ"
   ],
-  "main": "./extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "Typst.test-helper.openFromSource",
-        "title": "Open test output",
-        "category": "Typst.test-helper",
-        "icon": "$(plus)"
-      },
-      {
-        "command": "Typst.test-helper.refreshFromSource",
+        "command": "typst-test-helper.refreshFromPreview",
         "title": "Refresh preview",
-        "category": "Typst.test-helper",
+        "category": "Typst Test Helper",
         "icon": "$(refresh)"
       },
       {
-        "command": "Typst.test-helper.refreshFromPreview",
-        "title": "Refresh preview",
-        "category": "Typst.test-helper",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "Typst.test-helper.runFromSource",
+        "command": "typst-test-helper.runFromPreview",
         "title": "Run test",
-        "category": "Typst.test-helper",
+        "category": "Typst Test Helper",
         "icon": "$(debug-start)",
-        "enablement": "!Typst.test-helper.disableRunTestButton"
+        "enablement": "typst-test-helper.runButtonEnabled"
       },
       {
-        "command": "Typst.test-helper.runFromPreview",
-        "title": "Run test",
-        "category": "Typst.test-helper",
-        "icon": "$(debug-start)",
-        "enablement": "!Typst.test-helper.disableRunTestButton"
+        "command": "typst-test-helper.saveFromPreview",
+        "title": "Run and save reference image",
+        "category": "Typst Test Helper",
+        "icon": "$(save)",
+        "enablement": "typst-test-helper.runButtonEnabled"
       },
       {
-        "command": "Typst.test-helper.updateFromSource",
-        "title": "Update reference image",
-        "category": "Typst.test-helper",
-        "icon": "$(save)"
+        "command": "typst-test-helper.copyImageFilePathFromPreviewContext",
+        "title": "Copy image file path",
+        "category": "Typst Test Helper"
       },
       {
-        "command": "Typst.test-helper.updateFromPreview",
-        "title": "Update reference image",
-        "category": "Typst.test-helper",
-        "icon": "$(save)"
+        "command": "typst-test-helper.increaseResolution",
+        "title": "Render at higher resolution",
+        "category": "Typst Test Helper",
+        "icon": "$(zoom-in)",
+        "enablement": "typst-test-helper.runButtonEnabled"
       },
       {
-        "command": "Typst.test-helper.copyImageFilePathFromPreviewContext",
-        "title": "Copy image file path"
+        "command": "typst-test-helper.decreaseResolution",
+        "title": "Render at lower resolution",
+        "category": "Typst Test Helper",
+        "icon": "$(zoom-out)",
+        "enablement": "typst-test-helper.runButtonEnabled"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "Typst.test-helper.openFromSource",
+          "when": "activeWebviewPanelId == typst-test-helper.preview",
+          "command": "typst-test-helper.refreshFromPreview",
           "group": "navigation@1"
         },
         {
-          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "Typst.test-helper.refreshFromSource",
+          "when": "activeWebviewPanelId == typst-test-helper.preview",
+          "command": "typst-test-helper.runFromPreview",
           "group": "navigation@2"
         },
         {
-          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "Typst.test-helper.runFromSource",
+          "when": "activeWebviewPanelId == typst-test-helper.preview",
+          "command": "typst-test-helper.saveFromPreview",
           "group": "navigation@3"
         },
         {
-          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "Typst.test-helper.updateFromSource",
+          "when": "activeWebviewPanelId == typst-test-helper.preview",
+          "command": "typst-test-helper.increaseResolution",
           "group": "navigation@4"
         },
         {
-          "when": "activeWebviewPanelId == Typst.test-helper.preview",
-          "command": "Typst.test-helper.refreshFromPreview",
-          "group": "navigation@1"
-        },
-        {
-          "when": "activeWebviewPanelId == Typst.test-helper.preview",
-          "command": "Typst.test-helper.runFromPreview",
-          "group": "navigation@2"
-        },
-        {
-          "when": "activeWebviewPanelId == Typst.test-helper.preview",
-          "command": "Typst.test-helper.updateFromPreview",
-          "group": "navigation@3"
+          "when": "activeWebviewPanelId == typst-test-helper.preview",
+          "command": "typst-test-helper.decreaseResolution",
+          "group": "navigation@4"
         }
       ],
       "webview/context": [
         {
-          "command": "Typst.test-helper.copyImageFilePathFromPreviewContext",
-          "when": "webviewId == Typst.test-helper.preview && (webviewSection == png || webviewSection == ref)"
+          "command": "typst-test-helper.copyImageFilePathFromPreviewContext",
+          "when": "webviewId == typst-test-helper.preview && (webviewSection == png || webviewSection == ref)"
         }
       ]
     }
   },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
   "devDependencies": {
-    "@types/vscode": "^1.53.0",
-    "@types/node": "^12.11.7"
+    "@types/node": "18.x",
+    "@types/vscode": "^1.88.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "vscode": "^1.88.0"
   }
 }
+

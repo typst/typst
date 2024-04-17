@@ -102,6 +102,12 @@ pub use typst_macros::func;
 /// ]
 /// ```
 ///
+/// # Importing functions
+/// Functions can be imported from one file ([`module`]($scripting/#modules)) into
+/// another using `{import}`. For example, assume that we have defined the `alert`
+/// function from the previous example in a file called `foo.typ`. We can import
+/// it into another file by writing `{import "foo.typ": alert}`.
+///
 /// # Unnamed functions { #unnamed }
 /// You can also created an unnamed function without creating a binding by
 /// specifying a parameter list followed by `=>` and the function body. If your

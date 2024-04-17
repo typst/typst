@@ -6,29 +6,29 @@ authors = { workspace = true }
 edition = { workspace = true }
 publish = false
 
-[dev-dependencies]
+[[test]]
+name = "tests"
+path = "src/tests.rs"
+harness = false
+
+[dependencies]
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
-typst-ide = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 once_cell = { workspace = true }
 oxipng = { workspace = true }
+parking_lot = { workspace = true }
 rayon = { workspace = true }
 tiny-skia = { workspace = true }
 ttf-parser = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }
-
-[[test]]
-name = "tests"
-path = "src/tests.rs"
-harness = false
 
 [lints]
 workspace = true

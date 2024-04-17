@@ -45,6 +45,28 @@ use crate::World;
 /// )
 /// ```
 ///
+/// # Datetime and Duration
+/// You can get a [duration] by subtracting two datetime:
+/// ```example
+/// #let first-of-march = datetime(day: 1, month: 3, year: 2024)
+/// #let first-of-jan = datetime(day: 1, month: 1, year: 2024)
+/// #let distance = first-of-march - first-of-jan
+/// #distance.hours()
+/// ```
+///
+/// You can also add/subtract a datetime and a duration to retrieve a new,
+/// offset datetime:
+/// ```example
+/// #let date = datetime(day: 1, month: 3, year: 2024)
+/// #let two-days = duration(days: 2)
+/// #let two-days-earlier = date - two-days
+/// #let two-days-later = date + two-days
+///
+/// #date.display() \
+/// #two-days-earlier.display() \
+/// #two-days-later.display()
+/// ```
+///
 /// # Format
 /// You can specify a customized formatting using the
 /// [`display`]($datetime.display) method. The format of a datetime is

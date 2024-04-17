@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use clap::builder::ValueParser;
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
@@ -67,15 +68,20 @@ pub struct CompileCommand {
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Path to output file (PDF, PNG, or SVG)
-    #[clap(required_if_eq("input", "-"))]
-    pub output: Option<PathBuf>,
+    /// Path to output file (PDF, PNG, or SVG), use `-` to write output to stdout
+    #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
+    pub output: Option<Output>,
+
+    /// Output a Makefile rule describing the current compilation
+    #[clap(long = "make-deps", value_name = "PATH")]
+    pub make_deps: Option<PathBuf>,
 
     /// The format of the output file, inferred from the extension by default
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
-    /// Opens the output file using the default viewer after compilation
+    /// Opens the output file using the default viewer after compilation.
+    /// Ignored if output is stdout
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
@@ -166,6 +172,17 @@ pub struct SharedArgs {
     )]
     pub font_paths: Vec<PathBuf>,
 
+    /// The document's creation date formatted as a UNIX timestamp.
+    ///
+    /// For more information, see <https://reproducible-builds.org/specs/source-date-epoch/>.
+    #[clap(
+        long = "creation-timestamp",
+        env = "SOURCE_DATE_EPOCH",
+        value_name = "UNIX_TIMESTAMP",
+        value_parser = parse_source_date_epoch,
+    )]
+    pub creation_timestamp: Option<DateTime<Utc>>,
+
     /// The format to emit diagnostics in
     #[clap(
         long,
@@ -173,6 +190,15 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+}
+
+/// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
+fn parse_source_date_epoch(raw: &str) -> Result<DateTime<Utc>, String> {
+    let timestamp: i64 = raw
+        .parse()
+        .map_err(|err| format!("timestamp must be decimal integer ({err})"))?;
+    DateTime::from_timestamp(timestamp, 0)
+        .ok_or_else(|| "timestamp out of range".to_string())
 }
 
 /// An input that is either stdin or a real path.
@@ -184,6 +210,24 @@ pub enum Input {
     Path(PathBuf),
 }
 
+/// An output that is either stdout or a real path.
+#[derive(Debug, Clone)]
+pub enum Output {
+    /// Stdout, represented by `-`.
+    Stdout,
+    /// A non-empty path.
+    Path(PathBuf),
+}
+
+impl Display for Output {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Output::Stdout => f.pad("stdout"),
+            Output::Path(path) => path.display().fmt(f),
+        }
+    }
+}
+
 /// The clap value parser used by `SharedArgs.input`
 fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
     if value.is_empty() {
@@ -192,6 +236,18 @@ fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
         Ok(Input::Stdin)
     } else {
         Ok(Input::Path(value.into()))
+    }
+}
+
+/// The clap value parser used by `CompileCommand.output`
+fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
+    // Empty value also handled by clap for `Option<Output>`
+    if value.is_empty() {
+        Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+    } else if value == "-" {
+        Ok(Output::Stdout)
+    } else {
+        Ok(Output::Path(value.into()))
     }
 }
 

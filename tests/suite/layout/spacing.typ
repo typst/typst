@@ -1,0 +1,38 @@
+// Test the `h` and `v` functions.
+
+--- spacing-h-and-v ---
+// Linebreak and leading-sized weak spacing are equivalent.
+#box[A \ B] #box[A #v(0.65em, weak: true) B]
+
+// Eating up soft spacing.
+Inv#h(0pt)isible
+
+// Multiple spacings in a row.
+Add #h(10pt) #h(10pt) up
+
+// Relative to area.
+#let x = 25% - 4pt
+|#h(x)|#h(x)|#h(x)|#h(x)|
+
+// Fractional.
+| #h(1fr) | #h(2fr) | #h(1fr) |
+
+--- spacing-rtl ---
+// Test RTL spacing.
+#set text(dir: rtl)
+A #h(10pt) B \
+A #h(1fr) B
+
+--- spacing-missing-amount ---
+// Missing spacing.
+// Error: 10-13 missing argument: amount
+Totally #h() ignored
+
+--- issue-3624-spacing-behaviour ---
+// Test that metadata after spacing does not force a new paragraph.
+#{
+  h(1em)
+  counter(heading).update(4)
+  [Hello ]
+  counter(heading).display()
+}

@@ -8,12 +8,12 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, FromValue, Func,
-    IntoValue, Reflect, Repr, Value, Version,
+    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
+    IntoValue, Reflect, Repr, Str, Value, Version,
 };
 use crate::syntax::Span;
 
@@ -853,6 +853,34 @@ impl Array {
         }
 
         Ok(Self(out))
+    }
+
+    /// Converts an array of pairs into a dictionary.
+    /// The first value of each pair is the key, the second the value.
+    ///
+    /// If the same key occurs multiple times, the last value is selected.
+    ///
+    /// ```example
+    /// (("apples", 2), ("peaches", 3), ("apples", 5)).to-dict()
+    /// ```
+    #[func]
+    pub fn to_dict(self) -> StrResult<Dict> {
+        self.into_iter()
+            .map(|value| {
+                let value_ty = value.ty();
+                let pair = value.cast::<Array>().map_err(|_| {
+                    eco_format!("expected (str, any) pairs, found {}", value_ty)
+                })?;
+                if let [key, value] = pair.as_slice() {
+                    let key = key.clone().cast::<Str>().map_err(|_| {
+                        eco_format!("expected key of type str, found {}", value.ty())
+                    })?;
+                    Ok((key, value.clone()))
+                } else {
+                    bail!("expected pairs of length 2, found length {}", pair.len());
+                }
+            })
+            .collect()
     }
 }
 

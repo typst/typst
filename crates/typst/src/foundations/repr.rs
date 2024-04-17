@@ -119,7 +119,7 @@ pub fn display_float(value: f64) -> EcoString {
     }
 }
 
-/// Format pieces separated with commas and a final "and" or "or".
+/// Formats pieces separated with commas and a final "and" or "or".
 pub fn separated_list(pieces: &[impl AsRef<str>], last: &str) -> String {
     let mut buf = String::new();
     for (i, part) in pieces.iter().enumerate() {
@@ -142,7 +142,7 @@ pub fn separated_list(pieces: &[impl AsRef<str>], last: &str) -> String {
     buf
 }
 
-/// Format a comma-separated list.
+/// Formats a comma-separated list.
 ///
 /// Tries to format horizontally, but falls back to vertical formatting if the
 /// pieces are too long.
@@ -173,7 +173,7 @@ pub fn pretty_comma_list(pieces: &[impl AsRef<str>], trailing_comma: bool) -> St
     buf
 }
 
-/// Format an array-like construct.
+/// Formats an array-like construct.
 ///
 /// Tries to format horizontally, but falls back to vertical formatting if the
 /// pieces are too long.

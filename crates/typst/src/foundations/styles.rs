@@ -321,9 +321,6 @@ trait Blockable: Debug + Send + Sync + 'static {
     /// Equivalent to `downcast_ref` for the block.
     fn as_any(&self) -> &dyn Any;
 
-    /// Equivalent to `downcast_mut` for the block.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
     /// Equivalent to [`Hash`] for the block.
     fn dyn_hash(&self, state: &mut dyn Hasher);
 
@@ -333,10 +330,6 @@ trait Blockable: Debug + Send + Sync + 'static {
 
 impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
     fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 

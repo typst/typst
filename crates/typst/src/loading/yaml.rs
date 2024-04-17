@@ -17,6 +17,9 @@ use crate::World;
 /// whether they are whole numbers. Custom YAML tags are ignored, though the
 /// loaded value will still be present.
 ///
+/// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
+/// floating point numbers, which may give an approximative value.
+///
 /// The YAML files in the example contain objects with authors as keys,
 /// each with a sequence of their own submapping with the keys
 /// "title" and "published"

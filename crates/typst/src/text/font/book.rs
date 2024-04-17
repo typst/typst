@@ -51,6 +51,11 @@ impl FontBook {
         self.infos.get(index)
     }
 
+    /// Returns true if the book contains a font family with the given name.
+    pub fn contains_family(&self, family: &str) -> bool {
+        self.families.contains_key(family)
+    }
+
     /// An ordered iterator over all font families this book knows and details
     /// about the fonts that are part of them.
     pub fn families(

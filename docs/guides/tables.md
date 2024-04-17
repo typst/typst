@@ -115,7 +115,7 @@ limitation of Typst that will be fixed in a future release.
 
 Congratulations, you have created your first table! Now you can proceed to
 [change column sizes](#column-sizes), [adjust the strokes](#strokes), [add
-striped rows](#striped-rows-and-columns), and more!
+striped rows](#fills), and more!
 
 ## How to change the column sizes? { #column-sizes }
 If you create a table and specify the number of columns, Typst will make each
@@ -997,7 +997,7 @@ by the `table.cell` set rule). Finally, we align all the content of all table
 cells in the body in the center. If you want to know more about the functions
 passed to `align`, `stroke`, and `fill`, you can check out the sections on
 [alignment], [strokes](#stroke-functions), and [striped
-tables](#striped-rows-and-columns).
+tables](#fills).
 
 This table would be a great candidate for fully automated generation from an
 external data source! Check out the [section about importing
@@ -1311,7 +1311,7 @@ row. In our table, we have added our custom header that tells the reader that
 we've applied a logarithm to the values. Then, we spread the flattened data as
 above.
 
-We also styled the table with [stripes](#striped-rows-and-columns), a
+We also styled the table with [stripes](#fills), a
 [horizontal line](#individual-lines) below the first row, [aligned](#alignment)
 everything to the right, and emboldened the first column. Click on the links to
 go to the relevant guide sections and see how it's done!

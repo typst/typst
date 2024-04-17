@@ -117,6 +117,11 @@ impl Abs {
     pub fn approx_eq(self, other: Self) -> bool {
         self == other || (self - other).to_raw().abs() < 1e-6
     }
+
+    /// Returns a number that represent the sign of this length
+    pub fn signum(self) -> f64 {
+        self.0.get().signum()
+    }
 }
 
 impl Numeric for Abs {

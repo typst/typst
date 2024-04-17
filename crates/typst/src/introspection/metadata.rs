@@ -2,7 +2,6 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Show, StyleChain, Value};
 use crate::introspection::Locatable;
-use crate::realize::{Behave, Behaviour};
 
 /// Exposes a value to the query system without producing visible content.
 ///
@@ -24,7 +23,7 @@ use crate::realize::{Behave, Behaviour};
 ///   query(<note>).first().value
 /// }
 /// ```
-#[elem(Behave, Show, Locatable)]
+#[elem(Show, Locatable)]
 pub struct MetadataElem {
     /// The value to embed into the document.
     #[required]
@@ -34,13 +33,5 @@ pub struct MetadataElem {
 impl Show for Packed<MetadataElem> {
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
-    }
-}
-
-// TODO: Metadata shows as empty content, so this behaviour is unnecessary. It
-// can be removed once 0.11 has landed.
-impl Behave for Packed<MetadataElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Invisible
     }
 }

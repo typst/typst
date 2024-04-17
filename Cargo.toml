@@ -26,7 +26,7 @@ typst-svg = { path = "crates/typst-svg", version = "0.11.0" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.11.0" }
 typst-timing = { path = "crates/typst-timing", version = "0.11.0" }
 typst-assets = "0.11.0"
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", tag = "v0.11.0" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "ee8ae61cca138dc92f9d818fc7f2fc046d0148c5" }
 az = "1.2"
 base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
@@ -73,7 +73,7 @@ oxipng = { version = "9.0", default-features = false, features = ["filetime", "p
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
-pdf-writer = "0.9.2"
+pdf-writer = "0.9.3"
 phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.3"
 png = "0.17"
@@ -93,6 +93,7 @@ semver = "1"
 serde = { version = "1.0.184", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+shell-escape = "0.1.5"
 siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"

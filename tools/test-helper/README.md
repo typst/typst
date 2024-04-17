@@ -1,23 +1,34 @@
 # Test helper
 
 This is a small VS Code extension that helps with managing Typst's test suite.
-When installed, three new buttons appear in the menubar for all `.typ` files in
-the `tests` folder.
+When installed, for all `.typ` files in the `tests` directory, the following
+Code Lens buttons will appear above every test's name:
 
-- Open: Opens the output and reference images of a test to the side.
-- Refresh: Refreshes the preview.
-- Rerun: Re-runs the test.
-- Update: Copies the output into the reference folder and optimizes
-  it with `oxipng`.
+- View: Opens the output and reference image of a test to the side.
+- Run: Runs the test and shows the results to the side.
+- Save: Runs the test with `--update` to save the reference image.
+- Terminal: Runs the test in the integrated terminal.
 
-For the test helper to work correctly, you also need to install `oxipng`, for
-example with `cargo install oxipng`. Make sure that the version of oxipng you
-install is the same as the one in the root `Cargo.toml` so that the results are
-the same as when using the test CLI.
+In the side panel opened by the Code Lens buttons, there are a few menu buttons
+at the top right:
+
+- Refresh: Reloads the panel to reflect changes to the images.
+- Run: Runs the test and shows the results.
+- Save: Runs the test with `--update` to save the reference image.
 
 ## Installation
-The simplest way to install this extension (and keep it up-to-date) is to use VSCode's UI:
-* Go to View > Command Palette,
-* In the drop down list, pick command "Developer: Install extension from location",
-* Select this `test-helper` directory in the file explorer dialogue box. VSCode will add
-the extension's path to `~/.vscode/extensions/extensions.json`.
+In order for VS Code to run the extension with its built-in
+[Node](https://nodejs.org) engine, you need to first build it from source.
+Navigate to `test-helper` directory and build the extension:
+```bash
+npm install    # Install the dependencies.
+npm run build  # Build the extension from source.
+```
+
+Then, you can easily install it (and keep it up-to-date) via VS Code's UI:
+- Go to View > Command Palette or press Cmd/Ctrl+P,
+- In the drop down list, pick command "Developer: Install Extension from
+  Location",
+- Select this `test-helper` directory in the file explorer dialogue box. VS Code
+  will add the extension's path to `~/.vscode/extensions/extensions.json` (or
+  `%USERPROFILE%\.vscode\extensions\extensions.json` on Windows).

@@ -1,5 +1,7 @@
 //! Font handling.
 
+pub mod color;
+
 mod book;
 mod exceptions;
 mod variant;
