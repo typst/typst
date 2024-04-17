@@ -17,12 +17,12 @@ use crate::introspection::Location;
 /// using the [`outline`] function.
 ///
 /// To do this, we first query for all headings in the document at level 1 and
-/// after the current location. Querying only for headings at level 1 ensures
-/// that sub-headings are not included in the table of contents and after
-/// `here()` ensures that the "Table of Contents" heading is not included.
+/// where `outlined` is true. Querying only for headings at level 1 ensures
+/// that sub-headings are not included in the table of contents and the
+/// `outlined` field is used to exclude  the "Table of Contents" heading.
 ///
-/// Note that we open a `context` to be able to use the `query` function. The
-/// code within the context block runs once per page.
+///
+/// Note that we open a `context` to be able to use the `query` function.
 ///
 /// ```example
 /// >>> #set page(
@@ -32,29 +32,29 @@ use crate::introspection::Location;
 /// >>> )
 /// #set page(numbering: "1")
 ///
+/// #set heading(outlined: false)
 /// = Table of Contents
-/// \
 /// #context {
 ///   let chapters = query(
-///     selector(heading.where(level: 1)).after(here())
+///     heading.where(level: 1).and(heading.where(outlined: true))
 ///   )
 ///   for chapter in chapters {
-///     let page_number = chapter.location().page()
-///     [#chapter.body #h(1fr) #page_number \ ]
+///     let nr = chapter.location().page()
+///     [#chapter.body #h(1fr) #nr \ ]
 ///   }
 /// }
 ///
-/// #pagebreak()
-///
+/// #set heading(outlined: true)
 /// = Introduction
 /// #lorem(10)
+///
+/// #pagebreak()
 ///
 /// == Sub-Heading
 /// #lorem(8)
 ///
-/// #pagebreak()
+/// = Discussion
 ///
-/// = Background
 /// #lorem(18)
 /// ```
 ///
