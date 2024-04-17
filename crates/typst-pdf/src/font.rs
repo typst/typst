@@ -150,7 +150,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
 
             let start = font_index * 256;
             let end = (start + 256).min(color_font.glyphs.len());
-            let glyph_count = end - 1 - start;
+            let glyph_count = end - start;
             let mut widths = Vec::new();
             let mut gids = Vec::new();
 
@@ -192,7 +192,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             pdf_font.bbox(color_font.bbox);
             pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
             pdf_font.first_char(0);
-            pdf_font.last_char(glyph_count as u8);
+            pdf_font.last_char((glyph_count - 1) as u8);
             pdf_font.pair(Name(b"Widths"), widths_ref);
             pdf_font.to_unicode(cmap_ref);
             pdf_font.font_descriptor(descriptor_ref);
