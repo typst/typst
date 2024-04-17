@@ -160,7 +160,7 @@ cast! {
 
 /// The name with which an element is referenced.
 pub trait LocalName {
-    /// Get the key of an element in order to get its localized name.
+    /// The key of an element in order to get its localized name.
     const KEY: &'static str;
 
     /// Get the name in the given language and (optionally) region.
@@ -177,6 +177,25 @@ pub trait LocalName {
     }
 }
 
+/// Retrieves the localized string for a given language and region.
+/// Silently falls back to English if no fitting string exists for the given language + region.
+/// Panics if no fitting string exists in both given language + region and English.
+#[comemo::memoize]
+pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static str {
+    let lang_region_bundle = parse_language_bundle(lang, region).unwrap();
+    if let Some(str) = lang_region_bundle.get(key) {
+        return str;
+    }
+    let lang_bundle = parse_language_bundle(lang, None).unwrap();
+    if let Some(str) = lang_bundle.get(key) {
+        return str;
+    }
+    let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
+    english_bundle.get(key).unwrap()
+}
+
+/// Parses the translation file for a given language and region.
+/// Only returns an error if the language file is malformed.
 #[comemo::memoize]
 fn parse_language_bundle(
     lang: Lang,
@@ -210,20 +229,7 @@ fn parse_language_bundle(
     Ok(bundle)
 }
 
-#[comemo::memoize]
-pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static str {
-    let lang_region_bundle = parse_language_bundle(lang, region).unwrap();
-    if let Some(str) = lang_region_bundle.get(key) {
-        return str;
-    }
-    let lang_bundle = parse_language_bundle(lang, None).unwrap();
-    if let Some(str) = lang_bundle.get(key) {
-        return str;
-    }
-    let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
-    english_bundle.get(key).unwrap()
-}
-
+/// Convert language + region to a string to be able to get a file name.
 fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
     EcoString::from(lang.as_str())
         + region.map_or_else(EcoString::new, |r| EcoString::from("-") + r.as_str())
