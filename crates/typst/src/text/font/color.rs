@@ -33,7 +33,7 @@ pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
     let mut frame = Frame::soft(Size::splat(upem));
 
     if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
-        draw_raster_glyph(&mut frame, upem, raster_image);
+        draw_raster_glyph(&mut frame, font, upem, raster_image);
     } else if ttf.glyph_svg_image(glyph_id).is_some() {
         draw_svg_glyph(&mut frame, upem, font, glyph_id);
     } else if ttf.is_color_glyph(glyph_id) {
@@ -46,6 +46,7 @@ pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
 /// Draws a raster glyph in a frame.
 fn draw_raster_glyph(
     frame: &mut Frame,
+    font: &Font,
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) {
@@ -55,9 +56,19 @@ fn draw_raster_glyph(
         None,
     )
     .unwrap();
+
+    // Apple Color emoji doesn't provide offset information (or at least
+    // not in a way ttf-parser understands), so we artificially shift their
+    // baseline to make it look good.
+    let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
+        20.0
+    } else {
+        -(raster_image.y as f64)
+    };
+
     let position = Point::new(
         upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
-        upem * -(raster_image.y as f64) / raster_image.pixels_per_em as f64,
+        upem * y_offset / raster_image.pixels_per_em as f64,
     );
     let aspect_ratio = image.width() / image.height();
     let size = Axes::new(upem, upem * aspect_ratio);
