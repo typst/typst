@@ -151,13 +151,13 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             let start = font_index * 256;
             let end = (start + 256).min(color_font.glyphs.len());
             let glyph_count = end - start;
+            let subset = &color_font.glyphs[start..end];
             let mut widths = Vec::new();
-            let mut gids = Vec::new();
 
             let scale_factor = font.ttf().units_per_em() as f32;
 
             // Write the instructions for each glyph.
-            for color_glyph in &color_font.glyphs[start..end] {
+            for color_glyph in subset {
                 let instructions_stream_ref = ctx.alloc.bump();
                 let width =
                     font.advance(color_glyph.gid).unwrap_or(Em::new(0.0)).to_font_units();
@@ -182,8 +182,6 @@ fn write_color_fonts(ctx: &mut PdfContext) {
 
                 // Use this stream as instructions to draw the glyph.
                 glyphs_to_instructions.push(instructions_stream_ref);
-
-                gids.push(color_glyph.gid);
             }
 
             // Write the Type3 font object.
@@ -219,8 +217,8 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             // Encode a CMAP to make it possible to search or copy glyphs.
             let glyph_set = ctx.glyph_sets.get_mut(&font).unwrap();
             let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
-            for (index, gid) in gids.iter().enumerate() {
-                let Some(text) = glyph_set.get(gid) else {
+            for (index, glyph) in subset.iter().enumerate() {
+                let Some(text) = glyph_set.get(&glyph.gid) else {
                     continue;
                 };
 
