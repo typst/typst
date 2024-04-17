@@ -15,8 +15,8 @@ use crate::foundations::StyleChain;
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
-    decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
-    TextElem, TextItem,
+    decorate_shaped_text, families, features, variant, Font, FontVariant, Glyph, Lang,
+    Region, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -319,17 +319,16 @@ impl<'a> ShapedText<'a> {
             } else {
                 // Apply line decorations.
                 frame.push(pos, FrameItem::Text(item.clone()));
-                for deco in &decos {
-                    if let Some(pos_and_frames) = decorate(deco, &item, width, shift, pos)
-                    {
-                        for (prepend, pos, frame_item) in pos_and_frames {
-                            if prepend {
-                                frame.prepend(pos, frame_item);
-                            } else {
-                                frame.push(pos, frame_item);
-                            }
-                        }
-                    }
+                let pos_and_frames =
+                    decorate_shaped_text(&decos, &item, width, shift, pos);
+                let (prepend_list, append_list): (Vec<_>, Vec<_>) =
+                    pos_and_frames.into_iter().partition(|&(b, _, _)| b);
+
+                for (_, pos, frame_item) in prepend_list {
+                    frame.prepend(pos, frame_item);
+                }
+                for (_, pos, frame_item) in append_list {
+                    frame.push(pos, frame_item);
                 }
             }
 

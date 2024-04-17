@@ -427,11 +427,8 @@ pub(crate) fn decorate_highlight(
     None
 }
 
-/// Add line decorations to a single run of shaped text.
-/// return
-///     bool: prepend or not
-///     [(pos, frame)]
-pub(crate) fn decorate(
+/// Generate one line decoration to a single run of shaped text.
+fn decorate_shaped_text_once(
     deco: &Decoration,
     text: &TextItem,
     width: Abs,
@@ -552,6 +549,26 @@ pub(crate) fn decorate(
     }
 
     return Some(result);
+}
+
+/// Generate line decorations to a single run of shaped text.
+pub(crate) fn decorate_shaped_text(
+    decos: &[Decoration],
+    text: &TextItem,
+    width: Abs,
+    shift: Abs,
+    pos: Point,
+) -> Vec<(bool, Point, FrameItem)> {
+    let mut result = Vec::new();
+    // call each line decorations separately and concatenate
+    for deco in decos {
+        if let Some(pos_and_frames) =
+            decorate_shaped_text_once(deco, text, width, shift, pos)
+        {
+            result.extend(pos_and_frames)
+        }
+    }
+    result
 }
 
 // Return the top/bottom edge of the text given the metric of the font.
