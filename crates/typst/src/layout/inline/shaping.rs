@@ -320,7 +320,16 @@ impl<'a> ShapedText<'a> {
                 // Apply line decorations.
                 frame.push(pos, FrameItem::Text(item.clone()));
                 for deco in &decos {
-                    decorate(&mut frame, deco, &item, width, shift, pos);
+                    if let Some(pos_and_frames) = decorate(deco, &item, width, shift, pos)
+                    {
+                        for (prepend, pos, frame_item) in pos_and_frames {
+                            if prepend {
+                                frame.prepend(pos, frame_item);
+                            } else {
+                                frame.push(pos, frame_item);
+                            }
+                        }
+                    }
                 }
             }
 
