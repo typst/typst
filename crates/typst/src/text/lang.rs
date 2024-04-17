@@ -7,6 +7,46 @@ use crate::foundations::{cast, StyleChain};
 use crate::layout::Dir;
 use crate::text::TextElem;
 
+macro_rules! translation {
+    ($path:literal) => {
+        ($path, include_str!(concat!("../../translations/", $path, ".txt")))
+    };
+}
+
+const TRANSLATIONS: [(&str, &str); 31] = [
+    translation!("ar"),
+    translation!("cs"),
+    translation!("da"),
+    translation!("de"),
+    translation!("en"),
+    translation!("es"),
+    translation!("et"),
+    translation!("fi"),
+    translation!("fr"),
+    translation!("gr"),
+    translation!("hu"),
+    translation!("it"),
+    translation!("ja"),
+    translation!("nb"),
+    translation!("nl"),
+    translation!("nn"),
+    translation!("pl"),
+    translation!("pt-PT"),
+    translation!("pt"),
+    translation!("ro"),
+    translation!("ru"),
+    translation!("sl"),
+    translation!("sq"),
+    translation!("sr"),
+    translation!("sv"),
+    translation!("tl"),
+    translation!("tr"),
+    translation!("ua"),
+    translation!("vi"),
+    translation!("zh-TW"),
+    translation!("zh"),
+];
+
 /// An identifier for a natural language.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Lang([u8; 3], u8);
@@ -201,8 +241,7 @@ fn parse_language_bundle(
     lang: Lang,
     region: Option<Region>,
 ) -> Result<HashMap<&'static str, &'static str>, &'static str> {
-    let language_tuple =
-        typst_assets::translations().find(|it| it.0 == lang_str(lang, region));
+    let language_tuple = TRANSLATIONS.iter().find(|it| it.0 == lang_str(lang, region));
     if language_tuple.is_none() {
         return Ok(HashMap::new());
     }

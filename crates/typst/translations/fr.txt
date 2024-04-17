@@ -1,0 +1,7 @@
+figure = Fig.
+table = Tableau
+equation = Équation
+bibliography = Bibliographie
+heading = Chapitre
+outline = Table des matières
+raw = Liste

@@ -1,0 +1,7 @@
+figure = Рисунок
+table = Таблиця
+equation = Рівняння
+bibliography = Бібліографія
+heading = Розділ
+outline = Зміст
+raw = Лістинг

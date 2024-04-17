@@ -1,0 +1,7 @@
+figure = Figur
+table = Tabell
+equation = Likning
+bibliography = Bibliografi
+heading = Kapittel
+outline = Innhald
+raw = Utskrift

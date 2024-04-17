@@ -1,0 +1,7 @@
+figure = Obrázek
+table = Tabulka
+equation = Rovnice
+bibliography = Bibliografie
+heading = Kapitola
+outline = Obsah
+raw = Seznam
