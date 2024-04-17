@@ -64,3 +64,15 @@ Emoji: 🐪, 🌋, 🏞
 --- text-bad-named-argument ---
 // Error: 11-31 unexpected argument: something
 #set text(something: "invalid")
+
+--- text-unknown-font-family-warning ---
+#text(font: "linux libertine", "I exist, ")
+// Warning: 13-27 unknown font family: non-existing
+#text(font: "non-existing", "but")
+// Warning: 17-36 unknown font family: also-non-existing
+#set text(font: "also-non-existing")
+I
+// Warning: 23-56 unknown font family: list-of
+// Warning: 23-56 unknown font family: non-existing-fonts
+#let var = text(font: ("list-of", "non-existing-fonts"))[don't]
+#var
