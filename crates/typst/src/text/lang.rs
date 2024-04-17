@@ -197,14 +197,14 @@ fn parse_language_bundle(
         }
         let (key, val) = line
             .split_once('=')
-            .ok_or("Malformed translation file: line without \"=\"")?;
+            .ok_or("malformed translation file: line without \"=\"")?;
         let (key, val) = (key.trim(), val.trim());
         if val.is_empty() {
-            return Err("Malformed translation file: empty translation value");
+            return Err("malformed translation file: empty translation value");
         }
         let duplicate = bundle.insert(key.trim(), val.trim());
         if duplicate.is_some() {
-            return Err("Malformed translation file: duplicate key");
+            return Err("malformed translation file: duplicate key");
         }
     }
     Ok(bundle)
