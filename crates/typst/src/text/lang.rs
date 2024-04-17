@@ -224,9 +224,9 @@ pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static 
     english_bundle.get(key).unwrap()
 }
 
-fn lang_str(lang: Lang, region: Option<Region>) -> String {
-    lang.as_str().to_string()
-        + &region.map_or_else(String::new, |r| String::from("-") + r.as_str())
+fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
+    EcoString::from(lang.as_str())
+        + region.map_or_else(EcoString::new, |r| EcoString::from("-") + r.as_str())
 }
 
 #[cfg(test)]
