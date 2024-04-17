@@ -283,9 +283,7 @@ impl ShowSet for Packed<BibliographyElem> {
 }
 
 impl LocalName for Packed<BibliographyElem> {
-    fn key() -> &'static str {
-        "bibliography"
-    }
+    const KEY: &'static str = "bibliography";
 }
 
 /// A loaded bibliography.

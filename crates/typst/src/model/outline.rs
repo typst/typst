@@ -270,9 +270,7 @@ impl ShowSet for Packed<OutlineElem> {
 }
 
 impl LocalName for Packed<OutlineElem> {
-    fn key() -> &'static str {
-        "outline"
-    }
+    const KEY: &'static str = "outline";
 }
 
 /// Marks an element as being able to be outlined. This is used to implement the

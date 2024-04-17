@@ -317,9 +317,7 @@ impl LayoutMultiple for Packed<TableElem> {
 }
 
 impl LocalName for Packed<TableElem> {
-    fn key() -> &'static str {
-        "table"
-    }
+    const KEY: &'static str = "table";
 }
 
 impl Figurable for Packed<TableElem> {}

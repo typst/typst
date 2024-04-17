@@ -301,9 +301,7 @@ impl Count for Packed<EquationElem> {
 }
 
 impl LocalName for Packed<EquationElem> {
-    fn key() -> &'static str {
-        "equation"
-    }
+    const KEY: &'static str = "equation";
 }
 
 impl Refable for Packed<EquationElem> {

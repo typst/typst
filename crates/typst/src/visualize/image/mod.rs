@@ -264,9 +264,7 @@ impl LayoutSingle for Packed<ImageElem> {
 }
 
 impl LocalName for Packed<ImageElem> {
-    fn key() -> &'static str {
-        "figure"
-    }
+    const KEY: &'static str = "figure";
 }
 
 impl Figurable for Packed<ImageElem> {}

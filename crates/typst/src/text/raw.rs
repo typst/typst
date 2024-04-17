@@ -465,9 +465,7 @@ impl ShowSet for Packed<RawElem> {
 }
 
 impl LocalName for Packed<RawElem> {
-    fn key() -> &'static str {
-        "raw"
-    }
+    const KEY: &'static str = "raw";
 }
 
 impl Figurable for Packed<RawElem> {}

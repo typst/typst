@@ -161,11 +161,11 @@ cast! {
 /// The name with which an element is referenced.
 pub trait LocalName {
     /// Get the key of an element in order to get its localized name.
-    fn key() -> &'static str;
+    const KEY: &'static str;
 
     /// Get the name in the given language and (optionally) region.
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        localized_str(lang, region, Self::key())
+        localized_str(lang, region, Self::KEY)
     }
 
     /// Gets the local name from the style chain.

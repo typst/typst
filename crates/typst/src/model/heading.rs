@@ -294,7 +294,5 @@ impl Outlinable for Packed<HeadingElem> {
 }
 
 impl LocalName for Packed<HeadingElem> {
-    fn key() -> &'static str {
-        "heading"
-    }
+    const KEY: &'static str = "heading";
 }
