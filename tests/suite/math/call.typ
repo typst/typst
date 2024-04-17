@@ -46,7 +46,6 @@ $ viewRepr( ,/**/x/**/, , /**/y, ,/**/, ) $
 --- math-call-empty-2d-args-issue-3774 ---
 $ mat(;,) $
 // Add some whitespace/trivia:
-// Error: 8 expected array, found content
 $ mat(; ,) $
 $ mat(;/**/,) $
 $ mat(;
