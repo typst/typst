@@ -18,9 +18,9 @@ use crate::introspection::Location;
 ///
 /// To do this, we first query for all headings in the document at level 1 and
 /// where `outlined` is true. Querying only for headings at level 1 ensures
-/// that sub-headings are not included in the table of contents and the
-/// `outlined` field is used to exclude  the "Table of Contents" heading.
-///
+/// that, for the purpose of this example, sub-headings are not included in the
+/// table of contents. The `outlined` field is used to exclude the "Table of
+/// Contents" heading itself.
 ///
 /// Note that we open a `context` to be able to use the `query` function.
 ///
@@ -32,34 +32,42 @@ use crate::introspection::Location;
 /// >>> )
 /// #set page(numbering: "1")
 ///
-/// #set heading(outlined: false)
-/// = Table of Contents
+/// #heading(outlined: false)[
+///   Table of Contents
+/// ]
 /// #context {
 ///   let chapters = query(
-///     heading.where(level: 1).and(heading.where(outlined: true))
+///     heading.where(
+///       level: 1,
+///       outlined: true,
+///     )
 ///   )
 ///   for chapter in chapters {
-///     let nr = chapter.location().page()
+///     let loc = chapter.location()
+///     let nr = numbering(
+///       loc.page-numbering(),
+///       ..counter(page).at(loc),
+///     )
 ///     [#chapter.body #h(1fr) #nr \ ]
 ///   }
 /// }
 ///
-/// #set heading(outlined: true)
 /// = Introduction
 /// #lorem(10)
-///
 /// #pagebreak()
 ///
 /// == Sub-Heading
 /// #lorem(8)
 ///
 /// = Discussion
-///
 /// #lorem(18)
 /// ```
 ///
 /// To get the page numbers, we first get the location of the elements returned
-/// by `query` with [`location`]($content.location).
+/// by `query` with [`location`]($content.location). We then also retrieve the
+/// [page numbering]($location.page-numbering) and [page
+/// counter]($counter/#page-counter) at that location and apply the numbering to
+/// the counter.
 ///
 /// # A word of caution { #caution }
 /// To resolve all your queries, Typst evaluates and layouts parts of the
