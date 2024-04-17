@@ -499,7 +499,7 @@ struct ColorFont {
     bbox: Rect,
     /// A mapping between glyph IDs and character indices in the `glyphs`
     /// vector.
-    glyph_indices: BTreeMap<u16, usize>,
+    glyph_indices: HashMap<u16, usize>,
 }
 
 /// A single color glyph.
@@ -540,7 +540,7 @@ impl ColorFontMap {
                 bbox,
                 refs: Vec::new(),
                 glyphs: Vec::new(),
-                glyph_indices: BTreeMap::new(),
+                glyph_indices: HashMap::new(),
             }
         });
 
