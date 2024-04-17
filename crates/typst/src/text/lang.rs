@@ -220,7 +220,7 @@ pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static 
     if let Some(str) = lang_bundle.get(key) {
         return str;
     }
-    let english_bundle = parse_language_bundle(lang, None).unwrap();
+    let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
     english_bundle.get(key).unwrap()
 }
 
