@@ -24,6 +24,7 @@ ciborium = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
 ecow = { workspace = true }
+flate2 = { workspace = true }
 fontdb = { workspace = true }
 hayagriva = { workspace = true }
 hypher = { workspace = true }
@@ -64,6 +65,7 @@ unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
+unscanny = { workspace = true }
 usvg = { workspace = true }
 wasmi = { workspace = true }
 

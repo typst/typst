@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
+use crate::color::PaintEncode;
+use crate::extg::ExtGState;
+use crate::image::deferred_image;
+use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
@@ -13,16 +17,12 @@ use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::{Destination, Numbering};
-use typst::text::{Case, Font, TextItem};
-use typst::util::{Deferred, Numeric};
+use typst::text::color::is_color_glyph;
+use typst::text::{Case, Font, TextItem, TextItemView};
+use typst::util::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
-
-use crate::color::PaintEncode;
-use crate::extg::ExtGState;
-use crate::image::deferred_image;
-use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
@@ -44,17 +44,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     let page_ref = ctx.alloc.bump();
 
     let size = frame.size();
-    let mut ctx = PageContext {
-        parent: ctx,
-        page_ref,
-        uses_opacities: false,
-        content: Content::new(),
-        state: State::new(size),
-        saves: vec![],
-        bottom: 0.0,
-        links: vec![],
-        resources: HashMap::default(),
-    };
+    let mut ctx = PageContext::new(ctx, size);
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
@@ -73,7 +63,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     let page = EncodedPage {
         size,
         content: deflate_deferred(ctx.content.finish()),
-        id: ctx.page_ref,
+        id: page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
         label: None,
@@ -85,10 +75,8 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
 
 /// Write the page tree.
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
-    let resources_ref = write_global_resources(ctx);
-
     for i in 0..ctx.pages.len() {
-        write_page(ctx, i, resources_ref);
+        write_page(ctx, i);
     }
 
     ctx.pdf
@@ -102,30 +90,20 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-fn write_global_resources(ctx: &mut PdfContext) -> Ref {
-    let resource_ref = ctx.alloc.bump();
+pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
+    let images_ref = ctx.alloc.bump();
+    let patterns_ref = ctx.alloc.bump();
+    let ext_gs_states_ref = ctx.alloc.bump();
+    let color_spaces_ref = ctx.alloc.bump();
 
-    let mut resources = ctx.pdf.indirect(resource_ref).start::<Resources>();
-    ctx.colors
-        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
-
-    let mut fonts = resources.fonts();
-    for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
-        let name = eco_format!("F{}", f);
-        fonts.pair(Name(name.as_bytes()), font_ref);
-    }
-
-    fonts.finish();
-
-    let mut images = resources.x_objects();
+    let mut images = ctx.pdf.indirect(images_ref).dict();
     for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
         let name = eco_format!("Im{}", im);
         images.pair(Name(name.as_bytes()), image_ref);
     }
-
     images.finish();
 
-    let mut patterns = resources.patterns();
+    let mut patterns = ctx.pdf.indirect(patterns_ref).dict();
     for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
         let name = eco_format!("Gr{}", gr);
         patterns.pair(Name(name.as_bytes()), gradient_ref);
@@ -135,26 +113,64 @@ fn write_global_resources(ctx: &mut PdfContext) -> Ref {
         let name = eco_format!("P{}", p);
         patterns.pair(Name(name.as_bytes()), pattern_ref);
     }
-
     patterns.finish();
 
-    let mut ext_gs_states = resources.ext_g_states();
+    let mut ext_gs_states = ctx.pdf.indirect(ext_gs_states_ref).dict();
     for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
         let name = eco_format!("Gs{}", gs);
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
     ext_gs_states.finish();
 
+    let color_spaces = ctx.pdf.indirect(color_spaces_ref).dict();
+    ctx.colors.write_color_spaces(color_spaces, &mut ctx.alloc);
+
+    let mut resources = ctx.pdf.indirect(ctx.global_resources_ref).start::<Resources>();
+    resources.pair(Name(b"XObject"), images_ref);
+    resources.pair(Name(b"Pattern"), patterns_ref);
+    resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
+    resources.pair(Name(b"ColorSpace"), color_spaces_ref);
+
+    let mut fonts = resources.fonts();
+    for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
+        let name = eco_format!("F{}", f);
+        fonts.pair(Name(name.as_bytes()), font_ref);
+    }
+
+    for font in &ctx.color_font_map.all_refs {
+        let name = eco_format!("Cf{}", font.get());
+        fonts.pair(Name(name.as_bytes()), font);
+    }
+    fonts.finish();
+
     resources.finish();
+
+    // Also write the resources for Type3 fonts, that only contains images,
+    // color spaces and regular fonts (COLR glyphs depend on them).
+    if !ctx.color_font_map.all_refs.is_empty() {
+        let mut resources =
+            ctx.pdf.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+        resources.pair(Name(b"XObject"), images_ref);
+        resources.pair(Name(b"Pattern"), patterns_ref);
+        resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
+        resources.pair(Name(b"ColorSpace"), color_spaces_ref);
+
+        let mut fonts = resources.fonts();
+        for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
+            let name = eco_format!("F{}", f);
+            fonts.pair(Name(name.as_bytes()), font_ref);
+        }
+        fonts.finish();
+
+        resources.finish();
+    }
 
     // Write all of the functions used by the document.
     ctx.colors.write_functions(&mut ctx.pdf);
-
-    resource_ref
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, i: usize, resources_ref: Ref) {
+fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
@@ -165,7 +181,7 @@ fn write_page(ctx: &mut PdfContext, i: usize, resources_ref: Ref) {
     let h = page.size.y.to_f32();
     page_writer.media_box(Rect::new(0.0, 0.0, w, h));
     page_writer.contents(content_id);
-    page_writer.pair(Name(b"Resources"), resources_ref);
+    page_writer.pair(Name(b"Resources"), ctx.global_resources_ref);
 
     if page.uses_opacities {
         page_writer
@@ -434,15 +450,29 @@ impl PageResource {
 /// An exporter for the contents of a single PDF page.
 pub struct PageContext<'a, 'b> {
     pub(crate) parent: &'a mut PdfContext<'b>,
-    page_ref: Ref,
     pub content: Content,
     state: State,
     saves: Vec<State>,
-    bottom: f32,
+    pub bottom: f32,
     uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
     /// Keep track of the resources being used in the page.
     pub resources: HashMap<PageResource, usize>,
+}
+
+impl<'a, 'b> PageContext<'a, 'b> {
+    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
+        PageContext {
+            parent,
+            uses_opacities: false,
+            content: Content::new(),
+            state: State::new(size),
+            saves: vec![],
+            bottom: 0.0,
+            links: vec![],
+            resources: HashMap::default(),
+        }
+    }
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -555,7 +585,7 @@ impl PageContext<'_, '_> {
         self.set_external_graphics_state(&ExtGState { stroke_opacity, fill_opacity });
     }
 
-    fn transform(&mut self, transform: Transform) {
+    pub fn transform(&mut self, transform: Transform) {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         self.state.transform = self.state.transform.pre_concat(transform);
         if self.state.container_transform.is_identity() {
@@ -670,7 +700,7 @@ impl PageContext<'_, '_> {
 }
 
 /// Encode a frame into the content stream.
-fn write_frame(ctx: &mut PageContext, frame: &Frame) {
+pub(crate) fn write_frame(ctx: &mut PageContext, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
@@ -718,21 +748,71 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+    let ttf = text.font.ttf();
+    let tables = ttf.tables();
+
+    // If the text run contains either only color glyphs (used for emojis for
+    // example) or normal text we can render it directly
+    let has_color_glyphs = tables.sbix.is_some()
+        || tables.cbdt.is_some()
+        || tables.svg.is_some()
+        || tables.colr.is_some();
+    if !has_color_glyphs {
+        write_normal_text(ctx, pos, TextItemView::all_of(text));
+        return;
+    }
+
+    let color_glyph_count =
+        text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
+
+    if color_glyph_count == text.glyphs.len() {
+        write_color_glyphs(ctx, pos, TextItemView::all_of(text));
+    } else if color_glyph_count == 0 {
+        write_normal_text(ctx, pos, TextItemView::all_of(text));
+    } else {
+        // Otherwise we need to split it in smaller text runs
+        let mut offset = 0;
+        let mut position_in_run = Abs::zero();
+        for (color, sub_run) in
+            text.glyphs.group_by_key(|g| is_color_glyph(&text.font, g))
+        {
+            let end = offset + sub_run.len();
+
+            // Build a sub text-run
+            let text_item_view = TextItemView::from_glyph_range(text, offset..end);
+
+            // Adjust the position of the run on the line
+            let pos = pos + Point::new(position_in_run, Abs::zero());
+            position_in_run += text_item_view.width();
+            offset = end;
+            // Actually write the sub text-run
+            if color {
+                write_color_glyphs(ctx, pos, text_item_view);
+            } else {
+                write_normal_text(ctx, pos, text_item_view);
+            }
+        }
+    }
+}
+
+// Encodes a text run (without any color glyph) into the content stream.
+fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
-    *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
+    *ctx.parent.languages.entry(text.item.lang).or_insert(0) += text.glyph_range.len();
 
-    let glyph_set = ctx.parent.glyph_sets.entry(text.font.clone()).or_default();
-    for g in &text.glyphs {
-        let segment = &text.text[g.range()];
+    let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
+    for g in text.glyphs() {
+        let t = text.text();
+        let segment = &t[g.range()];
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
-    ctx.set_fill(&text.fill, true, fill_transform);
+    ctx.set_fill(&text.item.fill, true, fill_transform);
 
-    let stroke = text.stroke.as_ref().and_then(|stroke| {
+    let stroke = text.item.stroke.as_ref().and_then(|stroke| {
         if stroke.thickness.to_f32() > 0.0 {
             Some(stroke)
         } else {
@@ -747,8 +827,8 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         ctx.set_text_rendering_mode(TextRenderingMode::Fill);
     }
 
-    ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
+    ctx.set_font(&text.item.font, text.item.size);
+    ctx.set_opacities(text.item.stroke.as_ref(), Some(&text.item.fill));
     ctx.content.begin_text();
 
     // Position the text.
@@ -760,7 +840,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     let mut encoded = vec![];
 
     // Write the glyphs with kerning adjustments.
-    for glyph in &text.glyphs {
+    for glyph in text.glyphs() {
         adjustment += glyph.x_offset;
 
         if !adjustment.is_zero() {
@@ -773,11 +853,11 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             adjustment = Em::zero();
         }
 
-        let cid = crate::font::glyph_cid(&text.font, glyph.id);
+        let cid = crate::font::glyph_cid(&text.item.font, glyph.id);
         encoded.push((cid >> 8) as u8);
         encoded.push((cid & 0xff) as u8);
 
-        if let Some(advance) = text.font.advance(glyph.id) {
+        if let Some(advance) = text.item.font.advance(glyph.id) {
             adjustment += glyph.x_advance - advance;
         }
 
@@ -790,6 +870,46 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
 
     items.finish();
     positioned.finish();
+    ctx.content.end_text();
+}
+
+// Encodes a text run made only of color glyphs into the content stream
+fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
+    let mut last_font = None;
+
+    ctx.content.begin_text();
+    ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+    // So that the next call to ctx.set_font() will change the font to one that
+    // displays regular glyphs and not color glyphs.
+    ctx.state.font = None;
+
+    let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
+
+    for glyph in text.glyphs() {
+        // Retrieve the Type3 font reference and the glyph index in the font.
+        let (font, index) = ctx.parent.color_font_map.get(
+            &mut ctx.parent.alloc,
+            &text.item.font,
+            glyph.id,
+        );
+
+        if last_font != Some(font.get()) {
+            ctx.content.set_font(
+                Name(eco_format!("Cf{}", font.get()).as_bytes()),
+                text.item.size.to_f32(),
+            );
+            last_font = Some(font.get());
+        }
+
+        ctx.content.show(Str(&[index]));
+
+        glyph_set
+            .entry(glyph.id)
+            .or_insert_with(|| text.text()[glyph.range()].into());
+    }
     ctx.content.end_text();
 }
 

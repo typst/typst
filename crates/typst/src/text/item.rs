@@ -65,3 +65,65 @@ impl Glyph {
         usize::from(self.range.start)..usize::from(self.range.end)
     }
 }
+
+/// A slice of a [`TextItem`].
+pub struct TextItemView<'a> {
+    /// The whole item this is a part of
+    pub item: &'a TextItem,
+    /// The glyphs of this slice
+    pub glyph_range: Range<usize>,
+}
+
+impl<'a> TextItemView<'a> {
+    /// Build a TextItemView for the whole contents of a TextItem.
+    pub fn all_of(text: &'a TextItem) -> Self {
+        Self::from_glyph_range(text, 0..text.glyphs.len())
+    }
+
+    /// Build a new [`TextItemView`] from a [`TextItem`] and a range of glyphs.
+    pub fn from_glyph_range(text: &'a TextItem, glyph_range: Range<usize>) -> Self {
+        TextItemView { item: text, glyph_range }
+    }
+
+    /// Obtains a glyph in this slice, remapping the range that it represents in
+    /// the original text so that it is relative to the start of the slice
+    pub fn glyph_at(&self, index: usize) -> Glyph {
+        let g = &self.item.glyphs[self.glyph_range.start + index];
+        let text_range = self.text_range();
+        Glyph {
+            range: (g.range.start - text_range.start as u16)
+                ..(g.range.end - text_range.start as u16),
+            ..*g
+        }
+    }
+
+    /// Returns an iterator over the glyphs of the slice.
+    ///
+    /// The range of text that each glyph represents is remapped to be relative
+    /// to the start of the slice.
+    pub fn glyphs(&self) -> impl Iterator<Item = Glyph> + '_ {
+        (0..self.glyph_range.len()).map(|index| self.glyph_at(index))
+    }
+
+    /// The plain text that this slice represents
+    pub fn text(&self) -> &str {
+        &self.item.text[self.text_range()]
+    }
+
+    /// The total width of this text slice
+    pub fn width(&self) -> Abs {
+        self.item.glyphs[self.glyph_range.clone()]
+            .iter()
+            .map(|g| g.x_advance)
+            .sum::<Em>()
+            .at(self.item.size)
+    }
+
+    /// The range of text in the original TextItem that this slice corresponds
+    /// to.
+    fn text_range(&self) -> Range<usize> {
+        let text_start = self.item.glyphs[self.glyph_range.start].range().start;
+        let text_end = self.item.glyphs[self.glyph_range.end - 1].range().end;
+        text_start..text_end
+    }
+}
