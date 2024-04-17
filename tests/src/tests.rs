@@ -72,14 +72,22 @@ fn test() {
         }
     };
 
-    let filtered = tests.len();
-    if filtered == 0 {
+    if ARGS.list {
+        for test in tests.iter() {
+            println!("{test}");
+        }
+        println!("{} selected, {skipped} skipped", tests.len());
+        return;
+    }
+
+    let selected = tests.len();
+    if selected == 0 {
         eprintln!("no test selected");
         return;
     }
 
     // Run the tests.
-    let logger = Mutex::new(Logger::new(filtered, skipped));
+    let logger = Mutex::new(Logger::new(selected, skipped));
     std::thread::scope(|scope| {
         let logger = &logger;
         let (sender, receiver) = std::sync::mpsc::channel();

@@ -3,7 +3,9 @@
 ## Directory structure
 Top level directory structure:
 - `src`: Testing code.
-- `suite`: Input files. Mostly organize in parallel to the code.
+- `suite`: Input files. Mostly organize in parallel to the code. Each file can
+           contain multiple tests, each of which is a section of Typst code
+           following `--- {name} ---`.
 - `ref`: Reference images which the output is compared with to determine whether
          a test passed or failed.
 - `store`: Store for PNG, PDF, and SVG output files produced by the tests.
@@ -19,22 +21,37 @@ Running just the integration tests (the tests in this directory):
 cargo test --workspace --test tests
 ```
 
-You may want to [make yourself an alias](#making-an-alias) like:
+You may want to [make yourself an alias](#making-an-alias) `testit` so that you can
+write shorter command. In examples below, we will use this alias.
+
+Running all tests with the given name pattern. You can use
+[regular expression](https://docs.rs/regex/latest/regex/)s.
 ```bash
-testit
+testit math            # The name has "math" anywhere
+testit math page       # The name has "math" or "page" anywhere
+testit "^math" "^page" # The name begins with "math" or "page"
+testit "^(math|page)"  # Same as above.
 ```
 
-Running all tests whose names contain the string `page` or `stack`. Note each
-`.typ` file in this directory can contain multiple tests, each of which is a
-section of Typst code following `--- {name} ---`.
+Running all tests discovered under given paths:
 ```bash
-# Add --verbose to list which tests were run.
-testit page stack
+testit -p tests/suite/math/attach.typ
+testit -p tests/suite/model -p tests/suite/text
+```
+
+Running tests that begin with `issue` under a given path:
+```bash
+testit "^issue" -p tests/suite/model
 ```
 
 Running a test with the exact test name `math-attach-mixed`.
 ```bash
 testit --exact math-attach-mixed
+```
+
+You may find more options in the help message:
+```bash
+testit -h              # Or --help for more details
 ```
 
 To make the integration tests go faster they don't generate PDFs by default.
@@ -82,7 +99,7 @@ If you created a new test or fixed a bug in an existing test, you need to update
 the reference image used for comparison. For this, you can use the `--update`
 flag:
 ```bash
-testit mytest --update
+testit --exact my-test-name --update
 ```
 
 If you use the VS Code test helper extension (see the `tools` folder), you can
@@ -92,7 +109,7 @@ alternatively use the save button to update the reference image.
 If you want to have a quicker way to run the tests, consider adding a shortcut
 to your shell profile so that you can simply write something like:
 ```bash
-testit empty.typ
+testit --exact my-test-name
 ```
 
 ### Bash
