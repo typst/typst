@@ -67,7 +67,6 @@ There
 
 --- block-spacing-table ---
 // Test that paragraph spacing loses against block spacing.
-// TODO
 #set block(spacing: 100pt)
 #show table: set block(above: 5pt, below: 5pt)
 Hello

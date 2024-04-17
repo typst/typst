@@ -1,12 +1,10 @@
 //! Rendering of Typst documents into raster images.
 
-use std::io::Read;
 use std::sync::Arc;
 
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use pixglyph::Bitmap;
-use resvg::tiny_skia::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst::introspection::Meta;
@@ -14,12 +12,12 @@ use typst::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst::model::Document;
+use typst::text::color::{frame_for_glyph, is_color_glyph};
 use typst::text::{Font, TextItem};
 use typst::visualize::{
     Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
-    LineJoin, Paint, Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
+    LineJoin, Paint, Path, PathItem, Pattern, RelativeTo, Shape,
 };
-use usvg::TreeParsing;
 
 /// Export a frame into a raster image.
 ///
@@ -111,6 +109,13 @@ impl<'a> State<'a> {
     fn pre_translate(self, pos: Point) -> Self {
         Self {
             transform: self.transform.pre_translate(pos.x.to_f32(), pos.y.to_f32()),
+            ..self
+        }
+    }
+
+    fn pre_scale(self, scale: Axes<Abs>) -> Self {
+        Self {
+            transform: self.transform.pre_scale(scale.x.to_f32(), scale.y.to_f32()),
             ..self
         }
     }
@@ -236,130 +241,25 @@ fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
     for glyph in &text.glyphs {
         let id = GlyphId(glyph.id);
         let offset = x + glyph.x_offset.at(text.size).to_f32();
-        let state = state.pre_translate(Point::new(Abs::raw(offset as _), Abs::raw(0.0)));
 
-        render_svg_glyph(canvas, state, text, id)
-            .or_else(|| render_bitmap_glyph(canvas, state, text, id))
-            .or_else(|| render_outline_glyph(canvas, state, text, id));
+        if is_color_glyph(&text.font, glyph) {
+            let upem = text.font.units_per_em();
+            let text_scale = Abs::raw(text.size.to_raw() / upem);
+            let state = state
+                .pre_translate(Point::new(Abs::raw(offset as _), -text.size))
+                .pre_scale(Axes::new(text_scale, text_scale));
+
+            let glyph_frame = frame_for_glyph(&text.font, glyph.id);
+
+            render_frame(canvas, state, &glyph_frame);
+        } else {
+            let state =
+                state.pre_translate(Point::new(Abs::raw(offset as _), Abs::raw(0.0)));
+            render_outline_glyph(canvas, state, text, id);
+        }
 
         x += glyph.x_advance.at(text.size).to_f32();
     }
-}
-
-/// Render an SVG glyph into the canvas.
-fn render_svg_glyph(
-    canvas: &mut sk::Pixmap,
-    state: State,
-    text: &TextItem,
-    id: GlyphId,
-) -> Option<()> {
-    let ts = &state.transform;
-    let mut data = text.font.ttf().glyph_svg_image(id)?.data;
-
-    // Decompress SVGZ.
-    let mut decoded = vec![];
-    if data.starts_with(&[0x1f, 0x8b]) {
-        let mut decoder = flate2::read::GzDecoder::new(data);
-        decoder.read_to_end(&mut decoded).ok()?;
-        data = &decoded;
-    }
-
-    // Parse XML.
-    let xml = std::str::from_utf8(data).ok()?;
-    let document = roxmltree::Document::parse(xml).ok()?;
-    let root = document.root_element();
-
-    // Parse SVG.
-    let opts = usvg::Options::default();
-    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-    tree.calculate_bounding_boxes();
-    let view_box = tree.view_box.rect;
-
-    // If there's no viewbox defined, use the em square for our scale
-    // transformation ...
-    let upem = text.font.units_per_em() as f32;
-    let (mut width, mut height) = (upem, upem);
-
-    // ... but if there's a viewbox or width, use that.
-    if root.has_attribute("viewBox") || root.has_attribute("width") {
-        width = view_box.width();
-    }
-
-    // Same as for width.
-    if root.has_attribute("viewBox") || root.has_attribute("height") {
-        height = view_box.height();
-    }
-
-    let size = text.size.to_f32();
-    let ts = ts.pre_scale(size / width, size / height);
-
-    // Compute the space we need to draw our glyph.
-    // See https://github.com/RazrFalcon/resvg/issues/602 for why
-    // using the svg size is problematic here.
-    let mut bbox = usvg::BBox::default();
-    if let Some(tree_bbox) = tree.root.bounding_box {
-        bbox = bbox.expand(tree_bbox);
-    }
-
-    // Compute the bbox after the transform is applied.
-    // We add a nice 5px border along the bounding box to
-    // be on the safe size. We also compute the intersection
-    // with the canvas rectangle
-    let bbox = bbox.transform(ts)?.to_rect()?.round_out()?;
-    let bbox = IntRect::from_xywh(
-        bbox.left() - 5,
-        bbox.y() - 5,
-        bbox.width() + 10,
-        bbox.height() + 10,
-    )?;
-
-    let mut pixmap = sk::Pixmap::new(bbox.width(), bbox.height())?;
-
-    // We offset our transform so that the pixmap starts at the edge of the bbox.
-    let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
-    resvg::render(&tree, ts, &mut pixmap.as_mut());
-
-    canvas.draw_pixmap(
-        bbox.left(),
-        bbox.top(),
-        pixmap.as_ref(),
-        &sk::PixmapPaint::default(),
-        sk::Transform::identity(),
-        state.mask,
-    );
-
-    Some(())
-}
-
-/// Render a bitmap glyph into the canvas.
-fn render_bitmap_glyph(
-    canvas: &mut sk::Pixmap,
-    state: State,
-    text: &TextItem,
-    id: GlyphId,
-) -> Option<()> {
-    let ts = state.transform;
-    let size = text.size.to_f32();
-    let ppem = size * ts.sy;
-    let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    if raster.format != ttf_parser::RasterImageFormat::PNG {
-        return None;
-    }
-    let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
-
-    // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
-    // and maybe also for Noto Color Emoji. And: Is the size calculation
-    // correct?
-    let h = text.size;
-    let w = (image.width() / image.height()) * h;
-    let dx = (raster.x as f32) / (image.width() as f32) * size;
-    let dy = (raster.y as f32) / (image.height() as f32) * size;
-    render_image(
-        canvas,
-        state.pre_translate(Point::new(Abs::raw(dx as _), Abs::raw((-size - dy) as _))),
-        &image,
-        Size::new(w, h),
-    )
 }
 
 /// Render an outline glyph into the canvas. This is the "normal" case.

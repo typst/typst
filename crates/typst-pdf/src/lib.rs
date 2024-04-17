@@ -15,13 +15,15 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use indexmap::IndexMap;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
-use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
-use typst::layout::{Abs, Dir, Em, Transform};
+use typst::layout::{Abs, Dir, Em, Frame, Transform};
 use typst::model::{Document, HeadingElem};
+use typst::text::color::frame_for_glyph;
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
@@ -68,6 +70,7 @@ pub fn pdf(
     pattern::write_patterns(&mut ctx);
     write_named_destinations(&mut ctx);
     page::write_page_tree(&mut ctx);
+    page::write_global_resources(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
 }
@@ -96,6 +99,15 @@ struct PdfContext<'a> {
     alloc: Ref,
     /// The ID of the page tree.
     page_tree_ref: Ref,
+    /// The ID of the globally shared Resources dictionary.
+    global_resources_ref: Ref,
+    /// The ID of the resource dictionary shared by Type3 fonts.
+    ///
+    /// Type3 fonts cannot use the global resources, as it would create some
+    /// kind of infinite recursion (they are themselves present in that
+    /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
+    /// font) even if the specification seems to allow it.
+    type3_font_resources_ref: Ref,
     /// The IDs of written pages.
     page_refs: Vec<Ref>,
     /// The IDs of written fonts.
@@ -123,6 +135,8 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+    /// Deduplicates color glyphs.
+    color_font_map: ColorFontMap,
 
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
@@ -134,6 +148,8 @@ impl<'a> PdfContext<'a> {
     fn new(document: &'a Document) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
+        let global_resources_ref = alloc.bump();
+        let type3_font_resources_ref = alloc.bump();
         Self {
             document,
             pdf: Pdf::new(),
@@ -142,6 +158,8 @@ impl<'a> PdfContext<'a> {
             languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
+            global_resources_ref,
+            type3_font_resources_ref,
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
@@ -155,6 +173,7 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
+            color_font_map: ColorFontMap::new(),
             dests: vec![],
             loc_to_dest: HashMap::new(),
         }
@@ -452,6 +471,98 @@ where
 
     fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
+    }
+}
+
+/// A mapping between `Font`s and all the corresponding `ColorFont`s.
+///
+/// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
+/// font, and fonts generally have more color glyphs than that.
+struct ColorFontMap {
+    /// The mapping itself
+    map: IndexMap<Font, ColorFont>,
+    /// A list of all PDF indirect references to Type3 font objects.
+    all_refs: Vec<Ref>,
+}
+
+/// A collection of Type3 font, belonging to the same TTF font.
+struct ColorFont {
+    /// A list of references to Type3 font objects for this font family.
+    refs: Vec<Ref>,
+    /// The list of all color glyphs in this family.
+    ///
+    /// The index in this vector modulo 256 corresponds to the index in one of
+    /// the Type3 fonts in `refs` (the `n`-th in the vector, where `n` is the
+    /// quotient of the index divided by 256).
+    glyphs: Vec<ColorGlyph>,
+    /// The global bounding box of the font.
+    bbox: Rect,
+    /// A mapping between glyph IDs and character indices in the `glyphs`
+    /// vector.
+    glyph_indices: HashMap<u16, usize>,
+}
+
+/// A single color glyph.
+struct ColorGlyph {
+    /// The ID of the glyph.
+    gid: u16,
+    /// A frame that contains the glyph.
+    frame: Frame,
+}
+
+impl ColorFontMap {
+    /// Creates a new empty mapping
+    fn new() -> Self {
+        Self { map: IndexMap::new(), all_refs: Vec::new() }
+    }
+
+    /// Takes the contents of the mapping.
+    ///
+    /// After calling this function, the mapping will be empty.
+    fn take_map(&mut self) -> IndexMap<Font, ColorFont> {
+        std::mem::take(&mut self.map)
+    }
+
+    /// Obtains the reference to a Type3 font, and an index in this font
+    /// that can be used to draw a color glyph.
+    ///
+    /// The glyphs will be de-duplicated if needed.
+    fn get(&mut self, alloc: &mut Ref, font: &Font, gid: u16) -> (Ref, u8) {
+        let color_font = self.map.entry(font.clone()).or_insert_with(|| {
+            let global_bbox = font.ttf().global_bounding_box();
+            let bbox = Rect::new(
+                font.to_em(global_bbox.x_min).to_font_units(),
+                font.to_em(global_bbox.y_min).to_font_units(),
+                font.to_em(global_bbox.x_max).to_font_units(),
+                font.to_em(global_bbox.y_max).to_font_units(),
+            );
+            ColorFont {
+                bbox,
+                refs: Vec::new(),
+                glyphs: Vec::new(),
+                glyph_indices: HashMap::new(),
+            }
+        });
+
+        if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
+            // If we already know this glyph, return it.
+            (color_font.refs[index_of_glyph / 256], *index_of_glyph as u8)
+        } else {
+            // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
+            // if needed
+            let index = color_font.glyphs.len();
+            if index % 256 == 0 {
+                let new_ref = alloc.bump();
+                self.all_refs.push(new_ref);
+                color_font.refs.push(new_ref);
+            }
+
+            let instructions = frame_for_glyph(font, gid);
+            color_font.glyphs.push(ColorGlyph { gid, frame: instructions });
+            color_font.glyph_indices.insert(gid, index);
+
+            (color_font.refs[index / 256], index as u8)
+        }
     }
 }
 

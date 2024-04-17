@@ -1612,9 +1612,9 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pdf-writer"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644b654f2de28457bf1e25a4905a76a563d1128a33ce60cf042f721f6818feaf"
+checksum = "24e9127455063c816e661caac9ecd9043ad2871f55be93014e6838a8ced2332b"
 dependencies = [
  "bitflags 1.3.2",
  "itoa",
@@ -2525,6 +2525,7 @@ dependencies = [
  "comemo",
  "csv",
  "ecow",
+ "flate2",
  "fontdb",
  "hayagriva",
  "hypher",
@@ -2571,6 +2572,7 @@ dependencies = [
  "unicode-math-class",
  "unicode-script",
  "unicode-segmentation",
+ "unscanny",
  "usvg",
  "wasmi",
 ]
@@ -2702,6 +2704,7 @@ dependencies = [
  "comemo",
  "ecow",
  "image",
+ "indexmap 2.2.5",
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
@@ -2723,7 +2726,6 @@ version = "0.11.0"
 dependencies = [
  "bytemuck",
  "comemo",
- "flate2",
  "image",
  "pixglyph",
  "resvg",

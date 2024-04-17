@@ -5,11 +5,13 @@
 #set text(size: 8pt)
 
 #let try(top, bottom) = rect(inset: 0pt, fill: conifer)[
+  // Warning: 19-34 unknown font family: ibm plex mono
   #set text(font: "IBM Plex Mono", top-edge: top, bottom-edge: bottom)
   From #top to #bottom
 ]
 
 #let try-bounds(top, bottom) = rect(inset: 0pt, fill: conifer)[
+  // Warning: 19-34 unknown font family: ibm plex mono
   #set text(font: "IBM Plex Mono", top-edge: top, bottom-edge: bottom)
   #top to #bottom: "yay, Typst"
 ]

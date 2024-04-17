@@ -35,7 +35,7 @@ use rustybuzz::{Feature, Tag};
 use smallvec::SmallVec;
 use ttf_parser::Rect;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, warning, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::Packed;
 use crate::foundations::{
@@ -47,6 +47,7 @@ use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
+use crate::World;
 
 /// Text styling.
 ///
@@ -122,6 +123,22 @@ pub struct TextElem {
     /// This is Latin. \
     /// هذا عربي.
     /// ```
+    #[parse({
+        let font_list: Option<Spanned<FontList>> = args.named("font")?;
+        if let Some(font_list) = &font_list {
+            let book = engine.world.book();
+            for family in &font_list.v {
+                if !book.contains_family(family.as_str()) {
+                    engine.tracer.warn(warning!(
+                        font_list.span,
+                        "unknown font family: {}",
+                        family.as_str(),
+                    ));
+                }
+            }
+        }
+        font_list.map(|font_list| font_list.v)
+    })]
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
     #[borrowed]
     #[ghost]
