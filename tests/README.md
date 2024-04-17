@@ -3,7 +3,7 @@
 ## Directory structure
 Top level directory structure:
 - `src`: Testing code.
-- `suite`: Input files. Mostly organize in parallel to the code. Each file can
+- `suite`: Input files. Mostly organized in parallel to the code. Each file can
            contain multiple tests, each of which is a section of Typst code
            following `--- {name} ---`.
 - `ref`: Reference images which the output is compared with to determine whether
@@ -22,7 +22,7 @@ cargo test --workspace --test tests
 ```
 
 You may want to [make yourself an alias](#making-an-alias) `testit` so that you can
-write shorter command. In examples below, we will use this alias.
+write shorter commands. In the examples below, we will use this alias.
 
 Running all tests with the given name pattern. You can use
 [regular expression](https://docs.rs/regex/latest/regex/)s.
@@ -51,7 +51,7 @@ testit --exact math-attach-mixed
 
 You may find more options in the help message:
 ```bash
-testit -h              # Or --help for more details
+testit --help
 ```
 
 To make the integration tests go faster they don't generate PDFs by default.

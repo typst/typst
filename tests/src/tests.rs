@@ -72,16 +72,14 @@ fn test() {
         }
     };
 
+    let selected = tests.len();
     if ARGS.list {
         for test in tests.iter() {
             println!("{test}");
         }
-        println!("{} selected, {skipped} skipped", tests.len());
+        eprintln!("{selected} selected, {skipped} skipped");
         return;
-    }
-
-    let selected = tests.len();
-    if selected == 0 {
+    } else if selected == 0 {
         eprintln!("no test selected");
         return;
     }

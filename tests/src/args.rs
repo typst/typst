@@ -1,7 +1,7 @@
-use regex::Regex;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use regex::Regex;
 
 /// Typst's test runner.
 #[derive(Debug, Clone, Parser)]
