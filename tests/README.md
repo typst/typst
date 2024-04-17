@@ -77,7 +77,7 @@ There are, broadly speaking, three kinds of tests:
   annotations like `// Error: 2-7 thing was wrong`. An annotation can be
   either an "Error", a "Warning", or a "Hint". The range designates where
   in the next non-comment line the error is and after it follows the message.
-  If you the error is in a line further below, you can also write ranges like
+  If the error is in a line further below, you can also write ranges like
   `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
 
 - Tests that ensure certain visual output is produced: Those render the result
