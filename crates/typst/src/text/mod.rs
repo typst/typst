@@ -501,7 +501,7 @@ pub struct TextElem {
     /// #set text(costs: (runt: 20%)) // Merged with previous.
     /// #set text(costs: (hyphenation: 10%)) // Merged, and `hyphenation` overrides previous.
     ///
-    /// #context assert.eq(text.costs, (hyphenation: 10%, runt: 20%))
+    /// #context assert.eq(text.costs, (hyphenation: 10%, runt: 20%, orphan: 100%, widow: 100%))
     /// ```
     #[fold]
     pub costs: Costs,
