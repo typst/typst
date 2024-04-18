@@ -18,21 +18,6 @@ Apart
   #block(width: 50%, height: 60%, fill: blue)
 ]
 
---- box-layoutable-child ---
-// Test box sizing with layoutable child.
-#box(
-  width: 50pt,
-  height: 50pt,
-  fill: yellow,
-  path(
-    fill: purple,
-    (0pt, 0pt),
-    (30pt, 30pt),
-    (0pt, 30pt),
-    (30pt, 0pt),
-  ),
-)
-
 --- box-width-fr ---
 // Test fr box.
 Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
@@ -175,6 +160,17 @@ First!
   clip: true,
   image("/assets/images/rhino.png", width: 30pt)
 )
+
+--- container-layoutable-child ---
+// Test box/block sizing with directly layoutable child.
+//
+// Ensure that the output respects the box size.
+#let check(f) = f(
+  width: 40pt, height: 25pt, fill: aqua,
+  grid(rect(width: 5pt, height: 5pt, fill: blue)),
+)
+
+#stack(dir: ltr, spacing: 1fr, check(box), check(block))
 
 --- issue-2128-block-width-box ---
 // Test box in 100% width block.
