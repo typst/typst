@@ -39,6 +39,9 @@ pub struct UnderlineElem {
     /// The position of the line relative to the baseline, read from the font
     /// tables if `{auto}`.
     ///
+    /// Note that if the wrapped content is a math equation, the baseline would simply
+    /// be the bottom bound.
+    ///
     /// ```example
     /// #underline(offset: 5pt)[
     ///   The Tale Of A Faraway Line I
@@ -60,6 +63,9 @@ pub struct UnderlineElem {
 
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
+    ///
+    /// Note that evade option is not supported if the wrapped content is
+    /// a math equation.
     ///
     /// ```example
     /// This #underline(evade: true)[is great].
@@ -126,6 +132,9 @@ pub struct OverlineElem {
     /// The position of the line relative to the baseline. Read from the font
     /// tables if `{auto}`.
     ///
+    /// Note that if the wrapped content is a math equation, the baseline would simply
+    /// be the top bound.
+    ///
     /// ```example
     /// #overline(offset: -1.2em)[
     ///   The Tale Of A Faraway Line II
@@ -147,6 +156,9 @@ pub struct OverlineElem {
 
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
+    ///
+    /// Note that evade option is not supported if the wrapped content is
+    /// a math equation.
     ///
     /// ```example
     /// #overline(
@@ -218,6 +230,9 @@ pub struct StrikeElem {
     /// tables if `{auto}`.
     ///
     /// This is useful if you are unhappy with the offset your font provides.
+    ///
+    /// Note that if the wrapped content is a math equation, the baseline would simply
+    /// be the 1/2 the height.
     ///
     /// ```example
     /// #set text(font: "Inria Serif")
@@ -299,6 +314,9 @@ pub struct HighlightElem {
 
     /// The top end of the background rectangle.
     ///
+    /// Note that if the wrapped content is a math equation, the top edge would simply be the top
+    /// bound.
+    ///
     /// ```example
     /// #set highlight(top-edge: "ascender")
     /// #highlight[a] #highlight[aib]
@@ -310,6 +328,9 @@ pub struct HighlightElem {
     pub top_edge: TopEdge,
 
     /// The bottom end of the background rectangle.
+    ///
+    /// Note that if the wrapped content is a math equation, the bottom edge would simply be the
+    /// bottom bound
     ///
     /// ```example
     /// #set highlight(bottom-edge: "descender")
