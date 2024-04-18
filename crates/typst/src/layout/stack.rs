@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
+use typst_syntax::Span;
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain, StyledElem};
 use crate::layout::{
@@ -59,7 +60,8 @@ impl LayoutMultiple for Packed<StackElem> {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut layouter = StackLayouter::new(self.dir(styles), regions, styles);
+        let mut layouter =
+            StackLayouter::new(self.span(), self.dir(styles), regions, styles);
         let axis = layouter.dir.axis();
 
         // Spacing to insert before the next block.
@@ -97,7 +99,7 @@ impl LayoutMultiple for Packed<StackElem> {
             }
         }
 
-        Ok(layouter.finish())
+        layouter.finish()
     }
 }
 
@@ -131,6 +133,8 @@ cast! {
 
 /// Performs stack layout.
 struct StackLayouter<'a> {
+    /// The span to raise errors at during layout.
+    span: Span,
     /// The stacking direction.
     dir: Dir,
     /// The axis of the stacking direction.
@@ -166,7 +170,12 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    fn new(dir: Dir, mut regions: Regions<'a>, styles: StyleChain<'a>) -> Self {
+    fn new(
+        span: Span,
+        dir: Dir,
+        mut regions: Regions<'a>,
+        styles: StyleChain<'a>,
+    ) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
 
@@ -174,6 +183,7 @@ impl<'a> StackLayouter<'a> {
         regions.expand.set(axis, false);
 
         Self {
+            span,
             dir,
             axis,
             regions,
@@ -218,7 +228,7 @@ impl<'a> StackLayouter<'a> {
         styles: StyleChain,
     ) -> SourceResult<()> {
         if self.regions.is_full() {
-            self.finish_region();
+            self.finish_region()?;
         }
 
         // Block-axis alignment of the `AlignElement` is respected by stacks.
@@ -251,7 +261,7 @@ impl<'a> StackLayouter<'a> {
             self.items.push(StackItem::Frame(frame, align));
 
             if i + 1 < len {
-                self.finish_region();
+                self.finish_region()?;
             }
         }
 
@@ -259,7 +269,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Advance to the next region.
-    fn finish_region(&mut self) {
+    fn finish_region(&mut self) -> SourceResult<()> {
         // Determine the size of the stack in this region depending on whether
         // the region expands.
         let mut size = self
@@ -273,6 +283,10 @@ impl<'a> StackLayouter<'a> {
         if self.fr.get() > 0.0 && full.is_finite() {
             self.used.main = full;
             size.set(self.axis, full);
+        }
+
+        if !size.is_finite() {
+            bail!(self.span, "stack spacing is infinite");
         }
 
         let mut output = Frame::hard(size);
@@ -320,12 +334,14 @@ impl<'a> StackLayouter<'a> {
         self.used = Gen::zero();
         self.fr = Fr::zero();
         self.finished.push(output);
+
+        Ok(())
     }
 
     /// Finish layouting and return the resulting frames.
-    fn finish(mut self) -> Fragment {
-        self.finish_region();
-        Fragment::frames(self.finished)
+    fn finish(mut self) -> SourceResult<Fragment> {
+        self.finish_region()?;
+        Ok(Fragment::frames(self.finished))
     }
 }
 
