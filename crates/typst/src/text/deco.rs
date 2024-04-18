@@ -406,17 +406,24 @@ enum DecoLine {
 }
 
 /// Generate one line decoration to a frame.
-/// (Only Highlight for now)
 pub(crate) fn decorate_frame_once(
     deco: &Decoration,
     pos: Point,
     size: Size,
 ) -> Option<Vec<(bool, Point, FrameItem)>> {
+    let size = size.to_point();
+    let width = size.x;
+    let height = size.y;
     if let DecoLine::Highlight { fill, stroke, top_edge: _, bottom_edge: _, radius } =
         &deco.line
     {
-        let rects = styled_rect(size, *radius, Some(fill.clone()), stroke.clone());
-        let origin = Point::new(pos.x - deco.extent, pos.y);
+        let rects = styled_rect(
+            Size::new(2.0 * deco.extent + width, height),
+            *radius,
+            Some(fill.clone()),
+            stroke.clone(),
+        );
+        let origin = Point::new(-deco.extent, pos.y);
         return Some(
             rects
                 .into_iter()
@@ -424,7 +431,32 @@ pub(crate) fn decorate_frame_once(
                 .collect(),
         );
     }
-    None
+
+    // note that different from decorate_shaped_text, evade is not supported for frame (including
+    // math equations)
+    let (stroke, y_baseline, offset, background) = match &deco.line {
+        DecoLine::Strikethrough { stroke, offset, background } => {
+            (stroke, height / 2.0, offset, *background)
+        }
+        DecoLine::Overline { stroke, offset, evade: _, background } => {
+            (stroke, Abs::zero(), offset, *background)
+        }
+        DecoLine::Underline { stroke, offset, evade: _, background } => {
+            (stroke, height, offset, *background)
+        }
+        _ => return None,
+    };
+
+    let offset = offset.unwrap_or(Abs::zero()) + y_baseline;
+
+    let stroke = stroke.clone().unwrap_or_default();
+
+    let start = -deco.extent;
+    let end = width + deco.extent;
+    let origin = Point::new(start, pos.y + offset);
+    let target = Point::new(end - start, Abs::zero());
+    let shape = Geometry::Line(target).stroked(stroke.clone());
+    Some(vec![(background, origin, FrameItem::Shape(shape, Span::detached()))])
 }
 
 /// Generate line decorations for a frame.

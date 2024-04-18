@@ -312,7 +312,8 @@ impl Packed<EquationElem> {
             if let Some(MathParItem::Frame(ref mut frame)) = items.get_mut(index) {
                 let y_off_set = get_vertical_shift_fn(frame);
                 for (_, pos, frame_item) in foreground_pos_and_frames {
-                    let new_pos = Point::new(pos.x, pos.y - y_off_set);
+                    let new_pos =
+                        Point::new(pos.x - x + frame.width(), pos.y - y_off_set);
                     frame.push(new_pos, frame_item);
                 }
             }
