@@ -405,13 +405,13 @@ enum DecoLine {
     },
 }
 
-/// Generate a highlight frame given position and size
+/// Generate one line decoration to a frame.
 /// (Only Highlight for now)
-pub(crate) fn decorate_highlight(
+pub(crate) fn decorate_frame_once(
     deco: &Decoration,
     pos: Point,
     size: Size,
-) -> Option<Vec<(Point, FrameItem)>> {
+) -> Option<Vec<(bool, Point, FrameItem)>> {
     if let DecoLine::Highlight { fill, stroke, top_edge: _, bottom_edge: _, radius } =
         &deco.line
     {
@@ -420,11 +420,27 @@ pub(crate) fn decorate_highlight(
         return Some(
             rects
                 .into_iter()
-                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached())))
+                .map(|shape| (true, origin, FrameItem::Shape(shape, Span::detached())))
                 .collect(),
         );
     }
     None
+}
+
+/// Generate line decorations for a frame.
+pub(crate) fn decorate_frame(
+    decos: &[Decoration],
+    pos: Point,
+    size: Size,
+) -> Vec<(bool, Point, FrameItem)> {
+    let mut result = Vec::new();
+    // call each line decorations separately and concatenate
+    for deco in decos {
+        if let Some(pos_and_frames) = decorate_frame_once(deco, pos, size) {
+            result.extend(pos_and_frames)
+        }
+    }
+    result
 }
 
 /// Generate one line decoration for a shaped text.
@@ -548,7 +564,7 @@ fn decorate_shaped_text_once(
         }
     }
 
-    return Some(result);
+    Some(result)
 }
 
 /// Generate line decorations for a shaped text.

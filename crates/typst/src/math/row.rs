@@ -9,7 +9,7 @@ use crate::math::{
     MathFragment, MathParItem, MathSize,
 };
 use crate::model::ParElem;
-use crate::text::decorate_highlight;
+use crate::text::decorate_frame;
 use crate::text::TextElem;
 
 use super::fragment::SpacingFragment;
@@ -386,12 +386,14 @@ impl MathRunFrameBuilder {
             frame.push_frame(pos, sub);
         }
         let decos = TextElem::deco_in(styles);
-        for deco in &decos {
-            if let Some(highlight_pos_and_frameitem) =
-                decorate_highlight(deco, Point::zero(), frame.size())
-            {
-                frame.prepend_multiple(highlight_pos_and_frameitem);
-            }
+        let pos_and_frames = decorate_frame(&decos, Point::zero(), frame.size());
+        let (background_pos_and_frames, foreground_pos_and_frames): (Vec<_>, Vec<_>) =
+            pos_and_frames.into_iter().partition(|&(b, _, _)| b);
+        for (_, pos, frame_item) in background_pos_and_frames {
+            frame.prepend(pos, frame_item);
+        }
+        for (_, pos, frame_item) in foreground_pos_and_frames {
+            frame.push(pos, frame_item);
         }
         frame
     }

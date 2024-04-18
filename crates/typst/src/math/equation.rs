@@ -19,7 +19,7 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    decorate_highlight
+    decorate_frame
     families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
@@ -285,27 +285,37 @@ impl Packed<EquationElem> {
         // computing the origin position and the size of the bounding box of the entire MathParItem
         // Array.
         let (pos, size) = compute_bounding_box(&pos_and_sizes);
+        let decos = TextElem::deco_in(styles);
+        let pos_and_frames = decorate_frame(&decos, pos, size);
+        let (background_pos_and_frames, foreground_pos_and_frames): (Vec<_>, Vec<_>) =
+            pos_and_frames.into_iter().partition(|&(b, _, _)| b);
 
-        for item in &mut items {
-            let MathParItem::Frame(ref mut frame) = item else { continue };
-            let decos = TextElem::deco_in(styles);
-            let y_off_set = get_vertical_shift_fn(frame);
-            let new_pos = Point::new(pos.x, pos.y - y_off_set);
-            for deco in &decos {
-                // Note that here we in fact only handle highlight.
-                // will be refactored and support
-                //
-                // todo: Other line decorations as provided in `deco.rs`
-                // Note that Highlight is added to the background of the frames, while other
-                // decoration such as strike is add as the foreground on top of the MathParItem
-                // frames, so needs a different procedure.
-                if let Some(highlight_pos_and_frameitem) =
-                    decorate_highlight(deco, new_pos, size)
-                {
-                    frame.prepend_multiple(highlight_pos_and_frameitem);
+        let mut first_frame_index: Option<usize> = None;
+        let mut last_frame_index: Option<usize> = None;
+        for (index, item) in items.iter().enumerate() {
+            let MathParItem::Frame(_) = item else { continue };
+            if first_frame_index.is_none() {
+                first_frame_index = Some(index);
+            }
+            last_frame_index = Some(index);
+        }
+        if let Some(index) = first_frame_index {
+            if let Some(MathParItem::Frame(ref mut frame)) = items.get_mut(index) {
+                let y_off_set = get_vertical_shift_fn(frame);
+                for (_, pos, frame_item) in background_pos_and_frames {
+                    let new_pos = Point::new(pos.x, pos.y - y_off_set);
+                    frame.prepend(new_pos, frame_item);
                 }
             }
-            break;
+        }
+        if let Some(index) = last_frame_index {
+            if let Some(MathParItem::Frame(ref mut frame)) = items.get_mut(index) {
+                let y_off_set = get_vertical_shift_fn(frame);
+                for (_, pos, frame_item) in foreground_pos_and_frames {
+                    let new_pos = Point::new(pos.x, pos.y - y_off_set);
+                    frame.push(new_pos, frame_item);
+                }
+            }
         }
         for item in &mut items {
             let MathParItem::Frame(frame) = item else { continue };
