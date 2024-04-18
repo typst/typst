@@ -274,3 +274,12 @@ The following:
   [],
   [a]
 )
+
+--- issue-3917-grid-with-infinite-width ---
+// https://github.com/typst/typst/issues/1918
+#set page(width: auto)
+#context layout(available => {
+  let infinite-length = available.width
+  // Error: 3-50 cannot create grid with infinite width
+  grid(gutter: infinite-length, columns: 2)[A][B]
+})

@@ -80,3 +80,12 @@ World! 🌍
   stack([a], 1fr, [b]),
   stack([a], v(1fr), [b]),
 )
+
+--- issue-1918-stack-with-infinite-spacing ---
+// https://github.com/typst/typst/issues/1918
+#set page(width: auto)
+#context layout(available => {
+  let infinite-length = available.width
+  // Error: 3-40 stack spacing is infinite
+  stack(spacing: infinite-length)[A][B]
+})
