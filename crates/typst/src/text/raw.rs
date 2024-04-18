@@ -9,6 +9,7 @@ use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::Lang;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -24,8 +25,6 @@ use crate::text::{
 };
 use crate::visualize::Color;
 use crate::{syntax, World};
-
-use super::Lang;
 
 // Shorthand for highlighter closures.
 type StyleFn<'a> =

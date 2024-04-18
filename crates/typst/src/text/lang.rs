@@ -8,8 +8,8 @@ use crate::layout::Dir;
 use crate::text::TextElem;
 
 macro_rules! translation {
-    ($path:literal) => {
-        ($path, include_str!(concat!("../../translations/", $path, ".txt")))
+    ($lang:literal) => {
+        ($lang, include_str!(concat!("../../translations/", $lang, ".txt")))
     };
 }
 
@@ -218,8 +218,9 @@ pub trait LocalName {
 }
 
 /// Retrieves the localized string for a given language and region.
-/// Silently falls back to English if no fitting string exists for the given language + region.
-/// Panics if no fitting string exists in both given language + region and English.
+/// Silently falls back to English if no fitting string exists for
+/// the given language + region. Panics if no fitting string exists
+/// in both given language + region and English.
 #[comemo::memoize]
 pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static str {
     let lang_region_bundle = parse_language_bundle(lang, region).unwrap();
@@ -242,10 +243,9 @@ fn parse_language_bundle(
     region: Option<Region>,
 ) -> Result<HashMap<&'static str, &'static str>, &'static str> {
     let language_tuple = TRANSLATIONS.iter().find(|it| it.0 == lang_str(lang, region));
-    if language_tuple.is_none() {
+    let Some((_lang_name, language_file)) = language_tuple else {
         return Ok(HashMap::new());
-    }
-    let language_file = language_tuple.unwrap().1;
+    };
 
     let mut bundle = HashMap::new();
     let lines = language_file.trim().lines();
