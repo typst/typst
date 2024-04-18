@@ -73,12 +73,12 @@ There are, broadly speaking, three kinds of tests:
   use of `test` or `assert.eq` (both are very similar, `test` is just shorter)
   to ensure certain properties hold when executing the Typst code.
 
-- Tests that ensure the code fails with a particular error: Those have inline
-  annotations like `// Error: 2-7 thing was wrong`. An annotation can be
-  either an "Error", a "Warning", or a "Hint". The range designates where
-  in the next non-comment line the error is and after it follows the message.
-  If the error is in a line further below, you can also write ranges like
-  `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
+- Tests that ensure the code emits particular diagnostic messages: Those have
+  inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
+  start with either "Error", "Warning", or "Hint". The range designates the
+  code span the diagnostic message refers to in the first non-comment line
+  below. If the code span is in a line further below, you can write ranges
+  like `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
 
 - Tests that ensure certain visual output is produced: Those render the result
   of the test with the `typst-render` crate and compare against a reference
