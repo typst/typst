@@ -68,7 +68,11 @@ pub struct CompileCommand {
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Path to output file (PDF, PNG, or SVG), use `-` to write output to stdout
+    /// Path to output file (PDF, PNG, or SVG).
+    /// Use `-` to write output to stdout; For output formats emitting one file per page,
+    /// a page number template must be present if the source document renders to multiple pages.
+    /// Use `{p}` for page numbers, `{0p}` for zero padded page numbers, `{t}` for page count.
+    /// For example, `doc-page-{0p}-of-{t}.png` creates `doc-page-01-of-10.png` and so on.
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
 
