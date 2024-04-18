@@ -6,8 +6,7 @@ use crate::foundations::{
     array, cast, elem, Array, Packed, Reflect, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, Fragment, Frame, FrameItem, LayoutMultiple, Length, Point, Regions, Rel,
-    Size,
+    Abs, Axes, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel, Size,
 };
 use crate::visualize::{FixedStroke, Geometry, Paint, Shape, Stroke};
 
@@ -26,7 +25,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-#[elem(LayoutMultiple)]
+#[elem(LayoutSingle)]
 pub struct PathElem {
     /// How to fill the path.
     ///
@@ -70,14 +69,14 @@ pub struct PathElem {
     pub vertices: Vec<PathVertex>,
 }
 
-impl LayoutMultiple for Packed<PathElem> {
+impl LayoutSingle for Packed<PathElem> {
     #[typst_macros::time(name = "path", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let resolve = |axes: Axes<Rel<Length>>| {
             axes.resolve(styles)
                 .zip_map(regions.base(), Rel::relative_to)
@@ -89,7 +88,7 @@ impl LayoutMultiple for Packed<PathElem> {
 
         let mut size = Size::zero();
         if points.is_empty() {
-            return Ok(Fragment::frame(Frame::soft(size)));
+            return Ok(Frame::soft(size));
         }
 
         // Only create a path if there are more than zero points.
@@ -148,8 +147,7 @@ impl LayoutMultiple for Packed<PathElem> {
         let mut frame = Frame::soft(size);
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 
