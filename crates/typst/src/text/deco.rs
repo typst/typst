@@ -427,7 +427,7 @@ pub(crate) fn decorate_highlight(
     None
 }
 
-/// Generate one line decoration to a single run of shaped text.
+/// Generate one line decoration for a shaped text.
 fn decorate_shaped_text_once(
     deco: &Decoration,
     text: &TextItem,
@@ -551,7 +551,7 @@ fn decorate_shaped_text_once(
     return Some(result);
 }
 
-/// Generate line decorations to a single run of shaped text.
+/// Generate line decorations for a shaped text.
 pub(crate) fn decorate_shaped_text(
     decos: &[Decoration],
     text: &TextItem,
