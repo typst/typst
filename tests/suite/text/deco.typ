@@ -97,3 +97,45 @@ We can also specify a customized value
 --- highlight-partial-in-block-math ---
 // Test partial highlight in a block math equation.
 $ sum_(k=1)^n k = #highlight[(n(n+1))] / 3 $
+
+--- strike-inline-math ---
+// Test strike for inline math equation.
+#strike[$a$], #strike[$a_n$], #strike[$a_n b$]
+#strike[$a_n = C_0 a_(n-1)$]
+#strike[$1/2 < (x+1)/2$]
+
+--- strike-block-math ---
+// Test strike for block math equation.
+#strike[$ sum_(k=1)^n k = (n(n+1)) / 2 $]
+
+--- strike-partial-in-block-math ---
+// Test partial strike in a block math equation.
+$ sum_(k=1)^n k = #strike[(n(n+1))] / 3 $
+
+--- underline-inline-math ---
+// Test underline for inline math equation.
+#underline[$a$], #underline[$a_n$], #underline[$a_n b$]
+#underline[$a_n = C_0 a_(n-1)$]
+#underline[$1/2 < (x+1)/2$]
+
+--- underline-block-math ---
+// Test underline for block math equation.
+#underline[$ sum_(k=1)^n k = (n(n+1)) / 2 $]
+
+--- underline-partial-in-block-math ---
+// Test partial underline in a block math equation.
+$ sum_(k=1)^n k = #underline[(n(n+1))] / 3 $
+
+--- overline-inline-math ---
+// Test overline for inline math equation.
+#overline[$a$], #overline[$a_n$], #overline[$a_n b$]
+#overline[$a_n = C_0 a_(n-1)$]
+#overline[$1/2 < (x+1)/2$]
+
+--- overline-block-math ---
+// Test overline for block math equation.
+#overline[$ sum_(k=1)^n k = (n(n+1)) / 2 $]
+
+--- overline-partial-in-block-math ---
+// Test partial overline in a block math equation.
+$ sum_(k=1)^n k = #overline[(n(n+1))] / 3 $
