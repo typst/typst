@@ -198,41 +198,6 @@ enum ImageExportFormat {
     Svg,
 }
 
-struct OutputTemplate;
-
-impl OutputTemplate {
-    const INDEXABLE: [&'static str; 3] = ["{p}", "{0p}", "{n}"];
-
-    fn has_indexable_template(output: &str) -> bool {
-        Self::INDEXABLE.iter().any(|template| output.contains(template))
-    }
-
-    fn indexable_template() -> [&'static str; 3] {
-        Self::INDEXABLE
-    }
-
-    fn format(output: &str, this_page: usize, total_pages: usize) -> StrResult<String> {
-        // Find the base 10 width of number `i`
-        fn width(i: usize) -> usize {
-            1 + i.checked_ilog10().unwrap_or(0) as usize
-        }
-
-        let other_templates = ["{t}", "{0t}"];
-        Self::INDEXABLE.iter().chain(other_templates.iter()).try_fold(
-            output.to_string(),
-            |out, template| {
-                let replacement = match *template {
-                    "{p}" => format!("{this_page}"),
-                    "{0p}" | "{n}" => format!("{:01$}", this_page, width(total_pages)),
-                    "{t}" | "{0t}" => format!("{total_pages}"),
-                    _ => bail!("unhandled template placeholder {template}"),
-                };
-                Ok(out.replace(template, replacement.as_str()))
-            },
-        )
-    }
-}
-
 /// Export to one or multiple images.
 fn export_image(
     world: &mut SystemWorld,
@@ -246,17 +211,15 @@ fn export_image(
     let can_handle_multiple = match output {
         Output::Stdout => false,
         Output::Path(ref output) => {
-            OutputTemplate::has_indexable_template(output.to_str().unwrap_or_default())
+            output_template::has_indexable_template(output.to_str().unwrap_or_default())
         }
     };
     if !can_handle_multiple && document.pages.len() > 1 {
-        let path_err = format!(
-            "without a page number template ({}) in output path",
-            OutputTemplate::indexable_template().join(", ")
-        );
         let err = match output {
             Output::Stdout => "to stdout",
-            Output::Path(_) => path_err.as_str(),
+            Output::Path(_) => {
+                "without a page number template ({p}, {0p}) in the output path"
+            }
         };
         bail!("cannot export multiple images {err}");
     }
@@ -274,11 +237,11 @@ fn export_image(
                 Output::Path(ref path) => {
                     let storage;
                     let path = if can_handle_multiple {
-                        storage = OutputTemplate::format(
+                        storage = output_template::format(
                             path.to_str().unwrap_or_default(),
                             i + 1,
                             document.pages.len(),
-                        )?;
+                        );
                         Path::new(&storage)
                     } else {
                         path
@@ -302,6 +265,35 @@ fn export_image(
         .collect::<Result<Vec<()>, EcoString>>()?;
 
     Ok(())
+}
+
+mod output_template {
+    const INDEXABLE: [&str; 3] = ["{p}", "{0p}", "{n}"];
+
+    pub fn has_indexable_template(output: &str) -> bool {
+        INDEXABLE.iter().any(|template| output.contains(template))
+    }
+
+    pub fn format(output: &str, this_page: usize, total_pages: usize) -> String {
+        // Find the base 10 width of number `i`
+        fn width(i: usize) -> usize {
+            1 + i.checked_ilog10().unwrap_or(0) as usize
+        }
+
+        let other_templates = ["{t}"];
+        INDEXABLE.iter().chain(other_templates.iter()).fold(
+            output.to_string(),
+            |out, template| {
+                let replacement = match *template {
+                    "{p}" => format!("{this_page}"),
+                    "{0p}" | "{n}" => format!("{:01$}", this_page, width(total_pages)),
+                    "{t}" => format!("{total_pages}"),
+                    _ => unreachable!("unhandled template placeholder {template}"),
+                };
+                out.replace(template, replacement.as_str())
+            },
+        )
+    }
 }
 
 /// Export single image.
