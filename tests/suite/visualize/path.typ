@@ -50,3 +50,16 @@
 --- path-bad-point-array ---
 // Error: 7-31 point array must contain exactly two entries
 #path(((0%, 0%), (0%, 0%, 0%)))
+
+--- issue-path-in-sized-container ---
+// Paths used to implement `LayoutMultiple` rather than `LayoutSingle` without
+// fulfilling the necessary contract of respecting region expansion.
+#block(
+  fill: aqua,
+  width: 20pt,
+  height: 15pt,
+  path(
+    (0pt, 0pt),
+    (10pt, 10pt),
+  ),
+)
