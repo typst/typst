@@ -1,19 +1,30 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
+use regex::Regex;
 
 /// Typst's test runner.
 #[derive(Debug, Clone, Parser)]
+#[command(bin_name = "cargo test --workspace --test tests --")]
 #[clap(name = "typst-test", author)]
 pub struct CliArguments {
     /// The command to run.
     #[command(subcommand)]
     pub command: Option<Command>,
-    /// All the tests that contain the filter string will be run.
-    pub filter: Vec<String>,
-    /// Runs only the tests with the exact specified `filter` names.
+    /// All the tests whose names match the test name pattern will be run.
+    #[arg(value_parser = Regex::new)]
+    pub pattern: Vec<Regex>,
+    /// Restricts test selection within the given path.
+    #[arg(short, long, value_parser = |s: &str| PathBuf::from(s).canonicalize())]
+    pub path: Vec<PathBuf>,
+    /// Only selects the test that matches with the test name verbatim.
     #[arg(short, long)]
     pub exact: bool,
-    /// Whether to update the reference images of non-passing tests.
-    #[arg(short, long)]
+    /// Lists what tests will be run, without actually running them.
+    #[arg(long, group = "action")]
+    pub list: bool,
+    /// Updates the reference images of non-passing tests.
+    #[arg(short, long, group = "action")]
     pub update: bool,
     /// The scaling factor to render the output image with.
     ///
@@ -26,7 +37,7 @@ pub struct CliArguments {
     /// Exports SVG outputs into the artifact store.
     #[arg(long)]
     pub svg: bool,
-    /// Whether to display the syntax tree.
+    /// Displays the syntax tree.
     #[arg(long)]
     pub syntax: bool,
     /// Prevents the terminal from being cleared of test names.

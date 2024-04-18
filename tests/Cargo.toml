@@ -25,6 +25,7 @@ once_cell = { workspace = true }
 oxipng = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
+regex = { workspace = true }
 tiny-skia = { workspace = true }
 ttf-parser = { workspace = true }
 unscanny = { workspace = true }

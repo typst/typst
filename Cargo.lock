@@ -2780,6 +2780,7 @@ dependencies = [
  "oxipng",
  "parking_lot",
  "rayon",
+ "regex",
  "tiny-skia",
  "ttf-parser",
  "typst",

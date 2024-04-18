@@ -6,7 +6,7 @@ use crate::run::TestResult;
 
 /// Receives status updates by individual test runs.
 pub struct Logger<'a> {
-    filtered: usize,
+    selected: usize,
     passed: usize,
     failed: usize,
     skipped: usize,
@@ -19,9 +19,9 @@ pub struct Logger<'a> {
 
 impl<'a> Logger<'a> {
     /// Create a new logger.
-    pub fn new(filtered: usize, skipped: usize) -> Self {
+    pub fn new(selected: usize, skipped: usize) -> Self {
         Self {
-            filtered,
+            selected,
             passed: 0,
             failed: 0,
             skipped,
@@ -86,10 +86,10 @@ impl<'a> Logger<'a> {
 
     /// Prints a summary and returns whether the test suite passed.
     pub fn finish(&self) -> bool {
-        let Self { filtered, passed, failed, skipped, .. } = *self;
+        let Self { selected, passed, failed, skipped, .. } = *self;
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
-        assert_eq!(filtered, passed + failed, "not all tests were executed succesfully");
+        assert_eq!(selected, passed + failed, "not all tests were executed succesfully");
 
         if self.mismatched_image {
             eprintln!("  pass the --update flag to update the reference images");
@@ -121,7 +121,7 @@ impl<'a> Logger<'a> {
 
         // Print the status line.
         let done = self.failed + self.passed;
-        if done < self.filtered {
+        if done < self.selected {
             if self.last_change.elapsed() > Duration::from_secs(2) {
                 for test in &self.active {
                     writeln!(out, "⏰ {test} is taking a long time ...")?;
@@ -131,7 +131,7 @@ impl<'a> Logger<'a> {
                 }
             }
             if self.terminal {
-                writeln!(out, "💨 {done} / {}", self.filtered)?;
+                writeln!(out, "💨 {done} / {}", self.selected)?;
                 self.temp_lines += 1;
             }
         }

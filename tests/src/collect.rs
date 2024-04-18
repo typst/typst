@@ -257,7 +257,7 @@ impl<'a> Parser<'a> {
                 self.collector.large.insert(name.clone());
             }
 
-            if !filtered(&name) {
+            if !selected(&name, self.path.canonicalize().unwrap()) {
                 self.collector.skipped += 1;
                 continue;
             }
@@ -383,14 +383,23 @@ impl<'a> Parser<'a> {
     }
 }
 
-/// Whether a test is within the filtered set.
-fn filtered(name: &str) -> bool {
+/// Whether a test is within the selected set to run.
+fn selected(name: &str, abs: PathBuf) -> bool {
+    let paths = &crate::ARGS.path;
+    if !paths.is_empty() && !paths.iter().any(|path| abs.starts_with(path)) {
+        return false;
+    }
+
     let exact = crate::ARGS.exact;
-    let filter = &crate::ARGS.filter;
-    filter.is_empty()
-        || filter
-            .iter()
-            .any(|v| if exact { name == v } else { name.contains(v) })
+    let patterns = &crate::ARGS.pattern;
+    patterns.is_empty()
+        || patterns.iter().any(|pattern: &regex::Regex| {
+            if exact {
+                name == pattern.as_str()
+            } else {
+                pattern.is_match(name)
+            }
+        })
 }
 
 /// An error in a test file.
