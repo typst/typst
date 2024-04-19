@@ -232,14 +232,22 @@ impl Packed<EquationElem> {
             items.push(MathParItem::Frame(Frame::soft(Size::zero())));
         }
 
-        // helper function to determine the vertical shift for a frame from MathParItem
-        let get_vertical_shift_fn = |frame: &Frame| {
-            let font_size = scaled_font_size(&ctx, styles);
-            let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
-            let ascent = top_edge.max(frame.ascent() - slack);
-            ascent - frame.baseline()
-        };
+        // A list of the vetical shift for each MathPatItem(frame), except space.
+        let vertical_shift_list: Vec<Option<Abs>> = items
+            .iter()
+            .map(|item| match item {
+                MathParItem::Frame(frame) => {
+                    // determine the vertical shift for a frame from MathParItem
+                    let font_size = scaled_font_size(&ctx, styles);
+                    let slack = ParElem::leading_in(styles) * 0.7;
+                    let top_edge =
+                        TextElem::top_edge_in(styles).resolve(font_size, &font, None);
+                    let ascent = top_edge.max(frame.ascent() - slack);
+                    Some(ascent - frame.baseline())
+                }
+                _ => None,
+            })
+            .collect();
 
         let mut first_non_space_idx: Option<usize> = None;
         let mut last_non_space_idx: Option<usize> = None;
@@ -247,7 +255,7 @@ impl Packed<EquationElem> {
             match item {
                 MathParItem::Frame(frame) => {
                     // determine the coordinates of the frame in the MathParItem Array
-                    let y = get_vertical_shift_fn(frame);
+                    let y = vertical_shift_list[idx].unwrap();
                     let pos = Point::new(x, y);
                     let size = Size::new(frame.width().abs(), frame.height().abs());
                     pos_and_sizes.push((pos, size));
@@ -274,6 +282,7 @@ impl Packed<EquationElem> {
         let (pos, size) = compute_bounding_box(&pos_and_sizes);
         let decos = TextElem::deco_in(styles);
         let mut last_frame: Option<&mut Frame> = None;
+        let mut last_frame_shift: Option<Abs> = None;
         for (idx, item) in items.iter_mut().enumerate() {
             // Skip the spaces in the start and the end. But the space in between frames will be
             // decorated as well. But space has no corresponding frame, so we will keep a reference
@@ -283,24 +292,25 @@ impl Packed<EquationElem> {
             }
             match item {
                 MathParItem::Frame(ref mut frame) => {
-                    let (size, y_off_set) = (
+                    let (size, shift) = (
                         Size::new(frame.width(), size.to_point().y),
-                        get_vertical_shift_fn(frame),
+                        vertical_shift_list[idx].unwrap(),
                     );
                     for deco in &decos {
-                        decorate_frame(frame, deco, pos, size, y_off_set);
+                        decorate_frame(frame, deco, pos, size, shift);
                     }
                     last_frame = Some(frame);
+                    last_frame_shift = Some(shift);
                 }
                 MathParItem::Space(width) => {
                     if let Some(ref mut frame) = last_frame {
-                        let (size, y_off_set) = (
+                        let (size, shift) = (
                             Size::new(*width, size.to_point().y),
-                            get_vertical_shift_fn(frame),
+                            last_frame_shift.unwrap(),
                         );
                         let new_pos = pos + Point::new(frame.width(), Abs::zero());
                         for deco in &decos {
-                            decorate_frame(frame, deco, new_pos, size, y_off_set);
+                            decorate_frame(frame, deco, new_pos, size, shift);
                         }
                     }
                 }
