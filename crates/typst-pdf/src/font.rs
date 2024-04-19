@@ -229,10 +229,11 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             ctx.pdf.cmap(cmap_ref, &cmap.finish());
 
             // Write the font descriptor.
+            let subset_tag = subset_tag(&glyph_set);
             let postscript_name = font
                 .find_name(name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
-            let base_font = eco_format!("COLOR{font_index:x}+{postscript_name}");
+            let base_font = eco_format!("{subset_tag}+{postscript_name}");
             write_font_descriptor(&mut ctx.pdf, descriptor_ref, &font, &base_font);
 
             // Write the widths array
