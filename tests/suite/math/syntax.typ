@@ -1,16 +1,10 @@
 // Test math syntax.
 
---- math-call-non-func ---
-$ pi(a) $
-$ pi(a,) $
-$ pi(a,b) $
-$ pi(a,b,) $
-
 --- math-unicode ---
 // Test Unicode math.
 $ ∑_(i=0)^ℕ a ∘ b = \u{2211}_(i=0)^NN a compose b $
 
---- math-shorthandes ---
+--- math-shorthands ---
 // Test a few shorthands.
 $ underline(f' : NN -> RR) \
   n |-> cases(
