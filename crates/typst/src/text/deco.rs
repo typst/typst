@@ -41,8 +41,8 @@ pub struct UnderlineElem {
     /// The position of the line relative to the baseline, read from the font
     /// tables if `{auto}`.
     ///
-    /// Note that if the wrapped content is a math equation, the baseline would simply
-    /// be the bottom bound.
+    /// If the wrapped content is an equation, the baseline is the bottom of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #underline(offset: 5pt)[
@@ -66,8 +66,8 @@ pub struct UnderlineElem {
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
     ///
-    /// Note that evade option is not supported if the wrapped content is
-    /// a math equation.
+    /// Note that evasion option is not supported if the wrapped content is
+    /// an math equation.
     ///
     /// ```example
     /// This #underline(evade: true)[is great].
@@ -134,8 +134,8 @@ pub struct OverlineElem {
     /// The position of the line relative to the baseline. Read from the font
     /// tables if `{auto}`.
     ///
-    /// Note that if the wrapped content is a math equation, the baseline would simply
-    /// be the top bound.
+    /// If the wrapped content is an equation, the baseline is the top of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #overline(offset: -1.2em)[
@@ -233,8 +233,8 @@ pub struct StrikeElem {
     ///
     /// This is useful if you are unhappy with the offset your font provides.
     ///
-    /// Note that if the wrapped content is a math equation, the baseline would simply
-    /// be the 1/2 the height.
+    /// If the wrapped content is an equation, the baseline is 1/2 of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #set text(font: "Inria Serif")
@@ -316,8 +316,8 @@ pub struct HighlightElem {
 
     /// The top end of the background rectangle.
     ///
-    /// Note that if the wrapped content is a math equation, the top edge would simply be the top
-    /// bound.
+    /// If the wrapped content is an equation, the baseline is the top of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #set highlight(top-edge: "ascender")
@@ -331,8 +331,8 @@ pub struct HighlightElem {
 
     /// The bottom end of the background rectangle.
     ///
-    /// Note that if the wrapped content is a math equation, the bottom edge would simply be the
-    /// bottom bound
+    /// If the wrapped content is an equation, the baseline is the bottom of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #set highlight(bottom-edge: "descender")

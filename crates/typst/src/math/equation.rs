@@ -204,27 +204,6 @@ impl MathParItem {
     }
 }
 
-/// Computes the origin position and the size of the bounding box that covers
-/// a list of boxes from left to right
-fn compute_bounding_box(pos_and_sizes: &[(Point, Size)]) -> (Point, Size) {
-    let mut start_pos_x = Abs::inf();
-    let mut start_pos_y = Abs::inf();
-    let mut size_x = Abs::zero();
-    let mut size_y = Abs::zero();
-
-    for (p, s) in pos_and_sizes {
-        let s = s.to_point();
-
-        start_pos_x.set_min(p.x);
-        start_pos_y.set_min(p.y);
-
-        size_x.set_max(p.x + s.x);
-        size_y.set_max(s.y)
-    }
-
-    (Point::new(start_pos_x, start_pos_y), Size::new(size_x, size_y))
-}
-
 impl Packed<EquationElem> {
     pub fn layout_inline(
         &self,
@@ -345,6 +324,27 @@ impl Packed<EquationElem> {
 
         Ok(items)
     }
+}
+
+/// Computes the origin position and the size of the bounding box that covers
+/// a list of boxes from left to right
+fn compute_bounding_box(pos_and_sizes: &[(Point, Size)]) -> (Point, Size) {
+    let mut start_pos_x = Abs::inf();
+    let mut start_pos_y = Abs::inf();
+    let mut size_x = Abs::zero();
+    let mut size_y = Abs::zero();
+
+    for (p, s) in pos_and_sizes {
+        let s = s.to_point();
+
+        start_pos_x.set_min(p.x);
+        start_pos_y.set_min(p.y);
+
+        size_x.set_max(p.x + s.x);
+        size_y.set_max(s.y)
+    }
+
+    (Point::new(start_pos_x, start_pos_y), Size::new(size_x, size_y))
 }
 
 impl LayoutSingle for Packed<EquationElem> {

@@ -9,8 +9,7 @@ use crate::math::{
     MathFragment, MathParItem, MathSize,
 };
 use crate::model::ParElem;
-use crate::text::decorate_frame;
-use crate::text::TextElem;
+use crate::text::{decorate_frame, TextElem};
 
 use super::fragment::SpacingFragment;
 
