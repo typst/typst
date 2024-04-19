@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
@@ -153,6 +154,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             let glyph_count = end - start;
             let subset = &color_font.glyphs[start..end];
             let mut widths = Vec::new();
+            let mut gids = Vec::new();
 
             let scale_factor = font.ttf().units_per_em() as f32;
 
@@ -182,6 +184,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
 
                 // Use this stream as instructions to draw the glyph.
                 glyphs_to_instructions.push(instructions_stream_ref);
+                gids.push(color_glyph.gid);
             }
 
             // Write the Type3 font object.
@@ -229,10 +232,12 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             ctx.pdf.cmap(cmap_ref, &cmap.finish());
 
             // Write the font descriptor.
+            gids.sort();
+            let subset_tag = subset_tag(&gids);
             let postscript_name = font
                 .find_name(name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
-            let base_font = eco_format!("COLOR{font_index:x}+{postscript_name}");
+            let base_font = eco_format!("{subset_tag}+{postscript_name}");
             write_font_descriptor(&mut ctx.pdf, descriptor_ref, &font, &base_font);
 
             // Write the widths array
@@ -312,7 +317,7 @@ fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
 }
 
 /// Produce a unique 6 letter tag for a glyph set.
-fn subset_tag(glyphs: &BTreeMap<u16, EcoString>) -> EcoString {
+fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
     const LEN: usize = 6;
     const BASE: u128 = 26;
     let mut hash = typst::util::hash128(&glyphs);
