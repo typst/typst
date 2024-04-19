@@ -5,7 +5,9 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
-use crate::layout::{Abs, Corners, Em, FrameItem, Length, Point, Rel, Sides, Size};
+use crate::layout::{
+    Abs, Corners, Em, Frame, FrameItem, Length, Point, Rel, Sides, Size,
+};
 use crate::syntax::Span;
 use crate::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TextItem, TopEdge, TopEdgeMetric,
@@ -426,12 +428,14 @@ enum DecoLine {
     },
 }
 
-/// Generate one line decoration to a frame.
-pub(crate) fn decorate_frame_once(
+/// Generate line decorations for a frame.
+pub(crate) fn decorate_frame(
+    frame: &mut Frame,
     deco: &Decoration,
     pos: Point,
     size: Size,
-) -> Option<Vec<(bool, Point, FrameItem)>> {
+    shift: Abs,
+) {
     let size = size.to_point();
     let width = size.x;
     let height = size.y;
@@ -444,12 +448,11 @@ pub(crate) fn decorate_frame_once(
             Some(fill.clone()),
             stroke.clone(),
         );
-        let origin = Point::new(-deco.extent, pos.y);
-        return Some(
+        let origin = Point::new(pos.x - deco.extent, pos.y - shift);
+        frame.prepend_multiple(
             rects
                 .into_iter()
-                .map(|shape| (true, origin, FrameItem::Shape(shape, Span::detached())))
-                .collect(),
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached()))),
         );
     }
 
@@ -465,45 +468,34 @@ pub(crate) fn decorate_frame_once(
         DecoLine::Underline { stroke, offset, evade: _, background } => {
             (stroke, height, offset, *background)
         }
-        _ => return None,
+        _ => return,
     };
 
     let offset = offset.unwrap_or(Abs::zero()) + y_baseline;
 
     let stroke = stroke.clone().unwrap_or_default();
 
-    let start = -deco.extent;
-    let end = width + deco.extent;
-    let origin = Point::new(start, pos.y + offset);
+    let start = pos.x - deco.extent;
+    let end = pos.x + width + deco.extent;
+    let origin = Point::new(start, pos.y + offset - shift);
     let target = Point::new(end - start, Abs::zero());
     let shape = Geometry::Line(target).stroked(stroke.clone());
-    Some(vec![(background, origin, FrameItem::Shape(shape, Span::detached()))])
-}
-
-/// Generate line decorations for a frame.
-pub(crate) fn decorate_frame(
-    decos: &[Decoration],
-    pos: Point,
-    size: Size,
-) -> Vec<(bool, Point, FrameItem)> {
-    let mut result = Vec::new();
-    // call each line decorations separately and concatenate
-    for deco in decos {
-        if let Some(pos_and_frames) = decorate_frame_once(deco, pos, size) {
-            result.extend(pos_and_frames)
-        }
+    if background {
+        frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
+    } else {
+        frame.push(origin, FrameItem::Shape(shape, Span::detached()));
     }
-    result
 }
 
-/// Generate one line decoration for a shaped text.
-fn decorate_shaped_text_once(
+/// Generate line decorations for a shaped text.
+pub(crate) fn decorate_shaped_text(
+    frame: &mut Frame,
     deco: &Decoration,
     text: &TextItem,
     width: Abs,
     shift: Abs,
     pos: Point,
-) -> Option<Vec<(bool, Point, FrameItem)>> {
+) {
     let font_metrics = text.font.metrics();
 
     if let DecoLine::Highlight { fill, stroke, top_edge, bottom_edge, radius } =
@@ -513,12 +505,12 @@ fn decorate_shaped_text_once(
         let size = Size::new(width + 2.0 * deco.extent, top - bottom);
         let rects = styled_rect(size, *radius, fill.clone(), stroke.clone());
         let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
-        return Some(
+        frame.prepend_multiple(
             rects
                 .into_iter()
-                .map(|shape| (true, origin, FrameItem::Shape(shape, Span::detached())))
-                .collect(),
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached()))),
         );
+        return;
     }
 
     let (stroke, metrics, offset, evade, background) = match &deco.line {
@@ -531,7 +523,7 @@ fn decorate_shaped_text_once(
         DecoLine::Underline { stroke, offset, evade, background } => {
             (stroke, font_metrics.underline, offset, *evade, *background)
         }
-        _ => return None,
+        _ => return,
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
@@ -546,20 +538,23 @@ fn decorate_shaped_text_once(
     let start = pos.x - deco.extent;
     let end = pos.x + width + deco.extent;
 
-    let mut result = Vec::new();
     let mut push_segment = |from: Abs, to: Abs, prepend: bool| {
         let origin = Point::new(from, pos.y + offset);
         let target = Point::new(to - from, Abs::zero());
 
         if target.x >= min_width || !evade {
             let shape = Geometry::Line(target).stroked(stroke.clone());
-            result.push((prepend, origin, FrameItem::Shape(shape, Span::detached())));
+            if prepend {
+                frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
+            } else {
+                frame.push(origin, FrameItem::Shape(shape, Span::detached()));
+            }
         }
     };
 
     if !evade {
         push_segment(start, end, background);
-        return Some(result);
+        return;
     }
 
     let line = Line::new(
@@ -616,28 +611,6 @@ fn decorate_shaped_text_once(
             push_segment(l + gap_padding, r - gap_padding, background);
         }
     }
-
-    Some(result)
-}
-
-/// Generate line decorations for a shaped text.
-pub(crate) fn decorate_shaped_text(
-    decos: &[Decoration],
-    text: &TextItem,
-    width: Abs,
-    shift: Abs,
-    pos: Point,
-) -> Vec<(bool, Point, FrameItem)> {
-    let mut result = Vec::new();
-    // call each line decorations separately and concatenate
-    for deco in decos {
-        if let Some(pos_and_frames) =
-            decorate_shaped_text_once(deco, text, width, shift, pos)
-        {
-            result.extend(pos_and_frames)
-        }
-    }
-    result
 }
 
 // Return the top/bottom edge of the text given the metric of the font.

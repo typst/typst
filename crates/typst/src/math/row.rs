@@ -386,14 +386,9 @@ impl MathRunFrameBuilder {
             frame.push_frame(pos, sub);
         }
         let decos = TextElem::deco_in(styles);
-        let pos_and_frames = decorate_frame(&decos, Point::zero(), frame.size());
-        let (background_pos_and_frames, foreground_pos_and_frames): (Vec<_>, Vec<_>) =
-            pos_and_frames.into_iter().partition(|&(b, _, _)| b);
-        for (_, pos, frame_item) in background_pos_and_frames {
-            frame.prepend(pos, frame_item);
-        }
-        for (_, pos, frame_item) in foreground_pos_and_frames {
-            frame.push(pos, frame_item);
+        let size = frame.size();
+        for deco in &decos {
+            decorate_frame(&mut frame, deco, Point::zero(), size, Abs::zero());
         }
         frame
     }

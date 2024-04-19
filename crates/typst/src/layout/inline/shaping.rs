@@ -319,16 +319,8 @@ impl<'a> ShapedText<'a> {
             } else {
                 // Apply line decorations.
                 frame.push(pos, FrameItem::Text(item.clone()));
-                let pos_and_frames =
-                    decorate_shaped_text(&decos, &item, width, shift, pos);
-                let (prepend_list, append_list): (Vec<_>, Vec<_>) =
-                    pos_and_frames.into_iter().partition(|&(b, _, _)| b);
-
-                for (_, pos, frame_item) in prepend_list {
-                    frame.prepend(pos, frame_item);
-                }
-                for (_, pos, frame_item) in append_list {
-                    frame.push(pos, frame_item);
+                for deco in &decos {
+                    decorate_shaped_text(&mut frame, deco, &item, width, shift, pos);
                 }
             }
 

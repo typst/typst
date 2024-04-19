@@ -253,7 +253,7 @@ impl Packed<EquationElem> {
             items.push(MathParItem::Frame(Frame::soft(Size::zero())));
         }
 
-        // helper function to determine the vertical offset for a frame from MathParItem
+        // helper function to determine the vertical shift for a frame from MathParItem
         let get_vertical_shift_fn = |frame: &Frame| {
             let font_size = scaled_font_size(&ctx, styles);
             let slack = ParElem::leading_in(styles) * 0.7;
@@ -262,6 +262,8 @@ impl Packed<EquationElem> {
             ascent - frame.baseline()
         };
 
+        let mut first_non_space_idx: Option<usize> = None;
+        let mut last_non_space_idx: Option<usize> = None;
         for (idx, item) in items.iter().enumerate() {
             match item {
                 MathParItem::Frame(frame) => {
@@ -271,6 +273,10 @@ impl Packed<EquationElem> {
                     let size = Size::new(frame.width().abs(), frame.height().abs());
                     pos_and_sizes.push((pos, size));
                     x += frame.width();
+                    if first_non_space_idx.is_none() {
+                        first_non_space_idx = Some(idx);
+                    }
+                    last_non_space_idx = Some(idx);
                 }
                 MathParItem::Space(space_width) => {
                     // A MarhParItem can also be space (consumes a width), in the latter
@@ -282,42 +288,46 @@ impl Packed<EquationElem> {
                 }
             }
         }
+        let first_non_space_idx = first_non_space_idx.unwrap_or(0);
+        let last_non_space_idx = last_non_space_idx.unwrap_or(0);
         // computing the origin position and the size of the bounding box of the entire MathParItem
         // Array.
         let (pos, size) = compute_bounding_box(&pos_and_sizes);
         let decos = TextElem::deco_in(styles);
-        let pos_and_frames = decorate_frame(&decos, pos, size);
-        let (background_pos_and_frames, foreground_pos_and_frames): (Vec<_>, Vec<_>) =
-            pos_and_frames.into_iter().partition(|&(b, _, _)| b);
+        let mut last_frame: Option<&mut Frame> = None;
+        for (idx, item) in items.iter_mut().enumerate() {
+            // Skip the spaces in the start and the end. But the space in between frames will be
+            // decorated as well. But space has no corresponding frame, so we will keep a reference
+            // to the previous non-space frame and add decorations to it.
+            if idx < first_non_space_idx || idx > last_non_space_idx {
+                continue;
+            }
+            match item {
+                MathParItem::Frame(ref mut frame) => {
+                    let (size, y_off_set) = (
+                        Size::new(frame.width(), size.to_point().y),
+                        get_vertical_shift_fn(frame),
+                    );
+                    for deco in &decos {
+                        decorate_frame(frame, deco, pos, size, y_off_set);
+                    }
+                    last_frame = Some(frame);
+                }
+                MathParItem::Space(width) => {
+                    if let Some(ref mut frame) = last_frame {
+                        let (size, y_off_set) = (
+                            Size::new(*width, size.to_point().y),
+                            get_vertical_shift_fn(frame),
+                        );
+                        let new_pos = pos + Point::new(frame.width(), Abs::zero());
+                        for deco in &decos {
+                            decorate_frame(frame, deco, new_pos, size, y_off_set);
+                        }
+                    }
+                }
+            };
+        }
 
-        let mut first_frame_index: Option<usize> = None;
-        let mut last_frame_index: Option<usize> = None;
-        for (index, item) in items.iter().enumerate() {
-            let MathParItem::Frame(_) = item else { continue };
-            if first_frame_index.is_none() {
-                first_frame_index = Some(index);
-            }
-            last_frame_index = Some(index);
-        }
-        if let Some(index) = first_frame_index {
-            if let Some(MathParItem::Frame(ref mut frame)) = items.get_mut(index) {
-                let y_off_set = get_vertical_shift_fn(frame);
-                for (_, pos, frame_item) in background_pos_and_frames {
-                    let new_pos = Point::new(pos.x, pos.y - y_off_set);
-                    frame.prepend(new_pos, frame_item);
-                }
-            }
-        }
-        if let Some(index) = last_frame_index {
-            if let Some(MathParItem::Frame(ref mut frame)) = items.get_mut(index) {
-                let y_off_set = get_vertical_shift_fn(frame);
-                for (_, pos, frame_item) in foreground_pos_and_frames {
-                    let new_pos =
-                        Point::new(pos.x - x + frame.width(), pos.y - y_off_set);
-                    frame.push(new_pos, frame_item);
-                }
-            }
-        }
         for item in &mut items {
             let MathParItem::Frame(frame) = item else { continue };
 
