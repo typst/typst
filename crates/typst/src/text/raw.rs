@@ -9,6 +9,7 @@ use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::Lang;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -19,10 +20,9 @@ use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::{Figurable, ParElem};
 use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
-    FontFamily, FontList, Hyphenate, Lang, LinebreakElem, LocalName, Region,
-    SmartQuoteElem, TextElem, TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, SmartQuoteElem, TextElem,
+    TextSize,
 };
-use crate::util::option_eq;
 use crate::visualize::Color;
 use crate::{syntax, World};
 
@@ -456,39 +456,7 @@ impl ShowSet for Packed<RawElem> {
 }
 
 impl LocalName for Packed<RawElem> {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "List",
-            Lang::ARABIC => "قائمة",
-            Lang::BOKMÅL => "Utskrift",
-            Lang::CATALAN => "Llistat",
-            Lang::CHINESE if option_eq(region, "TW") => "程式",
-            Lang::CHINESE => "代码",
-            Lang::CZECH => "Seznam",
-            Lang::DANISH => "Liste",
-            Lang::DUTCH => "Listing",
-            Lang::ESTONIAN => "List",
-            Lang::FILIPINO => "Listahan",
-            Lang::FINNISH => "Listaus",
-            Lang::FRENCH => "Liste",
-            Lang::GERMAN => "Listing",
-            Lang::GREEK => "Παράθεση",
-            Lang::ITALIAN => "Codice",
-            Lang::NYNORSK => "Utskrift",
-            Lang::POLISH => "Program",
-            Lang::ROMANIAN => "Listă", // TODO: I dunno
-            Lang::RUSSIAN => "Листинг",
-            Lang::SERBIAN => "Програм",
-            Lang::SLOVENIAN => "Program",
-            Lang::SPANISH => "Listado",
-            Lang::SWEDISH => "Listing",
-            Lang::TURKISH => "Liste",
-            Lang::UKRAINIAN => "Лістинг",
-            Lang::VIETNAMESE => "Chương trình", // TODO: This may be wrong.
-            Lang::JAPANESE => "リスト",
-            Lang::ENGLISH | _ => "Listing",
-        }
-    }
+    const KEY: &'static str = "raw";
 }
 
 impl Figurable for Packed<RawElem> {}

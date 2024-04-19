@@ -1,0 +1,7 @@
+figure = Рис.
+table = Таблица
+equation = Уравнение
+bibliography = Библиография
+heading = Раздел
+outline = Содержание
+raw = Листинг

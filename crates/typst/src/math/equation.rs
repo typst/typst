@@ -19,10 +19,9 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
-    TextElem,
+    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
 };
-use crate::util::{option_eq, NonZeroExt, Numeric};
+use crate::util::{NonZeroExt, Numeric};
 use crate::World;
 
 /// A mathematical equation.
@@ -302,41 +301,7 @@ impl Count for Packed<EquationElem> {
 }
 
 impl LocalName for Packed<EquationElem> {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Ekuacion",
-            Lang::ARABIC => "معادلة",
-            Lang::BOKMÅL => "Ligning",
-            Lang::CATALAN => "Equació",
-            Lang::CHINESE if option_eq(region, "TW") => "方程式",
-            Lang::CHINESE => "公式",
-            Lang::CZECH => "Rovnice",
-            Lang::DANISH => "Ligning",
-            Lang::DUTCH => "Vergelijking",
-            Lang::ESTONIAN => "Valem",
-            Lang::FILIPINO => "Ekwasyon",
-            Lang::FINNISH => "Yhtälö",
-            Lang::FRENCH => "Équation",
-            Lang::GERMAN => "Gleichung",
-            Lang::GREEK => "Εξίσωση",
-            Lang::HUNGARIAN => "Egyenlet",
-            Lang::ITALIAN => "Equazione",
-            Lang::NYNORSK => "Likning",
-            Lang::POLISH => "Równanie",
-            Lang::PORTUGUESE => "Equação",
-            Lang::ROMANIAN => "Ecuația",
-            Lang::RUSSIAN => "Уравнение",
-            Lang::SERBIAN => "Једначина",
-            Lang::SLOVENIAN => "Enačba",
-            Lang::SPANISH => "Ecuación",
-            Lang::SWEDISH => "Ekvation",
-            Lang::TURKISH => "Denklem",
-            Lang::UKRAINIAN => "Рівняння",
-            Lang::VIETNAMESE => "Phương trình",
-            Lang::JAPANESE => "式",
-            Lang::ENGLISH | _ => "Equation",
-        }
-    }
+    const KEY: &'static str = "equation";
 }
 
 impl Refable for Packed<EquationElem> {

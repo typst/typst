@@ -40,7 +40,7 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{
     FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
 };
-use crate::util::{option_eq, LazyHash, NonZeroExt, PicoStr};
+use crate::util::{LazyHash, NonZeroExt, PicoStr};
 use crate::World;
 
 /// A bibliography / reference listing.
@@ -283,41 +283,7 @@ impl ShowSet for Packed<BibliographyElem> {
 }
 
 impl LocalName for Packed<BibliographyElem> {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Bibliografi",
-            Lang::ARABIC => "المراجع",
-            Lang::BOKMÅL => "Bibliografi",
-            Lang::CATALAN => "Bibliografia",
-            Lang::CHINESE if option_eq(region, "TW") => "書目",
-            Lang::CHINESE => "参考文献",
-            Lang::CZECH => "Bibliografie",
-            Lang::DANISH => "Bibliografi",
-            Lang::DUTCH => "Bibliografie",
-            Lang::ESTONIAN => "Viited",
-            Lang::FILIPINO => "Bibliograpiya",
-            Lang::FINNISH => "Viitteet",
-            Lang::FRENCH => "Bibliographie",
-            Lang::GERMAN => "Bibliographie",
-            Lang::GREEK => "Βιβλιογραφία",
-            Lang::HUNGARIAN => "Irodalomjegyzék",
-            Lang::ITALIAN => "Bibliografia",
-            Lang::NYNORSK => "Bibliografi",
-            Lang::POLISH => "Bibliografia",
-            Lang::PORTUGUESE => "Bibliografia",
-            Lang::ROMANIAN => "Bibliografie",
-            Lang::RUSSIAN => "Библиография",
-            Lang::SERBIAN => "Литература",
-            Lang::SLOVENIAN => "Literatura",
-            Lang::SPANISH => "Bibliografía",
-            Lang::SWEDISH => "Bibliografi",
-            Lang::TURKISH => "Kaynakça",
-            Lang::UKRAINIAN => "Бібліографія",
-            Lang::VIETNAMESE => "Tài liệu tham khảo",
-            Lang::JAPANESE => "参考文献",
-            Lang::ENGLISH | _ => "Bibliography",
-        }
-    }
+    const KEY: &'static str = "bibliography";
 }
 
 /// A loaded bibliography.

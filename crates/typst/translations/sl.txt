@@ -1,0 +1,7 @@
+figure = Slika
+table = Tabela
+equation = Enačba
+bibliography = Literatura
+heading = Poglavje
+outline = Kazalo
+raw = Program

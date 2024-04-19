@@ -15,8 +15,8 @@ use crate::model::{
     Destination, HeadingElem, NumberingPattern, ParElem, ParbreakElem, Refable,
 };
 use crate::syntax::Span;
-use crate::text::{Lang, LinebreakElem, LocalName, Region, SpaceElem, TextElem};
-use crate::util::{option_eq, NonZeroExt};
+use crate::text::{LinebreakElem, LocalName, SpaceElem, TextElem};
+use crate::util::NonZeroExt;
 
 /// A table of contents, figures, or other elements.
 ///
@@ -272,42 +272,7 @@ impl ShowSet for Packed<OutlineElem> {
 }
 
 impl LocalName for Packed<OutlineElem> {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Përmbajtja",
-            Lang::ARABIC => "المحتويات",
-            Lang::BOKMÅL => "Innhold",
-            Lang::CATALAN => "Índex",
-            Lang::CHINESE if option_eq(region, "TW") => "目錄",
-            Lang::CHINESE => "目录",
-            Lang::CZECH => "Obsah",
-            Lang::DANISH => "Indhold",
-            Lang::DUTCH => "Inhoudsopgave",
-            Lang::ESTONIAN => "Sisukord",
-            Lang::FILIPINO => "Talaan ng mga Nilalaman",
-            Lang::FINNISH => "Sisällys",
-            Lang::FRENCH => "Table des matières",
-            Lang::GERMAN => "Inhaltsverzeichnis",
-            Lang::GREEK => "Περιεχόμενα",
-            Lang::HUNGARIAN => "Tartalomjegyzék",
-            Lang::ITALIAN => "Indice",
-            Lang::NYNORSK => "Innhald",
-            Lang::POLISH => "Spis treści",
-            Lang::PORTUGUESE if option_eq(region, "PT") => "Índice",
-            Lang::PORTUGUESE => "Sumário",
-            Lang::ROMANIAN => "Cuprins",
-            Lang::RUSSIAN => "Содержание",
-            Lang::SERBIAN => "Садржај",
-            Lang::SLOVENIAN => "Kazalo",
-            Lang::SPANISH => "Índice",
-            Lang::SWEDISH => "Innehåll",
-            Lang::TURKISH => "İçindekiler",
-            Lang::UKRAINIAN => "Зміст",
-            Lang::VIETNAMESE => "Mục lục",
-            Lang::JAPANESE => "目次",
-            Lang::ENGLISH | _ => "Contents",
-        }
-    }
+    const KEY: &'static str = "outline";
 }
 
 /// Marks an element as being able to be outlined. This is used to implement the

@@ -72,3 +72,9 @@
 --- text-region-bad-value ---
 // Error: 19-24 expected two letter region code (ISO 3166-1 alpha-2)
 #set text(region: "hey")
+
+--- text-language-fallback-english ---
+#set text(lang: "qaa")
+#outline()
+#set text(lang: "qaa", region: "aa")
+#outline()

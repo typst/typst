@@ -1,0 +1,8 @@
+figure = Hình
+table = Bảng
+equation = Phương trình
+bibliography = Tài liệu tham khảo
+heading = Phần
+outline = Mục lục
+# may be wrong
+raw = Chương trình 

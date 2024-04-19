@@ -16,7 +16,7 @@ use crate::layout::{
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
-use crate::text::{Lang, LocalName, Region, TextElem};
+use crate::text::{LocalName, TextElem};
 use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
@@ -317,40 +317,7 @@ impl LayoutMultiple for Packed<TableElem> {
 }
 
 impl LocalName for Packed<TableElem> {
-    fn local_name(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Tabel",
-            Lang::ARABIC => "جدول",
-            Lang::BOKMÅL => "Tabell",
-            Lang::CATALAN => "Taula",
-            Lang::CHINESE => "表",
-            Lang::CZECH => "Tabulka",
-            Lang::DANISH => "Tabel",
-            Lang::DUTCH => "Tabel",
-            Lang::ESTONIAN => "Tabel",
-            Lang::FILIPINO => "Talaan",
-            Lang::FINNISH => "Taulukko",
-            Lang::FRENCH => "Tableau",
-            Lang::GERMAN => "Tabelle",
-            Lang::GREEK => "Πίνακας",
-            Lang::HUNGARIAN => "Táblázat",
-            Lang::ITALIAN => "Tabella",
-            Lang::NYNORSK => "Tabell",
-            Lang::POLISH => "Tabela",
-            Lang::PORTUGUESE => "Tabela",
-            Lang::ROMANIAN => "Tabelul",
-            Lang::RUSSIAN => "Таблица",
-            Lang::SERBIAN => "Табела",
-            Lang::SLOVENIAN => "Tabela",
-            Lang::SPANISH => "Tabla",
-            Lang::SWEDISH => "Tabell",
-            Lang::TURKISH => "Tablo",
-            Lang::UKRAINIAN => "Таблиця",
-            Lang::VIETNAMESE => "Bảng",
-            Lang::JAPANESE => "表",
-            Lang::ENGLISH | _ => "Table",
-        }
-    }
+    const KEY: &'static str = "table";
 }
 
 impl Figurable for Packed<TableElem> {}

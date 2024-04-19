@@ -9,8 +9,8 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{BlockElem, Em, HElem, VElem};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
-use crate::text::{FontWeight, Lang, LocalName, Region, SpaceElem, TextElem, TextSize};
-use crate::util::{option_eq, NonZeroExt};
+use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
+use crate::util::NonZeroExt;
 
 /// A section heading.
 ///
@@ -294,40 +294,5 @@ impl Outlinable for Packed<HeadingElem> {
 }
 
 impl LocalName for Packed<HeadingElem> {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Kapitull",
-            Lang::ARABIC => "الفصل",
-            Lang::BOKMÅL => "Kapittel",
-            Lang::CATALAN => "Secció",
-            Lang::CHINESE if option_eq(region, "TW") => "小節",
-            Lang::CHINESE => "小节",
-            Lang::CZECH => "Kapitola",
-            Lang::DANISH => "Afsnit",
-            Lang::DUTCH => "Hoofdstuk",
-            Lang::ESTONIAN => "Peatükk",
-            Lang::FILIPINO => "Seksyon",
-            Lang::FINNISH => "Osio",
-            Lang::FRENCH => "Chapitre",
-            Lang::GERMAN => "Abschnitt",
-            Lang::GREEK => "Κεφάλαιο",
-            Lang::HUNGARIAN => "Fejezet",
-            Lang::ITALIAN => "Sezione",
-            Lang::NYNORSK => "Kapittel",
-            Lang::POLISH => "Sekcja",
-            Lang::PORTUGUESE if option_eq(region, "PT") => "Secção",
-            Lang::PORTUGUESE => "Seção",
-            Lang::ROMANIAN => "Secțiunea",
-            Lang::RUSSIAN => "Раздел",
-            Lang::SERBIAN => "Поглавље",
-            Lang::SLOVENIAN => "Poglavje",
-            Lang::SPANISH => "Sección",
-            Lang::SWEDISH => "Kapitel",
-            Lang::TURKISH => "Bölüm",
-            Lang::UKRAINIAN => "Розділ",
-            Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
-            Lang::JAPANESE => "節",
-            Lang::ENGLISH | _ => "Section",
-        }
-    }
+    const KEY: &'static str = "heading";
 }
