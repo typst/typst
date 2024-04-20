@@ -497,11 +497,15 @@ pub struct TextElem {
     /// contexts.
     ///
     /// ```example
-    /// #set text(costs: (hyphenation: 200%))
-    /// #set text(costs: (runt: 20%)) // Merged with previous.
-    /// #set text(costs: (hyphenation: 10%)) // Merged, and `hyphenation` overrides previous.
+    /// #set text(hyphenate: true, size: 11.4pt)
+    /// #set par(justify: true)
     ///
-    /// #context assert.eq(text.costs, (hyphenation: 10%, runt: 20%, orphan: 100%, widow: 100%))
+    /// #lorem(10)
+    ///
+    /// // Set hyphenation to ten times the normal cost.
+    /// #set text(costs: (hyphenation: 1000%))
+    ///
+    /// #lorem(10)
     /// ```
     #[fold]
     pub costs: Costs,
