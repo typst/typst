@@ -240,8 +240,9 @@ impl Counter {
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
     }
 
-    /// Gets the value of the counter at the given location. Always returns an
-    /// array of integers, even if the counter has just one number.
+    /// Query the value of the counter at the given location. The returned
+    /// [`CounterState`] always holds an array of integers, even if the counter has
+    /// just one number.
     pub fn at_loc(
         &self,
         engine: &mut Engine,
@@ -260,7 +261,7 @@ impl Counter {
         Ok(state)
     }
 
-    /// Displays the value of the counter at the given location.
+    /// Query and display the value of the counter at the given location.
     pub fn display_at_loc(
         &self,
         engine: &mut Engine,
@@ -645,6 +646,9 @@ pub trait Count {
 }
 
 /// Counts through elements with different levels.
+///
+/// For example, the top-level heading is counted at level = 1, and the second-level
+/// heading is counted at level = 2, and so on.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct CounterState(pub SmallVec<[usize; 3]>);
 
@@ -656,6 +660,11 @@ impl CounterState {
             CounterKey::Page => smallvec![1],
             _ => smallvec![0],
         })
+    }
+
+    /// Get the number of levels.
+    pub fn levels(&self) -> NonZeroUsize {
+        NonZeroUsize::new(self.0.len()).unwrap()
     }
 
     /// Advance the counter and return the numbers for the given heading.

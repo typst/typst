@@ -1,14 +1,15 @@
 use std::num::NonZeroUsize;
 
+use comemo::Track;
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    elem, Cast, Content, Context, NativeElement, Packed, Resolve, ShowSet, Smart,
+    StyleChain, Styles, Synthesize,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{Count, Counter, CounterState, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
     LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
@@ -79,9 +80,8 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the alignment is `{end + horizon}`. For the horizontal
-    /// component, you can use `{right}`, `{left}`, or `{start}` and `{end}`
-    /// of the text direction; for the vertical component, you can use
+    /// For the horizontal component, you can use `{right}`, `{left}`, or `{start}`
+    /// and `{end}` of the text direction; for the vertical component, you can use
     /// `{top}`, `{horizon}`, or `{bottom}`.
     ///
     /// ```example
@@ -93,6 +93,22 @@ pub struct EquationElem {
     /// ```
     #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
     pub number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
+
+    /// The numbering mode of the equation.
+    ///
+    /// To number each equation block, use `{"by-block"}`; to number each line in the
+    /// equation block, use `{"by-line"}`.
+    ///
+    /// ```example
+    /// #set math.equation(numbering: "(1.1)", number-mode: "by-line")
+    ///
+    /// $ E &= h omega \
+    ///     &approx 1 "eV" $
+    /// and
+    /// $ v = c $
+    /// ```
+    #[default(NumberMode::ByBlock)]
+    pub number_mode: NumberMode,
 
     /// A supplement for the equation.
     ///
@@ -264,30 +280,67 @@ impl LayoutSingle for Packed<EquationElem> {
             return Ok(equation_builder.build());
         };
 
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let number = Counter::of(EquationElem::elem())
-            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
-            .spanned(span)
-            .layout(engine, styles, pod)?
-            .into_frame();
-
-        static NUMBER_GUTTER: Em = Em::new(0.5);
-        let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
-
         let number_align = match self.number_align(styles) {
             SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
             SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
             SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
         };
 
+        let pod: Regions<'_> = Regions::one(regions.base(), Axes::splat(false));
+        let loc = self.location().unwrap();
+        let context = Context::new(Some(loc), Some(styles));
+        let mut counter_state = Counter::of(EquationElem::elem()).at_loc(engine, loc)?;
+
+        let mut display_counter_state =
+            |counter_state: &CounterState| -> SourceResult<Frame> {
+                Ok(counter_state
+                    .display(engine, context.track(), numbering)?
+                    .display()
+                    .spanned(span)
+                    .layout(engine, styles, pod)?
+                    .into_frame())
+            };
+        let block_number = display_counter_state(&counter_state)?;
+
+        let mut line_medatadata = vec![];
+        let number_align = number_align.resolve(styles);
+        let number_mode = self.number_mode(styles);
+        let line_counter_level = counter_state.levels().saturating_add(1);
+        let line_count = equation_builder.frames.len();
+        for (i, line) in equation_builder.frames.iter().enumerate() {
+            counter_state.step(line_counter_level, 1);
+            let line_number = match number_mode {
+                NumberMode::ByLine => {
+                    if matches!(line_count, 1) {
+                        Some(block_number.clone())
+                    } else {
+                        Some(display_counter_state(&counter_state)?)
+                    }
+                }
+                NumberMode::ByBlock => match (i, line_count - i, number_align.y) {
+                    (0, _, FixedAlignment::Start) | (_, 1, FixedAlignment::End) => {
+                        Some(block_number.clone())
+                    }
+                    _ => None,
+                },
+            };
+            line_medatadata.push(LineMetadata {
+                number: line_number,
+                size: line.0.size(),
+                point: line.1,
+            });
+        }
+
         let frame = add_equation_number(
             equation_builder,
-            number,
-            number_align.resolve(styles),
             AlignElem::alignment_in(styles).resolve(styles).x,
+            block_number,
+            line_medatadata,
+            number_align,
+            number_mode,
             regions.size.x,
-            full_number_width,
-        );
+            styles,
+        )?;
 
         Ok(frame)
     }
@@ -381,27 +434,43 @@ fn find_math_font(
     Ok(font)
 }
 
+/// How equations are numbered.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+enum NumberMode {
+    ByBlock,
+    ByLine,
+}
+
+struct LineMetadata {
+    number: Option<Frame>,
+    size: Axes<Abs>,
+    point: Point,
+}
+
+#[allow(clippy::too_many_arguments)]
 fn add_equation_number(
     equation_builder: MathRunFrameBuilder,
-    number: Frame,
-    number_align: Axes<FixedAlignment>,
     equation_align: FixedAlignment,
+    block_number: Frame,
+    line_metadata: Vec<LineMetadata>,
+    number_align: Axes<FixedAlignment>,
+    number_mode: NumberMode,
     region_size_x: Abs,
-    full_number_width: Abs,
-) -> Frame {
-    let first = equation_builder
-        .frames
-        .first()
-        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
-            (frame.size(), *point)
-        });
-    let last = equation_builder
-        .frames
-        .last()
-        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
-            (frame.size(), *point)
-        });
+    styles: StyleChain,
+) -> SourceResult<Frame> {
     let mut equation = equation_builder.build();
+    if line_metadata.is_empty() {
+        return Ok(equation);
+    }
+
+    let number_width = match number_mode {
+        NumberMode::ByBlock => block_number.width(),
+        NumberMode::ByLine => line_metadata.iter().fold(Abs::zero(), |acc, e| {
+            acc.max(e.number.as_ref().map_or(Abs::zero(), |num| num.width()))
+        }),
+    };
+    static NUMBER_GUTTER: Em = Em::new(0.5);
+    let full_number_width = NUMBER_GUTTER.resolve(styles) + number_width;
 
     let width = if region_size_x.is_finite() {
         region_size_x
@@ -410,15 +479,23 @@ fn add_equation_number(
     };
     let height = match number_align.y {
         FixedAlignment::Start => {
-            let (size, point) = first;
-            let excess_above = (number.height() - size.y) / 2.0 - point.y;
+            let first = line_metadata.first();
+            let excess_above = first.map_or(Abs::zero(), |first| {
+                first.number.as_ref().map_or(Abs::zero(), |number| {
+                    (number.height() - first.size.y) / 2.0 - first.point.y
+                })
+            });
             equation.height() + Abs::zero().max(excess_above)
         }
-        FixedAlignment::Center => equation.height().max(number.height()),
+        FixedAlignment::Center => equation.height().max(block_number.height()),
         FixedAlignment::End => {
-            let (size, point) = last;
-            let excess_below =
-                (number.height() + size.y) / 2.0 - equation.height() + point.y;
+            let last = line_metadata.last();
+            let excess_below = last.map_or(Abs::zero(), |last| {
+                last.number.as_ref().map_or(Abs::zero(), |number| {
+                    (number.height() + last.size.y) / 2.0 - equation.height()
+                        + last.point.y
+                })
+            });
             equation.height() + Abs::zero().max(excess_below)
         }
     };
@@ -434,22 +511,30 @@ fn add_equation_number(
 
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
-        FixedAlignment::End => equation.width() - number.width(),
+        FixedAlignment::End => equation.width() - number_width,
         _ => unreachable!(),
     };
     let dh = |h1: Abs, h2: Abs| (h1 - h2) / 2.0;
-    let y = match number_align.y {
-        FixedAlignment::Start => {
-            let (size, point) = first;
-            resizing_offset.y + point.y + dh(size.y, number.height())
-        }
-        FixedAlignment::Center => dh(equation.height(), number.height()),
-        FixedAlignment::End => {
-            let (size, point) = last;
-            resizing_offset.y + point.y + dh(size.y, number.height())
-        }
-    };
 
-    equation.push_frame(Point::new(x, y), number);
-    equation
+    if matches!(
+        (number_mode, number_align.y),
+        (NumberMode::ByBlock, FixedAlignment::Center)
+    ) {
+        let y = dh(equation.height(), block_number.height());
+        equation.push_frame(Point::new(x, y), block_number);
+    } else {
+        for line in line_metadata {
+            match line.number {
+                Some(number) => {
+                    let y = resizing_offset.y
+                        + line.point.y
+                        + dh(line.size.y, number.height());
+                    equation.push_frame(Point::new(x, y), number);
+                }
+                None => continue,
+            };
+        }
+    }
+
+    Ok(equation)
 }

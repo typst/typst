@@ -54,6 +54,18 @@ This is big: $sum_(i=0)^n$
 #eq(start)
 #eq(end)
 
+--- math-equation-number-mode-line ---
+#set math.equation(numbering: "(1.1)", number-mode: "by-line")
+We have
+$ a + b &= c \
+        &= 1, $
+and
+$ d + e &= f \
+        &= g \
+        &= 2, $
+and
+$ h = 3. $
+
 --- math-equation-number-align ---
 #set math.equation(numbering: "(1)")
 
