@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
+use std::iter;
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
@@ -135,8 +136,9 @@ impl Array {
             .filter(|&v| v < self.0.len() + end_ok as usize)
     }
 
-    /// Repeat this array `n` times.
-    pub fn repeat(&self, n: usize) -> StrResult<Self> {
+    /// Repeat the content of this array `n` times, that is, creates an
+    /// array that contains elements of the original array repeated n times.
+    pub fn repeat_content(&self, n: usize) -> StrResult<Self> {
         let count = self
             .len()
             .checked_mul(n)
@@ -881,6 +883,24 @@ impl Array {
                 }
             })
             .collect()
+    }
+
+    /// Builds an array of a given value a given number of times.
+    ///
+    /// ```example
+    /// array.repeat("apples", 2)
+    /// ```
+    #[func]
+    pub fn repeat(
+        /// The value that will be repeated to build the array.
+        value: Value,
+        /// Length of the array. Must be positive.
+        times: i64,
+    ) -> StrResult<Array> {
+        match usize::try_from(times) {
+            Ok(times) => Ok(iter::repeat(value).take(times).collect()),
+            _ => Err(format!("Cannot create array with the length: {times}").into()),
+        }
     }
 }
 

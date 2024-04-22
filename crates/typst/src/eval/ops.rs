@@ -329,8 +329,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Str(a), Int(b)) => Str(a.repeat(Value::Int(b).cast()?)?),
         (Int(a), Str(b)) => Str(b.repeat(Value::Int(a).cast()?)?),
-        (Array(a), Int(b)) => Array(a.repeat(Value::Int(b).cast()?)?),
-        (Int(a), Array(b)) => Array(b.repeat(Value::Int(a).cast()?)?),
+        (Array(a), Int(b)) => Array(a.repeat_content(Value::Int(b).cast()?)?),
+        (Int(a), Array(b)) => Array(b.repeat_content(Value::Int(a).cast()?)?),
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 

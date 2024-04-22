@@ -492,3 +492,16 @@
 --- array-unclosed ---
 // Error: 3-4 unclosed delimiter
 #{(}
+
+--- array-repeat ---
+// Test the `join` method.
+#test(().repeat(2), ((), ()))
+#test((1,).repeat(3), ((1,), (1,), (1,)))
+#test(array.repeat("a", 4), ("a", "a", "a", "a"))
+#test(array.repeat(5, 0), ())
+#test((3,) * 2, (3, 3))
+#test(2 * (3,), (3, 3))
+
+--- array-repeat-negative-length ---
+// Error: 2-21 Cannot create array with the length: -5
+#array.repeat(1, -5)
