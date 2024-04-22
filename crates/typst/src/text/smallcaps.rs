@@ -1,4 +1,6 @@
-use crate::foundations::{func, Content};
+use crate::diag::SourceResult;
+use crate::engine::Engine;
+use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 use crate::text::TextElem;
 
 /// Displays text in small capitals.
@@ -23,10 +25,15 @@ use crate::text::TextElem;
 /// = Introduction
 /// #lorem(40)
 /// ```
-#[func(title = "Small Capitals")]
-pub fn smallcaps(
-    /// The text to display to small capitals.
-    body: Content,
-) -> Content {
-    body.styled(TextElem::set_smallcaps(true))
+#[elem(title = "Small Capitals", Show)]
+pub struct SmallcapsElem {
+    #[required]
+    pub body: Content,
+}
+
+impl Show for Packed<SmallcapsElem> {
+    #[typst_macros::time(name = "smallcaps", span = self.span())]
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.body().clone().styled(TextElem::set_smallcaps(true)))
+    }
 }
