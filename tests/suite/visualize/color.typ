@@ -133,7 +133,7 @@
 #test-repr(oklch(rgb(1, 2, 3)), oklch(8.23%, 0.008, 240.75deg, 100%))
 
 --- color-spaces ---
-// The the different color spaces
+// The different color spaces
 #let col = rgb(50%, 64%, 16%)
 #box(square(size: 9pt, fill: col))
 #box(square(size: 9pt, fill: rgb(col)))

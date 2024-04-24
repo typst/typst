@@ -2906,7 +2906,7 @@ impl<'a> GridLayouter<'a> {
                     rowspan.max_resolved_row.map_or(true, |max_row| y > max_row)
                 })
             {
-                // If the first region wasn't defined yet, it will have the the
+                // If the first region wasn't defined yet, it will have the
                 // initial value of usize::MAX, so we can set it to the current
                 // region's index.
                 if rowspan.first_region > current_region {
