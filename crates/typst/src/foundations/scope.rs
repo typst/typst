@@ -48,8 +48,14 @@ impl<'a> Scopes<'a> {
     pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
+            .or_else(|| {
+                self.base.and_then(|base| match base.global.scope().get(var) {
+                    Some(value) => Some(value),
+                    None if var == "std" => Some(&base.std),
+                    None => None,
+                })
+            })
             .ok_or_else(|| unknown_variable(var))
     }
 
