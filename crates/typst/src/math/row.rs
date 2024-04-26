@@ -174,7 +174,7 @@ impl MathRun {
         };
 
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
-        let mut frames: Vec<(Frame, Point)> = vec![];
+        let mut frames: Vec<(Abs, Frame, Point)> = vec![];
         let mut size = Size::zero();
         for (i, row) in rows.into_iter().enumerate() {
             if i == row_count - 1 && row.0.is_empty() {
@@ -192,7 +192,7 @@ impl MathRun {
             }
             size.x.set_max(sub.width());
             size.y += sub.height();
-            frames.push((sub, pos));
+            frames.push((sub.baseline(), sub, pos));
         }
 
         MathRunFrameBuilder { size, frames }
@@ -375,16 +375,16 @@ impl Iterator for LeftRightAlternator {
 pub struct MathRunFrameBuilder {
     /// The size of the resulting frame.
     pub size: Size,
-    /// Sub frames for each row, and the positions where they should be pushed into
-    /// the resulting frame.
-    pub frames: Vec<(Frame, Point)>,
+    /// Each row: the baseline, the frame, and the positions where they should
+    /// be pushed into the resulting frame.
+    pub frames: Vec<(Abs, Frame, Point)>,
 }
 
 impl MathRunFrameBuilder {
     /// Consumes the builder and returns a [`Frame`].
     pub fn build(self) -> Frame {
         let mut frame = Frame::soft(self.size);
-        for (sub, pos) in self.frames.into_iter() {
+        for (_, sub, pos) in self.frames.into_iter() {
             frame.push_frame(pos, sub);
         }
         frame

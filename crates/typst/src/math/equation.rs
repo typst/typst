@@ -389,18 +389,15 @@ fn add_equation_number(
     region_size_x: Abs,
     full_number_width: Abs,
 ) -> Frame {
-    let first = equation_builder
-        .frames
-        .first()
-        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
-            (frame.size(), *point)
-        });
-    let last = equation_builder
-        .frames
-        .last()
-        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
-            (frame.size(), *point)
-        });
+    let first = equation_builder.frames.first().map_or(
+        (equation_builder.size, Point::zero(), Abs::zero()),
+        |(baseline, frame, point)| (frame.size(), *point, *baseline),
+    );
+    let last = equation_builder.frames.last().map_or(
+        (equation_builder.size, Point::zero(), Abs::zero()),
+        |(baseline, frame, point)| (frame.size(), *point, *baseline),
+    );
+    let line_count = equation_builder.frames.len();
     let mut equation = equation_builder.build();
 
     let width = if region_size_x.is_finite() {
@@ -408,23 +405,14 @@ fn add_equation_number(
     } else {
         equation.width() + 2.0 * full_number_width
     };
-    let height = match number_align.y {
-        FixedAlignment::Start => {
-            let (size, point) = first;
-            let excess_above = (number.height() - size.y) / 2.0 - point.y;
-            equation.height() + Abs::zero().max(excess_above)
-        }
-        FixedAlignment::Center => equation.height().max(number.height()),
-        FixedAlignment::End => {
-            let (size, point) = last;
-            let excess_below =
-                (number.height() + size.y) / 2.0 - equation.height() + point.y;
-            equation.height() + Abs::zero().max(excess_below)
-        }
-    };
-    let resizing_offset = equation.resize(
-        Size::new(width, height),
-        Axes::<FixedAlignment>::new(equation_align, number_align.y.inv()),
+    let resizing_offset = resize_equation(
+        &mut equation,
+        &number,
+        number_align,
+        equation_align,
+        width,
+        line_count,
+        [first, last],
     );
     equation.translate(Point::with_x(match (equation_align, number_align.x) {
         (FixedAlignment::Start, FixedAlignment::Start) => full_number_width,
@@ -437,19 +425,57 @@ fn add_equation_number(
         FixedAlignment::End => equation.width() - number.width(),
         _ => unreachable!(),
     };
-    let dh = |h1: Abs, h2: Abs| (h1 - h2) / 2.0;
+    let align_baseline = |(_, point, baseline): (_, Point, Abs), number: &Frame| {
+        resizing_offset.y + point.y + baseline - number.baseline()
+    };
     let y = match number_align.y {
-        FixedAlignment::Start => {
-            let (size, point) = first;
-            resizing_offset.y + point.y + dh(size.y, number.height())
-        }
-        FixedAlignment::Center => dh(equation.height(), number.height()),
-        FixedAlignment::End => {
-            let (size, point) = last;
-            resizing_offset.y + point.y + dh(size.y, number.height())
-        }
+        FixedAlignment::Start => align_baseline(first, &number),
+        FixedAlignment::Center if line_count < 2 => align_baseline(first, &number),
+        FixedAlignment::Center => (equation.height() - number.height()) / 2.0,
+        FixedAlignment::End => align_baseline(last, &number),
     };
 
     equation.push_frame(Point::new(x, y), number);
     equation
+}
+
+fn resize_equation(
+    equation: &mut Frame,
+    number: &Frame,
+    number_align: Axes<FixedAlignment>,
+    equation_align: FixedAlignment,
+    width: Abs,
+    line_count: usize,
+    [first, last]: [(Axes<Abs>, Point, Abs); 2],
+) -> Point {
+    let excess_above = Abs::zero().max({
+        let (.., baseline) = first;
+        number.baseline() - baseline
+    });
+    let excess_below = Abs::zero().max({
+        let (size, .., baseline) = last;
+        (number.height() - number.baseline()) - (size.y - baseline)
+    });
+    let height = match number_align.y {
+        FixedAlignment::Start => equation.height() + excess_above,
+        FixedAlignment::Center if line_count < 2 => {
+            equation.height() + excess_above + excess_below
+        }
+        FixedAlignment::Center => equation.height().max(number.height()),
+        FixedAlignment::End => equation.height() + excess_below,
+    };
+
+    if matches!(number_align.y, FixedAlignment::Center if line_count < 2) {
+        let resizing_offset = equation.resize(
+            Size::new(width, height),
+            Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Start),
+        );
+        equation.translate(Point::with_y(excess_above));
+        resizing_offset + Point::with_y(excess_above)
+    } else {
+        equation.resize(
+            Size::new(width, height),
+            Axes::<FixedAlignment>::new(equation_align, number_align.y.inv()),
+        )
+    }
 }
