@@ -45,3 +45,8 @@ $class("large", ->)_a$
 
 $limits(class("normal", ->))_a$
 $ scripts(class("relation", x))_a $
+
+--- math-class-3727-contextual ---
+
+#let test = context math.class("relation", "--")
+$ a test b $
