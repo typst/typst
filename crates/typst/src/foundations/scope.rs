@@ -63,8 +63,14 @@ impl<'a> Scopes<'a> {
     pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.map(|base| base.math.scope()))
             .find_map(|scope| scope.get(var))
+            .or_else(|| {
+                self.base.and_then(|base| match base.math.scope().get(var) {
+                    Some(value) => Some(value),
+                    None if var == "std" => Some(&base.std),
+                    None => None,
+                })
+            })
             .ok_or_else(|| unknown_variable(var))
     }
 

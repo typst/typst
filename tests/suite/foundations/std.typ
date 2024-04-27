@@ -26,3 +26,6 @@
 #let std = 10
 #(std = 7)
 #test(std, 7)
+
+--- std-math ---
+$ std.rect(x + y = 5) $
