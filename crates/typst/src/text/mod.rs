@@ -103,11 +103,14 @@ pub struct TextElem {
     /// - In the web app, you can see the list of available fonts by clicking on
     ///   the "Ag" button. You can provide additional fonts by uploading `.ttf`
     ///   or `.otf` files into your project. They will be discovered
-    ///   automatically.
+    ///   automatically. The priority is: project fonts > server fonts.
     ///
-    /// - Locally, Typst uses your installed system fonts. In addition, you can
-    ///   use the `--font-path` argument or `TYPST_FONT_PATHS` environment
-    ///   variable to add directories that should be scanned for fonts. Run
+    /// - Locally, Typst uses your installed system fonts or embedded fonts in
+    ///   the CLI, which are `Linux Libertine`, `New Computer Modern`,
+    ///   `New Computer Modern Math`, and `DejaVu Sans Mono`. In addition, you
+    ///   can use the `--font-path` argument or `TYPST_FONT_PATHS` environment
+    ///   variable to add directories that should be scanned for fonts. The
+    ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
     ///   `typst fonts` to see the fonts that Typst has discovered on your
     ///   system.
     ///
