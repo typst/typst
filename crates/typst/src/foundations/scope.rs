@@ -75,11 +75,17 @@ impl<'a> Scopes<'a> {
             .find_map(|scope| scope.get_mut(var))
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => eco_format!("cannot mutate a constant: {}", var).into(),
+                    Some(_) => cannot_mutate_constant(var),
+                    _ if var == "std" => cannot_mutate_constant(var),
                     _ => unknown_variable(var),
                 }
             })?
     }
+}
+
+#[cold]
+fn cannot_mutate_constant(var: &str) -> HintedString {
+    eco_format!("cannot mutate a constant: {}", var).into()
 }
 
 /// The error message when a variable is not found.

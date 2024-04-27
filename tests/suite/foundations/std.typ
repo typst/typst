@@ -17,3 +17,12 @@
 #let std = 5
 // Error: 6-10 cannot access fields on type integer
 #std.grid
+
+--- std-mutation ---
+// Error: 3-6 cannot mutate a constant: std
+#(std = 10)
+
+--- std-shadowed-mutation ---
+#let std = 10
+#(std = 7)
+#test(std, 7)
