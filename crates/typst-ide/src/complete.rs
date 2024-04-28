@@ -1,5 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, HashSet};
+use std::ops::Range;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
@@ -1053,7 +1054,7 @@ impl<'a> CompletionContext<'a> {
 
     /// A small window of context before the cursor.
     fn before_window(&self, size: usize) -> &str {
-        &self.before[self.cursor.saturating_sub(size)..]
+        slice_at(self.before, self.cursor.saturating_sub(size)..self.before.len())
     }
 
     /// Add a prefix and suffix to all applications.
@@ -1402,6 +1403,22 @@ impl<'a> CompletionContext<'a> {
             }
         }
     }
+}
+
+/// Slices a string at a smaller range to fit character boundaries.
+fn slice_at(s: &str, mut rng: Range<usize>) -> &str {
+    while !rng.is_empty() && !s.is_char_boundary(rng.start) {
+        rng.start += 1;
+    }
+    while !rng.is_empty() && !s.is_char_boundary(rng.end) {
+        rng.end -= 1;
+    }
+
+    if rng.is_empty() {
+        return "";
+    }
+
+    &s[rng]
 }
 
 #[cfg(test)]
