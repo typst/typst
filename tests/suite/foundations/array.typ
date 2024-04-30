@@ -173,7 +173,7 @@
 }
 
 --- array-first-and-last ---
-// The the `first` and `last` methods.
+// The `first` and `last` methods.
 #test((1,).first(), 1)
 #test((2,).last(), 2)
 #test((1, 2, 3).first(), 1)
