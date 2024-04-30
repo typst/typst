@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -75,6 +76,10 @@ pub struct CompileCommand {
     /// For example, `doc-page-{0p}-of-{t}.png` creates `doc-page-01-of-10.png` and so on.
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
+
+    /// Which pages to export. When unspecified, all document pages are exported.
+    #[arg(long = "pages", value_delimiter = ',')]
+    pub pages: Option<Vec<NonZeroUsize>>,
 
     /// Output a Makefile rule describing the current compilation
     #[clap(long = "make-deps", value_name = "PATH")]
