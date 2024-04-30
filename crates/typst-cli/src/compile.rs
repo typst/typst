@@ -9,7 +9,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
@@ -224,7 +224,19 @@ fn export_image(
             output_template::has_indexable_template(output.to_str().unwrap_or_default())
         }
     };
-    if !can_handle_multiple && document.pages.len() > 1 {
+
+    let exported_pages = document
+        .pages
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| {
+            command.pages.as_ref().map_or(true, |pages| {
+                pages.contains(&NonZeroUsize::try_from(i + 1).unwrap())
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if !can_handle_multiple && exported_pages.len() > 1 {
         let err = match output {
             Output::Stdout => "to stdout",
             Output::Path(_) => {
@@ -237,10 +249,8 @@ fn export_image(
     let cache = world.export_cache();
 
     // The results are collected in a `Vec<()>` which does not allocate.
-    document
-        .pages
+    exported_pages
         .par_iter()
-        .enumerate()
         .map(|(i, page)| {
             // Use output with converted path.
             let output = match output {
@@ -260,7 +270,7 @@ fn export_image(
                     // If we are not watching, don't use the cache.
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
-                    if watching && cache.is_cached(i, &page.frame) && path.exists() {
+                    if watching && cache.is_cached(*i, &page.frame) && path.exists() {
                         return Ok(());
                     }
 
