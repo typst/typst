@@ -67,7 +67,7 @@ use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
+    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::layout::{Alignment, Dir, LayoutRoot};
@@ -297,6 +297,9 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
+    /// The standard library as a value.
+    /// Used to provide the `std` variable.
+    pub std: Value,
 }
 
 impl Library {
@@ -333,7 +336,8 @@ impl LibraryBuilder {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
         let global = global(math.clone(), inputs);
-        Library { global, math, styles: Styles::new() }
+        let std = Value::Module(global.clone());
+        Library { global, math, styles: Styles::new(), std }
     }
 }
 
