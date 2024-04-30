@@ -492,3 +492,16 @@
 --- array-unclosed ---
 // Error: 3-4 unclosed delimiter
 #{(}
+
+--- array-reduce ---
+// Test the `reduce` method.
+#test(().reduce(grid), none)
+#test((1, 2, 3, 4).reduce((s, x) => s + x), 10)
+
+--- array-reduce-missing-reducer ---
+// Error: 2-13 missing argument: reducer
+#().reduce()
+
+--- array-reduce-unexpected-argument ---
+// Error: 19-21 unexpected argument
+#(1, 2, 3).reduce(() => none) 
