@@ -99,20 +99,8 @@
 }
 
 --- numbering-arabic-indic ---
-#set text(font: ("Linux Libertine", "Noto Sans Arabic"))
-#for i in range(0, 15) {
-  numbering("\u{0661}", i)
-  [ and ]
-  numbering("I.\u{0661}", i, i)
-  [ for #i \ ]
-}
-
-#for i in range(0, 15) {
-  numbering("\u{06F1}", i)
-  [ and ]
-  numbering("I.\u{06F1}", i, i)
-  [ for #i \ ]
-}
+#assert.eq(numbering("\u{0661}", 1475), "١٤٧٥")
+#assert.eq(numbering("\u{06F1}", 1475), "۱۴۷۵")
 
 --- numbering-negative ---
 // Error: 17-19 number must be at least zero
