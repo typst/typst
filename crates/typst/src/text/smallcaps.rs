@@ -8,8 +8,8 @@ use crate::text::TextElem;
 /// _Note:_ This enables the OpenType `smcp` feature for the font. Not all fonts
 /// support this feature. Sometimes smallcaps are part of a dedicated font and
 /// sometimes they are not available at all. In the future, this function will
-/// support selecting a dedicated smallcaps font as well as synthesizing
-/// smallcaps from normal letters, but this is not yet implemented.
+/// support synthesizing smallcaps from normal letters, but this is not yet
+/// implemented.
 ///
 /// # Example
 /// ```example
@@ -25,8 +25,16 @@ use crate::text::TextElem;
 /// = Introduction
 /// #lorem(40)
 /// ```
+///
+/// You can use show rule to customize the appearance of the text in smallcaps,
+/// which allows selecting a dedicated smallcaps font.
+/// ```example
+/// #show smallcaps: set text(font: "linux libertine")
+/// #smallcaps[Use Show Rule For Smallcaps]
+/// ```
 #[elem(title = "Small Capitals", Show)]
 pub struct SmallcapsElem {
+    /// The content to display to small capitals.
     #[required]
     pub body: Content,
 }
