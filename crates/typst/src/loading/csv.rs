@@ -109,11 +109,12 @@ impl csv {
             let item = if let Some(headers) = &headers {
                 let mut dict = Dict::new();
                 for (field, value) in headers.iter().zip(&row) {
-                    dict.insert(field.into(), value.into_value());
+                    dict.insert(field.trim().into(), value.trim().into_value());
                 }
                 dict.into_value()
             } else {
-                let sub = row.into_iter().map(|field| field.into_value()).collect();
+                let sub =
+                    row.into_iter().map(|field| field.trim().into_value()).collect();
                 Value::Array(sub)
             };
             array.push(item);
