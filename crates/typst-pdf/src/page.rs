@@ -27,14 +27,23 @@ use typst::visualize::{
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
-    for page in pages {
-        let (page_ref, mut encoded) = construct_page(ctx, &page.frame);
-        encoded.label = page
-            .numbering
+    for (i, page) in pages.iter().enumerate() {
+        if ctx
+            .page_ranges
             .as_ref()
-            .and_then(|num| PdfPageLabel::generate(num, page.number));
-        ctx.page_refs.push(page_ref);
-        ctx.pages.push(encoded);
+            .is_some_and(|ranges| !ranges.should_export_page(i))
+        {
+            // Don't export this page.
+            ctx.pages.push(None);
+        } else {
+            let (page_ref, mut encoded) = construct_page(ctx, &page.frame);
+            encoded.label = page
+                .numbering
+                .as_ref()
+                .and_then(|num| PdfPageLabel::generate(num, page.number));
+            ctx.page_refs.push(page_ref);
+            ctx.pages.push(Some(encoded));
+        }
     }
 }
 
@@ -171,7 +180,10 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
 
 /// Write a page tree node.
 fn write_page(ctx: &mut PdfContext, i: usize) {
-    let page = &ctx.pages[i];
+    let Some(page) = &ctx.pages[i] else {
+        // Page excluded from export.
+        return;
+    };
     let content_id = ctx.alloc.bump();
 
     let mut page_writer = ctx.pdf.page(page.id);
@@ -225,7 +237,8 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        // Don't add links to non-exported pages.
+        if let Some(Some(page)) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
@@ -243,10 +256,15 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
         .filter(Filter::FlateDecode);
 }
 
+// TODO: Verify whether returning final number is indeed appropriate.
 /// Write the page labels.
+/// They are numbered according to the page's final number,
+/// considering pages which were removed from export,
+/// and not according to the page's real or logical number
+/// in the initial Typst document.
 pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
-    // If there is no page labeled, we skip the writing
-    if !ctx.pages.iter().any(|p| {
+    // If there is no exported page labeled, we skip the writing
+    if !ctx.pages.iter().filter_map(Option::as_ref).any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
@@ -258,7 +276,8 @@ pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)
     let empty_label = PdfPageLabel::default();
     let mut prev: Option<&PdfPageLabel> = None;
 
-    for (i, page) in ctx.pages.iter().enumerate() {
+    // Skip non-exported pages for numbering.
+    for (i, page) in ctx.pages.iter().filter_map(Option::as_ref).enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
         // If there are pages with empty labels between labeled pages, we must
         // write empty PageLabel entries.

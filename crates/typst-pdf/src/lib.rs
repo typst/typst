@@ -11,6 +11,8 @@ mod pattern;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
+use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::sync::Arc;
 
 use base64::Engine;
@@ -36,6 +38,25 @@ use crate::image::EncodedImage;
 use crate::page::EncodedPage;
 use crate::pattern::PdfPattern;
 
+/// Specifies all pages to be exported.
+/// The ranges are one-indexed.
+/// For example, `1..=2` exports the first and second pages.
+pub struct PageRanges(Vec<Range<NonZeroUsize>>);
+
+impl PageRanges {
+    pub fn new(ranges: Vec<Range<NonZeroUsize>>) -> Self {
+        Self(ranges)
+    }
+
+    /// Check if a page should be included in the exported PDF,
+    /// given these page ranges.
+    /// Please note that 'page' here is zero-indexed.
+    pub fn should_export_page(&self, page: usize) -> bool {
+        let page = NonZeroUsize::try_from(page + 1).unwrap();
+        self.0.iter().any(|range| range.contains(&page))
+    }
+}
+
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
@@ -55,13 +76,17 @@ use crate::pattern::PdfPattern;
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
 /// is `auto`.
+///
+/// The `page_ranges` option specifies which ranges of pages should be exported
+/// in the PDF. When `None`, all pages should be exported.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
+    page_ranges: Option<Vec<Range<NonZeroUsize>>>,
 ) -> Vec<u8> {
-    let mut ctx = PdfContext::new(document);
+    let mut ctx = PdfContext::new(document, page_ranges.map(PageRanges::new));
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
@@ -82,7 +107,10 @@ struct PdfContext<'a> {
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
-    pages: Vec<EncodedPage>,
+    pages: Vec<Option<EncodedPage>>,
+    /// Page ranges to export.
+    /// When `None`, all pages are exported.
+    page_ranges: Option<PageRanges>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -109,6 +137,9 @@ struct PdfContext<'a> {
     /// font) even if the specification seems to allow it.
     type3_font_resources_ref: Ref,
     /// The IDs of written pages.
+    /// IDs of non-exported pages are not included in this vector,
+    /// so a page's index doesn't correspond to its ID's index
+    /// in this vector; use 'page.id' to access its ID instead of indexing.
     page_refs: Vec<Ref>,
     /// The IDs of written fonts.
     font_refs: Vec<Ref>,
@@ -145,7 +176,7 @@ struct PdfContext<'a> {
 }
 
 impl<'a> PdfContext<'a> {
-    fn new(document: &'a Document) -> Self {
+    fn new(document: &'a Document, page_ranges: Option<PageRanges>) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         let global_resources_ref = alloc.bump();
@@ -154,6 +185,7 @@ impl<'a> PdfContext<'a> {
             document,
             pdf: Pdf::new(),
             pages: vec![],
+            page_ranges,
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
             alloc,
@@ -251,7 +283,20 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
     }
 
     info.finish();
-    xmp.num_pages(ctx.document.pages.len() as u32);
+    // Only count exported pages.
+    // TODO: Verify this is something we want
+    xmp.num_pages(
+        ctx.document
+            .pages
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                ctx.page_ranges
+                    .as_ref()
+                    .map_or(true, |ranges| ranges.should_export_page(*i))
+            })
+            .count() as u32,
+    );
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
 
@@ -350,7 +395,8 @@ fn write_named_destinations(ctx: &mut PdfContext) {
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        // If the heading's page exists and is exported, include it.
+        if let Some(Some(page)) = ctx.pages.get(index) {
             let dest_ref = ctx.alloc.bump();
             let x = pos.point.x.to_f32();
             let y = (page.size.y - y).to_f32();

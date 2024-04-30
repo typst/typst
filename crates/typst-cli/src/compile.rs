@@ -1,5 +1,7 @@
 use std::fs::{self, File};
 use std::io::{self, Write};
+use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
@@ -171,7 +173,15 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let timestamp = convert_datetime(
         command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp);
+    let page_ranges: Option<Vec<Range<NonZeroUsize>>> =
+        command.pages.as_ref().map(|pages| {
+            pages
+                .iter()
+                .copied()
+                .map(|exported_page| exported_page..exported_page.saturating_add(1))
+                .collect()
+        });
+    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, page_ranges);
     command
         .output()
         .write(&buffer)
