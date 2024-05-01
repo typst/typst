@@ -8,7 +8,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
@@ -524,15 +524,22 @@ impl Array {
         // If there is more than one array, we use the manual method.
         let mut out = Self::with_capacity(self.len());
         let arrays = args.all::<Spanned<Array>>()?;
-        if let Some(Spanned { v, span }) =
-            arrays.iter().find(|sp| sp.v.len() != self.len())
-        {
-            bail!(
-                *span,
-                "array has different length ({}) from first array ({})",
-                v.len(),
-                self.len()
-            );
+        let errs = arrays
+            .iter()
+            .filter(|sp| sp.v.len() != self.len())
+            .map(|Spanned { v, span }| {
+                SourceDiagnostic::error(
+                    *span,
+                    eco_format!(
+                        "array has different length ({}) from first array ({})",
+                        v.len(),
+                        self.len()
+                    ),
+                )
+            })
+            .collect::<EcoVec<_>>();
+        if !errs.is_empty() {
+            return Err(errs);
         }
 
         let mut iterators =

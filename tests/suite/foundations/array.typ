@@ -364,6 +364,11 @@
 // Error: 13-22 second array has different length (3) from first array (2)
 #(1, 2).zip((1, 2, 3), exact: true)
 
+--- array-zip-exact-multi-error ---
+// Error: 13-22 array has different length (3) from first array (2)
+// Error: 24-36 array has different length (4) from first array (2)
+#(1, 2).zip((1, 2, 3), (1, 2, 3, 4), exact: true)
+
 --- array-enumerate ---
 // Test the `enumerate` method.
 #test(().enumerate(), ())
