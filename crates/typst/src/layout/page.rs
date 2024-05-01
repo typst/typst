@@ -228,6 +228,10 @@ pub struct PageElem {
 
     /// The page's header. Fills the top margin of each page.
     ///
+    /// - Content: Shows the content as the header.
+    /// - `{auto}`: Shows the page number if `number-align` is set to `top`.
+    /// - `none`: Suppresses the header.
+    ///
     /// ```example
     /// #set par(justify: true)
     /// #set page(
@@ -242,7 +246,7 @@ pub struct PageElem {
     /// #lorem(19)
     /// ```
     #[borrowed]
-    pub header: Option<Content>,
+    pub header: Smart<Option<Content>>,
 
     /// The amount the header is raised into the top margin.
     #[resolve]
@@ -251,8 +255,12 @@ pub struct PageElem {
 
     /// The page's footer. Fills the bottom margin of each page.
     ///
-    /// For just a page number, the `numbering` property, typically suffices. If
-    /// you want to create a custom footer, but still display the page number,
+    /// - Content: Shows the content as the footer.
+    /// - `{auto}`: Shows the page number if `number-align` is set to `bottom`.
+    /// - `none`: Suppresses the footer.
+    ///
+    /// For just a page number, the `numbering` property typically suffices. If
+    /// you want to create a custom footer but still display the page number,
     /// you can directly access the [page counter]($counter).
     ///
     /// ```example
@@ -273,7 +281,7 @@ pub struct PageElem {
     /// #lorem(48)
     /// ```
     #[borrowed]
-    pub footer: Option<Content>,
+    pub footer: Smart<Option<Content>>,
 
     /// The amount the footer is lowered into the bottom margin.
     #[resolve]
@@ -408,8 +416,8 @@ impl Packed<PageElem> {
         let footer_descent = self.footer_descent(styles);
         let numbering = self.numbering(styles);
         let number_align = self.number_align(styles);
-        let mut header = Cow::Borrowed(self.header(styles));
-        let mut footer = Cow::Borrowed(self.footer(styles));
+        let header = Cow::Borrowed(self.header(styles));
+        let footer = Cow::Borrowed(self.footer(styles));
 
         // Construct the numbering (for header or footer).
         let numbering_marginal = Cow::Owned(numbering.as_ref().map(|numbering| {
@@ -435,11 +443,29 @@ impl Packed<PageElem> {
             counter
         }));
 
-        if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
-            header = if header.is_some() { header } else { numbering_marginal };
+        let (header, footer) = if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
+            (
+                match &*header {
+                    Smart::Auto => numbering_marginal,
+                    Smart::Custom(header) => Cow::Borrowed(header),
+                },
+                match &*footer {
+                    Smart::Auto => Cow::Borrowed(&None),
+                    Smart::Custom(footer) => Cow::Borrowed(footer),
+                },
+            )
         } else {
-            footer = if footer.is_some() { footer } else { numbering_marginal };
-        }
+            (
+                match &*header {
+                    Smart::Auto => Cow::Borrowed(&None),
+                    Smart::Custom(header) => Cow::Borrowed(header),
+                },
+                match &*footer {
+                    Smart::Auto => numbering_marginal,
+                    Smart::Custom(footer) => Cow::Borrowed(footer),
+                },
+            )
+        };
 
         // Post-process pages.
         let mut pages = Vec::with_capacity(frames.len());
