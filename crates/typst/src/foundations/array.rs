@@ -524,22 +524,24 @@ impl Array {
         // If there is more than one array, we use the manual method.
         let mut out = Self::with_capacity(self.len());
         let arrays = args.all::<Spanned<Array>>()?;
-        let errs = arrays
-            .iter()
-            .filter(|sp| sp.v.len() != self.len())
-            .map(|Spanned { v, span }| {
-                SourceDiagnostic::error(
-                    *span,
-                    eco_format!(
-                        "array has different length ({}) from first array ({})",
-                        v.len(),
-                        self.len()
-                    ),
-                )
-            })
-            .collect::<EcoVec<_>>();
-        if !errs.is_empty() {
-            return Err(errs);
+        if exact {
+            let errs = arrays
+                .iter()
+                .filter(|sp| sp.v.len() != self.len())
+                .map(|Spanned { v, span }| {
+                    SourceDiagnostic::error(
+                        *span,
+                        eco_format!(
+                            "array has different length ({}) from first array ({})",
+                            v.len(),
+                            self.len()
+                        ),
+                    )
+                })
+                .collect::<EcoVec<_>>();
+            if !errs.is_empty() {
+                return Err(errs);
+            }
         }
 
         let mut iterators =
