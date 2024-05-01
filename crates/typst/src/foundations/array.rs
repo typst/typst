@@ -7,7 +7,6 @@ use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use typst_syntax::Spanned;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -16,7 +15,7 @@ use crate::foundations::{
     cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
     IntoValue, Reflect, Repr, Str, Value, Version,
 };
-use crate::syntax::Span;
+use crate::syntax::{Span, Spanned};
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -483,10 +482,9 @@ impl Array {
     #[func]
     pub fn zip(
         self,
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
+        /// The real arguments (the `others` arguments are just for the docs, this
+        /// function is a bit involved, so we parse the positional arguments manually).
         args: &mut Args,
-        #[external]
         #[named]
         #[default(false)]
         exact: bool,
@@ -495,8 +493,6 @@ impl Array {
         #[variadic]
         others: Vec<Array>,
     ) -> SourceResult<Array> {
-        let exact: bool = args.named("exact")?.unwrap_or_default();
-
         let remaining = args.remaining();
 
         // Fast path for one array.
@@ -511,7 +507,7 @@ impl Array {
             if exact && self.len() != other.len() {
                 bail!(
                     other_span,
-                    "Second argument has different length ({}) from first argument ({})",
+                    "second array has different length ({}) from first array ({})",
                     other.len(),
                     self.len()
                 );
@@ -531,7 +527,7 @@ impl Array {
         {
             bail!(
                 *span,
-                "Argument has different length ({}) from first argument ({})",
+                "array has different length ({}) from first array ({})",
                 v.len(),
                 self.len()
             );
