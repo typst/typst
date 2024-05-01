@@ -230,7 +230,7 @@ pub struct PageElem {
     ///
     /// - Content: Shows the content as the header.
     /// - `{auto}`: Shows the page number if `number-align` is set to `top`.
-    /// - `none`: Suppresses the header.
+    /// - `{none}`: Suppresses the header.
     ///
     /// ```example
     /// #set par(justify: true)
@@ -257,7 +257,7 @@ pub struct PageElem {
     ///
     /// - Content: Shows the content as the footer.
     /// - `{auto}`: Shows the page number if `number-align` is set to `bottom`.
-    /// - `none`: Suppresses the footer.
+    /// - `{none}`: Suppresses the footer.
     ///
     /// For just a page number, the `numbering` property typically suffices. If
     /// you want to create a custom footer but still display the page number,
