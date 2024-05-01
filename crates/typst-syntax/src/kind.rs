@@ -2,7 +2,7 @@
 ///
 /// Can be created by the lexer or by the parser.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[repr(u8)]
+// Remove the #[repr(u8)] annotation to allow for more than 255 variants.
 pub enum SyntaxKind {
     /// The contents of a file or content block.
     Markup,
@@ -20,6 +20,10 @@ pub enum SyntaxKind {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand,
+    /// A shorthand for the 'Original Of' unicode symbol: U+22B6.
+    OriginalOf,
+    /// A shorthand for the 'Image Of' unicode symbol: U+22B7.
+    ImageOf,
     /// A smart quote: `'` or `"`.
     SmartQuote,
     /// Strong content: `*Strong*`.
@@ -371,6 +375,8 @@ impl SyntaxKind {
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",
             Self::Shorthand => "shorthand",
+            Self::OriginalOf => "Original Of",
+            Self::ImageOf => "Image Of",
             Self::SmartQuote => "smart quote",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",

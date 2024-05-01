@@ -130,6 +130,9 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::RefMarker => reference(p),
         SyntaxKind::Dollar => equation(p),
 
+        SyntaxKind::OriginalOf
+        | SyntaxKind::ImageOf => p.eat(),
+
         SyntaxKind::LeftBracket
         | SyntaxKind::RightBracket
         | SyntaxKind::HeadingMarker

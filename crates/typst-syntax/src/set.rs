@@ -15,10 +15,7 @@ impl SyntaxSet {
     }
 
     /// Insert a syntax kind into the set.
-    ///
-    /// You can only add kinds with discriminator < 128.
     pub const fn add(self, kind: SyntaxKind) -> Self {
-        assert!((kind as u8) < BITS);
         Self(self.0 | bit(kind))
     }
 
@@ -29,14 +26,18 @@ impl SyntaxSet {
 
     /// Whether the set contains the given syntax kind.
     pub const fn contains(&self, kind: SyntaxKind) -> bool {
-        (kind as u8) < BITS && (self.0 & bit(kind)) != 0
+        (self.0 & bit(kind)) != 0
     }
 }
 
-const BITS: u8 = 128;
+const BITS: usize = 282;
 
 const fn bit(kind: SyntaxKind) -> u128 {
-    1 << (kind as usize)
+    if (kind as usize) >= 128 {
+        !0 // Return a u128 with all bits set if the shift amount is too large
+    } else {
+        1 << (kind as usize)
+    }
 }
 
 /// Syntax kinds that can start a statement.
@@ -73,7 +74,9 @@ pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Dollar)
     .add(SyntaxKind::LeftBracket)
     .add(SyntaxKind::RightBracket)
-    .add(SyntaxKind::Colon);
+    .add(SyntaxKind::Colon)
+    .add(SyntaxKind::OriginalOf) // Add OriginalOf to MARKUP_EXPR
+    .add(SyntaxKind::ImageOf);   // Add ImageOf to MARKUP_EXPR
 
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
@@ -86,7 +89,9 @@ pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Escape)
     .add(SyntaxKind::Str)
     .add(SyntaxKind::Root)
-    .add(SyntaxKind::Prime);
+    .add(SyntaxKind::Prime)
+    .add(SyntaxKind::OriginalOf) // Add OriginalOf to MATH_EXPR
+    .add(SyntaxKind::ImageOf);   // Add ImageOf to MATH_EXPR
 
 /// Syntax kinds that can start a code expression.
 pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);
