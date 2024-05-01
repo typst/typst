@@ -298,6 +298,19 @@ impl SpanMapper {
     }
 }
 
+/// A dash at the end of a line.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub(super) enum Dash {
+    /// A hyphen added to break a word
+    SoftHyphen,
+    /// Regular hyphen, present on a compound word. Ex.: beija-flor
+    HardHyphen,
+    /// An em dash
+    Long,
+    /// An en dash
+    Short,
+}
+
 /// A layouted line, consisting of a sequence of layouted paragraph items that
 /// are mostly borrowed from the preparation phase. This type enables you to
 /// measure the size of a line in a range before committing to building the
@@ -327,7 +340,7 @@ struct Line<'a> {
     justify: bool,
     /// Whether the line ends with a hyphen or dash, either naturally or through
     /// hyphenation.
-    dash: bool,
+    dash: Option<Dash>,
 }
 
 impl<'a> Line<'a> {
@@ -987,7 +1000,7 @@ fn linebreak_optimized<'a>(
             cost = (0.01 + cost).powi(2);
 
             // Penalize two consecutive dashes (not necessarily hyphens) extra.
-            if attempt.dash && pred.line.dash {
+            if attempt.dash.is_some() && pred.line.dash.is_some() {
                 cost += CONSECUTIVE_DASH_COST;
             }
 
@@ -1037,7 +1050,7 @@ fn line<'a>(
             last: None,
             width: Abs::zero(),
             justify,
-            dash: false,
+            dash: None,
         };
     }
 
@@ -1047,7 +1060,7 @@ fn line<'a>(
 
     // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
-    let mut dash = false;
+    let mut dash = None;
     if let Some((Item::Text(shaped), before)) = inner.split_last() {
         // Compute the range we want to shape, trimming whitespace at the
         // end of the line.
@@ -1062,7 +1075,17 @@ fn line<'a>(
         // Deal with hyphens, dashes and justification.
         let shy = trimmed.ends_with('\u{ad}');
         let hyphen = breakpoint == Breakpoint::Hyphen;
-        dash = hyphen || shy || trimmed.ends_with(['-', '–', '—']);
+        dash = if hyphen || shy {
+            Some(Dash::SoftHyphen)
+        } else if trimmed.ends_with('-') {
+            Some(Dash::HardHyphen)
+        } else if trimmed.ends_with('–') {
+            Some(Dash::Short)
+        } else if trimmed.ends_with('—') {
+            Some(Dash::Long)
+        } else {
+            None
+        };
         justify |= text.ends_with('\u{2028}');
 
         // Deal with CJK punctuation at line ends.
