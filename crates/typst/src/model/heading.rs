@@ -4,11 +4,11 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    Synthesize, Resolve
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
-use crate::layout::{BlockElem, Em, HElem, VElem};
-use crate::model::{Numbering, Outlinable, Refable, Supplement};
+use crate::layout::{BlockElem, Em, HElem, VElem, LayoutMultiple, Axes, Abs, Regions, Length};
+use crate::model::{Numbering, Outlinable, Refable, Supplement, ParElem};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 use crate::util::NonZeroExt;
 
@@ -163,6 +163,9 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
+    #[default(Smart::Auto)]
+    pub hanging_indent: Smart<Length>,
+
     /// The heading's title.
     #[required]
     pub body: Content,
@@ -203,13 +206,33 @@ impl Show for Packed<HeadingElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
         let mut realized = self.body().clone();
+
+        let hanging_indent = self.hanging_indent(styles);
+
+        let mut indent = match self.hanging_indent(styles) {
+            Smart::Custom(length) => length.resolve(styles),
+            Smart::Auto => Abs::zero(),
+        };
+
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
-            realized = Counter::of(HeadingElem::elem())
+            let numbering = Counter::of(HeadingElem::elem())
                 .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
                 .spanned(span)
-                + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
-                + realized;
+                + HElem::new(Em::new(0.3).into()).with_weak(true).pack();
+
+            if hanging_indent.is_auto() {
+                let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
+                let size = numbering.measure(engine, styles, pod)?.into_frame().size();
+
+                let min_indent = Length { abs: size.x, em: Em::new(0.3) }.resolve(styles);
+                indent = indent.max(min_indent);
+            }
+
+            realized = numbering + realized;
         }
+
+        realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
+
         Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
     }
 }
