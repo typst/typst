@@ -61,7 +61,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.77.0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          # Requires a nightly build; https://releases.rs/docs/1.77.0
+          toolchain: nightly-2024-03-21
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-fuzz
       - run: cd tests/fuzz && cargo fuzz build --dev
