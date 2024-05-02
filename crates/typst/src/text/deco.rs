@@ -284,8 +284,8 @@ pub struct HighlightElem {
     ///   fill: blue
     /// )[highlighted with blue].
     /// ```
-    #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into())]
-    pub fill: Paint,
+    #[default(Some(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into()))]
+    pub fill: Option<Paint>,
 
     /// The highlight's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
@@ -399,7 +399,7 @@ enum DecoLine {
         background: bool,
     },
     Highlight {
-        fill: Paint,
+        fill: Option<Paint>,
         stroke: Sides<Option<FixedStroke>>,
         top_edge: TopEdge,
         bottom_edge: BottomEdge,
@@ -423,7 +423,7 @@ pub(crate) fn decorate(
     {
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
         let size = Size::new(width + 2.0 * deco.extent, top - bottom);
-        let rects = styled_rect(size, *radius, Some(fill.clone()), stroke.clone());
+        let rects = styled_rect(size, *radius, fill.clone(), stroke.clone());
         let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
         frame.prepend_multiple(
             rects
