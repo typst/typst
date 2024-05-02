@@ -88,11 +88,27 @@ impl<'a> TextItemView<'a> {
     /// Obtains a glyph in this slice, remapping the range that it represents in
     /// the original text so that it is relative to the start of the slice
     pub fn glyph_at(&self, index: usize) -> Glyph {
+        /// Helper function to build a glyph range, taking text direction into
+        /// account.
+        fn glyph_range(
+            ltr_start: u16,
+            ltr_end: u16,
+            text_range: Range<usize>,
+        ) -> Range<u16> {
+            let text_start = text_range.start as u16;
+            if ltr_start >= text_start {
+                // LTR
+                (ltr_start - text_start)..(ltr_end - text_start)
+            } else {
+                // RTL
+                (text_start - ltr_start)..(text_start - ltr_end)
+            }
+        }
+
         let g = &self.item.glyphs[self.glyph_range.start + index];
         let text_range = self.text_range();
         Glyph {
-            range: (g.range.start - text_range.start as u16)
-                ..(g.range.end - text_range.start as u16),
+            range: glyph_range(g.range.start, g.range.end, text_range),
             ..*g
         }
     }
@@ -124,6 +140,14 @@ impl<'a> TextItemView<'a> {
     fn text_range(&self) -> Range<usize> {
         let text_start = self.item.glyphs[self.glyph_range.start].range().start;
         let text_end = self.item.glyphs[self.glyph_range.end - 1].range().end;
+
+        // This condition can be true with RTL text.
+        if text_end <= text_start {
+            let text_start = self.item.glyphs[self.glyph_range.end - 1].range().start;
+            let text_end = self.item.glyphs[self.glyph_range.start].range().end;
+            return text_start..text_end;
+        }
+
         text_start..text_end
     }
 }
