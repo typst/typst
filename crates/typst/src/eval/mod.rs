@@ -88,7 +88,7 @@ pub fn eval(
         .unwrap_or_default()
         .to_string_lossy();
 
-    Ok(Module::new(name, vm.scopes.top).with_content(output))
+    Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
 }
 
 /// Evaluate a string as code and return the resulting value.
