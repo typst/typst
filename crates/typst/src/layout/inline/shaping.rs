@@ -447,6 +447,15 @@ impl<'a> ShapedText<'a> {
 
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, engine: &Engine, fallback: bool) {
+        self.insert_hyphen(engine, fallback, Side::Right)
+    }
+
+    /// Prepend a hyphen to start of the text.
+    pub fn prepend_hyphen(&mut self, engine: &Engine, fallback: bool) {
+        self.insert_hyphen(engine, fallback, Side::Left)
+    }
+
+    fn insert_hyphen(&mut self, engine: &Engine, fallback: bool, side: Side) {
         let world = engine.world;
         let book = world.book();
         let fallback_func = if fallback {
@@ -464,17 +473,17 @@ impl<'a> ShapedText<'a> {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            let range = self
-                .glyphs
-                .last()
-                .map(|g| g.range.end..g.range.end)
-                // In the unlikely chance that we hyphenate after an empty line,
-                // ensure that the glyph range still falls after self.base so
-                // that subtracting either of the endpoints by self.base doesn't
-                // underflow. See <https://github.com/typst/typst/issues/2283>.
-                .unwrap_or_else(|| self.base..self.base);
+            let range = match side {
+                Side::Left => self.glyphs.first().map(|g| g.range.start..g.range.start),
+                Side::Right => self.glyphs.last().map(|g| g.range.end..g.range.end),
+            }
+            // In the unlikely chance that we hyphenate after an empty line,
+            // ensure that the glyph range still falls after self.base so
+            // that subtracting either of the endpoints by self.base doesn't
+            // underflow. See <https://github.com/typst/typst/issues/2283>.
+            .unwrap_or_else(|| self.base..self.base);
             self.width += x_advance.at(self.size);
-            self.glyphs.to_mut().push(ShapedGlyph {
+            let glyph = ShapedGlyph {
                 font,
                 glyph_id: glyph_id.0,
                 x_advance,
@@ -487,7 +496,11 @@ impl<'a> ShapedText<'a> {
                 span: (Span::detached(), 0),
                 is_justifiable: false,
                 script: Script::Common,
-            });
+            };
+            match side {
+                Side::Left => self.glyphs.to_mut().insert(0, glyph),
+                Side::Right => self.glyphs.to_mut().push(glyph),
+            }
             Some(())
         });
     }

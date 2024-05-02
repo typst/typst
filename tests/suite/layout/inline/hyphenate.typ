@@ -50,6 +50,58 @@ It's a #emph[Tree]beard.
 #set text(hyphenate: true)
 #h(6pt) networks, the rest.
 
+--- hyphenate-pt-repeat-hyphen-natural-word-breaking ---
+// The word breaker naturally breaks arco-da-velha at arco-/-da-velha,
+// so we shall repeat the hyphen, even that hyphenate is set to false.
+#set page(width: 4cm)
+#set text(lang: "pt")
+
+Alguma coisa no arco-da-velha é algo que está muito longe.
+
+--- hyphenate-pt-repeat-hyphen-hyphenate-true ---
+#set page(width: 4cm)
+#set text(lang: "pt", hyphenate: true)
+
+Alguma coisa no arco-da-velha é algo que está muito longe.
+
+--- hyphenate-pt-repeat-hyphen-hyphenate-true-with-emphasis ---
+#set page(width: 4cm)
+#set text(lang: "pt", hyphenate: true)
+
+Alguma coisa no _arco-da-velha_ é algo que está muito longe.
+
+--- hyphenate-pt-no-repeat-hyphen ---
+#set page(width: 4cm)
+#set text(lang: "pt", hyphenate: true)
+
+Um médico otorrinolaringologista cuida da garganta do paciente.
+
+--- hyphenate-pt-dash-emphasis ---
+// If the hyphen is followed by a space we shall not repeat the hyphen
+// at the next line
+#set page(width: 4cm)
+#set text(lang: "pt", hyphenate: true)
+
+Quebabe é a -melhor- comida que existe.
+
+--- hyphenate-es-repeat-hyphen ---
+#set page(width: 6cm)
+#set text(lang: "es", hyphenate: true)
+
+Lo que entendemos por nivel léxico-semántico, en cuanto su sentido más
+gramatical: es aquel que estudia el origen y forma de las palabras de
+un idioma.
+
+--- hyphenate-es-captalized-names ---
+// If the hyphen is followed by a capitalized word we shall not repeat
+//  the hyphen at the next line
+#set page(width: 6.2cm)
+#set text(lang: "es", hyphenate: true)
+
+Tras el estallido de la contienda Ruiz-Giménez fue detenido junto a sus
+dos hermanos y puesto bajo custodia por las autoridades republicanas, con
+el objetivo de protegerle de las patrullas de milicianos.
+
 --- costs-widow-orphan ---
 #set page(height: 60pt)
 
