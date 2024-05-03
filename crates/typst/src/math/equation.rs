@@ -326,36 +326,36 @@ impl LayoutMultiple for Packed<EquationElem> {
             return Ok(Fragment::frames(frames));
         };
 
+        let pod = Regions::one(regions.base(), Axes::splat(false));
+        let number = Counter::of(EquationElem::elem())
+            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
+            .spanned(span)
+            .layout(engine, styles, pod)?
+            .into_frame();
+
+        static NUMBER_GUTTER: Em = Em::new(0.5);
+        let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+
         let number_align = match self.number_align(styles) {
             SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
             SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
             SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
         };
 
-        let number = Counter::of(EquationElem::elem())
-            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
-            .spanned(span);
-
-        static NUMBER_GUTTER: Em = Em::new(0.5);
-
         // Add equation numbers to each equation region.
         let frames = equation_builders
             .into_iter()
             .map(|builder| {
-                let pod = Regions::one(regions.base(), Axes::splat(false));
-                let number = number.layout(engine, styles, pod)?.into_frame();
-                let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
-
-                Ok(add_equation_number(
+                add_equation_number(
                     builder,
-                    number,
+                    number.clone(),
                     number_align.resolve(styles),
                     AlignElem::alignment_in(styles).resolve(styles).x,
                     regions.size.x,
                     full_number_width,
-                ))
+                )
             })
-            .collect::<SourceResult<Vec<_>>>()?;
+            .collect::<Vec<_>>();
 
         Ok(Fragment::frames(frames))
     }
