@@ -256,47 +256,48 @@ impl LayoutMultiple for Packed<EquationElem> {
         let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let equation_builder = ctx
+        let root_equation_builder = ctx
             .layout_into_run(self, styles)?
             .multiline_frame_builder(&ctx, styles);
+        let width = root_equation_builder.size.x;
 
-        let mut rows = equation_builder.frames.into_iter().peekable();
-        let mut frames = vec![];
+        let mut rows = root_equation_builder.frames.into_iter().peekable();
+        let mut equation_builders = vec![];
         for region in regions.iter() {
             let Some(first_pos) = rows.peek().map(|(_, pos)| pos).copied() else {
                 break;
             };
 
-            let mut frame = Frame::soft(Axes::new(equation_builder.size.x, region.y));
+            let mut frames = vec![];
+            let mut height = Abs::zero();
             while let Some((sub, pos)) = rows.peek() {
-                if !region.y.fits(sub.height() + pos.y - first_pos.y) {
+                let mut pos = *pos;
+                pos.y = Abs::zero().max(pos.y - first_pos.y);
+
+                if !region.y.fits(sub.height() + pos.y) {
                     // Allow first row to overflow to prevent infinite creation
                     // of new regions which may all be too small.
-                    if !(frame.is_empty() && region.y.is_zero()) {
+                    if !(frames.is_empty() && region.y.is_zero()) {
                         break;
                     }
                 }
 
-                let (sub, pos) = rows.next().unwrap();
-                let pos = pos - Point::with_y(first_pos.y);
-                frame.size_mut().y = pos.y + sub.height();
-                frame.push_frame(pos, sub);
+                let (sub, _) = rows.next().unwrap();
+                height = height.max(pos.y + sub.height());
+                frames.push((sub, pos));
             }
 
-            frames.push(frame);
+            equation_builders
+                .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
         }
 
         let Some(numbering) = (**self).numbering(styles) else {
+            let frames = equation_builders
+                .into_iter()
+                .map(MathRunFrameBuilder::build)
+                .collect();
             return Ok(Fragment::frames(frames));
         };
-
-        // TODO: This pod is probably not correct.
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let number = Counter::of(EquationElem::elem())
-            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
-            .spanned(span)
-            .layout(engine, styles, pod)?
-            .into_frame();
 
         let number_align = match self.number_align(styles) {
             SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
@@ -304,13 +305,29 @@ impl LayoutMultiple for Packed<EquationElem> {
             SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
         };
 
-        let frames = add_equation_number(
-            frames,
-            number,
-            number_align.resolve(styles),
-            AlignElem::alignment_in(styles).resolve(styles).x,
-            regions.size.x,
-        );
+        let number = Counter::of(EquationElem::elem())
+            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
+            .spanned(span);
+
+        static NUMBER_GUTTER: Em = Em::new(0.5);
+
+        let frames = equation_builders
+            .into_iter()
+            .map(|builder| {
+                let pod = Regions::one(builder.size, Axes::splat(false));
+                let number = number.layout(engine, styles, pod)?.into_frame();
+                let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+
+                Ok(add_equation_number(
+                    builder,
+                    number,
+                    number_align.resolve(styles),
+                    AlignElem::alignment_in(styles).resolve(styles).x,
+                    regions.size.x,
+                    full_number_width,
+                ))
+            })
+            .collect::<SourceResult<Vec<_>>>()?;
 
         Ok(Fragment::frames(frames))
     }
@@ -405,15 +422,13 @@ fn find_math_font(
 }
 
 fn add_equation_number(
-    frames: Vec<Frame>,
+    equation_builder: MathRunFrameBuilder,
     number: Frame,
     number_align: Axes<FixedAlignment>,
     equation_align: FixedAlignment,
-    region_size_x: Abs
+    region_size_x: Abs,
+    full_number_width: Abs,
 ) -> Frame {
-    static NUMBER_GUTTER: Em = Em::new(0.5);
-    let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
-
     let first = equation_builder
         .frames
         .first()
