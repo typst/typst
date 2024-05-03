@@ -11,8 +11,6 @@ mod pattern;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
-use std::num::NonZeroUsize;
-use std::ops::Range;
 use std::sync::Arc;
 
 use base64::Engine;
@@ -23,7 +21,7 @@ use pdf_writer::writers::Destination;
 use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
-use typst::layout::{Abs, Dir, Em, Frame, Transform};
+use typst::layout::{Abs, Dir, Em, Frame, PageRanges, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::color::frame_for_glyph;
 use typst::text::{Font, Lang};
@@ -37,25 +35,6 @@ use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
 use crate::page::EncodedPage;
 use crate::pattern::PdfPattern;
-
-/// Specifies all pages to be exported.
-/// The ranges are one-indexed.
-/// For example, `1..=2` exports the first and second pages.
-pub struct PageRanges(Vec<Range<NonZeroUsize>>);
-
-impl PageRanges {
-    pub fn new(ranges: Vec<Range<NonZeroUsize>>) -> Self {
-        Self(ranges)
-    }
-
-    /// Check if a page should be included in the exported PDF, given these
-    /// page ranges.
-    /// Please note that 'page' here is zero-indexed.
-    pub fn should_export_page(&self, page: usize) -> bool {
-        let page = NonZeroUsize::try_from(page + 1).unwrap();
-        self.0.iter().any(|range| range.contains(&page))
-    }
-}
 
 /// Export a document into a PDF file.
 ///
@@ -84,9 +63,9 @@ pub fn pdf(
     document: &Document,
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
-    page_ranges: Option<Vec<Range<NonZeroUsize>>>,
+    page_ranges: Option<PageRanges>,
 ) -> Vec<u8> {
-    let mut ctx = PdfContext::new(document, page_ranges.map(PageRanges::new));
+    let mut ctx = PdfContext::new(document, page_ranges);
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);

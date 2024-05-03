@@ -1,7 +1,6 @@
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::num::NonZeroUsize;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
@@ -13,7 +12,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
-use typst::layout::Frame;
+use typst::layout::{Frame, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
@@ -173,15 +172,16 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let timestamp = convert_datetime(
         command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
-    let page_ranges: Option<Vec<Range<NonZeroUsize>>> =
-        command.pages.as_ref().map(|pages| {
+    let exported_page_ranges: Option<PageRanges> = command.pages.as_ref().map(|pages| {
+        PageRanges::new(
             pages
                 .iter()
                 .copied()
                 .map(|exported_page| exported_page..exported_page.saturating_add(1))
-                .collect()
-        });
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, page_ranges);
+                .collect(),
+        )
+    });
+    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
     command
         .output()
         .write(&buffer)
