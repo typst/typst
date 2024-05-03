@@ -48,8 +48,8 @@ impl PageRanges {
         Self(ranges)
     }
 
-    /// Check if a page should be included in the exported PDF,
-    /// given these page ranges.
+    /// Check if a page should be included in the exported PDF, given these
+    /// page ranges.
     /// Please note that 'page' here is zero-indexed.
     pub fn should_export_page(&self, page: usize) -> bool {
         let page = NonZeroUsize::try_from(page + 1).unwrap();
@@ -278,7 +278,6 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
 
     info.finish();
     // Only count exported pages.
-    // TODO: Verify this is something we want
     xmp.num_pages(
         ctx.document
             .pages

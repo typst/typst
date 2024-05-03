@@ -26,7 +26,6 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
                     .should_export_page(ctx.document.introspector.page(loc).get() - 1)
             }) {
                 // Don't bookmark headings in non-exported pages
-                // TODO: Is this something we want?
                 continue;
             }
         }

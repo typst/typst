@@ -256,12 +256,10 @@ fn write_page(ctx: &mut PdfContext, i: usize, refs: &mut Vec<Ref>) {
         .filter(Filter::FlateDecode);
 }
 
-// TODO: Verify whether returning final number is indeed appropriate.
 /// Write the page labels.
-/// They are numbered according to the page's final number,
-/// considering pages which were removed from export,
-/// and not according to the page's real or logical number
-/// in the initial Typst document.
+/// They are numbered according to the page's final number, considering pages
+/// which were removed from export, and not according to the page's real or
+/// logical number in the initial Typst document.
 pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
     // If there is no exported page labeled, we skip the writing
     if !ctx.pages.iter().filter_map(Option::as_ref).any(|p| {
