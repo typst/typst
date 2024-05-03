@@ -36,12 +36,11 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
             // Don't export this page.
             ctx.pages.push(None);
         } else {
-            let (page_ref, mut encoded) = construct_page(ctx, &page.frame);
+            let mut encoded = construct_page(ctx, &page.frame);
             encoded.label = page
                 .numbering
                 .as_ref()
                 .and_then(|num| PdfPageLabel::generate(num, page.number));
-            ctx.page_refs.push(page_ref);
             ctx.pages.push(Some(encoded));
         }
     }
@@ -49,7 +48,7 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, EncodedPage) {
+pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> EncodedPage {
     let page_ref = ctx.alloc.bump();
 
     let size = frame.size();
@@ -69,7 +68,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     // Encode the page into the content stream.
     write_frame(&mut ctx, frame);
 
-    let page = EncodedPage {
+    EncodedPage {
         size,
         content: deflate_deferred(ctx.content.finish()),
         id: page_ref,
@@ -77,21 +76,20 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
         links: ctx.links,
         label: None,
         resources: ctx.resources,
-    };
-
-    (page_ref, page)
+    }
 }
 
 /// Write the page tree.
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
+    let mut refs = vec![];
     for i in 0..ctx.pages.len() {
-        write_page(ctx, i);
+        write_page(ctx, i, &mut refs);
     }
 
     ctx.pdf
         .pages(ctx.page_tree_ref)
-        .count(ctx.page_refs.len() as i32)
-        .kids(ctx.page_refs.iter().copied());
+        .count(refs.len() as i32)
+        .kids(refs.iter().copied());
 }
 
 /// Write the global resource dictionary that will be referenced by all pages.
@@ -179,12 +177,14 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, i: usize) {
+fn write_page(ctx: &mut PdfContext, i: usize, refs: &mut Vec<Ref>) {
     let Some(page) = &ctx.pages[i] else {
         // Page excluded from export.
         return;
     };
     let content_id = ctx.alloc.bump();
+
+    refs.push(page.id);
 
     let mut page_writer = ctx.pdf.page(page.id);
     page_writer.parent(ctx.page_tree_ref);

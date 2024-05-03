@@ -136,11 +136,6 @@ struct PdfContext<'a> {
     /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
     /// font) even if the specification seems to allow it.
     type3_font_resources_ref: Ref,
-    /// The IDs of written pages.
-    /// IDs of non-exported pages are not included in this vector,
-    /// so a page's index doesn't correspond to its ID's index
-    /// in this vector; use 'page.id' to access its ID instead of indexing.
-    page_refs: Vec<Ref>,
     /// The IDs of written fonts.
     font_refs: Vec<Ref>,
     /// The IDs of written images.
@@ -192,7 +187,6 @@ impl<'a> PdfContext<'a> {
             page_tree_ref,
             global_resources_ref,
             type3_font_resources_ref,
-            page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
             gradient_refs: vec![],
