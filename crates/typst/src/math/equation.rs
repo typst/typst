@@ -10,8 +10,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Fragment, Frame, LayoutMultiple,
-    OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
+    Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, LayoutMultiple, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -174,6 +173,7 @@ impl ShowSet for Packed<EquationElem> {
         let mut out = Styles::new();
         if self.block(styles) {
             out.set(AlignElem::set_alignment(Alignment::CENTER));
+            out.set(BlockElem::set_breakable(true));
             out.set(EquationElem::set_size(MathSize::Display));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
@@ -256,40 +256,66 @@ impl LayoutMultiple for Packed<EquationElem> {
         let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let root_equation_builder = ctx
+        let full_equation_builder = ctx
             .layout_into_run(self, styles)?
             .multiline_frame_builder(&ctx, styles);
-        let width = root_equation_builder.size.x;
+        let width = full_equation_builder.size.x;
 
-        let mut rows = root_equation_builder.frames.into_iter().peekable();
-        let mut equation_builders = vec![];
-        for region in regions.iter() {
-            let Some(first_pos) = rows.peek().map(|(_, pos)| pos).copied() else {
-                break;
-            };
+        let equation_builders = if BlockElem::breakable_in(styles) {
+            let mut rows = full_equation_builder.frames.into_iter().peekable();
+            let mut equation_builders = vec![];
+            let mut last_first_pos = Point::zero();
 
-            let mut frames = vec![];
-            let mut height = Abs::zero();
-            while let Some((sub, pos)) = rows.peek() {
-                let mut pos = *pos;
-                pos.y = Abs::zero().max(pos.y - first_pos.y);
+            for region in regions.iter() {
+                // Keep track of the position of the first row in this region,
+                // so that the offset can be reverted later.
+                let Some(first_pos) = rows.peek().map(|(_, pos)| *pos) else { break };
+                last_first_pos = first_pos;
 
-                if !region.y.fits(sub.height() + pos.y) {
-                    // Allow first row to overflow to prevent infinite creation
-                    // of new regions which may all be too small.
-                    if !(frames.is_empty() && region.y.is_zero()) {
-                        break;
+                let mut frames = vec![];
+                let mut height = Abs::zero();
+                while let Some((sub, pos)) = rows.peek() {
+                    let mut pos = *pos;
+                    pos.y = pos.y - first_pos.y;
+
+                    if !region.y.fits(sub.height() + pos.y) {
+                        // Allow first row to overflow to prevent infinite
+                        // creation of new regions which may all be too small.
+                        if !(frames.is_empty() && region.y.is_zero()) {
+                            break;
+                        }
                     }
+
+                    let (sub, _) = rows.next().unwrap();
+                    height = height.max(pos.y + sub.height());
+                    frames.push((sub, pos));
                 }
 
-                let (sub, _) = rows.next().unwrap();
-                height = height.max(pos.y + sub.height());
-                frames.push((sub, pos));
+                equation_builders
+                    .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
+            }
+
+            // Append remaining rows to the equation builder of the last region.
+            if let Some(equation_builder) = equation_builders.last_mut() {
+                equation_builder.frames.extend(rows.map(|(frame, mut pos)| {
+                    pos.y -= last_first_pos.y;
+                    (frame, pos)
+                }));
+
+                let height = equation_builder
+                    .frames
+                    .iter()
+                    .map(|(frame, pos)| frame.height() + pos.y)
+                    .max()
+                    .unwrap_or(equation_builder.size.y);
+
+                equation_builder.size.y = height;
             }
 
             equation_builders
-                .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
-        }
+        } else {
+            vec![full_equation_builder]
+        };
 
         let Some(numbering) = (**self).numbering(styles) else {
             let frames = equation_builders
@@ -311,10 +337,11 @@ impl LayoutMultiple for Packed<EquationElem> {
 
         static NUMBER_GUTTER: Em = Em::new(0.5);
 
+        // Add equation numbers to each equation region.
         let frames = equation_builders
             .into_iter()
             .map(|builder| {
-                let pod = Regions::one(builder.size, Axes::splat(false));
+                let pod = Regions::one(regions.base(), Axes::splat(false));
                 let number = number.layout(engine, styles, pod)?.into_frame();
                 let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
