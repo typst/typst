@@ -104,6 +104,25 @@ Multiple trailing line breaks.
 $ $\
 Nothing: $ $, just empty.
 
+--- math-pagebreaking ---
+// Test breaking of equations at page boundaries.
+#set page(height: 5em)
+$ a &+ b + & c \
+  a &+ b   &   && + d \
+  a &+ b + & c && + d \
+    &      & c && + d \
+    &= 0 $
+
+--- math-pagebreaking-numbered ---
+// Test breaking of equations with numbering.
+#set page(height: 5em)
+#set math.equation(numbering: "1")
+$ a &+ b + & c \
+  a &+ b   &   && + d \
+  a &+ b + & c && + d \
+    &      & c && + d \
+    &= 0 $
+
 --- issue-1948-math-text-break ---
 // Test text with linebreaks in math.
 $ x := "a\nb\nc\nd\ne" $
