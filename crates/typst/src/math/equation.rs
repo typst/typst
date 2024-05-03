@@ -282,7 +282,7 @@ impl LayoutMultiple for Packed<EquationElem> {
                     if !region.y.fits(sub.height() + pos.y) {
                         // Allow first row to overflow to prevent infinite
                         // creation of new regions which may all be too small.
-                        if !(frames.is_empty() && region.y.is_zero()) {
+                        if !(frames.is_empty() && regions.in_last()) {
                             break;
                         }
                     }
