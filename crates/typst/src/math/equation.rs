@@ -10,7 +10,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, LayoutMultiple, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment
+    Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame,
+    LayoutMultiple, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -276,7 +277,7 @@ impl LayoutMultiple for Packed<EquationElem> {
                 let mut height = Abs::zero();
                 while let Some((sub, pos)) = rows.peek() {
                     let mut pos = *pos;
-                    pos.y = pos.y - first_pos.y;
+                    pos.y -= first_pos.y;
 
                     if !region.y.fits(sub.height() + pos.y) {
                         // Allow first row to overflow to prevent infinite
