@@ -257,18 +257,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
 
     info.finish();
     // Only count exported pages.
-    xmp.num_pages(
-        ctx.document
-            .pages
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| {
-                ctx.page_ranges
-                    .as_ref()
-                    .map_or(true, |ranges| ranges.should_export_page(*i))
-            })
-            .count() as u32,
-    );
+    xmp.num_pages(ctx.pages.iter().filter(|page| page.is_some()).count() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
 
