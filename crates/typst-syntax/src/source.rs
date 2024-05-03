@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::iter::zip;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -76,12 +77,8 @@ impl Source {
     pub fn replace(&mut self, new: &str) -> Range<usize> {
         let old = self.text();
 
-        let mut prefix = old
-            .as_bytes()
-            .iter()
-            .zip(new.as_bytes())
-            .take_while(|(x, y)| x == y)
-            .count();
+        let mut prefix =
+            zip(old.bytes(), new.bytes()).take_while(|(x, y)| x == y).count();
 
         if prefix == old.len() && prefix == new.len() {
             return 0..0;
@@ -91,11 +88,7 @@ impl Source {
             prefix -= 1;
         }
 
-        let mut suffix = old[prefix..]
-            .as_bytes()
-            .iter()
-            .zip(new[prefix..].as_bytes())
-            .rev()
+        let mut suffix = zip(old[prefix..].bytes().rev(), new[prefix..].bytes().rev())
             .take_while(|(x, y)| x == y)
             .count();
 

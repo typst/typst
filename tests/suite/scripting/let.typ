@@ -141,3 +141,20 @@ Three
 // ... where this wasn't.
 // Error: 12 expected equals sign
 #let (a, b)
+
+--- issue-4027-let-binding-with-keyword-context ---
+// Error: 6-13 expected pattern, found keyword `context`
+// Hint: 6-13 keyword `context` is not allowed as an identifier; try `context_` instead
+#let context = 5
+
+--- issue-4027-let-binding-with-keyword-let ---
+// Error: 6-9 expected pattern, found keyword `let`
+// Hint: 6-9 keyword `let` is not allowed as an identifier; try `let_` instead
+#let let = 5
+
+--- issue-4027-let-binding-with-destructured-keywords ---
+// Error: 7-14 expected pattern, found keyword `context`
+// Hint: 7-14 keyword `context` is not allowed as an identifier; try `context_` instead
+// Error: 21-24 expected pattern, found keyword `let`
+// Hint: 21-24 keyword `let` is not allowed as an identifier; try `let_` instead
+#let (context, foo, let) = (5, 6, 7)
