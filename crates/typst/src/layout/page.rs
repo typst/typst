@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::num::NonZeroUsize;
-use std::ops::Range;
+use std::ops::RangeInclusive;
 use std::ptr;
 use std::str::FromStr;
 
@@ -714,10 +714,10 @@ cast! {
 /// A list of page ranges to be exported. The ranges are one-indexed.
 /// For example, `1..=3` indicates the first, second and third pages should be
 /// exported.
-pub struct PageRanges(Vec<Range<NonZeroUsize>>);
+pub struct PageRanges(Vec<RangeInclusive<Option<NonZeroUsize>>>);
 
 impl PageRanges {
-    pub fn new(ranges: Vec<Range<NonZeroUsize>>) -> Self {
+    pub fn new(ranges: Vec<RangeInclusive<Option<NonZeroUsize>>>) -> Self {
         Self(ranges)
     }
 
@@ -726,7 +726,12 @@ impl PageRanges {
     /// Please note that 'page' here is zero-indexed.
     pub fn should_export_page(&self, page: usize) -> bool {
         let page = NonZeroUsize::try_from(page + 1).unwrap();
-        self.0.iter().any(|range| range.contains(&page))
+        self.0.iter().any(|range| match (range.start(), range.end()) {
+            (Some(start), Some(end)) => (start..=end).contains(&&page),
+            (Some(start), None) => (start..).contains(&&page),
+            (None, Some(end)) => (..=end).contains(&&page),
+            (None, None) => true,
+        })
     }
 }
 

@@ -177,7 +177,7 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
             pages
                 .iter()
                 .copied()
-                .map(|exported_page| exported_page..exported_page.saturating_add(1))
+                .map(|exported_page| Some(exported_page)..=Some(exported_page))
                 .collect(),
         )
     });
