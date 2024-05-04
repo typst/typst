@@ -1,6 +1,5 @@
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
@@ -172,15 +171,8 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let timestamp = convert_datetime(
         command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
-    let exported_page_ranges: Option<PageRanges> = command.pages.as_ref().map(|pages| {
-        PageRanges::new(
-            pages
-                .iter()
-                .copied()
-                .map(|exported_page| Some(exported_page)..=Some(exported_page))
-                .collect(),
-        )
-    });
+    let exported_page_ranges: Option<PageRanges> =
+        command.pages.clone().map(PageRanges::new);
     let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
     command
         .output()
@@ -225,13 +217,14 @@ fn export_image(
         }
     };
 
+    let exported_page_ranges = command.pages.clone().map(PageRanges::new);
     let exported_pages = document
         .pages
         .iter()
         .enumerate()
         .filter(|(i, _)| {
-            command.pages.as_ref().map_or(true, |pages| {
-                pages.contains(&NonZeroUsize::try_from(i + 1).unwrap())
+            exported_page_ranges.as_ref().map_or(true, |exported_page_ranges| {
+                exported_page_ranges.should_export_page(*i)
             })
         })
         .collect::<Vec<_>>();

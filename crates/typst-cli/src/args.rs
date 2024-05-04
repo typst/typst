@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use clap::builder::ValueParser;
@@ -78,8 +80,8 @@ pub struct CompileCommand {
     pub output: Option<Output>,
 
     /// Which pages to export. When unspecified, all document pages are exported.
-    #[arg(long = "pages", value_delimiter = ',')]
-    pub pages: Option<Vec<NonZeroUsize>>,
+    #[arg(long = "pages", value_delimiter = ',', value_parser = ValueParser::new(pages_value_parser))]
+    pub pages: Option<Vec<RangeInclusive<Option<NonZeroUsize>>>>,
 
     /// Output a Makefile rule describing the current compilation
     #[clap(long = "make-deps", value_name = "PATH")]
@@ -258,6 +260,39 @@ fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
     } else {
         Ok(Output::Path(value.into()))
     }
+}
+
+/// The clap value parser used by `CompileCommand.pages`
+fn pages_value_parser(
+    value: &str,
+) -> Result<RangeInclusive<Option<NonZeroUsize>>, clap::error::Error> {
+    if value.is_empty() {
+        return Err(clap::Error::new(clap::error::ErrorKind::InvalidValue));
+    }
+
+    match value
+        .split('-')
+        .map(|part| part.trim_matches(' '))
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [single_page] => {
+            let page_number = parse_non_zero_usize(single_page)?;
+            Ok(Some(page_number)..=Some(page_number))
+        }
+        ["", ""] => Err(clap::Error::new(clap::error::ErrorKind::InvalidValue)),
+        [start, ""] => Ok(Some(parse_non_zero_usize(start)?)..=None),
+        ["", end] => Ok(None..=Some(parse_non_zero_usize(end)?)),
+        [start, end] => {
+            Ok(Some(parse_non_zero_usize(start)?)..=Some(parse_non_zero_usize(end)?))
+        }
+        _ => Err(clap::Error::new(clap::error::ErrorKind::InvalidValue)),
+    }
+}
+
+fn parse_non_zero_usize(value: &str) -> Result<NonZeroUsize, clap::error::Error> {
+    NonZeroUsize::from_str(value)
+        .map_err(|_| clap::Error::new(clap::error::ErrorKind::InvalidValue))
 }
 
 /// Parses key/value pairs split by the first equal sign.
