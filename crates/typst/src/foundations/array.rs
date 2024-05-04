@@ -882,6 +882,36 @@ impl Array {
             })
             .collect()
     }
+
+    /// Reduces the elements to a single one, by repeatedly applying a reducing
+    /// operation.
+    ///
+    /// If the array is empty, returns `none`, otherwise, returns the
+    /// result of the reduction.
+    ///
+    /// The reducing function is a closure with two arguments: an 'accumulator', and an element.
+    ///
+    /// For arrays with at least one element, this is the same as `array.fold`
+    /// with the first element of the array as the initial accumulator value, folding
+    /// every subsequent element into it.
+    #[func]
+    pub fn reduce(
+        self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
+        /// The reducing function. Must have two parameters: One for the
+        /// accumulated value and one for an item.
+        reducer: Func,
+    ) -> SourceResult<Value> {
+        let mut iter = self.into_iter();
+        let mut acc = iter.next().unwrap_or_default();
+        for item in iter {
+            acc = reducer.call(engine, context, [acc, item])?;
+        }
+        Ok(acc)
+    }
 }
 
 /// A value that can be cast to bytes.

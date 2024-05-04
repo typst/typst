@@ -26,7 +26,7 @@ use crate::text::{ItalicToggle, TextElem};
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-#[elem(title = "Emphasis", Show)]
+#[elem(title = "Emphasis", keywords = ["italic"], Show)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]

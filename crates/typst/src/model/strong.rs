@@ -21,7 +21,7 @@ use crate::text::{TextElem, WeightDelta};
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
-#[elem(title = "Strong Emphasis", Show)]
+#[elem(title = "Strong Emphasis", keywords = ["bold", "weight"], Show)]
 pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///

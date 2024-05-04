@@ -48,8 +48,14 @@ impl<'a> Scopes<'a> {
     pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
+            .or_else(|| {
+                self.base.and_then(|base| match base.global.scope().get(var) {
+                    Some(value) => Some(value),
+                    None if var == "std" => Some(&base.std),
+                    None => None,
+                })
+            })
             .ok_or_else(|| unknown_variable(var))
     }
 
@@ -57,8 +63,14 @@ impl<'a> Scopes<'a> {
     pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.map(|base| base.math.scope()))
             .find_map(|scope| scope.get(var))
+            .or_else(|| {
+                self.base.and_then(|base| match base.math.scope().get(var) {
+                    Some(value) => Some(value),
+                    None if var == "std" => Some(&base.std),
+                    None => None,
+                })
+            })
             .ok_or_else(|| unknown_variable(var))
     }
 
@@ -69,11 +81,17 @@ impl<'a> Scopes<'a> {
             .find_map(|scope| scope.get_mut(var))
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => eco_format!("cannot mutate a constant: {}", var).into(),
+                    Some(_) => cannot_mutate_constant(var),
+                    _ if var == "std" => cannot_mutate_constant(var),
                     _ => unknown_variable(var),
                 }
             })?
     }
+}
+
+#[cold]
+fn cannot_mutate_constant(var: &str) -> HintedString {
+    eco_format!("cannot mutate a constant: {}", var).into()
 }
 
 /// The error message when a variable is not found.

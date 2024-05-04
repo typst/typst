@@ -1452,12 +1452,11 @@ fn pattern_leaf<'s>(
     seen: &mut HashSet<&'s str>,
     dupe: Option<&'s str>,
 ) {
-    if !p.at_set(set::PATTERN_LEAF) {
-        if p.current().is_keyword() {
-            p.eat_and_get().expected("pattern");
-        } else {
-            p.expected("pattern");
-        }
+    if p.current().is_keyword() {
+        p.eat_and_get().expected("pattern");
+        return;
+    } else if !p.at_set(set::PATTERN_LEAF) {
+        p.expected("pattern");
         return;
     }
 

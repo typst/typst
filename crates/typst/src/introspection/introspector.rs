@@ -258,7 +258,7 @@ impl Introspector {
     pub fn position(&self, location: Location) -> Position {
         self.elems
             .get(&location)
-            .map(|(_, loc)| *loc)
+            .map(|&(_, pos)| pos)
             .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
     }
 }

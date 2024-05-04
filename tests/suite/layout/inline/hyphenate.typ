@@ -49,3 +49,59 @@ It's a #emph[Tree]beard.
 #set page(width: 60pt)
 #set text(hyphenate: true)
 #h(6pt) networks, the rest.
+
+--- costs-widow-orphan ---
+#set page(height: 60pt)
+
+#let sample = lorem(12)
+
+#sample
+#pagebreak()
+#set text(costs: (widow: 0%, orphan: 0%))
+#sample
+
+--- costs-runt-avoid ---
+#set par(justify: true)
+
+#let sample = [please avoid runts in this text.]
+
+#sample
+#pagebreak()
+#set text(costs: (runt: 10000%))
+#sample
+
+--- costs-runt-allow ---
+#set par(justify: true)
+#set text(size: 6pt)
+
+#let sample = [a a a a a a a a a a a a a a a a a a a a a a a a a]
+
+#sample
+#pagebreak()
+#set text(costs: (runt: 0%))
+#sample
+
+--- costs-hyphenation-avoid ---
+#set par(justify: true)
+
+#let sample = [we've increased the hyphenation cost.]
+
+#sample
+#pagebreak()
+#set text(costs: (hyphenation: 10000%))
+#sample
+
+--- costs-invalid-type ---
+// Error: 18-37 expected ratio, found auto
+#set text(costs: (hyphenation: auto))
+
+--- costs-invalid-key ---
+// Error: 18-52 unexpected key "invalid-key", valid keys are "hyphenation", "runt", "widow", and "orphan"
+#set text(costs: (hyphenation: 1%, invalid-key: 3%))
+
+--- costs-access ---
+#set text(costs: (hyphenation: 1%, runt: 2%))
+#set text(costs: (widow: 3%))
+#context {
+  assert.eq(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))
+}
