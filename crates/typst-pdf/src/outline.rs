@@ -20,8 +20,8 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
 
     for elem in elements.iter() {
-        if let Some(page_ranges) = &ctx.page_ranges {
-            if !page_ranges.should_export_page(
+        if let Some(page_ranges) = &ctx.exported_pages {
+            if !page_ranges.page_included(
                 ctx.document.introspector.page(elem.location().unwrap()).get() - 1,
             ) {
                 // Don't bookmark headings in non-exported pages

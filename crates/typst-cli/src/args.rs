@@ -81,7 +81,7 @@ pub struct CompileCommand {
 
     /// Which pages to export. When unspecified, all document pages are exported.
     #[arg(long = "pages", value_delimiter = ',')]
-    pub pages: Option<Vec<ExportRange>>,
+    pub pages: Option<Vec<PageRangeArgument>>,
 
     /// Output a Makefile rule describing the current compilation
     #[clap(long = "make-deps", value_name = "PATH")]
@@ -283,15 +283,15 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExportRange(RangeInclusive<Option<NonZeroUsize>>);
+pub struct PageRangeArgument(RangeInclusive<Option<NonZeroUsize>>);
 
-impl ExportRange {
+impl PageRangeArgument {
     pub fn into_range(self) -> RangeInclusive<Option<NonZeroUsize>> {
         self.0
     }
 }
 
-impl FromStr for ExportRange {
+impl FromStr for PageRangeArgument {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -304,12 +304,14 @@ impl FromStr for ExportRange {
             [] | [""] => Err("page export range must not be empty".into()),
             [single_page] => {
                 let page_number = parse_non_zero_usize(single_page)?;
-                Ok(ExportRange(Some(page_number)..=Some(page_number)))
+                Ok(PageRangeArgument(Some(page_number)..=Some(page_number)))
             }
             ["", ""] => Err("page export range must have start or end".into()),
-            [start, ""] => Ok(ExportRange(Some(parse_non_zero_usize(start)?)..=None)),
-            ["", end] => Ok(ExportRange(None..=Some(parse_non_zero_usize(end)?))),
-            [start, end] => Ok(ExportRange(
+            [start, ""] => {
+                Ok(PageRangeArgument(Some(parse_non_zero_usize(start)?)..=None))
+            }
+            ["", end] => Ok(PageRangeArgument(None..=Some(parse_non_zero_usize(end)?))),
+            [start, end] => Ok(PageRangeArgument(
                 Some(parse_non_zero_usize(start)?)..=Some(parse_non_zero_usize(end)?),
             )),
             [_, _, _, ..] => Err("page export range must have a single hyphen".into()),

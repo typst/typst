@@ -89,7 +89,7 @@ struct PdfContext<'a> {
     pages: Vec<Option<EncodedPage>>,
     /// Page ranges to export.
     /// When `None`, all pages are exported.
-    page_ranges: Option<PageRanges>,
+    exported_pages: Option<PageRanges>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -159,7 +159,7 @@ impl<'a> PdfContext<'a> {
             document,
             pdf: Pdf::new(),
             pages: vec![],
-            page_ranges,
+            exported_pages: page_ranges,
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
             alloc,

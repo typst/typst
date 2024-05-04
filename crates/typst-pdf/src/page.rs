@@ -29,9 +29,9 @@ use typst::visualize::{
 pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
     for (i, page) in pages.iter().enumerate() {
         if ctx
-            .page_ranges
+            .exported_pages
             .as_ref()
-            .is_some_and(|ranges| !ranges.should_export_page(i))
+            .is_some_and(|ranges| !ranges.page_included(i))
         {
             // Don't export this page.
             ctx.pages.push(None);

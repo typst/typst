@@ -18,7 +18,7 @@ use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{
-    CompileCommand, DiagnosticFormat, ExportRange, Input, Output, OutputFormat,
+    CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
 };
 use crate::timings::Timer;
 use crate::watch::Status;
@@ -176,7 +176,11 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let exported_page_ranges: Option<PageRanges> =
         command.pages.as_ref().map(|export_ranges| {
             PageRanges::new(
-                export_ranges.iter().cloned().map(ExportRange::into_range).collect(),
+                export_ranges
+                    .iter()
+                    .cloned()
+                    .map(PageRangeArgument::into_range)
+                    .collect(),
             )
         });
     let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
@@ -225,7 +229,11 @@ fn export_image(
 
     let exported_page_ranges = command.pages.as_ref().map(|export_ranges| {
         PageRanges::new(
-            export_ranges.iter().cloned().map(ExportRange::into_range).collect(),
+            export_ranges
+                .iter()
+                .cloned()
+                .map(PageRangeArgument::into_range)
+                .collect(),
         )
     });
 
@@ -235,7 +243,7 @@ fn export_image(
         .enumerate()
         .filter(|(i, _)| {
             exported_page_ranges.as_ref().map_or(true, |exported_page_ranges| {
-                exported_page_ranges.should_export_page(*i)
+                exported_page_ranges.page_included(*i)
             })
         })
         .collect::<Vec<_>>();
