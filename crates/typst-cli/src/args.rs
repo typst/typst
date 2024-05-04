@@ -80,6 +80,14 @@ pub struct CompileCommand {
     pub output: Option<Output>,
 
     /// Which pages to export. When unspecified, all document pages are exported.
+    ///
+    /// Pages to export are separated by commas, and can be either simple page
+    /// numbers (e.g. '2,5' to export only pages 2 and 5) or page ranges
+    /// (e.g. '2,3-6,8-' to export page 2, pages 3 to 6 (inclusive), page 8 and
+    /// any pages after it).
+    ///
+    /// Page numbers are one-indexed and correspond to real page numbers in the
+    /// document (therefore not being affected by the document's page counter).
     #[arg(long = "pages", value_delimiter = ',')]
     pub pages: Option<Vec<PageRangeArgument>>,
 
