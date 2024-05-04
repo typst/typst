@@ -178,7 +178,6 @@ fn write_outline_item(
     let index = pos.page.get() - 1;
 
     // Don't link to non-exported pages.
-    // TODO: Verify this is working as expected
     if let Some(Some(page)) = ctx.pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
         outline.dest().page(page.id).xyz(
