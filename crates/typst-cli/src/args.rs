@@ -282,6 +282,11 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
     Ok((key, val))
 }
 
+/// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
+/// `CompileCommand.pages` argument, through the `FromStr` trait instead of
+/// a value parser, in order to generate better errors.
+///
+/// See also: https://github.com/clap-rs/clap/issues/5065
 #[derive(Debug, Clone)]
 pub struct PageRangeArgument(RangeInclusive<Option<NonZeroUsize>>);
 
@@ -311,9 +316,15 @@ impl FromStr for PageRangeArgument {
                 Ok(PageRangeArgument(Some(parse_non_zero_usize(start)?)..=None))
             }
             ["", end] => Ok(PageRangeArgument(None..=Some(parse_non_zero_usize(end)?))),
-            [start, end] => Ok(PageRangeArgument(
-                Some(parse_non_zero_usize(start)?)..=Some(parse_non_zero_usize(end)?),
-            )),
+            [start, end] => {
+                let start = parse_non_zero_usize(start)?;
+                let end = parse_non_zero_usize(end)?;
+                if start > end {
+                    Err("page export range must end at a page after the start".into())
+                } else {
+                    Ok(PageRangeArgument(Some(start)..=Some(end)))
+                }
+            }
             [_, _, _, ..] => Err("page export range must have a single hyphen".into()),
         }
     }
