@@ -80,8 +80,8 @@ pub struct CompileCommand {
     pub output: Option<Output>,
 
     /// Which pages to export. When unspecified, all document pages are exported.
-    #[arg(long = "pages", value_delimiter = ',', value_parser = ValueParser::new(pages_value_parser))]
-    pub pages: Option<Vec<RangeInclusive<Option<NonZeroUsize>>>>,
+    #[arg(long = "pages", value_delimiter = ',')]
+    pub pages: Option<Vec<ExportRange>>,
 
     /// Output a Makefile rule describing the current compilation
     #[clap(long = "make-deps", value_name = "PATH")]
@@ -262,37 +262,8 @@ fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
     }
 }
 
-/// The clap value parser used by `CompileCommand.pages`
-fn pages_value_parser(
-    value: &str,
-) -> Result<RangeInclusive<Option<NonZeroUsize>>, clap::error::Error> {
-    if value.is_empty() {
-        return Err(clap::Error::new(clap::error::ErrorKind::InvalidValue));
-    }
-
-    match value
-        .split('-')
-        .map(|part| part.trim_matches(' '))
-        .collect::<Vec<_>>()
-        .as_slice()
-    {
-        [single_page] => {
-            let page_number = parse_non_zero_usize(single_page)?;
-            Ok(Some(page_number)..=Some(page_number))
-        }
-        ["", ""] => Err(clap::Error::new(clap::error::ErrorKind::InvalidValue)),
-        [start, ""] => Ok(Some(parse_non_zero_usize(start)?)..=None),
-        ["", end] => Ok(None..=Some(parse_non_zero_usize(end)?)),
-        [start, end] => {
-            Ok(Some(parse_non_zero_usize(start)?)..=Some(parse_non_zero_usize(end)?))
-        }
-        _ => Err(clap::Error::new(clap::error::ErrorKind::InvalidValue)),
-    }
-}
-
-fn parse_non_zero_usize(value: &str) -> Result<NonZeroUsize, clap::error::Error> {
-    NonZeroUsize::from_str(value)
-        .map_err(|_| clap::Error::new(clap::error::ErrorKind::InvalidValue))
+fn parse_non_zero_usize(value: &str) -> Result<NonZeroUsize, String> {
+    NonZeroUsize::from_str(value).map_err(|error| error.to_string())
 }
 
 /// Parses key/value pairs split by the first equal sign.
@@ -309,6 +280,41 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
     }
     let val = val.trim().to_owned();
     Ok((key, val))
+}
+
+#[derive(Debug, Clone)]
+pub struct ExportRange(RangeInclusive<Option<NonZeroUsize>>);
+
+impl ExportRange {
+    pub fn into_range(self) -> RangeInclusive<Option<NonZeroUsize>> {
+        self.0
+    }
+}
+
+impl FromStr for ExportRange {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value
+            .split('-')
+            .map(|part| part.trim_matches(' '))
+            .collect::<Vec<_>>()
+            .as_slice()
+        {
+            [] | [""] => Err("page export range must not be empty".into()),
+            [single_page] => {
+                let page_number = parse_non_zero_usize(single_page)?;
+                Ok(ExportRange(Some(page_number)..=Some(page_number)))
+            }
+            ["", ""] => Err("page export range must have start or end".into()),
+            [start, ""] => Ok(ExportRange(Some(parse_non_zero_usize(start)?)..=None)),
+            ["", end] => Ok(ExportRange(None..=Some(parse_non_zero_usize(end)?))),
+            [start, end] => Ok(ExportRange(
+                Some(parse_non_zero_usize(start)?)..=Some(parse_non_zero_usize(end)?),
+            )),
+            [_, _, _, ..] => Err("page export range must have a single hyphen".into()),
+        }
+    }
 }
 
 /// Lists all discovered fonts in system and custom font paths

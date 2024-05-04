@@ -17,7 +17,9 @@ use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
 use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat, Input, Output, OutputFormat};
+use crate::args::{
+    CompileCommand, DiagnosticFormat, ExportRange, Input, Output, OutputFormat,
+};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
@@ -172,7 +174,11 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
         command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
     let exported_page_ranges: Option<PageRanges> =
-        command.pages.clone().map(PageRanges::new);
+        command.pages.as_ref().map(|export_ranges| {
+            PageRanges::new(
+                export_ranges.iter().cloned().map(ExportRange::into_range).collect(),
+            )
+        });
     let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
     command
         .output()
@@ -217,7 +223,12 @@ fn export_image(
         }
     };
 
-    let exported_page_ranges = command.pages.clone().map(PageRanges::new);
+    let exported_page_ranges = command.pages.as_ref().map(|export_ranges| {
+        PageRanges::new(
+            export_ranges.iter().cloned().map(ExportRange::into_range).collect(),
+        )
+    });
+
     let exported_pages = document
         .pages
         .iter()
