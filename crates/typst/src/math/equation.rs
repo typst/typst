@@ -355,7 +355,7 @@ impl LayoutMultiple for Packed<EquationElem> {
                     full_number_width,
                 )
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok(Fragment::frames(frames))
     }
