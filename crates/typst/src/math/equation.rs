@@ -389,14 +389,16 @@ fn add_equation_number(
     region_size_x: Abs,
     full_number_width: Abs,
 ) -> Frame {
-    let first = equation_builder.frames.first().map_or(
-        (equation_builder.size, Point::zero(), Abs::zero()),
-        |(baseline, frame, point)| (frame.size(), *point, *baseline),
-    );
-    let last = equation_builder.frames.last().map_or(
-        (equation_builder.size, Point::zero(), Abs::zero()),
-        |(baseline, frame, point)| (frame.size(), *point, *baseline),
-    );
+    let first =
+        equation_builder.frames.first().map_or(
+            (equation_builder.size, Point::zero(), Abs::zero()),
+            |(frame, pos)| (frame.size(), *pos, frame.baseline()),
+        );
+    let last =
+        equation_builder.frames.last().map_or(
+            (equation_builder.size, Point::zero(), Abs::zero()),
+            |(frame, pos)| (frame.size(), *pos, frame.baseline()),
+        );
     let line_count = equation_builder.frames.len();
     let mut equation = equation_builder.build();
 
