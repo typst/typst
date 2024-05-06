@@ -236,9 +236,7 @@ impl Show for Packed<HeadingElem> {
                 let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
                 let size = numbering.measure(engine, styles, pod)?.into_frame().size();
 
-                let min_indent =
-                    Length { abs: size.x, em: SPACING_TO_NUMBERING }.resolve(styles);
-                indent = indent.max(min_indent);
+                indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
             }
 
             realized = numbering
