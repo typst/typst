@@ -231,7 +231,6 @@ The END.
 #filler
 
 --- page-suppress-headers-and-footers ---
-
 #set page(header: none, footer: none, numbering: "1")
 Look, ma, no page numbers!
 
