@@ -109,7 +109,8 @@ pub struct TextElem {
     ///   `New Computer Modern Math`, and `DejaVu Sans Mono`. In addition, you
     ///   can use the `--font-path` argument or `TYPST_FONT_PATHS` environment
     ///   variable to add directories that should be scanned for fonts. The
-    ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
+    ///   priority is: `--font-paths` > system fonts (if
+    /// `--no-system-fonts` is not passed) > embedded fonts. Run
     ///   `typst fonts` to see the fonts that Typst has discovered on your
     ///   system.
     ///
