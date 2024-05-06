@@ -7,12 +7,12 @@ use typst::diag::StrResult;
 use typst::text::{Font, FontBook, FontInfo, FontVariant};
 use typst_timing::TimingScope;
 
-use crate::args::FontsCommand;
+use crate::args::{FontSettings, FontsCommand};
 
 /// Execute a font listing command.
 pub fn fonts(command: &FontsCommand) -> StrResult<()> {
     let mut searcher = FontSearcher::new();
-    searcher.search(&command.font_paths, true);
+    searcher.search(&command.font_settings);
 
     for (name, infos) in searcher.book.families() {
         println!("{name}");
@@ -66,16 +66,16 @@ impl FontSearcher {
     }
 
     /// Search everything that is available.
-    pub fn search(&mut self, font_paths: &[PathBuf], load_system_fonts: bool) {
+    pub fn search(&mut self, font_settings: &FontSettings) {
         let mut db = Database::new();
 
         // Font paths have highest priority.
-        for path in font_paths {
+        for path in &font_settings.font_paths {
             db.load_fonts_dir(path);
         }
 
         // System fonts have second priority.
-        if load_system_fonts {
+        if !font_settings.no_system_fonts {
             db.load_system_fonts();
         }
 

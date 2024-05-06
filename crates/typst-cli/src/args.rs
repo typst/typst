@@ -167,14 +167,9 @@ pub struct SharedArgs {
     )]
     pub inputs: Vec<(String, String)>,
 
-    /// Adds additional directories to search for fonts
-    #[clap(
-        long = "font-path",
-        env = "TYPST_FONT_PATHS",
-        value_name = "DIR",
-        value_delimiter = ENV_PATH_SEP,
-    )]
-    pub font_paths: Vec<PathBuf>,
+    /// Font search settings
+    #[clap(flatten)]
+    pub font_settings: FontSettings,
 
     /// The document's creation date formatted as a UNIX timestamp.
     ///
@@ -274,6 +269,17 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
 /// Lists all discovered fonts in system and custom font paths
 #[derive(Debug, Clone, Parser)]
 pub struct FontsCommand {
+    /// Font search settings
+    #[clap(flatten)]
+    pub font_settings: FontSettings,
+
+    /// Also lists style variants of each font family
+    #[arg(long)]
+    pub variants: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct FontSettings {
     /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",
@@ -283,9 +289,9 @@ pub struct FontsCommand {
     )]
     pub font_paths: Vec<PathBuf>,
 
-    /// Also lists style variants of each font family
-    #[arg(long)]
-    pub variants: bool,
+    /// Excludes system fonts from search
+    #[clap(long = "no-system-fonts")]
+    pub no_system_fonts: bool,
 }
 
 /// Which format to use for diagnostics.
