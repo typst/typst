@@ -89,10 +89,9 @@ impl<'a> TextItemView<'a> {
     /// the original text so that it is relative to the start of the slice
     pub fn glyph_at(&self, index: usize) -> Glyph {
         let g = &self.item.glyphs[self.glyph_range.start + index];
-        let text_range = self.text_range();
+        let base = self.text_range().start as u16;
         Glyph {
-            range: (g.range.start - text_range.start as u16)
-                ..(g.range.end - text_range.start as u16),
+            range: g.range.start - base..g.range.end - base,
             ..*g
         }
     }
@@ -122,8 +121,8 @@ impl<'a> TextItemView<'a> {
     /// The range of text in the original TextItem that this slice corresponds
     /// to.
     fn text_range(&self) -> Range<usize> {
-        let text_start = self.item.glyphs[self.glyph_range.start].range().start;
-        let text_end = self.item.glyphs[self.glyph_range.end - 1].range().end;
-        text_start..text_end
+        let first = self.item.glyphs[self.glyph_range.start].range();
+        let last = self.item.glyphs[self.glyph_range.end - 1].range();
+        first.start.min(last.start)..first.end.max(last.end)
     }
 }
