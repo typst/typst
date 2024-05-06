@@ -3,12 +3,14 @@ use std::num::NonZeroUsize;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Resolve
+    elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
+    Styles, Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
-use crate::layout::{BlockElem, Em, HElem, VElem, LayoutMultiple, Axes, Abs, Regions, Length};
-use crate::model::{Numbering, Outlinable, Refable, Supplement, ParElem};
+use crate::layout::{
+    Abs, Axes, BlockElem, Em, HElem, LayoutMultiple, Length, Regions, VElem,
+};
+use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 use crate::util::NonZeroExt;
 
