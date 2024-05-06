@@ -3,7 +3,10 @@ use image::{GenericImageView, Rgba};
 use std::sync::Arc;
 use tiny_skia as sk;
 use typst::layout::{Abs, Axes, Point, Ratio, Size};
-use typst::visualize::{FixedStroke, Geometry, Image, ImageKind, Path, PathItem, Shape};
+use typst::visualize::{
+    DashPattern, FixedStroke, Geometry, Image, ImageKind, LineCap, LineJoin, Path,
+    PathItem, Shape,
+};
 
 use crate::{paint, AbsExt, State};
 
@@ -63,7 +66,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
 
         // Don't draw zero-pt stroke.
         if width > 0.0 {
-            let dash = dash.as_ref().and_then(paint::to_sk_dash_pattern);
+            let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
             let bbox = shape.geometry.bbox_size();
             let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..)))
@@ -104,8 +107,8 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
             );
             let stroke = sk::Stroke {
                 width,
-                line_cap: paint::to_sk_line_cap(*cap),
-                line_join: paint::to_sk_line_join(*join),
+                line_cap: to_sk_line_cap(*cap),
+                line_join: to_sk_line_join(*join),
                 dash,
                 miter_limit: miter_limit.get() as f32,
             };
@@ -224,4 +227,29 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 
 fn offset_bounding_box(bbox: Size, stroke_width: Abs) -> Size {
     Size::new(bbox.x + stroke_width * 2.0, bbox.y + stroke_width * 2.0)
+}
+
+pub fn to_sk_line_cap(cap: LineCap) -> sk::LineCap {
+    match cap {
+        LineCap::Butt => sk::LineCap::Butt,
+        LineCap::Round => sk::LineCap::Round,
+        LineCap::Square => sk::LineCap::Square,
+    }
+}
+
+pub fn to_sk_line_join(join: LineJoin) -> sk::LineJoin {
+    match join {
+        LineJoin::Miter => sk::LineJoin::Miter,
+        LineJoin::Round => sk::LineJoin::Round,
+        LineJoin::Bevel => sk::LineJoin::Bevel,
+    }
+}
+
+pub fn to_sk_dash_pattern(pattern: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
+    // tiny-skia only allows dash patterns with an even number of elements,
+    // while pdf allows any number.
+    let pattern_len = pattern.array.len();
+    let len = if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
+    let dash_array = pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+    sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
 }

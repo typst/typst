@@ -8,7 +8,7 @@ use typst::text::{Font, TextItem};
 use typst::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, PatternSampler};
-use crate::{AbsExt, State};
+use crate::{visualize, AbsExt, State};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
@@ -87,7 +87,7 @@ fn render_outline_glyph(
             &text.stroke
         {
             if thickness.to_f32() > 0.0 {
-                let dash = dash.as_ref().and_then(paint::to_sk_dash_pattern);
+                let dash = dash.as_ref().and_then(visualize::to_sk_dash_pattern);
 
                 let paint = paint::to_sk_paint(
                     paint,
@@ -100,8 +100,8 @@ fn render_outline_glyph(
                 );
                 let stroke = sk::Stroke {
                     width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
-                    line_cap: paint::to_sk_line_cap(*cap),
-                    line_join: paint::to_sk_line_join(*join),
+                    line_cap: visualize::to_sk_line_cap(*cap),
+                    line_join: visualize::to_sk_line_join(*join),
                     dash,
                     miter_limit: miter_limit.get() as f32,
                 };

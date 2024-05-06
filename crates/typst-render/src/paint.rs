@@ -1,9 +1,7 @@
 use std::sync::Arc;
 use tiny_skia as sk;
-use typst::layout::{Abs, Axes, Point, Ratio, Size};
-use typst::visualize::{
-    Color, DashPattern, Gradient, LineCap, LineJoin, Paint, Pattern, RelativeTo,
-};
+use typst::layout::{Axes, Point, Ratio, Size};
+use typst::visualize::{Color, Gradient, Paint, Pattern, RelativeTo};
 
 use crate::{AbsExt, State};
 
@@ -250,31 +248,6 @@ pub fn to_sk_color(color: Color) -> sk::Color {
 pub fn to_sk_color_u8(color: Color) -> sk::ColorU8 {
     let [r, g, b, a] = color.to_rgb().to_vec4_u8();
     sk::ColorU8::from_rgba(r, g, b, a)
-}
-
-pub fn to_sk_line_cap(cap: LineCap) -> sk::LineCap {
-    match cap {
-        LineCap::Butt => sk::LineCap::Butt,
-        LineCap::Round => sk::LineCap::Round,
-        LineCap::Square => sk::LineCap::Square,
-    }
-}
-
-pub fn to_sk_line_join(join: LineJoin) -> sk::LineJoin {
-    match join {
-        LineJoin::Miter => sk::LineJoin::Miter,
-        LineJoin::Round => sk::LineJoin::Round,
-        LineJoin::Bevel => sk::LineJoin::Bevel,
-    }
-}
-
-pub fn to_sk_dash_pattern(pattern: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
-    // tiny-skia only allows dash patterns with an even number of elements,
-    // while pdf allows any number.
-    let pattern_len = pattern.array.len();
-    let len = if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
-    let dash_array = pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
-    sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
 }
 
 pub fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
