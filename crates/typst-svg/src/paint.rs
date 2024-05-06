@@ -1,5 +1,6 @@
-use ecow::{eco_format, EcoString};
 use std::f32::consts::TAU;
+
+use ecow::{eco_format, EcoString};
 use ttf_parser::OutlineBuilder;
 use typst::foundations::Repr;
 use typst::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};

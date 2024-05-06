@@ -1,13 +1,14 @@
+use std::io::Read;
+
 use base64::Engine;
 use ecow::EcoString;
-use std::io::Read;
 use ttf_parser::GlyphId;
 use typst::layout::{Abs, Point, Ratio, Size, Transform};
 use typst::text::{Font, TextItem};
 use typst::util::hash128;
 use typst::visualize::{Image, Paint, RasterFormat, RelativeTo};
 
-use crate::{visualize, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
 impl SVGRenderer {
     /// Render a text item. The text is rendered as a group of glyphs. We will
@@ -88,7 +89,7 @@ impl SVGRenderer {
         let id = self.glyphs.insert_with(glyph_hash, || {
             let width = image.width();
             let height = image.height();
-            let url = visualize::convert_image_to_base64_url(&image);
+            let url = crate::image::convert_image_to_base64_url(&image);
             let ts = Transform::translate(
                 Abs::pt(bitmap_x_offset),
                 Abs::pt(-height - bitmap_y_offset),

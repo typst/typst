@@ -1,15 +1,14 @@
 //! Rendering of Typst documents into SVG images.
 
+mod image;
 mod paint;
+mod shape;
 mod text;
-mod visualize;
 
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
-use paint::PatternRef;
-use text::RenderedGlyph;
 use ttf_parser::OutlineBuilder;
 use typst::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
@@ -19,7 +18,8 @@ use typst::util::hash128;
 use typst::visualize::{Gradient, Pattern};
 use xmlwriter::XmlWriter;
 
-use crate::paint::{GradientRef, SVGSubGradient};
+use crate::paint::{GradientRef, PatternRef, SVGSubGradient};
+use crate::text::RenderedGlyph;
 
 /// Export a frame into a SVG file.
 #[typst_macros::time(name = "svg")]
@@ -230,9 +230,7 @@ impl SVGRenderer {
 
         if let Some(clip_path) = &group.clip_path {
             let hash = hash128(&group);
-            let id = self
-                .clip_paths
-                .insert_with(hash, || visualize::convert_path(clip_path));
+            let id = self.clip_paths.insert_with(hash, || shape::convert_path(clip_path));
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
