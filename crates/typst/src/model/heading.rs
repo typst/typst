@@ -170,9 +170,6 @@ pub struct HeadingElem {
     /// The default value of `{auto}` indicates that the subsequent heading
     /// lines will be indented based on the width of the numbering.
     ///
-    /// Custom lengths will indent the lines at least as much as the
-    /// numbering.
-    ///
     /// ```example
     /// #set heading(numbering: "1.")
     /// #heading[A very, very, very, very, very, very long heading]
@@ -218,12 +215,14 @@ impl Synthesize for Packed<HeadingElem> {
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        const SPACING_TO_NUMBERING: Em = Em::new(0.3);
+
         let span = self.span();
         let mut realized = self.body().clone();
 
         let hanging_indent = self.hanging_indent(styles);
 
-        let mut indent = match self.hanging_indent(styles) {
+        let mut indent = match hanging_indent {
             Smart::Custom(length) => length.resolve(styles),
             Smart::Auto => Abs::zero(),
         };
@@ -231,21 +230,25 @@ impl Show for Packed<HeadingElem> {
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
             let numbering = Counter::of(HeadingElem::elem())
                 .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
-                .spanned(span)
-                + HElem::new(Em::new(0.3).into()).with_weak(true).pack();
+                .spanned(span);
 
             if hanging_indent.is_auto() {
                 let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
                 let size = numbering.measure(engine, styles, pod)?.into_frame().size();
 
-                let min_indent = Length { abs: size.x, em: Em::new(0.3) }.resolve(styles);
+                let min_indent =
+                    Length { abs: size.x, em: SPACING_TO_NUMBERING }.resolve(styles);
                 indent = indent.max(min_indent);
             }
 
-            realized = numbering + realized;
+            realized = numbering
+                + HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack()
+                + realized;
         }
 
-        realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
+        if indent != Abs::zero() {
+            realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
+        }
 
         Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
     }
