@@ -1,6 +1,5 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, HashSet};
-use std::ops::Range;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
@@ -1054,7 +1053,7 @@ impl<'a> CompletionContext<'a> {
 
     /// A small window of context before the cursor.
     fn before_window(&self, size: usize) -> &str {
-        slice_at(self.before, self.cursor.saturating_sub(size)..self.before.len())
+        Scanner::new(self.before).from(self.cursor.saturating_sub(size))
     }
 
     /// Add a prefix and suffix to all applications.
@@ -1405,22 +1404,6 @@ impl<'a> CompletionContext<'a> {
     }
 }
 
-/// Slices a string at a smaller range to fit character boundaries.
-fn slice_at(s: &str, mut rng: Range<usize>) -> &str {
-    while !rng.is_empty() && !s.is_char_boundary(rng.start) {
-        rng.start += 1;
-    }
-    while !rng.is_empty() && !s.is_char_boundary(rng.end) {
-        rng.end -= 1;
-    }
-
-    if rng.is_empty() {
-        return "";
-    }
-
-    &s[rng]
-}
-
 #[cfg(test)]
 mod tests {
     use typst::eval::Tracer;
@@ -1449,5 +1432,13 @@ mod tests {
     fn test_autocomplete() {
         test("#i", 2, &["int", "if conditional"], &["foo"]);
         test("#().", 4, &["insert", "remove", "len", "all"], &["foo"]);
+    }
+
+    #[test]
+    fn test_before_window_char_boundary() {
+        // Check that the `before_window` doesn't slice into invalid byte
+        // boundaries.
+        let s = "😀😀     #text(font: \"\")";
+        test(s, s.len() - 2, &[], &[]);
     }
 }
