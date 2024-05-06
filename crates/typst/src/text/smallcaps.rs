@@ -35,7 +35,7 @@ use crate::text::TextElem;
 /// letters, but this is not yet implemented.
 #[elem(title = "Small Capitals", Show)]
 pub struct SmallcapsElem {
-    /// The content to display to small capitals.
+    /// The content to display in small capitals.
     #[required]
     pub body: Content,
 }
