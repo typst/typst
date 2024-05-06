@@ -1,8 +1,9 @@
 //! Rendering of Typst documents into raster images.
 
+mod image;
 mod paint;
+mod shape;
 mod text;
-mod visualize;
 
 use tiny_skia as sk;
 use typst::introspection::Meta;
@@ -156,10 +157,10 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
                 text::render_text(canvas, state.pre_translate(*pos), text);
             }
             FrameItem::Shape(shape, _) => {
-                visualize::render_shape(canvas, state.pre_translate(*pos), shape);
+                shape::render_shape(canvas, state.pre_translate(*pos), shape);
             }
             FrameItem::Image(image, size, _) => {
-                visualize::render_image(canvas, state.pre_translate(*pos), image, *size);
+                image::render_image(canvas, state.pre_translate(*pos), image, *size);
             }
             FrameItem::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
@@ -191,7 +192,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
     let mut mask = state.mask;
     let storage;
     if let Some(clip_path) = group.clip_path.as_ref() {
-        if let Some(path) = visualize::convert_path(clip_path)
+        if let Some(path) = shape::convert_path(clip_path)
             .and_then(|path| path.transform(state.transform))
         {
             if let Some(mask) = mask {
@@ -250,21 +251,4 @@ impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
     }
-}
-
-// Alpha multiplication and blending are ported from:
-// https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
-
-/// Blends two premulitplied, packed 32-bit RGBA colors. Alpha channel must be
-/// in the 8 high bits.
-fn blend_src_over(src: u32, dst: u32) -> u32 {
-    src + alpha_mul(dst, 256 - (src >> 24))
-}
-
-/// Alpha multiply a color.
-fn alpha_mul(color: u32, scale: u32) -> u32 {
-    let mask = 0xff00ff;
-    let rb = ((color & mask) * scale) >> 8;
-    let ag = ((color >> 8) & mask) * scale;
-    (rb & mask) | (ag & !mask)
 }

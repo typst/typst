@@ -186,7 +186,7 @@ THE SOFTWARE.
 
 ================================================================================
 Alpha multiplication and source-over blending in
-`crates/typst/src/export/render.rs` are ported from Skia code which can be found
+`crates/typst-render/src/text.rs` are ported from Skia code which can be found
 here:
 https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
 

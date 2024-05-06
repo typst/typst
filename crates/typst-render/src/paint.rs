@@ -1,4 +1,5 @@
 use std::sync::Arc;
+
 use tiny_skia as sk;
 use typst::layout::{Axes, Point, Ratio, Size};
 use typst::visualize::{Color, Gradient, Paint, Pattern, RelativeTo};

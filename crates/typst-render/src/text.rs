@@ -1,5 +1,6 @@
-use pixglyph::Bitmap;
 use std::sync::Arc;
+
+use pixglyph::Bitmap;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst::layout::{Abs, Axes, Point, Size};
@@ -8,7 +9,7 @@ use typst::text::{Font, TextItem};
 use typst::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, PatternSampler};
-use crate::{visualize, AbsExt, State};
+use crate::{shape, AbsExt, State};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
@@ -87,7 +88,7 @@ fn render_outline_glyph(
             &text.stroke
         {
             if thickness.to_f32() > 0.0 {
-                let dash = dash.as_ref().and_then(visualize::to_sk_dash_pattern);
+                let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
 
                 let paint = paint::to_sk_paint(
                     paint,
@@ -100,8 +101,8 @@ fn render_outline_glyph(
                 );
                 let stroke = sk::Stroke {
                     width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
-                    line_cap: visualize::to_sk_line_cap(*cap),
-                    line_join: visualize::to_sk_line_join(*join),
+                    line_cap: shape::to_sk_line_cap(*cap),
+                    line_join: shape::to_sk_line_join(*join),
                     dash,
                     miter_limit: miter_limit.get() as f32,
                 };
@@ -228,8 +229,8 @@ fn write_bitmap<S: PaintSampler>(
                     continue;
                 }
 
-                let applied = crate::alpha_mul(color, cov as u32);
-                pixels[pi] = crate::blend_src_over(applied, pixels[pi]);
+                let applied = alpha_mul(color, cov as u32);
+                pixels[pi] = blend_src_over(applied, pixels[pi]);
             }
         }
     }
@@ -260,4 +261,21 @@ impl OutlineBuilder for WrappedPathBuilder {
     fn close(&mut self) {
         self.0.close();
     }
+}
+
+// Alpha multiplication and blending are ported from:
+// https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
+
+/// Blends two premulitplied, packed 32-bit RGBA colors. Alpha channel must be
+/// in the 8 high bits.
+fn blend_src_over(src: u32, dst: u32) -> u32 {
+    src + alpha_mul(dst, 256 - (src >> 24))
+}
+
+/// Alpha multiply a color.
+fn alpha_mul(color: u32, scale: u32) -> u32 {
+    let mask = 0xff00ff;
+    let rb = ((color & mask) * scale) >> 8;
+    let ag = ((color >> 8) & mask) * scale;
+    (rb & mask) | (ag & !mask)
 }
