@@ -5,12 +5,6 @@ use crate::text::TextElem;
 
 /// Displays text in small capitals.
 ///
-/// _Note:_ This enables the OpenType `smcp` feature for the font. Not all fonts
-/// support this feature. Sometimes smallcaps are part of a dedicated font and
-/// sometimes they are not available at all. In the future, this function will
-/// support synthesizing smallcaps from normal letters, but this is not yet
-/// implemented.
-///
 /// # Example
 /// ```example
 /// #set par(justify: true)
@@ -26,12 +20,19 @@ use crate::text::TextElem;
 /// #lorem(40)
 /// ```
 ///
-/// You can use show rule to customize the appearance of the text in smallcaps,
-/// which allows selecting a dedicated smallcaps font.
-/// ```example
-/// #show smallcaps: set text(font: "linux libertine")
-/// #smallcaps[Use Show Rule For Smallcaps]
+/// # Smallcaps fonts
+/// By default, this enables the OpenType `smcp` feature for the font. Not all
+/// fonts support this feature. Sometimes smallcaps are part of a dedicated
+/// font. This is, for example, the case for the _Latin Modern_ family of fonts.
+/// In those cases, you can use a show-set rule to customize the appearance of
+/// the text in smallcaps:
+///
+/// ```typ
+/// #show smallcaps: set text(font: "Latin Modern Roman Caps")
 /// ```
+///
+/// In the future, this function will support synthesizing smallcaps from normal
+/// letters, but this is not yet implemented.
 #[elem(title = "Small Capitals", Show)]
 pub struct SmallcapsElem {
     /// The content to display to small capitals.
