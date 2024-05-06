@@ -18,7 +18,7 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
-use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
+use pdf_writer::{Chunk, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
 use typst::layout::{Abs, Dir, Em, Frame, Transform};
@@ -62,25 +62,62 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     let mut ctx = PdfContext::new(document);
+    let mut pdf = Pdf::new();
+    let mut alloc = Ref::new(1);
     page::construct_pages(&mut ctx, &document.pages);
-    font::write_fonts(&mut ctx);
-    image::write_images(&mut ctx);
-    gradient::write_gradients(&mut ctx);
-    extg::write_external_graphics_states(&mut ctx);
-    pattern::write_patterns(&mut ctx);
-    write_named_destinations(&mut ctx);
-    page::write_page_tree(&mut ctx);
-    page::write_global_resources(&mut ctx);
-    write_catalog(&mut ctx, ident, timestamp);
-    ctx.pdf.finish()
+    append_chunk(&mut alloc, &mut pdf, font::write_color_fonts(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, font::write_fonts(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, image::write_images(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, gradient::write_gradients(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, extg::write_external_graphics_states(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, pattern::write_patterns(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, write_named_destinations(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, page::write_page_tree(&mut ctx));
+    append_chunk(&mut alloc, &mut pdf, page::write_global_resources(&mut ctx));
+    write_catalog(&mut ctx, &mut pdf, &mut alloc, ident, timestamp);
+    // ctx.pdf.finish()
+    todo!()
+}
+
+struct ReservedRef {
+    inner: Ref,
+    used: bool,
+}
+
+impl ReservedRef {
+    fn new(id: Ref) -> Self {
+        ReservedRef { inner: id, used: false }
+    }
+
+    fn is_used(&self) -> bool {
+        self.used
+    }
+
+    fn get(&mut self) -> Ref {
+        self.used = true;
+        self.inner
+    }
+}
+
+fn append_chunk(alloc: &mut Ref, dest: &mut Chunk, src: Chunk) -> HashMap<Ref, Ref> {
+    let mut mapping = HashMap::new();
+    src.renumber_into(dest, |id| *mapping.entry(id).or_insert_with(|| alloc.bump()));
+    mapping
+}
+
+fn append_chunk_with_id(
+    alloc: &mut Ref,
+    dest: &mut Chunk,
+    (src_chunk, src_ref): (Chunk, Ref),
+) -> Ref {
+    let mapping = append_chunk(alloc, dest, src_chunk);
+    mapping[&src_ref]
 }
 
 /// Context for exporting a whole PDF document.
 struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
-    /// The writer we are writing the PDF into.
-    pdf: Pdf,
     /// Content of exported pages.
     pages: Vec<EncodedPage>,
     /// For each font a mapping from used glyphs to their text representation.
@@ -95,8 +132,6 @@ struct PdfContext<'a> {
     /// BTreeMap is used to write sorted list of languages to metadata.
     languages: BTreeMap<Lang, usize>,
 
-    /// Allocator for indirect reference IDs.
-    alloc: Ref,
     /// The ID of the page tree.
     page_tree_ref: Ref,
     /// The ID of the globally shared Resources dictionary.
@@ -152,11 +187,9 @@ impl<'a> PdfContext<'a> {
         let type3_font_resources_ref = alloc.bump();
         Self {
             document,
-            pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
-            alloc,
             page_tree_ref,
             global_resources_ref,
             type3_font_resources_ref,
@@ -166,7 +199,7 @@ impl<'a> PdfContext<'a> {
             gradient_refs: vec![],
             pattern_refs: vec![],
             ext_gs_refs: vec![],
-            colors: ColorSpaces::default(),
+            colors: ColorSpaces::new(&mut alloc),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             image_deferred_map: HashMap::default(),
@@ -181,7 +214,13 @@ impl<'a> PdfContext<'a> {
 }
 
 /// Write the document catalog.
-fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Datetime>) {
+fn write_catalog(
+    ctx: &mut PdfContext,
+    pdf: &mut Pdf,
+    alloc: &mut Ref,
+    ident: Smart<&str>,
+    timestamp: Option<Datetime>,
+) {
     let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
@@ -192,12 +231,16 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
 
     // Write the outline tree.
     let outline_root_id = outline::write_outline(ctx);
+    let outline_root_id = outline_root_id.map(|id| append_chunk_with_id(alloc, pdf, id));
 
     // Write the page labels.
-    let page_labels = page::write_page_labels(ctx);
+    let (page_label_chunk, page_labels) = page::write_page_labels(ctx);
+    let mapping = append_chunk(alloc, pdf, page_label_chunk);
+    let page_labels: Vec<_> =
+        page_labels.into_iter().map(|(nr, id)| (nr, mapping[&id])).collect();
 
     // Write the document information.
-    let mut info = ctx.pdf.document_info(ctx.alloc.bump());
+    let mut info = pdf.document_info(alloc.bump());
     let mut xmp = XmpWriter::new();
     if let Some(title) = &ctx.document.title {
         info.title(TextStr(title));
@@ -257,7 +300,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
 
     // A unique ID for this instance of the document. Changes if anything
     // changes in the frames.
-    let instance_id = hash_base64(&ctx.pdf.as_bytes());
+    let instance_id = hash_base64(&pdf.as_bytes());
 
     // Determine the document's ID. It should be as stable as possible.
     const PDF_VERSION: &str = "PDF-1.7";
@@ -276,21 +319,19 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
     // Write IDs.
     xmp.document_id(&doc_id);
     xmp.instance_id(&instance_id);
-    ctx.pdf
-        .set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+    pdf.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
 
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");
 
     let xmp_buf = xmp.finish(None);
-    let meta_ref = ctx.alloc.bump();
-    ctx.pdf
-        .stream(meta_ref, xmp_buf.as_bytes())
+    let meta_ref = alloc.bump();
+    pdf.stream(meta_ref, xmp_buf.as_bytes())
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
     // Write the document catalog.
-    let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
+    let mut catalog = pdf.catalog(alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
@@ -328,7 +369,10 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
 
 /// Fills in the map and vector for named destinations and writes the indirect
 /// destination objects.
-fn write_named_destinations(ctx: &mut PdfContext) {
+#[must_use]
+fn write_named_destinations(ctx: &mut PdfContext) -> Chunk {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
     let mut seen = HashSet::new();
 
     // Find all headings that have a label and are the first among other
@@ -351,18 +395,20 @@ fn write_named_destinations(ctx: &mut PdfContext) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
         if let Some(page) = ctx.pages.get(index) {
-            let dest_ref = ctx.alloc.bump();
+            let dest_ref = alloc.bump();
             let x = pos.point.x.to_f32();
             let y = (page.size.y - y).to_f32();
             ctx.dests.push((label, dest_ref));
             ctx.loc_to_dest.insert(loc, label);
-            ctx.pdf
+            chunk
                 .indirect(dest_ref)
                 .start::<Destination>()
                 .page(page.id)
                 .xyz(x, y, None);
         }
     }
+
+    chunk
 }
 
 /// Compress data with the DEFLATE algorithm.

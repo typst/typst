@@ -3,8 +3,8 @@ use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::deflate;
 use crate::page::{PageContext, Transforms};
+use crate::{deflate, ReservedRef};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -28,32 +28,40 @@ static OKLAB_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
-#[derive(Default)]
 pub struct ColorSpaces {
-    oklab: Option<Ref>,
-    srgb: Option<Ref>,
-    d65_gray: Option<Ref>,
+    oklab: ReservedRef,
+    srgb: ReservedRef,
+    d65_gray: ReservedRef,
     use_linear_rgb: bool,
 }
 
 impl ColorSpaces {
+    pub fn new(alloc: &mut Ref) -> Self {
+        ColorSpaces {
+            oklab: ReservedRef::new(alloc.bump()),
+            srgb: ReservedRef::new(alloc.bump()),
+            d65_gray: ReservedRef::new(alloc.bump()),
+            use_linear_rgb: false,
+        }
+    }
+
     /// Get a reference to the oklab color space.
     ///
     /// # Warning
     /// The A and B components of the color must be offset by +0.4 before being
     /// encoded into the PDF file.
-    pub fn oklab(&mut self, alloc: &mut Ref) -> Ref {
-        *self.oklab.get_or_insert_with(|| alloc.bump())
+    pub fn oklab(&mut self) -> Ref {
+        self.oklab.get()
     }
 
     /// Get a reference to the srgb color space.
-    pub fn srgb(&mut self, alloc: &mut Ref) -> Ref {
-        *self.srgb.get_or_insert_with(|| alloc.bump())
+    pub fn srgb(&mut self) -> Ref {
+        self.srgb.get()
     }
 
     /// Get a reference to the gray color space.
-    pub fn d65_gray(&mut self, alloc: &mut Ref) -> Ref {
-        *self.d65_gray.get_or_insert_with(|| alloc.bump())
+    pub fn d65_gray(&mut self) -> Ref {
+        self.d65_gray.get()
     }
 
     /// Mark linear RGB as used.
@@ -72,12 +80,12 @@ impl ColorSpaces {
             ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
                 self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), alloc);
-                oklab.tint_ref(self.oklab(alloc));
+                oklab.tint_ref(self.oklab());
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
             }
             ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, alloc),
-            ColorSpace::Srgb => writer.icc_based(self.srgb(alloc)),
-            ColorSpace::D65Gray => writer.icc_based(self.d65_gray(alloc)),
+            ColorSpace::Srgb => writer.icc_based(self.srgb()),
+            ColorSpace::D65Gray => writer.icc_based(self.d65_gray()),
             ColorSpace::LinearRgb => {
                 writer.cal_rgb(
                     [0.9505, 1.0, 1.0888],
@@ -95,15 +103,15 @@ impl ColorSpaces {
 
     // Write the color spaces to the PDF file.
     pub fn write_color_spaces(&mut self, mut spaces: Dict, alloc: &mut Ref) {
-        if self.oklab.is_some() {
+        if self.oklab.is_used() {
             self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), alloc);
         }
 
-        if self.srgb.is_some() {
+        if self.srgb.is_used() {
             self.write(ColorSpace::Srgb, spaces.insert(SRGB).start(), alloc);
         }
 
-        if self.d65_gray.is_some() {
+        if self.d65_gray.is_used() {
             self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), alloc);
         }
 
@@ -116,27 +124,27 @@ impl ColorSpaces {
     /// PDF file.
     pub fn write_functions(&self, chunk: &mut Chunk) {
         // Write the Oklab function & color space.
-        if let Some(oklab) = self.oklab {
+        if self.oklab.is_used() {
             chunk
-                .post_script_function(oklab, &OKLAB_DEFLATED)
+                .post_script_function(self.oklab.inner, &OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
         // Write the sRGB color space.
-        if let Some(srgb) = self.srgb {
+        if self.srgb.is_used() {
             chunk
-                .icc_profile(srgb, &SRGB_ICC_DEFLATED)
+                .icc_profile(self.srgb.inner, &SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
         // Write the gray color space.
-        if let Some(gray) = self.d65_gray {
+        if self.d65_gray.is_used() {
             chunk
-                .icc_profile(gray, &GRAY_ICC_DEFLATED)
+                .icc_profile(self.d65_gray.inner, &GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -235,7 +243,7 @@ impl PaintEncode for Color {
     fn set_as_fill(&self, ctx: &mut PageContext, _: bool, _: Transforms) {
         match self {
             Color::Luma(_) => {
-                ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
+                ctx.parent.colors.d65_gray();
                 ctx.set_fill_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -243,7 +251,7 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.parent.colors.oklab(&mut ctx.parent.alloc);
+                ctx.parent.colors.oklab();
                 ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
@@ -257,7 +265,7 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                ctx.parent.colors.srgb(&mut ctx.parent.alloc);
+                ctx.parent.colors.srgb();
                 ctx.set_fill_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
@@ -275,7 +283,7 @@ impl PaintEncode for Color {
     fn set_as_stroke(&self, ctx: &mut PageContext, _: bool, _: Transforms) {
         match self {
             Color::Luma(_) => {
-                ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
+                ctx.parent.colors.d65_gray();
                 ctx.set_stroke_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -283,7 +291,7 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.parent.colors.oklab(&mut ctx.parent.alloc);
+                ctx.parent.colors.oklab();
                 ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
@@ -297,7 +305,7 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                ctx.parent.colors.srgb(&mut ctx.parent.alloc);
+                ctx.parent.colors.srgb();
                 ctx.set_stroke_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);

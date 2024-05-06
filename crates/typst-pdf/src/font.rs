@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::writers::FontDescriptor;
-use pdf_writer::{Filter, Finish, Name, Rect, Str};
+use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
 use typst::layout::{Abs, Em, Ratio, Transform};
 use typst::text::Font;
@@ -26,15 +26,16 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
-pub(crate) fn write_fonts(ctx: &mut PdfContext) {
-    write_color_fonts(ctx);
-
+#[must_use]
+pub(crate) fn write_fonts(ctx: &mut PdfContext) -> Chunk {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
     for font in ctx.font_map.items() {
-        let type0_ref = ctx.alloc.bump();
-        let cid_ref = ctx.alloc.bump();
-        let descriptor_ref = ctx.alloc.bump();
-        let cmap_ref = ctx.alloc.bump();
-        let data_ref = ctx.alloc.bump();
+        let type0_ref = alloc.bump();
+        let cid_ref = alloc.bump();
+        let descriptor_ref = alloc.bump();
+        let cmap_ref = alloc.bump();
+        let data_ref = alloc.bump();
         ctx.font_refs.push(type0_ref);
 
         let glyph_set = ctx.glyph_sets.get_mut(font).unwrap();
@@ -63,7 +64,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         };
 
         // Write the base font object referencing the CID font.
-        ctx.pdf
+        chunk
             .type0_font(type0_ref)
             .base_font(Name(base_font_type0.as_bytes()))
             .encoding_predefined(Name(b"Identity-H"))
@@ -71,7 +72,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
             .to_unicode(cmap_ref);
 
         // Write the CID font referencing the font descriptor.
-        let mut cid = ctx.pdf.cid_font(cid_ref);
+        let mut cid = chunk.cid_font(cid_ref);
         cid.subtype(if is_cff { CidFontType::Type0 } else { CidFontType::Type2 });
         cid.base_font(Name(base_font.as_bytes()));
         cid.system_info(SYSTEM_INFO);
@@ -111,13 +112,13 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         // Write the /ToUnicode character map, which maps glyph ids back to
         // unicode codepoints to enable copying out of the PDF.
         let cmap = create_cmap(font, glyph_set);
-        ctx.pdf.cmap(cmap_ref, &cmap.finish());
+        chunk.cmap(cmap_ref, &cmap.finish());
 
         // Subset and write the font's bytes.
         let glyphs: Vec<_> = glyph_set.keys().copied().collect();
         let data = subset_font(font, &glyphs);
 
-        let mut stream = ctx.pdf.stream(data_ref, &data);
+        let mut stream = chunk.stream(data_ref, &data);
         stream.filter(Filter::FlateDecode);
         if is_cff {
             stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
@@ -126,25 +127,30 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
         stream.finish();
 
         let mut font_descriptor =
-            write_font_descriptor(&mut ctx.pdf, descriptor_ref, font, &base_font);
+            write_font_descriptor(&mut chunk, descriptor_ref, font, &base_font);
         if is_cff {
             font_descriptor.font_file3(data_ref);
         } else {
             font_descriptor.font_file2(data_ref);
         }
     }
+    chunk
 }
 
 /// Writes color fonts as Type3 fonts
-fn write_color_fonts(ctx: &mut PdfContext) {
+#[must_use]
+pub(crate) fn write_color_fonts(ctx: &mut PdfContext) -> Chunk {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
+
     let color_font_map = ctx.color_font_map.take_map();
     for (font, color_font) in color_font_map {
         // For each Type3 font that is part of this family…
         for (font_index, subfont_id) in color_font.refs.iter().enumerate() {
             // Allocate some IDs.
-            let cmap_ref = ctx.alloc.bump();
-            let descriptor_ref = ctx.alloc.bump();
-            let widths_ref = ctx.alloc.bump();
+            let cmap_ref = alloc.bump();
+            let descriptor_ref = alloc.bump();
+            let widths_ref = alloc.bump();
             // And a map between glyph IDs and the instructions to draw this
             // glyph.
             let mut glyphs_to_instructions = Vec::new();
@@ -160,7 +166,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
 
             // Write the instructions for each glyph.
             for color_glyph in subset {
-                let instructions_stream_ref = ctx.alloc.bump();
+                let instructions_stream_ref = alloc.bump();
                 let width =
                     font.advance(color_glyph.gid).unwrap_or(Em::new(0.0)).to_font_units();
                 widths.push(width);
@@ -176,11 +182,11 @@ fn write_color_fonts(ctx: &mut PdfContext) {
                         // Also move the origin to the top left corner
                         .post_concat(Transform::translate(Abs::zero(), size.y)),
                 );
-                write_frame(&mut page_ctx, &color_glyph.frame);
+                write_frame(&mut page_ctx, &mut alloc, &color_glyph.frame);
 
                 // Retrieve the stream of the page and write it.
                 let stream = page_ctx.content.finish();
-                ctx.pdf.stream(instructions_stream_ref, &stream);
+                chunk.stream(instructions_stream_ref, &stream);
 
                 // Use this stream as instructions to draw the glyph.
                 glyphs_to_instructions.push(instructions_stream_ref);
@@ -188,7 +194,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
             }
 
             // Write the Type3 font object.
-            let mut pdf_font = ctx.pdf.type3_font(*subfont_id);
+            let mut pdf_font = chunk.type3_font(*subfont_id);
             pdf_font.pair(Name(b"Resources"), ctx.type3_font_resources_ref);
             pdf_font.bbox(color_font.bbox);
             pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
@@ -229,7 +235,7 @@ fn write_color_fonts(ctx: &mut PdfContext) {
                     cmap.pair_with_multiple(index as u8, text.chars());
                 }
             }
-            ctx.pdf.cmap(cmap_ref, &cmap.finish());
+            chunk.cmap(cmap_ref, &cmap.finish());
 
             // Write the font descriptor.
             gids.sort();
@@ -238,18 +244,20 @@ fn write_color_fonts(ctx: &mut PdfContext) {
                 .find_name(name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
             let base_font = eco_format!("{subset_tag}+{postscript_name}");
-            write_font_descriptor(&mut ctx.pdf, descriptor_ref, &font, &base_font);
+            write_font_descriptor(&mut chunk, descriptor_ref, &font, &base_font);
 
             // Write the widths array
-            ctx.pdf.indirect(widths_ref).array().items(widths);
+            chunk.indirect(widths_ref).array().items(widths);
         }
     }
+
+    chunk
 }
 
 /// Writes a FontDescriptor dictionary.
 fn write_font_descriptor<'a>(
-    pdf: &'a mut pdf_writer::Pdf,
-    descriptor_ref: pdf_writer::Ref,
+    pdf: &'a mut Chunk,
+    descriptor_ref: Ref,
     font: &'a Font,
     base_font: &EcoString,
 ) -> FontDescriptor<'a> {

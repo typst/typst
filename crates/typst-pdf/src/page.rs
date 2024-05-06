@@ -4,14 +4,14 @@ use std::num::NonZeroUsize;
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
+use crate::{append_chunk, deflate_deferred, AbsExt, EmExt, PdfContext};
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
     LineJoinStyle, NumberingStyle, TextRenderingMode,
 };
 use pdf_writer::writers::{PageLabel, Resources};
-use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use pdf_writer::{Chunk, Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 use typst::introspection::Meta;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
@@ -26,9 +26,10 @@ use typst::visualize::{
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
-pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
+pub(crate) fn construct_pages<'a>(ctx: &'a mut PdfContext, pages: &[Page]) {
+    let mut alloc = Ref::new(1);
     for page in pages {
-        let (page_ref, mut encoded) = construct_page(ctx, &page.frame);
+        let (page_ref, mut encoded) = construct_page(ctx, &mut alloc, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
@@ -40,8 +41,12 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, EncodedPage) {
-    let page_ref = ctx.alloc.bump();
+pub(crate) fn construct_page(
+    ctx: &mut PdfContext,
+    alloc: &mut Ref,
+    frame: &Frame,
+) -> (Ref, EncodedPage) {
+    let page_ref = alloc.bump();
 
     let size = frame.size();
     let mut ctx = PageContext::new(ctx, size);
@@ -58,7 +63,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     });
 
     // Encode the page into the content stream.
-    write_frame(&mut ctx, frame);
+    write_frame(&mut ctx, alloc, frame);
 
     let page = EncodedPage {
         size,
@@ -74,15 +79,21 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
 }
 
 /// Write the page tree.
-pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
+#[must_use]
+pub(crate) fn write_page_tree(ctx: &mut PdfContext) -> Chunk {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
+
     for i in 0..ctx.pages.len() {
-        write_page(ctx, i);
+        let page_chunk = write_page(ctx, i);
+        append_chunk(&mut alloc, &mut chunk, page_chunk);
     }
 
-    ctx.pdf
+    chunk
         .pages(ctx.page_tree_ref)
         .count(ctx.page_refs.len() as i32)
         .kids(ctx.page_refs.iter().copied());
+    chunk
 }
 
 /// Write the global resource dictionary that will be referenced by all pages.
@@ -90,20 +101,23 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
-    let images_ref = ctx.alloc.bump();
-    let patterns_ref = ctx.alloc.bump();
-    let ext_gs_states_ref = ctx.alloc.bump();
-    let color_spaces_ref = ctx.alloc.bump();
+#[must_use]
+pub(crate) fn write_global_resources(ctx: &mut PdfContext) -> Chunk {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
+    let images_ref = alloc.bump();
+    let patterns_ref = alloc.bump();
+    let ext_gs_states_ref = alloc.bump();
+    let color_spaces_ref = alloc.bump();
 
-    let mut images = ctx.pdf.indirect(images_ref).dict();
+    let mut images = chunk.indirect(images_ref).dict();
     for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
         let name = eco_format!("Im{}", im);
         images.pair(Name(name.as_bytes()), image_ref);
     }
     images.finish();
 
-    let mut patterns = ctx.pdf.indirect(patterns_ref).dict();
+    let mut patterns = chunk.indirect(patterns_ref).dict();
     for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
         let name = eco_format!("Gr{}", gr);
         patterns.pair(Name(name.as_bytes()), gradient_ref);
@@ -115,17 +129,17 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
     }
     patterns.finish();
 
-    let mut ext_gs_states = ctx.pdf.indirect(ext_gs_states_ref).dict();
+    let mut ext_gs_states = chunk.indirect(ext_gs_states_ref).dict();
     for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
         let name = eco_format!("Gs{}", gs);
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
     ext_gs_states.finish();
 
-    let color_spaces = ctx.pdf.indirect(color_spaces_ref).dict();
-    ctx.colors.write_color_spaces(color_spaces, &mut ctx.alloc);
+    let color_spaces = chunk.indirect(color_spaces_ref).dict();
+    ctx.colors.write_color_spaces(color_spaces, &mut alloc);
 
-    let mut resources = ctx.pdf.indirect(ctx.global_resources_ref).start::<Resources>();
+    let mut resources = chunk.indirect(ctx.global_resources_ref).start::<Resources>();
     resources.pair(Name(b"XObject"), images_ref);
     resources.pair(Name(b"Pattern"), patterns_ref);
     resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -149,7 +163,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
     // color spaces and regular fonts (COLR glyphs depend on them).
     if !ctx.color_font_map.all_refs.is_empty() {
         let mut resources =
-            ctx.pdf.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+            chunk.indirect(ctx.type3_font_resources_ref).start::<Resources>();
         resources.pair(Name(b"XObject"), images_ref);
         resources.pair(Name(b"Pattern"), patterns_ref);
         resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -166,15 +180,20 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
     }
 
     // Write all of the functions used by the document.
-    ctx.colors.write_functions(&mut ctx.pdf);
+    ctx.colors.write_functions(&mut chunk);
+
+    chunk
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, i: usize) {
+#[must_use]
+fn write_page(ctx: &mut PdfContext, i: usize) -> Chunk {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
     let page = &ctx.pages[i];
-    let content_id = ctx.alloc.bump();
+    let content_id = alloc.bump();
 
-    let mut page_writer = ctx.pdf.page(page.id);
+    let mut page_writer = chunk.page(page.id);
     page_writer.parent(ctx.page_tree_ref);
 
     let w = page.size.x.to_f32();
@@ -238,20 +257,27 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    ctx.pdf
+    chunk
         .stream(content_id, page.content.wait())
         .filter(Filter::FlateDecode);
+
+    chunk
 }
 
 /// Write the page labels.
-pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
+pub(crate) fn write_page_labels(
+    ctx: &mut PdfContext,
+) -> (Chunk, Vec<(NonZeroUsize, Ref)>) {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
+
     // If there is no page labeled, we skip the writing
     if !ctx.pages.iter().any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
     }) {
-        return Vec::new();
+        return (chunk, Vec::new());
     }
 
     let mut result = vec![];
@@ -274,8 +300,8 @@ pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)
             }
         }
 
-        let id = ctx.alloc.bump();
-        let mut entry = ctx.pdf.indirect(id).start::<PageLabel>();
+        let id = alloc.bump();
+        let mut entry = chunk.indirect(id).start::<PageLabel>();
 
         // Only add what is actually provided. Don't add empty prefix string if
         // it wasn't given for example.
@@ -295,7 +321,7 @@ pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)
         prev = Some(label);
     }
 
-    result
+    (chunk, result)
 }
 
 /// Specification for a PDF page label.
@@ -450,6 +476,7 @@ impl PageResource {
 /// An exporter for the contents of a single PDF page.
 pub struct PageContext<'a, 'b> {
     pub(crate) parent: &'a mut PdfContext<'b>,
+    pub(crate) alloc: Ref,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -464,6 +491,7 @@ impl<'a, 'b> PageContext<'a, 'b> {
     pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
         PageContext {
             parent,
+            alloc: Ref::new(1),
             uses_opacities: false,
             content: Content::new(),
             state: State::new(size),
@@ -700,13 +728,13 @@ impl PageContext<'_, '_> {
 }
 
 /// Encode a frame into the content stream.
-pub(crate) fn write_frame(ctx: &mut PageContext, frame: &Frame) {
+pub(crate) fn write_frame(ctx: &mut PageContext, alloc: &mut Ref, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
         match item {
-            FrameItem::Group(group) => write_group(ctx, pos, group),
-            FrameItem::Text(text) => write_text(ctx, pos, text),
+            FrameItem::Group(group) => write_group(ctx, alloc, pos, group),
+            FrameItem::Text(text) => write_text(ctx, alloc, pos, text),
             FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             FrameItem::Meta(meta, size) => match meta {
@@ -719,7 +747,7 @@ pub(crate) fn write_frame(ctx: &mut PageContext, frame: &Frame) {
 }
 
 /// Encode a group into the content stream.
-fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
+fn write_group(ctx: &mut PageContext, alloc: &mut Ref, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
 
     ctx.save_state();
@@ -742,12 +770,12 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
         ctx.content.end_path();
     }
 
-    write_frame(ctx, &group.frame);
+    write_frame(ctx, alloc, &group.frame);
     ctx.restore_state();
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+fn write_text(ctx: &mut PageContext, alloc: &mut Ref, pos: Point, text: &TextItem) {
     let ttf = text.font.ttf();
     let tables = ttf.tables();
 
@@ -766,7 +794,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
 
     if color_glyph_count == text.glyphs.len() {
-        write_color_glyphs(ctx, pos, TextItemView::all_of(text));
+        write_color_glyphs(ctx, alloc, pos, TextItemView::all_of(text));
     } else if color_glyph_count == 0 {
         write_normal_text(ctx, pos, TextItemView::all_of(text));
     } else {
@@ -787,7 +815,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             offset = end;
             // Actually write the sub text-run
             if color {
-                write_color_glyphs(ctx, pos, text_item_view);
+                write_color_glyphs(ctx, alloc, pos, text_item_view);
             } else {
                 write_normal_text(ctx, pos, text_item_view);
             }
@@ -874,7 +902,12 @@ fn write_normal_text(ctx: &mut PageContext, pos: Point, text: TextItemView) {
 }
 
 // Encodes a text run made only of color glyphs into the content stream
-fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
+fn write_color_glyphs(
+    ctx: &mut PageContext,
+    alloc: &mut Ref,
+    pos: Point,
+    text: TextItemView,
+) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -890,11 +923,8 @@ fn write_color_glyphs(ctx: &mut PageContext, pos: Point, text: TextItemView) {
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let (font, index) = ctx.parent.color_font_map.get(
-            &mut ctx.parent.alloc,
-            &text.item.font,
-            glyph.id,
-        );
+        let (font, index) =
+            ctx.parent.color_font_map.get(alloc, &text.item.font, glyph.id);
 
         if last_font != Some(font.get()) {
             ctx.content.set_font(

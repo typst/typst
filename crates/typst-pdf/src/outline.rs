@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use pdf_writer::{Finish, Ref, TextStr};
+use pdf_writer::{Chunk, Finish, Ref, TextStr};
 use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
@@ -8,7 +8,9 @@ use typst::model::HeadingElem;
 use crate::{AbsExt, PdfContext};
 
 /// Construct the outline for the document.
-pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
+pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<(Chunk, Ref)> {
+    let mut chunk = Chunk::new();
+    let mut alloc = Ref::new(1);
     let mut tree: Vec<HeadingNode> = vec![];
 
     // Stores the level of the topmost skipped ancestor of the next bookmarked
@@ -85,24 +87,32 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
         return None;
     }
 
-    let root_id = ctx.alloc.bump();
-    let start_ref = ctx.alloc;
+    let root_id = alloc.bump();
+    let start_ref = alloc;
     let len = tree.len();
 
     let mut prev_ref = None;
     for (i, node) in tree.iter().enumerate() {
-        prev_ref = Some(write_outline_item(ctx, node, root_id, prev_ref, i + 1 == len));
+        prev_ref = Some(write_outline_item(
+            ctx,
+            &mut alloc,
+            &mut chunk,
+            node,
+            root_id,
+            prev_ref,
+            i + 1 == len,
+        ));
     }
 
-    ctx.pdf
+    chunk
         .outline(root_id)
         .first(start_ref)
         .last(Ref::new(
-            ctx.alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
+            alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
         ))
         .count(tree.len() as i32);
 
-    Some(root_id)
+    Some((chunk, root_id))
 }
 
 /// A heading in the outline panel.
@@ -134,16 +144,18 @@ impl<'a> HeadingNode<'a> {
 
 /// Write an outline item and all its children.
 fn write_outline_item(
-    ctx: &mut PdfContext,
+    ctx: &PdfContext,
+    alloc: &mut Ref,
+    chunk: &mut Chunk,
     node: &HeadingNode,
     parent_ref: Ref,
     prev_ref: Option<Ref>,
     is_last: bool,
 ) -> Ref {
-    let id = ctx.alloc.bump();
+    let id = alloc.bump();
     let next_ref = Ref::new(id.get() + node.len() as i32);
 
-    let mut outline = ctx.pdf.outline_item(id);
+    let mut outline = chunk.outline_item(id);
     outline.parent(parent_ref);
 
     if !is_last {
@@ -181,6 +193,8 @@ fn write_outline_item(
     for (i, child) in node.children.iter().enumerate() {
         prev_ref = Some(write_outline_item(
             ctx,
+            alloc,
+            chunk,
             child,
             id,
             prev_ref,
