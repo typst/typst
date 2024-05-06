@@ -410,17 +410,15 @@ impl Packed<PageElem> {
         }
 
         let fill = self.fill(styles);
-        let foreground = Cow::Borrowed(self.foreground(styles));
-        let background = Cow::Borrowed(self.background(styles));
+        let foreground = self.foreground(styles);
+        let background = self.background(styles);
         let header_ascent = self.header_ascent(styles);
         let footer_descent = self.footer_descent(styles);
         let numbering = self.numbering(styles);
         let number_align = self.number_align(styles);
-        let header = Cow::Borrowed(self.header(styles));
-        let footer = Cow::Borrowed(self.footer(styles));
 
         // Construct the numbering (for header or footer).
-        let numbering_marginal = Cow::Owned(numbering.as_ref().map(|numbering| {
+        let numbering_marginal = numbering.as_ref().map(|numbering| {
             let both = match numbering {
                 Numbering::Pattern(pattern) => pattern.pieces() >= 2,
                 Numbering::Func(_) => true,
@@ -441,29 +439,19 @@ impl Packed<PageElem> {
             }
 
             counter
-        }));
+        });
 
+        let header = self.header(styles);
+        let footer = self.footer(styles);
         let (header, footer) = if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
             (
-                match &*header {
-                    Smart::Auto => numbering_marginal,
-                    Smart::Custom(header) => Cow::Borrowed(header),
-                },
-                match &*footer {
-                    Smart::Auto => Cow::Borrowed(&None),
-                    Smart::Custom(footer) => Cow::Borrowed(footer),
-                },
+                header.as_ref().unwrap_or(&numbering_marginal),
+                footer.as_ref().unwrap_or(&None),
             )
         } else {
             (
-                match &*header {
-                    Smart::Auto => Cow::Borrowed(&None),
-                    Smart::Custom(header) => Cow::Borrowed(header),
-                },
-                match &*footer {
-                    Smart::Auto => numbering_marginal,
-                    Smart::Custom(footer) => Cow::Borrowed(footer),
-                },
+                header.as_ref().unwrap_or(&None),
+                footer.as_ref().unwrap_or(&numbering_marginal),
             )
         };
 
@@ -489,16 +477,16 @@ impl Packed<PageElem> {
             let size = frame.size();
 
             // Realize overlays.
-            for marginal in [&header, &footer, &background, &foreground] {
-                let Some(content) = &**marginal else { continue };
+            for marginal in [header, footer, background, foreground] {
+                let Some(content) = marginal.as_ref() else { continue };
 
                 let (pos, area, align);
-                if ptr::eq(marginal, &header) {
+                if ptr::eq(marginal, header) {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
                     align = Alignment::BOTTOM;
-                } else if ptr::eq(marginal, &footer) {
+                } else if ptr::eq(marginal, footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
@@ -516,7 +504,7 @@ impl Packed<PageElem> {
                     .layout(engine, styles, pod)?
                     .into_frame();
 
-                if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
+                if ptr::eq(marginal, header) || ptr::eq(marginal, background) {
                     frame.prepend_frame(pos, sub);
                 } else {
                     frame.push_frame(pos, sub);
