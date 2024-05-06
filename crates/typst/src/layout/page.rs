@@ -229,7 +229,8 @@ pub struct PageElem {
     /// The page's header. Fills the top margin of each page.
     ///
     /// - Content: Shows the content as the header.
-    /// - `{auto}`: Shows the page number if `number-align` is set to `top`.
+    /// - `{auto}`: Shows the page number if a `numbering` is set and
+    ///   `number-align` is `top`.
     /// - `{none}`: Suppresses the header.
     ///
     /// ```example
@@ -256,7 +257,8 @@ pub struct PageElem {
     /// The page's footer. Fills the bottom margin of each page.
     ///
     /// - Content: Shows the content as the footer.
-    /// - `{auto}`: Shows the page number if `number-align` is set to `bottom`.
+    /// - `{auto}`: Shows the page number if a `numbering` is set and
+    ///   `number-align` is `bottom`.
     /// - `{none}`: Suppresses the footer.
     ///
     /// For just a page number, the `numbering` property typically suffices. If
