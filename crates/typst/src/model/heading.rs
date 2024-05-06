@@ -163,6 +163,18 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
+    /// The indent all but the first line of a heading should have.
+    ///
+    /// The default value of `{auto}` indicates that the subsequent heading
+    /// lines will be indented based on the width of the numbering.
+    ///
+    /// Custom lengths will indent the lines at least as much as the
+    /// numbering.
+    ///
+    /// ```example
+    /// #set heading(numbering: "1.")
+    /// #heading[A very, very, very, very, very, very long heading]
+    /// ```
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
 
