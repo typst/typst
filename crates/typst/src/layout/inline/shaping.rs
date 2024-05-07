@@ -16,8 +16,8 @@ use crate::foundations::StyleChain;
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
-    decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
-    TextElem, TextItem,
+    decorate, families, features, font_list_entries, variant, Font, FontListEntry,
+    FontVariant, Glyph, Lang, Region, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -591,15 +591,30 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
+    /// The parent [`Engine`].
     engine: &'a Engine<'v>,
+    /// The parent [`SpanMapper`].
     spans: &'a SpanMapper,
+    /// The list of glyphs in the output.
     glyphs: Vec<ShapedGlyph>,
+    /// A stack of fonts that are already used.
+    ///
+    /// This is used by [`shape_segment`], which calls itself recursively
+    /// to shape text that could not be shaped in the first pass.
     used: Vec<Font>,
+    /// The style chain for this context.
     styles: StyleChain<'a>,
+    /// The size of the text.
     size: Abs,
+    /// The font variant used for selecting a font.
     variant: FontVariant,
+    /// A list of base features.
+    ///
+    /// This does not include any features listed in a [`FontListEntry`].
     features: Vec<rustybuzz::Feature>,
+    /// Whether to use fallback fonts.
     fallback: bool,
+    /// The writing direction to use.
     dir: Dir,
 }
 
@@ -630,7 +645,7 @@ pub(super) fn shape<'a>(
     };
 
     if !text.is_empty() {
-        shape_segment(&mut ctx, base, text, families(styles));
+        shape_segment(&mut ctx, base, text, font_list_entries(styles));
     }
 
     track_and_space(&mut ctx);
@@ -660,7 +675,7 @@ fn shape_segment<'a>(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,
-    mut families: impl Iterator<Item = &'a str> + Clone,
+    mut families: impl Iterator<Item = &'a FontListEntry> + Clone,
 ) {
     // Fonts dont have newlines and tabs.
     if text.chars().all(|c| c == '\n' || c == '\t') {
@@ -671,9 +686,10 @@ fn shape_segment<'a>(
     let world = ctx.engine.world;
     let book = world.book();
     let mut selection = families.find_map(|family| {
-        book.select(family, ctx.variant)
+        book.select(family.family.as_str(), ctx.variant)
             .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font))
+            .map(|d| (d, family.features()))
     });
 
     // Do font fallback if the families are exhausted and fallback is enabled.
@@ -682,11 +698,12 @@ fn shape_segment<'a>(
         selection = book
             .select_fallback(first, ctx.variant, text)
             .and_then(|id| world.font(id))
-            .filter(|font| !ctx.used.contains(font));
+            .filter(|font| !ctx.used.contains(font))
+            .map(|d| (d, Vec::new()));
     }
 
     // Extract the font id or shape notdef glyphs if we couldn't find any font.
-    let Some(font) = selection else {
+    let Some((font, mut features)) = selection else {
         if let Some(font) = ctx.used.first().cloned() {
             shape_tofus(ctx, base, text, font);
         }
@@ -714,12 +731,13 @@ fn shape_segment<'a>(
     // Prepare the shape plan. This plan depends on direction, script, language,
     // and features, but is independent from the text and can thus be
     // memoized.
+    features.extend_from_slice(&ctx.features);
     let plan = create_shape_plan(
         &font,
         buffer.direction(),
         buffer.script(),
         buffer.language().as_ref(),
-        &ctx.features,
+        &features,
     );
 
     // Shape!

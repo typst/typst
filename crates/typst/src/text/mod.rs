@@ -29,6 +29,7 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
+use std::sync::OnceLock;
 
 use ecow::{eco_format, EcoString};
 use rustybuzz::Feature;
@@ -798,13 +799,21 @@ cast! {
 #[ty(scope, cast, name = "font")]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontListEntry {
-    /// The font family.
     pub family: FontFamily,
+    pub features: FontFeatures,
 }
 
 impl FontListEntry {
     pub fn from_family(family: FontFamily) -> Self {
-        FontListEntry { family }
+        FontListEntry { family, features: FontFeatures::default() }
+    }
+
+    pub fn features(&self) -> Vec<Feature> {
+        self.features
+            .0
+            .iter()
+            .map(|(tag, value)| Feature::new(*tag, *value, ..))
+            .collect()
     }
 }
 
@@ -812,8 +821,25 @@ impl FontListEntry {
 impl FontListEntry {
     /// Constructs a new font.
     #[func(constructor)]
-    pub fn construct(family: FontFamily) -> FontListEntry {
-        FontListEntry { family }
+    pub fn construct(
+        /// The font family.
+        family: FontFamily,
+        /// Raw OpenType features to apply to this font.
+        ///
+        /// - If given an array of strings, sets the features identified by the
+        ///   strings to `{1}`.
+        /// - If given a dictionary mapping to numbers, sets the features
+        ///   identified by the keys to the values.
+        ///
+        /// ```example
+        /// // Enable the `frac` feature manually.
+        /// #set text(features: ("frac",))
+        /// 1/2
+        /// ```
+        // TODO: this currently always takes precedence over `text`’s features.
+        features: FontFeatures,
+    ) -> FontListEntry {
+        FontListEntry { family, features }
     }
 }
 
@@ -854,21 +880,44 @@ cast! {
     values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
 }
 
-/// Resolve a prioritized iterator over the font families.
-pub(crate) fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
-    const FALLBACKS: &[&str] = &[
-        "linux libertine",
-        "twitter color emoji",
-        "noto color emoji",
-        "apple color emoji",
-        "segoe ui emoji",
-    ];
+const FALLBACKS: &[&str] = &[
+    "linux libertine",
+    "twitter color emoji",
+    "noto color emoji",
+    "apple color emoji",
+    "segoe ui emoji",
+];
 
+/// Resolve a prioritized iterator over the font families.
+///
+/// This should be preferred over [`font_list_entries`] when you only need the family names.
+pub(crate) fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
     let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
     TextElem::font_in(styles)
         .into_iter()
         .map(|family| family.family.as_str())
         .chain(tail.iter().copied())
+}
+
+/// Resolve a prioritized iterator over the font list entries.
+pub(crate) fn font_list_entries(
+    styles: StyleChain,
+) -> impl Iterator<Item = &FontListEntry> + Clone {
+    static FALLBACKS_OL: OnceLock<Vec<FontListEntry>> = OnceLock::new();
+
+    let tail = if TextElem::fallback_in(styles) {
+        FALLBACKS_OL
+            .get_or_init(|| {
+                FALLBACKS
+                    .iter()
+                    .map(|family| FontListEntry::from_family(FontFamily::new(family)))
+                    .collect()
+            })
+            .as_slice()
+    } else {
+        &[]
+    };
+    TextElem::font_in(styles).into_iter().chain(tail.iter())
 }
 
 /// Resolve the font variant.
