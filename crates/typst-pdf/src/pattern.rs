@@ -6,7 +6,7 @@ use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
-use crate::page::{construct_page, PageContext, PageResource, ResourceKind, Transforms};
+use crate::content::{self, Resource, ResourceKind};
 use crate::{transform_to_array, PdfContext};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
@@ -96,15 +96,15 @@ pub struct PdfPattern {
     /// The rendered pattern.
     pub content: Vec<u8>,
     /// The resources used by the pattern.
-    pub resources: Vec<(PageResource, usize)>,
+    pub resources: Vec<(Resource, usize)>,
 }
 
 /// Registers a pattern with the PDF.
 fn register_pattern(
-    ctx: &mut PageContext,
+    ctx: &mut content::Builder,
     pattern: &Pattern,
     on_text: bool,
-    mut transforms: Transforms,
+    mut transforms: content::Transforms,
 ) -> usize {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
@@ -121,7 +121,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let (_, content) = construct_page(ctx.parent, &mut ctx.alloc, pattern.frame());
+    let content = content::build(ctx.parent, pattern.frame());
 
     let mut pdf_pattern = PdfPattern {
         transform,
@@ -136,7 +136,12 @@ fn register_pattern(
 }
 
 impl PaintEncode for Pattern {
-    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
+    fn set_as_fill(
+        &self,
+        ctx: &mut content::Builder,
+        on_text: bool,
+        transforms: content::Transforms,
+    ) {
         ctx.reset_fill_color_space();
 
         let index = register_pattern(ctx, self, on_text, transforms);
@@ -145,15 +150,14 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources
-            .insert(PageResource::new(ResourceKind::Pattern, id), index);
+        ctx.resources.insert(Resource::new(ResourceKind::Pattern, id), index);
     }
 
     fn set_as_stroke(
         &self,
-        ctx: &mut PageContext,
+        ctx: &mut content::Builder,
         on_text: bool,
-        transforms: Transforms,
+        transforms: content::Transforms,
     ) {
         ctx.reset_stroke_color_space();
 
@@ -163,7 +167,6 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
-        ctx.resources
-            .insert(PageResource::new(ResourceKind::Pattern, id), index);
+        ctx.resources.insert(Resource::new(ResourceKind::Pattern, id), index);
     }
 }

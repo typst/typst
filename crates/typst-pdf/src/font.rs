@@ -7,13 +7,12 @@ use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::writers::FontDescriptor;
 use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
-use typst::layout::{Abs, Em, Ratio, Transform};
+use typst::layout::Em;
 use typst::text::Font;
 use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
-use crate::page::{write_frame, PageContext};
-use crate::{deflate, AbsExt, EmExt, PdfContext};
+use crate::{content, deflate, EmExt, PdfContext};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -172,21 +171,8 @@ pub(crate) fn write_color_fonts(ctx: &mut PdfContext) -> Chunk {
                 widths.push(width);
                 // Create a fake page context for `write_frame`. We are only
                 // interested in the contents of the page.
-                let size = color_glyph.frame.size();
-                let mut page_ctx = PageContext::new(ctx, size);
-                page_ctx.bottom = size.y.to_f32();
-                page_ctx.content.start_color_glyph(width);
-                page_ctx.transform(
-                    // Make the Y axis go upwards, while preserving aspect ratio
-                    Transform::scale(Ratio::one(), -size.aspect_ratio())
-                        // Also move the origin to the top left corner
-                        .post_concat(Transform::translate(Abs::zero(), size.y)),
-                );
-                write_frame(&mut page_ctx, &mut alloc, &color_glyph.frame);
-
-                // Retrieve the stream of the page and write it.
-                let stream = page_ctx.content.finish();
-                chunk.stream(instructions_stream_ref, &stream);
+                let c = content::build(ctx, &color_glyph.frame);
+                chunk.stream(instructions_stream_ref, &c.content.wait());
 
                 // Use this stream as instructions to draw the glyph.
                 glyphs_to_instructions.push(instructions_stream_ref);

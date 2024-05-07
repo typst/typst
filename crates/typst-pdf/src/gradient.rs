@@ -12,7 +12,7 @@ use typst::visualize::{
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::page::{PageContext, PageResource, ResourceKind, Transforms};
+use crate::content::{self, Resource, ResourceKind};
 use crate::{append_chunk_with_id, deflate, transform_to_array, AbsExt, PdfContext};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -233,7 +233,12 @@ fn single_gradient(
 }
 
 impl PaintEncode for Gradient {
-    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
+    fn set_as_fill(
+        &self,
+        ctx: &mut content::Builder,
+        on_text: bool,
+        transforms: content::Transforms,
+    ) {
         ctx.reset_fill_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -242,15 +247,14 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources
-            .insert(PageResource::new(ResourceKind::Gradient, id), index);
+        ctx.resources.insert(Resource::new(ResourceKind::Gradient, id), index);
     }
 
     fn set_as_stroke(
         &self,
-        ctx: &mut PageContext,
+        ctx: &mut content::Builder,
         on_text: bool,
-        transforms: Transforms,
+        transforms: content::Transforms,
     ) {
         ctx.reset_stroke_color_space();
 
@@ -260,17 +264,16 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
-        ctx.resources
-            .insert(PageResource::new(ResourceKind::Gradient, id), index);
+        ctx.resources.insert(Resource::new(ResourceKind::Gradient, id), index);
     }
 }
 
 /// Deduplicates a gradient to a named PDF resource.
 fn register_gradient(
-    ctx: &mut PageContext,
+    ctx: &mut content::Builder,
     gradient: &Gradient,
     on_text: bool,
-    mut transforms: Transforms,
+    mut transforms: content::Transforms,
 ) -> usize {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {

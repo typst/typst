@@ -1,6 +1,7 @@
 //! Exporting of Typst documents into PDFs.
 
 mod color;
+mod content;
 mod extg;
 mod font;
 mod gradient;
@@ -75,8 +76,7 @@ pub fn pdf(
     append_chunk(&mut alloc, &mut pdf, page::write_page_tree(&mut ctx));
     append_chunk(&mut alloc, &mut pdf, page::write_global_resources(&mut ctx));
     write_catalog(&mut ctx, &mut pdf, &mut alloc, ident, timestamp);
-    // ctx.pdf.finish()
-    todo!()
+    pdf.finish()
 }
 
 struct ReservedRef {
@@ -397,7 +397,7 @@ fn write_named_destinations(ctx: &mut PdfContext) -> Chunk {
         if let Some(page) = ctx.pages.get(index) {
             let dest_ref = alloc.bump();
             let x = pos.point.x.to_f32();
-            let y = (page.size.y - y).to_f32();
+            let y = (page.content.size.y - y).to_f32();
             ctx.dests.push((label, dest_ref));
             ctx.loc_to_dest.insert(loc, label);
             chunk

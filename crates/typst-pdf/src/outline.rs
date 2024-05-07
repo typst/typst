@@ -182,7 +182,7 @@ fn write_outline_item(
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
         outline.dest().page(ctx.page_refs[index]).xyz(
             pos.point.x.to_f32(),
-            (page.size.y - y).to_f32(),
+            (page.content.size.y - y).to_f32(),
             None,
         );
     }
