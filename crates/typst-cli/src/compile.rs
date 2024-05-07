@@ -62,6 +62,17 @@ impl CompileCommand {
             OutputFormat::Pdf
         })
     }
+
+    /// The ranges of the pages to be exported as specified by the user.
+    ///
+    /// This returns `None` if all pages should be exported.
+    pub fn exported_page_ranges(&self) -> Option<PageRanges> {
+        self.pages.as_ref().map(|export_ranges| {
+            PageRanges::new(
+                export_ranges.iter().map(PageRangeArgument::to_range).collect(),
+            )
+        })
+    }
 }
 
 /// Execute a compilation command.
@@ -173,16 +184,7 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let timestamp = convert_datetime(
         command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
-    let exported_page_ranges: Option<PageRanges> =
-        command.pages.as_ref().map(|export_ranges| {
-            PageRanges::new(
-                export_ranges
-                    .iter()
-                    .cloned()
-                    .map(PageRangeArgument::into_range)
-                    .collect(),
-            )
-        });
+    let exported_page_ranges = command.exported_page_ranges();
     let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
     command
         .output()
@@ -227,15 +229,7 @@ fn export_image(
         }
     };
 
-    let exported_page_ranges = command.pages.as_ref().map(|export_ranges| {
-        PageRanges::new(
-            export_ranges
-                .iter()
-                .cloned()
-                .map(PageRangeArgument::into_range)
-                .collect(),
-        )
-    });
+    let exported_page_ranges = command.exported_page_ranges();
 
     let exported_pages = document
         .pages

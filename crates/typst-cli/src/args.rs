@@ -270,10 +270,6 @@ fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
     }
 }
 
-fn parse_non_zero_usize(value: &str) -> Result<NonZeroUsize, String> {
-    NonZeroUsize::from_str(value).map_err(|error| error.to_string())
-}
-
 /// Parses key/value pairs split by the first equal sign.
 ///
 /// This function will return an error if the argument contains no equals sign
@@ -299,42 +295,43 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
 pub struct PageRangeArgument(RangeInclusive<Option<NonZeroUsize>>);
 
 impl PageRangeArgument {
-    pub fn into_range(self) -> RangeInclusive<Option<NonZeroUsize>> {
-        self.0
+    pub fn to_range(&self) -> RangeInclusive<Option<NonZeroUsize>> {
+        self.0.clone()
     }
 }
 
 impl FromStr for PageRangeArgument {
-    type Err = String;
+    type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value
-            .split('-')
-            .map(|part| part.trim_matches(' '))
-            .collect::<Vec<_>>()
-            .as_slice()
-        {
-            [] | [""] => Err("page export range must not be empty".into()),
+        match value.split('-').map(str::trim).collect::<Vec<_>>().as_slice() {
+            [] | [""] => Err("page export range must not be empty"),
             [single_page] => {
-                let page_number = parse_non_zero_usize(single_page)?;
+                let page_number = parse_page_number(single_page)?;
                 Ok(PageRangeArgument(Some(page_number)..=Some(page_number)))
             }
-            ["", ""] => Err("page export range must have start or end".into()),
-            [start, ""] => {
-                Ok(PageRangeArgument(Some(parse_non_zero_usize(start)?)..=None))
-            }
-            ["", end] => Ok(PageRangeArgument(None..=Some(parse_non_zero_usize(end)?))),
+            ["", ""] => Err("page export range must have start or end"),
+            [start, ""] => Ok(PageRangeArgument(Some(parse_page_number(start)?)..=None)),
+            ["", end] => Ok(PageRangeArgument(None..=Some(parse_page_number(end)?))),
             [start, end] => {
-                let start = parse_non_zero_usize(start)?;
-                let end = parse_non_zero_usize(end)?;
+                let start = parse_page_number(start)?;
+                let end = parse_page_number(end)?;
                 if start > end {
-                    Err("page export range must end at a page after the start".into())
+                    Err("page export range must end at a page after the start")
                 } else {
                     Ok(PageRangeArgument(Some(start)..=Some(end)))
                 }
             }
-            [_, _, _, ..] => Err("page export range must have a single hyphen".into()),
+            [_, _, _, ..] => Err("page export range must have a single hyphen"),
         }
+    }
+}
+
+fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
+    if value == "0" {
+        Err("page numbers start at one")
+    } else {
+        NonZeroUsize::from_str(value).map_err(|_| "not a valid page number")
     }
 }
 
