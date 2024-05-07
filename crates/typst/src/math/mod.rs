@@ -46,7 +46,6 @@ use crate::foundations::StyledElem;
 use crate::foundations::{
     category, Category, Content, Module, Resolve, Scope, StyleChain,
 };
-use crate::introspection::MetaElem;
 use crate::layout::{BoxElem, HElem, Spacing};
 use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
@@ -299,10 +298,6 @@ impl LayoutMath for Content {
 
         if let Some(elem) = self.with::<dyn LayoutMath>() {
             return elem.layout_math(ctx, styles);
-        }
-
-        if self.is::<MetaElem>() {
-            return Ok(());
         }
 
         let mut frame = ctx.layout_content(self, styles)?;

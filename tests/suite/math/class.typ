@@ -50,3 +50,5 @@ $ scripts(class("relation", x))_a $
 
 #let test = context math.class("relation", "--")
 $ a test b $
+
+$ a class("relation", "--") #metadata("hi") b $
