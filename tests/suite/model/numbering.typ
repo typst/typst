@@ -105,3 +105,11 @@
 --- numbering-negative ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
+
+--- numbering-circled-number ---
+#assert.eq(numbering("①", 1), "①")
+#assert.eq(numbering("①", 50), "㊿")
+
+--- numbering-double-circled-number ---
+#assert.eq(numbering("⓵", 1), "⓵")
+#assert.eq(numbering("⓵", 10), "⓾")

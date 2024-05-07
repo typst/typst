@@ -280,13 +280,21 @@ pub struct HighlightElem {
     /// The color to highlight the text with.
     ///
     /// ```example
-    /// This is #highlight(fill: blue)[with blue].
+    /// This is #highlight(
+    ///   fill: blue
+    /// )[highlighted with blue].
     /// ```
-    #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into())]
-    pub fill: Paint,
+    #[default(Some(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into()))]
+    pub fill: Option<Paint>,
 
     /// The highlight's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
+    ///
+    /// ```example
+    /// This is a #highlight(
+    ///   stroke: fuchsia
+    /// )[stroked highlighting].
+    /// ```
     #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
@@ -326,6 +334,12 @@ pub struct HighlightElem {
 
     /// How much to round the highlight's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
+    ///
+    /// ```example
+    /// Listen #highlight(
+    ///   radius: 5pt, extent: 2pt
+    /// )[carefully], it will be on the test.
+    /// ```
     #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
@@ -385,7 +399,7 @@ enum DecoLine {
         background: bool,
     },
     Highlight {
-        fill: Paint,
+        fill: Option<Paint>,
         stroke: Sides<Option<FixedStroke>>,
         top_edge: TopEdge,
         bottom_edge: BottomEdge,
@@ -409,7 +423,7 @@ pub(crate) fn decorate(
     {
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
         let size = Size::new(width + 2.0 * deco.extent, top - bottom);
-        let rects = styled_rect(size, *radius, Some(fill.clone()), stroke.clone());
+        let rects = styled_rect(size, *radius, fill.clone(), stroke.clone());
         let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
         frame.prepend_multiple(
             rects
