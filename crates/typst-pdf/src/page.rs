@@ -137,7 +137,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) -> Chunk {
     ext_gs_states.finish();
 
     let color_spaces = chunk.indirect(color_spaces_ref).dict();
-    ctx.colors.write_color_spaces(color_spaces, &mut alloc);
+    ctx.colors.write_color_spaces(color_spaces);
 
     let mut resources = chunk.indirect(ctx.global_resources_ref).start::<Resources>();
     resources.pair(Name(b"XObject"), images_ref);
@@ -187,7 +187,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) -> Chunk {
 
 /// Write a page tree node.
 #[must_use]
-fn write_page(ctx: &mut PdfContext, i: usize) -> Chunk {
+fn write_page(ctx: &PdfContext, i: usize) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let page = &ctx.pages[i];

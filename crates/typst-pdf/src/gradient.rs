@@ -58,7 +58,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) -> Chunk {
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Axial);
 
-                ctx.colors.write(color_space, shading.color_space(), &mut alloc);
+                ctx.colors.write(color_space, shading.color_space());
 
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
@@ -92,7 +92,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) -> Chunk {
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Radial);
 
-                ctx.colors.write(color_space, shading.color_space(), &mut alloc);
+                ctx.colors.write(color_space, shading.color_space());
 
                 shading
                     .anti_alias(gradient.anti_alias())
@@ -118,8 +118,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) -> Chunk {
                 let mut stream_shading =
                     chunk.stream_shading(stream_shading_id, &vertices);
 
-                ctx.colors
-                    .write(color_space, stream_shading.color_space(), &mut alloc);
+                ctx.colors.write(color_space, stream_shading.color_space());
 
                 let range = color_space.range();
                 stream_shading

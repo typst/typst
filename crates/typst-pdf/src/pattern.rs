@@ -49,8 +49,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) -> Chunk {
                 .map(|(res, ref_)| (res.name(), ctx.font_refs[*ref_])),
         );
 
-        ctx.colors
-            .write_color_spaces(resources_map.color_spaces(), &mut alloc);
+        ctx.colors.write_color_spaces(resources_map.color_spaces());
 
         resources_map
             .patterns()

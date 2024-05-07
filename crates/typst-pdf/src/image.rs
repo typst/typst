@@ -66,9 +66,9 @@ pub(crate) fn write_images(ctx: &mut PdfContext) -> Chunk {
                     space.icc_based(id);
                     icc_ref = Some(id);
                 } else if *has_color {
-                    ctx.colors.write(ColorSpace::Srgb, space, &mut alloc);
+                    ctx.colors.write(ColorSpace::Srgb, space);
                 } else {
-                    ctx.colors.write(ColorSpace::D65Gray, space, &mut alloc);
+                    ctx.colors.write(ColorSpace::D65Gray, space);
                 }
 
                 // Add a second gray-scale image containing the alpha values if

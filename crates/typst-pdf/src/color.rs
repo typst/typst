@@ -70,20 +70,15 @@ impl ColorSpaces {
     }
 
     /// Write the color space on usage.
-    pub fn write(
-        &mut self,
-        color_space: ColorSpace,
-        writer: writers::ColorSpace,
-        alloc: &mut Ref,
-    ) {
+    pub fn write(&mut self, color_space: ColorSpace, writer: writers::ColorSpace) {
         match color_space {
             ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
-                self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), alloc);
+                self.write(ColorSpace::LinearRgb, oklab.alternate_color_space());
                 oklab.tint_ref(self.oklab());
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
             }
-            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, alloc),
+            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer),
             ColorSpace::Srgb => writer.icc_based(self.srgb()),
             ColorSpace::D65Gray => writer.icc_based(self.d65_gray()),
             ColorSpace::LinearRgb => {
@@ -102,21 +97,21 @@ impl ColorSpaces {
     }
 
     // Write the color spaces to the PDF file.
-    pub fn write_color_spaces(&mut self, mut spaces: Dict, alloc: &mut Ref) {
+    pub fn write_color_spaces(&mut self, mut spaces: Dict) {
         if self.oklab.is_used() {
-            self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), alloc);
+            self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start());
         }
 
         if self.srgb.is_used() {
-            self.write(ColorSpace::Srgb, spaces.insert(SRGB).start(), alloc);
+            self.write(ColorSpace::Srgb, spaces.insert(SRGB).start());
         }
 
         if self.d65_gray.is_used() {
-            self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), alloc);
+            self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start());
         }
 
         if self.use_linear_rgb {
-            self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), alloc);
+            self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start());
         }
     }
 
