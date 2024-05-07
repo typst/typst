@@ -94,3 +94,8 @@ Inline $2 baz(x,y,baz(u, v))$.
 $ 2 foo(alpha, (M+foo(a, b))) $
 $ 2 bar(alpha, (M+foo(a, b))) $
 $ 2 baz(x,y,baz(u, v)) $
+
+--- math-introspection ---
+// Test introspection with metadata in math elements
+$ #metadata("hi") $
+#context assert.ne(query(metadata).len(), 0)
