@@ -11,7 +11,7 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::TextItem;
-use crate::util::Numeric;
+use crate::util::{LazyHash, Numeric};
 use crate::visualize::{
     ellipse, styled_rect, Color, FixedStroke, Geometry, Image, Paint, Path, Shape,
 };
@@ -25,7 +25,7 @@ pub struct Frame {
     /// frame's implicit baseline is at the bottom.
     baseline: Option<Abs>,
     /// The items composing this layout.
-    items: Arc<Vec<(Point, FrameItem)>>,
+    items: Arc<LazyHash<Vec<(Point, FrameItem)>>>,
     /// The hardness of this frame.
     kind: FrameKind,
 }
@@ -41,7 +41,7 @@ impl Frame {
         Self {
             size,
             baseline: None,
-            items: Arc::new(vec![]),
+            items: Arc::new(LazyHash::new(vec![])),
             kind,
         }
     }
@@ -221,7 +221,7 @@ impl Frame {
             let sink = Arc::make_mut(&mut self.items);
             match Arc::try_unwrap(frame.items) {
                 Ok(items) => {
-                    sink.splice(range, items);
+                    sink.splice(range, items.into_inner());
                 }
                 Err(arc) => {
                     sink.splice(range, arc.iter().cloned());
@@ -235,7 +235,10 @@ impl Frame {
         let sink = Arc::make_mut(&mut self.items);
         match Arc::try_unwrap(frame.items) {
             Ok(items) => {
-                sink.splice(range, items.into_iter().map(|(p, e)| (p + pos, e)));
+                sink.splice(
+                    range,
+                    items.into_inner().into_iter().map(|(p, e)| (p + pos, e)),
+                );
             }
             Err(arc) => {
                 sink.splice(range, arc.iter().cloned().map(|(p, e)| (p + pos, e)));
@@ -251,7 +254,7 @@ impl Frame {
         if Arc::strong_count(&self.items) == 1 {
             Arc::make_mut(&mut self.items).clear();
         } else {
-            self.items = Arc::new(vec![]);
+            self.items = Arc::new(LazyHash::new(vec![]));
         }
     }
 
@@ -275,7 +278,7 @@ impl Frame {
             if let Some(baseline) = &mut self.baseline {
                 *baseline += offset.y;
             }
-            for (point, _) in Arc::make_mut(&mut self.items) {
+            for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
                 *point += offset;
             }
         }
