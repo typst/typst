@@ -407,13 +407,15 @@ fn add_equation_number(
     } else {
         equation.width() + 2.0 * full_number_width
     };
+
+    let is_multiline = line_count >= 2;
     let resizing_offset = resize_equation(
         &mut equation,
         &number,
         number_align,
         equation_align,
         width,
-        line_count,
+        is_multiline,
         [first, last],
     );
     equation.translate(Point::with_x(match (equation_align, number_align.x) {
@@ -427,29 +429,44 @@ fn add_equation_number(
         FixedAlignment::End => equation.width() - number.width(),
         _ => unreachable!(),
     };
-    let align_baseline = |(_, point, baseline): (_, Point, Abs), number: &Frame| {
-        resizing_offset.y + point.y + baseline - number.baseline()
-    };
-    let y = match number_align.y {
-        FixedAlignment::Start => align_baseline(first, &number),
-        FixedAlignment::Center if line_count < 2 => align_baseline(first, &number),
-        FixedAlignment::Center => (equation.height() - number.height()) / 2.0,
-        FixedAlignment::End => align_baseline(last, &number),
+    let y = {
+        let align_baselines = |(_, pos, baseline): (_, Point, Abs), number: &Frame| {
+            resizing_offset.y + pos.y + baseline - number.baseline()
+        };
+        match number_align.y {
+            FixedAlignment::Start => align_baselines(first, &number),
+            FixedAlignment::Center if !is_multiline => align_baselines(first, &number),
+            // In this case, the center lines (not baselines) of the number frame
+            // and the equation frame shall be aligned.
+            FixedAlignment::Center => (equation.height() - number.height()) / 2.0,
+            FixedAlignment::End => align_baselines(last, &number),
+        }
     };
 
     equation.push_frame(Point::new(x, y), number);
     equation
 }
 
+/// Resize the equation's frame accordingly so that it emcompasses the number.
 fn resize_equation(
     equation: &mut Frame,
     number: &Frame,
     number_align: Axes<FixedAlignment>,
     equation_align: FixedAlignment,
     width: Abs,
-    line_count: usize,
+    is_multiline: bool,
     [first, last]: [(Axes<Abs>, Point, Abs); 2],
 ) -> Point {
+    if matches!(number_align.y, FixedAlignment::Center if is_multiline) {
+        // In this case, the center lines (not baselines) of the number frame
+        // and the equation frame shall be aligned.
+        let height = equation.height().max(number.height());
+        return equation.resize(
+            Size::new(width, height),
+            Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Center),
+        );
+    }
+
     let excess_above = Abs::zero().max({
         let (.., baseline) = first;
         number.baseline() - baseline
@@ -458,26 +475,12 @@ fn resize_equation(
         let (size, .., baseline) = last;
         (number.height() - number.baseline()) - (size.y - baseline)
     });
-    let height = match number_align.y {
-        FixedAlignment::Start => equation.height() + excess_above,
-        FixedAlignment::Center if line_count < 2 => {
-            equation.height() + excess_above + excess_below
-        }
-        FixedAlignment::Center => equation.height().max(number.height()),
-        FixedAlignment::End => equation.height() + excess_below,
-    };
+    let height = equation.height() + excess_above + excess_below;
 
-    if matches!(number_align.y, FixedAlignment::Center if line_count < 2) {
-        let resizing_offset = equation.resize(
-            Size::new(width, height),
-            Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Start),
-        );
-        equation.translate(Point::with_y(excess_above));
-        resizing_offset + Point::with_y(excess_above)
-    } else {
-        equation.resize(
-            Size::new(width, height),
-            Axes::<FixedAlignment>::new(equation_align, number_align.y.inv()),
-        )
-    }
+    let resizing_offset = equation.resize(
+        Size::new(width, height),
+        Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Start),
+    );
+    equation.translate(Point::with_y(excess_above));
+    resizing_offset + Point::with_y(excess_above)
 }

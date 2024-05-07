@@ -174,7 +174,7 @@ impl MathRun {
         };
 
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
-        let mut frames = vec![];
+        let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
         for (i, row) in rows.into_iter().enumerate() {
             if i == row_count - 1 && row.0.is_empty() {
