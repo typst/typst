@@ -34,9 +34,13 @@ use ecow::{eco_format, EcoString};
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::{Rect, Tag};
+use typst_macros::func;
+use typst_macros::scope;
+use typst_macros::ty;
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
+use crate::foundations::Value;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
     Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
@@ -788,6 +792,41 @@ cast! {
     FontFamily,
     self => self.0.into_value(),
     string: EcoString => Self::new(&string),
+}
+
+/// A specification for a font.
+#[ty(scope, cast, name = "font")]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FontListEntry {
+    /// The font family.
+    family: FontFamily,
+}
+
+impl FontListEntry {
+    pub fn from_family(family: &str) -> Self {
+        FontListEntry { family: FontFamily::new(family) }
+    }
+}
+
+#[scope]
+impl FontListEntry {
+    /// Constructs a new font.
+    #[func(constructor)]
+    pub fn construct(family: FontFamily) -> FontListEntry {
+        FontListEntry { family }
+    }
+}
+
+impl Repr for FontListEntry {
+    fn repr(&self) -> EcoString {
+        eco_format!("font({})", self.family.0.repr())
+    }
+}
+
+cast! {
+    FontListEntry,
+    self => Value::dynamic(self),
+    string: EcoString => Self::from_family(&string),
 }
 
 /// Font family fallback list.
