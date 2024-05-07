@@ -148,7 +148,7 @@ struct StackLayouter<'a> {
     /// The initial size of the current region before we started subtracting.
     initial: Size,
     /// The generic size used by the frames for the current region.
-    size: GenericSize<Abs>,
+    used: GenericSize<Abs>,
     /// The sum of fractions in the current region.
     fr: Fr,
     /// Already layouted items whose exact positions are not yet known due to
@@ -190,7 +190,7 @@ impl<'a> StackLayouter<'a> {
             styles,
             expand,
             initial: regions.size,
-            size: GenericSize::zero(),
+            used: GenericSize::zero(),
             fr: Fr::zero(),
             items: vec![],
             finished: vec![],
@@ -210,7 +210,7 @@ impl<'a> StackLayouter<'a> {
                 if self.dir.axis() == Axis::Y {
                     *remaining -= limited;
                 }
-                self.size.main += limited;
+                self.used.main += limited;
                 self.items.push(StackItem::Absolute(resolved));
             }
             Spacing::Fr(v) => {
@@ -255,8 +255,8 @@ impl<'a> StackLayouter<'a> {
                 Axis::Y => GenericSize::new(specific_size.x, specific_size.y),
             };
 
-            self.size.main += generic_size.main;
-            self.size.cross.set_max(generic_size.cross);
+            self.used.main += generic_size.main;
+            self.used.cross.set_max(generic_size.cross);
 
             self.items.push(StackItem::Frame(frame, align));
 
@@ -274,14 +274,14 @@ impl<'a> StackLayouter<'a> {
         // the region expands.
         let mut size = self
             .expand
-            .select(self.initial, self.size.into_axes(self.axis))
+            .select(self.initial, self.used.into_axes(self.axis))
             .min(self.initial);
 
         // Expand fully if there are fr spacings.
         let full = self.initial.get(self.axis);
-        let remaining = full - self.size.main;
+        let remaining = full - self.used.main;
         if self.fr.get() > 0.0 && full.is_finite() {
-            self.size.main = full;
+            self.used.main = full;
             size.set(self.axis, full);
         }
 
@@ -308,11 +308,11 @@ impl<'a> StackLayouter<'a> {
                     // Align along the main axis.
                     let parent = size.get(self.axis);
                     let child = frame.size().get(self.axis);
-                    let main = ruler.position(parent - self.size.main)
+                    let main = ruler.position(parent - self.used.main)
                         + if self.dir.is_positive() {
                             cursor
                         } else {
-                            self.size.main - child - cursor
+                            self.used.main - child - cursor
                         };
 
                     // Align along the cross axis.
@@ -331,7 +331,7 @@ impl<'a> StackLayouter<'a> {
         // Advance to the next region.
         self.regions.next();
         self.initial = self.regions.size;
-        self.size = GenericSize::zero();
+        self.used = GenericSize::zero();
         self.fr = Fr::zero();
         self.finished.push(output);
 
