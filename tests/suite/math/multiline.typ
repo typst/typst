@@ -91,7 +91,6 @@ Multiple trailing line breaks.
 // be grouped together and no break between them.
 #let hrule(x) = box(line(length: x))
 #hrule(70pt)$a < = b$\
-#hrule(74pt)$a < = b$\
 #hrule(78pt)$a < = b$
 
 --- math-linebreaking-after-relation-without-space ---
