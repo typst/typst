@@ -15,7 +15,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locatable;
 use crate::syntax::Span;
-use crate::text::{FontFamily, FontList, TextElem};
+use crate::text::{FontList, FontListEntry, TextElem};
 use crate::utils::LazyHash;
 
 /// Provides access to active styles.
@@ -139,7 +139,7 @@ impl Styles {
 
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
-    pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
+    pub fn set_family(&mut self, preferred: FontListEntry, existing: StyleChain) {
         self.set(TextElem::set_font(FontList(
             std::iter::once(preferred)
                 .chain(TextElem::font_in(existing).into_iter().cloned())

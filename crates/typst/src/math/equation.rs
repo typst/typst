@@ -20,7 +20,8 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
+    families, variant, Font, FontFamily, FontList, FontListEntry, FontWeight, LocalName,
+    TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
@@ -188,8 +189,8 @@ impl ShowSet for Packed<EquationElem> {
             out.set(EquationElem::set_size(MathSize::Text));
         }
         out.set(TextElem::set_weight(FontWeight::from_number(450)));
-        out.set(TextElem::set_font(FontList(vec![FontFamily::new(
-            "New Computer Modern Math",
+        out.set(TextElem::set_font(FontList(vec![FontListEntry::from_family(
+            FontFamily::new("New Computer Modern Math"),
         )])));
         out
     }

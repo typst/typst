@@ -135,18 +135,18 @@ pub struct TextElem {
         if let Some(font_list) = &font_list {
             let book = engine.world.book();
             for family in &font_list.v {
-                if !book.contains_family(family.as_str()) {
+                if !book.contains_family(family.family.as_str()) {
                     engine.sink.warn(warning!(
                         font_list.span,
                         "unknown font family: {}",
-                        family.as_str(),
+                        family.family.as_str(),
                     ));
                 }
             }
         }
         font_list.map(|font_list| font_list.v)
     })]
-    #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
+    #[default(FontList(vec![FontListEntry::from_family(FontFamily::new("Linux Libertine"))]))]
     #[borrowed]
     #[ghost]
     pub font: FontList,
@@ -799,12 +799,12 @@ cast! {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontListEntry {
     /// The font family.
-    family: FontFamily,
+    pub family: FontFamily,
 }
 
 impl FontListEntry {
-    pub fn from_family(family: &str) -> Self {
-        FontListEntry { family: FontFamily::new(family) }
+    pub fn from_family(family: FontFamily) -> Self {
+        FontListEntry { family }
     }
 }
 
@@ -826,16 +826,16 @@ impl Repr for FontListEntry {
 cast! {
     FontListEntry,
     self => Value::dynamic(self),
-    string: EcoString => Self::from_family(&string),
+    string: EcoString => Self::from_family(FontFamily::new(&string)),
 }
 
 /// Font family fallback list.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct FontList(pub Vec<FontFamily>);
+pub struct FontList(pub Vec<FontListEntry>);
 
 impl<'a> IntoIterator for &'a FontList {
-    type IntoIter = std::slice::Iter<'a, FontFamily>;
-    type Item = &'a FontFamily;
+    type IntoIter = std::slice::Iter<'a, FontListEntry>;
+    type Item = &'a FontListEntry;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
@@ -845,11 +845,12 @@ impl<'a> IntoIterator for &'a FontList {
 cast! {
     FontList,
     self => if self.0.len() == 1 {
-        self.0.into_iter().next().unwrap().0.into_value()
+        self.0.into_iter().next().unwrap().into_value()
     } else {
         self.0.into_value()
     },
-    family: FontFamily => Self(vec![family]),
+    family: FontFamily => Self(vec![FontListEntry::from_family(family)]),
+    entry: FontListEntry => Self(vec![entry]),
     values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
 }
 
@@ -866,7 +867,7 @@ pub(crate) fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone
     let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
     TextElem::font_in(styles)
         .into_iter()
-        .map(|family| family.as_str())
+        .map(|family| family.family.as_str())
         .chain(tail.iter().copied())
 }
 
