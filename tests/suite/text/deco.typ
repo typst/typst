@@ -90,6 +90,11 @@ We can also specify a customized value
 #highlight[$a_n = C_0 a_(n-1)$]
 #highlight[$1/2 < (x+1)/2$]
 
+--- highlight-inline-math-multiline ---
+#line(length: 100%)
+#h(1fr)
+#highlight[$a + b + c + d + e + f + g$]
+
 --- highlight-block-math ---
 // Test highlight for block math equation.
 #highlight[$ sum_(k=1)^n k = (n(n+1)) / 2 $]
