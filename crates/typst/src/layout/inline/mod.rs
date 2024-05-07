@@ -1042,8 +1042,16 @@ fn line<'a>(
     }
 
     // Slice out the relevant items.
-    let (expanded, mut inner) = p.slice(range.clone());
+    let (mut expanded, mut inner) = p.slice(range.clone());
     let mut width = Abs::zero();
+
+    // The last element can be space Item::Absolute(_); if so, we omit the space.
+    while let Some((Item::Absolute(_), before)) = inner.split_last() {
+        // apply it recursively to ensure the last one is not space
+        inner = before;
+        range.end -= 1;
+        expanded.end -= 1;
+    }
 
     // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
