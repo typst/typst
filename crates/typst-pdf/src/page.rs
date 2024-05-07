@@ -42,7 +42,7 @@ pub(crate) fn construct_page(
 
 /// Write the page tree.
 #[must_use]
-pub(crate) fn write_page_tree(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_page_tree(ctx: &mut PdfContext<Ref>) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
@@ -64,7 +64,7 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) -> Chunk {
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
 #[must_use]
-pub(crate) fn write_global_resources(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let images_ref = alloc.bump();
@@ -149,7 +149,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) -> Chunk {
 
 /// Write a page tree node.
 #[must_use]
-fn write_page(ctx: &PdfContext, i: usize) -> Chunk {
+fn write_page(ctx: &PdfContext<Ref>, i: usize) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let page = &ctx.pages[i];
@@ -228,7 +228,7 @@ fn write_page(ctx: &PdfContext, i: usize) -> Chunk {
 
 /// Write the page labels.
 pub(crate) fn write_page_labels(
-    ctx: &mut PdfContext,
+    ctx: &mut PdfContext<Ref>,
 ) -> (Chunk, Vec<(NonZeroUsize, Ref)>) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);

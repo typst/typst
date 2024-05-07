@@ -71,6 +71,7 @@ pub fn pdf(
     append_chunk(&mut alloc, &mut pdf, image::write_images(&mut ctx));
     append_chunk(&mut alloc, &mut pdf, gradient::write_gradients(&mut ctx));
     append_chunk(&mut alloc, &mut pdf, extg::write_external_graphics_states(&mut ctx));
+    let mut ctx = ctx.translate_pattern_resources();
     append_chunk(&mut alloc, &mut pdf, pattern::write_patterns(&mut ctx));
     append_chunk(&mut alloc, &mut pdf, write_named_destinations(&mut ctx));
     append_chunk(&mut alloc, &mut pdf, page::write_page_tree(&mut ctx));
@@ -115,7 +116,7 @@ fn append_chunk_with_id(
 }
 
 /// Context for exporting a whole PDF document.
-struct PdfContext<'a> {
+struct PdfContext<'a, R = usize> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// Content of exported pages.
@@ -167,7 +168,7 @@ struct PdfContext<'a> {
     /// Deduplicates gradients used across the document.
     gradient_map: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
-    pattern_map: Remapper<PdfPattern>,
+    pattern_map: Remapper<PdfPattern<R>>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
@@ -213,9 +214,77 @@ impl<'a> PdfContext<'a> {
     }
 }
 
+impl<'a> PdfContext<'a, usize> {
+    fn translate_pattern_resources(self) -> PdfContext<'a, Ref> {
+        let map_pattern = |pattern: PdfPattern<usize>| PdfPattern {
+            transform: pattern.transform,
+            pattern: pattern.pattern,
+            content: pattern.content,
+            resources: pattern
+                .resources
+                .into_iter()
+                .map(|(r, id)| {
+                    let ref_ = if r.is_x_object() {
+                        self.image_refs[id]
+                    } else if r.is_ext_g_state() {
+                        self.ext_gs_refs[id]
+                    } else if r.is_font() {
+                        self.font_refs[id]
+                    } else if r.is_gradient() {
+                        self.gradient_refs[id]
+                    } else {
+                        self.pattern_refs[id]
+                    };
+
+                    (r, ref_)
+                })
+                .collect(),
+        };
+
+        PdfContext {
+            pattern_map: Remapper {
+                to_pdf: self
+                    .pattern_map
+                    .to_pdf
+                    .into_iter()
+                    .map(|(p, i)| (map_pattern(p), i))
+                    .collect(),
+                to_items: self
+                    .pattern_map
+                    .to_items
+                    .into_iter()
+                    .map(map_pattern)
+                    .collect(),
+            },
+            document: self.document,
+            pages: self.pages,
+            glyph_sets: self.glyph_sets,
+            languages: self.languages,
+            page_tree_ref: self.page_tree_ref,
+            global_resources_ref: self.global_resources_ref,
+            type3_font_resources_ref: self.type3_font_resources_ref,
+            page_refs: self.page_refs,
+            font_refs: self.font_refs,
+            image_refs: self.image_refs,
+            gradient_refs: self.gradient_refs,
+            pattern_refs: self.pattern_refs,
+            ext_gs_refs: self.ext_gs_refs,
+            colors: self.colors,
+            font_map: self.font_map,
+            image_map: self.image_map,
+            image_deferred_map: self.image_deferred_map,
+            gradient_map: self.gradient_map,
+            extg_map: self.extg_map,
+            color_font_map: self.color_font_map,
+            dests: self.dests,
+            loc_to_dest: self.loc_to_dest,
+        }
+    }
+}
+
 /// Write the document catalog.
 fn write_catalog(
-    ctx: &mut PdfContext,
+    ctx: &mut PdfContext<Ref>,
     pdf: &mut Pdf,
     alloc: &mut Ref,
     ident: Smart<&str>,
@@ -370,7 +439,7 @@ fn write_catalog(
 /// Fills in the map and vector for named destinations and writes the indirect
 /// destination objects.
 #[must_use]
-fn write_named_destinations(ctx: &mut PdfContext) -> Chunk {
+fn write_named_destinations(ctx: &mut PdfContext<Ref>) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let mut seen = HashSet::new();

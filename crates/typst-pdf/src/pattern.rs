@@ -12,7 +12,7 @@ use crate::{transform_to_array, PdfContext};
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
 #[must_use]
-pub(crate) fn write_patterns(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_patterns(ctx: &mut PdfContext<Ref>) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
@@ -39,14 +39,14 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) -> Chunk {
             resources
                 .iter()
                 .filter(|(res, _)| res.is_x_object())
-                .map(|(res, ref_)| (res.name(), ctx.image_refs[*ref_])),
+                .map(|(res, ref_)| (res.name(), ref_)),
         );
 
         resources_map.fonts().pairs(
             resources
                 .iter()
                 .filter(|(res, _)| res.is_font())
-                .map(|(res, ref_)| (res.name(), ctx.font_refs[*ref_])),
+                .map(|(res, ref_)| (res.name(), ref_)),
         );
 
         ctx.colors.write_color_spaces(resources_map.color_spaces());
@@ -57,20 +57,20 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) -> Chunk {
                 resources
                     .iter()
                     .filter(|(res, _)| res.is_pattern())
-                    .map(|(res, ref_)| (res.name(), ctx.pattern_refs[*ref_])),
+                    .map(|(res, ref_)| (res.name(), ref_)),
             )
             .pairs(
                 resources
                     .iter()
                     .filter(|(res, _)| res.is_gradient())
-                    .map(|(res, ref_)| (res.name(), ctx.gradient_refs[*ref_])),
+                    .map(|(res, ref_)| (res.name(), ref_)),
             );
 
         resources_map.ext_g_states().pairs(
             resources
                 .iter()
                 .filter(|(res, _)| res.is_ext_g_state())
-                .map(|(res, ref_)| (res.name(), ctx.ext_gs_refs[*ref_])),
+                .map(|(res, ref_)| (res.name(), ref_)),
         );
 
         resources_map.finish();
@@ -88,7 +88,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) -> Chunk {
 
 /// A pattern and its transform.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct PdfPattern {
+pub struct PdfPattern<R> {
     /// The transform to apply to the pattern.
     pub transform: Transform,
     /// The pattern to paint.
@@ -96,7 +96,7 @@ pub struct PdfPattern {
     /// The rendered pattern.
     pub content: Vec<u8>,
     /// The resources used by the pattern.
-    pub resources: Vec<(Resource, usize)>,
+    pub resources: Vec<(Resource, R)>,
 }
 
 /// Registers a pattern with the PDF.
