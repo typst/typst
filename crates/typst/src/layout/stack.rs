@@ -148,7 +148,7 @@ struct StackLayouter<'a> {
     /// The initial size of the current region before we started subtracting.
     initial: Size,
     /// The generic size used by the frames for the current region.
-    used: Gen<Abs>,
+    used: GenericSize<Abs>,
     /// The sum of fractions in the current region.
     fr: Fr,
     /// Already layouted items whose exact positions are not yet known due to
@@ -190,7 +190,7 @@ impl<'a> StackLayouter<'a> {
             styles,
             expand,
             initial: regions.size,
-            used: Gen::zero(),
+            used: GenericSize::zero(),
             fr: Fr::zero(),
             items: vec![],
             finished: vec![],
@@ -245,18 +245,18 @@ impl<'a> StackLayouter<'a> {
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
-            let size = frame.size();
+            let specific_size = frame.size();
             if self.dir.axis() == Axis::Y {
-                self.regions.size.y -= size.y;
+                self.regions.size.y -= specific_size.y;
             }
 
-            let gen = match self.axis {
-                Axis::X => Gen::new(size.y, size.x),
-                Axis::Y => Gen::new(size.x, size.y),
+            let generic_size = match self.axis {
+                Axis::X => GenericSize::new(specific_size.y, specific_size.x),
+                Axis::Y => GenericSize::new(specific_size.x, specific_size.y),
             };
 
-            self.used.main += gen.main;
-            self.used.cross.set_max(gen.cross);
+            self.used.main += generic_size.main;
+            self.used.cross.set_max(generic_size.cross);
 
             self.items.push(StackItem::Frame(frame, align));
 
@@ -321,7 +321,7 @@ impl<'a> StackLayouter<'a> {
                         .get(other)
                         .position(size.get(other) - frame.size().get(other));
 
-                    let pos = Gen::new(cross, main).to_point(self.axis);
+                    let pos = GenericSize::new(cross, main).to_point(self.axis);
                     cursor += child;
                     output.push_frame(pos, frame);
                 }
@@ -331,7 +331,7 @@ impl<'a> StackLayouter<'a> {
         // Advance to the next region.
         self.regions.next();
         self.initial = self.regions.size;
-        self.used = Gen::zero();
+        self.used = GenericSize::zero();
         self.fr = Fr::zero();
         self.finished.push(output);
 
@@ -345,16 +345,17 @@ impl<'a> StackLayouter<'a> {
     }
 }
 
-/// A container with a main and cross component.
+/// A generic size with main and cross axes. The axes are generic, meaning the
+/// main axis could correspond to either the X or the Y axis.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
-struct Gen<T> {
-    /// The main component.
+struct GenericSize<T> {
+    /// The cross component, along the axis perpendicular to the main.
     pub cross: T,
-    /// The cross component.
+    /// The main component.
     pub main: T,
 }
 
-impl<T> Gen<T> {
+impl<T> GenericSize<T> {
     /// Create a new instance from the two components.
     const fn new(cross: T, main: T) -> Self {
         Self { cross, main }
@@ -369,7 +370,7 @@ impl<T> Gen<T> {
     }
 }
 
-impl Gen<Abs> {
+impl GenericSize<Abs> {
     /// The zero value.
     fn zero() -> Self {
         Self { cross: Abs::zero(), main: Abs::zero() }
