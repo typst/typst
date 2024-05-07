@@ -225,7 +225,6 @@ impl<'a> ShapedText<'a> {
         frame.set_baseline(top);
 
         let shift = TextElem::baseline_in(self.styles);
-        let lang = TextElem::lang_in(self.styles);
         let decos = TextElem::deco_in(self.styles);
         let fill = TextElem::fill_in(self.styles);
         let stroke = TextElem::stroke_in(self.styles);
@@ -306,7 +305,8 @@ impl<'a> ShapedText<'a> {
             let item = TextItem {
                 font,
                 size: self.size,
-                lang,
+                lang: self.lang,
+                region: self.region,
                 fill: fill.clone(),
                 stroke: stroke.clone().map(|s| s.unwrap_or_default()),
                 text: self.text[range.start - self.base..range.end - self.base].into(),

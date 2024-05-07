@@ -5,7 +5,7 @@ use ecow::EcoString;
 
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
-use crate::text::{Font, Lang};
+use crate::text::{Font, Lang, Region};
 use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.
@@ -21,6 +21,8 @@ pub struct TextItem {
     pub stroke: Option<FixedStroke>,
     /// The natural language of the text.
     pub lang: Lang,
+    /// The region of the text.
+    pub region: Option<Region>,
     /// The item's plain text.
     pub text: EcoString,
     /// The glyphs. The number of glyphs may be different from the number of
