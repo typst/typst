@@ -174,14 +174,14 @@ impl<'a> Runner<'a> {
         std::fs::write(&live_path, data).unwrap();
 
         // Write PDF if requested.
-        if crate::ARGS.pdf {
+        if crate::ARGS.pdf() {
             let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
             let pdf = typst_pdf::pdf(document, Smart::Auto, None);
             std::fs::write(pdf_path, pdf).unwrap();
         }
 
         // Write SVG if requested.
-        if crate::ARGS.svg {
+        if crate::ARGS.svg() {
             let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, self.test.name);
             let svg = typst_svg::svg_merged(document, Abs::pt(5.0));
             std::fs::write(svg_path, svg).unwrap();

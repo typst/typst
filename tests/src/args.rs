@@ -20,10 +20,16 @@ pub struct CliArguments {
     /// Does not affect the comparison or the reference image.
     #[arg(short, long, default_value_t = 1.0)]
     pub scale: f32,
-    /// Exports PDF outputs into the artifact store.
+    /// Whether to run the tests in extended mode, including PDF and SVG
+    /// export.
+    ///
+    /// This is used in CI.
+    #[arg(long, env = "TYPST_TESTS_EXTENDED")]
+    pub extended: bool,
+    /// Runs PDF export.
     #[arg(long)]
     pub pdf: bool,
-    /// Exports SVG outputs into the artifact store.
+    /// Runs SVG export.
     #[arg(long)]
     pub svg: bool,
     /// Whether to display the syntax tree.
@@ -35,6 +41,18 @@ pub struct CliArguments {
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
+}
+
+impl CliArguments {
+    /// Whether to run PDF export.
+    pub fn pdf(&self) -> bool {
+        self.pdf || self.extended
+    }
+
+    /// Whether to run SVG export.
+    pub fn svg(&self) -> bool {
+        self.svg || self.extended
+    }
 }
 
 /// What to do.
