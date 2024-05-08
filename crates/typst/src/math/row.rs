@@ -210,19 +210,15 @@ impl MathRun {
         frame.set_baseline(ascent);
 
         let mut next_x = {
-            let mut widths = vec![];
-            if !points.is_empty() {
-                let mut width = Abs::zero();
-                for fragment in self.iter() {
-                    if matches!(fragment, MathFragment::Align) {
-                        widths.push(width);
-                        width = Abs::zero();
-                    } else {
-                        width += fragment.width();
-                    }
-                }
-                widths.push(width);
-            }
+            let widths: Vec<Abs> = if !points.is_empty() {
+                self.iter()
+                    .as_slice()
+                    .split(|e| matches!(e, MathFragment::Align))
+                    .map(|chunk| chunk.iter().fold(Abs::zero(), |acc, e| acc + e.width()))
+                    .collect()
+            } else {
+                vec![]
+            };
 
             let mut prev_points = once(Abs::zero()).chain(points.iter().copied());
             let mut point_widths = points.iter().copied().zip(widths);
