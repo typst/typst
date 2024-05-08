@@ -141,15 +141,6 @@ enum FlowItem {
 }
 
 impl FlowItem {
-    /// The inherent height of the item.
-    fn height(&self) -> Abs {
-        match self {
-            Self::Absolute(v, _) => *v,
-            Self::Fractional(_) | Self::Placed { .. } => Abs::zero(),
-            Self::Frame { frame, .. } | Self::Footnote(frame) => frame.height(),
-        }
-    }
-
     /// Whether this item is out-of-flow.
     ///
     /// Out-of-flow items are guaranteed to have a [`Size::zero()`].
@@ -411,12 +402,16 @@ impl<'a> FlowLayouter<'a> {
                     self.finish_region(engine, false)?;
                 }
 
+                let in_last = self.regions.in_last();
                 self.regions.size.y -= height;
                 if self.root && movable {
                     let mut notes = Vec::new();
                     find_footnotes(&mut notes, frame);
                     self.items.push(item);
-                    if !self.handle_footnotes(engine, &mut notes, true, false)? {
+
+                    // When we are already in_last, we can directly force the
+                    // footnotes.
+                    if !self.handle_footnotes(engine, &mut notes, true, in_last)? {
                         let item = self.items.pop();
                         self.finish_region(engine, false)?;
                         self.items.extend(item);
@@ -651,7 +646,16 @@ impl FlowLayouter<'_> {
         engine: &mut Engine,
         mut notes: Vec<Packed<FootnoteElem>>,
     ) -> SourceResult<()> {
-        if self.root && !self.handle_footnotes(engine, &mut notes, false, false)? {
+        // When we are already in_last, we can directly force the
+        // footnotes.
+        if self.root
+            && !self.handle_footnotes(
+                engine,
+                &mut notes,
+                false,
+                self.regions.in_last(),
+            )?
+        {
             self.finish_region(engine, false)?;
             self.handle_footnotes(engine, &mut notes, false, true)?;
         }
@@ -666,8 +670,11 @@ impl FlowLayouter<'_> {
         movable: bool,
         force: bool,
     ) -> SourceResult<bool> {
-        let items_len = self.items.len();
-        let notes_len = notes.len();
+        let prev_notes_len = notes.len();
+        let prev_items_len = self.items.len();
+        let prev_size = self.regions.size;
+        let prev_has_footnotes = self.has_footnotes;
+        let prev_locator = engine.locator.clone();
 
         // Process footnotes one at a time.
         let mut k = 0;
@@ -682,7 +689,6 @@ impl FlowLayouter<'_> {
             }
 
             self.regions.size.y -= self.footnote_config.gap;
-            let checkpoint = engine.locator.clone();
             let frames = FootnoteEntry::new(notes[k].clone())
                 .pack()
                 .layout(engine, self.styles, self.regions.with_root(false))?
@@ -694,18 +700,12 @@ impl FlowLayouter<'_> {
                 && (k == 0 || movable)
                 && frames.first().is_some_and(Frame::is_empty)
             {
-                // Remove existing footnotes attempts because we need to
-                // move the item to the next page.
-                notes.truncate(notes_len);
-
-                // Undo region modifications.
-                for item in self.items.drain(items_len..) {
-                    self.regions.size.y -= item.height();
-                }
-
-                // Undo locator modifications.
-                *engine.locator = checkpoint;
-
+                // Undo everything.
+                notes.truncate(prev_notes_len);
+                self.items.truncate(prev_items_len);
+                self.regions.size = prev_size;
+                self.has_footnotes = prev_has_footnotes;
+                *engine.locator = prev_locator;
                 return Ok(false);
             }
 
