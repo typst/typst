@@ -217,7 +217,7 @@ impl LayoutMultiple for Cell {
 
 /// A grid entry.
 #[derive(Clone)]
-pub(in crate::layout::grid) enum Entry {
+pub(super) enum Entry {
     /// An entry which holds a cell.
     Cell(Cell),
     /// An entry which is merged with another cell.
@@ -316,25 +316,25 @@ pub trait ResolvableCell {
 /// A grid of cells, including the columns, rows, and cell data.
 pub struct CellGrid {
     /// The grid cells.
-    pub(in crate::layout::grid) entries: Vec<Entry>,
+    pub(super) entries: Vec<Entry>,
     /// The column tracks including gutter tracks.
-    pub(in crate::layout::grid) cols: Vec<Sizing>,
+    pub(super) cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
-    pub(in crate::layout::grid) rows: Vec<Sizing>,
+    pub(super) rows: Vec<Sizing>,
     /// The vertical lines before each column, or on the end border.
     /// Gutter columns are not included.
     /// Contains up to 'cols_without_gutter.len() + 1' vectors of lines.
-    pub(in crate::layout::grid) vlines: Vec<Vec<Line>>,
+    pub(super) vlines: Vec<Vec<Line>>,
     /// The horizontal lines on top of each row, or on the bottom border.
     /// Gutter rows are not included.
     /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
-    pub(in crate::layout::grid) hlines: Vec<Vec<Line>>,
+    pub(super) hlines: Vec<Vec<Line>>,
     /// The repeatable header of this grid.
-    pub(in crate::layout::grid) header: Option<Repeatable<Header>>,
+    pub(super) header: Option<Repeatable<Header>>,
     /// The repeatable footer of this grid.
-    pub(in crate::layout::grid) footer: Option<Repeatable<Footer>>,
+    pub(super) footer: Option<Repeatable<Footer>>,
     /// Whether this grid has gutters.
-    pub(in crate::layout::grid) has_gutter: bool,
+    pub(super) has_gutter: bool,
 }
 
 impl CellGrid {
