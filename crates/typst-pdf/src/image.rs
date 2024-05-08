@@ -8,7 +8,7 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, ConstructContext, WriteContext};
+use crate::{deflate, ConstructContext};
 
 /// Creates a new PDF image from the given image.
 ///
@@ -34,9 +34,10 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
 #[must_use]
-pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Chunk {
+pub(crate) fn write_images(res: &ConstructContext) -> (Vec<Ref>, Chunk) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
+    let mut images = Vec::new();
 
     for (i, _) in res.images.items().enumerate() {
         let handle = res.deferred_images.get(&i).unwrap();
@@ -51,7 +52,7 @@ pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Ch
                 alpha,
             } => {
                 let image_ref = alloc.bump();
-                ctx.images.push(image_ref);
+                images.push(image_ref);
 
                 let mut image = chunk.image_xobject(image_ref, data);
                 image.filter(*filter);
@@ -66,9 +67,9 @@ pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Ch
                     space.icc_based(id);
                     icc_ref = Some(id);
                 } else if *has_color {
-                    ctx.colors.write(ColorSpace::Srgb, space);
+                    res.colors.write(ColorSpace::Srgb, space);
                 } else {
-                    ctx.colors.write(ColorSpace::D65Gray, space);
+                    res.colors.write(ColorSpace::D65Gray, space);
                 }
 
                 // Add a second gray-scale image containing the alpha values if
@@ -105,11 +106,11 @@ pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Ch
                 svg_chunk.renumber_into(&mut chunk, |old| {
                     *map.entry(old).or_insert_with(|| alloc.bump())
                 });
-                ctx.images.push(map[&Ref::new(1)]);
+                images.push(map[&Ref::new(1)]);
             }
         }
     }
-    chunk
+    (images, chunk)
 }
 
 /// Encode an image with a suitable filter and return the data, filter and

@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
@@ -32,7 +34,7 @@ pub struct ColorSpaces {
     oklab: ReservedRef,
     srgb: ReservedRef,
     d65_gray: ReservedRef,
-    use_linear_rgb: bool,
+    use_linear_rgb: Cell<bool>,
 }
 
 impl ColorSpaces {
@@ -41,7 +43,7 @@ impl ColorSpaces {
             oklab: ReservedRef::new(alloc.bump()),
             srgb: ReservedRef::new(alloc.bump()),
             d65_gray: ReservedRef::new(alloc.bump()),
-            use_linear_rgb: false,
+            use_linear_rgb: Cell::new(false),
         }
     }
 
@@ -50,27 +52,27 @@ impl ColorSpaces {
     /// # Warning
     /// The A and B components of the color must be offset by +0.4 before being
     /// encoded into the PDF file.
-    pub fn oklab(&mut self) -> Ref {
+    pub fn oklab(&self) -> Ref {
         self.oklab.get()
     }
 
     /// Get a reference to the srgb color space.
-    pub fn srgb(&mut self) -> Ref {
+    pub fn srgb(&self) -> Ref {
         self.srgb.get()
     }
 
     /// Get a reference to the gray color space.
-    pub fn d65_gray(&mut self) -> Ref {
+    pub fn d65_gray(&self) -> Ref {
         self.d65_gray.get()
     }
 
     /// Mark linear RGB as used.
-    pub fn linear_rgb(&mut self) {
-        self.use_linear_rgb = true;
+    pub fn linear_rgb(&self) {
+        self.use_linear_rgb.set(true)
     }
 
     /// Write the color space on usage.
-    pub fn write(&mut self, color_space: ColorSpace, writer: writers::ColorSpace) {
+    pub fn write(&self, color_space: ColorSpace, writer: writers::ColorSpace) {
         match color_space {
             ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
@@ -97,7 +99,7 @@ impl ColorSpaces {
     }
 
     // Write the color spaces to the PDF file.
-    pub fn write_color_spaces(&mut self, mut spaces: Dict) {
+    pub fn write_color_spaces(&self, mut spaces: Dict) {
         if self.oklab.is_used() {
             self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start());
         }
@@ -110,7 +112,7 @@ impl ColorSpaces {
             self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start());
         }
 
-        if self.use_linear_rgb {
+        if self.use_linear_rgb.get() {
             self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start());
         }
     }

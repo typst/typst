@@ -7,18 +7,22 @@ use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::content::{self, Resource, ResourceKind};
-use crate::{transform_to_array, WriteContext};
+use crate::{transform_to_array, ConstructContext, Remapper};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
 #[must_use]
-pub(crate) fn write_patterns(ctx: &mut WriteContext) -> Chunk {
+pub(crate) fn write_patterns(
+    ctx: &ConstructContext,
+    pattern_map: &Remapper<PdfPattern<Ref>>,
+) -> (Vec<Ref>, Chunk) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
+    let mut patterns = Vec::new();
 
-    for PdfPattern { transform, pattern, content, resources } in ctx.pattern_map.items() {
+    for PdfPattern { transform, pattern, content, resources } in pattern_map.items() {
         let tiling = alloc.bump();
-        ctx.patterns.push(tiling);
+        patterns.push(tiling);
 
         let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
         tiling_pattern
@@ -83,7 +87,7 @@ pub(crate) fn write_patterns(ctx: &mut WriteContext) -> Chunk {
             .filter(Filter::FlateDecode);
     }
 
-    chunk
+    (patterns, chunk)
 }
 
 /// A pattern and its transform.

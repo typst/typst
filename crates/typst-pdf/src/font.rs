@@ -12,7 +12,7 @@ use typst::text::Font;
 use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
-use crate::{content, deflate, ConstructContext, EmExt, WriteContext};
+use crate::{content, deflate, ConstructContext, EmExt};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -26,18 +26,20 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
 #[must_use]
-pub(crate) fn write_fonts(res: &ConstructContext, ctx: &mut WriteContext) -> Chunk {
+pub(crate) fn write_fonts(res: &mut ConstructContext) -> (Vec<Ref>, Chunk) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
+    let mut fonts = Vec::new();
+
     for font in res.fonts.items() {
         let type0_ref = alloc.bump();
         let cid_ref = alloc.bump();
         let descriptor_ref = alloc.bump();
         let cmap_ref = alloc.bump();
         let data_ref = alloc.bump();
-        ctx.fonts.push(type0_ref);
+        fonts.push(type0_ref);
 
-        let glyph_set = ctx.glyph_sets.get_mut(font).unwrap();
+        let glyph_set = res.glyph_sets.get_mut(font).unwrap();
         let ttf = font.ttf();
 
         // Do we have a TrueType or CFF font?
@@ -133,7 +135,7 @@ pub(crate) fn write_fonts(res: &ConstructContext, ctx: &mut WriteContext) -> Chu
             font_descriptor.font_file2(data_ref);
         }
     }
-    chunk
+    (fonts, chunk)
 }
 
 /// Writes color fonts as Type3 fonts

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use crate::{append_chunk, content, AbsExt, ConstructContext, WriteContext};
@@ -5,6 +6,8 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use typst::foundations::Label;
+use typst::introspection::Location;
 use typst::layout::{Abs, Frame, Page};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
@@ -50,19 +53,23 @@ pub(crate) fn construct_page(
 
 /// Write the page tree.
 #[must_use]
-pub(crate) fn write_page_tree(res: &mut WriteContext) -> Chunk {
+pub(crate) fn write_page_tree(
+    res: &ConstructContext,
+    loc_to_dest: &HashMap<Location, Label>,
+    page_refs: &[Ref],
+) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
     for i in 0..res.pages.len() {
-        let page_chunk = write_page(&*res, i);
+        let page_chunk = write_page(res, loc_to_dest, i);
         append_chunk(&mut alloc, &mut chunk, page_chunk);
     }
 
     chunk
         .pages(res.page_tree_ref)
         .count(res.pages.len() as i32)
-        .kids(res.pages.iter().copied());
+        .kids(page_refs.iter().copied());
     chunk
 }
 
@@ -74,7 +81,7 @@ pub(crate) fn write_page_tree(res: &mut WriteContext) -> Chunk {
 #[must_use]
 pub(crate) fn write_global_resources(
     res: &ConstructContext,
-    ctx: &mut WriteContext,
+    ctx: &WriteContext,
 ) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
@@ -110,9 +117,9 @@ pub(crate) fn write_global_resources(
     ext_gs_states.finish();
 
     let color_spaces = chunk.indirect(color_spaces_ref).dict();
-    ctx.colors.write_color_spaces(color_spaces);
+    res.colors.write_color_spaces(color_spaces);
 
-    let mut resources = chunk.indirect(ctx.global_resources_ref).start::<Resources>();
+    let mut resources = chunk.indirect(res.global_resources_ref).start::<Resources>();
     resources.pair(Name(b"XObject"), images_ref);
     resources.pair(Name(b"Pattern"), patterns_ref);
     resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -136,7 +143,7 @@ pub(crate) fn write_global_resources(
     // color spaces and regular fonts (COLR glyphs depend on them).
     if !res.color_fonts.all_refs.is_empty() {
         let mut resources =
-            chunk.indirect(ctx.type3_font_resources_ref).start::<Resources>();
+            chunk.indirect(res.type3_font_resources_ref).start::<Resources>();
         resources.pair(Name(b"XObject"), images_ref);
         resources.pair(Name(b"Pattern"), patterns_ref);
         resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -153,17 +160,21 @@ pub(crate) fn write_global_resources(
     }
 
     // Write all of the functions used by the document.
-    ctx.colors.write_functions(&mut chunk);
+    res.colors.write_functions(&mut chunk);
 
     chunk
 }
 
 /// Write a page tree node.
 #[must_use]
-fn write_page(ctx: &WriteContext, i: usize) -> Chunk {
+fn write_page(
+    ctx: &ConstructContext,
+    loc_to_dest: &HashMap<Location, Label>,
+    i: usize,
+) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
-    let page = &ctx.encoded_pages[i];
+    let page = &ctx.pages[i];
     let content_id = alloc.bump();
 
     let mut page_writer = chunk.page(page.id);
@@ -201,7 +212,7 @@ fn write_page(ctx: &WriteContext, i: usize) -> Chunk {
             }
             Destination::Position(pos) => *pos,
             Destination::Location(loc) => {
-                if let Some(key) = ctx.loc_to_dest.get(loc) {
+                if let Some(key) = loc_to_dest.get(loc) {
                     annotation
                         .action()
                         .action_type(ActionType::GoTo)
@@ -217,7 +228,7 @@ fn write_page(ctx: &WriteContext, i: usize) -> Chunk {
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.encoded_pages.get(index) {
+        if let Some(page) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
@@ -239,13 +250,13 @@ fn write_page(ctx: &WriteContext, i: usize) -> Chunk {
 
 /// Write the page labels.
 pub(crate) fn write_page_labels(
-    ctx: &mut WriteContext,
+    ctx: &ConstructContext,
 ) -> (Chunk, Vec<(NonZeroUsize, Ref)>) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
     // If there is no page labeled, we skip the writing
-    if !ctx.encoded_pages.iter().any(|p| {
+    if !ctx.pages.iter().any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
@@ -257,7 +268,7 @@ pub(crate) fn write_page_labels(
     let empty_label = PdfPageLabel::default();
     let mut prev: Option<&PdfPageLabel> = None;
 
-    for (i, page) in ctx.encoded_pages.iter().enumerate() {
+    for (i, page) in ctx.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
         // If there are pages with empty labels between labeled pages, we must
         // write empty PageLabel entries.

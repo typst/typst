@@ -15,7 +15,6 @@ use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::content::{self, Resource, ResourceKind};
 use crate::{
     append_chunk_with_id, deflate, transform_to_array, AbsExt, ConstructContext,
-    WriteContext,
 };
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -36,15 +35,16 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 #[must_use]
-pub(crate) fn write_gradients(res: &ConstructContext, ctx: &mut WriteContext) -> Chunk {
+pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, Chunk) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
+    let mut gradients = Vec::new();
 
     for PdfGradient { transform, aspect_ratio, gradient, angle } in
-        res.gradients.items().cloned().collect::<Vec<_>>()
+        ctx.gradients.items().cloned().collect::<Vec<_>>()
     {
         let shading = alloc.bump();
-        ctx.gradients.push(shading);
+        gradients.push(shading);
 
         let color_space = if gradient.space().hue_index().is_some() {
             ColorSpace::Oklab
@@ -147,7 +147,7 @@ pub(crate) fn write_gradients(res: &ConstructContext, ctx: &mut WriteContext) ->
         shading_pattern.matrix(transform_to_array(transform));
     }
 
-    chunk
+    (gradients, chunk)
 }
 
 /// Writes an expotential or stitched function that expresses the gradient.

@@ -5,10 +5,13 @@ use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, WriteContext};
+use crate::{AbsExt, ConstructContext, WriteContext};
 
 /// Construct the outline for the document.
-pub(crate) fn write_outline(ctx: &mut WriteContext) -> Option<(Chunk, Ref)> {
+pub(crate) fn write_outline(
+    ctx: &ConstructContext,
+    refs: &WriteContext,
+) -> Option<(Chunk, Ref)> {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let mut tree: Vec<HeadingNode> = vec![];
@@ -95,6 +98,7 @@ pub(crate) fn write_outline(ctx: &mut WriteContext) -> Option<(Chunk, Ref)> {
     for (i, node) in tree.iter().enumerate() {
         prev_ref = Some(write_outline_item(
             ctx,
+            refs,
             &mut alloc,
             &mut chunk,
             node,
@@ -144,7 +148,8 @@ impl<'a> HeadingNode<'a> {
 
 /// Write an outline item and all its children.
 fn write_outline_item(
-    ctx: &WriteContext,
+    ctx: &ConstructContext,
+    refs: &WriteContext,
     alloc: &mut Ref,
     chunk: &mut Chunk,
     node: &HeadingNode,
@@ -178,9 +183,9 @@ fn write_outline_item(
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
     let index = pos.page.get() - 1;
-    if let Some(page) = ctx.encoded_pages.get(index) {
+    if let Some(page) = ctx.pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        outline.dest().page(ctx.pages[index]).xyz(
+        outline.dest().page(refs.pages[index]).xyz(
             pos.point.x.to_f32(),
             (page.content.size.y - y).to_f32(),
             None,
@@ -193,6 +198,7 @@ fn write_outline_item(
     for (i, child) in node.children.iter().enumerate() {
         prev_ref = Some(write_outline_item(
             ctx,
+            refs,
             alloc,
             chunk,
             child,
