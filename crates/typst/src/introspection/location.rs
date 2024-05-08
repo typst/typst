@@ -28,17 +28,19 @@ pub struct Location {
     /// An unique number among elements with the same hash. This is the reason
     /// we need a `Locator` everywhere.
     pub disambiguator: usize,
-    /// A synthetic location created from another one. This is used for example
-    /// in bibliography management to create individual linkable locations for
-    /// reference entries from the bibliography's location.
-    pub variant: usize,
 }
 
 impl Location {
-    /// Produce a variant of this location.
-    pub fn variant(mut self, n: usize) -> Self {
-        self.variant = n;
-        self
+    /// Produces a well-known variant of this location.
+    ///
+    /// This is a synthetic location created from another one and is used, for
+    /// example, in bibliography management to create individual linkable
+    /// locations for reference entries from the bibliography's location.
+    pub fn variant(self, n: usize) -> Self {
+        Self {
+            hash: crate::util::hash128(&(self.hash, n)),
+            ..self
+        }
     }
 }
 
