@@ -4,6 +4,7 @@ on: [push, pull_request, merge_group]
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
+  TYPST_TESTS_EXTENDED: true
 
 jobs:
   # This allows us to have one branch protection rule for the full test matrix.
