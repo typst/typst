@@ -31,7 +31,11 @@ pub struct Location {
 }
 
 impl Location {
-    /// Produce a variant of this location.
+    /// Produces a well-known variant of this location.
+    ///
+    /// This is a synthetic location created from another one and is used, for
+    /// example, in bibliography management to create individual linkable
+    /// locations for reference entries from the bibliography's location.
     pub fn variant(self, n: usize) -> Self {
         Self {
             hash: crate::util::hash128(&(self.hash, n)),
