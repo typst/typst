@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use font::improve_glyph_sets;
 use indexmap::IndexMap;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
@@ -69,9 +70,12 @@ pub fn pdf(
 
     let pages = page::construct_pages(&mut res, &document.pages);
 
-    append_chunk(&mut alloc, &mut pdf, font::write_color_fonts(&mut res));
+    improve_glyph_sets(&mut res.glyph_sets);
 
-    let (fonts, chunk) = font::write_fonts(&mut res);
+    append_chunk(&mut alloc, &mut pdf, font::write_color_fonts(&mut res));
+    // TODO: should glyph sets be improved at this point too?
+
+    let (fonts, chunk) = font::write_fonts(&res);
     append_chunk(&mut alloc, &mut pdf, chunk);
 
     let (images, chunk) = image::write_images(&res);

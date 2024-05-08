@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -26,7 +26,7 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
 #[must_use]
-pub(crate) fn write_fonts(res: &mut ConstructContext) -> (Vec<Ref>, Chunk) {
+pub(crate) fn write_fonts(res: &ConstructContext) -> (Vec<Ref>, Chunk) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let mut fonts = Vec::new();
@@ -39,7 +39,7 @@ pub(crate) fn write_fonts(res: &mut ConstructContext) -> (Vec<Ref>, Chunk) {
         let data_ref = alloc.bump();
         fonts.push(type0_ref);
 
-        let glyph_set = res.glyph_sets.get_mut(font).unwrap();
+        let glyph_set = res.glyph_sets.get(font).unwrap();
         let ttf = font.ttf();
 
         // Do we have a TrueType or CFF font?
@@ -325,33 +325,37 @@ fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
     std::str::from_utf8(&letter).unwrap().into()
 }
 
-/// Create a /ToUnicode CMap.
-fn create_cmap(font: &Font, glyph_set: &mut BTreeMap<u16, EcoString>) -> UnicodeCmap {
-    let ttf = font.ttf();
+pub fn improve_glyph_sets(glyph_sets: &mut HashMap<Font, BTreeMap<u16, EcoString>>) {
+    for (font, glyph_set) in glyph_sets {
+        let ttf = font.ttf();
 
-    // For glyphs that have codepoints mapping to them in the font's cmap table,
-    // we prefer them over pre-existing text mappings from the document. Only
-    // things that don't have a corresponding codepoint (or only a private-use
-    // one) like the "Th" in Linux Libertine get the text of their first
-    // occurrences in the document instead.
-    for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
-        if !subtable.is_unicode() {
-            continue;
+        // For glyphs that have codepoints mapping to them in the font's cmap table,
+        // we prefer them over pre-existing text mappings from the document. Only
+        // things that don't have a corresponding codepoint (or only a private-use
+        // one) like the "Th" in Linux Libertine get the text of their first
+        // occurrences in the document instead.
+        for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
+            if !subtable.is_unicode() {
+                continue;
+            }
+
+            subtable.codepoints(|n| {
+                let Some(c) = std::char::from_u32(n) else { return };
+                if c.general_category() == GeneralCategory::PrivateUse {
+                    return;
+                }
+
+                let Some(GlyphId(g)) = ttf.glyph_index(c) else { return };
+                if glyph_set.contains_key(&g) {
+                    glyph_set.insert(g, c.into());
+                }
+            });
         }
-
-        subtable.codepoints(|n| {
-            let Some(c) = std::char::from_u32(n) else { return };
-            if c.general_category() == GeneralCategory::PrivateUse {
-                return;
-            }
-
-            let Some(GlyphId(g)) = ttf.glyph_index(c) else { return };
-            if glyph_set.contains_key(&g) {
-                glyph_set.insert(g, c.into());
-            }
-        });
     }
+}
 
+/// Create a /ToUnicode CMap.
+fn create_cmap(font: &Font, glyph_set: &BTreeMap<u16, EcoString>) -> UnicodeCmap {
     // Produce a reverse mapping from glyphs' CIDs to unicode strings.
     let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
     for (&g, text) in glyph_set.iter() {
