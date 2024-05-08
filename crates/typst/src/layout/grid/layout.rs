@@ -4,6 +4,7 @@ use super::lines::{
     generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LinePosition,
     LineSegment,
 };
+use super::repeated::Repeatable;
 use super::rowspans::{Rowspan, UnbreakableRowGroup};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -16,46 +17,6 @@ use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::{MaybeReverseIter, Numeric};
 use crate::visualize::Geometry;
-
-/// A repeatable grid header. Starts at the first row.
-pub(super) struct Header {
-    /// The index after the last row included in this header.
-    pub(super) end: usize,
-}
-
-/// A repeatable grid footer. Stops at the last row.
-pub(super) struct Footer {
-    /// The first row included in this footer.
-    pub(super) start: usize,
-}
-
-/// A possibly repeatable grid object.
-/// It still exists even when not repeatable, but must not have additional
-/// considerations by grid layout, other than for consistency (such as making
-/// a certain group of rows unbreakable).
-pub(super) enum Repeatable<T> {
-    Repeated(T),
-    NotRepeated(T),
-}
-
-impl<T> Repeatable<T> {
-    /// Gets the value inside this repeatable, regardless of whether
-    /// it repeats.
-    pub(super) fn unwrap(&self) -> &T {
-        match self {
-            Self::Repeated(repeated) => repeated,
-            Self::NotRepeated(not_repeated) => not_repeated,
-        }
-    }
-
-    /// Returns `Some` if the value is repeated, `None` otherwise.
-    pub(super) fn as_repeated(&self) -> Option<&T> {
-        match self {
-            Self::Repeated(repeated) => Some(repeated),
-            Self::NotRepeated(_) => None,
-        }
-    }
-}
 
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
@@ -224,7 +185,11 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Layout the given row.
-    fn layout_row(&mut self, y: usize, engine: &mut Engine) -> SourceResult<()> {
+    pub(super) fn layout_row(
+        &mut self,
+        y: usize,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
         // Skip to next region if current one is full, but only for content
         // rows, not for gutter rows, and only if we aren't laying out an
         // unbreakable group of rows.
@@ -1551,143 +1516,15 @@ impl<'a> GridLayouter<'a> {
 
     /// Advances to the next region, registering the finished output and
     /// resolved rows for the current region in the appropriate vectors.
-    fn finish_region_internal(&mut self, output: Frame, resolved_rows: Vec<RowPiece>) {
+    pub(super) fn finish_region_internal(
+        &mut self,
+        output: Frame,
+        resolved_rows: Vec<RowPiece>,
+    ) {
         self.finished.push(output);
         self.rrows.push(resolved_rows);
         self.regions.next();
         self.initial = self.regions.size;
-    }
-
-    /// Layouts the header's rows.
-    /// Skips regions as necessary.
-    fn layout_header(
-        &mut self,
-        header: &Header,
-        engine: &mut Engine,
-    ) -> SourceResult<()> {
-        let header_rows = self.simulate_header(header, &self.regions, engine)?;
-        let mut skipped_region = false;
-        while self.unbreakable_rows_left == 0
-            && !self.regions.size.y.fits(header_rows.height + self.footer_height)
-            && !self.regions.in_last()
-        {
-            // Advance regions without any output until we can place the
-            // header and the footer.
-            self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
-            skipped_region = true;
-        }
-
-        // Reset the header height for this region.
-        // It will be re-calculated when laying out each header row.
-        self.header_height = Abs::zero();
-
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            if skipped_region {
-                // Simulate the footer again; the region's 'full' might have
-                // changed.
-                self.footer_height =
-                    self.simulate_footer(footer, &self.regions, engine)?.height;
-            }
-        }
-
-        // Header is unbreakable.
-        // Thus, no risk of 'finish_region' being recursively called from
-        // within 'layout_row'.
-        self.unbreakable_rows_left += header.end;
-        for y in 0..header.end {
-            self.layout_row(y, engine)?;
-        }
-        Ok(())
-    }
-
-    /// Simulate the header's group of rows.
-    pub(super) fn simulate_header(
-        &self,
-        header: &Header,
-        regions: &Regions<'_>,
-        engine: &mut Engine,
-    ) -> SourceResult<UnbreakableRowGroup> {
-        // Note that we assume the invariant that any rowspan in a header is
-        // fully contained within that header. Therefore, there won't be any
-        // unbreakable rowspans exceeding the header's rows, and we can safely
-        // assume that the amount of unbreakable rows following the first row
-        // in the header will be precisely the rows in the header.
-        let header_row_group =
-            self.simulate_unbreakable_row_group(0, Some(header.end), regions, engine)?;
-
-        Ok(header_row_group)
-    }
-
-    /// Updates `self.footer_height` by simulating the footer, and skips to fitting region.
-    pub(super) fn prepare_footer(
-        &mut self,
-        footer: &Footer,
-        engine: &mut Engine,
-    ) -> SourceResult<()> {
-        let footer_height = self.simulate_footer(footer, &self.regions, engine)?.height;
-        let mut skipped_region = false;
-        while self.unbreakable_rows_left == 0
-            && !self.regions.size.y.fits(footer_height)
-            && !self.regions.in_last()
-        {
-            // Advance regions without any output until we can place the
-            // footer.
-            self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
-            skipped_region = true;
-        }
-
-        self.footer_height = if skipped_region {
-            // Simulate the footer again; the region's 'full' might have
-            // changed.
-            self.simulate_footer(footer, &self.regions, engine)?.height
-        } else {
-            footer_height
-        };
-
-        Ok(())
-    }
-
-    /// Lays out all rows in the footer.
-    /// They are unbreakable.
-    pub(super) fn layout_footer(
-        &mut self,
-        footer: &Footer,
-        engine: &mut Engine,
-    ) -> SourceResult<()> {
-        // Ensure footer rows have their own height available.
-        // Won't change much as we're creating an unbreakable row group
-        // anyway, so this is mostly for correctness.
-        self.regions.size.y += self.footer_height;
-
-        let footer_len = self.grid.rows.len() - footer.start;
-        self.unbreakable_rows_left += footer_len;
-        for y in footer.start..self.grid.rows.len() {
-            self.layout_row(y, engine)?;
-        }
-
-        Ok(())
-    }
-
-    // Simulate the footer's group of rows.
-    pub(super) fn simulate_footer(
-        &self,
-        footer: &Footer,
-        regions: &Regions<'_>,
-        engine: &mut Engine,
-    ) -> SourceResult<UnbreakableRowGroup> {
-        // Note that we assume the invariant that any rowspan in a footer is
-        // fully contained within that footer. Therefore, there won't be any
-        // unbreakable rowspans exceeding the footer's rows, and we can safely
-        // assume that the amount of unbreakable rows following the first row
-        // in the footer will be precisely the rows in the footer.
-        let footer_row_group = self.simulate_unbreakable_row_group(
-            footer.start,
-            Some(self.grid.rows.len() - footer.start),
-            regions,
-            engine,
-        )?;
-
-        Ok(footer_row_group)
     }
 }
 

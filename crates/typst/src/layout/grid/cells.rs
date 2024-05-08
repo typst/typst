@@ -4,8 +4,8 @@ use std::sync::Arc;
 use comemo::Track;
 use ecow::eco_format;
 
-use super::layout::{Footer, Header, Repeatable};
 use super::lines::Line;
+use super::repeated::{Footer, Header, Repeatable};
 use crate::diag::{
     bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
 };

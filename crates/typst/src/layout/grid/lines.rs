@@ -2,7 +2,8 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use super::cells::CellGrid;
-use super::layout::{Repeatable, RowPiece};
+use super::layout::RowPiece;
+use super::repeated::Repeatable;
 use crate::foundations::{AlternativeFold, Fold};
 use crate::layout::Abs;
 use crate::visualize::Stroke;

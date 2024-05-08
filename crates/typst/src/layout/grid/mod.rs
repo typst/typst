@@ -1,6 +1,7 @@
 mod cells;
 mod layout;
 mod lines;
+mod repeated;
 mod rowspans;
 
 pub use self::cells::{
