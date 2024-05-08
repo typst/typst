@@ -28,6 +28,7 @@ use typst::visualize::{
 #[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
     let mut skipped_pages = 0;
+    let mut page_labels_changed = false;
     for (i, page) in pages.iter().enumerate() {
         if ctx
             .exported_pages
@@ -51,9 +52,31 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
                     // the real (not logical) page numbers. Here, the final PDF page number
                     // will differ, but we can at least use labels to indicate what was
                     // the corresponding real page number in the Typst document.
-                    (skipped_pages > 0).then(|| PdfPageLabel::arabic(i + 1))
+                    (skipped_pages > 0).then(|| {
+                        page_labels_changed = true;
+                        PdfPageLabel::arabic(i + 1)
+                    })
                 });
             ctx.pages.push(Some(encoded));
+        }
+    }
+
+    // If at least one page received a label due to its final PDF page number
+    // not corresponding to its real page number in the Typst document (which
+    // can happen when at least one page isn't exported and comes before one
+    // or more exported pages), we ensure all pages without a label receive
+    // a label as well (with their own real page numbers), for consistency.
+    if page_labels_changed {
+        for (i, page) in ctx.pages.iter_mut().enumerate() {
+            if let Some(page) = page {
+                if page.label.is_none() {
+                    page.label = Some(PdfPageLabel::arabic(i + 1));
+                }
+            } else {
+                // We have already updated the page numbering of all pages after
+                // the first non-exported page in the previous loop.
+                break;
+            }
         }
     }
 }
