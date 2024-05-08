@@ -13,7 +13,10 @@ use typst::visualize::{
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::content::{self, Resource, ResourceKind};
-use crate::{append_chunk_with_id, deflate, transform_to_array, AbsExt, PdfContext};
+use crate::{
+    append_chunk_with_id, deflate, transform_to_array, AbsExt, ConstructContext,
+    WriteContext,
+};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -33,15 +36,15 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 #[must_use]
-pub(crate) fn write_gradients(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_gradients(res: &ConstructContext, ctx: &mut WriteContext) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
     for PdfGradient { transform, aspect_ratio, gradient, angle } in
-        ctx.gradient_map.items().cloned().collect::<Vec<_>>()
+        res.resources.gradients.items().cloned().collect::<Vec<_>>()
     {
         let shading = alloc.bump();
-        ctx.gradient_refs.push(shading);
+        ctx.resources.gradients.push(shading);
 
         let color_space = if gradient.space().hue_index().is_some() {
             ColorSpace::Oklab
@@ -323,7 +326,7 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    ctx.parent.gradient_map.insert(pdf_gradient)
+    ctx.parent.resources.gradients.insert(pdf_gradient)
 }
 
 /// Writes a single Coons Patch as defined in the PDF specification

@@ -24,12 +24,12 @@ use typst::{
 
 use crate::{
     color::PaintEncode, deflate_deferred, extg::ExtGState, image::deferred_image, AbsExt,
-    EmExt, PdfContext,
+    ConstructContext, EmExt,
 };
 
 // TODO: remove all references to "page"
 
-pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
+pub fn build(ctx: &mut ConstructContext, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(ctx, size);
     let mut alloc = Ref::new(1); // TODO?
@@ -55,6 +55,7 @@ pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
     }
 }
 
+#[derive(Clone)]
 pub struct Encoded {
     /// The dimensions of the content.
     pub size: Size,
@@ -125,7 +126,7 @@ impl Resource {
 
 /// An exporter for the contents of a single PDF page.
 pub struct Builder<'a, 'b> {
-    pub(crate) parent: &'a mut PdfContext<'b>,
+    pub(crate) parent: &'a mut ConstructContext<'b>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -137,7 +138,7 @@ pub struct Builder<'a, 'b> {
 }
 
 impl<'a, 'b> Builder<'a, 'b> {
-    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
+    pub fn new(parent: &'a mut ConstructContext<'b>, size: Size) -> Self {
         Builder {
             parent,
             uses_opacities: false,
@@ -225,7 +226,7 @@ impl Builder<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            let index = self.parent.extg_map.insert(*graphics_state);
+            let index = self.parent.resources.ext_gs.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
             self.resources
@@ -284,7 +285,7 @@ impl Builder<'_, '_> {
 
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
-            let index = self.parent.font_map.insert(font.clone());
+            let index = self.parent.resources.fonts.insert(font.clone());
             let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.resources.insert(Resource::new(ResourceKind::Font, name), index);
@@ -571,7 +572,7 @@ fn write_color_glyphs(
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
         let (font, index) =
-            ctx.parent.color_font_map.get(alloc, &text.item.font, glyph.id);
+            ctx.parent.resources.color_fonts.get(alloc, &text.item.font, glyph.id);
 
         if last_font != Some(font.get()) {
             ctx.content.set_font(
@@ -673,9 +674,10 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
 
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
-    let index = ctx.parent.image_map.insert(image.clone());
+    let index = ctx.parent.resources.images.insert(image.clone());
     ctx.parent
-        .image_deferred_map
+        .resources
+        .deferred_images
         .entry(index)
         .or_insert_with(|| deferred_image(image.clone()));
 

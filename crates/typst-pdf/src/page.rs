@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::{append_chunk, content, AbsExt, PdfContext};
+use crate::{append_chunk, content, AbsExt, ConstructContext, WriteContext};
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
 use pdf_writer::writers::{PageLabel, Resources};
@@ -9,31 +9,39 @@ use typst::layout::{Abs, Frame, Page};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
+#[derive(Default)]
+pub struct Pages {
+    pub page_refs: Vec<Ref>,
+    pub pages: Vec<EncodedPage>,
+}
+
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
-pub(crate) fn construct_pages<'a>(ctx: &'a mut PdfContext, pages: &[Page]) {
+pub(crate) fn construct_pages(res: &mut ConstructContext, pages: &[Page]) -> Pages {
     let mut alloc = Ref::new(1);
+    let mut result = Pages::default();
     for page in pages {
-        let (page_ref, mut encoded) = construct_page(ctx, &mut alloc, &page.frame);
+        let (page_ref, mut encoded) = construct_page(res, &mut alloc, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
             .and_then(|num| PdfPageLabel::generate(num, page.number));
-        ctx.page_refs.push(page_ref);
-        ctx.pages.push(encoded);
+        result.page_refs.push(page_ref);
+        result.pages.push(encoded);
     }
+    result
 }
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
 pub(crate) fn construct_page(
-    ctx: &mut PdfContext,
+    res: &mut ConstructContext,
     alloc: &mut Ref,
     frame: &Frame,
 ) -> (Ref, EncodedPage) {
     let page_ref = alloc.bump();
 
-    let content = content::build(ctx, frame);
+    let content = content::build(res, frame);
 
     let page = EncodedPage { content, id: page_ref, label: None };
 
@@ -42,19 +50,19 @@ pub(crate) fn construct_page(
 
 /// Write the page tree.
 #[must_use]
-pub(crate) fn write_page_tree(ctx: &mut PdfContext<Ref>) -> Chunk {
+pub(crate) fn write_page_tree(res: &mut WriteContext) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
-    for i in 0..ctx.pages.len() {
-        let page_chunk = write_page(ctx, i);
+    for i in 0..res.resources.pages.len() {
+        let page_chunk = write_page(&*res, i);
         append_chunk(&mut alloc, &mut chunk, page_chunk);
     }
 
     chunk
-        .pages(ctx.page_tree_ref)
-        .count(ctx.page_refs.len() as i32)
-        .kids(ctx.page_refs.iter().copied());
+        .pages(res.page_tree_ref)
+        .count(res.resources.pages.len() as i32)
+        .kids(res.resources.pages.iter().copied());
     chunk
 }
 
@@ -64,7 +72,10 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext<Ref>) -> Chunk {
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
 #[must_use]
-pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
+pub(crate) fn write_global_resources(
+    res: &ConstructContext,
+    ctx: &mut WriteContext,
+) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let images_ref = alloc.bump();
@@ -73,26 +84,28 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
     let color_spaces_ref = alloc.bump();
 
     let mut images = chunk.indirect(images_ref).dict();
-    for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
+    for (image_ref, im) in res.resources.images.pdf_indices(&ctx.resources.images) {
         let name = eco_format!("Im{}", im);
         images.pair(Name(name.as_bytes()), image_ref);
     }
     images.finish();
 
     let mut patterns = chunk.indirect(patterns_ref).dict();
-    for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
+    for (gradient_ref, gr) in
+        res.resources.gradients.pdf_indices(&ctx.resources.gradients)
+    {
         let name = eco_format!("Gr{}", gr);
         patterns.pair(Name(name.as_bytes()), gradient_ref);
     }
 
-    for (pattern_ref, p) in ctx.pattern_map.pdf_indices(&ctx.pattern_refs) {
+    for (pattern_ref, p) in res.resources.patterns.pdf_indices(&ctx.resources.patterns) {
         let name = eco_format!("P{}", p);
         patterns.pair(Name(name.as_bytes()), pattern_ref);
     }
     patterns.finish();
 
     let mut ext_gs_states = chunk.indirect(ext_gs_states_ref).dict();
-    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
+    for (gs_ref, gs) in res.resources.ext_gs.pdf_indices(&ctx.resources.ext_gs) {
         let name = eco_format!("Gs{}", gs);
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
@@ -108,12 +121,12 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
     resources.pair(Name(b"ColorSpace"), color_spaces_ref);
 
     let mut fonts = resources.fonts();
-    for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
+    for (font_ref, f) in res.resources.fonts.pdf_indices(&ctx.resources.fonts) {
         let name = eco_format!("F{}", f);
         fonts.pair(Name(name.as_bytes()), font_ref);
     }
 
-    for font in &ctx.color_font_map.all_refs {
+    for font in &res.resources.color_fonts.all_refs {
         let name = eco_format!("Cf{}", font.get());
         fonts.pair(Name(name.as_bytes()), font);
     }
@@ -123,7 +136,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
 
     // Also write the resources for Type3 fonts, that only contains images,
     // color spaces and regular fonts (COLR glyphs depend on them).
-    if !ctx.color_font_map.all_refs.is_empty() {
+    if !res.resources.color_fonts.all_refs.is_empty() {
         let mut resources =
             chunk.indirect(ctx.type3_font_resources_ref).start::<Resources>();
         resources.pair(Name(b"XObject"), images_ref);
@@ -132,7 +145,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
         resources.pair(Name(b"ColorSpace"), color_spaces_ref);
 
         let mut fonts = resources.fonts();
-        for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
+        for (font_ref, f) in res.resources.fonts.pdf_indices(&ctx.resources.fonts) {
             let name = eco_format!("F{}", f);
             fonts.pair(Name(name.as_bytes()), font_ref);
         }
@@ -149,7 +162,7 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext<Ref>) -> Chunk {
 
 /// Write a page tree node.
 #[must_use]
-fn write_page(ctx: &PdfContext<Ref>, i: usize) -> Chunk {
+fn write_page(ctx: &WriteContext, i: usize) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
     let page = &ctx.pages[i];
@@ -228,7 +241,7 @@ fn write_page(ctx: &PdfContext<Ref>, i: usize) -> Chunk {
 
 /// Write the page labels.
 pub(crate) fn write_page_labels(
-    ctx: &mut PdfContext<Ref>,
+    ctx: &mut WriteContext,
 ) -> (Chunk, Vec<(NonZeroUsize, Ref)>) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
@@ -363,6 +376,7 @@ impl PdfPageLabel {
 }
 
 /// Data for an exported page.
+#[derive(Clone)]
 pub struct EncodedPage {
     /// The indirect object id of the page.
     pub id: Ref,

@@ -1,6 +1,6 @@
 use pdf_writer::{Chunk, Ref};
 
-use crate::PdfContext;
+use crate::ConstructContext;
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -25,17 +25,20 @@ impl ExtGState {
 
 /// Embed all used external graphics states into the PDF.
 #[must_use]
-pub(crate) fn write_external_graphics_states<'a>(ctx: &'a mut PdfContext) -> Chunk {
+pub(crate) fn write_external_graphics_states<'a>(
+    ctx: &ConstructContext,
+) -> (Vec<Ref>, Chunk) {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
+    let mut refs = Vec::new();
 
-    for external_gs in ctx.extg_map.items() {
+    for external_gs in ctx.resources.ext_gs.items() {
         let id = alloc.bump();
-        ctx.ext_gs_refs.push(id);
+        refs.push(id);
         chunk
             .ext_graphics(id)
             .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)
             .stroking_alpha(external_gs.stroke_opacity as f32 / 255.0);
     }
-    chunk
+    (refs, chunk)
 }

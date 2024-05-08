@@ -12,7 +12,7 @@ use typst::text::Font;
 use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
-use crate::{content, deflate, EmExt, PdfContext};
+use crate::{content, deflate, ConstructContext, EmExt, WriteContext};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -26,16 +26,16 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
 #[must_use]
-pub(crate) fn write_fonts(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_fonts(res: &ConstructContext, ctx: &mut WriteContext) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
-    for font in ctx.font_map.items() {
+    for font in res.resources.fonts.items() {
         let type0_ref = alloc.bump();
         let cid_ref = alloc.bump();
         let descriptor_ref = alloc.bump();
         let cmap_ref = alloc.bump();
         let data_ref = alloc.bump();
-        ctx.font_refs.push(type0_ref);
+        ctx.resources.fonts.push(type0_ref);
 
         let glyph_set = ctx.glyph_sets.get_mut(font).unwrap();
         let ttf = font.ttf();
@@ -138,11 +138,11 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) -> Chunk {
 
 /// Writes color fonts as Type3 fonts
 #[must_use]
-pub(crate) fn write_color_fonts(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_color_fonts(res: &mut ConstructContext) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
-    let color_font_map = ctx.color_font_map.take_map();
+    let color_font_map = res.resources.color_fonts.take_map();
     for (font, color_font) in color_font_map {
         // For each Type3 font that is part of this family…
         for (font_index, subfont_id) in color_font.refs.iter().enumerate() {
@@ -171,7 +171,7 @@ pub(crate) fn write_color_fonts(ctx: &mut PdfContext) -> Chunk {
                 widths.push(width);
                 // Create a fake page context for `write_frame`. We are only
                 // interested in the contents of the page.
-                let c = content::build(ctx, &color_glyph.frame);
+                let c = content::build(res, &color_glyph.frame);
                 chunk.stream(instructions_stream_ref, &c.content.wait());
 
                 // Use this stream as instructions to draw the glyph.
@@ -181,7 +181,7 @@ pub(crate) fn write_color_fonts(ctx: &mut PdfContext) -> Chunk {
 
             // Write the Type3 font object.
             let mut pdf_font = chunk.type3_font(*subfont_id);
-            pdf_font.pair(Name(b"Resources"), ctx.type3_font_resources_ref);
+            pdf_font.pair(Name(b"Resources"), res.type3_font_resources_ref);
             pdf_font.bbox(color_font.bbox);
             pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
             pdf_font.first_char(0);
@@ -210,7 +210,7 @@ pub(crate) fn write_color_fonts(ctx: &mut PdfContext) -> Chunk {
             pdf_font.finish();
 
             // Encode a CMAP to make it possible to search or copy glyphs.
-            let glyph_set = ctx.glyph_sets.get_mut(&font).unwrap();
+            let glyph_set = res.glyph_sets.get_mut(&font).unwrap();
             let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
             for (index, glyph) in subset.iter().enumerate() {
                 let Some(text) = glyph_set.get(&glyph.gid) else {

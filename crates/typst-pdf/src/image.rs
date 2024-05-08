@@ -8,7 +8,7 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, PdfContext};
+use crate::{deflate, ConstructContext, WriteContext};
 
 /// Creates a new PDF image from the given image.
 ///
@@ -34,12 +34,12 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
 #[must_use]
-pub(crate) fn write_images(ctx: &mut PdfContext) -> Chunk {
+pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
-    for (i, _) in ctx.image_map.items().enumerate() {
-        let handle = ctx.image_deferred_map.get(&i).unwrap();
+    for (i, _) in res.resources.images.items().enumerate() {
+        let handle = res.resources.deferred_images.get(&i).unwrap();
         match handle.wait() {
             EncodedImage::Raster {
                 data,
@@ -51,7 +51,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) -> Chunk {
                 alpha,
             } => {
                 let image_ref = alloc.bump();
-                ctx.image_refs.push(image_ref);
+                ctx.resources.images.push(image_ref);
 
                 let mut image = chunk.image_xobject(image_ref, data);
                 image.filter(*filter);
@@ -105,7 +105,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) -> Chunk {
                 svg_chunk.renumber_into(&mut chunk, |old| {
                     *map.entry(old).or_insert_with(|| alloc.bump())
                 });
-                ctx.image_refs.push(map[&Ref::new(1)]);
+                ctx.resources.images.push(map[&Ref::new(1)]);
             }
         }
     }

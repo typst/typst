@@ -27,6 +27,7 @@ static OKLAB_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
+#[derive(Clone)]
 pub struct ColorSpaces {
     oklab: ReservedRef,
     srgb: ReservedRef,
