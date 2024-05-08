@@ -21,9 +21,9 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 
     for elem in elements.iter() {
         if let Some(page_ranges) = &ctx.exported_pages {
-            if !page_ranges.page_included(
-                ctx.document.introspector.page(elem.location().unwrap()).get() - 1,
-            ) {
+            if !page_ranges
+                .includes_page(ctx.document.introspector.page(elem.location().unwrap()))
+            {
                 // Don't bookmark headings in non-exported pages
                 continue;
             }

@@ -31,7 +31,7 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
         if ctx
             .exported_pages
             .as_ref()
-            .is_some_and(|ranges| !ranges.page_included(i))
+            .is_some_and(|ranges| !ranges.includes_page_index(i))
         {
             // Don't export this page.
             ctx.pages.push(None);

@@ -237,7 +237,7 @@ fn export_image(
         .enumerate()
         .filter(|(i, _)| {
             exported_page_ranges.as_ref().map_or(true, |exported_page_ranges| {
-                exported_page_ranges.page_included(*i)
+                exported_page_ranges.includes_page_index(*i)
             })
         })
         .collect::<Vec<_>>();

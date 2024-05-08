@@ -723,10 +723,17 @@ impl PageRanges {
         Self(ranges)
     }
 
-    /// Check if a page should be included when exporting the document, given
-    /// these page ranges.
-    /// Please note that 'page' here is zero-indexed.
-    pub fn page_included(&self, page: usize) -> bool {
+    /// Check if a page, given its number, should be included when exporting the
+    /// document while restricting the exported pages to these page ranges.
+    /// This is the one-indexed version of 'includes_page_index'.
+    pub fn includes_page(&self, page: NonZeroUsize) -> bool {
+        self.includes_page_index(page.get() - 1)
+    }
+
+    /// Check if a page, given its index, should be included when exporting the
+    /// document while restricting the exported pages to these page ranges.
+    /// This is the zero-indexed version of 'includes_page'.
+    pub fn includes_page_index(&self, page: usize) -> bool {
         let page = NonZeroUsize::try_from(page + 1).unwrap();
         self.0.iter().any(|range| match (range.start(), range.end()) {
             (Some(start), Some(end)) => (start..=end).contains(&&page),
