@@ -69,7 +69,7 @@ impl<'a> Locator<'a> {
         self.hashes.get_mut().insert(hash, disambiguator + 1);
 
         // Create the location in its default variant.
-        Location { hash, disambiguator, variant: 0 }
+        Location { hash, disambiguator }
     }
 
     /// Advance past a frame.
