@@ -73,8 +73,7 @@ pub struct OutlineElem {
     /// The outline's heading will not be numbered by default, but you can
     /// force it to be with a show-set rule:
     /// `{show outline: set heading(numbering: "1.")}`
-    #[default(Some(Smart::Auto))]
-    pub title: Option<Smart<Content>>,
+    pub title: Smart<Option<Content>>,
 
     /// The type of element to include in the outline.
     ///
@@ -193,11 +192,9 @@ impl Show for Packed<OutlineElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
-        if let Some(title) = self.title(styles) {
-            let title = title.unwrap_or_else(|| {
-                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
-            });
-
+        if let Some(title) = self.title(styles).unwrap_or_else(|| {
+            Some(TextElem::packed(Self::local_name_in(styles)).spanned(self.span()))
+        }) {
             seq.push(
                 HeadingElem::new(title)
                     .with_depth(NonZeroUsize::ONE)

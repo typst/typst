@@ -12,7 +12,7 @@ use crate::math::{
     scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled,
 };
 use crate::syntax::Span;
-use crate::text::{Font, Glyph, Lang, TextElem, TextItem};
+use crate::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
 use crate::visualize::Paint;
 
 #[derive(Debug, Clone)]
@@ -206,6 +206,7 @@ pub struct GlyphFragment {
     pub c: char,
     pub font: Font,
     pub lang: Lang,
+    pub region: Option<Region>,
     pub fill: Paint,
     pub shift: Abs,
     pub width: Abs,
@@ -259,6 +260,7 @@ impl GlyphFragment {
             c,
             font: ctx.font.clone(),
             lang: TextElem::lang_in(styles),
+            region: TextElem::region_in(styles),
             fill: TextElem::fill_in(styles).as_decoration(),
             shift: TextElem::baseline_in(styles),
             font_size: scaled_font_size(ctx, styles),
@@ -340,6 +342,7 @@ impl GlyphFragment {
             size: self.font_size,
             fill: self.fill,
             lang: self.lang,
+            region: self.region,
             text: self.c.into(),
             stroke: None,
             glyphs: vec![Glyph {

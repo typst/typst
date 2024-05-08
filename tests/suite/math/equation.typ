@@ -152,6 +152,16 @@ $ a + b = c $
 // Error: 52-67 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center + bottom)
 
+--- math-equation-number-align-monoline ---
+#set math.equation(numbering: "(1)")
+$ p = sum_k k ln a $
+
+#set math.equation(numbering: "(1)", number-align: top)
+$ p = sum_k k ln a $
+
+#set math.equation(numbering: "(1)", number-align: bottom)
+$ p = sum_k k ln a $
+
 --- math-equation-number-align-multiline ---
 #set math.equation(numbering: "(1)")
 
@@ -163,13 +173,17 @@ $ p &= ln a b \
 
 $ p &= ln a b \
     &= ln a + ln b $
+$ q &= sum_k k ln a \
+    &= sum_k ln A $
 
 --- math-equation-number-align-multiline-bottom ---
 #show math.equation: set align(left)
 #set math.equation(numbering: "(1)", number-align: bottom)
 
-$ q &= ln sqrt(a b) \
-    &= 1/2 (ln a + ln b) $
+$ p &= ln a b \
+    &= ln a + ln b $
+$ q &= sum_k ln A \
+    &= sum_k k ln a $
 
 --- math-equation-number-align-multiline-expand ---
 // Tests that if the numbering's layout box vertically exceeds the box of

@@ -104,6 +104,7 @@ impl<'f, 't> ColrPainter<'f, 't> {
                 fill,
                 stroke: None,
                 lang: Lang::ENGLISH,
+                region: None,
                 text: EcoString::new(),
                 glyphs: vec![Glyph {
                     id: self.current_glyph.0,
