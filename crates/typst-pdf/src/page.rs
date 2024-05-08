@@ -27,6 +27,7 @@ use typst::visualize::{
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
+    let mut skipped_pages = 0;
     for (i, page) in pages.iter().enumerate() {
         if ctx
             .exported_pages
@@ -35,12 +36,23 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
         {
             // Don't export this page.
             ctx.pages.push(None);
+            skipped_pages += 1;
         } else {
             let mut encoded = construct_page(ctx, &page.frame);
             encoded.label = page
                 .numbering
                 .as_ref()
-                .and_then(|num| PdfPageLabel::generate(num, page.number));
+                .and_then(|num| PdfPageLabel::generate(num, page.number))
+                .or_else(|| {
+                    // When some pages were ignored from export, we show a page label with
+                    // the correct real (not logical) page number.
+                    // This is for consistency with normal output when pages have no numbering
+                    // and all are exported: the final PDF page numbers always correspond to
+                    // the real (not logical) page numbers. Here, the final PDF page number
+                    // will differ, but we can at least use labels to indicate what was
+                    // the corresponding real page number in the Typst document.
+                    (skipped_pages > 0).then(|| PdfPageLabel::arabic(i + 1))
+                });
             ctx.pages.push(Some(encoded));
         }
     }
@@ -388,6 +400,17 @@ impl PdfPageLabel {
 
         let offset = style.and(NonZeroUsize::new(number));
         Some(PdfPageLabel { prefix, style, offset })
+    }
+
+    /// Creates an arabic page label with the specified page number.
+    /// For example, this will display page label `11` when given the page
+    /// number 11.
+    fn arabic(number: usize) -> PdfPageLabel {
+        PdfPageLabel {
+            prefix: None,
+            style: Some(PdfPageLabelStyle::Arabic),
+            offset: NonZeroUsize::new(number),
+        }
     }
 }
 
