@@ -32,7 +32,7 @@ pub(crate) fn write_external_graphics_states<'a>(
     let mut alloc = Ref::new(1);
     let mut refs = Vec::new();
 
-    for external_gs in ctx.resources.ext_gs.items() {
+    for external_gs in ctx.ext_gs.items() {
         let id = alloc.bump();
         refs.push(id);
         chunk

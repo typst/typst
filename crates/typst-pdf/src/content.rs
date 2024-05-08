@@ -226,7 +226,7 @@ impl Builder<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            let index = self.parent.resources.ext_gs.insert(*graphics_state);
+            let index = self.parent.ext_gs.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
             self.resources
@@ -285,7 +285,7 @@ impl Builder<'_, '_> {
 
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
-            let index = self.parent.resources.fonts.insert(font.clone());
+            let index = self.parent.fonts.insert(font.clone());
             let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.resources.insert(Resource::new(ResourceKind::Font, name), index);
@@ -571,8 +571,7 @@ fn write_color_glyphs(
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let (font, index) =
-            ctx.parent.resources.color_fonts.get(alloc, &text.item.font, glyph.id);
+        let (font, index) = ctx.parent.color_fonts.get(alloc, &text.item.font, glyph.id);
 
         if last_font != Some(font.get()) {
             ctx.content.set_font(
@@ -674,9 +673,8 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
 
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
-    let index = ctx.parent.resources.images.insert(image.clone());
+    let index = ctx.parent.images.insert(image.clone());
     ctx.parent
-        .resources
         .deferred_images
         .entry(index)
         .or_insert_with(|| deferred_image(image.clone()));

@@ -38,8 +38,8 @@ pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Ch
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
-    for (i, _) in res.resources.images.items().enumerate() {
-        let handle = res.resources.deferred_images.get(&i).unwrap();
+    for (i, _) in res.images.items().enumerate() {
+        let handle = res.deferred_images.get(&i).unwrap();
         match handle.wait() {
             EncodedImage::Raster {
                 data,
@@ -51,7 +51,7 @@ pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Ch
                 alpha,
             } => {
                 let image_ref = alloc.bump();
-                ctx.resources.images.push(image_ref);
+                ctx.images.push(image_ref);
 
                 let mut image = chunk.image_xobject(image_ref, data);
                 image.filter(*filter);
@@ -105,7 +105,7 @@ pub(crate) fn write_images(res: &ConstructContext, ctx: &mut WriteContext) -> Ch
                 svg_chunk.renumber_into(&mut chunk, |old| {
                     *map.entry(old).or_insert_with(|| alloc.bump())
                 });
-                ctx.resources.images.push(map[&Ref::new(1)]);
+                ctx.images.push(map[&Ref::new(1)]);
             }
         }
     }

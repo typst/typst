@@ -41,10 +41,10 @@ pub(crate) fn write_gradients(res: &ConstructContext, ctx: &mut WriteContext) ->
     let mut alloc = Ref::new(1);
 
     for PdfGradient { transform, aspect_ratio, gradient, angle } in
-        res.resources.gradients.items().cloned().collect::<Vec<_>>()
+        res.gradients.items().cloned().collect::<Vec<_>>()
     {
         let shading = alloc.bump();
-        ctx.resources.gradients.push(shading);
+        ctx.gradients.push(shading);
 
         let color_space = if gradient.space().hue_index().is_some() {
             ColorSpace::Oklab
@@ -326,7 +326,7 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    ctx.parent.resources.gradients.insert(pdf_gradient)
+    ctx.parent.gradients.insert(pdf_gradient)
 }
 
 /// Writes a single Coons Patch as defined in the PDF specification

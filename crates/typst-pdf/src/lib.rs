@@ -62,12 +62,12 @@ pub fn pdf(
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
-    let mut res = PdfContext::new(document);
+    let mut res = ConstructContext::new(document);
     let mut pdf = Pdf::new();
     let mut alloc = Ref::new(1);
     let pages = page::construct_pages(&mut res, &document.pages);
     append_chunk(&mut alloc, &mut pdf, font::write_color_fonts(&mut res));
-    let mut ctx = res.clone().to_write_context(
+    let mut ctx = res.to_write_context(
         pages.page_refs,
         Vec::new(),
         Vec::new(),
@@ -75,12 +75,11 @@ pub fn pdf(
         Vec::new(),
         Vec::new(),
     );
-    let res = res;
     append_chunk(&mut alloc, &mut pdf, font::write_fonts(&res, &mut ctx));
     append_chunk(&mut alloc, &mut pdf, image::write_images(&res, &mut ctx));
     append_chunk(&mut alloc, &mut pdf, gradient::write_gradients(&res, &mut ctx));
     let (ext_gs_refs, chunk) = extg::write_external_graphics_states(&res);
-    ctx.resources.ext_gs = ext_gs_refs;
+    ctx.ext_gs = ext_gs_refs;
     append_chunk(&mut alloc, &mut pdf, chunk);
     append_chunk(&mut alloc, &mut pdf, pattern::write_patterns(&mut ctx));
     append_chunk(&mut alloc, &mut pdf, write_named_destinations(&mut ctx));
@@ -126,12 +125,152 @@ fn append_chunk_with_id(
     mapping[&src_ref]
 }
 
-type WriteContext<'a> = PdfContext<'a, WriteResources>;
-type ConstructContext<'a> = PdfContext<'a, ConstructResources>;
+struct WriteContext<'a> {
+    /// The document that we're currently exporting.
+    document: &'a Document,
+    /// Content of exported pages.
+    encoded_pages: Vec<EncodedPage>,
+    /// The number of glyphs for all referenced languages in the document.
+    /// We keep track of this to determine the main document language.
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
 
-/// Context for exporting a whole PDF document.
-#[derive(Clone)]
-struct PdfContext<'a, R> {
+    /// The ID of the page tree.
+    page_tree_ref: Ref,
+    /// The ID of the globally shared Resources dictionary.
+    global_resources_ref: Ref,
+    /// The ID of the resource dictionary shared by Type3 fonts.
+    ///
+    /// Type3 fonts cannot use the global resources, as it would create some
+    /// kind of infinite recursion (they are themselves present in that
+    /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
+    /// font) even if the specification seems to allow it.
+    type3_font_resources_ref: Ref,
+
+    /// For each font a mapping from used glyphs to their text representation.
+    /// May contain multiple chars in case of ligatures or similar things. The
+    /// same glyph can have a different text representation within one document,
+    /// then we just save the first one. The resulting strings are used for the
+    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
+    /// cmap. This is important for copy-paste and searching.
+    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+
+    /// Handles color space writing.
+    colors: ColorSpaces,
+
+    /// A sorted list of all named destinations.
+    dests: Vec<(Label, Ref)>,
+    /// Maps from locations to named destinations that point to them.
+    loc_to_dest: HashMap<Location, Label>,
+
+    /// The IDs of written pages.
+    pages: Vec<Ref>,
+    /// The IDs of written fonts.
+    fonts: Vec<Ref>,
+    /// The IDs of written images.
+    images: Vec<Ref>,
+    /// The IDs of written gradients.
+    gradients: Vec<Ref>,
+    /// The IDs of written patterns.
+    patterns: Vec<Ref>,
+    /// The IDs of written external graphics states.
+    ext_gs: Vec<Ref>,
+    // TODO: use Vec<Ref> too?
+    pattern_map: Remapper<PdfPattern<Ref>>,
+}
+
+impl<'a> ConstructContext<'a> {
+    fn new(document: &'a Document) -> Self {
+        let mut alloc = Ref::new(1);
+        let page_tree_ref = alloc.bump();
+        let global_resources_ref = alloc.bump();
+        let type3_font_resources_ref = alloc.bump();
+        Self {
+            document,
+            pages: vec![],
+            glyph_sets: HashMap::new(),
+            languages: BTreeMap::new(),
+            colors: ColorSpaces::new(&mut alloc),
+            page_tree_ref,
+            global_resources_ref,
+            type3_font_resources_ref,
+            dests: Vec::new(),
+            loc_to_dest: HashMap::new(),
+            fonts: Remapper::new(),
+            images: Remapper::new(),
+            deferred_images: HashMap::new(),
+            gradients: Remapper::new(),
+            patterns: Remapper::new(),
+            ext_gs: Remapper::new(),
+            color_fonts: ColorFontMap::new(),
+        }
+    }
+    fn to_write_context(
+        &mut self,
+        page_refs: Vec<Ref>,
+        image_refs: Vec<Ref>,
+        ext_gs_refs: Vec<Ref>,
+        font_refs: Vec<Ref>,
+        gradient_refs: Vec<Ref>,
+        pattern_refs: Vec<Ref>,
+    ) -> WriteContext<'a> {
+        let map_pattern = |pattern: &PdfPattern<usize>| PdfPattern {
+            transform: pattern.transform,
+            pattern: pattern.pattern.clone(),
+            content: pattern.content.clone(),
+            resources: pattern
+                .resources
+                .iter()
+                .map(|(r, id)| {
+                    let ref_ = if r.is_x_object() {
+                        image_refs[*id]
+                    } else if r.is_ext_g_state() {
+                        ext_gs_refs[*id]
+                    } else if r.is_font() {
+                        font_refs[*id]
+                    } else if r.is_gradient() {
+                        gradient_refs[*id]
+                    } else {
+                        pattern_refs[*id]
+                    };
+
+                    (r.clone(), ref_)
+                })
+                .collect(),
+        };
+        let pattern_map = Remapper {
+            to_pdf: self
+                .patterns
+                .to_pdf
+                .iter()
+                .map(|(p, i)| (map_pattern(p), *i))
+                .collect(),
+            to_items: self.patterns.to_items.iter().map(map_pattern).collect(),
+        };
+
+        WriteContext {
+            pages: page_refs,
+            fonts: font_refs,
+            images: image_refs,
+            gradients: gradient_refs,
+            patterns: pattern_refs,
+            ext_gs: ext_gs_refs,
+            pattern_map,
+            document: self.document,
+            encoded_pages: std::mem::take(&mut self.pages),
+            languages: std::mem::take(&mut self.languages),
+            page_tree_ref: self.page_tree_ref,
+            global_resources_ref: self.global_resources_ref,
+            type3_font_resources_ref: self.type3_font_resources_ref,
+            glyph_sets: std::mem::take(&mut self.glyph_sets),
+            colors: self.colors.clone(),
+            dests: std::mem::take(&mut self.dests),
+            loc_to_dest: std::mem::take(&mut self.loc_to_dest),
+        }
+    }
+}
+
+struct ConstructContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// Content of exported pages.
@@ -164,135 +303,11 @@ struct PdfContext<'a, R> {
     /// Handles color space writing.
     colors: ColorSpaces,
 
-    resources: R,
-
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
     /// Maps from locations to named destinations that point to them.
     loc_to_dest: HashMap<Location, Label>,
-}
 
-struct WriteResources {
-    /// The IDs of written pages.
-    pages: Vec<Ref>,
-    /// The IDs of written fonts.
-    fonts: Vec<Ref>,
-    /// The IDs of written images.
-    images: Vec<Ref>,
-    /// The IDs of written gradients.
-    gradients: Vec<Ref>,
-    /// The IDs of written patterns.
-    patterns: Vec<Ref>,
-    /// The IDs of written external graphics states.
-    ext_gs: Vec<Ref>,
-    // TODO: use Vec<Ref> too?
-    pattern_map: Remapper<PdfPattern<Ref>>,
-}
-
-impl<'a> ConstructContext<'a> {
-    fn new(document: &'a Document) -> Self {
-        let mut alloc = Ref::new(1);
-        let page_tree_ref = alloc.bump();
-        let global_resources_ref = alloc.bump();
-        let type3_font_resources_ref = alloc.bump();
-        Self {
-            document,
-            pages: vec![],
-            glyph_sets: HashMap::new(),
-            languages: BTreeMap::new(),
-            colors: ColorSpaces::new(&mut alloc),
-            resources: ConstructResources {
-                fonts: Remapper::new(),
-                images: Remapper::new(),
-                deferred_images: HashMap::new(),
-                gradients: Remapper::new(),
-                patterns: Remapper::new(),
-                ext_gs: Remapper::new(),
-                color_fonts: ColorFontMap::new(),
-            },
-            page_tree_ref,
-            global_resources_ref,
-            type3_font_resources_ref,
-            dests: Vec::new(),
-            loc_to_dest: HashMap::new(),
-        }
-    }
-    fn to_write_context(
-        self,
-        page_refs: Vec<Ref>,
-        image_refs: Vec<Ref>,
-        ext_gs_refs: Vec<Ref>,
-        font_refs: Vec<Ref>,
-        gradient_refs: Vec<Ref>,
-        pattern_refs: Vec<Ref>,
-    ) -> WriteContext<'a> {
-        let map_pattern = |pattern: PdfPattern<usize>| PdfPattern {
-            transform: pattern.transform,
-            pattern: pattern.pattern,
-            content: pattern.content,
-            resources: pattern
-                .resources
-                .into_iter()
-                .map(|(r, id)| {
-                    let ref_ = if r.is_x_object() {
-                        image_refs[id]
-                    } else if r.is_ext_g_state() {
-                        ext_gs_refs[id]
-                    } else if r.is_font() {
-                        font_refs[id]
-                    } else if r.is_gradient() {
-                        gradient_refs[id]
-                    } else {
-                        pattern_refs[id]
-                    };
-
-                    (r, ref_)
-                })
-                .collect(),
-        };
-        let pattern_map = Remapper {
-            to_pdf: self
-                .resources
-                .patterns
-                .to_pdf
-                .into_iter()
-                .map(|(p, i)| (map_pattern(p), i))
-                .collect(),
-            to_items: self
-                .resources
-                .patterns
-                .to_items
-                .into_iter()
-                .map(map_pattern)
-                .collect(),
-        };
-
-        WriteContext {
-            document: self.document,
-            pages: self.pages,
-            languages: self.languages,
-            page_tree_ref: self.page_tree_ref,
-            global_resources_ref: self.global_resources_ref,
-            type3_font_resources_ref: self.type3_font_resources_ref,
-            colors: self.colors,
-            dests: self.dests,
-            loc_to_dest: self.loc_to_dest,
-            glyph_sets: self.glyph_sets,
-            resources: WriteResources {
-                pages: page_refs,
-                fonts: font_refs,
-                images: image_refs,
-                gradients: gradient_refs,
-                patterns: pattern_refs,
-                ext_gs: ext_gs_refs,
-                pattern_map,
-            },
-        }
-    }
-}
-
-#[derive(Clone)]
-struct ConstructResources {
     /// Deduplicates fonts used across the document.
     fonts: Remapper<Font>,
     /// Deduplicates images used across the document.
@@ -490,7 +505,7 @@ fn write_named_destinations(ctx: &mut WriteContext) -> Chunk {
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        if let Some(page) = ctx.encoded_pages.get(index) {
             let dest_ref = alloc.bump();
             let x = pos.point.x.to_f32();
             let y = (page.content.size.y - y).to_f32();

@@ -178,9 +178,9 @@ fn write_outline_item(
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
     let index = pos.page.get() - 1;
-    if let Some(page) = ctx.pages.get(index) {
+    if let Some(page) = ctx.encoded_pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        outline.dest().page(ctx.resources.pages[index]).xyz(
+        outline.dest().page(ctx.pages[index]).xyz(
             pos.point.x.to_f32(),
             (page.content.size.y - y).to_f32(),
             None,

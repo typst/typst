@@ -16,11 +16,9 @@ pub(crate) fn write_patterns(ctx: &mut WriteContext) -> Chunk {
     let mut chunk = Chunk::new();
     let mut alloc = Ref::new(1);
 
-    for PdfPattern { transform, pattern, content, resources } in
-        ctx.resources.pattern_map.items()
-    {
+    for PdfPattern { transform, pattern, content, resources } in ctx.pattern_map.items() {
         let tiling = alloc.bump();
-        ctx.resources.patterns.push(tiling);
+        ctx.patterns.push(tiling);
 
         let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
         tiling_pattern
@@ -134,7 +132,7 @@ fn register_pattern(
 
     pdf_pattern.resources.sort();
 
-    ctx.parent.resources.patterns.insert(pdf_pattern)
+    ctx.parent.patterns.insert(pdf_pattern)
 }
 
 impl PaintEncode for Pattern {
