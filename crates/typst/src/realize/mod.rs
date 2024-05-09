@@ -1,4 +1,10 @@
 //! Realization of content.
+//!
+//! *Realization* is the process of applying show rules to produce
+//! something that can be laid out directly.
+//!
+//! Currently, there are issues with the realization process, and
+//! it is subject to changes in the future.
 
 mod arenas;
 mod behaviour;
