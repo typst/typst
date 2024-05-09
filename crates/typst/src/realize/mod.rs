@@ -104,11 +104,13 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
+    /// Adds a piece of content to this builder.
     fn accept(
         &mut self,
         mut content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        // Implicitly wrap math content in an equation if needed
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
             content = self
                 .arenas
@@ -138,6 +140,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             }
             return Ok(());
         }
+
+        // Try to merge `content` with an element under construction
 
         if self.cites.accept(content, styles) {
             return Ok(());
@@ -233,6 +237,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts citation grouping and adds the resulting citation group to the builder.
     fn interrupt_cites(&mut self) -> SourceResult<()> {
         if !self.cites.items.is_empty() {
             let staged = mem::take(&mut self.cites.staged);
@@ -245,6 +250,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts list building and adds the resulting list element to the builder.
     fn interrupt_list(&mut self) -> SourceResult<()> {
         self.interrupt_cites()?;
         if !self.list.items.is_empty() {
@@ -258,6 +264,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts paragraph building and adds the resulting paragraph element to the builder.
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
@@ -268,6 +275,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts page building and adds the resulting page element to the builder.
     fn interrupt_page(
         &mut self,
         styles: Option<StyleChain<'a>>,
