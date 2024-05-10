@@ -78,9 +78,13 @@ pub struct PlaceElem {
     ///   place(center, dx: amount - 32pt, dy: amount)[A]
     /// }
     /// ```
+    ///
+    /// This currently does not affect layout, even if `float` is `{true}`.
     pub dx: Rel<Length>,
 
     /// The vertical displacement of the placed content.
+    ///
+    /// This currently does not affect layout, even if `float` is `{true}`.
     pub dy: Rel<Length>,
 
     /// The content to place.
