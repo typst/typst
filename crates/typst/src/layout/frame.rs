@@ -285,6 +285,10 @@ impl Frame {
     }
 
     /// Attach the metadata from this style chain to the frame.
+    ///
+    /// If `force` is true, then the metadata is attached even when
+    /// the frame is empty.
+    // TODO: when would you want to pass true to `force` as opposed to false?
     pub fn meta(&mut self, styles: StyleChain, force: bool) {
         if force || !self.is_empty() {
             self.meta_iter(MetaElem::data_in(styles));
@@ -456,6 +460,8 @@ pub enum FrameKind {
     #[default]
     Soft,
     /// A container which uses its own size.
+    ///
+    /// This is used for page, block, box, column, grid, and stack elements.
     Hard,
 }
 
