@@ -37,8 +37,8 @@ pub fn build(ctx: &mut ConstructContext, frame: &Frame) -> Encoded {
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
     ctx.transform(
-        // Make the Y axis go upwards, while preserving aspect ratio
-        Transform::scale(Ratio::one(), -size.aspect_ratio())
+        // Make the Y axis go upwards
+        Transform::scale(Ratio::one(), -Ratio::one())
             // Also move the origin to the top left corner
             .post_concat(Transform::translate(Abs::zero(), size.y)),
     );
