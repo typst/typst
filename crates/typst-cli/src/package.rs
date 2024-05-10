@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use crate::args::PackageStorageArgs;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use termcolor::WriteColor;
@@ -15,8 +16,20 @@ use crate::terminal;
 
 const HOST: &str = "https://packages.typst.org";
 
+/// Holds information about where packages should be stored.
+pub struct PackageStorage {/* TODO */}
+
+impl PackageStorage {
+    pub fn from_args(args: &PackageStorageArgs) -> Self {
+        todo!()
+    }
+}
+
 /// Make a package available in the on-disk cache.
-pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
+pub fn prepare_package(
+    spec: &PackageSpec,
+    package_storage: &PackageStorage,
+) -> PackageResult<PathBuf> {
     let subdir =
         format!("typst/packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
 
@@ -48,6 +61,7 @@ pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
 /// Try to determine the latest version of a package.
 pub fn determine_latest_version(
     spec: &VersionlessPackageSpec,
+    package_storage: &PackageStorage,
 ) -> StrResult<PackageVersion> {
     if spec.namespace == "preview" {
         // For `@preview`, download the package index and find the latest

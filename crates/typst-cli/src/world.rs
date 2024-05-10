@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
@@ -19,6 +19,7 @@ use typst_timing::{timed, TimingScope};
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
+use crate::package::PackageStorage;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
@@ -41,6 +42,8 @@ pub struct SystemWorld {
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
     slots: Mutex<HashMap<FileId, FileSlot>>,
+    /// Holds information about where packages are stored.
+    package_storage: Arc<PackageStorage>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
     /// Reset between compilations if not [`Now::Fixed`].
@@ -110,6 +113,8 @@ impl SystemWorld {
             None => Now::System(OnceLock::new()),
         };
 
+        let package_storage = PackageStorage::from_args(&command.package_storage_args);
+
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             root,
@@ -118,6 +123,7 @@ impl SystemWorld {
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
+            package_storage: Arc::new(package_storage),
             now,
             export_cache: ExportCache::new(),
         })
@@ -144,7 +150,9 @@ impl SystemWorld {
             .get_mut()
             .values()
             .filter(|slot| slot.accessed())
-            .filter_map(|slot| system_path(&self.root, slot.id).ok())
+            .filter_map(|slot| {
+                system_path(&self.root, slot.id, &self.package_storage).ok()
+            })
     }
 
     /// Reset the compilation state in preparation of a new compilation.
@@ -224,7 +232,9 @@ impl SystemWorld {
         F: FnOnce(&mut FileSlot) -> T,
     {
         let mut map = self.slots.lock();
-        f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
+        f(map
+            .entry(id)
+            .or_insert_with(|| FileSlot::new(id, Arc::clone(&self.package_storage))))
     }
 }
 
@@ -234,6 +244,8 @@ impl SystemWorld {
 struct FileSlot {
     /// The slot's file id.
     id: FileId,
+    /// Package storage information, defining where packages are located.
+    package_storage: Arc<PackageStorage>,
     /// The lazily loaded and incrementally updated source file.
     source: SlotCell<Source>,
     /// The lazily loaded raw byte buffer.
@@ -242,8 +254,13 @@ struct FileSlot {
 
 impl FileSlot {
     /// Create a new file slot.
-    fn new(id: FileId) -> Self {
-        Self { id, file: SlotCell::new(), source: SlotCell::new() }
+    fn new(id: FileId, package_storage: Arc<PackageStorage>) -> Self {
+        Self {
+            id,
+            file: SlotCell::new(),
+            package_storage,
+            source: SlotCell::new(),
+        }
     }
 
     /// Whether the file was accessed in the ongoing compilation.
@@ -261,7 +278,7 @@ impl FileSlot {
     /// Retrieve the source for this file.
     fn source(&mut self, project_root: &Path) -> FileResult<Source> {
         self.source.get_or_init(
-            || read(self.id, project_root),
+            || read(self.id, project_root, &self.package_storage),
             |data, prev| {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
@@ -278,8 +295,10 @@ impl FileSlot {
 
     /// Retrieve the file's bytes.
     fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
-        self.file
-            .get_or_init(|| read(self.id, project_root), |data, _| Ok(data.into()))
+        self.file.get_or_init(
+            || read(self.id, project_root, &self.package_storage),
+            |data, _| Ok(data.into()),
+        )
     }
 }
 
@@ -344,13 +363,17 @@ impl<T: Clone> SlotCell<T> {
 
 /// Resolves the path of a file id on the system, downloading a package if
 /// necessary.
-fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
+fn system_path(
+    project_root: &Path,
+    id: FileId,
+    package_storage: &PackageStorage,
+) -> FileResult<PathBuf> {
     // Determine the root path relative to which the file path
     // will be resolved.
     let buf;
     let mut root = project_root;
     if let Some(spec) = id.package() {
-        buf = crate::package::prepare_package(spec)?;
+        buf = crate::package::prepare_package(spec, package_storage)?;
         root = &buf;
     }
 
@@ -363,11 +386,15 @@ fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
 ///
 /// If the ID represents stdin it will read from standard input,
 /// otherwise it gets the file path of the ID and reads the file from disk.
-fn read(id: FileId, project_root: &Path) -> FileResult<Vec<u8>> {
+fn read(
+    id: FileId,
+    project_root: &Path,
+    package_storage: &PackageStorage,
+) -> FileResult<Vec<u8>> {
     if id == *STDIN_ID {
         read_from_stdin()
     } else {
-        read_from_disk(&system_path(project_root, id)?)
+        read_from_disk(&system_path(project_root, id, package_storage)?)
     }
 }
 

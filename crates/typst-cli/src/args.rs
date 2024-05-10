@@ -130,6 +130,10 @@ pub struct InitCommand {
 
     /// The project directory, defaults to the template's name
     pub dir: Option<String>,
+
+    /// Arguments related to storage of packages in the system
+    #[clap(flatten)]
+    pub package_storage_args: PackageStorageArgs,
 }
 
 /// Processes an input file to extract provided metadata
@@ -209,7 +213,15 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+
+    /// Arguments related to storage of packages in the system
+    #[clap(flatten)]
+    pub package_storage_args: PackageStorageArgs,
 }
+
+/// Arguments related to where packages are stored in the system.
+#[derive(Debug, Clone, Args)]
+pub struct PackageStorageArgs {/* TODO */}
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
 fn parse_source_date_epoch(raw: &str) -> Result<DateTime<Utc>, String> {
