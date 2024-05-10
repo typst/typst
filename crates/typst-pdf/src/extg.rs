@@ -1,6 +1,6 @@
-use pdf_writer::{Chunk, Ref};
+use pdf_writer::Ref;
 
-use crate::ConstructContext;
+use crate::{ConstructContext, PdfChunk};
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -27,13 +27,12 @@ impl ExtGState {
 #[must_use]
 pub(crate) fn write_external_graphics_states<'a>(
     ctx: &ConstructContext,
-) -> (Vec<Ref>, Chunk) {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+) -> (Vec<Ref>, PdfChunk) {
+    let mut chunk = PdfChunk::new(1);
     let mut refs = Vec::new();
 
     for external_gs in ctx.ext_gs.items() {
-        let id = alloc.bump();
+        let id = chunk.alloc();
         refs.push(id);
         chunk
             .ext_graphics(id)

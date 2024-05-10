@@ -2,10 +2,10 @@ use std::cell::Cell;
 
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
-use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
+use pdf_writer::{writers, Dict, Filter, Name};
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, ReservedRef};
+use crate::{content, deflate, PdfChunk, Refs};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -29,60 +29,63 @@ static OKLAB_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
-#[derive(Clone)]
+#[derive(Default)]
 pub struct ColorSpaces {
-    oklab: ReservedRef,
-    srgb: ReservedRef,
-    d65_gray: ReservedRef,
+    use_oklab: Cell<bool>,
+    use_srgb: Cell<bool>,
+    use_d65_gray: Cell<bool>,
     use_linear_rgb: Cell<bool>,
 }
 
 impl ColorSpaces {
-    pub fn new(alloc: &mut Ref) -> Self {
-        ColorSpaces {
-            oklab: ReservedRef::new(alloc.bump()),
-            srgb: ReservedRef::new(alloc.bump()),
-            d65_gray: ReservedRef::new(alloc.bump()),
-            use_linear_rgb: Cell::new(false),
-        }
-    }
-
     /// Get a reference to the oklab color space.
     ///
     /// # Warning
     /// The A and B components of the color must be offset by +0.4 before being
     /// encoded into the PDF file.
-    pub fn oklab(&self) -> Ref {
-        self.oklab.get()
+    pub fn oklab(&self) {
+        self.use_oklab.set(true);
     }
 
     /// Get a reference to the srgb color space.
-    pub fn srgb(&self) -> Ref {
-        self.srgb.get()
+    pub fn srgb(&self) {
+        self.use_srgb.set(true);
     }
 
     /// Get a reference to the gray color space.
-    pub fn d65_gray(&self) -> Ref {
-        self.d65_gray.get()
+    pub fn d65_gray(&self) {
+        self.use_d65_gray.set(true);
     }
 
     /// Mark linear RGB as used.
-    pub fn linear_rgb(&self) {
-        self.use_linear_rgb.set(true)
+    pub fn linear_rgb(&mut self) {
+        self.use_linear_rgb.set(true);
     }
 
     /// Write the color space on usage.
-    pub fn write(&self, color_space: ColorSpace, writer: writers::ColorSpace) {
+    pub fn write(
+        &self,
+        color_space: ColorSpace,
+        writer: writers::ColorSpace,
+        refs: &Refs,
+    ) {
         match color_space {
             ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
+                self.oklab();
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
-                self.write(ColorSpace::LinearRgb, oklab.alternate_color_space());
-                oklab.tint_ref(self.oklab());
+                self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), refs);
+                oklab.tint_ref(refs.oklab);
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
             }
-            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer),
-            ColorSpace::Srgb => writer.icc_based(self.srgb()),
-            ColorSpace::D65Gray => writer.icc_based(self.d65_gray()),
+            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, refs),
+            ColorSpace::Srgb => {
+                self.srgb();
+                writer.icc_based(refs.srgb)
+            }
+            ColorSpace::D65Gray => {
+                self.d65_gray();
+                writer.icc_based(refs.d65_gray)
+            }
             ColorSpace::LinearRgb => {
                 writer.cal_rgb(
                     [0.9505, 1.0, 1.0888],
@@ -99,49 +102,52 @@ impl ColorSpaces {
     }
 
     // Write the color spaces to the PDF file.
-    pub fn write_color_spaces(&self, mut spaces: Dict) {
-        if self.oklab.is_used() {
-            self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start());
+    pub fn write_color_spaces(&self, mut spaces: Dict, refs: &Refs) {
+        if self.use_oklab.get() {
+            self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
         }
 
-        if self.srgb.is_used() {
-            self.write(ColorSpace::Srgb, spaces.insert(SRGB).start());
+        if self.use_srgb.get() {
+            self.write(ColorSpace::Srgb, spaces.insert(SRGB).start(), refs);
         }
 
-        if self.d65_gray.is_used() {
-            self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start());
+        if self.use_d65_gray.get() {
+            self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), refs);
         }
 
         if self.use_linear_rgb.get() {
-            self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start());
+            self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), refs);
         }
     }
 
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
-    pub fn write_functions(&self, chunk: &mut Chunk) {
+    pub fn write_functions(&self, chunk: &mut PdfChunk, refs: &Refs) {
         // Write the Oklab function & color space.
-        if self.oklab.is_used() {
+        if self.use_oklab.get() {
             chunk
-                .post_script_function(self.oklab.inner, &OKLAB_DEFLATED)
+                .chunk
+                .post_script_function(refs.oklab, &OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
         // Write the sRGB color space.
-        if self.srgb.is_used() {
+        if self.use_srgb.get() {
             chunk
-                .icc_profile(self.srgb.inner, &SRGB_ICC_DEFLATED)
+                .chunk
+                .icc_profile(refs.srgb, &SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
         // Write the gray color space.
-        if self.d65_gray.is_used() {
+        if self.use_d65_gray.get() {
             chunk
-                .icc_profile(self.d65_gray.inner, &GRAY_ICC_DEFLATED)
+                .chunk
+                .icc_profile(refs.d65_gray, &GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])
                 .filter(Filter::FlateDecode);

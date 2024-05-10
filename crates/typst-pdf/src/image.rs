@@ -8,7 +8,7 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, ConstructContext};
+use crate::{deflate, ConstructContext, PdfChunk};
 
 /// Creates a new PDF image from the given image.
 ///
@@ -34,13 +34,12 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
 #[must_use]
-pub(crate) fn write_images(res: &ConstructContext) -> (Vec<Ref>, Chunk) {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+pub(crate) fn write_images(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
+    let mut chunk = PdfChunk::new(5);
     let mut images = Vec::new();
 
-    for (i, _) in res.images.items().enumerate() {
-        let handle = res.deferred_images.get(&i).unwrap();
+    for (i, _) in ctx.images.items().enumerate() {
+        let handle = ctx.deferred_images.get(&i).unwrap();
         match handle.wait() {
             EncodedImage::Raster {
                 data,
@@ -51,10 +50,10 @@ pub(crate) fn write_images(res: &ConstructContext) -> (Vec<Ref>, Chunk) {
                 icc,
                 alpha,
             } => {
-                let image_ref = alloc.bump();
+                let image_ref = chunk.alloc();
                 images.push(image_ref);
 
-                let mut image = chunk.image_xobject(image_ref, data);
+                let mut image = chunk.chunk.image_xobject(image_ref, data);
                 image.filter(*filter);
                 image.width(*width as i32);
                 image.height(*height as i32);
@@ -63,19 +62,19 @@ pub(crate) fn write_images(res: &ConstructContext) -> (Vec<Ref>, Chunk) {
                 let mut icc_ref = None;
                 let space = image.color_space();
                 if icc.is_some() {
-                    let id = alloc.bump();
+                    let id = chunk.alloc.bump();
                     space.icc_based(id);
                     icc_ref = Some(id);
                 } else if *has_color {
-                    res.colors.write(ColorSpace::Srgb, space);
+                    ctx.colors.write(ColorSpace::Srgb, space, &ctx.globals);
                 } else {
-                    res.colors.write(ColorSpace::D65Gray, space);
+                    ctx.colors.write(ColorSpace::D65Gray, space, &ctx.globals);
                 }
 
                 // Add a second gray-scale image containing the alpha values if
                 // this image has an alpha channel.
                 if let Some((alpha_data, alpha_filter)) = alpha {
-                    let mask_ref = alloc.bump();
+                    let mask_ref = chunk.alloc.bump();
                     image.s_mask(mask_ref);
                     image.finish();
 
@@ -103,8 +102,8 @@ pub(crate) fn write_images(res: &ConstructContext) -> (Vec<Ref>, Chunk) {
             }
             EncodedImage::Svg(svg_chunk) => {
                 let mut map = HashMap::new();
-                svg_chunk.renumber_into(&mut chunk, |old| {
-                    *map.entry(old).or_insert_with(|| alloc.bump())
+                svg_chunk.renumber_into(&mut chunk.chunk, |old| {
+                    *map.entry(old).or_insert_with(|| chunk.alloc.bump())
                 });
                 images.push(map[&Ref::new(1)]);
             }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
 use pdf_writer::writers::StreamShadingType;
-use pdf_writer::{Chunk, Filter, Finish, Name, Ref};
+use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{
@@ -13,9 +13,7 @@ use typst::visualize::{
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::content::{self, Resource, ResourceKind};
-use crate::{
-    append_chunk_with_id, deflate, transform_to_array, AbsExt, ConstructContext,
-};
+use crate::{deflate, transform_to_array, AbsExt, ConstructContext, PdfChunk};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -35,15 +33,14 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 #[must_use]
-pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, Chunk) {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
+    let mut chunk = PdfChunk::new(4);
     let mut gradients = Vec::new();
 
     for PdfGradient { transform, aspect_ratio, gradient, angle } in
         ctx.gradients.items().cloned().collect::<Vec<_>>()
     {
-        let shading = alloc.bump();
+        let shading = chunk.alloc();
         gradients.push(shading);
 
         let color_space = if gradient.space().hue_index().is_some() {
@@ -54,14 +51,13 @@ pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, Chunk) {
 
         let mut shading_pattern = match &gradient {
             Gradient::Linear(_) => {
-                let function = shading_function(&gradient, color_space);
                 let shading_function =
-                    append_chunk_with_id(&mut alloc, &mut chunk, function);
-                let mut shading_pattern = chunk.shading_pattern(shading);
+                    shading_function(&gradient, &mut chunk, color_space);
+                let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Axial);
 
-                ctx.colors.write(color_space, shading.color_space());
+                ctx.colors.write(color_space, shading.color_space(), &ctx.globals);
 
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
@@ -88,14 +84,13 @@ pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, Chunk) {
                 shading_pattern
             }
             Gradient::Radial(radial) => {
-                let function = shading_function(&gradient, color_space);
                 let shading_function =
-                    append_chunk_with_id(&mut alloc, &mut chunk, function);
-                let mut shading_pattern = chunk.shading_pattern(shading);
+                    shading_function(&gradient, &mut chunk, color_space);
+                let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Radial);
 
-                ctx.colors.write(color_space, shading.color_space());
+                ctx.colors.write(color_space, shading.color_space(), &ctx.globals);
 
                 shading
                     .anti_alias(gradient.anti_alias())
@@ -117,11 +112,12 @@ pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, Chunk) {
             Gradient::Conic(_) => {
                 let vertices = compute_vertex_stream(&gradient, aspect_ratio);
 
-                let stream_shading_id = alloc.bump();
+                let stream_shading_id = chunk.alloc();
                 let mut stream_shading =
-                    chunk.stream_shading(stream_shading_id, &vertices);
+                    chunk.chunk.stream_shading(stream_shading_id, &vertices);
 
-                ctx.colors.write(color_space, stream_shading.color_space());
+                ctx.colors
+                    .write(color_space, stream_shading.color_space(), &ctx.globals);
 
                 let range = color_space.range();
                 stream_shading
@@ -151,11 +147,12 @@ pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, Chunk) {
 }
 
 /// Writes an expotential or stitched function that expresses the gradient.
-fn shading_function(gradient: &Gradient, color_space: ColorSpace) -> (Chunk, Ref) {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
-
-    let function = alloc.bump();
+fn shading_function(
+    gradient: &Gradient,
+    chunk: &mut PdfChunk,
+    color_space: ColorSpace,
+) -> Ref {
+    let function = chunk.alloc();
     let mut functions = vec![];
     let mut bounds = vec![];
     let mut encode = vec![];
@@ -174,11 +171,7 @@ fn shading_function(gradient: &Gradient, color_space: ColorSpace) -> (Chunk, Ref
                 let real_t = first.1.get() * (1.0 - t) + second.1.get() * t;
 
                 let c = gradient.sample(RatioOrAngle::Ratio(Ratio::new(real_t)));
-                functions.push(append_chunk_with_id(
-                    &mut alloc,
-                    &mut chunk,
-                    single_gradient(last_c, c, color_space),
-                ));
+                functions.push(single_gradient(chunk, last_c, c, color_space));
                 bounds.push(real_t as f32);
                 encode.extend([0.0, 1.0]);
                 last_c = c;
@@ -186,17 +179,13 @@ fn shading_function(gradient: &Gradient, color_space: ColorSpace) -> (Chunk, Ref
         }
 
         bounds.push(second.1.get() as f32);
-        functions.push(append_chunk_with_id(
-            &mut alloc,
-            &mut chunk,
-            single_gradient(first.0, second.0, color_space),
-        ));
+        functions.push(single_gradient(chunk, first.0, second.0, color_space));
         encode.extend([0.0, 1.0]);
     }
 
     // Special case for gradients with only two stops.
     if functions.len() == 1 {
-        return (chunk, functions[0]);
+        return functions[0];
     }
 
     // Remove the last bound, since it's not needed for the stitching function.
@@ -211,19 +200,18 @@ fn shading_function(gradient: &Gradient, color_space: ColorSpace) -> (Chunk, Ref
         .bounds(bounds)
         .encode(encode);
 
-    (chunk, function)
+    function
 }
 
 /// Writes an expontential function that expresses a single segment (between two
 /// stops) of a gradient.
 fn single_gradient(
+    chunk: &mut PdfChunk,
     first_color: Color,
     second_color: Color,
     color_space: ColorSpace,
-) -> (Chunk, Ref) {
-    let mut chunk = Chunk::new();
-    let reference = Ref::new(1);
-
+) -> Ref {
+    let reference = chunk.alloc();
     chunk
         .exponential_function(reference)
         .range(color_space.range())
@@ -232,7 +220,7 @@ fn single_gradient(
         .domain([0.0, 1.0])
         .n(1.0);
 
-    (chunk, reference)
+    reference
 }
 
 impl PaintEncode for Gradient {

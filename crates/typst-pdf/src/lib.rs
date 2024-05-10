@@ -10,9 +10,9 @@ mod outline;
 mod page;
 mod pattern;
 
-use std::cell::Cell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use base64::Engine;
@@ -65,99 +65,132 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     let mut res = ConstructContext::new(document);
+    dbg!(&res.globals);
     let mut pdf = Pdf::new();
-    let mut alloc = Ref::new(1);
+    let alloc = res.globals.max;
+
+    let id = |r: Ref| r;
 
     let pages = page::construct_pages(&mut res, &document.pages);
+    res.pages = pages.pages;
 
     improve_glyph_sets(&mut res.glyph_sets);
 
-    append_chunk(&mut alloc, &mut pdf, font::write_color_fonts(&mut res));
+    let color_font_chunk = font::write_color_fonts(&mut res);
+    color_font_chunk.renumber_into(&mut pdf, id);
+
     // TODO: should glyph sets be improved at this point too?
 
-    let (fonts, chunk) = font::write_fonts(&res);
-    append_chunk(&mut alloc, &mut pdf, chunk);
+    let (fonts, fonts_chunk) = font::write_fonts(&res);
+    fonts_chunk.renumber_into(&mut pdf, id);
 
-    let (images, chunk) = image::write_images(&res);
-    append_chunk(&mut alloc, &mut pdf, chunk);
+    let (images, images_chunk) = image::write_images(&res);
+    images_chunk.renumber_into(&mut pdf, id);
 
-    let (gradients, chunk) = gradient::write_gradients(&res);
-    append_chunk(&mut alloc, &mut pdf, chunk);
+    let (gradients, gradients_chunk) = gradient::write_gradients(&res);
+    gradients_chunk.renumber_into(&mut pdf, id);
 
-    let (ext_gs_refs, chunk) = extg::write_external_graphics_states(&res);
-    append_chunk(&mut alloc, &mut pdf, chunk);
+    let (ext_gs, ext_gs_chunk) = extg::write_external_graphics_states(&res);
+    ext_gs_chunk.renumber_into(&mut pdf, id);
 
-    let pattern_map = res.remap_patterns(&images, &ext_gs_refs, &fonts, &gradients, &[]);
-    let (patterns, chunk) = pattern::write_patterns(&res, &pattern_map);
-    append_chunk(&mut alloc, &mut pdf, chunk);
+    let pattern_map = res.remap_patterns(&images, &ext_gs, &fonts, &gradients, &[]);
+    let (patterns, patterns_chunk) = pattern::write_patterns(&res, &pattern_map);
+    patterns_chunk.renumber_into(&mut pdf, id);
 
     let named_destinations = write_named_destinations(&res);
-    append_chunk(&mut alloc, &mut pdf, named_destinations.chunk);
+    named_destinations.chunk.renumber_into(&mut pdf, id);
 
-    append_chunk(
-        &mut alloc,
-        &mut pdf,
-        page::write_page_tree(&res, &named_destinations.loc_to_dest, &pages.page_refs),
-    );
+    let page_tree_chunk = page::write_page_tree(&res, &named_destinations.loc_to_dest);
+    page_tree_chunk.renumber_into(&mut pdf, id);
 
     let ctx = WriteContext {
         dests: named_destinations.dests,
-        pages: pages.page_refs,
         fonts,
         images,
         gradients,
         patterns,
-        ext_gs: ext_gs_refs,
+        ext_gs,
     };
 
-    append_chunk(&mut alloc, &mut pdf, page::write_global_resources(&res, &ctx));
-    write_catalog(&res, &ctx, &mut pdf, &mut alloc, ident, timestamp);
+    let global_res_chunk = page::write_global_resources(&res, &ctx);
+    global_res_chunk.renumber_into(&mut pdf, id);
+    let pdf = write_catalog(pdf, alloc, &res, &ctx, ident, timestamp);
 
-    pdf.finish()
+    pdf.chunk.finish()
 }
 
-#[derive(Clone)]
-struct ReservedRef {
-    inner: Ref,
-    used: Cell<bool>,
+struct PdfChunk<C = Chunk> {
+    chunk: C,
+    alloc: Ref,
 }
 
-impl ReservedRef {
-    fn new(id: Ref) -> Self {
-        ReservedRef { inner: id, used: Cell::new(false) }
-    }
-
-    fn is_used(&self) -> bool {
-        self.used.get()
-    }
-
-    fn get(&self) -> Ref {
-        self.used.set(true);
-        self.inner
+impl PdfChunk {
+    fn new(ref_prefix: u8) -> Self {
+        PdfChunk {
+            chunk: Chunk::new(),
+            alloc: Ref::new(ref_prefix as i32 * 100_000),
+        }
     }
 }
 
-fn append_chunk(alloc: &mut Ref, dest: &mut Chunk, src: Chunk) -> HashMap<Ref, Ref> {
-    let mut mapping = HashMap::new();
-    src.renumber_into(dest, |id| *mapping.entry(id).or_insert_with(|| alloc.bump()));
-    mapping
+impl PdfChunk<Pdf> {
+    fn new_pdf(pdf: Pdf, alloc: Ref) -> Self {
+        PdfChunk { chunk: pdf, alloc }
+    }
 }
 
-fn append_chunk_with_id(
-    alloc: &mut Ref,
-    dest: &mut Chunk,
-    (src_chunk, src_ref): (Chunk, Ref),
-) -> Ref {
-    let mapping = append_chunk(alloc, dest, src_chunk);
-    mapping[&src_ref]
+impl<C> PdfChunk<C> {
+    fn alloc(&mut self) -> Ref {
+        self.alloc.bump()
+    }
+}
+
+impl<C> Deref for PdfChunk<C> {
+    type Target = C;
+
+    fn deref(&self) -> &Self::Target {
+        &self.chunk
+    }
+}
+
+impl<C> DerefMut for PdfChunk<C> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.chunk
+    }
+}
+
+#[derive(Debug)]
+struct Refs {
+    oklab: Ref,
+    d65_gray: Ref,
+    srgb: Ref,
+    global_resources: Ref,
+    type3_font_resources: Ref,
+    page_tree: Ref,
+    pages: Vec<Ref>,
+    max: Ref,
+}
+
+impl Refs {
+    fn new(page_count: usize) -> Self {
+        let mut alloc = Ref::new(1);
+        Refs {
+            global_resources: alloc.bump(),
+            type3_font_resources: alloc.bump(),
+            page_tree: alloc.bump(),
+            pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
+            oklab: alloc.bump(),
+            d65_gray: alloc.bump(),
+            srgb: alloc.bump(),
+            max: alloc.bump(),
+        }
+    }
 }
 
 struct WriteContext {
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
 
-    /// The IDs of written pages.
-    pages: Vec<Ref>,
     /// The IDs of written fonts.
     fonts: Vec<Ref>,
     /// The IDs of written images.
@@ -172,19 +205,13 @@ struct WriteContext {
 
 impl<'a> ConstructContext<'a> {
     fn new(document: &'a Document) -> Self {
-        let mut alloc = Ref::new(1);
-        let page_tree_ref = alloc.bump();
-        let global_resources_ref = alloc.bump();
-        let type3_font_resources_ref = alloc.bump();
         Self {
             document,
+            globals: Refs::new(document.pages.len()),
             pages: vec![],
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
-            colors: ColorSpaces::new(&mut alloc),
-            page_tree_ref,
-            global_resources_ref,
-            type3_font_resources_ref,
+            colors: ColorSpaces::default(),
             fonts: Remapper::new(),
             images: Remapper::new(),
             deferred_images: HashMap::new(),
@@ -248,18 +275,6 @@ struct ConstructContext<'a> {
     /// BTreeMap is used to write sorted list of languages to metadata.
     languages: BTreeMap<Lang, usize>,
 
-    /// The ID of the page tree.
-    page_tree_ref: Ref,
-    /// The ID of the globally shared Resources dictionary.
-    global_resources_ref: Ref,
-    /// The ID of the resource dictionary shared by Type3 fonts.
-    ///
-    /// Type3 fonts cannot use the global resources, as it would create some
-    /// kind of infinite recursion (they are themselves present in that
-    /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
-    /// font) even if the specification seems to allow it.
-    type3_font_resources_ref: Ref,
-
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -267,6 +282,8 @@ struct ConstructContext<'a> {
     /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
     /// cmap. This is important for copy-paste and searching.
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+
+    globals: Refs,
 
     /// Handles color space writing.
     colors: ColorSpaces,
@@ -289,13 +306,14 @@ struct ConstructContext<'a> {
 
 /// Write the document catalog.
 fn write_catalog(
+    pdf: Pdf,
+    alloc: Ref,
     ctx: &ConstructContext,
     refs: &WriteContext,
-    pdf: &mut Pdf,
-    alloc: &mut Ref,
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
-) {
+) -> PdfChunk<Pdf> {
+    let mut chunk = PdfChunk::new_pdf(pdf, alloc);
     let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
@@ -305,17 +323,14 @@ fn write_catalog(
     };
 
     // Write the outline tree.
-    let outline_root_id = outline::write_outline(ctx, refs);
-    let outline_root_id = outline_root_id.map(|id| append_chunk_with_id(alloc, pdf, id));
+    let outline_root_id = outline::write_outline(&mut chunk, ctx);
 
     // Write the page labels.
-    let (page_label_chunk, page_labels) = page::write_page_labels(ctx);
-    let mapping = append_chunk(alloc, pdf, page_label_chunk);
-    let page_labels: Vec<_> =
-        page_labels.into_iter().map(|(nr, id)| (nr, mapping[&id])).collect();
+    let page_labels = page::write_page_labels(&mut chunk, ctx);
 
     // Write the document information.
-    let mut info = pdf.document_info(alloc.bump());
+    let info_ref = chunk.alloc();
+    let mut info = chunk.document_info(info_ref);
     let mut xmp = XmpWriter::new();
     if let Some(title) = &ctx.document.title {
         info.title(TextStr(title));
@@ -375,7 +390,7 @@ fn write_catalog(
 
     // A unique ID for this instance of the document. Changes if anything
     // changes in the frames.
-    let instance_id = hash_base64(&pdf.as_bytes());
+    let instance_id = hash_base64(&chunk.as_bytes());
 
     // Determine the document's ID. It should be as stable as possible.
     const PDF_VERSION: &str = "PDF-1.7";
@@ -394,20 +409,22 @@ fn write_catalog(
     // Write IDs.
     xmp.document_id(&doc_id);
     xmp.instance_id(&instance_id);
-    pdf.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+    chunk.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
 
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");
 
     let xmp_buf = xmp.finish(None);
-    let meta_ref = alloc.bump();
-    pdf.stream(meta_ref, xmp_buf.as_bytes())
+    let meta_ref = chunk.alloc();
+    chunk
+        .stream(meta_ref, xmp_buf.as_bytes())
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
     // Write the document catalog.
-    let mut catalog = pdf.catalog(alloc.bump());
-    catalog.pages(ctx.page_tree_ref);
+    let catalog_ref = chunk.alloc();
+    let mut catalog = chunk.catalog(catalog_ref);
+    catalog.pages(ctx.globals.page_tree);
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
@@ -440,20 +457,21 @@ fn write_catalog(
     }
 
     catalog.finish();
+
+    chunk
 }
 
 struct NamedDestinations {
     dests: Vec<(Label, Ref)>,
     loc_to_dest: HashMap<Location, Label>,
-    chunk: Chunk,
+    chunk: PdfChunk,
 }
 
 /// Fills in the map and vector for named destinations and writes the indirect
 /// destination objects.
 #[must_use]
 fn write_named_destinations(ctx: &ConstructContext) -> NamedDestinations {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+    let mut chunk = PdfChunk::new(6);
     let mut seen = HashSet::new();
     let mut loc_to_dest = HashMap::new();
     let mut dests = Vec::new();
@@ -478,7 +496,7 @@ fn write_named_destinations(ctx: &ConstructContext) -> NamedDestinations {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
         if let Some(page) = ctx.pages.get(index) {
-            let dest_ref = alloc.bump();
+            let dest_ref = chunk.alloc();
             let x = pos.point.x.to_f32();
             let y = (page.content.size.y - y).to_f32();
             dests.push((label, dest_ref));
@@ -486,7 +504,7 @@ fn write_named_destinations(ctx: &ConstructContext) -> NamedDestinations {
             chunk
                 .indirect(dest_ref)
                 .start::<Destination>()
-                .page(page.id)
+                .page(ctx.globals.pages[index])
                 .xyz(x, y, None);
         }
     }

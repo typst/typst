@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
-use crate::{append_chunk, content, AbsExt, ConstructContext, WriteContext};
+use crate::{content, AbsExt, ConstructContext, PdfChunk, WriteContext};
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
 use pdf_writer::writers::{PageLabel, Resources};
-use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use pdf_writer::{Filter, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::Label;
 use typst::introspection::Location;
 use typst::layout::{Abs, Frame, Page};
@@ -14,22 +14,19 @@ use typst::text::Case;
 
 #[derive(Default)]
 pub struct Pages {
-    pub page_refs: Vec<Ref>,
     pub pages: Vec<EncodedPage>,
 }
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(res: &mut ConstructContext, pages: &[Page]) -> Pages {
-    let mut alloc = Ref::new(1);
     let mut result = Pages::default();
     for page in pages {
-        let (page_ref, mut encoded) = construct_page(res, &mut alloc, &page.frame);
+        let mut encoded = construct_page(res, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
             .and_then(|num| PdfPageLabel::generate(num, page.number));
-        result.page_refs.push(page_ref);
         result.pages.push(encoded);
     }
     result
@@ -37,18 +34,10 @@ pub(crate) fn construct_pages(res: &mut ConstructContext, pages: &[Page]) -> Pag
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(
-    res: &mut ConstructContext,
-    alloc: &mut Ref,
-    frame: &Frame,
-) -> (Ref, EncodedPage) {
-    let page_ref = alloc.bump();
-
+pub(crate) fn construct_page(res: &mut ConstructContext, frame: &Frame) -> EncodedPage {
     let content = content::build(res, frame);
 
-    let page = EncodedPage { content, id: page_ref, label: None };
-
-    (page_ref, page)
+    EncodedPage { content, label: None }
 }
 
 /// Write the page tree.
@@ -56,20 +45,19 @@ pub(crate) fn construct_page(
 pub(crate) fn write_page_tree(
     res: &ConstructContext,
     loc_to_dest: &HashMap<Location, Label>,
-    page_refs: &[Ref],
-) -> Chunk {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+) -> PdfChunk {
+    let mut chunk = PdfChunk::new(7);
 
     for i in 0..res.pages.len() {
-        let page_chunk = write_page(res, loc_to_dest, i);
-        append_chunk(&mut alloc, &mut chunk, page_chunk);
+        write_page(&mut chunk, res, loc_to_dest, i);
     }
 
     chunk
-        .pages(res.page_tree_ref)
+        .chunk
+        .pages(res.globals.page_tree)
         .count(res.pages.len() as i32)
-        .kids(page_refs.iter().copied());
+        .kids(res.globals.pages.iter().copied());
+
     chunk
 }
 
@@ -82,13 +70,14 @@ pub(crate) fn write_page_tree(
 pub(crate) fn write_global_resources(
     res: &ConstructContext,
     ctx: &WriteContext,
-) -> Chunk {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
-    let images_ref = alloc.bump();
-    let patterns_ref = alloc.bump();
-    let ext_gs_states_ref = alloc.bump();
-    let color_spaces_ref = alloc.bump();
+) -> PdfChunk {
+    let mut chunk = PdfChunk::new(8);
+    let global_res_ref = res.globals.global_resources;
+    let type3_font_resources_ref = res.globals.type3_font_resources;
+    let images_ref = chunk.alloc();
+    let patterns_ref = chunk.alloc();
+    let ext_gs_states_ref = chunk.alloc();
+    let color_spaces_ref = chunk.alloc();
 
     let mut images = chunk.indirect(images_ref).dict();
     for (image_ref, im) in res.images.pdf_indices(&ctx.images) {
@@ -117,9 +106,9 @@ pub(crate) fn write_global_resources(
     ext_gs_states.finish();
 
     let color_spaces = chunk.indirect(color_spaces_ref).dict();
-    res.colors.write_color_spaces(color_spaces);
+    res.colors.write_color_spaces(color_spaces, &res.globals);
 
-    let mut resources = chunk.indirect(res.global_resources_ref).start::<Resources>();
+    let mut resources = chunk.indirect(global_res_ref).start::<Resources>();
     resources.pair(Name(b"XObject"), images_ref);
     resources.pair(Name(b"Pattern"), patterns_ref);
     resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -142,8 +131,7 @@ pub(crate) fn write_global_resources(
     // Also write the resources for Type3 fonts, that only contains images,
     // color spaces and regular fonts (COLR glyphs depend on them).
     if !res.color_fonts.all_refs.is_empty() {
-        let mut resources =
-            chunk.indirect(res.type3_font_resources_ref).start::<Resources>();
+        let mut resources = chunk.indirect(type3_font_resources_ref).start::<Resources>();
         resources.pair(Name(b"XObject"), images_ref);
         resources.pair(Name(b"Pattern"), patterns_ref);
         resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -160,31 +148,31 @@ pub(crate) fn write_global_resources(
     }
 
     // Write all of the functions used by the document.
-    res.colors.write_functions(&mut chunk);
+    res.colors.write_functions(&mut chunk, &res.globals);
 
     chunk
 }
 
 /// Write a page tree node.
-#[must_use]
 fn write_page(
+    chunk: &mut PdfChunk,
     ctx: &ConstructContext,
     loc_to_dest: &HashMap<Location, Label>,
     i: usize,
-) -> Chunk {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+) {
     let page = &ctx.pages[i];
-    let content_id = alloc.bump();
+    let content_id = chunk.alloc();
 
-    let mut page_writer = chunk.page(page.id);
-    page_writer.parent(ctx.page_tree_ref);
+    let page_tree_ref = ctx.globals.page_tree;
+    let global_resources_ref = ctx.globals.global_resources;
+    let mut page_writer = chunk.page(ctx.globals.pages[i]);
+    page_writer.parent(page_tree_ref);
 
     let w = page.content.size.x.to_f32();
     let h = page.content.size.y.to_f32();
     page_writer.media_box(Rect::new(0.0, 0.0, w, h));
     page_writer.contents(content_id);
-    page_writer.pair(Name(b"Resources"), ctx.global_resources_ref);
+    page_writer.pair(Name(b"Resources"), global_resources_ref);
 
     if page.content.uses_opacities {
         page_writer
@@ -233,7 +221,7 @@ fn write_page(
                 .action()
                 .action_type(ActionType::GoTo)
                 .destination()
-                .page(page.id)
+                .page(ctx.globals.pages[index])
                 .xyz(pos.point.x.to_f32(), (page.content.size.y - y).to_f32(), None);
         }
     }
@@ -244,24 +232,20 @@ fn write_page(
     chunk
         .stream(content_id, page.content.content.wait())
         .filter(Filter::FlateDecode);
-
-    chunk
 }
 
 /// Write the page labels.
 pub(crate) fn write_page_labels(
+    chunk: &mut PdfChunk<Pdf>,
     ctx: &ConstructContext,
-) -> (Chunk, Vec<(NonZeroUsize, Ref)>) {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
-
+) -> Vec<(NonZeroUsize, Ref)> {
     // If there is no page labeled, we skip the writing
     if !ctx.pages.iter().any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
     }) {
-        return (chunk, Vec::new());
+        return Vec::new();
     }
 
     let mut result = vec![];
@@ -284,7 +268,7 @@ pub(crate) fn write_page_labels(
             }
         }
 
-        let id = alloc.bump();
+        let id = chunk.alloc();
         let mut entry = chunk.indirect(id).start::<PageLabel>();
 
         // Only add what is actually provided. Don't add empty prefix string if
@@ -305,7 +289,7 @@ pub(crate) fn write_page_labels(
         prev = Some(label);
     }
 
-    (chunk, result)
+    result
 }
 
 /// Specification for a PDF page label.
@@ -385,10 +369,7 @@ impl PdfPageLabel {
 }
 
 /// Data for an exported page.
-#[derive(Clone)]
 pub struct EncodedPage {
-    /// The indirect object id of the page.
-    pub id: Ref,
     pub content: content::Encoded,
     label: Option<PdfPageLabel>,
 }

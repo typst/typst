@@ -1,13 +1,13 @@
 use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
-use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref};
+use pdf_writer::{Filter, Finish, Name, Rect, Ref};
 use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::content::{self, Resource, ResourceKind};
-use crate::{transform_to_array, ConstructContext, Remapper};
+use crate::{transform_to_array, ConstructContext, PdfChunk, Remapper};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
@@ -15,13 +15,12 @@ use crate::{transform_to_array, ConstructContext, Remapper};
 pub(crate) fn write_patterns(
     ctx: &ConstructContext,
     pattern_map: &Remapper<PdfPattern<Ref>>,
-) -> (Vec<Ref>, Chunk) {
-    let mut chunk = Chunk::new();
-    let mut alloc = Ref::new(1);
+) -> (Vec<Ref>, PdfChunk) {
+    let mut chunk = PdfChunk::new(9);
     let mut patterns = Vec::new();
 
     for PdfPattern { transform, pattern, content, resources } in pattern_map.items() {
-        let tiling = alloc.bump();
+        let tiling = chunk.alloc();
         patterns.push(tiling);
 
         let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
@@ -53,7 +52,8 @@ pub(crate) fn write_patterns(
                 .map(|(res, ref_)| (res.name(), ref_)),
         );
 
-        ctx.colors.write_color_spaces(resources_map.color_spaces());
+        ctx.colors
+            .write_color_spaces(resources_map.color_spaces(), &ctx.globals);
 
         resources_map
             .patterns()
