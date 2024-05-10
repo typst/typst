@@ -7,17 +7,19 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
-use typst::layout::Frame;
+use typst::layout::{Frame, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
 use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat, Input, Output, OutputFormat};
+use crate::args::{
+    CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
+};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
@@ -58,6 +60,17 @@ impl CompileCommand {
             }
         } else {
             OutputFormat::Pdf
+        })
+    }
+
+    /// The ranges of the pages to be exported as specified by the user.
+    ///
+    /// This returns `None` if all pages should be exported.
+    pub fn exported_page_ranges(&self) -> Option<PageRanges> {
+        self.pages.as_ref().map(|export_ranges| {
+            PageRanges::new(
+                export_ranges.iter().map(PageRangeArgument::to_range).collect(),
+            )
         })
     }
 }
@@ -171,7 +184,8 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let timestamp = convert_datetime(
         command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
     );
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp);
+    let exported_page_ranges = command.exported_page_ranges();
+    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
     command
         .output()
         .write(&buffer)
@@ -214,7 +228,21 @@ fn export_image(
             output_template::has_indexable_template(output.to_str().unwrap_or_default())
         }
     };
-    if !can_handle_multiple && document.pages.len() > 1 {
+
+    let exported_page_ranges = command.exported_page_ranges();
+
+    let exported_pages = document
+        .pages
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| {
+            exported_page_ranges.as_ref().map_or(true, |exported_page_ranges| {
+                exported_page_ranges.includes_page_index(*i)
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if !can_handle_multiple && exported_pages.len() > 1 {
         let err = match output {
             Output::Stdout => "to stdout",
             Output::Path(_) => {
@@ -227,10 +255,8 @@ fn export_image(
     let cache = world.export_cache();
 
     // The results are collected in a `Vec<()>` which does not allocate.
-    document
-        .pages
+    exported_pages
         .par_iter()
-        .enumerate()
         .map(|(i, page)| {
             // Use output with converted path.
             let output = match output {
@@ -250,7 +276,7 @@ fn export_image(
                     // If we are not watching, don't use the cache.
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
-                    if watching && cache.is_cached(i, &page.frame) && path.exists() {
+                    if watching && cache.is_cached(*i, &page.frame) && path.exists() {
                         return Ok(());
                     }
 

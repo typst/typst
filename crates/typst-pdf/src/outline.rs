@@ -18,7 +18,17 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     // enforced in the manner shown below.
     let mut last_skipped_level = None;
     let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
+
     for elem in elements.iter() {
+        if let Some(page_ranges) = &ctx.exported_pages {
+            if !page_ranges
+                .includes_page(ctx.document.introspector.page(elem.location().unwrap()))
+            {
+                // Don't bookmark headings in non-exported pages
+                continue;
+            }
+        }
+
         let heading = elem.to_packed::<HeadingElem>().unwrap();
         let leaf = HeadingNode::leaf(heading);
 
@@ -166,9 +176,11 @@ fn write_outline_item(
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
     let index = pos.page.get() - 1;
-    if let Some(page) = ctx.pages.get(index) {
+
+    // Don't link to non-exported pages.
+    if let Some(Some(page)) = ctx.pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        outline.dest().page(ctx.page_refs[index]).xyz(
+        outline.dest().page(page.id).xyz(
             pos.point.x.to_f32(),
             (page.size.y - y).to_f32(),
             None,

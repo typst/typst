@@ -21,7 +21,7 @@ use pdf_writer::writers::Destination;
 use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
-use typst::layout::{Abs, Dir, Em, Frame, Transform};
+use typst::layout::{Abs, Dir, Em, Frame, PageRanges, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::color::frame_for_glyph;
 use typst::text::{Font, Lang};
@@ -55,13 +55,17 @@ use crate::pattern::PdfPattern;
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
 /// is `auto`.
+///
+/// The `page_ranges` option specifies which ranges of pages should be exported
+/// in the PDF. When `None`, all pages should be exported.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
+    page_ranges: Option<PageRanges>,
 ) -> Vec<u8> {
-    let mut ctx = PdfContext::new(document);
+    let mut ctx = PdfContext::new(document, page_ranges);
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
@@ -82,7 +86,10 @@ struct PdfContext<'a> {
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
-    pages: Vec<EncodedPage>,
+    pages: Vec<Option<EncodedPage>>,
+    /// Page ranges to export.
+    /// When `None`, all pages are exported.
+    exported_pages: Option<PageRanges>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -108,8 +115,6 @@ struct PdfContext<'a> {
     /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
     /// font) even if the specification seems to allow it.
     type3_font_resources_ref: Ref,
-    /// The IDs of written pages.
-    page_refs: Vec<Ref>,
     /// The IDs of written fonts.
     font_refs: Vec<Ref>,
     /// The IDs of written images.
@@ -145,7 +150,7 @@ struct PdfContext<'a> {
 }
 
 impl<'a> PdfContext<'a> {
-    fn new(document: &'a Document) -> Self {
+    fn new(document: &'a Document, page_ranges: Option<PageRanges>) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         let global_resources_ref = alloc.bump();
@@ -154,13 +159,13 @@ impl<'a> PdfContext<'a> {
             document,
             pdf: Pdf::new(),
             pages: vec![],
+            exported_pages: page_ranges,
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
             global_resources_ref,
             type3_font_resources_ref,
-            page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
             gradient_refs: vec![],
@@ -251,7 +256,8 @@ fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Dat
     }
 
     info.finish();
-    xmp.num_pages(ctx.document.pages.len() as u32);
+    // Only count exported pages.
+    xmp.num_pages(ctx.pages.iter().filter(|page| page.is_some()).count() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
 
@@ -350,7 +356,8 @@ fn write_named_destinations(ctx: &mut PdfContext) {
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        // If the heading's page exists and is exported, include it.
+        if let Some(Some(page)) = ctx.pages.get(index) {
             let dest_ref = ctx.alloc.bump();
             let x = pos.point.x.to_f32();
             let y = (page.size.y - y).to_f32();

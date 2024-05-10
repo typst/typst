@@ -176,7 +176,7 @@ impl<'a> Runner<'a> {
         // Write PDF if requested.
         if crate::ARGS.pdf() {
             let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
-            let pdf = typst_pdf::pdf(document, Smart::Auto, None);
+            let pdf = typst_pdf::pdf(document, Smart::Auto, None, None);
             std::fs::write(pdf_path, pdf).unwrap();
         }
 

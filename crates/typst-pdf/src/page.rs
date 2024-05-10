@@ -27,20 +27,40 @@ use typst::visualize::{
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, pages: &[Page]) {
-    for page in pages {
-        let (page_ref, mut encoded) = construct_page(ctx, &page.frame);
-        encoded.label = page
-            .numbering
+    let mut skipped_pages = 0;
+    for (i, page) in pages.iter().enumerate() {
+        if ctx
+            .exported_pages
             .as_ref()
-            .and_then(|num| PdfPageLabel::generate(num, page.number));
-        ctx.page_refs.push(page_ref);
-        ctx.pages.push(encoded);
+            .is_some_and(|ranges| !ranges.includes_page_index(i))
+        {
+            // Don't export this page.
+            ctx.pages.push(None);
+            skipped_pages += 1;
+        } else {
+            let mut encoded = construct_page(ctx, &page.frame);
+            encoded.label = page
+                .numbering
+                .as_ref()
+                .and_then(|num| PdfPageLabel::generate(num, page.number))
+                .or_else(|| {
+                    // When some pages were ignored from export, we show a page label with
+                    // the correct real (not logical) page number.
+                    // This is for consistency with normal output when pages have no numbering
+                    // and all are exported: the final PDF page numbers always correspond to
+                    // the real (not logical) page numbers. Here, the final PDF page number
+                    // will differ, but we can at least use labels to indicate what was
+                    // the corresponding real page number in the Typst document.
+                    (skipped_pages > 0).then(|| PdfPageLabel::arabic(i + 1))
+                });
+            ctx.pages.push(Some(encoded));
+        }
     }
 }
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, EncodedPage) {
+pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> EncodedPage {
     let page_ref = ctx.alloc.bump();
 
     let size = frame.size();
@@ -60,7 +80,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
     // Encode the page into the content stream.
     write_frame(&mut ctx, frame);
 
-    let page = EncodedPage {
+    EncodedPage {
         size,
         content: deflate_deferred(ctx.content.finish()),
         id: page_ref,
@@ -68,21 +88,20 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
         links: ctx.links,
         label: None,
         resources: ctx.resources,
-    };
-
-    (page_ref, page)
+    }
 }
 
 /// Write the page tree.
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
+    let mut refs = vec![];
     for i in 0..ctx.pages.len() {
-        write_page(ctx, i);
+        write_page(ctx, i, &mut refs);
     }
 
     ctx.pdf
         .pages(ctx.page_tree_ref)
-        .count(ctx.page_refs.len() as i32)
-        .kids(ctx.page_refs.iter().copied());
+        .count(refs.len() as i32)
+        .kids(refs.iter().copied());
 }
 
 /// Write the global resource dictionary that will be referenced by all pages.
@@ -170,9 +189,14 @@ pub(crate) fn write_global_resources(ctx: &mut PdfContext) {
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, i: usize) {
-    let page = &ctx.pages[i];
+fn write_page(ctx: &mut PdfContext, i: usize, refs: &mut Vec<Ref>) {
+    let Some(page) = &ctx.pages[i] else {
+        // Page excluded from export.
+        return;
+    };
     let content_id = ctx.alloc.bump();
+
+    refs.push(page.id);
 
     let mut page_writer = ctx.pdf.page(page.id);
     page_writer.parent(ctx.page_tree_ref);
@@ -225,7 +249,8 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        // Don't add links to non-exported pages.
+        if let Some(Some(page)) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
@@ -244,9 +269,12 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 }
 
 /// Write the page labels.
+/// They are numbered according to the page's final number, considering pages
+/// which were removed from export, and not according to the page's real or
+/// logical number in the initial Typst document.
 pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
-    // If there is no page labeled, we skip the writing
-    if !ctx.pages.iter().any(|p| {
+    // If there is no exported page labeled, we skip the writing
+    if !ctx.pages.iter().filter_map(Option::as_ref).any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
@@ -258,7 +286,8 @@ pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)
     let empty_label = PdfPageLabel::default();
     let mut prev: Option<&PdfPageLabel> = None;
 
-    for (i, page) in ctx.pages.iter().enumerate() {
+    // Skip non-exported pages for numbering.
+    for (i, page) in ctx.pages.iter().filter_map(Option::as_ref).enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
         // If there are pages with empty labels between labeled pages, we must
         // write empty PageLabel entries.
@@ -371,6 +400,17 @@ impl PdfPageLabel {
 
         let offset = style.and(NonZeroUsize::new(number));
         Some(PdfPageLabel { prefix, style, offset })
+    }
+
+    /// Creates an arabic page label with the specified page number.
+    /// For example, this will display page label `11` when given the page
+    /// number 11.
+    fn arabic(number: usize) -> PdfPageLabel {
+        PdfPageLabel {
+            prefix: None,
+            style: Some(PdfPageLabelStyle::Arabic),
+            offset: NonZeroUsize::new(number),
+        }
     }
 }
 

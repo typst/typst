@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
 use std::ptr;
 use std::str::FromStr;
 
@@ -724,6 +725,39 @@ cast! {
     },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
+}
+
+/// A list of page ranges to be exported. The ranges are one-indexed.
+/// For example, `1..=3` indicates the first, second and third pages should be
+/// exported.
+pub struct PageRanges(Vec<PageRange>);
+
+pub type PageRange = RangeInclusive<Option<NonZeroUsize>>;
+
+impl PageRanges {
+    pub fn new(ranges: Vec<PageRange>) -> Self {
+        Self(ranges)
+    }
+
+    /// Check if a page, given its number, should be included when exporting the
+    /// document while restricting the exported pages to these page ranges.
+    /// This is the one-indexed version of 'includes_page_index'.
+    pub fn includes_page(&self, page: NonZeroUsize) -> bool {
+        self.includes_page_index(page.get() - 1)
+    }
+
+    /// Check if a page, given its index, should be included when exporting the
+    /// document while restricting the exported pages to these page ranges.
+    /// This is the zero-indexed version of 'includes_page'.
+    pub fn includes_page_index(&self, page: usize) -> bool {
+        let page = NonZeroUsize::try_from(page + 1).unwrap();
+        self.0.iter().any(|range| match (range.start(), range.end()) {
+            (Some(start), Some(end)) => (start..=end).contains(&&page),
+            (Some(start), None) => (start..).contains(&&page),
+            (None, Some(end)) => (..=end).contains(&&page),
+            (None, None) => true,
+        })
+    }
 }
 
 /// A manual page break.
