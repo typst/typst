@@ -46,7 +46,7 @@ pub(crate) fn write_page_tree(
     res: &ConstructContext,
     loc_to_dest: &HashMap<Location, Label>,
 ) -> PdfChunk {
-    let mut chunk = PdfChunk::new(7);
+    let mut chunk = PdfChunk::new();
 
     for i in 0..res.pages.len() {
         write_page(&mut chunk, res, loc_to_dest, i);
@@ -66,27 +66,27 @@ pub(crate) fn write_page_tree(
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-#[must_use]
 pub(crate) fn write_global_resources(
+    pdf: &mut Pdf,
+    alloc: &mut Ref,
     res: &ConstructContext,
     ctx: &WriteContext,
-) -> PdfChunk {
-    let mut chunk = PdfChunk::new(8);
+) {
     let global_res_ref = res.globals.global_resources;
     let type3_font_resources_ref = res.globals.type3_font_resources;
-    let images_ref = chunk.alloc();
-    let patterns_ref = chunk.alloc();
-    let ext_gs_states_ref = chunk.alloc();
-    let color_spaces_ref = chunk.alloc();
+    let images_ref = alloc.bump();
+    let patterns_ref = alloc.bump();
+    let ext_gs_states_ref = alloc.bump();
+    let color_spaces_ref = alloc.bump();
 
-    let mut images = chunk.indirect(images_ref).dict();
+    let mut images = pdf.indirect(images_ref).dict();
     for (image_ref, im) in res.images.pdf_indices(&ctx.images) {
         let name = eco_format!("Im{}", im);
         images.pair(Name(name.as_bytes()), image_ref);
     }
     images.finish();
 
-    let mut patterns = chunk.indirect(patterns_ref).dict();
+    let mut patterns = pdf.indirect(patterns_ref).dict();
     for (gradient_ref, gr) in res.gradients.pdf_indices(&ctx.gradients) {
         let name = eco_format!("Gr{}", gr);
         patterns.pair(Name(name.as_bytes()), gradient_ref);
@@ -98,17 +98,17 @@ pub(crate) fn write_global_resources(
     }
     patterns.finish();
 
-    let mut ext_gs_states = chunk.indirect(ext_gs_states_ref).dict();
+    let mut ext_gs_states = pdf.indirect(ext_gs_states_ref).dict();
     for (gs_ref, gs) in res.ext_gs.pdf_indices(&ctx.ext_gs) {
         let name = eco_format!("Gs{}", gs);
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
     ext_gs_states.finish();
 
-    let color_spaces = chunk.indirect(color_spaces_ref).dict();
+    let color_spaces = pdf.indirect(color_spaces_ref).dict();
     res.colors.write_color_spaces(color_spaces, &res.globals);
 
-    let mut resources = chunk.indirect(global_res_ref).start::<Resources>();
+    let mut resources = pdf.indirect(global_res_ref).start::<Resources>();
     resources.pair(Name(b"XObject"), images_ref);
     resources.pair(Name(b"Pattern"), patterns_ref);
     resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -131,7 +131,7 @@ pub(crate) fn write_global_resources(
     // Also write the resources for Type3 fonts, that only contains images,
     // color spaces and regular fonts (COLR glyphs depend on them).
     if !res.color_fonts.all_refs.is_empty() {
-        let mut resources = chunk.indirect(type3_font_resources_ref).start::<Resources>();
+        let mut resources = pdf.indirect(type3_font_resources_ref).start::<Resources>();
         resources.pair(Name(b"XObject"), images_ref);
         resources.pair(Name(b"Pattern"), patterns_ref);
         resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
@@ -148,9 +148,7 @@ pub(crate) fn write_global_resources(
     }
 
     // Write all of the functions used by the document.
-    res.colors.write_functions(&mut chunk, &res.globals);
-
-    chunk
+    res.colors.write_functions(pdf, &res.globals);
 }
 
 /// Write a page tree node.
@@ -236,7 +234,8 @@ fn write_page(
 
 /// Write the page labels.
 pub(crate) fn write_page_labels(
-    chunk: &mut PdfChunk<Pdf>,
+    chunk: &mut Pdf,
+    alloc: &mut Ref,
     ctx: &ConstructContext,
 ) -> Vec<(NonZeroUsize, Ref)> {
     // If there is no page labeled, we skip the writing
@@ -268,7 +267,7 @@ pub(crate) fn write_page_labels(
             }
         }
 
-        let id = chunk.alloc();
+        let id = alloc.bump();
         let mut entry = chunk.indirect(id).start::<PageLabel>();
 
         // Only add what is actually provided. Don't add empty prefix string if

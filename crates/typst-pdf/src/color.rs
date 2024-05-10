@@ -2,10 +2,10 @@ use std::cell::Cell;
 
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
-use pdf_writer::{writers, Dict, Filter, Name};
+use pdf_writer::{writers, Chunk, Dict, Filter, Name};
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, PdfChunk, Refs};
+use crate::{content, deflate, Refs};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -122,11 +122,10 @@ impl ColorSpaces {
 
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
-    pub fn write_functions(&self, chunk: &mut PdfChunk, refs: &Refs) {
+    pub fn write_functions(&self, chunk: &mut Chunk, refs: &Refs) {
         // Write the Oklab function & color space.
         if self.use_oklab.get() {
             chunk
-                .chunk
                 .post_script_function(refs.oklab, &OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
@@ -136,7 +135,6 @@ impl ColorSpaces {
         // Write the sRGB color space.
         if self.use_srgb.get() {
             chunk
-                .chunk
                 .icc_profile(refs.srgb, &SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
@@ -146,7 +144,6 @@ impl ColorSpaces {
         // Write the gray color space.
         if self.use_d65_gray.get() {
             chunk
-                .chunk
                 .icc_profile(refs.d65_gray, &GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])

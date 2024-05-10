@@ -35,7 +35,7 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
 #[typst_macros::time(name = "write images")]
 #[must_use]
 pub(crate) fn write_images(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new(5);
+    let mut chunk = PdfChunk::new();
     let mut images = Vec::new();
 
     for (i, _) in ctx.images.items().enumerate() {

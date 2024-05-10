@@ -5,11 +5,12 @@ use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, ConstructContext, PdfChunk};
+use crate::{AbsExt, ConstructContext};
 
 /// Construct the outline for the document.
 pub(crate) fn write_outline(
-    chunk: &mut PdfChunk<Pdf>,
+    chunk: &mut Pdf,
+    alloc: &mut Ref,
     ctx: &ConstructContext,
 ) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
@@ -88,22 +89,28 @@ pub(crate) fn write_outline(
         return None;
     }
 
-    let root_id = chunk.alloc();
-    let start_ref = chunk.alloc;
+    let root_id = alloc.bump();
+    let start_ref = *alloc;
     let len = tree.len();
 
     let mut prev_ref = None;
     for (i, node) in tree.iter().enumerate() {
-        prev_ref =
-            Some(write_outline_item(ctx, chunk, node, root_id, prev_ref, i + 1 == len));
+        prev_ref = Some(write_outline_item(
+            ctx,
+            chunk,
+            alloc,
+            node,
+            root_id,
+            prev_ref,
+            i + 1 == len,
+        ));
     }
 
     chunk
-        .chunk
         .outline(root_id)
         .first(start_ref)
         .last(Ref::new(
-            chunk.alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
+            alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
         ))
         .count(tree.len() as i32);
 
@@ -140,13 +147,14 @@ impl<'a> HeadingNode<'a> {
 /// Write an outline item and all its children.
 fn write_outline_item(
     ctx: &ConstructContext,
-    chunk: &mut PdfChunk<Pdf>,
+    chunk: &mut Pdf,
+    alloc: &mut Ref,
     node: &HeadingNode,
     parent_ref: Ref,
     prev_ref: Option<Ref>,
     is_last: bool,
 ) -> Ref {
-    let id = chunk.alloc();
+    let id = alloc.bump();
     let next_ref = Ref::new(id.get() + node.len() as i32);
 
     let mut outline = chunk.outline_item(id);
@@ -188,6 +196,7 @@ fn write_outline_item(
         prev_ref = Some(write_outline_item(
             ctx,
             chunk,
+            alloc,
             child,
             id,
             prev_ref,

@@ -34,7 +34,7 @@ pub struct PdfGradient {
 /// This is performed once after writing all pages.
 #[must_use]
 pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new(4);
+    let mut chunk = PdfChunk::new();
     let mut gradients = Vec::new();
 
     for PdfGradient { transform, aspect_ratio, gradient, angle } in

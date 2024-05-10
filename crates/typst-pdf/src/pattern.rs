@@ -16,7 +16,7 @@ pub(crate) fn write_patterns(
     ctx: &ConstructContext,
     pattern_map: &Remapper<PdfPattern<Ref>>,
 ) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new(9);
+    let mut chunk = PdfChunk::new();
     let mut patterns = Vec::new();
 
     for PdfPattern { transform, pattern, content, resources } in pattern_map.items() {

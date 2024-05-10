@@ -28,7 +28,7 @@ impl ExtGState {
 pub(crate) fn write_external_graphics_states<'a>(
     ctx: &ConstructContext,
 ) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new(1);
+    let mut chunk = PdfChunk::new();
     let mut refs = Vec::new();
 
     for external_gs in ctx.ext_gs.items() {

@@ -27,7 +27,7 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 #[typst_macros::time(name = "write fonts")]
 #[must_use]
 pub(crate) fn write_fonts(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new(2);
+    let mut chunk = PdfChunk::new();
     let mut fonts = Vec::new();
 
     for font in ctx.fonts.items() {
@@ -140,7 +140,7 @@ pub(crate) fn write_fonts(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
 /// Writes color fonts as Type3 fonts
 #[must_use]
 pub(crate) fn write_color_fonts(ctx: &mut ConstructContext) -> PdfChunk {
-    let mut chunk = PdfChunk::new(3);
+    let mut chunk = PdfChunk::new();
 
     let color_font_map = ctx.color_fonts.take_map();
     for (font, color_font) in color_font_map {
