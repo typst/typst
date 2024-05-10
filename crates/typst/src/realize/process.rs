@@ -31,15 +31,6 @@ enum ShowStep<'a> {
     Builtin,
 }
 
-/// Returns whether the `target` element needs processing.
-pub fn processable<'a>(
-    engine: &mut Engine,
-    target: &'a Content,
-    styles: StyleChain<'a>,
-) -> bool {
-    verdict(engine, target, styles).is_some()
-}
-
 /// Processes the given `target` element when encountering it during realization.
 pub fn process(
     engine: &mut Engine,
