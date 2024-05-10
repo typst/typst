@@ -1,0 +1,35 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Typst
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Laurenz
+    family-names: Mädje
+  - given-names: Martin
+    family-names: Haug
+  - name: The Typst Project Developers
+    email: hello@typst.app
+identifiers:
+  - type: url
+    value: >-
+      https://laurmaedje.github.io/programmable-markup-language-for-typesetting.pdf
+    description: A Programmable Markup Language for Typesetting
+repository-code: 'https://github.com/typst/typst'
+url: 'https://typst.app/'
+abstract: >-
+  Typst was initiated in 2019 at the Technical University of
+  Berlin by Martin Haug and Laurenz Mädje. Developed in
+  Rust, this programmable markup language for typesetting
+  became the subject of their master's theses, which they
+  wrote in 2022. After several years of closed-source
+  development, Typst was open-sourced and released to the
+  public in 2023.
+keywords:
+  - typesetting
+  - markup language
+license: Apache-2.0
