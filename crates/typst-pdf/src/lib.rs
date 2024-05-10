@@ -134,7 +134,7 @@ pub fn pdf(
     pdf.finish()
 }
 
-fn renumber_refs(dest: &mut Pdf, alloc: &mut Ref, src: &Chunk, refs: &mut Vec<Ref>) {
+fn renumber_refs(dest: &mut Pdf, alloc: &mut Ref, src: &Chunk, refs: &mut [Ref]) {
     let mut mapping = HashMap::new();
     src.renumber_into(dest, |r: Ref| {
         if r.get() < 100 {

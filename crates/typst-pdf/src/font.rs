@@ -172,7 +172,7 @@ pub(crate) fn write_color_fonts(ctx: &mut ConstructContext) -> PdfChunk {
                 // Create a fake page context for `write_frame`. We are only
                 // interested in the contents of the page.
                 let c = content::build(ctx, &color_glyph.frame);
-                chunk.stream(instructions_stream_ref, &c.content.wait());
+                chunk.stream(instructions_stream_ref, c.content.wait());
 
                 // Use this stream as instructions to draw the glyph.
                 glyphs_to_instructions.push(instructions_stream_ref);

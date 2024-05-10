@@ -25,7 +25,7 @@ impl ExtGState {
 
 /// Embed all used external graphics states into the PDF.
 #[must_use]
-pub(crate) fn write_external_graphics_states<'a>(
+pub(crate) fn write_external_graphics_states(
     ctx: &ConstructContext,
 ) -> (Vec<Ref>, PdfChunk) {
     let mut chunk = PdfChunk::new();

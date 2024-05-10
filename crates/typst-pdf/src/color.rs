@@ -58,7 +58,7 @@ impl ColorSpaces {
     }
 
     /// Mark linear RGB as used.
-    pub fn linear_rgb(&mut self) {
+    pub fn linear_rgb(&self) {
         self.use_linear_rgb.set(true);
     }
 
