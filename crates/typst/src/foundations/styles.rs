@@ -357,6 +357,9 @@ pub struct Recipe {
     /// The span errors are reported with.
     pub span: Span,
     /// Determines whether the recipe applies to an element.
+    ///
+    /// If this is `None`, then this recipe is eagerly applied to the
+    /// rest of the content in the scope.
     pub selector: Option<Selector>,
     /// The transformation to perform on the match.
     pub transform: Transformation,
