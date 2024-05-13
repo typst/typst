@@ -5,7 +5,6 @@ use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
@@ -13,6 +12,7 @@ use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
+use typst::utils::LazyHash;
 use typst::{Library, World};
 use typst_timing::{timed, TimingScope};
 
@@ -34,9 +34,9 @@ pub struct SystemWorld {
     /// The input path.
     main: FileId,
     /// Typst's standard library.
-    library: Prehashed<Library>,
+    library: LazyHash<Library>,
     /// Metadata about discovered fonts.
-    book: Prehashed<FontBook>,
+    book: LazyHash<FontBook>,
     /// Locations of and storage for lazily loaded fonts.
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
@@ -114,8 +114,8 @@ impl SystemWorld {
             workdir: std::env::current_dir().ok(),
             root,
             main,
-            library: Prehashed::new(library),
-            book: Prehashed::new(searcher.book),
+            library: LazyHash::new(library),
+            book: LazyHash::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
             now,
@@ -170,11 +170,11 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn library(&self) -> &Prehashed<Library> {
+    fn library(&self) -> &LazyHash<Library> {
         &self.library
     }
 
-    fn book(&self) -> &Prehashed<FontBook> {
+    fn book(&self) -> &LazyHash<FontBook> {
         &self.book
     }
 

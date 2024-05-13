@@ -9,7 +9,6 @@ pub use self::contribs::*;
 pub use self::html::*;
 pub use self::model::*;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -28,6 +27,7 @@ use typst::model::Document;
 use typst::model::MODEL;
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
+use typst::utils::LazyHash;
 use typst::visualize::VISUALIZE;
 use typst::Library;
 
@@ -54,7 +54,7 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
     groups
 });
 
-static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
+static LIBRARY: Lazy<LazyHash<Library>> = Lazy::new(|| {
     let mut lib = Library::default();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
@@ -62,16 +62,16 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(15.0).into(),
     )))));
-    Prehashed::new(lib)
+    LazyHash::new(lib)
 });
 
-static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
+static FONTS: Lazy<(LazyHash<FontBook>, Vec<Font>)> = Lazy::new(|| {
     let fonts: Vec<_> = typst_assets::fonts()
         .chain(typst_dev_assets::fonts())
         .flat_map(|data| Font::iter(Bytes::from_static(data)))
         .collect();
     let book = FontBook::from_fonts(&fonts);
-    (Prehashed::new(book), fonts)
+    (LazyHash::new(book), fonts)
 });
 
 /// Build documentation pages.

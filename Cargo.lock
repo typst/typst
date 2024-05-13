@@ -2759,10 +2759,10 @@ dependencies = [
 name = "typst-syntax"
 version = "0.11.0"
 dependencies = [
- "comemo",
  "ecow",
  "once_cell",
  "serde",
+ "typst-utils",
  "unicode-ident",
  "unicode-math-class",
  "unicode-script",
