@@ -286,41 +286,6 @@ impl<'a> ConstructContext<'a> {
             color_fonts: ColorFontMap::new(),
         }
     }
-    /*fn remap_patterns(&self, ctx: &WriteContext) -> Remapper<PdfPattern<Ref>> {
-        let map_pattern = |pattern: &PdfPattern<usize>| PdfPattern {
-            transform: pattern.transform,
-            pattern: pattern.pattern.clone(),
-            content: pattern.content.clone(),
-            resources: pattern
-                .resources
-                .iter()
-                .map(|(r, id)| {
-                    let ref_ = if r.is_x_object() {
-                        ctx.images[*id]
-                    } else if r.is_ext_g_state() {
-                        ctx.ext_gs[*id]
-                    } else if r.is_font() {
-                        ctx.fonts[*id]
-                    } else if r.is_gradient() {
-                        ctx.gradients[*id]
-                    } else {
-                        ctx.patterns[*id]
-                    };
-
-                    (r.clone(), ref_)
-                })
-                .collect(),
-        };
-        Remapper {
-            to_pdf: self
-                .patterns
-                .to_pdf
-                .iter()
-                .map(|(p, i)| (map_pattern(p), *i))
-                .collect(),
-            to_items: self.patterns.to_items.iter().map(map_pattern).collect(),
-        }
-    }*/
 }
 
 struct ConstructContext<'a> {
