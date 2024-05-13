@@ -1,5 +1,9 @@
+use std::num::NonZeroUsize;
+
 use ecow::eco_format;
-use pdf_writer::{types::Direction, Finish, Name, Pdf, Ref, Str, TextStr};
+use pdf_writer::{
+    types::Direction, writers::PageLabel, Finish, Name, Pdf, Ref, Str, TextStr,
+};
 use typst::{
     foundations::{Datetime, Smart},
     layout::Dir,
@@ -7,7 +11,9 @@ use typst::{
 };
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
-use crate::{hash_base64, outline, page, ConstructContext, PdfWriter, WriteContext};
+use crate::{
+    hash_base64, outline, page::PdfPageLabel, ConstructContext, PdfWriter, WriteContext,
+};
 
 pub struct Catalog<'a> {
     pub ident: Smart<&'a str>,
@@ -36,7 +42,7 @@ impl<'a> PdfWriter for Catalog<'a> {
         let outline_root_id = outline::write_outline(pdf, alloc, ctx);
 
         // Write the page labels.
-        let page_labels = page::write_page_labels(pdf, alloc, ctx);
+        let page_labels = write_page_labels(pdf, alloc, ctx);
 
         // Write the document information.
         let info_ref = alloc.bump();
@@ -167,6 +173,65 @@ impl<'a> PdfWriter for Catalog<'a> {
 
         catalog.finish();
     }
+}
+
+/// Write the page labels.
+pub(crate) fn write_page_labels(
+    chunk: &mut Pdf,
+    alloc: &mut Ref,
+    ctx: &ConstructContext,
+) -> Vec<(NonZeroUsize, Ref)> {
+    // If there is no page labeled, we skip the writing
+    if !ctx.pages.iter().any(|p| {
+        p.label
+            .as_ref()
+            .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
+    }) {
+        return Vec::new();
+    }
+
+    let mut result = vec![];
+    let empty_label = PdfPageLabel::default();
+    let mut prev: Option<&PdfPageLabel> = None;
+
+    for (i, page) in ctx.pages.iter().enumerate() {
+        let nr = NonZeroUsize::new(1 + i).unwrap();
+        // If there are pages with empty labels between labeled pages, we must
+        // write empty PageLabel entries.
+        let label = page.label.as_ref().unwrap_or(&empty_label);
+
+        if let Some(pre) = prev {
+            if label.prefix == pre.prefix
+                && label.style == pre.style
+                && label.offset == pre.offset.map(|n| n.saturating_add(1))
+            {
+                prev = Some(label);
+                continue;
+            }
+        }
+
+        let id = alloc.bump();
+        let mut entry = chunk.indirect(id).start::<PageLabel>();
+
+        // Only add what is actually provided. Don't add empty prefix string if
+        // it wasn't given for example.
+        if let Some(prefix) = &label.prefix {
+            entry.prefix(TextStr(prefix));
+        }
+
+        if let Some(style) = label.style {
+            entry.style(style.to_pdf_numbering_style());
+        }
+
+        if let Some(offset) = label.offset {
+            entry.offset(offset.get() as i32);
+        }
+
+        result.push((nr, id));
+        prev = Some(label);
+    }
+
+    result
 }
 
 /// Converts a datetime to a pdf-writer date.

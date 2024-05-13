@@ -12,6 +12,7 @@ mod named_destination;
 mod outline;
 mod page;
 mod pattern;
+mod resources;
 
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
@@ -37,9 +38,9 @@ use crate::font::{improve_glyph_sets, Fonts};
 use crate::gradient::{Gradients, PdfGradient};
 use crate::image::{EncodedImage, Images};
 use crate::named_destination::NamedDestinations;
-use crate::page::{EncodedPage, GlobalResources, PageTree, Pages};
-use crate::pattern::PdfPattern;
-use crate::pattern::{Patterns, WrittenPattern};
+use crate::page::{EncodedPage, PageTree, Pages};
+use crate::pattern::{Patterns, PdfPattern, WrittenPattern};
+use crate::resources::GlobalResources;
 
 /// Export a document into a PDF file.
 ///
