@@ -8,40 +8,38 @@ mod extg;
 mod font;
 mod gradient;
 mod image;
+mod named_destination;
 mod outline;
 mod page;
 mod pattern;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
-use catalog::Catalog;
-use color_font::{ColorFontMap, ColorFonts};
 use ecow::EcoString;
-use extg::ExtGraphicsState;
-use font::{improve_glyph_sets, Fonts};
-use gradient::Gradients;
-use image::Images;
-use page::{GlobalResources, PageTree, Pages};
-use pattern::{Patterns, WrittenPattern};
-use pdf_writer::writers::Destination;
 use pdf_writer::{Chunk, Pdf, Ref};
-use typst::foundations::{Datetime, Label, NativeElement, Smart};
+
+use typst::foundations::{Datetime, Label, Smart};
 use typst::introspection::Location;
 use typst::layout::{Abs, Em, Transform};
-use typst::model::{Document, HeadingElem};
+use typst::model::Document;
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
 
+use crate::catalog::Catalog;
 use crate::color::ColorSpaces;
-use crate::extg::ExtGState;
-use crate::gradient::PdfGradient;
-use crate::image::EncodedImage;
-use crate::page::EncodedPage;
+use crate::color_font::{ColorFontMap, ColorFonts};
+use crate::extg::{ExtGState, ExtGraphicsState};
+use crate::font::{improve_glyph_sets, Fonts};
+use crate::gradient::{Gradients, PdfGradient};
+use crate::image::{EncodedImage, Images};
+use crate::named_destination::NamedDestinations;
+use crate::page::{EncodedPage, GlobalResources, PageTree, Pages};
 use crate::pattern::PdfPattern;
+use crate::pattern::{Patterns, WrittenPattern};
 
 /// Export a document into a PDF file.
 ///
@@ -325,72 +323,6 @@ struct ConstructContext<'a> {
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
     color_fonts: ColorFontMap,
-}
-
-struct NamedDestinations;
-struct NamedDestinationsOutput {
-    dests: Vec<(Label, Ref)>,
-    loc_to_dest: HashMap<Location, Label>,
-}
-
-impl Renumber for NamedDestinationsOutput {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        if let Some(index) = self.dests.iter().position(|x| x.1 == old) {
-            self.dests[index].1 = new;
-        }
-    }
-}
-
-impl PdfResource for NamedDestinations {
-    type Output = NamedDestinationsOutput;
-
-    /// Fills in the map and vector for named destinations and writes the indirect
-    /// destination objects.
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
-        let mut seen = HashSet::new();
-        let mut loc_to_dest = HashMap::new();
-        let mut dests = Vec::new();
-
-        // Find all headings that have a label and are the first among other
-        // headings with the same label.
-        let mut matches: Vec<_> = context
-            .document
-            .introspector
-            .query(&HeadingElem::elem().select())
-            .iter()
-            .filter_map(|elem| elem.location().zip(elem.label()))
-            .filter(|&(_, label)| seen.insert(label))
-            .collect();
-
-        // Named destinations must be sorted by key.
-        matches.sort_by_key(|&(_, label)| label);
-
-        for (loc, label) in matches {
-            let pos = context.document.introspector.position(loc);
-            let index = pos.page.get() - 1;
-            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-
-            if let Some(page) = context.pages.get(index) {
-                let dest_ref = chunk.alloc();
-                let x = pos.point.x.to_f32();
-                let y = (page.content.size.y - y).to_f32();
-                dests.push((label, dest_ref));
-                loc_to_dest.insert(loc, label);
-                chunk
-                    .indirect(dest_ref)
-                    .start::<Destination>()
-                    .page(context.globals.pages[index])
-                    .xyz(x, y, None);
-            }
-        }
-
-        NamedDestinationsOutput { dests, loc_to_dest }
-    }
-
-    fn save(context: &mut WriteContext, output: Self::Output) {
-        context.dests = output.dests;
-        context.loc_to_dest = output.loc_to_dest;
-    }
 }
 
 /// Compress data with the DEFLATE algorithm.
