@@ -6,7 +6,7 @@ use crate::foundations::Resolve;
 use crate::layout::{
     Abs, Axes, Cell, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
 };
-use crate::util::MaybeReverseIter;
+use crate::utils::MaybeReverseIter;
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {

@@ -12,7 +12,7 @@ use crate::foundations::{
     Selector, Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
-use crate::util::{LazyHash, Static};
+use crate::utils::{LazyHash, Static};
 
 #[doc(inline)]
 pub use typst_macros::func;

@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::RwLock;
 
-use ecow::EcoString;
 use once_cell::sync::Lazy;
-
-use crate::foundations::cast;
 
 /// The global string interner.
 static INTERNER: Lazy<RwLock<Interner>> =
@@ -52,12 +49,6 @@ impl PicoStr {
     }
 }
 
-cast! {
-    PicoStr,
-    self => self.resolve().into_value(),
-    v: EcoString => Self::new(&v),
-}
-
 impl Debug for PicoStr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.resolve().fmt(f)
@@ -84,12 +75,6 @@ impl AsRef<str> for PicoStr {
 
 impl From<&str> for PicoStr {
     fn from(value: &str) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<&EcoString> for PicoStr {
-    fn from(value: &EcoString) -> Self {
         Self::new(value)
     }
 }

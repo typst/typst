@@ -14,7 +14,7 @@ use typst::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst::model::Document;
-use typst::util::hash128;
+use typst::utils::hash128;
 use typst::visualize::{Gradient, Pattern};
 use xmlwriter::XmlWriter;
 

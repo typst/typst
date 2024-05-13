@@ -9,7 +9,7 @@ use crate::diag::{At, Hint, HintedStrResult, SourceResult};
 use crate::foundations::{func, scope, ty, Context, Fold, Repr, Resolve, StyleChain};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// A size or distance, possibly expressed with contextual units.
 ///
@@ -227,7 +227,7 @@ impl Add for Length {
     }
 }
 
-sub_impl!(Length - Length -> Length);
+typst_utils::sub_impl!(Length - Length -> Length);
 
 impl Mul<f64> for Length {
     type Output = Self;
@@ -253,10 +253,10 @@ impl Div<f64> for Length {
     }
 }
 
-assign_impl!(Length += Length);
-assign_impl!(Length -= Length);
-assign_impl!(Length *= f64);
-assign_impl!(Length /= f64);
+typst_utils::assign_impl!(Length += Length);
+typst_utils::assign_impl!(Length -= Length);
+typst_utils::assign_impl!(Length *= f64);
+typst_utils::assign_impl!(Length /= f64);
 
 impl Resolve for Length {
     type Output = Abs;

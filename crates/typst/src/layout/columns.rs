@@ -9,7 +9,7 @@ use crate::layout::{
 };
 use crate::realize::{Behave, Behaviour};
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// Separates a region into multiple equally sized columns.
 ///

@@ -18,7 +18,7 @@ use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::World;
 
 /// Counts through pages, elements, and more.

@@ -4,7 +4,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::EcoString;
 
 use crate::foundations::{repr, ty, Repr};
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 
 /// A ratio of a whole.
 ///
@@ -96,7 +96,7 @@ impl Add for Ratio {
     }
 }
 
-sub_impl!(Ratio - Ratio -> Ratio);
+typst_utils::sub_impl!(Ratio - Ratio -> Ratio);
 
 impl Mul for Ratio {
     type Output = Self;
@@ -146,8 +146,8 @@ impl Div<Ratio> for f64 {
     }
 }
 
-assign_impl!(Ratio += Ratio);
-assign_impl!(Ratio -= Ratio);
-assign_impl!(Ratio *= Ratio);
-assign_impl!(Ratio *= f64);
-assign_impl!(Ratio /= f64);
+typst_utils::assign_impl!(Ratio += Ratio);
+typst_utils::assign_impl!(Ratio -= Ratio);
+typst_utils::assign_impl!(Ratio *= Ratio);
+typst_utils::assign_impl!(Ratio *= f64);
+typst_utils::assign_impl!(Ratio /= f64);

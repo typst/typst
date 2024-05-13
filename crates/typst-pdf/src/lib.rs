@@ -25,7 +25,7 @@ use typst::layout::{Abs, Dir, Em, Frame, PageRanges, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::color::frame_for_glyph;
 use typst::text::{Font, Lang};
-use typst::util::Deferred;
+use typst::utils::Deferred;
 use typst::visualize::Image;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
@@ -394,7 +394,7 @@ fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
-        .encode(typst::util::hash128(value).to_be_bytes())
+        .encode(typst::utils::hash128(value).to_be_bytes())
 }
 
 /// Converts a datetime to a pdf-writer date.

@@ -1,4 +1,5 @@
 /// Implement the `Sub` trait based on existing `Neg` and `Add` impls.
+#[macro_export]
 macro_rules! sub_impl {
     ($a:ident - $b:ident -> $c:ident) => {
         impl std::ops::Sub<$b> for $a {
@@ -12,6 +13,7 @@ macro_rules! sub_impl {
 }
 
 /// Implement an assign trait based on an existing non-assign trait.
+#[macro_export]
 macro_rules! assign_impl {
     ($a:ident += $b:ident) => {
         impl std::ops::AddAssign<$b> for $a {

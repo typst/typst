@@ -25,6 +25,7 @@ typst-render = { path = "crates/typst-render", version = "0.11.0" }
 typst-svg = { path = "crates/typst-svg", version = "0.11.0" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.11.0" }
 typst-timing = { path = "crates/typst-timing", version = "0.11.0" }
+typst-utils = { path = "crates/typst-utils", version = "0.11.0" }
 typst-assets = "0.11.0"
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "ee8ae61cca138dc92f9d818fc7f2fc046d0148c5" }
 az = "1.2"

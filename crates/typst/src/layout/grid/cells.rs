@@ -19,7 +19,7 @@ use crate::layout::{
     Sides, Sizing,
 };
 use crate::syntax::Span;
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// A value that can be configured per cell.

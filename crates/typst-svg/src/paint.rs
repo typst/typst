@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 use ttf_parser::OutlineBuilder;
 use typst::foundations::Repr;
 use typst::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
-use typst::util::hash128;
+use typst::utils::hash128;
 use typst::visualize::{Color, Gradient, Paint, Pattern, RatioOrAngle};
 use xmlwriter::XmlWriter;
 

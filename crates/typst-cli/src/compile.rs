@@ -380,7 +380,7 @@ impl ExportCache {
     /// Returns true if the entry is cached and appends the new hash to the
     /// cache (for the next compilation).
     pub fn is_cached(&self, i: usize, frame: &Frame) -> bool {
-        let hash = typst::util::hash128(frame);
+        let hash = typst::utils::hash128(frame);
 
         let mut cache = self.cache.upgradable_read();
         if i >= cache.len() {

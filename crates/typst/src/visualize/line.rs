@@ -4,7 +4,7 @@ use crate::foundations::{elem, Packed, StyleChain};
 use crate::layout::{
     Abs, Angle, Axes, Frame, FrameItem, LayoutSingle, Length, Regions, Rel, Size,
 };
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::{Geometry, Stroke};
 
 /// A line from one point to another.

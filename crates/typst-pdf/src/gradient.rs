@@ -6,7 +6,7 @@ use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
 use pdf_writer::writers::StreamShadingType;
 use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
-use typst::util::Numeric;
+use typst::utils::Numeric;
 use typst::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };

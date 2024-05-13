@@ -28,7 +28,7 @@ use crate::layout::{
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::syntax::Span;
 use crate::text::TextElem;
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.

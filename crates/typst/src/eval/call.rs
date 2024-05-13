@@ -14,7 +14,7 @@ use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Span, Spanned, SyntaxNode};
 use crate::text::TextElem;
-use crate::util::LazyHash;
+use crate::utils::LazyHash;
 use crate::World;
 
 impl Eval for ast::FuncCall<'_> {

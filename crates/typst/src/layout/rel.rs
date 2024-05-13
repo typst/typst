@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::foundations::{cast, ty, Fold, Repr, Resolve, StyleChain};
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// A length in relation to some known length.
 ///

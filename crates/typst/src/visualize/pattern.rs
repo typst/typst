@@ -9,7 +9,7 @@ use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
 use crate::layout::{Abs, Axes, Frame, LayoutMultiple, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::RelativeTo;
 use crate::World;
 

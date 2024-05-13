@@ -15,7 +15,7 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
-use crate::util::{MaybeReverseIter, Numeric};
+use crate::utils::{MaybeReverseIter, Numeric};
 use crate::visualize::Geometry;
 
 /// Performs grid layout.

@@ -25,7 +25,7 @@ use crate::syntax::Span;
 use crate::text::{
     Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
 };
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::World;
 
 /// Layouts content inline.

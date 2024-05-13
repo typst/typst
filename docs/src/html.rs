@@ -429,7 +429,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         document.pages.truncate(1);
     }
 
-    let hash = typst::util::hash128(text);
+    let hash = typst::utils::hash128(text);
     resolver.example(hash, highlighted, &document)
 }
 

@@ -1229,7 +1229,7 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for a castable.
     fn cast_completions(&mut self, cast: &'a CastInfo) {
         // Prevent duplicate completions from appearing.
-        if !self.seen_casts.insert(typst::util::hash128(cast)) {
+        if !self.seen_casts.insert(typst::utils::hash128(cast)) {
             return;
         }
 

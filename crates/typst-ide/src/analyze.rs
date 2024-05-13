@@ -110,7 +110,7 @@ pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, 
 
     // Bibliography keys.
     for (key, detail) in BibliographyElem::keys(document.introspector.track()) {
-        output.push((Label::new(&key), detail));
+        output.push((Label::new(key.as_str()), detail));
     }
 
     (output, split)

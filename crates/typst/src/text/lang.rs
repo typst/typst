@@ -277,7 +277,7 @@ fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::option_eq;
+    use crate::utils::option_eq;
 
     #[test]
     fn test_region_option_eq() {
