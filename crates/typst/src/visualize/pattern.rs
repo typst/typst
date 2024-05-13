@@ -1,7 +1,6 @@
 use std::hash::Hash;
 use std::sync::Arc;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, SourceResult};
@@ -9,7 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
 use crate::layout::{Abs, Axes, Frame, LayoutMultiple, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
-use crate::utils::Numeric;
+use crate::utils::{LazyHash, Numeric};
 use crate::visualize::RelativeTo;
 use crate::World;
 
@@ -102,7 +101,7 @@ pub struct Pattern(Arc<Repr>);
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Repr {
     /// The pattern's rendered content.
-    frame: Prehashed<Frame>,
+    frame: LazyHash<Frame>,
     /// The pattern's tile size.
     size: Size,
     /// The pattern's tile spacing.
@@ -209,7 +208,7 @@ impl Pattern {
 
         Ok(Self(Arc::new(Repr {
             size: frame.size(),
-            frame: Prehashed::new(frame),
+            frame: LazyHash::new(frame),
             spacing: spacing.v.map(|l| l.abs),
             relative,
         })))

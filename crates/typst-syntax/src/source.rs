@@ -6,7 +6,7 @@ use std::iter::zip;
 use std::ops::Range;
 use std::sync::Arc;
 
-use comemo::Prehashed;
+use typst_utils::LazyHash;
 
 use crate::reparser::reparse;
 use crate::{is_newline, parse, FileId, LinkedNode, Span, SyntaxNode, VirtualPath};
@@ -24,8 +24,8 @@ pub struct Source(Arc<Repr>);
 #[derive(Clone)]
 struct Repr {
     id: FileId,
-    text: Prehashed<String>,
-    root: Prehashed<SyntaxNode>,
+    text: LazyHash<String>,
+    root: LazyHash<SyntaxNode>,
     lines: Vec<Line>,
 }
 
@@ -37,8 +37,8 @@ impl Source {
         Self(Arc::new(Repr {
             id,
             lines: lines(&text),
-            text: Prehashed::new(text),
-            root: Prehashed::new(root),
+            text: LazyHash::new(text),
+            root: LazyHash::new(root),
         }))
     }
 
@@ -117,7 +117,7 @@ impl Source {
         let inner = Arc::make_mut(&mut self.0);
 
         // Update the text itself.
-        inner.text.update(|text| text.replace_range(replace.clone(), with));
+        inner.text.replace_range(replace.clone(), with);
 
         // Remove invalidated line starts.
         inner.lines.truncate(line + 1);
@@ -135,9 +135,7 @@ impl Source {
         ));
 
         // Incrementally reparse the replaced range.
-        inner
-            .root
-            .update(|root| reparse(root, &inner.text, replace, with.len()))
+        reparse(&mut inner.root, &inner.text, replace, with.len())
     }
 
     /// Get the length of the file in UTF-8 encoded bytes.
