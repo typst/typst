@@ -1,6 +1,9 @@
 use ecow::eco_format;
-use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
-use pdf_writer::{Filter, Name, Rect, Ref};
+use pdf_writer::{
+    types::{ColorSpaceOperand, PaintType, TilingType},
+    Filter, Name, Rect, Ref,
+};
+
 use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};

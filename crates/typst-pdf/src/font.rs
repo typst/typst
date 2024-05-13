@@ -3,13 +3,16 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
-use pdf_writer::writers::FontDescriptor;
-use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str};
+use pdf_writer::{
+    types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap},
+    writers::FontDescriptor,
+    Chunk, Filter, Finish, Name, Rect, Ref, Str,
+};
 use ttf_parser::{name_id, GlyphId, Tag};
+use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
+
 use typst::text::Font;
 use typst::util::SliceExt;
-use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use crate::{deflate, ConstructContext, EmExt, PdfChunk, PdfResource};
 

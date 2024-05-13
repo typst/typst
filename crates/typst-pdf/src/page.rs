@@ -1,17 +1,21 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
-use crate::{
-    content, AbsExt, ConstructContext, PdfChunk, PdfConstructor, PdfWriter, WriteContext,
-};
 use ecow::EcoString;
-use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
-use pdf_writer::{Filter, Finish, Name, Pdf, Rect, Ref, Str};
+use pdf_writer::{
+    types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle},
+    Filter, Finish, Name, Pdf, Rect, Ref, Str,
+};
+
 use typst::foundations::Label;
 use typst::introspection::Location;
 use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
+
+use crate::{
+    content, AbsExt, ConstructContext, PdfChunk, PdfConstructor, PdfWriter, WriteContext,
+};
 
 pub struct Pages;
 

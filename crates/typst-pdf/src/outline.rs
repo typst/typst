@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use pdf_writer::{Finish, Pdf, Ref, TextStr};
+
 use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;

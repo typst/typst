@@ -1,12 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use pdf_writer::{writers::Destination, Ref};
-use typst::{
-    foundations::{Label, NativeElement},
-    introspection::Location,
-    layout::Abs,
-    model::HeadingElem,
-};
+use typst::foundations::{Label, NativeElement};
+use typst::introspection::Location;
+use typst::layout::Abs;
+use typst::model::HeadingElem;
 
 use crate::{AbsExt, ConstructContext, PdfChunk, PdfResource, Renumber, WriteContext};
 

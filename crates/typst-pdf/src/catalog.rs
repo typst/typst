@@ -4,12 +4,11 @@ use ecow::eco_format;
 use pdf_writer::{
     types::Direction, writers::PageLabel, Finish, Name, Pdf, Ref, Str, TextStr,
 };
-use typst::{
-    foundations::{Datetime, Smart},
-    layout::Dir,
-    text::Lang,
-};
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
+
+use typst::foundations::{Datetime, Smart};
+use typst::layout::Dir;
+use typst::text::Lang;
 
 use crate::{
     hash_base64, outline, page::PdfPageLabel, ConstructContext, PdfWriter, WriteContext,

@@ -11,15 +11,16 @@ use pdf_writer::{
     types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
     Content, Finish, Name, Rect, Ref, Str,
 };
-use typst::{
-    introspection::Meta,
-    layout::{Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform},
-    model::Destination,
-    text::{color::is_color_glyph, Font, TextItem, TextItemView},
-    util::{Deferred, Numeric, SliceExt},
-    visualize::{
-        FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
-    },
+
+use typst::introspection::Meta;
+use typst::layout::{
+    Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
+};
+use typst::model::Destination;
+use typst::text::{color::is_color_glyph, Font, TextItem, TextItemView};
+use typst::util::{Deferred, Numeric, SliceExt};
+use typst::visualize::{
+    FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
 
 use crate::{

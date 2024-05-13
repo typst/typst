@@ -4,10 +4,9 @@ use ecow::eco_format;
 use indexmap::IndexMap;
 use pdf_writer::{types::UnicodeCmap, Finish, Name, Rect, Ref};
 use ttf_parser::name_id;
-use typst::{
-    layout::{Em, Frame},
-    text::{color::frame_for_glyph, Font},
-};
+
+use typst::layout::{Em, Frame};
+use typst::text::{color::frame_for_glyph, Font};
 
 use crate::{
     content,

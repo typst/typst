@@ -2,9 +2,12 @@ use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
-use pdf_writer::writers::StreamShadingType;
-use pdf_writer::{Filter, Finish, Name, Ref};
+use pdf_writer::{
+    types::{ColorSpaceOperand, FunctionShadingType},
+    writers::StreamShadingType,
+    Filter, Finish, Name, Ref,
+};
+
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{

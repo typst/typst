@@ -1,11 +1,11 @@
 use std::cell::Cell;
 
 use once_cell::sync::Lazy;
-use pdf_writer::types::DeviceNSubtype;
-use pdf_writer::{writers, Chunk, Dict, Filter, Name};
+use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name};
+
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, Refs};
+use crate::{content, deflate, GlobalRefs};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -67,7 +67,7 @@ impl ColorSpaces {
         &self,
         color_space: ColorSpace,
         writer: writers::ColorSpace,
-        refs: &Refs,
+        refs: &GlobalRefs,
     ) {
         match color_space {
             ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
@@ -102,7 +102,7 @@ impl ColorSpaces {
     }
 
     // Write the color spaces to the PDF file.
-    pub fn write_color_spaces(&self, mut spaces: Dict, refs: &Refs) {
+    pub fn write_color_spaces(&self, mut spaces: Dict, refs: &GlobalRefs) {
         if self.use_oklab.get() {
             self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
         }
@@ -122,7 +122,7 @@ impl ColorSpaces {
 
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
-    pub fn write_functions(&self, chunk: &mut Chunk, refs: &Refs) {
+    pub fn write_functions(&self, chunk: &mut Chunk, refs: &GlobalRefs) {
         // Write the Oklab function & color space.
         if self.use_oklab.get() {
             chunk

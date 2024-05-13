@@ -142,6 +142,85 @@ impl<'a> PdfBuilder<'a> {
     }
 }
 
+#[derive(Default)]
+struct WriteContext {
+    loc_to_dest: HashMap<Location, Label>,
+    /// A sorted list of all named destinations.
+    dests: Vec<(Label, Ref)>,
+
+    /// The IDs of written fonts.
+    fonts: Vec<Ref>,
+    /// The IDs of written images.
+    images: Vec<Ref>,
+    /// The IDs of written gradients.
+    gradients: Vec<Ref>,
+    /// The IDs of written patterns.
+    patterns: Vec<WrittenPattern>,
+    /// The IDs of written external graphics states.
+    ext_gs: Vec<Ref>,
+}
+
+struct ConstructContext<'a> {
+    /// The document that we're currently exporting.
+    document: &'a Document,
+    /// Content of exported pages.
+    pages: Vec<EncodedPage>,
+    /// The number of glyphs for all referenced languages in the document.
+    /// We keep track of this to determine the main document language.
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
+
+    /// For each font a mapping from used glyphs to their text representation.
+    /// May contain multiple chars in case of ligatures or similar things. The
+    /// same glyph can have a different text representation within one document,
+    /// then we just save the first one. The resulting strings are used for the
+    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
+    /// cmap. This is important for copy-paste and searching.
+    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+
+    globals: GlobalRefs,
+
+    /// Handles color space writing.
+    colors: ColorSpaces,
+
+    /// Deduplicates fonts used across the document.
+    fonts: Remapper<Font>,
+    /// Deduplicates images used across the document.
+    images: Remapper<Image>,
+    /// Handles to deferred image conversions.
+    deferred_images: HashMap<usize, Deferred<EncodedImage>>,
+    /// Deduplicates gradients used across the document.
+    gradients: Remapper<PdfGradient>,
+    /// Deduplicates patterns used across the document.
+    patterns: Remapper<PdfPattern<usize>>,
+    remapped_patterns: Vec<PdfPattern<Ref>>,
+    /// Deduplicates external graphics states used across the document.
+    ext_gs: Remapper<ExtGState>,
+    /// Deduplicates color glyphs.
+    color_fonts: ColorFontMap,
+}
+
+impl<'a> ConstructContext<'a> {
+    fn new(document: &'a Document) -> Self {
+        Self {
+            document,
+            globals: GlobalRefs::new(document.pages.len()),
+            pages: vec![],
+            glyph_sets: HashMap::new(),
+            languages: BTreeMap::new(),
+            colors: ColorSpaces::default(),
+            fonts: Remapper::new(),
+            images: Remapper::new(),
+            deferred_images: HashMap::new(),
+            gradients: Remapper::new(),
+            patterns: Remapper::new(),
+            remapped_patterns: Vec::new(),
+            ext_gs: Remapper::new(),
+            color_fonts: ColorFontMap::new(),
+        }
+    }
+}
+
 trait PdfConstructor {
     fn write(&self, context: &mut ConstructContext, chunk: &mut PdfChunk);
 }
@@ -187,6 +266,32 @@ impl<R: Renumber> Renumber for Vec<R> {
     }
 }
 
+#[derive(Debug)]
+struct GlobalRefs {
+    oklab: Ref,
+    d65_gray: Ref,
+    srgb: Ref,
+    global_resources: Ref,
+    type3_font_resources: Ref,
+    page_tree: Ref,
+    pages: Vec<Ref>,
+}
+
+impl GlobalRefs {
+    fn new(page_count: usize) -> Self {
+        let mut alloc = Ref::new(1);
+        GlobalRefs {
+            global_resources: alloc.bump(),
+            type3_font_resources: alloc.bump(),
+            page_tree: alloc.bump(),
+            pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
+            oklab: alloc.bump(),
+            d65_gray: alloc.bump(),
+            srgb: alloc.bump(),
+        }
+    }
+}
+
 struct PdfChunk {
     chunk: Chunk,
     alloc: Ref,
@@ -219,111 +324,6 @@ impl DerefMut for PdfChunk {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.chunk
     }
-}
-
-#[derive(Debug)]
-struct Refs {
-    oklab: Ref,
-    d65_gray: Ref,
-    srgb: Ref,
-    global_resources: Ref,
-    type3_font_resources: Ref,
-    page_tree: Ref,
-    pages: Vec<Ref>,
-}
-
-impl Refs {
-    fn new(page_count: usize) -> Self {
-        let mut alloc = Ref::new(1);
-        Refs {
-            global_resources: alloc.bump(),
-            type3_font_resources: alloc.bump(),
-            page_tree: alloc.bump(),
-            pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
-            oklab: alloc.bump(),
-            d65_gray: alloc.bump(),
-            srgb: alloc.bump(),
-        }
-    }
-}
-
-#[derive(Default)]
-struct WriteContext {
-    loc_to_dest: HashMap<Location, Label>,
-    /// A sorted list of all named destinations.
-    dests: Vec<(Label, Ref)>,
-
-    /// The IDs of written fonts.
-    fonts: Vec<Ref>,
-    /// The IDs of written images.
-    images: Vec<Ref>,
-    /// The IDs of written gradients.
-    gradients: Vec<Ref>,
-    /// The IDs of written patterns.
-    patterns: Vec<WrittenPattern>,
-    /// The IDs of written external graphics states.
-    ext_gs: Vec<Ref>,
-}
-
-impl<'a> ConstructContext<'a> {
-    fn new(document: &'a Document) -> Self {
-        Self {
-            document,
-            globals: Refs::new(document.pages.len()),
-            pages: vec![],
-            glyph_sets: HashMap::new(),
-            languages: BTreeMap::new(),
-            colors: ColorSpaces::default(),
-            fonts: Remapper::new(),
-            images: Remapper::new(),
-            deferred_images: HashMap::new(),
-            gradients: Remapper::new(),
-            patterns: Remapper::new(),
-            remapped_patterns: Vec::new(),
-            ext_gs: Remapper::new(),
-            color_fonts: ColorFontMap::new(),
-        }
-    }
-}
-
-struct ConstructContext<'a> {
-    /// The document that we're currently exporting.
-    document: &'a Document,
-    /// Content of exported pages.
-    pages: Vec<EncodedPage>,
-    /// The number of glyphs for all referenced languages in the document.
-    /// We keep track of this to determine the main document language.
-    /// BTreeMap is used to write sorted list of languages to metadata.
-    languages: BTreeMap<Lang, usize>,
-
-    /// For each font a mapping from used glyphs to their text representation.
-    /// May contain multiple chars in case of ligatures or similar things. The
-    /// same glyph can have a different text representation within one document,
-    /// then we just save the first one. The resulting strings are used for the
-    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
-    /// cmap. This is important for copy-paste and searching.
-    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
-
-    globals: Refs,
-
-    /// Handles color space writing.
-    colors: ColorSpaces,
-
-    /// Deduplicates fonts used across the document.
-    fonts: Remapper<Font>,
-    /// Deduplicates images used across the document.
-    images: Remapper<Image>,
-    /// Handles to deferred image conversions.
-    deferred_images: HashMap<usize, Deferred<EncodedImage>>,
-    /// Deduplicates gradients used across the document.
-    gradients: Remapper<PdfGradient>,
-    /// Deduplicates patterns used across the document.
-    patterns: Remapper<PdfPattern<usize>>,
-    remapped_patterns: Vec<PdfPattern<Ref>>,
-    /// Deduplicates external graphics states used across the document.
-    ext_gs: Remapper<ExtGState>,
-    /// Deduplicates color glyphs.
-    color_fonts: ColorFontMap,
 }
 
 /// Compress data with the DEFLATE algorithm.
