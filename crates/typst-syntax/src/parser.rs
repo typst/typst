@@ -5,8 +5,8 @@ use std::ops::{Index, IndexMut, Range};
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
+use crate::{ast, is_ident, is_newline, Lexer, LexMode, set, SyntaxKind, SyntaxNode};
 use crate::set::SyntaxSet;
-use crate::{ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parses a source file.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -710,8 +710,9 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
 
         let binop = if p.at_set(set::BINARY_OP) {
             ast::BinOp::from_kind(p.current())
-        } else if min_prec <= ast::BinOp::NotIn.precedence() && p.eat_if(SyntaxKind::Not)
-        {
+        } else if p.at_set(set::ELEMENTWISE_OP) {
+            ast::BinOp::from_kind(p.current())
+        } else if min_prec <= ast::BinOp::NotIn.precedence() && p.eat_if(SyntaxKind::Not) {
             if p.at(SyntaxKind::In) {
                 Some(ast::BinOp::NotIn)
             } else {

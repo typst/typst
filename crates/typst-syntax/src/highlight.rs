@@ -225,6 +225,11 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Arrow => Some(Tag::Operator),
         SyntaxKind::Root => Some(Tag::MathOperator),
 
+        SyntaxKind::DotAdd |
+        SyntaxKind::DotSub |
+        SyntaxKind::DotMul |
+        SyntaxKind::DotDiv => Some(Tag::Operator),
+
         SyntaxKind::Not => Some(Tag::Keyword),
         SyntaxKind::And => Some(Tag::Keyword),
         SyntaxKind::Or => Some(Tag::Keyword),
@@ -409,8 +414,9 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::ops::Range;
+
+    use super::*;
 
     #[test]
     fn test_highlighting() {

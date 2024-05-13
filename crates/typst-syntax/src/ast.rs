@@ -1431,6 +1431,14 @@ pub enum BinOp {
     MulAssign,
     /// The divide-assign operator: `/=`.
     DivAssign,
+    /// The element-wise addition operator: `.`.
+    DotAdd,
+    /// The element-wise subtraction operator: `.-`.
+    DotSub,
+    /// The element-wise multiplication operator: `.*`.
+    DotMul,
+    /// The element-wise division operator: `./`.
+    DotDiv,
 }
 
 impl BinOp {
@@ -1455,6 +1463,10 @@ impl BinOp {
             SyntaxKind::HyphEq => Self::SubAssign,
             SyntaxKind::StarEq => Self::MulAssign,
             SyntaxKind::SlashEq => Self::DivAssign,
+            SyntaxKind::DotAdd => Self::DotAdd,
+            SyntaxKind::DotSub => Self::DotSub,
+            SyntaxKind::DotMul => Self::DotMul,
+            SyntaxKind::DotDiv => Self::DotDiv,
             _ => return Option::None,
         })
     }
@@ -1481,6 +1493,10 @@ impl BinOp {
             Self::SubAssign => 1,
             Self::MulAssign => 1,
             Self::DivAssign => 1,
+            Self::DotAdd => 5,
+            Self::DotSub => 5,
+            Self::DotMul => 6,
+            Self::DotDiv => 6,
         }
     }
 
@@ -1506,6 +1522,10 @@ impl BinOp {
             Self::SubAssign => Assoc::Right,
             Self::MulAssign => Assoc::Right,
             Self::DivAssign => Assoc::Right,
+            Self::DotAdd => Assoc::Left,
+            Self::DotSub => Assoc::Left,
+            Self::DotMul => Assoc::Left,
+            Self::DotDiv => Assoc::Left,
         }
     }
 
@@ -1531,6 +1551,10 @@ impl BinOp {
             Self::SubAssign => "-=",
             Self::MulAssign => "*=",
             Self::DivAssign => "/=",
+            Self::DotAdd => ".+",
+            Self::DotSub => ".-",
+            Self::DotMul => ".*",
+            Self::DotDiv => "./",
         }
     }
 }

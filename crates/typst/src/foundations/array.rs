@@ -8,12 +8,14 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
+#[doc(inline)]
+pub use crate::__array as array;
+use crate::diag::{At, bail, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
-    IntoValue, Reflect, Repr, Str, Value, Version,
+    Args, Bytes, cast, CastInfo, Context, Dict, FromValue, func, Func, IntoValue, Reflect, repr,
+    Repr, scope, Str, ty, Value, Version,
 };
 use crate::syntax::{Span, Spanned};
 
@@ -34,9 +36,6 @@ macro_rules! __array {
         ),*])
     };
 }
-
-#[doc(inline)]
-pub use crate::__array as array;
 
 /// A sequence of values.
 ///
@@ -98,6 +97,9 @@ impl Array {
     pub fn iter(&self) -> std::slice::Iter<Value> {
         self.0.iter()
     }
+
+    /// Access the internal vector of values.
+    pub fn values(&self) -> &EcoVec<Value> { &self.0 }
 
     /// Mutably borrow the first value in the array.
     pub fn first_mut(&mut self) -> StrResult<&mut Value> {

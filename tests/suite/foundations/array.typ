@@ -514,4 +514,162 @@
 
 --- array-reduce-unexpected-argument ---
 // Error: 19-21 unexpected argument
-#(1, 2, 3).reduce(() => none) 
+#(1, 2, 3).reduce(() => none)
+
+--- elementwise-add ---
+#{
+  let a = (1, 2, 3);
+  let b = (4, 5, 6);
+  let c = a .+ b;
+  test(c, (5, 7, 9))
+}
+
+--- elementwise-sub ---
+#{
+  let a = (10, 20, 30);
+  let b = (1, 2, 3);
+  let c = a .- b;
+  test(c, (9, 18, 27))
+}
+
+--- elementwise-mul ---
+#{
+  let a = (1, 2, 3);
+  let b = (4, 5, 6);
+  let c = a .* b;
+  test(c, (4, 10, 18))
+}
+
+--- elementwise-div ---
+#{
+  let a = (10, 20, 30);
+  let b = (2, 4, 5);
+  let c = a ./ b;
+  test(c, (5, 5, 6))
+}
+
+--- elementwise-add-float ---
+#{
+  let a = (1.5, 2.5, 3.5);
+  let b = (0.5, 1.5, 2.5);
+  let c = a .+ b;
+  test(c, (2.0, 4.0, 6.0))
+}
+
+--- elementwise-sub-negative ---
+#{
+  let a = (1, -2, 3);
+  let b = (-1, 2, -3);
+  let c = a .- b;
+  test(c, (2, -4, 6))
+}
+
+--- elementwise-mul-mixed ---
+#{
+  let a = (1, 2.5, 3);
+  let b = (4.0, 5, 6);
+  let c = a .* b;
+  test(c, (4.0, 12.5, 18))
+}
+
+--- elementwise-div-integer-float ---
+#{
+  let a = (10, 20.0, 30);
+  let b = (2.0, 4, 5);
+  let c = a ./ b;
+  test(c, (5.0, 5.0, 6.0))
+}
+
+--- elementwise-add-length-mismatch ---
+#{
+  let a = (1, 2, 3)
+  let b = (4, 5)
+  // Error: 11-17 Arrays must have the same length for element-wise operations
+  let c = a .+ b
+}
+
+--- elementwise-div-by-zero ---
+#{
+  let a = (10, 20, 30)
+  let b = (2, 0, 5)
+  // Error: 11-17 Failed to perform division on 20 and 0: Division by zero
+  let c = a ./ b
+}
+
+--- elementwise-operations-on-empty-arrays ---
+#{
+  let a = ();
+  let b = ();
+  let c = a .+ b;
+  test(c, ())
+}
+
+--- elementwise-mixed-types ---
+#{
+  let a = (1, "text", 3)
+  let b = (4, " more", 6)
+  test(a.+b,(5, "text more", 9))
+}
+
+--- elementwise-add-nested-arrays ---
+#{
+  let a = ((1, 2), (3, 4))
+  let b = ((5, 6), (7, 8))
+  test(a.+b,((1, 2, 5, 6), (3, 4, 7, 8)))
+}
+
+
+--- elementwise-add-with-nones ---
+#{
+  let a = (1, none, 3)
+  let b = (4, 5, none)
+  test(a.+b,(5, 5, 3))
+}
+
+--- elementwise-operations-mixed-numbers ---
+#{
+  let a = (1, 2.0, 3);
+  let b = (4.0, 5, 6.5);
+  let c = a .+ b;
+  test(c, (5.0, 7.0, 9.5))
+}
+
+--- elementwise-sub-zero ---
+#{
+  let a = (0, 0, 0);
+  let b = (1, 2, 3);
+  let c = a .- b;
+  test(c, (-1, -2, -3))
+}
+
+--- elementwise-mul-with-zeros ---
+#{
+  let a = (1, 2, 0);
+  let b = (0, 5, 6);
+  let c = a .* b;
+  test(c, (0, 10, 0))
+}
+
+--- elementwise-div-float-results ---
+#{
+  let a = (9, 25, 49);
+  let b = (3, 5, 7);
+  let c = a ./ b;
+  test(c, (3.0, 5.0, 7.0))
+}
+
+--- elementwise-combined-operations ---
+#{
+  let a = (1, 2, 3)
+  let b = (4, 5, 6)
+  let c = a .+ b .- a .* b ./ b
+  test(c, (4.0, 5.0, 6.0))
+}
+
+--- elementwise-nested-operations ---
+#{
+  let a = (1, 2, 3);
+  let b = (4, 5, 6);
+  let c = (a .+ b) .* (a .- b);
+  test(c, (-15, -21, -27))
+}

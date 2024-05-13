@@ -1,16 +1,17 @@
 //! Operations on values.
 
 use std::cmp::Ordering;
+use std::fmt::Display;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString, EcoVec};
+use typst_utils::Numeric;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::eval::{access_dict, Access, Eval, Vm};
-use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
+use crate::diag::{At, bail, SourceResult, StrResult};
+use crate::eval::{Access, access_dict, Eval, Vm};
+use crate::foundations::{Array, Datetime, format_str, IntoValue, Regex, Repr, Value};
 use crate::layout::{Alignment, Length, Rel};
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
-use crate::utils::Numeric;
 use crate::visualize::Stroke;
 
 impl Eval for ast::Unary<'_> {
@@ -51,6 +52,10 @@ impl Eval for ast::Binary<'_> {
             ast::BinOp::SubAssign => apply_assignment(self, vm, sub),
             ast::BinOp::MulAssign => apply_assignment(self, vm, mul),
             ast::BinOp::DivAssign => apply_assignment(self, vm, div),
+            ast::BinOp::DotAdd => apply_binary(self, vm, elementwise_add),
+            ast::BinOp::DotSub => apply_binary(self, vm, elementwise_sub),
+            ast::BinOp::DotMul => apply_binary(self, vm, elementwise_mul),
+            ast::BinOp::DotDiv => apply_binary(self, vm, elementwise_div),
         }
     }
 }
@@ -609,6 +614,65 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
 
         _ => Option::None,
     }
+}
+
+// Performs an element-wise operation on two arrays, ensuring they have the same length before proceeding.
+// This function uses a generic function pointer `op` to apply a specific arithmetic operation (add, sub, mul, or div)
+// and logs detailed error messages using the operation name for better debuggability. The `operation_name` is expected
+// to support display formatting to describe the operation in error messages.
+fn elementwise_operation<F, Op>(lhs: Value, rhs: Value, op: F, operation_name: Op) -> Result<Value, EcoString>
+    where
+        F: Fn(Value, Value) -> StrResult<Value>,
+        Op: Display {
+    let binding_lhs = lhs.cast::<Array>()?;
+    let left = binding_lhs.values();
+
+    let binding_rhs = rhs.cast::<Array>()?;
+    let right = binding_rhs.values();
+
+    if left.len() != right.len() {
+        return Err("Arrays must have the same length for element-wise operations".into());
+    }
+
+    let result: Result<EcoVec<Value>, EcoString> = left
+        .iter()
+        .zip(right.iter())
+        .map(|(l, r)| {
+            op(l.clone(), r.clone()).map_err(|err| {
+                eco_format!("Failed to perform {} on {:?} and {:?}: {}", operation_name, l, r, err)
+            })
+        })
+        .collect();
+
+    result.map(|res| Value::Array(res.into()))
+}
+
+// Defines specific element-wise operations using the `elementwise_operation` function.
+
+// Adds two arrays element-wise.
+fn elementwise_add(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
+    elementwise_operation(lhs, rhs, add, "addition")
+}
+
+// Subtracts two arrays element-wise.
+fn elementwise_sub(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
+    elementwise_operation(lhs, rhs, sub, "subtraction")
+}
+
+// Multiplies two arrays element-wise.
+fn elementwise_mul(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
+    elementwise_operation(lhs, rhs, mul, "multiplication")
+}
+
+// Divides two arrays element-wise, checking for division by zero.
+fn elementwise_div(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
+    elementwise_operation(lhs, rhs, |l, r| {
+        if is_zero(&r) {
+            Err("Division by zero".into())
+        } else {
+            div(l, r)
+        }
+    }, "division")
 }
 
 #[cold]

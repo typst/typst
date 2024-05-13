@@ -582,6 +582,10 @@ impl Lexer<'_> {
             '`' => self.raw(),
             '<' if self.s.at(is_id_continue) => self.label(),
             '0'..='9' => self.number(start, c),
+            '.' if self.s.eat_if('+') => SyntaxKind::DotAdd,
+            '.' if self.s.eat_if('-') => SyntaxKind::DotSub,
+            '.' if self.s.eat_if('*') => SyntaxKind::DotMul,
+            '.' if self.s.eat_if('/') => SyntaxKind::DotDiv,
             '.' if self.s.at(char::is_ascii_digit) => self.number(start, c),
             '"' => self.string(),
 
