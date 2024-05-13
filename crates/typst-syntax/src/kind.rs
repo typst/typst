@@ -149,6 +149,16 @@ pub enum SyntaxKind {
     /// A root: `√`, `∛` or `∜`.
     Root,
 
+    // Element-wise operations for tuples or arrays
+    /// The element-wise addition operator: `.`.
+    DotAdd,
+    /// The element-wise subtraction operator: `.-`.
+    DotSub,
+    /// The element-wise multiplication operator: `.*`.
+    DotMul,
+    /// The element-wise division operator: `./`.
+    DotDiv,
+
     /// The `not` operator.
     Not,
     /// The `and` operator.
@@ -432,6 +442,10 @@ impl SyntaxKind {
             Self::Dots => "dots",
             Self::Arrow => "arrow",
             Self::Root => "root",
+            Self::DotAdd => "element-wise addition operator",
+            Self::DotSub => "element-wise subtraction operator",
+            Self::DotMul => "element-wise multiplication operator",
+            Self::DotDiv => "element-wise division operator",
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",

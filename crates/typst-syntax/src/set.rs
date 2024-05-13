@@ -5,38 +5,51 @@
 use crate::SyntaxKind;
 
 /// A set of syntax kinds.
-#[derive(Default, Copy, Clone)]
-pub struct SyntaxSet(u128);
+#[derive(Clone, Copy)]
+pub struct SyntaxSet {
+    bits: [u128; 2], // Using 2 u128s to store 256 bits.
+}
 
 impl SyntaxSet {
     /// Create a new set from a slice of kinds.
     pub const fn new() -> Self {
-        Self(0)
+        Self {
+            bits: [0; 2],
+        }
     }
 
     /// Insert a syntax kind into the set.
     ///
-    /// You can only add kinds with discriminator < 128.
-    pub const fn add(self, kind: SyntaxKind) -> Self {
-        assert!((kind as u8) < BITS);
-        Self(self.0 | bit(kind))
+    /// You can only add kinds with discriminator < 256.
+    pub const fn add(mut self, kind: SyntaxKind) -> Self {
+        assert!((kind as usize) < BITS);
+        let idx = (kind as usize) / 128;
+        self.bits[idx] |= bit(kind);
+        self
     }
 
     /// Combine two syntax sets.
     pub const fn union(self, other: Self) -> Self {
-        Self(self.0 | other.0)
+        Self {
+            bits: [
+                self.bits[0] | other.bits[0],
+                self.bits[1] | other.bits[1],
+            ],
+        }
     }
 
     /// Whether the set contains the given syntax kind.
     pub const fn contains(&self, kind: SyntaxKind) -> bool {
-        (kind as u8) < BITS && (self.0 & bit(kind)) != 0
+        assert!((kind as usize) < BITS as usize);
+        let idx = (kind as usize) / 128;
+        (self.bits[idx] & bit(kind)) != 0
     }
 }
 
-const BITS: u8 = 128;
+const BITS: usize = 256;
 
 const fn bit(kind: SyntaxKind) -> u128 {
-    1 << (kind as usize)
+    1 << (kind as usize % 128)
 }
 
 /// Syntax kinds that can start a statement.
@@ -74,6 +87,13 @@ pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::LeftBracket)
     .add(SyntaxKind::RightBracket)
     .add(SyntaxKind::Colon);
+
+// Syntax kinds that are element-wise operators.
+pub const ELEMENTWISE_OP: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::DotAdd)
+    .add(SyntaxKind::DotSub)
+    .add(SyntaxKind::DotMul)
+    .add(SyntaxKind::DotDiv);
 
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
