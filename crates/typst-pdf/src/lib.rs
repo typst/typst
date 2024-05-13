@@ -101,7 +101,7 @@ impl<'a> PdfBuilder<'a> {
 
     fn construct(mut self, constructor: impl PdfConstructor) -> Self {
         let mut chunk = PdfChunk::new();
-        let mut output = constructor.write(&mut self.context, &mut chunk);
+        constructor.write(&mut self.context, &mut chunk);
         improve_glyph_sets(&mut self.context.glyph_sets);
         let mut mapping = HashMap::new();
         chunk.renumber_into(&mut self.pdf, |r| {
@@ -109,7 +109,6 @@ impl<'a> PdfBuilder<'a> {
                 r
             } else {
                 let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
-                output.renumber(r, new);
                 new
             }
         });
