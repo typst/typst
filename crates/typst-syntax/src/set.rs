@@ -40,7 +40,7 @@ impl SyntaxSet {
 
     /// Whether the set contains the given syntax kind.
     pub const fn contains(&self, kind: SyntaxKind) -> bool {
-        assert!((kind as usize) < BITS as usize);
+        assert!((kind as usize) < BITS);
         let idx = (kind as usize) / 128;
         (self.bits[idx] & bit(kind)) != 0
     }
