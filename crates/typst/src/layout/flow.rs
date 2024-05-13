@@ -1,3 +1,9 @@
+//! Layout flows.
+//!
+//! A *flow* is a collection of block-level layoutable elements.
+//! This is analogous to a paragraph, which is a collection of
+//! inline-level layoutable elements.
+
 use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::{bail, SourceResult};
@@ -20,7 +26,7 @@ use crate::util::Numeric;
 /// and the contents of boxes.
 #[elem(Debug, LayoutMultiple)]
 pub struct FlowElem {
-    /// The children that will be arranges into a flow.
+    /// The children that will be arranged into a flow.
     #[variadic]
     pub children: Vec<Content>,
 }
@@ -96,10 +102,12 @@ struct FlowLayouter<'a> {
     /// subtracting.
     initial: Size,
     /// Whether the last block was a paragraph.
+    ///
+    /// Used for indenting paragraphs after the first in a block.
     last_was_par: bool,
     /// Spacing and layouted blocks for the current region.
     items: Vec<FlowItem>,
-    /// A queue of floats.
+    /// A queue of floating elements.
     pending_floats: Vec<FlowItem>,
     /// Whether we have any footnotes in the current region.
     has_footnotes: bool,
@@ -123,10 +131,19 @@ enum FlowItem {
     Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted block, how to align it, whether it sticks to the
-    /// item after it (for orphan prevention), and whether it is movable
-    /// (to keep it together with its footnotes).
-    Frame { frame: Frame, align: Axes<FixedAlignment>, sticky: bool, movable: bool },
+    /// A frame for a layouted block.
+    Frame {
+        /// The frame itself.
+        frame: Frame,
+        /// How to align the frame.
+        align: Axes<FixedAlignment>,
+        /// Whether the frame sticks to the item after it (for orphan prevention).
+        sticky: bool,
+        /// Whether the frame is movable; that is, kept together with its footnotes.
+        ///
+        /// This is true for frames created by paragraphs and [`LayoutSingle`] elements.
+        movable: bool,
+    },
     /// An absolutely placed frame.
     Placed {
         frame: Frame,
@@ -143,7 +160,7 @@ enum FlowItem {
 impl FlowItem {
     /// Whether this item is out-of-flow.
     ///
-    /// Out-of-flow items are guaranteed to have a [`Size::zero()`].
+    /// Out-of-flow items are guaranteed to have a [zero size][Size::zero()].
     fn is_out_of_flow(&self) -> bool {
         match self {
             Self::Placed { float: false, .. } => true,
@@ -235,6 +252,8 @@ impl<'a> FlowLayouter<'a> {
             )?
             .into_frames();
 
+        // If the first line doesn’t fit in this region, then defer any
+        // previous sticky frame to the next region (if available)
         if let Some(first) = lines.first() {
             while !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
                 let mut sticky = self.items.len();
@@ -641,6 +660,9 @@ impl<'a> FlowLayouter<'a> {
 }
 
 impl FlowLayouter<'_> {
+    /// Tries to process all footnotes in the frame, placing them
+    /// in the next region if they could not be placed in the current
+    /// one.
     fn try_handle_footnotes(
         &mut self,
         engine: &mut Engine,
@@ -663,6 +685,9 @@ impl FlowLayouter<'_> {
     }
 
     /// Processes all footnotes in the frame.
+    ///
+    /// Returns true if the footnote entries fit in the allotted
+    /// regions.
     fn handle_footnotes(
         &mut self,
         engine: &mut Engine,
