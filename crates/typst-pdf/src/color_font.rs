@@ -11,14 +11,14 @@ use typst::text::{color::frame_for_glyph, Font};
 use crate::{
     content,
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
-    ConstructContext, EmExt, PdfChunk, PdfConstructor,
+    PdfContext, EmExt, PdfChunk, PdfConstructor,
 };
 
 pub struct ColorFonts;
 
 impl PdfConstructor for ColorFonts {
     /// Writes color fonts as Type3 fonts
-    fn write(&self, context: &mut ConstructContext, chunk: &mut PdfChunk) {
+    fn write(&self, context: &mut PdfContext, chunk: &mut PdfChunk) {
         let color_font_map = context.color_fonts.take_map();
         for (font, color_font) in color_font_map {
             // For each Type3 font that is part of this family…

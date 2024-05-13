@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use pdf_writer::{writers::Resources, Finish, Name, Pdf, Ref};
 
-use crate::{ConstructContext, PdfWriter, WriteContext};
+use crate::{PdfContext, PdfWriter, References};
 
 pub struct GlobalResources;
 
@@ -15,8 +15,8 @@ impl PdfWriter for GlobalResources {
         &self,
         pdf: &mut Pdf,
         alloc: &mut Ref,
-        ctx: &ConstructContext,
-        refs: &WriteContext,
+        ctx: &PdfContext,
+        refs: &References,
     ) {
         let global_res_ref = ctx.globals.global_resources;
         let type3_font_resources_ref = ctx.globals.type3_font_resources;

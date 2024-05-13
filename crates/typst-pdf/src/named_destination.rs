@@ -6,7 +6,7 @@ use typst::introspection::Location;
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, ConstructContext, PdfChunk, PdfResource, Renumber, WriteContext};
+use crate::{AbsExt, PdfContext, PdfChunk, PdfResource, References, Renumber};
 
 pub struct NamedDestinations;
 
@@ -28,7 +28,7 @@ impl PdfResource for NamedDestinations {
 
     /// Fills in the map and vector for named destinations and writes the indirect
     /// destination objects.
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
         let mut seen = HashSet::new();
         let mut loc_to_dest = HashMap::new();
         let mut dests = Vec::new();
@@ -69,7 +69,7 @@ impl PdfResource for NamedDestinations {
         NamedDestinationsOutput { dests, loc_to_dest }
     }
 
-    fn save(context: &mut WriteContext, output: Self::Output) {
+    fn save(context: &mut References, output: Self::Output) {
         context.dests = output.dests;
         context.loc_to_dest = output.loc_to_dest;
     }

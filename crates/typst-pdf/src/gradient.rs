@@ -17,7 +17,7 @@ use typst::visualize::{
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::content::{self, Resource, ResourceKind};
 use crate::{
-    deflate, transform_to_array, AbsExt, ConstructContext, PdfChunk, PdfResource,
+    deflate, transform_to_array, AbsExt, PdfContext, PdfChunk, PdfResource,
 };
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -42,7 +42,7 @@ impl PdfResource for Gradients {
 
     /// Writes the actual gradients (shading patterns) to the PDF.
     /// This is performed once after writing all pages.
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
         let mut gradients = Vec::new();
 
         for PdfGradient { transform, aspect_ratio, gradient, angle } in
@@ -165,7 +165,7 @@ impl PdfResource for Gradients {
         gradients
     }
 
-    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+    fn save(context: &mut crate::References, output: Self::Output) {
         context.gradients = output;
     }
 }

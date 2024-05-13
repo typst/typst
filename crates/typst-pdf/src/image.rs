@@ -9,7 +9,7 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, ConstructContext, PdfChunk, PdfResource};
+use crate::{deflate, PdfContext, PdfChunk, PdfResource};
 
 pub struct Images;
 
@@ -18,7 +18,7 @@ impl PdfResource for Images {
 
     /// Embed all used images into the PDF.
     #[typst_macros::time(name = "write images")]
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
         let mut images = Vec::new();
 
         for (i, _) in context.images.items().enumerate() {
@@ -100,7 +100,7 @@ impl PdfResource for Images {
         images
     }
 
-    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+    fn save(context: &mut crate::References, output: Self::Output) {
         context.images = output;
     }
 }

@@ -25,12 +25,12 @@ use typst::visualize::{
 
 use crate::{
     color::PaintEncode, deflate_deferred, extg::ExtGState, image::deferred_image, AbsExt,
-    ConstructContext, EmExt,
+    PdfContext, EmExt,
 };
 
 // TODO: remove all references to "page"
 
-pub fn build(ctx: &mut ConstructContext, frame: &Frame) -> Encoded {
+pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(ctx, size);
     let mut alloc = Ref::new(1); // TODO?
@@ -127,7 +127,7 @@ impl Resource {
 
 /// An exporter for the contents of a single PDF page.
 pub struct Builder<'a, 'b> {
-    pub(crate) parent: &'a mut ConstructContext<'b>,
+    pub(crate) parent: &'a mut PdfContext<'b>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -139,7 +139,7 @@ pub struct Builder<'a, 'b> {
 }
 
 impl<'a, 'b> Builder<'a, 'b> {
-    pub fn new(parent: &'a mut ConstructContext<'b>, size: Size) -> Self {
+    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
         Builder {
             parent,
             uses_opacities: false,

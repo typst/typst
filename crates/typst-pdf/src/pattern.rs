@@ -10,7 +10,7 @@ use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::content::{self, Resource, ResourceKind};
-use crate::{transform_to_array, ConstructContext, PdfChunk, PdfResource, Renumber};
+use crate::{transform_to_array, PdfContext, PdfChunk, PdfResource, Renumber};
 
 pub struct Patterns;
 
@@ -19,7 +19,7 @@ impl PdfResource for Patterns {
 
     /// Writes the actual patterns (tiling patterns) to the PDF.
     /// This is performed once after writing all pages.
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
         let pattern_map = &context.remapped_patterns;
         let mut patterns = Vec::new();
 
@@ -60,7 +60,7 @@ impl PdfResource for Patterns {
         patterns
     }
 
-    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+    fn save(context: &mut crate::References, output: Self::Output) {
         context.patterns = output;
     }
 }

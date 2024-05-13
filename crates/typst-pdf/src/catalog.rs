@@ -11,7 +11,7 @@ use typst::layout::Dir;
 use typst::text::Lang;
 
 use crate::{
-    hash_base64, outline, page::PdfPageLabel, ConstructContext, PdfWriter, WriteContext,
+    hash_base64, outline, page::PdfPageLabel, PdfContext, PdfWriter, References,
 };
 
 pub struct Catalog<'a> {
@@ -22,13 +22,7 @@ pub struct Catalog<'a> {
 impl<'a> PdfWriter for Catalog<'a> {
     /// Write the document catalog.
 
-    fn write(
-        &self,
-        pdf: &mut Pdf,
-        alloc: &mut Ref,
-        ctx: &ConstructContext,
-        refs: &WriteContext,
-    ) {
+    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
         let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
         let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
@@ -178,7 +172,7 @@ impl<'a> PdfWriter for Catalog<'a> {
 pub(crate) fn write_page_labels(
     chunk: &mut Pdf,
     alloc: &mut Ref,
-    ctx: &ConstructContext,
+    ctx: &PdfContext,
 ) -> Vec<(NonZeroUsize, Ref)> {
     // If there is no page labeled, we skip the writing
     if !ctx.pages.iter().any(|p| {

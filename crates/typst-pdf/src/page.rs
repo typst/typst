@@ -14,7 +14,7 @@ use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
 use crate::{
-    content, AbsExt, ConstructContext, PdfChunk, PdfConstructor, PdfWriter, WriteContext,
+    content, AbsExt, PdfContext, PdfChunk, PdfConstructor, PdfWriter, References,
 };
 
 pub struct Pages;
@@ -22,7 +22,7 @@ pub struct Pages;
 impl PdfConstructor for Pages {
     /// Construct page objects.
     #[typst_macros::time(name = "construct pages")]
-    fn write(&self, context: &mut ConstructContext, _chunk: &mut PdfChunk) {
+    fn write(&self, context: &mut PdfContext, _chunk: &mut PdfChunk) {
         for page in &context.document.pages {
             let mut encoded = construct_page(context, &page.frame);
             encoded.label = page
@@ -36,7 +36,7 @@ impl PdfConstructor for Pages {
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(res: &mut ConstructContext, frame: &Frame) -> EncodedPage {
+pub(crate) fn construct_page(res: &mut PdfContext, frame: &Frame) -> EncodedPage {
     let content = content::build(res, frame);
 
     EncodedPage { content, label: None }
@@ -51,8 +51,8 @@ impl PdfWriter for PageTree {
         &self,
         pdf: &mut Pdf,
         alloc: &mut Ref,
-        ctx: &ConstructContext,
-        refs: &WriteContext,
+        ctx: &PdfContext,
+        refs: &References,
     ) {
         for i in 0..ctx.pages.len() {
             write_page(pdf, ctx, alloc.bump(), &refs.loc_to_dest, i);
@@ -67,7 +67,7 @@ impl PdfWriter for PageTree {
 /// Write a page tree node.
 fn write_page(
     chunk: &mut Pdf,
-    ctx: &ConstructContext,
+    ctx: &PdfContext,
     content_id: Ref,
     loc_to_dest: &HashMap<Location, Label>,
     i: usize,

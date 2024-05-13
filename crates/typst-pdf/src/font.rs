@@ -14,7 +14,7 @@ use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 use typst::text::Font;
 use typst::util::SliceExt;
 
-use crate::{deflate, ConstructContext, EmExt, PdfChunk, PdfResource};
+use crate::{deflate, PdfContext, EmExt, PdfChunk, PdfResource};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -32,7 +32,7 @@ impl PdfResource for Fonts {
 
     /// Embed all used fonts into the PDF.
     #[typst_macros::time(name = "write fonts")]
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
         let mut fonts = Vec::new();
 
         for font in context.fonts.items() {
@@ -142,7 +142,7 @@ impl PdfResource for Fonts {
         fonts
     }
 
-    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+    fn save(context: &mut crate::References, output: Self::Output) {
         context.fonts = output;
     }
 }

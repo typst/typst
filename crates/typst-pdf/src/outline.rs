@@ -6,13 +6,13 @@ use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, ConstructContext};
+use crate::{AbsExt, PdfContext};
 
 /// Construct the outline for the document.
 pub(crate) fn write_outline(
     chunk: &mut Pdf,
     alloc: &mut Ref,
-    ctx: &ConstructContext,
+    ctx: &PdfContext,
 ) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
 
@@ -147,7 +147,7 @@ impl<'a> HeadingNode<'a> {
 
 /// Write an outline item and all its children.
 fn write_outline_item(
-    ctx: &ConstructContext,
+    ctx: &PdfContext,
     chunk: &mut Pdf,
     alloc: &mut Ref,
     node: &HeadingNode,

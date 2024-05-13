@@ -82,23 +82,37 @@ pub fn pdf(
         .export()
 }
 
+/// A struct to build a PDF following a fixed sequence of steps.
+///
+/// There are three different kind of steps:
+/// - first, all resources that will be later be needed are collected with `construct`.
+/// - then, each kind of resource is stored in the document using `with_resource`
+/// - finally, some global information is written, with `write`
 struct PdfBuilder<'a> {
-    context: ConstructContext<'a>,
-    references: WriteContext,
+    /// Some context about the current document: the different pages, images,
+    /// fonts, and so on.
+    context: PdfContext<'a>,
+    /// A list of all references that were allocated for the resources of this
+    /// PDF document.
+    references: References,
+    /// A global bump allocator.
     alloc: Ref,
+    /// The PDF document that is being written.
     pdf: Pdf,
 }
 
 impl<'a> PdfBuilder<'a> {
+    /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
-            context: ConstructContext::new(document),
-            references: WriteContext::default(),
+            context: PdfContext::new(document),
+            references: References::default(),
             alloc: Ref::new(1),
             pdf: Pdf::new(),
         }
     }
 
+    /// Run a [`PdfConstructor`] in the context of this document.
     fn construct(mut self, constructor: impl PdfConstructor) -> Self {
         let mut chunk = PdfChunk::new();
         constructor.write(&mut self.context, &mut chunk);
@@ -115,6 +129,7 @@ impl<'a> PdfBuilder<'a> {
         self
     }
 
+    /// Write data related to a [`PdfResource`] in the document.
     fn with_resource(mut self, resource: impl PdfResource) -> Self {
         let mut chunk = PdfChunk::new();
         let mut output = resource.write(&self.context, &mut chunk);
@@ -131,22 +146,24 @@ impl<'a> PdfBuilder<'a> {
         self
     }
 
+    /// Write some global information in the document.
     fn write(mut self, writer: impl PdfWriter) -> Self {
         writer.write(&mut self.pdf, &mut self.alloc, &self.context, &self.references);
         self
     }
 
+    /// The buffer that represents the finished PDF file.
     fn export(self) -> Vec<u8> {
         self.pdf.finish()
     }
 }
 
 #[derive(Default)]
-struct WriteContext {
+struct References {
+    /// A map between elements and their associated labels
     loc_to_dest: HashMap<Location, Label>,
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
-
     /// The IDs of written fonts.
     fonts: Vec<Ref>,
     /// The IDs of written images.
@@ -159,7 +176,7 @@ struct WriteContext {
     ext_gs: Vec<Ref>,
 }
 
-struct ConstructContext<'a> {
+struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// Content of exported pages.
@@ -177,6 +194,10 @@ struct ConstructContext<'a> {
     /// cmap. This is important for copy-paste and searching.
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
 
+    /// Global references.
+    ///
+    /// These references are allocated at the very begining of the PDF export process,
+    /// and can be used in the whole document without ever needing remapping.
     globals: GlobalRefs,
 
     /// Handles color space writing.
@@ -199,7 +220,7 @@ struct ConstructContext<'a> {
     color_fonts: ColorFontMap,
 }
 
-impl<'a> ConstructContext<'a> {
+impl<'a> PdfContext<'a> {
     fn new(document: &'a Document) -> Self {
         Self {
             document,
@@ -220,27 +241,36 @@ impl<'a> ConstructContext<'a> {
     }
 }
 
+/// Collects all objects that will have to be embedded in the final PDF.
+///
+/// This can be pages, images, fonts, gradients, etc. They should all be saved
+/// in the `PdfContext` that is being passed to the `write` function.
+/// This function can write to the final document by using the given `PdfChunk`.
 trait PdfConstructor {
-    fn write(&self, context: &mut ConstructContext, chunk: &mut PdfChunk);
+    fn write(&self, context: &mut PdfContext, chunk: &mut PdfChunk);
 }
+
+/// A specific kind of resource that is present in a PDF document.
 trait PdfResource {
     type Output: Renumber;
 
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output;
+    /// Write all data related to this kind of resource in the document.
+    ///
+    /// This function can return references that are local to `chunk`, they
+    /// will be correctly re-numbered before being saved for later steps.
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output;
 
-    fn save(context: &mut WriteContext, output: Self::Output);
+    /// Save references that this step exported.
+    fn save(context: &mut References, output: Self::Output);
 }
 
+/// Write global information about the PDF document.
 trait PdfWriter {
-    fn write(
-        &self,
-        pdf: &mut Pdf,
-        alloc: &mut Ref,
-        ctx: &ConstructContext,
-        refs: &WriteContext,
-    );
+    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References);
 }
 
+/// A reference or collection of references that can be re-numbered,
+/// to become valid in a global scope.
 trait Renumber {
     fn renumber(&mut self, old: Ref, new: Ref);
 }
@@ -265,13 +295,17 @@ impl<R: Renumber> Renumber for Vec<R> {
     }
 }
 
+/// Global references
 #[derive(Debug)]
 struct GlobalRefs {
+    // Color spaces
     oklab: Ref,
     d65_gray: Ref,
     srgb: Ref,
+    // Resources
     global_resources: Ref,
     type3_font_resources: Ref,
+    // Page tree and pages
     page_tree: Ref,
     pages: Vec<Ref>,
 }
@@ -291,8 +325,11 @@ impl GlobalRefs {
     }
 }
 
+/// A portion of a PDF file.
 struct PdfChunk {
+    /// The actual chunk.
     chunk: Chunk,
+    /// A local allocator.
     alloc: Ref,
 }
 

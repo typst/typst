@@ -1,6 +1,6 @@
 use pdf_writer::Ref;
 
-use crate::{ConstructContext, PdfChunk, PdfResource};
+use crate::{PdfContext, PdfChunk, PdfResource};
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -29,7 +29,7 @@ impl PdfResource for ExtGraphicsState {
     type Output = Vec<Ref>;
 
     /// Embed all used external graphics states into the PDF.
-    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
         let mut refs = Vec::new();
 
         for external_gs in context.ext_gs.items() {
@@ -43,7 +43,7 @@ impl PdfResource for ExtGraphicsState {
         refs
     }
 
-    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+    fn save(context: &mut crate::References, output: Self::Output) {
         context.ext_gs = output;
     }
 }
