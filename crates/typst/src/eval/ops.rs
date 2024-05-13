@@ -6,9 +6,9 @@ use std::fmt::Display;
 use ecow::{eco_format, EcoString, EcoVec};
 use typst_utils::Numeric;
 
-use crate::diag::{At, bail, SourceResult, StrResult};
-use crate::eval::{Access, access_dict, Eval, Vm};
-use crate::foundations::{Array, Datetime, format_str, IntoValue, Regex, Repr, Value};
+use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::eval::{access_dict, Access, Eval, Vm};
+use crate::foundations::{format_str, Array, Datetime, IntoValue, Regex, Repr, Value};
 use crate::layout::{Alignment, Length, Rel};
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
@@ -620,10 +620,16 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
 // This function uses a generic function pointer `op` to apply a specific arithmetic operation (add, sub, mul, or div)
 // and logs detailed error messages using the operation name for better debuggability. The `operation_name` is expected
 // to support display formatting to describe the operation in error messages.
-fn elementwise_operation<F, Op>(lhs: Value, rhs: Value, op: F, operation_name: Op) -> Result<Value, EcoString>
-    where
-        F: Fn(Value, Value) -> StrResult<Value>,
-        Op: Display {
+fn elementwise_operation<F, Op>(
+    lhs: Value,
+    rhs: Value,
+    op: F,
+    operation_name: Op,
+) -> Result<Value, EcoString>
+where
+    F: Fn(Value, Value) -> StrResult<Value>,
+    Op: Display,
+{
     let binding_lhs = lhs.cast::<Array>()?;
     let left = binding_lhs.values();
 
@@ -639,7 +645,13 @@ fn elementwise_operation<F, Op>(lhs: Value, rhs: Value, op: F, operation_name: O
         .zip(right.iter())
         .map(|(l, r)| {
             op(l.clone(), r.clone()).map_err(|err| {
-                eco_format!("Failed to perform {} on {:?} and {:?}: {}", operation_name, l, r, err)
+                eco_format!(
+                    "Failed to perform {} on {:?} and {:?}: {}",
+                    operation_name,
+                    l,
+                    r,
+                    err
+                )
             })
         })
         .collect();
@@ -666,13 +678,18 @@ fn elementwise_mul(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
 
 // Divides two arrays element-wise, checking for division by zero.
 fn elementwise_div(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
-    elementwise_operation(lhs, rhs, |l, r| {
-        if is_zero(&r) {
-            Err("Division by zero".into())
-        } else {
-            div(l, r)
-        }
-    }, "division")
+    elementwise_operation(
+        lhs,
+        rhs,
+        |l, r| {
+            if is_zero(&r) {
+                Err("Division by zero".into())
+            } else {
+                div(l, r)
+            }
+        },
+        "division",
+    )
 }
 
 #[cold]

@@ -13,9 +13,7 @@ pub struct SyntaxSet {
 impl SyntaxSet {
     /// Create a new set from a slice of kinds.
     pub const fn new() -> Self {
-        Self {
-            bits: [0; 2],
-        }
+        Self { bits: [0; 2] }
     }
 
     /// Insert a syntax kind into the set.
@@ -31,10 +29,7 @@ impl SyntaxSet {
     /// Combine two syntax sets.
     pub const fn union(self, other: Self) -> Self {
         Self {
-            bits: [
-                self.bits[0] | other.bits[0],
-                self.bits[1] | other.bits[1],
-            ],
+            bits: [self.bits[0] | other.bits[0], self.bits[1] | other.bits[1]],
         }
     }
 

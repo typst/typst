@@ -225,10 +225,10 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Arrow => Some(Tag::Operator),
         SyntaxKind::Root => Some(Tag::MathOperator),
 
-        SyntaxKind::DotAdd |
-        SyntaxKind::DotSub |
-        SyntaxKind::DotMul |
-        SyntaxKind::DotDiv => Some(Tag::Operator),
+        SyntaxKind::DotAdd
+        | SyntaxKind::DotSub
+        | SyntaxKind::DotMul
+        | SyntaxKind::DotDiv => Some(Tag::Operator),
 
         SyntaxKind::Not => Some(Tag::Keyword),
         SyntaxKind::And => Some(Tag::Keyword),

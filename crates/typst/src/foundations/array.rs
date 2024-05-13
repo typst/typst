@@ -10,12 +10,12 @@ use smallvec::SmallVec;
 
 #[doc(inline)]
 pub use crate::__array as array;
-use crate::diag::{At, bail, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    Args, Bytes, cast, CastInfo, Context, Dict, FromValue, func, Func, IntoValue, Reflect, repr,
-    Repr, scope, Str, ty, Value, Version,
+    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
+    IntoValue, Reflect, Repr, Str, Value, Version,
 };
 use crate::syntax::{Span, Spanned};
 
@@ -99,7 +99,9 @@ impl Array {
     }
 
     /// Access the internal vector of values.
-    pub fn values(&self) -> &EcoVec<Value> { &self.0 }
+    pub fn values(&self) -> &EcoVec<Value> {
+        &self.0
+    }
 
     /// Mutably borrow the first value in the array.
     pub fn first_mut(&mut self) -> StrResult<&mut Value> {
