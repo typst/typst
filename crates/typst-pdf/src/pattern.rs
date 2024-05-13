@@ -1,18 +1,18 @@
 use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
-use pdf_writer::{Filter, Finish, Name, Rect, Ref};
+use pdf_writer::{Filter, Name, Rect, Ref};
 use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::content::{self, Resource, ResourceKind};
-use crate::{transform_to_array, ConstructContext, PdfChunk, PdfResource};
+use crate::{transform_to_array, ConstructContext, PdfChunk, PdfResource, Renumber};
 
 pub struct Patterns;
 
 impl PdfResource for Patterns {
-    type Output = Vec<Ref>;
+    type Output = Vec<WrittenPattern>;
 
     /// Writes the actual patterns (tiling patterns) to the PDF.
     /// This is performed once after writing all pages.
@@ -20,9 +20,11 @@ impl PdfResource for Patterns {
         let pattern_map = &context.remapped_patterns;
         let mut patterns = Vec::new();
 
-        for PdfPattern { transform, pattern, content, resources } in pattern_map.items() {
+        for PdfPattern { transform, pattern, content, .. } in pattern_map {
             let tiling = chunk.alloc();
-            patterns.push(tiling);
+            let resources = chunk.alloc();
+            patterns
+                .push(WrittenPattern { pattern_ref: tiling, resources_ref: resources });
 
             let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
             tiling_pattern
@@ -37,49 +39,9 @@ impl PdfResource for Patterns {
                 .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
                 .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
 
-            let mut resources_map = tiling_pattern.resources();
+            // The actual resource dict will be written in a later step
+            tiling_pattern.pair(Name(b"Resources"), resources);
 
-            resources_map.x_objects().pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_x_object())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            );
-
-            resources_map.fonts().pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_font())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            );
-
-            context
-                .colors
-                .write_color_spaces(resources_map.color_spaces(), &context.globals);
-
-            resources_map
-                .patterns()
-                .pairs(
-                    resources
-                        .iter()
-                        .filter(|(res, _)| res.is_pattern())
-                        .map(|(res, ref_)| (res.name(), ref_)),
-                )
-                .pairs(
-                    resources
-                        .iter()
-                        .filter(|(res, _)| res.is_gradient())
-                        .map(|(res, ref_)| (res.name(), ref_)),
-                );
-
-            resources_map.ext_g_states().pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_ext_g_state())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            );
-
-            resources_map.finish();
             tiling_pattern
                 .matrix(transform_to_array(
                     transform
@@ -97,6 +59,20 @@ impl PdfResource for Patterns {
 
     fn save(context: &mut crate::WriteContext, output: Self::Output) {
         context.patterns = output;
+    }
+}
+
+pub struct WrittenPattern {
+    /// Reference to the pattern itself
+    pub pattern_ref: Ref,
+    /// Reference to the resources dictionnary this pattern uses
+    pub resources_ref: Ref,
+}
+
+impl Renumber for WrittenPattern {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        self.pattern_ref.renumber(old, new);
+        self.resources_ref.renumber(old, new);
     }
 }
 

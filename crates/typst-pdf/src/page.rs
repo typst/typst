@@ -96,7 +96,8 @@ impl PdfWriter for GlobalResources {
             patterns.pair(Name(name.as_bytes()), gradient_ref);
         }
 
-        for (pattern_ref, p) in ctx.patterns.pdf_indices(&refs.patterns) {
+        let pattern_refs = refs.patterns.iter().map(|p| &p.pattern_ref);
+        for (pattern_ref, p) in ctx.patterns.pdf_indices(pattern_refs) {
             let name = eco_format!("P{}", p);
             patterns.pair(Name(name.as_bytes()), pattern_ref);
         }
@@ -150,6 +151,55 @@ impl PdfWriter for GlobalResources {
             fonts.finish();
 
             resources.finish();
+        }
+
+        // Write the resources for each pattern
+        for (refs, pattern) in refs.patterns.iter().zip(&ctx.remapped_patterns) {
+            let resources = &pattern.resources;
+            let resources_ref = refs.resources_ref;
+
+            let mut resources_map: Resources = pdf.indirect(resources_ref).start();
+
+            resources_map.x_objects().pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_x_object())
+                    .map(|(res, ref_)| (res.name(), ref_)),
+            );
+
+            resources_map.fonts().pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_font())
+                    .map(|(res, ref_)| (res.name(), ref_)),
+            );
+
+            ctx.colors
+                .write_color_spaces(resources_map.color_spaces(), &ctx.globals);
+
+            resources_map
+                .patterns()
+                .pairs(
+                    resources
+                        .iter()
+                        .filter(|(res, _)| res.is_pattern())
+                        .map(|(res, ref_)| (res.name(), ref_)),
+                )
+                .pairs(
+                    resources
+                        .iter()
+                        .filter(|(res, _)| res.is_gradient())
+                        .map(|(res, ref_)| (res.name(), ref_)),
+                );
+
+            resources_map.ext_g_states().pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_ext_g_state())
+                    .map(|(res, ref_)| (res.name(), ref_)),
+            );
+
+            resources_map.finish();
         }
 
         // Write all of the functions used by the document.

@@ -23,7 +23,7 @@ use gradient::Gradients;
 use image::Images;
 use indexmap::IndexMap;
 use page::{GlobalResources, PageTree, Pages};
-use pattern::Patterns;
+use pattern::{Patterns, WrittenPattern};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
 use pdf_writer::{Chunk, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
@@ -181,10 +181,10 @@ impl Renumber for Ref {
     }
 }
 
-impl Renumber for Vec<Ref> {
+impl<R: Renumber> Renumber for Vec<R> {
     fn renumber(&mut self, old: Ref, new: Ref) {
-        if let Some(index) = self.iter().position(|x| *x == old) {
-            self[index] = new;
+        for item in self {
+            item.renumber(old, new);
         }
     }
 }
@@ -262,7 +262,7 @@ struct WriteContext {
     /// The IDs of written gradients.
     gradients: Vec<Ref>,
     /// The IDs of written patterns.
-    patterns: Vec<Ref>,
+    patterns: Vec<WrittenPattern>,
     /// The IDs of written external graphics states.
     ext_gs: Vec<Ref>,
 }
@@ -281,12 +281,12 @@ impl<'a> ConstructContext<'a> {
             deferred_images: HashMap::new(),
             gradients: Remapper::new(),
             patterns: Remapper::new(),
-            remapped_patterns: Remapper::new(),
+            remapped_patterns: Vec::new(),
             ext_gs: Remapper::new(),
             color_fonts: ColorFontMap::new(),
         }
     }
-    fn remap_patterns(&self, ctx: &WriteContext) -> Remapper<PdfPattern<Ref>> {
+    /*fn remap_patterns(&self, ctx: &WriteContext) -> Remapper<PdfPattern<Ref>> {
         let map_pattern = |pattern: &PdfPattern<usize>| PdfPattern {
             transform: pattern.transform,
             pattern: pattern.pattern.clone(),
@@ -320,7 +320,7 @@ impl<'a> ConstructContext<'a> {
                 .collect(),
             to_items: self.patterns.to_items.iter().map(map_pattern).collect(),
         }
-    }
+    }*/
 }
 
 struct ConstructContext<'a> {
@@ -356,7 +356,7 @@ struct ConstructContext<'a> {
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
     patterns: Remapper<PdfPattern<usize>>,
-    remapped_patterns: Remapper<PdfPattern<Ref>>,
+    remapped_patterns: Vec<PdfPattern<Ref>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
@@ -689,9 +689,9 @@ where
 
     fn pdf_indices<'a>(
         &'a self,
-        refs: &'a [Ref],
+        refs: impl IntoIterator<Item = &'a Ref> + 'a,
     ) -> impl Iterator<Item = (Ref, usize)> + 'a {
-        refs.iter().copied().zip(0..self.to_pdf.len())
+        refs.into_iter().copied().zip(0..self.to_pdf.len())
     }
 
     fn items(&self) -> impl Iterator<Item = &T> + '_ {
