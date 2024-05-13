@@ -16,8 +16,8 @@ use ecow::EcoString;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Resolve, Smart,
-    StyleChain,
+    cast, elem, func, scope, Bytes, Cast, Content, Dict, NativeElement, Packed, Resolve,
+    Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, FixedAlignment, Frame, FrameItem, LayoutSingle, Length, Point, Regions,
@@ -96,9 +96,13 @@ pub struct ImageElem {
     /// ```
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
+
+    /// Crop the image to a specific area.
+    pub crop: ImageCrop,
 }
 
 #[scope]
+#[allow(clippy::too_many_arguments)]
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
     ///
@@ -133,6 +137,9 @@ impl ImageElem {
         /// How the image should adjust itself to a given area.
         #[named]
         fit: Option<ImageFit>,
+        /// Crop the image to a specific area.
+        #[named]
+        crop: Option<ImageCrop>,
     ) -> StrResult<Content> {
         let mut elem = ImageElem::new(EcoString::new(), data);
         if let Some(format) = format {
@@ -149,6 +156,9 @@ impl ImageElem {
         }
         if let Some(fit) = fit {
             elem.push_fit(fit);
+        }
+        if let Some(crop) = crop {
+            elem.push_crop(crop);
         }
         Ok(elem.pack().spanned(span))
     }
@@ -194,6 +204,7 @@ impl LayoutSingle for Packed<ImageElem> {
             data.clone().into(),
             format,
             self.alt(styles),
+            self.crop(styles),
             engine.world,
             &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
         )
@@ -269,6 +280,112 @@ impl LocalName for Packed<ImageElem> {
 
 impl Figurable for Packed<ImageElem> {}
 
+/// The edges of an image crop area.
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub struct ImageCrop {
+    /// The left edge of the crop area.
+    pub left: f64,
+    /// The top edge of the crop area.
+    pub top: f64,
+    /// The right edge of the crop area.
+    pub right: f64,
+    /// The bottom edge of the crop area.
+    pub bottom: f64,
+}
+
+impl ImageCrop {
+    /// Create a crop area with no cropping.
+    pub const fn none() -> Self {
+        Self { left: 0.0, top: 0.0, right: 0.0, bottom: 0.0 }
+    }
+
+    /// Check if the crop area is empty.
+    pub fn is_none(&self) -> bool {
+        *self == Self::none()
+    }
+
+    /// Return the offset of the crop area in pixels.
+    pub fn offset_of(&self, width: u32, height: u32) -> (u32, u32) {
+        let w = width as f64;
+        let h = height as f64;
+        let left = if self.left >= 1.0 { self.left } else { (self.left * w).round() }
+            .clamp(0.0, w);
+        let top =
+            if self.top >= 1.0 { self.top } else { (self.top * h).round() }.clamp(0.0, h);
+        (left as u32, top as u32)
+    }
+
+    /// Return the size of the crop area in pixels.
+    pub fn size_of(&self, width: u32, height: u32) -> (u32, u32) {
+        let w = width as f64;
+        let h = height as f64;
+        let (left, top) = self.offset_of(width, height);
+        let right = if self.right > 1.0 { self.right } else { (self.right * w).round() }
+            .clamp(left as f64, w);
+        let bottom =
+            if self.bottom > 1.0 { self.bottom } else { (self.bottom * h).round() }
+                .clamp(top as f64, h);
+        (right as u32 - left, bottom as u32 - top)
+    }
+
+    /// Convert the crop area to a rectangle in pixels.
+    ///
+    /// The width and height are the given `width` and `height`.
+    ///
+    /// The returned tuple is `(left, top, width, height)`.
+    pub fn to_rect(&self, width: u32, height: u32) -> (u32, u32, u32, u32) {
+        let (left, top) = self.offset_of(width, height);
+        let (width, height) = self.size_of(width, height);
+        (left, top, width, height)
+    }
+}
+
+impl std::hash::Hash for ImageCrop {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.left.to_bits().hash(state);
+        self.top.to_bits().hash(state);
+        self.right.to_bits().hash(state);
+        self.bottom.to_bits().hash(state);
+    }
+}
+
+cast! {
+    ImageCrop,
+    self => {
+        let mut v = Dict::new();
+        v.insert("left".into(), self.left.into_value());
+        v.insert("top".into(), self.top.into_value());
+        v.insert("right".into(), self.right.into_value());
+        v.insert("bottom".into(), self.bottom.into_value());
+        Value::Dict(v)
+    },
+    v: Dict => {
+        let take = |key| v.at(key, None).ok().map(f64::from_value).transpose().ok().flatten();
+        let left = take("left".into()).unwrap_or(0.0);
+        let top = take("top".into()).unwrap_or(0.0);
+        let right = take("right".into()).unwrap_or(1.0);
+        let bottom = take("bottom".into()).unwrap_or(1.0);
+        if left < 0.0 || top < 0.0 || right < 0.0 || bottom < 0.0 {
+            bail!("crop values must be non-negative");
+        } else if right <= 1.0 && left < 1.0 && left > right {
+            bail!("left edge must be less than or equal to right edge");
+        } else if bottom <= 1.0 && top < 1.0 && top > bottom {
+            bail!("top edge must be less than or equal to bottom edge");
+        } else if left >= 1.0 && right > 1.0 && left > right {
+            bail!("left edge must be less than or equal to right edge");
+        } else if top >= 1.0 && bottom > 1.0 && top > bottom {
+            bail!("top edge must be less than or equal to bottom edge");
+        } else {
+            Self {
+                left,
+                top,
+                right,
+                bottom,
+            }
+        }
+    },
+}
+
 /// How an image should adjust itself to a given area,
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ImageFit {
@@ -322,10 +439,11 @@ impl Image {
         data: Bytes,
         format: ImageFormat,
         alt: Option<EcoString>,
+        crop: ImageCrop,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                ImageKind::Raster(RasterImage::new(data, format, crop)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
                 ImageKind::Svg(SvgImage::new(data)?)
@@ -342,12 +460,13 @@ impl Image {
         data: Bytes,
         format: ImageFormat,
         alt: Option<EcoString>,
+        crop: ImageCrop,
         world: Tracked<dyn World + '_>,
         families: &[String],
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                ImageKind::Raster(RasterImage::new(data, format, crop)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
                 ImageKind::Svg(SvgImage::with_fonts(data, world, families)?)

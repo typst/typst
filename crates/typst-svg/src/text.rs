@@ -6,7 +6,7 @@ use ttf_parser::GlyphId;
 use typst::layout::{Abs, Point, Ratio, Size, Transform};
 use typst::text::{Font, TextItem};
 use typst::utils::hash128;
-use typst::visualize::{Image, Paint, RasterFormat, RelativeTo};
+use typst::visualize::{Image, ImageCrop, Paint, RasterFormat, RelativeTo};
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
@@ -242,7 +242,9 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
     if raster.format != ttf_parser::RasterImageFormat::PNG {
         return None;
     }
-    let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
+    let image =
+        Image::new(raster.data.into(), RasterFormat::Png.into(), None, ImageCrop::none())
+            .ok()?;
     Some((image, raster.x as f64, raster.y as f64))
 }
 

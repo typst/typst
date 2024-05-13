@@ -120,3 +120,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-2051-new-cm-svg ---
 #set text(font: "New Computer Modern")
 #image("/assets/images/diagram.svg")
+
+--- image-crop ---
+// LARGE
+#image("/assets/images/tiger.jpg")
+#image("/assets/images/tiger.jpg", crop: (left: 0.26, top: 0.09, right: 0.56, bottom: 0.63))

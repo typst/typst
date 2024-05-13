@@ -10,6 +10,7 @@ use image::codecs::png::PngDecoder;
 use image::io::Limits;
 use image::{guess_format, DynamicImage, ImageDecoder, ImageResult};
 
+use super::ImageCrop;
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Bytes, Cast};
 
@@ -29,7 +30,11 @@ struct Repr {
 impl RasterImage {
     /// Decode a raster image.
     #[comemo::memoize]
-    pub fn new(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
+    pub fn new(
+        data: Bytes,
+        format: RasterFormat,
+        crop: ImageCrop,
+    ) -> StrResult<RasterImage> {
         fn decode_with<'a, T: ImageDecoder<'a>>(
             decoder: ImageResult<T>,
         ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
@@ -59,6 +64,21 @@ impl RasterImage {
 
         // Extract pixel density.
         let dpi = determine_dpi(&data, exif.as_ref());
+
+        // Crop the image if requested.
+        let (dynamic, data) = if !crop.is_none() {
+            let (x, y, width, height) = crop.to_rect(dynamic.width(), dynamic.height());
+            let dynamic = dynamic.crop(x, y, width, height);
+            // Re-encode the cropped image.
+            let mut cursor = io::Cursor::new(Vec::new());
+            dynamic
+                .write_to(&mut cursor, image::ImageFormat::from(format))
+                .map_err(format_image_error)?;
+            let data = Bytes::from(cursor.into_inner());
+            (dynamic, data)
+        } else {
+            (dynamic, data)
+        };
 
         Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
     }
@@ -268,7 +288,7 @@ fn format_image_error(error: image::ImageError) -> EcoString {
 #[cfg(test)]
 mod tests {
     use super::{RasterFormat, RasterImage};
-    use crate::foundations::Bytes;
+    use crate::{foundations::Bytes, visualize::ImageCrop};
 
     #[test]
     fn test_image_dpi() {
@@ -276,7 +296,7 @@ mod tests {
         fn test(path: &str, format: RasterFormat, dpi: f64) {
             let data = typst_dev_assets::get(path).unwrap();
             let bytes = Bytes::from_static(data);
-            let image = RasterImage::new(bytes, format).unwrap();
+            let image = RasterImage::new(bytes, format, ImageCrop::none()).unwrap();
             assert_eq!(image.dpi().map(f64::round), Some(dpi));
         }
 

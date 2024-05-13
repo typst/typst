@@ -9,7 +9,7 @@ use usvg::{TreeParsing, TreeWriting};
 use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{Font, Glyph, Lang, TextItem};
-use crate::visualize::{Color, Image, Paint, Rgb};
+use crate::visualize::{Color, Image, ImageCrop, Paint, Rgb};
 
 /// Tells if a glyph is a color glyph or not in a given font.
 pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
@@ -54,6 +54,7 @@ fn draw_raster_glyph(
         raster_image.data.into(),
         typst::visualize::ImageFormat::Raster(typst::visualize::RasterFormat::Png),
         None,
+        ImageCrop::none(),
     )
     .unwrap();
 
@@ -217,6 +218,7 @@ fn draw_svg_glyph(
         wrapper_svg.into_bytes().into(),
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
+        ImageCrop::none(),
     )
     .unwrap();
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
