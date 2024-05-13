@@ -15,7 +15,7 @@ use crate::util::{hash128, BitSet};
 
 /// What to do with an element when encountering it during realization.
 struct Verdict<'a> {
-    /// Whether the element is already prepated (i.e. things that should only
+    /// Whether the element is already prepared (i.e. things that should only
     /// happen once have happened).
     prepared: bool,
     /// A map of styles to apply to the element.
@@ -32,7 +32,7 @@ enum ShowStep<'a> {
     Builtin,
 }
 
-/// Whether the `target` element needs processing.
+/// Returns whether the `target` element needs processing.
 pub fn processable<'a>(
     engine: &mut Engine,
     target: &'a Content,

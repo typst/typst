@@ -17,7 +17,7 @@ pub struct Engine<'a> {
     /// Provides access to information about the document.
     pub introspector: Tracked<'a, Introspector>,
     /// The route the engine took during compilation. This is used to detect
-    /// cyclic imports and too much nesting.
+    /// cyclic imports and excessive nesting.
     pub route: Route<'a>,
     /// Provides stable identities to elements.
     pub locator: &'a mut Locator<'a>,
@@ -45,8 +45,11 @@ impl Engine<'_> {
 }
 
 /// The route the engine took during compilation. This is used to detect
-/// cyclic imports and too much nesting.
+/// cyclic imports and excessive nesting.
 pub struct Route<'a> {
+    /// The parent route segment, if present.
+    ///
+    /// This is used when an engine is created from another engine.
     // We need to override the constraint's lifetime here so that `Tracked` is
     // covariant over the constraint. If it becomes invariant, we're in for a
     // world of lifetime pain.
@@ -60,9 +63,10 @@ pub struct Route<'a> {
     /// route exceeds `MAX_DEPTH`, then we throw a "maximum ... depth exceeded"
     /// error.
     len: usize,
-    /// The upper bound we've established for the parent chain length. We don't
-    /// know the exact length (that would defeat the whole purpose because it
-    /// would prevent cache reuse of some computation at different,
+    /// The upper bound we've established for the parent chain length.
+    ///
+    /// We don't know the exact length (that would defeat the whole purpose
+    /// because it would prevent cache reuse of some computation at different,
     /// non-exceeding depths).
     upper: AtomicUsize,
 }

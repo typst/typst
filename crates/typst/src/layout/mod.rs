@@ -119,6 +119,11 @@ pub fn define(global: &mut Scope) {
 }
 
 /// Root-level layout.
+///
+/// This produces a complete document and is implemented for
+/// [`DocumentElem`][crate::model::DocumentElem]. Any [`Content`]
+/// can also be laid out at root level, in which case it is
+/// wrapped inside a document element.
 pub trait LayoutRoot {
     /// Layout into a document with one frame per page.
     fn layout_root(
@@ -128,7 +133,10 @@ pub trait LayoutRoot {
     ) -> SourceResult<Document>;
 }
 
-/// Layout into multiple regions.
+/// Layout into multiple [regions][Regions].
+///
+/// This is more appropriate for elements that, for example, can be
+/// laid out across multiple pages or columns.
 pub trait LayoutMultiple {
     /// Layout into one frame per region.
     fn layout(
@@ -160,7 +168,10 @@ pub trait LayoutMultiple {
     }
 }
 
-/// Layout into a single region.
+/// Layout into a single [region][Regions].
+///
+/// This is more appropriate for elements that don't make sense to
+/// layout across multiple pages or columns, such as shapes.
 pub trait LayoutSingle {
     /// Layout into one frame per region.
     fn layout(
