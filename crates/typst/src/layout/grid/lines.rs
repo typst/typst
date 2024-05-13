@@ -1,7 +1,9 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use super::layout::{CellGrid, Repeatable, RowPiece};
+use super::cells::CellGrid;
+use super::layout::RowPiece;
+use super::repeated::Repeatable;
 use crate::foundations::{AlternativeFold, Fold};
 use crate::layout::Abs;
 use crate::visualize::Stroke;
@@ -597,7 +599,7 @@ pub(super) fn hline_stroke_at_column(
 
 #[cfg(test)]
 mod test {
-    use super::super::layout::Entry;
+    use super::super::cells::Entry;
     use super::*;
     use crate::foundations::Content;
     use crate::layout::{Axes, Cell, Sides, Sizing};
