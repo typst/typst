@@ -2568,6 +2568,7 @@ dependencies = [
  "typst-macros",
  "typst-syntax",
  "typst-timing",
+ "typst-utils",
  "unicode-bidi",
  "unicode-math-class",
  "unicode-script",
@@ -2801,6 +2802,16 @@ dependencies = [
  "serde",
  "serde_json",
  "typst-syntax",
+]
+
+[[package]]
+name = "typst-utils"
+version = "0.11.0"
+dependencies = [
+ "once_cell",
+ "portable-atomic",
+ "rayon",
+ "siphasher 1.0.0",
 ]
 
 [[package]]

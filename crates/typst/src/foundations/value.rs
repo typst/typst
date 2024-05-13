@@ -20,7 +20,7 @@ use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
 use crate::text::{RawContent, RawElem, TextElem};
-use crate::util::ArcExt;
+use crate::utils::ArcExt;
 use crate::visualize::{Color, Gradient, Pattern};
 
 /// A computational value.

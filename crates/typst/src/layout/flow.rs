@@ -18,7 +18,7 @@ use crate::layout::{
     Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///

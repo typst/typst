@@ -16,7 +16,7 @@ use crate::model::{
 };
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, LocalName, SpaceElem, TextElem};
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 
 /// A table of contents, figures, or other elements.
 ///

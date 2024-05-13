@@ -27,7 +27,7 @@ use crate::loading::Readable;
 use crate::model::Figurable;
 use crate::syntax::{Span, Spanned};
 use crate::text::{families, LocalName};
-use crate::util::LazyHash;
+use crate::utils::LazyHash;
 use crate::visualize::Path;
 use crate::World;
 

@@ -14,7 +14,7 @@ use crate::math::{
 };
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.5);

@@ -37,8 +37,6 @@
 
 extern crate self as typst;
 
-#[macro_use]
-pub mod util;
 pub mod diag;
 pub mod engine;
 pub mod eval;
@@ -55,6 +53,8 @@ pub mod visualize;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
+#[doc(inline)]
+pub use typst_utils as utils;
 
 use std::collections::HashSet;
 use std::ops::{Deref, Range};
@@ -168,7 +168,7 @@ fn typeset(
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
     let mut unique = HashSet::new();
     diags.retain(|diag| {
-        let hash = crate::util::hash128(&(&diag.span, &diag.message));
+        let hash = crate::utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)
     });
     diags

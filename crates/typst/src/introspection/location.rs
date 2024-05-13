@@ -38,7 +38,7 @@ impl Location {
     /// locations for reference entries from the bibliography's location.
     pub fn variant(self, n: usize) -> Self {
         Self {
-            hash: crate::util::hash128(&(self.hash, n)),
+            hash: crate::utils::hash128(&(self.hash, n)),
             ..self
         }
     }

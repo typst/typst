@@ -6,7 +6,7 @@ use crate::foundations::{
     Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Length};
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 use crate::visualize::{Color, Gradient, Paint, Pattern};
 
 /// Defines how to draw a line.

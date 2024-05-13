@@ -325,7 +325,7 @@ impl<T: Clone> SlotCell<T> {
 
         // Read and hash the file.
         let result = timed!("loading file", load());
-        let fingerprint = timed!("hashing file", typst::util::hash128(&result));
+        let fingerprint = timed!("hashing file", typst::utils::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
         if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {

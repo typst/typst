@@ -5,7 +5,7 @@ use ecow::EcoString;
 use ttf_parser::GlyphId;
 use typst::layout::{Abs, Point, Ratio, Size, Transform};
 use typst::text::{Font, TextItem};
-use typst::util::hash128;
+use typst::utils::hash128;
 use typst::visualize::{Image, Paint, RasterFormat, RelativeTo};
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};

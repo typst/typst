@@ -21,7 +21,7 @@ use crate::syntax::Span;
 use crate::text::{
     families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
 };
-use crate::util::{NonZeroExt, Numeric};
+use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
 
 /// A mathematical equation.

@@ -5,7 +5,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, Not};
 use crate::diag::bail;
 use crate::foundations::{array, cast, Array, Resolve, Smart, StyleChain};
 use crate::layout::{Abs, Dir, Length, Ratio, Rel};
-use crate::util::Get;
+use crate::utils::Get;
 
 /// A container with a horizontal and vertical component.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]

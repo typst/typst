@@ -11,7 +11,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::text::TextElem;
-use crate::util::{hash128, BitSet};
+use crate::utils::{hash128, BitSet};
 
 /// What to do with an element when encountering it during realization.
 struct Verdict<'a> {

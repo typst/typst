@@ -11,7 +11,7 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::TextItem;
-use crate::util::{LazyHash, Numeric};
+use crate::utils::{LazyHash, Numeric};
 use crate::visualize::{
     ellipse, styled_rect, Color, FixedStroke, Geometry, Image, Paint, Path, Shape,
 };

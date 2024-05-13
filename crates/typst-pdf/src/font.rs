@@ -9,7 +9,7 @@ use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
 use typst::layout::{Abs, Em, Ratio, Transform};
 use typst::text::Font;
-use typst::util::SliceExt;
+use typst::utils::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use crate::page::{write_frame, PageContext};
@@ -320,7 +320,7 @@ fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
 fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
     const LEN: usize = 6;
     const BASE: u128 = 26;
-    let mut hash = typst::util::hash128(&glyphs);
+    let mut hash = typst::utils::hash128(&glyphs);
     let mut letter = [b'A'; LEN];
     for l in letter.iter_mut() {
         *l = b'A' + (hash % BASE) as u8;

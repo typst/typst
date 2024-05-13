@@ -603,7 +603,7 @@ mod test {
     use super::*;
     use crate::foundations::Content;
     use crate::layout::{Axes, Cell, Sides, Sizing};
-    use crate::util::NonZeroExt;
+    use crate::utils::NonZeroExt;
 
     fn sample_cell() -> Cell {
         Cell {

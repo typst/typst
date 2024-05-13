@@ -18,7 +18,7 @@ use crate::text::{
     decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
     TextElem, TextItem,
 };
-use crate::util::SliceExt;
+use crate::utils::SliceExt;
 use crate::World;
 
 /// The result of shaping text.

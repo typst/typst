@@ -16,7 +16,7 @@ use crate::foundations::{
 use crate::introspection::Locatable;
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
-use crate::util::LazyHash;
+use crate::utils::LazyHash;
 
 /// Provides access to active styles.
 ///

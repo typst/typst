@@ -1,7 +1,7 @@
 use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 use crate::realize::{Behave, Behaviour};
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// Inserts horizontal spacing into a paragraph.
 ///
