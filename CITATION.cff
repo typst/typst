@@ -1,0 +1,28 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Typst
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Laurenz
+    family-names: Mädje
+    email: laurenz.maedje@typst.app
+  - given-names: Martin
+    family-names: Haug
+    email: martin.haug@typst.app
+  - name: The Typst Project Developers
+identifiers:
+  - type: url
+    value: >-
+      https://laurmaedje.github.io/programmable-markup-language-for-typesetting.pdf
+    description: "Typst: A Programmable Markup Language for Typesetting"
+repository-code: 'https://github.com/typst/typst'
+url: 'https://typst.app/'
+keywords:
+  - typesetting
+  - markup language
+license: Apache-2.0
