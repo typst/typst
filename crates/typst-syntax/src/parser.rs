@@ -708,9 +708,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
-        let binop = if p.at_set(set::BINARY_OP) {
-            ast::BinOp::from_kind(p.current())
-        } else if p.at_set(set::ELEMENTWISE_OP) {
+        let binop = if p.at_set(set::BINARY_OP) || p.at_set(set::ELEMENTWISE_OP) {
             ast::BinOp::from_kind(p.current())
         } else if min_prec <= ast::BinOp::NotIn.precedence() && p.eat_if(SyntaxKind::Not) {
             if p.at(SyntaxKind::In) {
