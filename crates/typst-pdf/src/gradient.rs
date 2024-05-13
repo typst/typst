@@ -13,7 +13,9 @@ use typst::visualize::{
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::content::{self, Resource, ResourceKind};
-use crate::{deflate, transform_to_array, AbsExt, ConstructContext, PdfChunk};
+use crate::{
+    deflate, transform_to_array, AbsExt, ConstructContext, PdfChunk, PdfResource,
+};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -30,120 +32,139 @@ pub struct PdfGradient {
     pub angle: Angle,
 }
 
-/// Writes the actual gradients (shading patterns) to the PDF.
-/// This is performed once after writing all pages.
-#[must_use]
-pub(crate) fn write_gradients(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new();
-    let mut gradients = Vec::new();
+pub struct Gradients;
 
-    for PdfGradient { transform, aspect_ratio, gradient, angle } in
-        ctx.gradients.items().cloned().collect::<Vec<_>>()
-    {
-        let shading = chunk.alloc();
-        gradients.push(shading);
+impl PdfResource for Gradients {
+    type Output = Vec<Ref>;
 
-        let color_space = if gradient.space().hue_index().is_some() {
-            ColorSpace::Oklab
-        } else {
-            gradient.space()
-        };
+    /// Writes the actual gradients (shading patterns) to the PDF.
+    /// This is performed once after writing all pages.
+    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+        let mut gradients = Vec::new();
 
-        let mut shading_pattern = match &gradient {
-            Gradient::Linear(_) => {
-                let shading_function =
-                    shading_function(&gradient, &mut chunk, color_space);
-                let mut shading_pattern = chunk.chunk.shading_pattern(shading);
-                let mut shading = shading_pattern.function_shading();
-                shading.shading_type(FunctionShadingType::Axial);
+        for PdfGradient { transform, aspect_ratio, gradient, angle } in
+            context.gradients.items().cloned().collect::<Vec<_>>()
+        {
+            let shading = chunk.alloc();
+            gradients.push(shading);
 
-                ctx.colors.write(color_space, shading.color_space(), &ctx.globals);
+            let color_space = if gradient.space().hue_index().is_some() {
+                ColorSpace::Oklab
+            } else {
+                gradient.space()
+            };
 
-                let (mut sin, mut cos) = (angle.sin(), angle.cos());
+            let mut shading_pattern = match &gradient {
+                Gradient::Linear(_) => {
+                    let shading_function =
+                        shading_function(&gradient, chunk, color_space);
+                    let mut shading_pattern = chunk.chunk.shading_pattern(shading);
+                    let mut shading = shading_pattern.function_shading();
+                    shading.shading_type(FunctionShadingType::Axial);
 
-                // Scale to edges of unit square.
-                let factor = cos.abs() + sin.abs();
-                sin *= factor;
-                cos *= factor;
+                    context.colors.write(
+                        color_space,
+                        shading.color_space(),
+                        &context.globals,
+                    );
 
-                let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
-                    Quadrant::First => (0.0, 0.0, cos, sin),
-                    Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
-                    Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
-                    Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
-                };
+                    let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
-                shading
-                    .anti_alias(gradient.anti_alias())
-                    .function(shading_function)
-                    .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
-                    .extend([true; 2]);
+                    // Scale to edges of unit square.
+                    let factor = cos.abs() + sin.abs();
+                    sin *= factor;
+                    cos *= factor;
 
-                shading.finish();
+                    let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
+                        Quadrant::First => (0.0, 0.0, cos, sin),
+                        Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
+                        Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
+                        Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
+                    };
 
-                shading_pattern
-            }
-            Gradient::Radial(radial) => {
-                let shading_function =
-                    shading_function(&gradient, &mut chunk, color_space);
-                let mut shading_pattern = chunk.chunk.shading_pattern(shading);
-                let mut shading = shading_pattern.function_shading();
-                shading.shading_type(FunctionShadingType::Radial);
+                    shading
+                        .anti_alias(gradient.anti_alias())
+                        .function(shading_function)
+                        .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
+                        .extend([true; 2]);
 
-                ctx.colors.write(color_space, shading.color_space(), &ctx.globals);
+                    shading.finish();
 
-                shading
-                    .anti_alias(gradient.anti_alias())
-                    .function(shading_function)
-                    .coords([
-                        radial.focal_center.x.get() as f32,
-                        radial.focal_center.y.get() as f32,
-                        radial.focal_radius.get() as f32,
-                        radial.center.x.get() as f32,
-                        radial.center.y.get() as f32,
-                        radial.radius.get() as f32,
-                    ])
-                    .extend([true; 2]);
+                    shading_pattern
+                }
+                Gradient::Radial(radial) => {
+                    let shading_function =
+                        shading_function(&gradient, chunk, color_space);
+                    let mut shading_pattern = chunk.chunk.shading_pattern(shading);
+                    let mut shading = shading_pattern.function_shading();
+                    shading.shading_type(FunctionShadingType::Radial);
 
-                shading.finish();
+                    context.colors.write(
+                        color_space,
+                        shading.color_space(),
+                        &context.globals,
+                    );
 
-                shading_pattern
-            }
-            Gradient::Conic(_) => {
-                let vertices = compute_vertex_stream(&gradient, aspect_ratio);
+                    shading
+                        .anti_alias(gradient.anti_alias())
+                        .function(shading_function)
+                        .coords([
+                            radial.focal_center.x.get() as f32,
+                            radial.focal_center.y.get() as f32,
+                            radial.focal_radius.get() as f32,
+                            radial.center.x.get() as f32,
+                            radial.center.y.get() as f32,
+                            radial.radius.get() as f32,
+                        ])
+                        .extend([true; 2]);
 
-                let stream_shading_id = chunk.alloc();
-                let mut stream_shading =
-                    chunk.chunk.stream_shading(stream_shading_id, &vertices);
+                    shading.finish();
 
-                ctx.colors
-                    .write(color_space, stream_shading.color_space(), &ctx.globals);
+                    shading_pattern
+                }
+                Gradient::Conic(_) => {
+                    let vertices = compute_vertex_stream(&gradient, aspect_ratio);
 
-                let range = color_space.range();
-                stream_shading
-                    .bits_per_coordinate(16)
-                    .bits_per_component(16)
-                    .bits_per_flag(8)
-                    .shading_type(StreamShadingType::CoonsPatch)
-                    .decode([
-                        0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                        range[4], range[5],
-                    ])
-                    .anti_alias(gradient.anti_alias())
-                    .filter(Filter::FlateDecode);
+                    let stream_shading_id = chunk.alloc();
+                    let mut stream_shading =
+                        chunk.chunk.stream_shading(stream_shading_id, &vertices);
 
-                stream_shading.finish();
+                    context.colors.write(
+                        color_space,
+                        stream_shading.color_space(),
+                        &context.globals,
+                    );
 
-                let mut shading_pattern = chunk.shading_pattern(shading);
-                shading_pattern.shading_ref(stream_shading_id);
-                shading_pattern
-            }
-        };
+                    let range = color_space.range();
+                    stream_shading
+                        .bits_per_coordinate(16)
+                        .bits_per_component(16)
+                        .bits_per_flag(8)
+                        .shading_type(StreamShadingType::CoonsPatch)
+                        .decode([
+                            0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
+                            range[4], range[5],
+                        ])
+                        .anti_alias(gradient.anti_alias())
+                        .filter(Filter::FlateDecode);
 
-        shading_pattern.matrix(transform_to_array(transform));
+                    stream_shading.finish();
+
+                    let mut shading_pattern = chunk.shading_pattern(shading);
+                    shading_pattern.shading_ref(stream_shading_id);
+                    shading_pattern
+                }
+            };
+
+            shading_pattern.matrix(transform_to_array(transform));
+        }
+
+        gradients
     }
 
-    (gradients, chunk)
+    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+        context.gradients = output;
+    }
 }
 
 /// Writes an expotential or stitched function that expresses the gradient.

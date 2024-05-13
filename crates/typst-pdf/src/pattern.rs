@@ -7,87 +7,97 @@ use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::content::{self, Resource, ResourceKind};
-use crate::{transform_to_array, ConstructContext, PdfChunk, Remapper};
+use crate::{transform_to_array, ConstructContext, PdfChunk, PdfResource};
 
-/// Writes the actual patterns (tiling patterns) to the PDF.
-/// This is performed once after writing all pages.
-#[must_use]
-pub(crate) fn write_patterns(
-    ctx: &ConstructContext,
-    pattern_map: &Remapper<PdfPattern<Ref>>,
-) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new();
-    let mut patterns = Vec::new();
+pub struct Patterns;
 
-    for PdfPattern { transform, pattern, content, resources } in pattern_map.items() {
-        let tiling = chunk.alloc();
-        patterns.push(tiling);
+impl PdfResource for Patterns {
+    type Output = Vec<Ref>;
 
-        let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
-        tiling_pattern
-            .tiling_type(TilingType::ConstantSpacing)
-            .paint_type(PaintType::Colored)
-            .bbox(Rect::new(
-                0.0,
-                0.0,
-                pattern.size().x.to_pt() as _,
-                pattern.size().y.to_pt() as _,
-            ))
-            .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
-            .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
+    /// Writes the actual patterns (tiling patterns) to the PDF.
+    /// This is performed once after writing all pages.
+    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+        let pattern_map = &context.remapped_patterns;
+        let mut patterns = Vec::new();
 
-        let mut resources_map = tiling_pattern.resources();
+        for PdfPattern { transform, pattern, content, resources } in pattern_map.items() {
+            let tiling = chunk.alloc();
+            patterns.push(tiling);
 
-        resources_map.x_objects().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_x_object())
-                .map(|(res, ref_)| (res.name(), ref_)),
-        );
+            let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
+            tiling_pattern
+                .tiling_type(TilingType::ConstantSpacing)
+                .paint_type(PaintType::Colored)
+                .bbox(Rect::new(
+                    0.0,
+                    0.0,
+                    pattern.size().x.to_pt() as _,
+                    pattern.size().y.to_pt() as _,
+                ))
+                .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
+                .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
 
-        resources_map.fonts().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_font())
-                .map(|(res, ref_)| (res.name(), ref_)),
-        );
+            let mut resources_map = tiling_pattern.resources();
 
-        ctx.colors
-            .write_color_spaces(resources_map.color_spaces(), &ctx.globals);
-
-        resources_map
-            .patterns()
-            .pairs(
+            resources_map.x_objects().pairs(
                 resources
                     .iter()
-                    .filter(|(res, _)| res.is_pattern())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            )
-            .pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_gradient())
+                    .filter(|(res, _)| res.is_x_object())
                     .map(|(res, ref_)| (res.name(), ref_)),
             );
 
-        resources_map.ext_g_states().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_ext_g_state())
-                .map(|(res, ref_)| (res.name(), ref_)),
-        );
+            resources_map.fonts().pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_font())
+                    .map(|(res, ref_)| (res.name(), ref_)),
+            );
 
-        resources_map.finish();
-        tiling_pattern
-            .matrix(transform_to_array(
-                transform
-                    .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
-                    .post_concat(Transform::translate(Abs::zero(), pattern.spacing().y)),
-            ))
-            .filter(Filter::FlateDecode);
+            context
+                .colors
+                .write_color_spaces(resources_map.color_spaces(), &context.globals);
+
+            resources_map
+                .patterns()
+                .pairs(
+                    resources
+                        .iter()
+                        .filter(|(res, _)| res.is_pattern())
+                        .map(|(res, ref_)| (res.name(), ref_)),
+                )
+                .pairs(
+                    resources
+                        .iter()
+                        .filter(|(res, _)| res.is_gradient())
+                        .map(|(res, ref_)| (res.name(), ref_)),
+                );
+
+            resources_map.ext_g_states().pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_ext_g_state())
+                    .map(|(res, ref_)| (res.name(), ref_)),
+            );
+
+            resources_map.finish();
+            tiling_pattern
+                .matrix(transform_to_array(
+                    transform
+                        .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
+                        .post_concat(Transform::translate(
+                            Abs::zero(),
+                            pattern.spacing().y,
+                        )),
+                ))
+                .filter(Filter::FlateDecode);
+        }
+
+        patterns
     }
 
-    (patterns, chunk)
+    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+        context.patterns = output;
+    }
 }
 
 /// A pattern and its transform.

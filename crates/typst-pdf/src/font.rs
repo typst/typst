@@ -12,7 +12,9 @@ use typst::text::Font;
 use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
-use crate::{content, deflate, ConstructContext, EmExt, PdfChunk};
+use crate::{
+    content, deflate, ConstructContext, EmExt, PdfChunk, PdfConstructor, PdfResource,
+};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -23,221 +25,239 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
     supplement: 0,
 };
 
-/// Embed all used fonts into the PDF.
-#[typst_macros::time(name = "write fonts")]
-#[must_use]
-pub(crate) fn write_fonts(ctx: &ConstructContext) -> (Vec<Ref>, PdfChunk) {
-    let mut chunk = PdfChunk::new();
-    let mut fonts = Vec::new();
+pub struct Fonts;
 
-    for font in ctx.fonts.items() {
-        let type0_ref = chunk.alloc();
-        let cid_ref = chunk.alloc();
-        let descriptor_ref = chunk.alloc();
-        let cmap_ref = chunk.alloc();
-        let data_ref = chunk.alloc();
-        fonts.push(type0_ref);
+impl PdfResource for Fonts {
+    type Output = Vec<Ref>;
 
-        let glyph_set = ctx.glyph_sets.get(font).unwrap();
-        let ttf = font.ttf();
+    /// Embed all used fonts into the PDF.
+    #[typst_macros::time(name = "write fonts")]
+    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+        let mut fonts = Vec::new();
 
-        // Do we have a TrueType or CFF font?
-        //
-        // FIXME: CFF2 must be handled differently and requires PDF 2.0
-        // (or we have to convert it to CFF).
-        let is_cff = ttf
-            .raw_face()
-            .table(CFF)
-            .or_else(|| ttf.raw_face().table(CFF2))
-            .is_some();
-
-        let postscript_name = font
-            .find_name(name_id::POST_SCRIPT_NAME)
-            .unwrap_or_else(|| "unknown".to_string());
-
-        let subset_tag = subset_tag(glyph_set);
-        let base_font = eco_format!("{subset_tag}+{postscript_name}");
-        let base_font_type0 = if is_cff {
-            eco_format!("{base_font}-Identity-H")
-        } else {
-            base_font.clone()
-        };
-
-        // Write the base font object referencing the CID font.
-        chunk
-            .type0_font(type0_ref)
-            .base_font(Name(base_font_type0.as_bytes()))
-            .encoding_predefined(Name(b"Identity-H"))
-            .descendant_font(cid_ref)
-            .to_unicode(cmap_ref);
-
-        // Write the CID font referencing the font descriptor.
-        let mut cid = chunk.cid_font(cid_ref);
-        cid.subtype(if is_cff { CidFontType::Type0 } else { CidFontType::Type2 });
-        cid.base_font(Name(base_font.as_bytes()));
-        cid.system_info(SYSTEM_INFO);
-        cid.font_descriptor(descriptor_ref);
-        cid.default_width(0.0);
-        if !is_cff {
-            cid.cid_to_gid_map_predefined(Name(b"Identity"));
-        }
-
-        // Extract the widths of all glyphs.
-        let mut widths = vec![];
-        for gid in std::iter::once(0).chain(glyph_set.keys().copied()) {
-            let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
-            let units = font.to_em(width).to_font_units();
-            let cid = glyph_cid(font, gid);
-            if usize::from(cid) >= widths.len() {
-                widths.resize(usize::from(cid) + 1, 0.0);
-                widths[usize::from(cid)] = units;
-            }
-        }
-
-        // Write all non-zero glyph widths.
-        let mut first = 0;
-        let mut width_writer = cid.widths();
-        for (w, group) in widths.group_by_key(|&w| w) {
-            let end = first + group.len();
-            if w != 0.0 {
-                let last = end - 1;
-                width_writer.same(first as u16, last as u16, w);
-            }
-            first = end;
-        }
-
-        width_writer.finish();
-        cid.finish();
-
-        // Write the /ToUnicode character map, which maps glyph ids back to
-        // unicode codepoints to enable copying out of the PDF.
-        let cmap = create_cmap(font, glyph_set);
-        chunk.cmap(cmap_ref, &cmap.finish());
-
-        // Subset and write the font's bytes.
-        let glyphs: Vec<_> = glyph_set.keys().copied().collect();
-        let data = subset_font(font, &glyphs);
-
-        let mut stream = chunk.stream(data_ref, &data);
-        stream.filter(Filter::FlateDecode);
-        if is_cff {
-            stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
-        }
-
-        stream.finish();
-
-        let mut font_descriptor =
-            write_font_descriptor(&mut chunk, descriptor_ref, font, &base_font);
-        if is_cff {
-            font_descriptor.font_file3(data_ref);
-        } else {
-            font_descriptor.font_file2(data_ref);
-        }
-    }
-    (fonts, chunk)
-}
-
-/// Writes color fonts as Type3 fonts
-#[must_use]
-pub(crate) fn write_color_fonts(ctx: &mut ConstructContext) -> PdfChunk {
-    let mut chunk = PdfChunk::new();
-
-    let color_font_map = ctx.color_fonts.take_map();
-    for (font, color_font) in color_font_map {
-        // For each Type3 font that is part of this family…
-        for (font_index, subfont_id) in color_font.refs.iter().enumerate() {
-            // Allocate some IDs.
-            let cmap_ref = chunk.alloc();
+        for font in context.fonts.items() {
+            let type0_ref = chunk.alloc();
+            let cid_ref = chunk.alloc();
             let descriptor_ref = chunk.alloc();
-            let widths_ref = chunk.alloc();
-            // And a map between glyph IDs and the instructions to draw this
-            // glyph.
-            let mut glyphs_to_instructions = Vec::new();
+            let cmap_ref = chunk.alloc();
+            let data_ref = chunk.alloc();
+            fonts.push(type0_ref);
 
-            let start = font_index * 256;
-            let end = (start + 256).min(color_font.glyphs.len());
-            let glyph_count = end - start;
-            let subset = &color_font.glyphs[start..end];
-            let mut widths = Vec::new();
-            let mut gids = Vec::new();
+            let glyph_set = context.glyph_sets.get(font).unwrap();
+            let ttf = font.ttf();
 
-            let scale_factor = font.ttf().units_per_em() as f32;
+            // Do we have a TrueType or CFF font?
+            //
+            // FIXME: CFF2 must be handled differently and requires PDF 2.0
+            // (or we have to convert it to CFF).
+            let is_cff = ttf
+                .raw_face()
+                .table(CFF)
+                .or_else(|| ttf.raw_face().table(CFF2))
+                .is_some();
 
-            // Write the instructions for each glyph.
-            for color_glyph in subset {
-                let instructions_stream_ref = chunk.alloc();
-                let width =
-                    font.advance(color_glyph.gid).unwrap_or(Em::new(0.0)).to_font_units();
-                widths.push(width);
-                // Create a fake page context for `write_frame`. We are only
-                // interested in the contents of the page.
-                let c = content::build(ctx, &color_glyph.frame);
-                chunk.stream(instructions_stream_ref, c.content.wait());
-
-                // Use this stream as instructions to draw the glyph.
-                glyphs_to_instructions.push(instructions_stream_ref);
-                gids.push(color_glyph.gid);
-            }
-
-            // Write the Type3 font object.
-            let mut pdf_font = chunk.type3_font(*subfont_id);
-            pdf_font.pair(Name(b"Resources"), ctx.globals.type3_font_resources);
-            pdf_font.bbox(color_font.bbox);
-            pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
-            pdf_font.first_char(0);
-            pdf_font.last_char((glyph_count - 1) as u8);
-            pdf_font.pair(Name(b"Widths"), widths_ref);
-            pdf_font.to_unicode(cmap_ref);
-            pdf_font.font_descriptor(descriptor_ref);
-
-            // Write the /CharProcs dictionary, that maps glyph names to
-            // drawing instructions.
-            let mut char_procs = pdf_font.char_procs();
-            for (gid, instructions_ref) in glyphs_to_instructions.iter().enumerate() {
-                char_procs
-                    .pair(Name(eco_format!("glyph{gid}").as_bytes()), *instructions_ref);
-            }
-            char_procs.finish();
-
-            // Write the /Encoding dictionary.
-            let names = (0..glyph_count)
-                .map(|gid| eco_format!("glyph{gid}"))
-                .collect::<Vec<_>>();
-            pdf_font
-                .encoding_custom()
-                .differences()
-                .consecutive(0, names.iter().map(|name| Name(name.as_bytes())));
-            pdf_font.finish();
-
-            // Encode a CMAP to make it possible to search or copy glyphs.
-            let glyph_set = ctx.glyph_sets.get(&font).unwrap();
-            let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
-            for (index, glyph) in subset.iter().enumerate() {
-                let Some(text) = glyph_set.get(&glyph.gid) else {
-                    continue;
-                };
-
-                if !text.is_empty() {
-                    cmap.pair_with_multiple(index as u8, text.chars());
-                }
-            }
-            chunk.cmap(cmap_ref, &cmap.finish());
-
-            // Write the font descriptor.
-            gids.sort();
-            let subset_tag = subset_tag(&gids);
             let postscript_name = font
                 .find_name(name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
-            let base_font = eco_format!("{subset_tag}+{postscript_name}");
-            write_font_descriptor(&mut chunk, descriptor_ref, &font, &base_font);
 
-            // Write the widths array
-            chunk.indirect(widths_ref).array().items(widths);
+            let subset_tag = subset_tag(glyph_set);
+            let base_font = eco_format!("{subset_tag}+{postscript_name}");
+            let base_font_type0 = if is_cff {
+                eco_format!("{base_font}-Identity-H")
+            } else {
+                base_font.clone()
+            };
+
+            // Write the base font object referencing the CID font.
+            chunk
+                .type0_font(type0_ref)
+                .base_font(Name(base_font_type0.as_bytes()))
+                .encoding_predefined(Name(b"Identity-H"))
+                .descendant_font(cid_ref)
+                .to_unicode(cmap_ref);
+
+            // Write the CID font referencing the font descriptor.
+            let mut cid = chunk.cid_font(cid_ref);
+            cid.subtype(if is_cff { CidFontType::Type0 } else { CidFontType::Type2 });
+            cid.base_font(Name(base_font.as_bytes()));
+            cid.system_info(SYSTEM_INFO);
+            cid.font_descriptor(descriptor_ref);
+            cid.default_width(0.0);
+            if !is_cff {
+                cid.cid_to_gid_map_predefined(Name(b"Identity"));
+            }
+
+            // Extract the widths of all glyphs.
+            let mut widths = vec![];
+            for gid in std::iter::once(0).chain(glyph_set.keys().copied()) {
+                let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
+                let units = font.to_em(width).to_font_units();
+                let cid = glyph_cid(font, gid);
+                if usize::from(cid) >= widths.len() {
+                    widths.resize(usize::from(cid) + 1, 0.0);
+                    widths[usize::from(cid)] = units;
+                }
+            }
+
+            // Write all non-zero glyph widths.
+            let mut first = 0;
+            let mut width_writer = cid.widths();
+            for (w, group) in widths.group_by_key(|&w| w) {
+                let end = first + group.len();
+                if w != 0.0 {
+                    let last = end - 1;
+                    width_writer.same(first as u16, last as u16, w);
+                }
+                first = end;
+            }
+
+            width_writer.finish();
+            cid.finish();
+
+            // Write the /ToUnicode character map, which maps glyph ids back to
+            // unicode codepoints to enable copying out of the PDF.
+            let cmap = create_cmap(font, glyph_set);
+            chunk.cmap(cmap_ref, &cmap.finish());
+
+            // Subset and write the font's bytes.
+            let glyphs: Vec<_> = glyph_set.keys().copied().collect();
+            let data = subset_font(font, &glyphs);
+
+            let mut stream = chunk.stream(data_ref, &data);
+            stream.filter(Filter::FlateDecode);
+            if is_cff {
+                stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
+            }
+
+            stream.finish();
+
+            let mut font_descriptor =
+                write_font_descriptor(chunk, descriptor_ref, font, &base_font);
+            if is_cff {
+                font_descriptor.font_file3(data_ref);
+            } else {
+                font_descriptor.font_file2(data_ref);
+            }
         }
+        fonts
     }
 
-    chunk
+    fn save(context: &mut crate::WriteContext, output: Self::Output) {
+        context.fonts = output;
+    }
+}
+
+pub struct ColorFonts;
+
+impl PdfConstructor for ColorFonts {
+    /// Writes color fonts as Type3 fonts
+    fn write(&self, context: &mut ConstructContext, chunk: &mut PdfChunk) {
+        let color_font_map = context.color_fonts.take_map();
+        for (font, color_font) in color_font_map {
+            // For each Type3 font that is part of this family…
+            for (font_index, subfont_id) in color_font.refs.iter().enumerate() {
+                // Allocate some IDs.
+                let cmap_ref = chunk.alloc();
+                let descriptor_ref = chunk.alloc();
+                let widths_ref = chunk.alloc();
+                // And a map between glyph IDs and the instructions to draw this
+                // glyph.
+                let mut glyphs_to_instructions = Vec::new();
+
+                let start = font_index * 256;
+                let end = (start + 256).min(color_font.glyphs.len());
+                let glyph_count = end - start;
+                let subset = &color_font.glyphs[start..end];
+                let mut widths = Vec::new();
+                let mut gids = Vec::new();
+
+                let scale_factor = font.ttf().units_per_em() as f32;
+
+                // Write the instructions for each glyph.
+                for color_glyph in subset {
+                    let instructions_stream_ref = chunk.alloc();
+                    let width = font
+                        .advance(color_glyph.gid)
+                        .unwrap_or(Em::new(0.0))
+                        .to_font_units();
+                    widths.push(width);
+                    // Create a fake page context for `write_frame`. We are only
+                    // interested in the contents of the page.
+                    let c = content::build(context, &color_glyph.frame);
+                    chunk.stream(instructions_stream_ref, c.content.wait());
+
+                    // Use this stream as instructions to draw the glyph.
+                    glyphs_to_instructions.push(instructions_stream_ref);
+                    gids.push(color_glyph.gid);
+                }
+
+                // Write the Type3 font object.
+                let mut pdf_font = chunk.type3_font(*subfont_id);
+                pdf_font.pair(Name(b"Resources"), context.globals.type3_font_resources);
+                pdf_font.bbox(color_font.bbox);
+                pdf_font.matrix([
+                    1.0 / scale_factor,
+                    0.0,
+                    0.0,
+                    1.0 / scale_factor,
+                    0.0,
+                    0.0,
+                ]);
+                pdf_font.first_char(0);
+                pdf_font.last_char((glyph_count - 1) as u8);
+                pdf_font.pair(Name(b"Widths"), widths_ref);
+                pdf_font.to_unicode(cmap_ref);
+                pdf_font.font_descriptor(descriptor_ref);
+
+                // Write the /CharProcs dictionary, that maps glyph names to
+                // drawing instructions.
+                let mut char_procs = pdf_font.char_procs();
+                for (gid, instructions_ref) in glyphs_to_instructions.iter().enumerate() {
+                    char_procs.pair(
+                        Name(eco_format!("glyph{gid}").as_bytes()),
+                        *instructions_ref,
+                    );
+                }
+                char_procs.finish();
+
+                // Write the /Encoding dictionary.
+                let names = (0..glyph_count)
+                    .map(|gid| eco_format!("glyph{gid}"))
+                    .collect::<Vec<_>>();
+                pdf_font
+                    .encoding_custom()
+                    .differences()
+                    .consecutive(0, names.iter().map(|name| Name(name.as_bytes())));
+                pdf_font.finish();
+
+                // Encode a CMAP to make it possible to search or copy glyphs.
+                let glyph_set = context.glyph_sets.get(&font).unwrap();
+                let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
+                for (index, glyph) in subset.iter().enumerate() {
+                    let Some(text) = glyph_set.get(&glyph.gid) else {
+                        continue;
+                    };
+
+                    if !text.is_empty() {
+                        cmap.pair_with_multiple(index as u8, text.chars());
+                    }
+                }
+                chunk.cmap(cmap_ref, &cmap.finish());
+
+                // Write the font descriptor.
+                gids.sort();
+                let subset_tag = subset_tag(&gids);
+                let postscript_name = font
+                    .find_name(name_id::POST_SCRIPT_NAME)
+                    .unwrap_or_else(|| "unknown".to_string());
+                let base_font = eco_format!("{subset_tag}+{postscript_name}");
+                write_font_descriptor(chunk, descriptor_ref, &font, &base_font);
+
+                // Write the widths array
+                chunk.indirect(widths_ref).array().items(widths);
+            }
+        }
+    }
 }
 
 /// Writes a FontDescriptor dictionary.

@@ -1,35 +1,34 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
-use crate::{content, AbsExt, ConstructContext, PdfChunk, WriteContext};
+use crate::{
+    content, AbsExt, ConstructContext, PdfChunk, PdfConstructor, PdfWriter, WriteContext,
+};
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Filter, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 use typst::foundations::Label;
 use typst::introspection::Location;
-use typst::layout::{Abs, Frame, Page};
+use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-#[derive(Default)]
-pub struct Pages {
-    pub pages: Vec<EncodedPage>,
-}
+pub struct Pages;
 
-/// Construct page objects.
-#[typst_macros::time(name = "construct pages")]
-pub(crate) fn construct_pages(res: &mut ConstructContext, pages: &[Page]) -> Pages {
-    let mut result = Pages::default();
-    for page in pages {
-        let mut encoded = construct_page(res, &page.frame);
-        encoded.label = page
-            .numbering
-            .as_ref()
-            .and_then(|num| PdfPageLabel::generate(num, page.number));
-        result.pages.push(encoded);
+impl PdfConstructor for Pages {
+    /// Construct page objects.
+    #[typst_macros::time(name = "construct pages")]
+    fn write(&self, context: &mut ConstructContext, _chunk: &mut PdfChunk) {
+        for page in &context.document.pages {
+            let mut encoded = construct_page(context, &page.frame);
+            encoded.label = page
+                .numbering
+                .as_ref()
+                .and_then(|num| PdfPageLabel::generate(num, page.number));
+            context.pages.push(encoded);
+        }
     }
-    result
 }
 
 /// Construct a page object.
@@ -40,126 +39,133 @@ pub(crate) fn construct_page(res: &mut ConstructContext, frame: &Frame) -> Encod
     EncodedPage { content, label: None }
 }
 
-/// Write the page tree.
-#[must_use]
-pub(crate) fn write_page_tree(
-    res: &ConstructContext,
-    loc_to_dest: &HashMap<Location, Label>,
-) -> PdfChunk {
-    let mut chunk = PdfChunk::new();
+pub struct PageTree;
 
-    for i in 0..res.pages.len() {
-        write_page(&mut chunk, res, loc_to_dest, i);
+impl PdfWriter for PageTree {
+    /// Write the page tree.
+
+    fn write(
+        &self,
+        pdf: &mut Pdf,
+        alloc: &mut Ref,
+        ctx: &ConstructContext,
+        refs: &WriteContext,
+    ) {
+        for i in 0..ctx.pages.len() {
+            write_page(pdf, ctx, alloc.bump(), &refs.loc_to_dest, i);
+        }
+
+        pdf.pages(ctx.globals.page_tree)
+            .count(ctx.pages.len() as i32)
+            .kids(ctx.globals.pages.iter().copied());
     }
-
-    chunk
-        .chunk
-        .pages(res.globals.page_tree)
-        .count(res.pages.len() as i32)
-        .kids(res.globals.pages.iter().copied());
-
-    chunk
 }
 
-/// Write the global resource dictionary that will be referenced by all pages.
-///
-/// We add a reference to this dictionary to each page individually instead of
-/// to the root node of the page tree because using the resource inheritance
-/// feature breaks PDF merging with Apple Preview.
-pub(crate) fn write_global_resources(
-    pdf: &mut Pdf,
-    alloc: &mut Ref,
-    res: &ConstructContext,
-    ctx: &WriteContext,
-) {
-    let global_res_ref = res.globals.global_resources;
-    let type3_font_resources_ref = res.globals.type3_font_resources;
-    let images_ref = alloc.bump();
-    let patterns_ref = alloc.bump();
-    let ext_gs_states_ref = alloc.bump();
-    let color_spaces_ref = alloc.bump();
+pub struct GlobalResources;
 
-    let mut images = pdf.indirect(images_ref).dict();
-    for (image_ref, im) in res.images.pdf_indices(&ctx.images) {
-        let name = eco_format!("Im{}", im);
-        images.pair(Name(name.as_bytes()), image_ref);
-    }
-    images.finish();
+impl PdfWriter for GlobalResources {
+    /// Write the global resource dictionary that will be referenced by all pages.
+    ///
+    /// We add a reference to this dictionary to each page individually instead of
+    /// to the root node of the page tree because using the resource inheritance
+    /// feature breaks PDF merging with Apple Preview.
+    fn write(
+        &self,
+        pdf: &mut Pdf,
+        alloc: &mut Ref,
+        ctx: &ConstructContext,
+        refs: &WriteContext,
+    ) {
+        let global_res_ref = ctx.globals.global_resources;
+        let type3_font_resources_ref = ctx.globals.type3_font_resources;
+        let images_ref = alloc.bump();
+        let patterns_ref = alloc.bump();
+        let ext_gs_states_ref = alloc.bump();
+        let color_spaces_ref = alloc.bump();
 
-    let mut patterns = pdf.indirect(patterns_ref).dict();
-    for (gradient_ref, gr) in res.gradients.pdf_indices(&ctx.gradients) {
-        let name = eco_format!("Gr{}", gr);
-        patterns.pair(Name(name.as_bytes()), gradient_ref);
-    }
+        let mut images = pdf.indirect(images_ref).dict();
+        for (image_ref, im) in ctx.images.pdf_indices(&refs.images) {
+            let name = eco_format!("Im{}", im);
+            images.pair(Name(name.as_bytes()), image_ref);
+        }
+        images.finish();
 
-    for (pattern_ref, p) in res.patterns.pdf_indices(&ctx.patterns) {
-        let name = eco_format!("P{}", p);
-        patterns.pair(Name(name.as_bytes()), pattern_ref);
-    }
-    patterns.finish();
+        let mut patterns = pdf.indirect(patterns_ref).dict();
+        for (gradient_ref, gr) in ctx.gradients.pdf_indices(&refs.gradients) {
+            let name = eco_format!("Gr{}", gr);
+            patterns.pair(Name(name.as_bytes()), gradient_ref);
+        }
 
-    let mut ext_gs_states = pdf.indirect(ext_gs_states_ref).dict();
-    for (gs_ref, gs) in res.ext_gs.pdf_indices(&ctx.ext_gs) {
-        let name = eco_format!("Gs{}", gs);
-        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
-    }
-    ext_gs_states.finish();
+        for (pattern_ref, p) in ctx.patterns.pdf_indices(&refs.patterns) {
+            let name = eco_format!("P{}", p);
+            patterns.pair(Name(name.as_bytes()), pattern_ref);
+        }
+        patterns.finish();
 
-    let color_spaces = pdf.indirect(color_spaces_ref).dict();
-    res.colors.write_color_spaces(color_spaces, &res.globals);
+        let mut ext_gs_states = pdf.indirect(ext_gs_states_ref).dict();
+        for (gs_ref, gs) in ctx.ext_gs.pdf_indices(&refs.ext_gs) {
+            let name = eco_format!("Gs{}", gs);
+            ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
+        }
+        ext_gs_states.finish();
 
-    let mut resources = pdf.indirect(global_res_ref).start::<Resources>();
-    resources.pair(Name(b"XObject"), images_ref);
-    resources.pair(Name(b"Pattern"), patterns_ref);
-    resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
-    resources.pair(Name(b"ColorSpace"), color_spaces_ref);
+        let color_spaces = pdf.indirect(color_spaces_ref).dict();
+        ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-    let mut fonts = resources.fonts();
-    for (font_ref, f) in res.fonts.pdf_indices(&ctx.fonts) {
-        let name = eco_format!("F{}", f);
-        fonts.pair(Name(name.as_bytes()), font_ref);
-    }
-
-    for font in &res.color_fonts.all_refs {
-        let name = eco_format!("Cf{}", font.get());
-        fonts.pair(Name(name.as_bytes()), font);
-    }
-    fonts.finish();
-
-    resources.finish();
-
-    // Also write the resources for Type3 fonts, that only contains images,
-    // color spaces and regular fonts (COLR glyphs depend on them).
-    if !res.color_fonts.all_refs.is_empty() {
-        let mut resources = pdf.indirect(type3_font_resources_ref).start::<Resources>();
+        let mut resources = pdf.indirect(global_res_ref).start::<Resources>();
         resources.pair(Name(b"XObject"), images_ref);
         resources.pair(Name(b"Pattern"), patterns_ref);
         resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
         resources.pair(Name(b"ColorSpace"), color_spaces_ref);
 
         let mut fonts = resources.fonts();
-        for (font_ref, f) in res.fonts.pdf_indices(&ctx.fonts) {
+        for (font_ref, f) in ctx.fonts.pdf_indices(&refs.fonts) {
             let name = eco_format!("F{}", f);
             fonts.pair(Name(name.as_bytes()), font_ref);
+        }
+
+        for font in &ctx.color_fonts.all_refs {
+            let name = eco_format!("Cf{}", font.get());
+            fonts.pair(Name(name.as_bytes()), font);
         }
         fonts.finish();
 
         resources.finish();
-    }
 
-    // Write all of the functions used by the document.
-    res.colors.write_functions(pdf, &res.globals);
+        // Also write the resources for Type3 fonts, that only contains images,
+        // color spaces and regular fonts (COLR glyphs depend on them).
+        if !ctx.color_fonts.all_refs.is_empty() {
+            let mut resources =
+                pdf.indirect(type3_font_resources_ref).start::<Resources>();
+            resources.pair(Name(b"XObject"), images_ref);
+            resources.pair(Name(b"Pattern"), patterns_ref);
+            resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
+            resources.pair(Name(b"ColorSpace"), color_spaces_ref);
+
+            let mut fonts = resources.fonts();
+            for (font_ref, f) in ctx.fonts.pdf_indices(&refs.fonts) {
+                let name = eco_format!("F{}", f);
+                fonts.pair(Name(name.as_bytes()), font_ref);
+            }
+            fonts.finish();
+
+            resources.finish();
+        }
+
+        // Write all of the functions used by the document.
+        ctx.colors.write_functions(pdf, &ctx.globals);
+    }
 }
 
 /// Write a page tree node.
 fn write_page(
-    chunk: &mut PdfChunk,
+    chunk: &mut Pdf,
     ctx: &ConstructContext,
+    content_id: Ref,
     loc_to_dest: &HashMap<Location, Label>,
     i: usize,
 ) {
     let page = &ctx.pages[i];
-    let content_id = chunk.alloc();
 
     let page_tree_ref = ctx.globals.page_tree;
     let global_resources_ref = ctx.globals.global_resources;

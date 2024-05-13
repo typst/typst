@@ -17,8 +17,13 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
-use font::improve_glyph_sets;
+use extg::ExtGraphicsState;
+use font::{improve_glyph_sets, ColorFonts, Fonts};
+use gradient::Gradients;
+use image::Images;
 use indexmap::IndexMap;
+use page::{GlobalResources, PageTree, Pages};
+use pattern::Patterns;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
 use pdf_writer::{Chunk, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
@@ -64,88 +69,124 @@ pub fn pdf(
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
-    let mut res = ConstructContext::new(document);
-    dbg!(&res.globals);
-    let mut pdf = Pdf::new();
-    let mut alloc = res.globals.max;
-
-    let pages = page::construct_pages(&mut res, &document.pages);
-    res.pages = pages.pages;
-
-    improve_glyph_sets(&mut res.glyph_sets);
-
-    let color_font_chunk = font::write_color_fonts(&mut res);
-    let mut mapping = HashMap::new();
-    color_font_chunk.renumber_into(&mut pdf, |r| {
-        if r.get() < 100 {
-            r
-        } else {
-            *mapping.entry(r).or_insert_with(|| alloc.bump())
-        }
-    });
-
-    // TODO: should glyph sets be improved at this point too?
-
-    let (mut fonts, fonts_chunk) = font::write_fonts(&res);
-    renumber_refs(&mut pdf, &mut alloc, &fonts_chunk, &mut fonts);
-
-    let (mut images, images_chunk) = image::write_images(&res);
-    renumber_refs(&mut pdf, &mut alloc, &images_chunk, &mut images);
-
-    let (mut gradients, gradients_chunk) = gradient::write_gradients(&res);
-    renumber_refs(&mut pdf, &mut alloc, &gradients_chunk, &mut gradients);
-
-    let (mut ext_gs, ext_gs_chunk) = extg::write_external_graphics_states(&res);
-    renumber_refs(&mut pdf, &mut alloc, &ext_gs_chunk, &mut ext_gs);
-
-    let pattern_map = res.remap_patterns(&images, &ext_gs, &fonts, &gradients, &[]);
-    let (mut patterns, patterns_chunk) = pattern::write_patterns(&res, &pattern_map);
-    renumber_refs(&mut pdf, &mut alloc, &patterns_chunk, &mut patterns);
-
-    let mut named_destinations = write_named_destinations(&res);
-    let mut mapping = HashMap::new();
-    named_destinations.chunk.renumber_into(&mut pdf, |r| {
-        if r.get() < 100 {
-            r
-        } else {
-            let new = *mapping.entry(r).or_insert_with(|| alloc.bump());
-            if let Some(index) = named_destinations.dests.iter().position(|p| p.1 == r) {
-                named_destinations.dests[index].1 = new;
-            }
-            new
-        }
-    });
-
-    let page_tree_chunk = page::write_page_tree(&res, &named_destinations.loc_to_dest);
-    renumber_refs(&mut pdf, &mut alloc, &page_tree_chunk, &mut fonts);
-
-    let ctx = WriteContext {
-        dests: named_destinations.dests,
-        fonts,
-        images,
-        gradients,
-        patterns,
-        ext_gs,
-    };
-
-    page::write_global_resources(&mut pdf, &mut alloc, &res, &ctx);
-    write_catalog(&mut pdf, &mut alloc, &res, &ctx, ident, timestamp);
-
-    pdf.finish()
+    PdfBuilder::new(document)
+        .construct(Pages)
+        .construct(ColorFonts)
+        .with_resource(Fonts)
+        .with_resource(Images)
+        .with_resource(Gradients)
+        .with_resource(ExtGraphicsState)
+        .with_resource(Patterns)
+        .with_resource(NamedDestinations)
+        .write(PageTree)
+        .write(GlobalResources)
+        .write(Catalog { ident, timestamp })
+        .export()
 }
 
-fn renumber_refs(dest: &mut Pdf, alloc: &mut Ref, src: &Chunk, refs: &mut [Ref]) {
-    let mut mapping = HashMap::new();
-    src.renumber_into(dest, |r: Ref| {
-        if r.get() < 100 {
-            return r;
+struct PdfBuilder<'a> {
+    context: ConstructContext<'a>,
+    references: WriteContext,
+    alloc: Ref,
+    pdf: Pdf,
+}
+
+impl<'a> PdfBuilder<'a> {
+    fn new(document: &'a Document) -> Self {
+        Self {
+            context: ConstructContext::new(document),
+            references: WriteContext::default(),
+            alloc: Ref::new(1),
+            pdf: Pdf::new(),
         }
-        let new = *mapping.entry(r).or_insert_with(|| alloc.bump());
-        if let Some(index) = refs.iter().position(|f| *f == r) {
-            refs[index] = new;
+    }
+
+    fn construct(mut self, constructor: impl PdfConstructor) -> Self {
+        let mut chunk = PdfChunk::new();
+        let mut output = constructor.write(&mut self.context, &mut chunk);
+        improve_glyph_sets(&mut self.context.glyph_sets);
+        let mut mapping = HashMap::new();
+        chunk.renumber_into(&mut self.pdf, |r| {
+            if r.get() < 100 {
+                r
+            } else {
+                let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
+                output.renumber(r, new);
+                new
+            }
+        });
+        self
+    }
+
+    fn with_resource(mut self, resource: impl PdfResource) -> Self {
+        let mut chunk = PdfChunk::new();
+        let mut output = resource.write(&self.context, &mut chunk);
+        let mut mapping = HashMap::new();
+        chunk.renumber_into(&mut self.pdf, |r| {
+            if r.get() < 100 {
+                r
+            } else {
+                let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
+                output.renumber(r, new);
+                new
+            }
+        });
+        self
+    }
+
+    fn write(mut self, writer: impl PdfWriter) -> Self {
+        writer.write(&mut self.pdf, &mut self.alloc, &self.context, &self.references);
+        self
+    }
+
+    fn export(self) -> Vec<u8> {
+        self.pdf.finish()
+    }
+}
+
+trait PdfConstructor {
+    fn write(&self, context: &mut ConstructContext, chunk: &mut PdfChunk);
+}
+trait PdfResource {
+    type Output: Renumber;
+
+    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output;
+
+    fn save(context: &mut WriteContext, output: Self::Output);
+}
+
+trait PdfWriter {
+    fn write(
+        &self,
+        pdf: &mut Pdf,
+        alloc: &mut Ref,
+        ctx: &ConstructContext,
+        refs: &WriteContext,
+    );
+}
+
+trait Renumber {
+    fn renumber(&mut self, old: Ref, new: Ref);
+}
+
+impl Renumber for () {
+    fn renumber(&mut self, _old: Ref, _new: Ref) {}
+}
+
+impl Renumber for Ref {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        if *self == old {
+            *self = new
         }
-        new
-    });
+    }
+}
+
+impl Renumber for Vec<Ref> {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        if let Some(index) = self.iter().position(|x| *x == old) {
+            self[index] = new;
+        }
+    }
 }
 
 struct PdfChunk {
@@ -191,7 +232,6 @@ struct Refs {
     type3_font_resources: Ref,
     page_tree: Ref,
     pages: Vec<Ref>,
-    max: Ref,
 }
 
 impl Refs {
@@ -205,12 +245,13 @@ impl Refs {
             oklab: alloc.bump(),
             d65_gray: alloc.bump(),
             srgb: alloc.bump(),
-            max: alloc.bump(),
         }
     }
 }
 
+#[derive(Default)]
 struct WriteContext {
+    loc_to_dest: HashMap<Location, Label>,
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
 
@@ -240,18 +281,12 @@ impl<'a> ConstructContext<'a> {
             deferred_images: HashMap::new(),
             gradients: Remapper::new(),
             patterns: Remapper::new(),
+            remapped_patterns: Remapper::new(),
             ext_gs: Remapper::new(),
             color_fonts: ColorFontMap::new(),
         }
     }
-    fn remap_patterns(
-        &mut self,
-        image_refs: &[Ref],
-        ext_gs_refs: &[Ref],
-        font_refs: &[Ref],
-        gradient_refs: &[Ref],
-        pattern_refs: &[Ref],
-    ) -> Remapper<PdfPattern<Ref>> {
+    fn remap_patterns(&self, ctx: &WriteContext) -> Remapper<PdfPattern<Ref>> {
         let map_pattern = |pattern: &PdfPattern<usize>| PdfPattern {
             transform: pattern.transform,
             pattern: pattern.pattern.clone(),
@@ -261,15 +296,15 @@ impl<'a> ConstructContext<'a> {
                 .iter()
                 .map(|(r, id)| {
                     let ref_ = if r.is_x_object() {
-                        image_refs[*id]
+                        ctx.images[*id]
                     } else if r.is_ext_g_state() {
-                        ext_gs_refs[*id]
+                        ctx.ext_gs[*id]
                     } else if r.is_font() {
-                        font_refs[*id]
+                        ctx.fonts[*id]
                     } else if r.is_gradient() {
-                        gradient_refs[*id]
+                        ctx.gradients[*id]
                     } else {
-                        pattern_refs[*id]
+                        ctx.patterns[*id]
                     };
 
                     (r.clone(), ref_)
@@ -321,214 +356,237 @@ struct ConstructContext<'a> {
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
     patterns: Remapper<PdfPattern<usize>>,
+    remapped_patterns: Remapper<PdfPattern<Ref>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
     color_fonts: ColorFontMap,
 }
 
-/// Write the document catalog.
-fn write_catalog(
-    pdf: &mut Pdf,
-    alloc: &mut Ref,
-    ctx: &ConstructContext,
-    refs: &WriteContext,
-    ident: Smart<&str>,
+struct Catalog<'a> {
+    ident: Smart<&'a str>,
     timestamp: Option<Datetime>,
-) {
-    let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
-
-    let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
-        Direction::R2L
-    } else {
-        Direction::L2R
-    };
-
-    // Write the outline tree.
-    let outline_root_id = outline::write_outline(pdf, alloc, ctx);
-
-    // Write the page labels.
-    let page_labels = page::write_page_labels(pdf, alloc, ctx);
-
-    // Write the document information.
-    let info_ref = alloc.bump();
-    let mut info = pdf.document_info(info_ref);
-    let mut xmp = XmpWriter::new();
-    if let Some(title) = &ctx.document.title {
-        info.title(TextStr(title));
-        xmp.title([(None, title.as_str())]);
-    }
-
-    let authors = &ctx.document.author;
-    if !authors.is_empty() {
-        // Turns out that if the authors are given in both the document
-        // information dictionary and the XMP metadata, Acrobat takes a little
-        // bit of both: The first author from the document information
-        // dictionary and the remaining authors from the XMP metadata.
-        //
-        // To fix this for Acrobat, we could omit the remaining authors or all
-        // metadata from the document information catalog (it is optional) and
-        // only write XMP. However, not all other tools (including Apple
-        // Preview) read the XMP data. This means we do want to include all
-        // authors in the document information dictionary.
-        //
-        // Thus, the only alternative is to fold all authors into a single
-        // `<rdf:li>` in the XMP metadata. This is, in fact, exactly what the
-        // PDF/A spec Part 1 section 6.7.3 has to say about the matter. It's a
-        // bit weird to not use the array (and it makes Acrobat show the author
-        // list in quotes), but there's not much we can do about that.
-        let joined = authors.join(", ");
-        info.author(TextStr(&joined));
-        xmp.creator([joined.as_str()]);
-    }
-
-    let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
-    info.creator(TextStr(&creator));
-    xmp.creator_tool(&creator);
-
-    let keywords = &ctx.document.keywords;
-    if !keywords.is_empty() {
-        let joined = keywords.join(", ");
-        info.keywords(TextStr(&joined));
-        xmp.pdf_keywords(&joined);
-    }
-
-    if let Some(date) = ctx.document.date.unwrap_or(timestamp) {
-        let tz = ctx.document.date.is_auto();
-        if let Some(pdf_date) = pdf_date(date, tz) {
-            info.creation_date(pdf_date);
-            info.modified_date(pdf_date);
-        }
-        if let Some(xmp_date) = xmp_date(date, tz) {
-            xmp.create_date(xmp_date);
-            xmp.modify_date(xmp_date);
-        }
-    }
-
-    info.finish();
-    xmp.num_pages(ctx.document.pages.len() as u32);
-    xmp.format("application/pdf");
-    xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
-
-    // A unique ID for this instance of the document. Changes if anything
-    // changes in the frames.
-    let instance_id = hash_base64(&pdf.as_bytes());
-
-    // Determine the document's ID. It should be as stable as possible.
-    const PDF_VERSION: &str = "PDF-1.7";
-    let doc_id = if let Smart::Custom(ident) = ident {
-        // We were provided with a stable ID. Yay!
-        hash_base64(&(PDF_VERSION, ident))
-    } else if ctx.document.title.is_some() && !ctx.document.author.is_empty() {
-        // If not provided from the outside, but title and author were given, we
-        // compute a hash of them, which should be reasonably stable and unique.
-        hash_base64(&(PDF_VERSION, &ctx.document.title, &ctx.document.author))
-    } else {
-        // The user provided no usable metadata which we can use as an `/ID`.
-        instance_id.clone()
-    };
-
-    // Write IDs.
-    xmp.document_id(&doc_id);
-    xmp.instance_id(&instance_id);
-    pdf.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
-
-    xmp.rendition_class(RenditionClass::Proof);
-    xmp.pdf_version("1.7");
-
-    let xmp_buf = xmp.finish(None);
-    let meta_ref = alloc.bump();
-    pdf.stream(meta_ref, xmp_buf.as_bytes())
-        .pair(Name(b"Type"), Name(b"Metadata"))
-        .pair(Name(b"Subtype"), Name(b"XML"));
-
-    // Write the document catalog.
-    let catalog_ref = alloc.bump();
-    let mut catalog = pdf.catalog(catalog_ref);
-    catalog.pages(ctx.globals.page_tree);
-    catalog.viewer_preferences().direction(dir);
-    catalog.metadata(meta_ref);
-
-    // Write the named destination tree.
-    let mut name_dict = catalog.names();
-    let mut dests_name_tree = name_dict.destinations();
-    let mut names = dests_name_tree.names();
-    for &(name, dest_ref, ..) in &refs.dests {
-        names.insert(Str(name.as_str().as_bytes()), dest_ref);
-    }
-    names.finish();
-    dests_name_tree.finish();
-    name_dict.finish();
-
-    // Insert the page labels.
-    if !page_labels.is_empty() {
-        let mut num_tree = catalog.page_labels();
-        let mut entries = num_tree.nums();
-        for (n, r) in &page_labels {
-            entries.insert(n.get() as i32 - 1, *r);
-        }
-    }
-
-    if let Some(outline_root_id) = outline_root_id {
-        catalog.outlines(outline_root_id);
-    }
-
-    if let Some(lang) = lang {
-        catalog.lang(TextStr(lang.as_str()));
-    }
-
-    catalog.finish();
 }
 
-struct NamedDestinations {
+impl<'a> PdfWriter for Catalog<'a> {
+    /// Write the document catalog.
+
+    fn write(
+        &self,
+        pdf: &mut Pdf,
+        alloc: &mut Ref,
+        ctx: &ConstructContext,
+        refs: &WriteContext,
+    ) {
+        let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
+
+        let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
+            Direction::R2L
+        } else {
+            Direction::L2R
+        };
+
+        // Write the outline tree.
+        let outline_root_id = outline::write_outline(pdf, alloc, ctx);
+
+        // Write the page labels.
+        let page_labels = page::write_page_labels(pdf, alloc, ctx);
+
+        // Write the document information.
+        let info_ref = alloc.bump();
+        let mut info = pdf.document_info(info_ref);
+        let mut xmp = XmpWriter::new();
+        if let Some(title) = &ctx.document.title {
+            info.title(TextStr(title));
+            xmp.title([(None, title.as_str())]);
+        }
+
+        let authors = &ctx.document.author;
+        if !authors.is_empty() {
+            // Turns out that if the authors are given in both the document
+            // information dictionary and the XMP metadata, Acrobat takes a little
+            // bit of both: The first author from the document information
+            // dictionary and the remaining authors from the XMP metadata.
+            //
+            // To fix this for Acrobat, we could omit the remaining authors or all
+            // metadata from the document information catalog (it is optional) and
+            // only write XMP. However, not all other tools (including Apple
+            // Preview) read the XMP data. This means we do want to include all
+            // authors in the document information dictionary.
+            //
+            // Thus, the only alternative is to fold all authors into a single
+            // `<rdf:li>` in the XMP metadata. This is, in fact, exactly what the
+            // PDF/A spec Part 1 section 6.7.3 has to say about the matter. It's a
+            // bit weird to not use the array (and it makes Acrobat show the author
+            // list in quotes), but there's not much we can do about that.
+            let joined = authors.join(", ");
+            info.author(TextStr(&joined));
+            xmp.creator([joined.as_str()]);
+        }
+
+        let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
+        info.creator(TextStr(&creator));
+        xmp.creator_tool(&creator);
+
+        let keywords = &ctx.document.keywords;
+        if !keywords.is_empty() {
+            let joined = keywords.join(", ");
+            info.keywords(TextStr(&joined));
+            xmp.pdf_keywords(&joined);
+        }
+
+        if let Some(date) = ctx.document.date.unwrap_or(self.timestamp) {
+            let tz = ctx.document.date.is_auto();
+            if let Some(pdf_date) = pdf_date(date, tz) {
+                info.creation_date(pdf_date);
+                info.modified_date(pdf_date);
+            }
+            if let Some(xmp_date) = xmp_date(date, tz) {
+                xmp.create_date(xmp_date);
+                xmp.modify_date(xmp_date);
+            }
+        }
+
+        info.finish();
+        xmp.num_pages(ctx.document.pages.len() as u32);
+        xmp.format("application/pdf");
+        xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
+
+        // A unique ID for this instance of the document. Changes if anything
+        // changes in the frames.
+        let instance_id = hash_base64(&pdf.as_bytes());
+
+        // Determine the document's ID. It should be as stable as possible.
+        const PDF_VERSION: &str = "PDF-1.7";
+        let doc_id = if let Smart::Custom(ident) = self.ident {
+            // We were provided with a stable ID. Yay!
+            hash_base64(&(PDF_VERSION, ident))
+        } else if ctx.document.title.is_some() && !ctx.document.author.is_empty() {
+            // If not provided from the outside, but title and author were given, we
+            // compute a hash of them, which should be reasonably stable and unique.
+            hash_base64(&(PDF_VERSION, &ctx.document.title, &ctx.document.author))
+        } else {
+            // The user provided no usable metadata which we can use as an `/ID`.
+            instance_id.clone()
+        };
+
+        // Write IDs.
+        xmp.document_id(&doc_id);
+        xmp.instance_id(&instance_id);
+        pdf.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+
+        xmp.rendition_class(RenditionClass::Proof);
+        xmp.pdf_version("1.7");
+
+        let xmp_buf = xmp.finish(None);
+        let meta_ref = alloc.bump();
+        pdf.stream(meta_ref, xmp_buf.as_bytes())
+            .pair(Name(b"Type"), Name(b"Metadata"))
+            .pair(Name(b"Subtype"), Name(b"XML"));
+
+        // Write the document catalog.
+        let catalog_ref = alloc.bump();
+        let mut catalog = pdf.catalog(catalog_ref);
+        catalog.pages(ctx.globals.page_tree);
+        catalog.viewer_preferences().direction(dir);
+        catalog.metadata(meta_ref);
+
+        // Write the named destination tree.
+        let mut name_dict = catalog.names();
+        let mut dests_name_tree = name_dict.destinations();
+        let mut names = dests_name_tree.names();
+        for &(name, dest_ref, ..) in &refs.dests {
+            names.insert(Str(name.as_str().as_bytes()), dest_ref);
+        }
+        names.finish();
+        dests_name_tree.finish();
+        name_dict.finish();
+
+        // Insert the page labels.
+        if !page_labels.is_empty() {
+            let mut num_tree = catalog.page_labels();
+            let mut entries = num_tree.nums();
+            for (n, r) in &page_labels {
+                entries.insert(n.get() as i32 - 1, *r);
+            }
+        }
+
+        if let Some(outline_root_id) = outline_root_id {
+            catalog.outlines(outline_root_id);
+        }
+
+        if let Some(lang) = lang {
+            catalog.lang(TextStr(lang.as_str()));
+        }
+
+        catalog.finish();
+    }
+}
+
+struct NamedDestinations;
+struct NamedDestinationsOutput {
     dests: Vec<(Label, Ref)>,
     loc_to_dest: HashMap<Location, Label>,
-    chunk: PdfChunk,
 }
 
-/// Fills in the map and vector for named destinations and writes the indirect
-/// destination objects.
-#[must_use]
-fn write_named_destinations(ctx: &ConstructContext) -> NamedDestinations {
-    let mut chunk = PdfChunk::new();
-    let mut seen = HashSet::new();
-    let mut loc_to_dest = HashMap::new();
-    let mut dests = Vec::new();
-
-    // Find all headings that have a label and are the first among other
-    // headings with the same label.
-    let mut matches: Vec<_> = ctx
-        .document
-        .introspector
-        .query(&HeadingElem::elem().select())
-        .iter()
-        .filter_map(|elem| elem.location().zip(elem.label()))
-        .filter(|&(_, label)| seen.insert(label))
-        .collect();
-
-    // Named destinations must be sorted by key.
-    matches.sort_by_key(|&(_, label)| label);
-
-    for (loc, label) in matches {
-        let pos = ctx.document.introspector.position(loc);
-        let index = pos.page.get() - 1;
-        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-
-        if let Some(page) = ctx.pages.get(index) {
-            let dest_ref = chunk.alloc();
-            let x = pos.point.x.to_f32();
-            let y = (page.content.size.y - y).to_f32();
-            dests.push((label, dest_ref));
-            loc_to_dest.insert(loc, label);
-            chunk
-                .indirect(dest_ref)
-                .start::<Destination>()
-                .page(ctx.globals.pages[index])
-                .xyz(x, y, None);
+impl Renumber for NamedDestinationsOutput {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        if let Some(index) = self.dests.iter().position(|x| x.1 == old) {
+            self.dests[index].1 = new;
         }
     }
+}
 
-    NamedDestinations { chunk, dests, loc_to_dest }
+impl PdfResource for NamedDestinations {
+    type Output = NamedDestinationsOutput;
+
+    /// Fills in the map and vector for named destinations and writes the indirect
+    /// destination objects.
+    fn write(&self, context: &ConstructContext, chunk: &mut PdfChunk) -> Self::Output {
+        let mut seen = HashSet::new();
+        let mut loc_to_dest = HashMap::new();
+        let mut dests = Vec::new();
+
+        // Find all headings that have a label and are the first among other
+        // headings with the same label.
+        let mut matches: Vec<_> = context
+            .document
+            .introspector
+            .query(&HeadingElem::elem().select())
+            .iter()
+            .filter_map(|elem| elem.location().zip(elem.label()))
+            .filter(|&(_, label)| seen.insert(label))
+            .collect();
+
+        // Named destinations must be sorted by key.
+        matches.sort_by_key(|&(_, label)| label);
+
+        for (loc, label) in matches {
+            let pos = context.document.introspector.position(loc);
+            let index = pos.page.get() - 1;
+            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
+            if let Some(page) = context.pages.get(index) {
+                let dest_ref = chunk.alloc();
+                let x = pos.point.x.to_f32();
+                let y = (page.content.size.y - y).to_f32();
+                dests.push((label, dest_ref));
+                loc_to_dest.insert(loc, label);
+                chunk
+                    .indirect(dest_ref)
+                    .start::<Destination>()
+                    .page(context.globals.pages[index])
+                    .xyz(x, y, None);
+            }
+        }
+
+        NamedDestinationsOutput { dests, loc_to_dest }
+    }
+
+    fn save(context: &mut WriteContext, output: Self::Output) {
+        context.dests = output.dests;
+        context.loc_to_dest = output.loc_to_dest;
+    }
 }
 
 /// Compress data with the DEFLATE algorithm.
