@@ -78,12 +78,16 @@ pub struct PlaceElem {
     /// }
     /// ```
     ///
-    /// This currently does not affect layout, even if `float` is `{true}`.
+    /// This is always ignored by the layout algorithm. In other words,
+    /// the inner content is treated as if it were wrapped in a
+    /// `{move}` element.
     pub dx: Rel<Length>,
 
     /// The vertical displacement of the placed content.
     ///
-    /// This currently does not affect layout, even if `float` is `{true}`.
+    /// This is always ignored by the layout algorithm. In other words,
+    /// the inner content is treated as if it were wrapped in a
+    /// `{move}` element.
     pub dy: Rel<Length>,
 
     /// The content to place.
