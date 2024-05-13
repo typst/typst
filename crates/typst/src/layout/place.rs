@@ -78,16 +78,16 @@ pub struct PlaceElem {
     /// }
     /// ```
     ///
-    /// This is always ignored by the layout algorithm. In other words,
-    /// the inner content is treated as if it were wrapped in a
-    /// `{move}` element.
+    /// This does not affect the layout of in-flow content.
+    /// In other words, the placed content is treated as if it
+    /// were wrapped in a [`move`] element.
     pub dx: Rel<Length>,
 
     /// The vertical displacement of the placed content.
     ///
-    /// This is always ignored by the layout algorithm. In other words,
-    /// the inner content is treated as if it were wrapped in a
-    /// `{move}` element.
+    /// This does not affect the layout of in-flow content.
+    /// In other words, the placed content is treated as if it
+    /// were wrapped in a [`move`] element.
     pub dy: Rel<Length>,
 
     /// The content to place.
