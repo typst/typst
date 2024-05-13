@@ -14,7 +14,6 @@ mod pattern;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 
 use base64::Engine;
 use color_font::{ColorFontMap, ColorFonts};
@@ -558,12 +557,6 @@ impl PdfResource for NamedDestinations {
 fn deflate(data: &[u8]) -> Vec<u8> {
     const COMPRESSION_LEVEL: u8 = 6;
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
-}
-
-/// Memoized version of [`deflate`] specialized for a page's content stream.
-#[comemo::memoize]
-fn deflate_memoized(content: &[u8]) -> Arc<Vec<u8>> {
-    Arc::new(deflate(content))
 }
 
 /// Memoized and deferred version of [`deflate`] specialized for a page's content
