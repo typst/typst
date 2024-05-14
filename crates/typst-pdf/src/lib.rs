@@ -117,12 +117,12 @@ impl<'a> PdfBuilder<'a> {
 
     /// Run a [`PdfConstructor`] in the context of this document.
     fn construct(mut self, constructor: impl PdfConstructor) -> Self {
-        let mut chunk = PdfChunk::new();
+        let mut chunk = PdfChunk::new(self.context.globals.max().next());
         constructor.write(&mut self.context, &mut chunk);
         improve_glyph_sets(&mut self.context.glyph_sets);
         let mut mapping = HashMap::new();
         chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < 100 {
+            if r <= self.context.globals.max() {
                 r
             } else {
                 let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
@@ -136,13 +136,13 @@ impl<'a> PdfBuilder<'a> {
     fn with_resource<R: PdfResource>(mut self, resource: R) -> Self {
         let mut output = Default::default();
 
-        let mut write = |ctx| {
-            let mut chunk: PdfChunk = PdfChunk::new();
+        let mut write = |ctx: &PdfContext| {
+            let mut chunk: PdfChunk = PdfChunk::new(ctx.globals.max().next());
             resource.write(ctx, &mut chunk, &mut output);
 
             let mut mapping = HashMap::new();
             chunk.renumber_into(&mut self.pdf, |r| {
-                if r.get() < 100 {
+                if r <= ctx.globals.max() {
                     r
                 } else {
                     let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
@@ -360,11 +360,8 @@ struct PdfChunk {
 }
 
 impl PdfChunk {
-    fn new() -> Self {
-        PdfChunk {
-            chunk: Chunk::new(),
-            alloc: Ref::new(100), // TODO
-        }
+    fn new(alloc_start: Ref) -> Self {
+        PdfChunk { chunk: Chunk::new(), alloc: alloc_start }
     }
 }
 
