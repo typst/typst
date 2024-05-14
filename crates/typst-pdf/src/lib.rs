@@ -105,11 +105,12 @@ struct PdfBuilder<'a> {
 impl<'a> PdfBuilder<'a> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
+        let context = PdfContext::new(document);
         Self {
-            context: PdfContext::new(document),
             references: References::default(),
-            alloc: Ref::new(1),
+            alloc: Ref::new(context.globals.max().get() + 1),
             pdf: Pdf::new(),
+            context,
         }
     }
 
@@ -252,7 +253,7 @@ impl<'a> PdfContext<'a> {
             patterns: Remapper::new(),
             remapped_patterns: Vec::new(),
             ext_gs: Remapper::new(),
-            color_fonts: Some(Box::new(ColorFontMap::new(&document))),
+            color_fonts: None,
         }
     }
 }
@@ -344,6 +345,10 @@ impl GlobalRefs {
             d65_gray: alloc.bump(),
             srgb: alloc.bump(),
         }
+    }
+
+    fn max(&self) -> Ref {
+        self.srgb
     }
 }
 
