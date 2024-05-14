@@ -302,7 +302,7 @@ fn layout_underoverspreader(
 ///
 /// Add a `gap` between each row and uses the baseline of the `baseline`-th
 /// row for the whole frame. `alternator` controls the left/right alternating
-/// alignment behavior of AlignElem in the rows.
+/// alignment behavior of `AlignPointElem` in the rows.
 pub(super) fn stack(
     rows: Vec<MathRun>,
     align: FixedAlignment,
