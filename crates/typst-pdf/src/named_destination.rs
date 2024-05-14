@@ -6,10 +6,11 @@ use typst::introspection::Location;
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, PdfContext, PdfChunk, PdfResource, References, Renumber};
+use crate::{AbsExt, PdfChunk, PdfContext, PdfResource, References, Renumber};
 
 pub struct NamedDestinations;
 
+#[derive(Default)]
 pub struct NamedDestinationsOutput {
     dests: Vec<(Label, Ref)>,
     loc_to_dest: HashMap<Location, Label>,
@@ -28,10 +29,8 @@ impl PdfResource for NamedDestinations {
 
     /// Fills in the map and vector for named destinations and writes the indirect
     /// destination objects.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         let mut seen = HashSet::new();
-        let mut loc_to_dest = HashMap::new();
-        let mut dests = Vec::new();
 
         // Find all headings that have a label and are the first among other
         // headings with the same label.
@@ -56,8 +55,8 @@ impl PdfResource for NamedDestinations {
                 let dest_ref = chunk.alloc();
                 let x = pos.point.x.to_f32();
                 let y = (page.content.size.y - y).to_f32();
-                dests.push((label, dest_ref));
-                loc_to_dest.insert(loc, label);
+                out.dests.push((label, dest_ref));
+                out.loc_to_dest.insert(loc, label);
                 chunk
                     .indirect(dest_ref)
                     .start::<Destination>()
@@ -65,8 +64,6 @@ impl PdfResource for NamedDestinations {
                     .xyz(x, y, None);
             }
         }
-
-        NamedDestinationsOutput { dests, loc_to_dest }
     }
 
     fn save(context: &mut References, output: Self::Output) {

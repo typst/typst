@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ecow::eco_format;
 use pdf_writer::{
     types::{ColorSpaceOperand, PaintType, TilingType},
@@ -15,19 +17,21 @@ use crate::{transform_to_array, PdfChunk, PdfContext, PdfResource, Renumber};
 pub struct Patterns;
 
 impl PdfResource for Patterns {
-    type Output = Vec<WrittenPattern>;
+    type Output = HashMap<PdfPattern<Ref>, WrittenPattern>;
 
     /// Writes the actual patterns (tiling patterns) to the PDF.
     /// This is performed once after writing all pages.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         let pattern_map = &context.remapped_patterns;
-        let mut patterns = Vec::new();
 
-        for PdfPattern { transform, pattern, content, .. } in pattern_map {
+        for pdf_pattern in pattern_map {
+            let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
             let tiling = chunk.alloc();
             let resources = chunk.alloc();
-            patterns
-                .push(WrittenPattern { pattern_ref: tiling, resources_ref: resources });
+            out.insert(
+                pdf_pattern.clone(),
+                WrittenPattern { pattern_ref: tiling, resources_ref: resources },
+            );
 
             let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
             tiling_pattern
@@ -56,8 +60,6 @@ impl PdfResource for Patterns {
                 ))
                 .filter(Filter::FlateDecode);
         }
-
-        patterns
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {

@@ -19,19 +19,23 @@ use crate::{
 pub struct ColorFonts;
 
 impl PdfResource for ColorFonts {
-    type Output = Vec<Ref>;
+    type Output = HashMap<ColorFontSlice, Ref>;
 
     /// Writes color fonts as Type3 fonts
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Vec<Ref> {
-        let mut refs = Vec::new();
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         let Some(color_fonts) = &context.color_fonts else {
-            return refs;
+            return;
         };
+
         for (font, color_font) in &color_fonts.map {
             // For each Type3 font that is part of this family…
             for font_index in 0..(color_font.glyphs.len() / 256) {
                 let subfont_id = chunk.alloc();
-                refs.push(subfont_id);
+                out.insert(
+                    ColorFontSlice { font: font.clone(), subfont: font_index },
+                    subfont_id,
+                );
+
                 // Allocate some IDs.
                 let cmap_ref = chunk.alloc();
                 let descriptor_ref = chunk.alloc();
@@ -133,8 +137,6 @@ impl PdfResource for ColorFonts {
                 chunk.indirect(widths_ref).array().items(widths);
             }
         }
-
-        refs
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {
@@ -152,12 +154,10 @@ pub struct ColorFontMap<'a> {
     /// A list of all PDF indirect references to Type3 font objects.
     pub _all_refs: Vec<Ref>,
 
-    // TODO: merge this context in the main one in some way
     pub ctx: PdfContext<'a>,
 }
 
 /// A collection of Type3 font, belonging to the same TTF font.
-#[derive(Clone)]
 pub struct ColorFont {
     /// A list of references to Type3 font objects for this font family.
     pub _refs: Vec<Ref>,
@@ -227,4 +227,10 @@ impl<'a> ColorFontMap<'a> {
             (index / 256, index as u8)
         }
     }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct ColorFontSlice {
+    pub font: Font,
+    pub subfont: usize,
 }

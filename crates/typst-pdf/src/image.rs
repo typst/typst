@@ -9,19 +9,17 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, PdfContext, PdfChunk, PdfResource};
+use crate::{deflate, PdfChunk, PdfContext, PdfResource};
 
 pub struct Images;
 
 impl PdfResource for Images {
-    type Output = Vec<Ref>;
+    type Output = HashMap<Image, Ref>;
 
     /// Embed all used images into the PDF.
     #[typst_macros::time(name = "write images")]
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
-        let mut images = Vec::new();
-
-        for (i, _) in context.images.items().enumerate() {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        for (i, image) in context.images.items().enumerate() {
             let handle = context.deferred_images.get(&i).unwrap();
             match handle.wait() {
                 EncodedImage::Raster {
@@ -34,7 +32,7 @@ impl PdfResource for Images {
                     alpha,
                 } => {
                     let image_ref = chunk.alloc();
-                    images.push(image_ref);
+                    out.insert(image.clone(), image_ref);
 
                     let mut image = chunk.chunk.image_xobject(image_ref, data);
                     image.filter(*filter);
@@ -92,12 +90,10 @@ impl PdfResource for Images {
                     svg_chunk.renumber_into(&mut chunk.chunk, |old| {
                         *map.entry(old).or_insert_with(|| chunk.alloc.bump())
                     });
-                    images.push(map[&Ref::new(1)]);
+                    out.insert(image.clone(), map[&Ref::new(1)]);
                 }
             }
         }
-
-        images
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {

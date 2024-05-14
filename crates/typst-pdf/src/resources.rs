@@ -1,7 +1,14 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use ecow::eco_format;
 use pdf_writer::{writers::Resources, Dict, Finish, Name, Pdf, Ref};
+use typst::{text::Font, visualize::Image};
 
-use crate::{PdfContext, PdfWriter, References};
+use crate::{
+    color_font::ColorFontSlice, extg::ExtGState, gradient::PdfGradient,
+    pattern::PdfPattern, PdfContext, PdfWriter, References,
+};
 
 pub struct GlobalResources;
 
@@ -24,49 +31,62 @@ impl PdfWriter for GlobalResources {
             let ext_gs_states_ref = alloc.bump();
             let color_spaces_ref = alloc.bump();
 
+            let mut pattern_mapping = HashMap::new();
+            for (pattern, pattern_refs) in &refs.patterns {
+                pattern_mapping.insert(pattern.clone(), pattern_refs.pattern_ref);
+            }
+
+            let mut color_font_slices = Vec::new();
+            if let Some(color_fonts) = &ctx.color_fonts {
+                for (font, color_font) in &color_fonts.map {
+                    for i in 0..(color_font.glyphs.len() / 256) {
+                        color_font_slices
+                            .push(ColorFontSlice { font: font.clone(), subfont: i })
+                    }
+                }
+            }
             resource_dict(
                 pdf,
                 ctx.globals.resources,
                 images_ref,
                 ResourceList {
                     prefix: "Im",
-                    items: &mut ctx.images.pdf_indices(&refs.images),
+                    items: &ctx.images.to_items,
+                    mapping: &refs.images,
                 },
                 patterns_ref,
                 ResourceList {
                     prefix: "Gr",
-                    items: &mut ctx.gradients.pdf_indices(&refs.gradients),
+                    items: &ctx.gradients.to_items,
+                    mapping: &refs.gradients,
                 },
                 ResourceList {
                     prefix: "P",
-                    items: &mut ctx
-                        .patterns
-                        .pdf_indices(refs.patterns.iter().map(|p| &p.pattern_ref)),
+                    items: &ctx.remapped_patterns,
+                    mapping: &pattern_mapping,
                 },
                 ext_gs_states_ref,
                 ResourceList {
                     prefix: "Gs",
-                    items: &mut ctx.ext_gs.pdf_indices(&refs.ext_gs),
+                    items: &ctx.ext_gs.to_items,
+                    mapping: &refs.ext_gs,
                 },
                 color_spaces_ref,
                 ResourceList {
                     prefix: "F",
-                    items: &mut ctx.fonts.pdf_indices(&refs.fonts),
+                    items: &ctx.fonts.to_items,
+                    mapping: &refs.fonts,
                 },
                 ResourceList {
                     prefix: "Cf",
-                    // TODO: allocate an actual number for color fonts instead of using their ID?
-                    items: &mut refs.color_fonts.iter().map(|r| (*r, r.get() as usize)),
+                    items: &color_font_slices,
+                    mapping: &refs.color_fonts,
                 },
             );
 
             if let Some(color_fonts) = &ctx.color_fonts {
-                let type3_color_spaces = generic_resource_dict(
-                    pdf,
-                    alloc,
-                    &color_fonts.ctx,
-                    refs, // TODO: these refs are not matching with ctx
-                );
+                let type3_color_spaces =
+                    generic_resource_dict(pdf, alloc, &color_fonts.ctx, refs);
                 let color_spaces = pdf.indirect(type3_color_spaces).dict();
                 color_fonts.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
             }
@@ -79,7 +99,7 @@ impl PdfWriter for GlobalResources {
         ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
 
         // Write the resources for each pattern
-        for (refs, pattern) in refs.patterns.iter().zip(&ctx.remapped_patterns) {
+        for (refs, pattern) in refs.patterns.values().zip(&ctx.remapped_patterns) {
             let resources = &pattern.resources;
             let resources_ref = refs.resources_ref;
 
@@ -132,15 +152,17 @@ impl PdfWriter for GlobalResources {
     }
 }
 
-struct ResourceList<'a> {
+struct ResourceList<'a, T> {
     prefix: &'static str,
-    items: &'a mut dyn Iterator<Item = (Ref, usize)>,
+    items: &'a [T],
+    mapping: &'a HashMap<T, Ref>,
 }
 
-impl<'a> ResourceList<'a> {
+impl<'a, T: Eq + Hash> ResourceList<'a, T> {
     fn write(&mut self, dict: &mut Dict) {
-        for (reference, number) in &mut self.items {
+        for (number, item) in self.items.iter().enumerate() {
             let name = eco_format!("{}{}", self.prefix, number);
+            let reference = self.mapping[item];
             dict.pair(Name(name.as_bytes()), reference);
         }
         dict.finish();
@@ -151,15 +173,15 @@ fn resource_dict(
     pdf: &mut Pdf,
     id: Ref,
     images_ref: Ref,
-    mut images: ResourceList,
+    mut images: ResourceList<Image>,
     patterns_ref: Ref,
-    mut gradients: ResourceList,
-    mut patterns: ResourceList,
+    mut gradients: ResourceList<PdfGradient>,
+    mut patterns: ResourceList<PdfPattern<Ref>>,
     ext_gs_ref: Ref,
-    mut ext_gs: ResourceList,
+    mut ext_gs: ResourceList<ExtGState>,
     color_spaces_ref: Ref,
-    mut fonts: ResourceList,
-    mut color_fonts: ResourceList,
+    mut fonts: ResourceList<Font>,
+    mut color_fonts: ResourceList<ColorFontSlice>,
 ) {
     let mut dict = pdf.indirect(images_ref).dict();
     images.write(&mut dict);

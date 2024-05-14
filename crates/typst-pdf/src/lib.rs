@@ -19,6 +19,7 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
+use color_font::ColorFontSlice;
 use ecow::EcoString;
 use pdf_writer::{Chunk, Pdf, Ref};
 
@@ -130,19 +131,32 @@ impl<'a> PdfBuilder<'a> {
     }
 
     /// Write data related to a [`PdfResource`] in the document.
-    fn with_resource(mut self, resource: impl PdfResource) -> Self {
-        let mut chunk = PdfChunk::new();
-        let mut output = resource.write(&self.context, &mut chunk);
-        let mut mapping = HashMap::new();
-        chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < 100 {
-                r
-            } else {
-                let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
-                output.renumber(r, new);
-                new
-            }
-        });
+    fn with_resource<R: PdfResource>(mut self, resource: R) -> Self {
+        let mut output = Default::default();
+
+        let mut write = |ctx| {
+            let mut chunk: PdfChunk = PdfChunk::new();
+            resource.write(ctx, &mut chunk, &mut output);
+
+            let mut mapping = HashMap::new();
+            chunk.renumber_into(&mut self.pdf, |r| {
+                if r.get() < 100 {
+                    r
+                } else {
+                    let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
+                    output.renumber(r, new);
+                    new
+                }
+            });
+        };
+
+        write(&self.context);
+        if let Some(color_fonts) = &self.context.color_fonts {
+            write(&color_fonts.ctx)
+        }
+
+        R::save(&mut self.references, output);
+
         self
     }
 
@@ -165,17 +179,17 @@ struct References {
     /// A sorted list of all named destinations.
     dests: Vec<(Label, Ref)>,
     /// The IDs of written fonts.
-    fonts: Vec<Ref>,
+    fonts: HashMap<Font, Ref>,
     /// The IDs of written color fonts.
-    color_fonts: Vec<Ref>,
+    color_fonts: HashMap<ColorFontSlice, Ref>,
     /// The IDs of written images.
-    images: Vec<Ref>,
+    images: HashMap<Image, Ref>,
     /// The IDs of written gradients.
-    gradients: Vec<Ref>,
+    gradients: HashMap<PdfGradient, Ref>,
     /// The IDs of written patterns.
-    patterns: Vec<WrittenPattern>,
+    patterns: HashMap<PdfPattern<Ref>, WrittenPattern>,
     /// The IDs of written external graphics states.
-    ext_gs: Vec<Ref>,
+    ext_gs: HashMap<ExtGState, Ref>,
 }
 
 struct PdfContext<'a> {
@@ -254,13 +268,13 @@ trait PdfConstructor {
 
 /// A specific kind of resource that is present in a PDF document.
 trait PdfResource {
-    type Output: Renumber;
+    type Output: Renumber + Default;
 
     /// Write all data related to this kind of resource in the document.
     ///
     /// This function can return references that are local to `chunk`, they
     /// will be correctly re-numbered before being saved for later steps.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output;
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output);
 
     /// Save references that this step exported.
     fn save(context: &mut References, output: Self::Output);
@@ -293,6 +307,14 @@ impl<R: Renumber> Renumber for Vec<R> {
     fn renumber(&mut self, old: Ref, new: Ref) {
         for item in self {
             item.renumber(old, new);
+        }
+    }
+}
+
+impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        for (_, v) in self {
+            v.renumber(old, new);
         }
     }
 }
@@ -405,13 +427,6 @@ where
             to_layout.push(item);
             pdf_index
         })
-    }
-
-    fn pdf_indices<'a>(
-        &'a self,
-        refs: impl IntoIterator<Item = &'a Ref> + 'a,
-    ) -> impl Iterator<Item = (Ref, usize)> + 'a {
-        refs.into_iter().copied().zip(0..self.to_pdf.len())
     }
 
     fn items(&self) -> impl Iterator<Item = &T> + '_ {

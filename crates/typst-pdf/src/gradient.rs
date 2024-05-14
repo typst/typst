@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
@@ -36,18 +37,16 @@ pub struct PdfGradient {
 pub struct Gradients;
 
 impl PdfResource for Gradients {
-    type Output = Vec<Ref>;
+    type Output = HashMap<PdfGradient, Ref>;
 
     /// Writes the actual gradients (shading patterns) to the PDF.
     /// This is performed once after writing all pages.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
-        let mut gradients = Vec::new();
-
-        for PdfGradient { transform, aspect_ratio, gradient, angle } in
-            context.gradients.items().cloned().collect::<Vec<_>>()
-        {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        for pdf_gradient in context.gradients.items().cloned().collect::<Vec<_>>() {
             let shading = chunk.alloc();
-            gradients.push(shading);
+            out.insert(pdf_gradient.clone(), shading);
+
+            let PdfGradient { transform, aspect_ratio, gradient, angle } = pdf_gradient;
 
             let color_space = if gradient.space().hue_index().is_some() {
                 ColorSpace::Oklab
@@ -159,8 +158,6 @@ impl PdfResource for Gradients {
 
             shading_pattern.matrix(transform_to_array(transform));
         }
-
-        gradients
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {

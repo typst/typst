@@ -14,7 +14,7 @@ use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 use typst::text::Font;
 use typst::util::SliceExt;
 
-use crate::{deflate, PdfContext, EmExt, PdfChunk, PdfResource};
+use crate::{deflate, EmExt, PdfChunk, PdfContext, PdfResource};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -28,20 +28,18 @@ pub(crate) const SYSTEM_INFO: SystemInfo = SystemInfo {
 pub struct Fonts;
 
 impl PdfResource for Fonts {
-    type Output = Vec<Ref>;
+    type Output = HashMap<Font, Ref>;
 
     /// Embed all used fonts into the PDF.
     #[typst_macros::time(name = "write fonts")]
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Self::Output {
-        let mut fonts = Vec::new();
-
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         for font in context.fonts.items() {
             let type0_ref = chunk.alloc();
             let cid_ref = chunk.alloc();
             let descriptor_ref = chunk.alloc();
             let cmap_ref = chunk.alloc();
             let data_ref = chunk.alloc();
-            fonts.push(type0_ref);
+            out.insert(font.clone(), type0_ref);
 
             let glyph_set = context.glyph_sets.get(font).unwrap();
             let ttf = font.ttf();
@@ -139,7 +137,6 @@ impl PdfResource for Fonts {
                 font_descriptor.font_file2(data_ref);
             }
         }
-        fonts
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {
