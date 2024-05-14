@@ -36,3 +36,25 @@ Totally #h() ignored
   [Hello ]
   counter(heading).display()
 }
+
+--- trim-weak-space-line-beginning ---
+// Weak space at the beginning should be removed.
+#h(2cm, weak: true) Hello
+
+--- trim-weak-space-line-end ---
+// Weak space at the end of the line should be removed.
+#set align(right)
+Hello #h(2cm, weak: true)
+
+--- issue-4087 ---
+// weak space at the end of the line would be removed.
+This is the first line #h(2cm, weak: true) A new line
+
+// non-weak space would be consume a specified width and push next line.
+This is the first line #h(2cm, weak: false) A new line
+
+// similarly weak space at the beginning of the line would be removed.
+This is the first line\ #h(2cm, weak: true) A new line
+
+// non-spacing, on the other hand, is not removed.
+This is the first line\ #h(2cm, weak: false) A new line
