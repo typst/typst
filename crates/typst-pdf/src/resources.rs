@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use pdf_writer::{writers::Resources, Dict, Finish, Name, Pdf, Ref};
 
-use crate::{color_font::MaybeColorFont, PdfContext, PdfWriter, References};
+use crate::{PdfContext, PdfWriter, References};
 
 pub struct GlobalResources;
 
@@ -16,11 +16,11 @@ impl PdfWriter for GlobalResources {
         let type3_font_resources_ref = ctx.globals.type3_font_resources;
 
         #[must_use]
-        fn generic_resource_dict<C: MaybeColorFont>(
+        fn generic_resource_dict(
             pdf: &mut Pdf,
             alloc: &mut Ref,
             id: Ref,
-            ctx: &PdfContext<C>,
+            ctx: &PdfContext,
             refs: &References,
             color_fonts: ResourceList,
         ) -> Ref {
@@ -79,19 +79,18 @@ impl PdfWriter for GlobalResources {
         let color_spaces = pdf.indirect(global_color_spaces).dict();
         ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-        let type3_color_spaces = generic_resource_dict(
-            pdf,
-            alloc,
-            type3_font_resources_ref,
-            &ctx.color_fonts.ctx,
-            refs,
-            ResourceList { prefix: "", items: &mut std::iter::empty() },
-        );
-        let color_spaces = pdf.indirect(type3_color_spaces).dict();
-        ctx.color_fonts
-            .ctx
-            .colors
-            .write_color_spaces(color_spaces, &ctx.globals);
+        if let Some(color_fonts) = &ctx.color_fonts {
+            let type3_color_spaces = generic_resource_dict(
+                pdf,
+                alloc,
+                type3_font_resources_ref,
+                &color_fonts.ctx,
+                refs,
+                ResourceList { prefix: "", items: &mut std::iter::empty() },
+            );
+            let color_spaces = pdf.indirect(type3_color_spaces).dict();
+            color_fonts.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+        }
 
         // Write the resources for each pattern
         for (refs, pattern) in refs.patterns.iter().zip(&ctx.remapped_patterns) {

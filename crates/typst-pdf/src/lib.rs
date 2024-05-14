@@ -19,7 +19,6 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
-use color_font::MaybeColorFont;
 use ecow::EcoString;
 use pdf_writer::{Chunk, Pdf, Ref};
 
@@ -179,7 +178,7 @@ struct References {
     ext_gs: Vec<Ref>,
 }
 
-struct PdfContext<'a, C: MaybeColorFont = ColorFontMap<'a>> {
+struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// Content of exported pages.
@@ -220,7 +219,7 @@ struct PdfContext<'a, C: MaybeColorFont = ColorFontMap<'a>> {
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
-    color_fonts: C,
+    color_fonts: Option<Box<ColorFontMap<'a>>>,
 }
 
 impl<'a> PdfContext<'a> {
@@ -239,28 +238,7 @@ impl<'a> PdfContext<'a> {
             patterns: Remapper::new(),
             remapped_patterns: Vec::new(),
             ext_gs: Remapper::new(),
-            color_fonts: ColorFontMap::new(&document),
-        }
-    }
-}
-
-impl<'a> PdfContext<'a, ()> {
-    fn new_without_color_fonts(document: &'a Document) -> Self {
-        Self {
-            document,
-            globals: GlobalRefs::new(document.pages.len()),
-            pages: vec![],
-            glyph_sets: HashMap::new(),
-            languages: BTreeMap::new(),
-            colors: ColorSpaces::default(),
-            fonts: Remapper::new(),
-            images: Remapper::new(),
-            deferred_images: HashMap::new(),
-            gradients: Remapper::new(),
-            patterns: Remapper::new(),
-            remapped_patterns: Vec::new(),
-            ext_gs: Remapper::new(),
-            color_fonts: (),
+            color_fonts: Some(Box::new(ColorFontMap::new(&document))),
         }
     }
 }

@@ -15,7 +15,6 @@ use typst::visualize::{
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::color_font::MaybeColorFont;
 use crate::content::{self, Resource, ResourceKind};
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk, PdfContext, PdfResource};
 
@@ -247,9 +246,9 @@ fn single_gradient(
 }
 
 impl PaintEncode for Gradient {
-    fn set_as_fill<C: MaybeColorFont>(
+    fn set_as_fill(
         &self,
-        ctx: &mut content::Builder<C>,
+        ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
     ) {
@@ -264,9 +263,9 @@ impl PaintEncode for Gradient {
         ctx.resources.insert(Resource::new(ResourceKind::Gradient, id), index);
     }
 
-    fn set_as_stroke<C: MaybeColorFont>(
+    fn set_as_stroke(
         &self,
-        ctx: &mut content::Builder<C>,
+        ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
     ) {
@@ -283,8 +282,8 @@ impl PaintEncode for Gradient {
 }
 
 /// Deduplicates a gradient to a named PDF resource.
-fn register_gradient<C: MaybeColorFont>(
-    ctx: &mut content::Builder<C>,
+fn register_gradient(
+    ctx: &mut content::Builder,
     gradient: &Gradient,
     on_text: bool,
     mut transforms: content::Transforms,

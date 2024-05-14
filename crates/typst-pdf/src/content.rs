@@ -24,13 +24,13 @@ use typst::visualize::{
 };
 
 use crate::{
-    color::PaintEncode, color_font::MaybeColorFont, deflate_deferred, extg::ExtGState,
+    color::PaintEncode, color_font::ColorFontMap, deflate_deferred, extg::ExtGState,
     image::deferred_image, AbsExt, EmExt, PdfContext,
 };
 
 // TODO: remove all references to "page"
 
-pub fn build<C: MaybeColorFont>(ctx: &mut PdfContext<C>, frame: &Frame) -> Encoded {
+pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(ctx, size);
 
@@ -125,8 +125,8 @@ impl Resource {
 }
 
 /// An exporter for the contents of a single PDF page.
-pub struct Builder<'a, 'b, C: MaybeColorFont> {
-    pub(crate) parent: &'a mut PdfContext<'b, C>,
+pub struct Builder<'a, 'b> {
+    pub(crate) parent: &'a mut PdfContext<'b>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -137,8 +137,8 @@ pub struct Builder<'a, 'b, C: MaybeColorFont> {
     pub resources: HashMap<Resource, usize>,
 }
 
-impl<'a, 'b, C: MaybeColorFont> Builder<'a, 'b, C> {
-    pub fn new(parent: &'a mut PdfContext<'b, C>, size: Size) -> Self {
+impl<'a, 'b> Builder<'a, 'b> {
+    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
         Builder {
             parent,
             uses_opacities: false,
@@ -212,7 +212,7 @@ pub(super) struct Transforms {
     pub size: Size,
 }
 
-impl<C: MaybeColorFont> Builder<'_, '_, C> {
+impl Builder<'_, '_> {
     fn save_state(&mut self) {
         self.saves.push(self.state.clone());
         self.content.save_state();
@@ -376,7 +376,7 @@ impl<C: MaybeColorFont> Builder<'_, '_, C> {
 }
 
 /// Encode a frame into the content stream.
-pub(crate) fn write_frame<C: MaybeColorFont>(ctx: &mut Builder<C>, frame: &Frame) {
+pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
@@ -395,7 +395,7 @@ pub(crate) fn write_frame<C: MaybeColorFont>(ctx: &mut Builder<C>, frame: &Frame
 }
 
 /// Encode a group into the content stream.
-fn write_group<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, group: &GroupItem) {
+fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
 
     ctx.save_state();
@@ -423,7 +423,7 @@ fn write_group<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, group: &Grou
 }
 
 /// Encode a text run into the content stream.
-fn write_text<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, text: &TextItem) {
+fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) {
     let ttf = text.font.ttf();
     let tables = ttf.tables();
 
@@ -472,11 +472,7 @@ fn write_text<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, text: &TextIt
 }
 
 // Encodes a text run (without any color glyph) into the content stream.
-fn write_normal_text<C: MaybeColorFont>(
-    ctx: &mut Builder<C>,
-    pos: Point,
-    text: TextItemView,
-) {
+fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -554,11 +550,7 @@ fn write_normal_text<C: MaybeColorFont>(
 }
 
 // Encodes a text run made only of color glyphs into the content stream
-fn write_color_glyphs<C: MaybeColorFont>(
-    ctx: &mut Builder<C>,
-    pos: Point,
-    text: TextItemView,
-) {
+fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -574,7 +566,11 @@ fn write_color_glyphs<C: MaybeColorFont>(
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let (font, index) = ctx.parent.color_fonts.get(&text.item.font, glyph.id);
+        let color_fonts = ctx
+            .parent
+            .color_fonts
+            .get_or_insert_with(|| Box::new(ColorFontMap::new(ctx.parent.document)));
+        let (font, index) = color_fonts.get(&text.item.font, glyph.id);
 
         if last_font != Some(font) {
             ctx.content.set_font(
@@ -594,7 +590,7 @@ fn write_color_glyphs<C: MaybeColorFont>(
 }
 
 /// Encode a geometrical shape into the content stream.
-fn write_shape<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, shape: &Shape) {
+fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -652,7 +648,7 @@ fn write_shape<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, shape: &Shap
 }
 
 /// Encode a bezier path into the content stream.
-fn write_path<C: MaybeColorFont>(ctx: &mut Builder<C>, x: f32, y: f32, path: &Path) {
+fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
     for elem in &path.0 {
         match elem {
             PathItem::MoveTo(p) => {
@@ -675,13 +671,7 @@ fn write_path<C: MaybeColorFont>(ctx: &mut Builder<C>, x: f32, y: f32, path: &Pa
 }
 
 /// Encode a vector or raster image into the content stream.
-fn write_image<C: MaybeColorFont>(
-    ctx: &mut Builder<C>,
-    x: f32,
-    y: f32,
-    image: &Image,
-    size: Size,
-) {
+fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
     let index = ctx.parent.images.insert(image.clone());
     ctx.parent
         .deferred_images
@@ -714,12 +704,7 @@ fn write_image<C: MaybeColorFont>(
 }
 
 /// Save a link for later writing in the annotations dictionary.
-fn write_link<C: MaybeColorFont>(
-    ctx: &mut Builder<C>,
-    pos: Point,
-    dest: &Destination,
-    size: Size,
-) {
+fn write_link(ctx: &mut Builder, pos: Point, dest: &Destination, size: Size) {
     let mut min_x = Abs::inf();
     let mut min_y = Abs::inf();
     let mut max_x = -Abs::inf();

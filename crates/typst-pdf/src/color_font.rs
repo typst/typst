@@ -24,7 +24,10 @@ impl PdfResource for ColorFonts {
     /// Writes color fonts as Type3 fonts
     fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Vec<Ref> {
         let mut refs = Vec::new();
-        for (font, color_font) in &context.color_fonts.map {
+        let Some(color_fonts) = &context.color_fonts else {
+            return refs;
+        };
+        for (font, color_font) in &color_fonts.map {
             // For each Type3 font that is part of this family…
             for font_index in 0..(color_font.glyphs.len() / 256) {
                 let subfont_id = chunk.alloc();
@@ -150,7 +153,7 @@ pub struct ColorFontMap<'a> {
     pub _all_refs: Vec<Ref>,
 
     // TODO: merge this context in the main one in some way
-    pub ctx: PdfContext<'a, ()>,
+    pub ctx: PdfContext<'a>,
 }
 
 /// A collection of Type3 font, belonging to the same TTF font.
@@ -186,21 +189,11 @@ impl<'a> ColorFontMap<'a> {
         Self {
             map: IndexMap::new(),
             _all_refs: Vec::new(),
-            ctx: PdfContext::new_without_color_fonts(doc),
+            ctx: PdfContext::new(doc),
         }
     }
-}
 
-pub trait MaybeColorFont: Sized {
-    /// Obtains the reference to a Type3 font, and an index in this font
-    /// that can be used to draw a color glyph.
-    ///
-    /// The glyphs will be de-duplicated if needed.
-    fn get(&mut self, font: &Font, gid: u16) -> (usize, u8);
-}
-
-impl<'a> MaybeColorFont for ColorFontMap<'a> {
-    fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
+    pub fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
         let color_font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
             let bbox = Rect::new(
@@ -233,11 +226,5 @@ impl<'a> MaybeColorFont for ColorFontMap<'a> {
 
             (index / 256, index as u8)
         }
-    }
-}
-
-impl MaybeColorFont for () {
-    fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
-        panic!("A color glyph tried to reference another color glyph (GID: {}, font family name: {}).", gid, font.info().family);
     }
 }
