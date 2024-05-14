@@ -425,13 +425,13 @@ fn collect<'a>(
             == TextElem::dir_in(*styles).start().into()
     {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing(first_line_indent.into()), *styles));
+        segments.push((Segment::Spacing(first_line_indent.into(), false), *styles));
     }
 
     let hang = ParElem::hanging_indent_in(*styles);
     if !hang.is_zero() {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing((-hang).into()), *styles));
+        segments.push((Segment::Spacing((-hang).into(), false), *styles));
     }
 
     let outer_dir = TextElem::dir_in(*styles);
@@ -476,7 +476,7 @@ fn collect<'a>(
             }
 
             full.push(SPACING_REPLACE);
-            Segment::Spacing(*elem.amount())
+            Segment::Spacing(*elem.amount(), elem.weak(styles))
         } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
@@ -597,7 +597,8 @@ fn prepare<'a>(
             Segment::Equation(par_items) => {
                 for item in par_items {
                     match item {
-                        MathParItem::Space(s) => items.push(Item::Absolute(s)),
+                        // MathParItem space are assumed to be weak space
+                        MathParItem::Space(s) => items.push(Item::Absolute(s, true)),
                         MathParItem::Frame(mut frame) => {
                             frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                             items.push(Item::Frame(frame));
@@ -1045,12 +1046,19 @@ fn line<'a>(
     let (mut expanded, mut inner) = p.slice(range.clone());
     let mut width = Abs::zero();
 
-    // The last element can be space Item::Absolute(_); if so, we omit the space.
-    while let Some((Item::Absolute(_), before)) = inner.split_last() {
+    // Weak space (Absolute(_, weak=true)) would be removed if at the end of the line
+    while let Some((Item::Absolute(_, true), before)) = inner.split_last() {
         // apply it recursively to ensure the last one is not space
         inner = before;
         range.end -= 1;
         expanded.end -= 1;
+    }
+    // Weak space (Absolute(_, weak=true)) would be removed if at the beginning of the line
+    while let Some((Item::Absolute(_, true), after)) = inner.split_first() {
+        // apply it recursively to ensure the last one is not space
+        inner = after;
+        range.start += 1;
+        expanded.end += 1;
     }
 
     // Reshape the last item if it's split in half or hyphenated.
