@@ -19,6 +19,7 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
+use color_font::MaybeColorFont;
 use ecow::EcoString;
 use pdf_writer::{Chunk, Pdf, Ref};
 
@@ -69,7 +70,7 @@ pub fn pdf(
 ) -> Vec<u8> {
     PdfBuilder::new(document)
         .construct(Pages)
-        .construct(ColorFonts)
+        .with_resource(ColorFonts)
         .with_resource(Fonts)
         .with_resource(Images)
         .with_resource(Gradients)
@@ -166,6 +167,8 @@ struct References {
     dests: Vec<(Label, Ref)>,
     /// The IDs of written fonts.
     fonts: Vec<Ref>,
+    /// The IDs of written color fonts.
+    color_fonts: Vec<Ref>,
     /// The IDs of written images.
     images: Vec<Ref>,
     /// The IDs of written gradients.
@@ -176,7 +179,7 @@ struct References {
     ext_gs: Vec<Ref>,
 }
 
-struct PdfContext<'a> {
+struct PdfContext<'a, C: MaybeColorFont = ColorFontMap<'a>> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// Content of exported pages.
@@ -217,7 +220,7 @@ struct PdfContext<'a> {
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
-    color_fonts: ColorFontMap,
+    color_fonts: C,
 }
 
 impl<'a> PdfContext<'a> {
@@ -236,7 +239,28 @@ impl<'a> PdfContext<'a> {
             patterns: Remapper::new(),
             remapped_patterns: Vec::new(),
             ext_gs: Remapper::new(),
-            color_fonts: ColorFontMap::new(),
+            color_fonts: ColorFontMap::new(&document),
+        }
+    }
+}
+
+impl<'a> PdfContext<'a, ()> {
+    fn new_without_color_fonts(document: &'a Document) -> Self {
+        Self {
+            document,
+            globals: GlobalRefs::new(document.pages.len()),
+            pages: vec![],
+            glyph_sets: HashMap::new(),
+            languages: BTreeMap::new(),
+            colors: ColorSpaces::default(),
+            fonts: Remapper::new(),
+            images: Remapper::new(),
+            deferred_images: HashMap::new(),
+            gradients: Remapper::new(),
+            patterns: Remapper::new(),
+            remapped_patterns: Vec::new(),
+            ext_gs: Remapper::new(),
+            color_fonts: (),
         }
     }
 }

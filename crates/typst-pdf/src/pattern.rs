@@ -8,9 +8,9 @@ use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
-use crate::color::PaintEncode;
 use crate::content::{self, Resource, ResourceKind};
-use crate::{transform_to_array, PdfContext, PdfChunk, PdfResource, Renumber};
+use crate::{color::PaintEncode, color_font::MaybeColorFont};
+use crate::{transform_to_array, PdfChunk, PdfContext, PdfResource, Renumber};
 
 pub struct Patterns;
 
@@ -93,8 +93,8 @@ pub struct PdfPattern<R> {
 }
 
 /// Registers a pattern with the PDF.
-fn register_pattern(
-    ctx: &mut content::Builder,
+fn register_pattern<C: MaybeColorFont>(
+    ctx: &mut content::Builder<C>,
     pattern: &Pattern,
     on_text: bool,
     mut transforms: content::Transforms,
@@ -129,9 +129,9 @@ fn register_pattern(
 }
 
 impl PaintEncode for Pattern {
-    fn set_as_fill(
+    fn set_as_fill<C: MaybeColorFont>(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content::Builder<C>,
         on_text: bool,
         transforms: content::Transforms,
     ) {
@@ -146,9 +146,9 @@ impl PaintEncode for Pattern {
         ctx.resources.insert(Resource::new(ResourceKind::Pattern, id), index);
     }
 
-    fn set_as_stroke(
+    fn set_as_stroke<C: MaybeColorFont>(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content::Builder<C>,
         on_text: bool,
         transforms: content::Transforms,
     ) {

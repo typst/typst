@@ -5,7 +5,7 @@ use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name};
 
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, GlobalRefs};
+use crate::{color_font::MaybeColorFont, content, deflate, GlobalRefs};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -210,26 +210,26 @@ impl ColorEncode for ColorSpace {
 /// Encodes a paint into either a fill or stroke color.
 pub(super) trait PaintEncode {
     /// Set the paint as the fill color.
-    fn set_as_fill(
+    fn set_as_fill<C: MaybeColorFont>(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content::Builder<C>,
         on_text: bool,
         transforms: content::Transforms,
     );
 
     /// Set the paint as the stroke color.
-    fn set_as_stroke(
+    fn set_as_stroke<C: MaybeColorFont>(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content::Builder<C>,
         on_text: bool,
         transforms: content::Transforms,
     );
 }
 
 impl PaintEncode for Paint {
-    fn set_as_fill(
+    fn set_as_fill<C: MaybeColorFont>(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content::Builder<C>,
         on_text: bool,
         transforms: content::Transforms,
     ) {
@@ -240,9 +240,9 @@ impl PaintEncode for Paint {
         }
     }
 
-    fn set_as_stroke(
+    fn set_as_stroke<C: MaybeColorFont>(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content::Builder<C>,
         on_text: bool,
         transforms: content::Transforms,
     ) {
@@ -255,7 +255,12 @@ impl PaintEncode for Paint {
 }
 
 impl PaintEncode for Color {
-    fn set_as_fill(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
+    fn set_as_fill<C: MaybeColorFont>(
+        &self,
+        ctx: &mut content::Builder<C>,
+        _: bool,
+        _: content::Transforms,
+    ) {
         match self {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray();
@@ -295,7 +300,12 @@ impl PaintEncode for Color {
         }
     }
 
-    fn set_as_stroke(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
+    fn set_as_stroke<C: MaybeColorFont>(
+        &self,
+        ctx: &mut content::Builder<C>,
+        _: bool,
+        _: content::Transforms,
+    ) {
         match self {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray();

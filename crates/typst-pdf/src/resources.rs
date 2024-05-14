@@ -1,7 +1,7 @@
 use ecow::eco_format;
-use pdf_writer::{writers::Resources, Finish, Name, Pdf, Ref};
+use pdf_writer::{writers::Resources, Dict, Finish, Name, Pdf, Ref};
 
-use crate::{PdfContext, PdfWriter, References};
+use crate::{color_font::MaybeColorFont, PdfContext, PdfWriter, References};
 
 pub struct GlobalResources;
 
@@ -11,89 +11,87 @@ impl PdfWriter for GlobalResources {
     /// We add a reference to this dictionary to each page individually instead of
     /// to the root node of the page tree because using the resource inheritance
     /// feature breaks PDF merging with Apple Preview.
-    fn write(
-        &self,
-        pdf: &mut Pdf,
-        alloc: &mut Ref,
-        ctx: &PdfContext,
-        refs: &References,
-    ) {
+    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
         let global_res_ref = ctx.globals.global_resources;
         let type3_font_resources_ref = ctx.globals.type3_font_resources;
-        let images_ref = alloc.bump();
-        let patterns_ref = alloc.bump();
-        let ext_gs_states_ref = alloc.bump();
-        let color_spaces_ref = alloc.bump();
 
-        let mut images = pdf.indirect(images_ref).dict();
-        for (image_ref, im) in ctx.images.pdf_indices(&refs.images) {
-            let name = eco_format!("Im{}", im);
-            images.pair(Name(name.as_bytes()), image_ref);
+        #[must_use]
+        fn generic_resource_dict<C: MaybeColorFont>(
+            pdf: &mut Pdf,
+            alloc: &mut Ref,
+            id: Ref,
+            ctx: &PdfContext<C>,
+            refs: &References,
+            color_fonts: ResourceList,
+        ) -> Ref {
+            let images_ref = alloc.bump();
+            let patterns_ref = alloc.bump();
+            let ext_gs_states_ref = alloc.bump();
+            let color_spaces_ref = alloc.bump();
+
+            resource_dict(
+                pdf,
+                id,
+                images_ref,
+                ResourceList {
+                    prefix: "Im",
+                    items: &mut ctx.images.pdf_indices(&refs.images),
+                },
+                patterns_ref,
+                ResourceList {
+                    prefix: "Gr",
+                    items: &mut ctx.gradients.pdf_indices(&refs.gradients),
+                },
+                ResourceList {
+                    prefix: "P",
+                    items: &mut ctx
+                        .patterns
+                        .pdf_indices(refs.patterns.iter().map(|p| &p.pattern_ref)),
+                },
+                ext_gs_states_ref,
+                ResourceList {
+                    prefix: "Gs",
+                    items: &mut ctx.ext_gs.pdf_indices(&refs.ext_gs),
+                },
+                color_spaces_ref,
+                ResourceList {
+                    prefix: "F",
+                    items: &mut ctx.fonts.pdf_indices(&refs.fonts),
+                },
+                color_fonts,
+            );
+
+            color_spaces_ref
         }
-        images.finish();
 
-        let mut patterns = pdf.indirect(patterns_ref).dict();
-        for (gradient_ref, gr) in ctx.gradients.pdf_indices(&refs.gradients) {
-            let name = eco_format!("Gr{}", gr);
-            patterns.pair(Name(name.as_bytes()), gradient_ref);
-        }
-
-        let pattern_refs = refs.patterns.iter().map(|p| &p.pattern_ref);
-        for (pattern_ref, p) in ctx.patterns.pdf_indices(pattern_refs) {
-            let name = eco_format!("P{}", p);
-            patterns.pair(Name(name.as_bytes()), pattern_ref);
-        }
-        patterns.finish();
-
-        let mut ext_gs_states = pdf.indirect(ext_gs_states_ref).dict();
-        for (gs_ref, gs) in ctx.ext_gs.pdf_indices(&refs.ext_gs) {
-            let name = eco_format!("Gs{}", gs);
-            ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
-        }
-        ext_gs_states.finish();
-
-        let color_spaces = pdf.indirect(color_spaces_ref).dict();
+        let global_color_spaces = generic_resource_dict(
+            pdf,
+            alloc,
+            global_res_ref,
+            ctx,
+            refs, // TODO: these refs are not matching with ctx
+            ResourceList {
+                prefix: "Cf",
+                // TODO: allocate an actual number for color fonts instead of using their ID?
+                items: &mut refs.color_fonts.iter().map(|r| (*r, r.get() as usize)),
+            },
+        );
+        let color_spaces = pdf.indirect(global_color_spaces).dict();
         ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-        let mut resources = pdf.indirect(global_res_ref).start::<Resources>();
-        resources.pair(Name(b"XObject"), images_ref);
-        resources.pair(Name(b"Pattern"), patterns_ref);
-        resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
-        resources.pair(Name(b"ColorSpace"), color_spaces_ref);
-
-        let mut fonts = resources.fonts();
-        for (font_ref, f) in ctx.fonts.pdf_indices(&refs.fonts) {
-            let name = eco_format!("F{}", f);
-            fonts.pair(Name(name.as_bytes()), font_ref);
-        }
-
-        for font in &ctx.color_fonts.all_refs {
-            let name = eco_format!("Cf{}", font.get());
-            fonts.pair(Name(name.as_bytes()), font);
-        }
-        fonts.finish();
-
-        resources.finish();
-
-        // Also write the resources for Type3 fonts, that only contains images,
-        // color spaces and regular fonts (COLR glyphs depend on them).
-        if !ctx.color_fonts.all_refs.is_empty() {
-            let mut resources =
-                pdf.indirect(type3_font_resources_ref).start::<Resources>();
-            resources.pair(Name(b"XObject"), images_ref);
-            resources.pair(Name(b"Pattern"), patterns_ref);
-            resources.pair(Name(b"ExtGState"), ext_gs_states_ref);
-            resources.pair(Name(b"ColorSpace"), color_spaces_ref);
-
-            let mut fonts = resources.fonts();
-            for (font_ref, f) in ctx.fonts.pdf_indices(&refs.fonts) {
-                let name = eco_format!("F{}", f);
-                fonts.pair(Name(name.as_bytes()), font_ref);
-            }
-            fonts.finish();
-
-            resources.finish();
-        }
+        let type3_color_spaces = generic_resource_dict(
+            pdf,
+            alloc,
+            type3_font_resources_ref,
+            &ctx.color_fonts.ctx,
+            refs,
+            ResourceList { prefix: "", items: &mut std::iter::empty() },
+        );
+        let color_spaces = pdf.indirect(type3_color_spaces).dict();
+        ctx.color_fonts
+            .ctx
+            .colors
+            .write_color_spaces(color_spaces, &ctx.globals);
 
         // Write the resources for each pattern
         for (refs, pattern) in refs.patterns.iter().zip(&ctx.remapped_patterns) {
@@ -147,4 +145,58 @@ impl PdfWriter for GlobalResources {
         // Write all of the functions used by the document.
         ctx.colors.write_functions(pdf, &ctx.globals);
     }
+}
+
+struct ResourceList<'a> {
+    prefix: &'static str,
+    items: &'a mut dyn Iterator<Item = (Ref, usize)>,
+}
+
+impl<'a> ResourceList<'a> {
+    fn write(&mut self, dict: &mut Dict) {
+        for (reference, number) in &mut self.items {
+            let name = eco_format!("{}{}", self.prefix, number);
+            dict.pair(Name(name.as_bytes()), reference);
+        }
+        dict.finish();
+    }
+}
+
+fn resource_dict(
+    pdf: &mut Pdf,
+    id: Ref,
+    images_ref: Ref,
+    mut images: ResourceList,
+    patterns_ref: Ref,
+    mut gradients: ResourceList,
+    mut patterns: ResourceList,
+    ext_gs_ref: Ref,
+    mut ext_gs: ResourceList,
+    color_spaces_ref: Ref,
+    mut fonts: ResourceList,
+    mut color_fonts: ResourceList,
+) {
+    let mut dict = pdf.indirect(images_ref).dict();
+    images.write(&mut dict);
+    dict.finish();
+
+    let mut dict = pdf.indirect(patterns_ref).dict();
+    gradients.write(&mut dict);
+    patterns.write(&mut dict);
+    dict.finish();
+
+    let mut dict = pdf.indirect(ext_gs_ref).dict();
+    ext_gs.write(&mut dict);
+    dict.finish();
+
+    let mut resources = pdf.indirect(id).start::<Resources>();
+    resources.pair(Name(b"XObject"), images_ref);
+    resources.pair(Name(b"Pattern"), patterns_ref);
+    resources.pair(Name(b"ExtGState"), ext_gs_ref);
+    resources.pair(Name(b"ColorSpace"), color_spaces_ref);
+
+    let mut fonts_dict = resources.fonts();
+    fonts.write(&mut fonts_dict);
+    color_fonts.write(&mut fonts_dict);
+    fonts.finish();
 }

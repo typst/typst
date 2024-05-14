@@ -5,24 +5,30 @@ use indexmap::IndexMap;
 use pdf_writer::{types::UnicodeCmap, Finish, Name, Rect, Ref};
 use ttf_parser::name_id;
 
-use typst::layout::{Em, Frame};
+use typst::layout::Em;
+use typst::model::Document;
 use typst::text::{color::frame_for_glyph, Font};
 
+use crate::PdfResource;
 use crate::{
     content,
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
-    PdfContext, EmExt, PdfChunk, PdfConstructor,
+    EmExt, PdfChunk, PdfContext,
 };
 
 pub struct ColorFonts;
 
-impl PdfConstructor for ColorFonts {
+impl PdfResource for ColorFonts {
+    type Output = Vec<Ref>;
+
     /// Writes color fonts as Type3 fonts
-    fn write(&self, context: &mut PdfContext, chunk: &mut PdfChunk) {
-        let color_font_map = context.color_fonts.take_map();
-        for (font, color_font) in color_font_map {
+    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk) -> Vec<Ref> {
+        let mut refs = Vec::new();
+        for (font, color_font) in &context.color_fonts.map {
             // For each Type3 font that is part of this family…
-            for (font_index, subfont_id) in color_font.refs.iter().enumerate() {
+            for font_index in 0..(color_font.glyphs.len() / 256) {
+                let subfont_id = chunk.alloc();
+                refs.push(subfont_id);
                 // Allocate some IDs.
                 let cmap_ref = chunk.alloc();
                 let descriptor_ref = chunk.alloc();
@@ -48,10 +54,10 @@ impl PdfConstructor for ColorFonts {
                         .unwrap_or(Em::new(0.0))
                         .to_font_units();
                     widths.push(width);
-                    // Create a fake page context for `write_frame`. We are only
-                    // interested in the contents of the page.
-                    let c = content::build(context, &color_glyph.frame);
-                    chunk.stream(instructions_stream_ref, c.content.wait());
+                    chunk.stream(
+                        instructions_stream_ref,
+                        color_glyph.instructions.content.wait(),
+                    );
 
                     // Use this stream as instructions to draw the glyph.
                     glyphs_to_instructions.push(instructions_stream_ref);
@@ -59,7 +65,7 @@ impl PdfConstructor for ColorFonts {
                 }
 
                 // Write the Type3 font object.
-                let mut pdf_font = chunk.type3_font(*subfont_id);
+                let mut pdf_font = chunk.type3_font(subfont_id);
                 pdf_font.pair(Name(b"Resources"), context.globals.type3_font_resources);
                 pdf_font.bbox(color_font.bbox);
                 pdf_font.matrix([
@@ -124,6 +130,12 @@ impl PdfConstructor for ColorFonts {
                 chunk.indirect(widths_ref).array().items(widths);
             }
         }
+
+        refs
+    }
+
+    fn save(context: &mut crate::References, output: Self::Output) {
+        context.color_fonts = output
     }
 }
 
@@ -131,19 +143,21 @@ impl PdfConstructor for ColorFonts {
 ///
 /// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
 /// font, and fonts generally have more color glyphs than that.
-#[derive(Clone)]
-pub struct ColorFontMap {
+pub struct ColorFontMap<'a> {
     /// The mapping itself
-    map: IndexMap<Font, ColorFont>,
+    pub map: IndexMap<Font, ColorFont>,
     /// A list of all PDF indirect references to Type3 font objects.
-    pub all_refs: Vec<Ref>,
+    pub _all_refs: Vec<Ref>,
+
+    // TODO: merge this context in the main one in some way
+    pub ctx: PdfContext<'a, ()>,
 }
 
 /// A collection of Type3 font, belonging to the same TTF font.
 #[derive(Clone)]
 pub struct ColorFont {
     /// A list of references to Type3 font objects for this font family.
-    pub refs: Vec<Ref>,
+    pub _refs: Vec<Ref>,
     /// The list of all color glyphs in this family.
     ///
     /// The index in this vector modulo 256 corresponds to the index in one of
@@ -162,28 +176,31 @@ pub struct ColorFont {
 pub struct ColorGlyph {
     /// The ID of the glyph.
     pub gid: u16,
-    /// A frame that contains the glyph.
-    pub frame: Frame,
+    /// Instructions to draw the glyph.
+    pub instructions: content::Encoded,
 }
 
-impl ColorFontMap {
+impl<'a> ColorFontMap<'a> {
     /// Creates a new empty mapping
-    pub fn new() -> Self {
-        Self { map: IndexMap::new(), all_refs: Vec::new() }
+    pub fn new(doc: &'a Document) -> Self {
+        Self {
+            map: IndexMap::new(),
+            _all_refs: Vec::new(),
+            ctx: PdfContext::new_without_color_fonts(doc),
+        }
     }
+}
 
-    /// Takes the contents of the mapping.
-    ///
-    /// After calling this function, the mapping will be empty.
-    pub fn take_map(&mut self) -> IndexMap<Font, ColorFont> {
-        std::mem::take(&mut self.map)
-    }
-
+pub trait MaybeColorFont: Sized {
     /// Obtains the reference to a Type3 font, and an index in this font
     /// that can be used to draw a color glyph.
     ///
     /// The glyphs will be de-duplicated if needed.
-    pub fn get(&mut self, alloc: &mut Ref, font: &Font, gid: u16) -> (Ref, u8) {
+    fn get(&mut self, font: &Font, gid: u16) -> (usize, u8);
+}
+
+impl<'a> MaybeColorFont for ColorFontMap<'a> {
+    fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
         let color_font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
             let bbox = Rect::new(
@@ -194,7 +211,7 @@ impl ColorFontMap {
             );
             ColorFont {
                 bbox,
-                refs: Vec::new(),
+                _refs: Vec::new(),
                 glyphs: Vec::new(),
                 glyph_indices: HashMap::new(),
             }
@@ -202,22 +219,25 @@ impl ColorFontMap {
 
         if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
             // If we already know this glyph, return it.
-            (color_font.refs[index_of_glyph / 256], *index_of_glyph as u8)
+            // TODO: font index is incorrect here, only local to the TTF font, not the whole PDF
+            (index_of_glyph / 256, *index_of_glyph as u8)
         } else {
             // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
             // if needed
             let index = color_font.glyphs.len();
-            if index % 256 == 0 {
-                let new_ref = alloc.bump();
-                self.all_refs.push(new_ref);
-                color_font.refs.push(new_ref);
-            }
 
-            let instructions = frame_for_glyph(font, gid);
-            color_font.glyphs.push(ColorGlyph { gid, frame: instructions });
+            let frame = frame_for_glyph(font, gid);
+            let instructions = content::build(&mut self.ctx, &frame);
+            color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
-            (color_font.refs[index / 256], index as u8)
+            (index / 256, index as u8)
         }
+    }
+}
+
+impl MaybeColorFont for () {
+    fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
+        panic!("A color glyph tried to reference another color glyph (GID: {}, font family name: {}).", gid, font.info().family);
     }
 }

@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use ecow::{eco_format, EcoString};
 use pdf_writer::{
     types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
-    Content, Finish, Name, Rect, Ref, Str,
+    Content, Finish, Name, Rect, Str,
 };
 
 use typst::introspection::Meta;
@@ -24,16 +24,15 @@ use typst::visualize::{
 };
 
 use crate::{
-    color::PaintEncode, deflate_deferred, extg::ExtGState, image::deferred_image, AbsExt,
-    PdfContext, EmExt,
+    color::PaintEncode, color_font::MaybeColorFont, deflate_deferred, extg::ExtGState,
+    image::deferred_image, AbsExt, EmExt, PdfContext,
 };
 
 // TODO: remove all references to "page"
 
-pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
+pub fn build<C: MaybeColorFont>(ctx: &mut PdfContext<C>, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(ctx, size);
-    let mut alloc = Ref::new(1); // TODO?
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
@@ -45,7 +44,7 @@ pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
     );
 
     // Encode the page into the content stream.
-    write_frame(&mut ctx, &mut alloc, frame);
+    write_frame(&mut ctx, frame);
 
     Encoded {
         size,
@@ -126,8 +125,8 @@ impl Resource {
 }
 
 /// An exporter for the contents of a single PDF page.
-pub struct Builder<'a, 'b> {
-    pub(crate) parent: &'a mut PdfContext<'b>,
+pub struct Builder<'a, 'b, C: MaybeColorFont> {
+    pub(crate) parent: &'a mut PdfContext<'b, C>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -138,8 +137,8 @@ pub struct Builder<'a, 'b> {
     pub resources: HashMap<Resource, usize>,
 }
 
-impl<'a, 'b> Builder<'a, 'b> {
-    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
+impl<'a, 'b, C: MaybeColorFont> Builder<'a, 'b, C> {
+    pub fn new(parent: &'a mut PdfContext<'b, C>, size: Size) -> Self {
         Builder {
             parent,
             uses_opacities: false,
@@ -213,7 +212,7 @@ pub(super) struct Transforms {
     pub size: Size,
 }
 
-impl Builder<'_, '_> {
+impl<C: MaybeColorFont> Builder<'_, '_, C> {
     fn save_state(&mut self) {
         self.saves.push(self.state.clone());
         self.content.save_state();
@@ -377,13 +376,13 @@ impl Builder<'_, '_> {
 }
 
 /// Encode a frame into the content stream.
-pub(crate) fn write_frame(ctx: &mut Builder, alloc: &mut Ref, frame: &Frame) {
+pub(crate) fn write_frame<C: MaybeColorFont>(ctx: &mut Builder<C>, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
         match item {
-            FrameItem::Group(group) => write_group(ctx, alloc, pos, group),
-            FrameItem::Text(text) => write_text(ctx, alloc, pos, text),
+            FrameItem::Group(group) => write_group(ctx, pos, group),
+            FrameItem::Text(text) => write_text(ctx, pos, text),
             FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             FrameItem::Meta(meta, size) => match meta {
@@ -396,7 +395,7 @@ pub(crate) fn write_frame(ctx: &mut Builder, alloc: &mut Ref, frame: &Frame) {
 }
 
 /// Encode a group into the content stream.
-fn write_group(ctx: &mut Builder, alloc: &mut Ref, pos: Point, group: &GroupItem) {
+fn write_group<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
 
     ctx.save_state();
@@ -419,12 +418,12 @@ fn write_group(ctx: &mut Builder, alloc: &mut Ref, pos: Point, group: &GroupItem
         ctx.content.end_path();
     }
 
-    write_frame(ctx, alloc, &group.frame);
+    write_frame(ctx, &group.frame);
     ctx.restore_state();
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut Builder, alloc: &mut Ref, pos: Point, text: &TextItem) {
+fn write_text<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, text: &TextItem) {
     let ttf = text.font.ttf();
     let tables = ttf.tables();
 
@@ -443,7 +442,7 @@ fn write_text(ctx: &mut Builder, alloc: &mut Ref, pos: Point, text: &TextItem) {
         text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
 
     if color_glyph_count == text.glyphs.len() {
-        write_color_glyphs(ctx, alloc, pos, TextItemView::all_of(text));
+        write_color_glyphs(ctx, pos, TextItemView::all_of(text));
     } else if color_glyph_count == 0 {
         write_normal_text(ctx, pos, TextItemView::all_of(text));
     } else {
@@ -464,7 +463,7 @@ fn write_text(ctx: &mut Builder, alloc: &mut Ref, pos: Point, text: &TextItem) {
             offset = end;
             // Actually write the sub text-run
             if color {
-                write_color_glyphs(ctx, alloc, pos, text_item_view);
+                write_color_glyphs(ctx, pos, text_item_view);
             } else {
                 write_normal_text(ctx, pos, text_item_view);
             }
@@ -473,7 +472,11 @@ fn write_text(ctx: &mut Builder, alloc: &mut Ref, pos: Point, text: &TextItem) {
 }
 
 // Encodes a text run (without any color glyph) into the content stream.
-fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
+fn write_normal_text<C: MaybeColorFont>(
+    ctx: &mut Builder<C>,
+    pos: Point,
+    text: TextItemView,
+) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -551,9 +554,8 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
 }
 
 // Encodes a text run made only of color glyphs into the content stream
-fn write_color_glyphs(
-    ctx: &mut Builder,
-    alloc: &mut Ref,
+fn write_color_glyphs<C: MaybeColorFont>(
+    ctx: &mut Builder<C>,
     pos: Point,
     text: TextItemView,
 ) {
@@ -572,14 +574,14 @@ fn write_color_glyphs(
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let (font, index) = ctx.parent.color_fonts.get(alloc, &text.item.font, glyph.id);
+        let (font, index) = ctx.parent.color_fonts.get(&text.item.font, glyph.id);
 
-        if last_font != Some(font.get()) {
+        if last_font != Some(font) {
             ctx.content.set_font(
-                Name(eco_format!("Cf{}", font.get()).as_bytes()),
+                Name(eco_format!("Cf{}", font).as_bytes()),
                 text.item.size.to_f32(),
             );
-            last_font = Some(font.get());
+            last_font = Some(font);
         }
 
         ctx.content.show(Str(&[index]));
@@ -592,7 +594,7 @@ fn write_color_glyphs(
 }
 
 /// Encode a geometrical shape into the content stream.
-fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
+fn write_shape<C: MaybeColorFont>(ctx: &mut Builder<C>, pos: Point, shape: &Shape) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -650,7 +652,7 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
 }
 
 /// Encode a bezier path into the content stream.
-fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
+fn write_path<C: MaybeColorFont>(ctx: &mut Builder<C>, x: f32, y: f32, path: &Path) {
     for elem in &path.0 {
         match elem {
             PathItem::MoveTo(p) => {
@@ -673,7 +675,13 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
 }
 
 /// Encode a vector or raster image into the content stream.
-fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
+fn write_image<C: MaybeColorFont>(
+    ctx: &mut Builder<C>,
+    x: f32,
+    y: f32,
+    image: &Image,
+    size: Size,
+) {
     let index = ctx.parent.images.insert(image.clone());
     ctx.parent
         .deferred_images
@@ -706,7 +714,12 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
 }
 
 /// Save a link for later writing in the annotations dictionary.
-fn write_link(ctx: &mut Builder, pos: Point, dest: &Destination, size: Size) {
+fn write_link<C: MaybeColorFont>(
+    ctx: &mut Builder<C>,
+    pos: Point,
+    dest: &Destination,
+    size: Size,
+) {
     let mut min_x = Abs::inf();
     let mut min_y = Abs::inf();
     let mut max_x = -Abs::inf();
