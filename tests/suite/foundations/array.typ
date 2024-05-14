@@ -518,65 +518,65 @@
 
 --- elementwise-add ---
 #{
-  let a = (1, 2, 3);
-  let b = (4, 5, 6);
-  let c = a .+ b;
+  let a = (1, 2, 3)
+  let b = (4, 5, 6)
+  let c = a .+ b
   test(c, (5, 7, 9))
 }
 
 --- elementwise-sub ---
 #{
-  let a = (10, 20, 30);
-  let b = (1, 2, 3);
-  let c = a .- b;
+  let a = (10, 20, 30)
+  let b = (1, 2, 3)
+  let c = a .- b
   test(c, (9, 18, 27))
 }
 
 --- elementwise-mul ---
 #{
-  let a = (1, 2, 3);
-  let b = (4, 5, 6);
-  let c = a .* b;
+  let a = (1, 2, 3)
+  let b = (4, 5, 6)
+  let c = a .* b
   test(c, (4, 10, 18))
 }
 
 --- elementwise-div ---
 #{
-  let a = (10, 20, 30);
-  let b = (2, 4, 5);
-  let c = a ./ b;
+  let a = (10, 20, 30)
+  let b = (2, 4, 5)
+  let c = a ./ b
   test(c, (5, 5, 6))
 }
 
 --- elementwise-add-float ---
 #{
-  let a = (1.5, 2.5, 3.5);
-  let b = (0.5, 1.5, 2.5);
-  let c = a .+ b;
+  let a = (1.5, 2.5, 3.5)
+  let b = (0.5, 1.5, 2.5)
+  let c = a .+ b
   test(c, (2.0, 4.0, 6.0))
 }
 
 --- elementwise-sub-negative ---
 #{
-  let a = (1, -2, 3);
-  let b = (-1, 2, -3);
-  let c = a .- b;
+  let a = (1, -2, 3)
+  let b = (-1, 2, -3)
+  let c = a .- b
   test(c, (2, -4, 6))
 }
 
 --- elementwise-mul-mixed ---
 #{
-  let a = (1, 2.5, 3);
-  let b = (4.0, 5, 6);
-  let c = a .* b;
+  let a = (1, 2.5, 3)
+  let b = (4.0, 5, 6)
+  let c = a .* b
   test(c, (4.0, 12.5, 18))
 }
 
 --- elementwise-div-integer-float ---
 #{
-  let a = (10, 20.0, 30);
-  let b = (2.0, 4, 5);
-  let c = a ./ b;
+  let a = (10, 20.0, 30)
+  let b = (2.0, 4, 5)
+  let c = a ./ b
   test(c, (5.0, 5.0, 6.0))
 }
 
@@ -584,7 +584,7 @@
 #{
   let a = (1, 2, 3)
   let b = (4, 5)
-  // Error: 11-17 Arrays must have the same length for element-wise operations
+  // Error: 11-17 arrays must have the same length for element-wise operations
   let c = a .+ b
 }
 
@@ -592,15 +592,15 @@
 #{
   let a = (10, 20, 30)
   let b = (2, 0, 5)
-  // Error: 11-17 Failed to perform division on 20 and 0: Division by zero
+  // Error: 11-17 failed to perform division on 20 and 0: cannot divide by zero
   let c = a ./ b
 }
 
 --- elementwise-operations-on-empty-arrays ---
 #{
-  let a = ();
-  let b = ();
-  let c = a .+ b;
+  let a = ()
+  let b = ()
+  let c = a .+ b
   test(c, ())
 }
 
@@ -628,33 +628,33 @@
 
 --- elementwise-operations-mixed-numbers ---
 #{
-  let a = (1, 2.0, 3);
-  let b = (4.0, 5, 6.5);
-  let c = a .+ b;
+  let a = (1, 2.0, 3)
+  let b = (4.0, 5, 6.5)
+  let c = a .+ b
   test(c, (5.0, 7.0, 9.5))
 }
 
 --- elementwise-sub-zero ---
 #{
-  let a = (0, 0, 0);
-  let b = (1, 2, 3);
-  let c = a .- b;
+  let a = (0, 0, 0)
+  let b = (1, 2, 3)
+  let c = a .- b
   test(c, (-1, -2, -3))
 }
 
 --- elementwise-mul-with-zeros ---
 #{
-  let a = (1, 2, 0);
-  let b = (0, 5, 6);
-  let c = a .* b;
+  let a = (1, 2, 0)
+  let b = (0, 5, 6)
+  let c = a .* b
   test(c, (0, 10, 0))
 }
 
 --- elementwise-div-float-results ---
 #{
-  let a = (9, 25, 49);
-  let b = (3, 5, 7);
-  let c = a ./ b;
+  let a = (9, 25, 49)
+  let b = (3, 5, 7)
+  let c = a ./ b
   test(c, (3.0, 5.0, 7.0))
 }
 
@@ -668,8 +668,120 @@
 
 --- elementwise-nested-operations ---
 #{
-  let a = (1, 2, 3);
-  let b = (4, 5, 6);
-  let c = (a .+ b) .* (a .- b);
+  let a = (1, 2, 3)
+  let b = (4, 5, 6)
+  let c = (a .+ b) .* (a .- b)
   test(c, (-15, -21, -27))
+}
+
+--- elementwise-add-scalar-array ---
+#{
+  let a = 2
+  let b = (1, 2, 3)
+  let c = a .+ b
+  test(c, (3, 4, 5))
+}
+
+--- elementwise-add-array-scalar ---
+#{
+  let a = (1, 2, 3)
+  let b = 2
+  let c = a .+ b
+  test(c, (3, 4, 5))
+}
+
+--- elementwise-add-scalar-scalar ---
+#{
+  let a = 5
+  let b = 3
+  // Error: 11-17 cannot use this operator on scalars
+  let c = a .+ b
+  }
+
+--- elementwise-sub-scalar-array ---
+#{
+  let a = 5
+  let b = (1, 2, 3)
+  let c = a .- b
+  test(c, (4, 3, 2))
+}
+
+--- elementwise-sub-array-scalar ---
+#{
+  let a = (1, 2, 3)
+  let b = 1
+  let c = a .- b
+  test(c, (0, 1, 2))
+}
+
+--- elementwise-sub-scalar-scalar ---
+#{
+  let a = 10
+  let b = 3
+  // Error: 11-17 cannot use this operator on scalars
+  let c = a .- b
+}
+
+--- elementwise-mul-scalar-array ---
+#{
+  let a = 2
+  let b = (1, 2, 3)
+  let c = a .* b
+  test(c, (2, 4, 6))
+}
+
+--- elementwise-mul-array-scalar ---
+#{
+  let a = (1, 2, 3)
+  let b = 2
+  let c = a .* b
+  test(c, (2, 4, 6))
+}
+
+--- elementwise-mul-scalar-scalar ---
+#{
+  let a = 2
+  let b = 3
+  // Error: 11-17 cannot use this operator on scalars
+  let c = a .* b
+}
+
+--- elementwise-div-array-scalar ---
+#{
+  let a = (10, 20, 30)
+  let b = 2
+  let c = a ./ b
+  test(c, (5, 10, 15))
+}
+
+--- elementwise-div-scalar-scalar ---
+#{
+  let a = 10
+  let b = 2
+  // Error: 11-17 cannot use this operator on scalars
+  let c = a ./ b
+}
+
+--- elementwise-div-invalid-scalar-array ---
+#{
+  let a = 10
+  let b = (1, 2, 3)
+  // Error: 11-17 cannot divide scalar by array
+  let c = a ./ b
+}
+
+--- elementwise-div-scalar-array-string ---
+#{
+  let a = "a"
+  let b = ("a", "b", "c")
+  let c = a .+ b
+  test(c, ("aa", "ab", "ac"))
+}
+
+--- elementwise-div-array-scalar-string ---
+#{
+  let a = ("a", "b", "c")
+  let b = "a"
+  let c = a .+ b
+  test(c, ("aa", "ba", "ca"))
 }

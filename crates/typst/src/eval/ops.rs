@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Display;
 
 use ecow::{eco_format, EcoString, EcoVec};
+
 use typst_utils::Numeric;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
@@ -616,10 +617,12 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
     }
 }
 
-// Performs an element-wise operation on two arrays, ensuring they have the same length before proceeding.
-// This function uses a generic function pointer `op` to apply a specific arithmetic operation (add, sub, mul, or div)
-// and logs detailed error messages using the operation name for better debuggability. The `operation_name` is expected
-// to support display formatting to describe the operation in error messages.
+/// Performs an element-wise operation on two values, which can be either scalars or arrays.
+/// The operation `op`, defined by a function pointer, is applied to the elements of the inputs.
+/// For arrays, operations are performed element-wise and arrays must have the same length.
+/// For array-to-scalar operations, the operation is applied between each element of the array and the scalar.
+/// Detailed error messages are logged, utilizing the `operation_name` to describe the operation type
+/// in case of errors. The `operation_name` supports display formatting for better readability in logs.
 fn elementwise_operation<F, Op>(
     lhs: Value,
     rhs: Value,
@@ -630,23 +633,107 @@ where
     F: Fn(Value, Value) -> StrResult<Value>,
     Op: Display,
 {
-    let binding_lhs = lhs.cast::<Array>()?;
-    let left = binding_lhs.values();
+    match (lhs, rhs) {
+        // Case where both lhs and rhs are arrays
+        (Value::Array(lhs_array), Value::Array(rhs_array)) => {
+            perform_element_wise_operation(lhs_array, rhs_array, &op, &operation_name)
+        }
+        // Case where lhs is an array and rhs is a scalar
+        (Value::Array(lhs_array), scalar) => perform_element_wise_operation_with_scalar(
+            Some(Value::Array(lhs_array)),
+            Some(scalar),
+            &op,
+            &operation_name,
+        ),
+        // Case where lhs is a scalar and rhs is an array
+        (scalar, Value::Array(rhs_array)) => perform_element_wise_operation_with_scalar(
+            Some(scalar),
+            Some(Value::Array(rhs_array)),
+            &op,
+            &operation_name,
+        ),
+        // Case where both lhs and rhs are scalars
+        (_, _) => Err(eco_format!("cannot use this operator on scalars")),
+    }
+}
 
-    let binding_rhs = rhs.cast::<Array>()?;
-    let right = binding_rhs.values();
+/// Performs an element-wise operation on two arrays.
+fn perform_element_wise_operation<F, Op>(
+    lhs_array: Array,
+    rhs_array: Array,
+    op: &F,
+    operation_name: &Op,
+) -> Result<Value, EcoString>
+where
+    F: Fn(Value, Value) -> StrResult<Value>,
+    Op: Display,
+{
+    let left = lhs_array.values();
+    let right = rhs_array.values();
 
     if left.len() != right.len() {
-        return Err("Arrays must have the same length for element-wise operations".into());
+        return Err("arrays must have the same length for element-wise operations".into());
     }
 
-    let result: Result<EcoVec<Value>, EcoString> = left
-        .iter()
-        .zip(right.iter())
+    // Perform the element-wise operation using the generic function
+    perform_element_wise(
+        left.into_iter().cloned(),
+        right.into_iter().cloned(),
+        op,
+        operation_name,
+    )
+    .map(|res| Value::Array(res.into()))
+}
+
+/// Performs an element-wise operation between each element of the array and the scalar.
+fn perform_element_wise_operation_with_scalar<F, Op>(
+    lhs: Option<Value>,
+    rhs: Option<Value>,
+    op: &F,
+    operation_name: &Op,
+) -> Result<Value, EcoString>
+where
+    F: Fn(Value, Value) -> StrResult<Value>,
+    Op: Display,
+{
+    match (lhs, rhs) {
+        // Case where lhs is an array and rhs is a scalar
+        (Some(Value::Array(array)), Some(scalar)) => perform_element_wise(
+            array.values().into_iter().cloned(),
+            std::iter::repeat(scalar.clone()),
+            op,
+            operation_name,
+        )
+        .map(|res| Value::Array(res.into())),
+        // Case where lhs is a scalar and rhs is an array
+        (Some(scalar), Some(Value::Array(array))) => perform_element_wise(
+            std::iter::repeat(scalar.clone()),
+            array.values().into_iter().cloned(),
+            op,
+            operation_name,
+        )
+        .map(|res| Value::Array(res.into())),
+        // Invalid input case
+        _ => Err(eco_format!("invalid input for element-wise operation")),
+    }
+}
+
+/// Generic function to perform element-wise operations on iterators.
+fn perform_element_wise<F, Op>(
+    left: impl Iterator<Item = Value>,
+    right: impl Iterator<Item = Value>,
+    op: &F,
+    operation_name: &Op,
+) -> Result<EcoVec<Value>, EcoString>
+where
+    F: Fn(Value, Value) -> StrResult<Value>,
+    Op: Display,
+{
+    left.zip(right)
         .map(|(l, r)| {
             op(l.clone(), r.clone()).map_err(|err| {
                 eco_format!(
-                    "Failed to perform {} on {:?} and {:?}: {}",
+                    "failed to perform {} on {:?} and {:?}: {}",
                     operation_name,
                     l,
                     r,
@@ -654,42 +741,29 @@ where
                 )
             })
         })
-        .collect();
-
-    result.map(|res| Value::Array(res.into()))
+        .collect()
 }
 
-// Defines specific element-wise operations using the `elementwise_operation` function.
+/// Defines specific element-wise operations using the `elementwise_operation` function.
 
-// Adds two arrays element-wise.
 fn elementwise_add(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
     elementwise_operation(lhs, rhs, add, "addition")
 }
 
-// Subtracts two arrays element-wise.
 fn elementwise_sub(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
     elementwise_operation(lhs, rhs, sub, "subtraction")
 }
 
-// Multiplies two arrays element-wise.
 fn elementwise_mul(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
     elementwise_operation(lhs, rhs, mul, "multiplication")
 }
 
-// Divides two arrays element-wise, checking for division by zero.
 fn elementwise_div(lhs: Value, rhs: Value) -> Result<Value, EcoString> {
-    elementwise_operation(
-        lhs,
-        rhs,
-        |l, r| {
-            if is_zero(&r) {
-                Err("Division by zero".into())
-            } else {
-                div(l, r)
-            }
-        },
-        "division",
-    )
+    if !matches!(lhs, Value::Array(_)) && matches!(rhs, Value::Array(_)) {
+        Err("cannot divide scalar by array".into())
+    } else {
+        elementwise_operation(lhs, rhs, div, "division")
+    }
 }
 
 #[cold]
