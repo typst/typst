@@ -62,7 +62,11 @@ impl PdfWriter for GlobalResources {
                 },
                 ResourceList {
                     prefix: "P",
-                    items: &ctx.remapped_patterns,
+                    items: &ctx
+                        .patterns
+                        .as_ref()
+                        .map(|p| &p.remapper.to_items[..])
+                        .unwrap_or_default(),
                     mapping: &pattern_mapping,
                 },
                 ext_gs_states_ref,
@@ -91,6 +95,13 @@ impl PdfWriter for GlobalResources {
                 color_fonts.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
             }
 
+            if let Some(patterns) = &ctx.patterns {
+                let pattern_color_spaces =
+                    generic_resource_dict(pdf, alloc, &patterns.ctx, refs);
+                let color_spaces = pdf.indirect(pattern_color_spaces).dict();
+                patterns.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+            }
+
             color_spaces_ref
         }
 
@@ -98,56 +109,9 @@ impl PdfWriter for GlobalResources {
         let color_spaces = pdf.indirect(global_color_spaces).dict();
         ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-        // Write the resources for each pattern
-        for (refs, pattern) in refs.patterns.values().zip(&ctx.remapped_patterns) {
-            let resources = &pattern.resources;
-            let resources_ref = refs.resources_ref;
-
-            let mut resources_map: Resources = pdf.indirect(resources_ref).start();
-
-            resources_map.x_objects().pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_x_object())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            );
-
-            resources_map.fonts().pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_font())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            );
-
-            ctx.colors
-                .write_color_spaces(resources_map.color_spaces(), &ctx.globals);
-
-            resources_map
-                .patterns()
-                .pairs(
-                    resources
-                        .iter()
-                        .filter(|(res, _)| res.is_pattern())
-                        .map(|(res, ref_)| (res.name(), ref_)),
-                )
-                .pairs(
-                    resources
-                        .iter()
-                        .filter(|(res, _)| res.is_gradient())
-                        .map(|(res, ref_)| (res.name(), ref_)),
-                );
-
-            resources_map.ext_g_states().pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_ext_g_state())
-                    .map(|(res, ref_)| (res.name(), ref_)),
-            );
-
-            resources_map.finish();
-        }
-
         // Write all of the functions used by the document.
+        // TODO: subcontexts may refer to these functions I think,
+        // but here they are only valid for the main context
         ctx.colors.write_functions(pdf, &ctx.globals);
     }
 }
@@ -176,7 +140,7 @@ fn resource_dict(
     mut images: ResourceList<Image>,
     patterns_ref: Ref,
     mut gradients: ResourceList<PdfGradient>,
-    mut patterns: ResourceList<PdfPattern<Ref>>,
+    mut patterns: ResourceList<PdfPattern>,
     ext_gs_ref: Ref,
     mut ext_gs: ResourceList<ExtGState>,
     color_spaces_ref: Ref,

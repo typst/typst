@@ -4,9 +4,7 @@
 //!
 //! See also [`pdf_writer::Content`].
 
-use std::collections::HashMap;
-
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use pdf_writer::{
     types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
     Content, Finish, Name, Rect, Str,
@@ -51,7 +49,6 @@ pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
         content: deflate_deferred(ctx.content.finish()),
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
-        resources: ctx.resources,
     }
 }
 
@@ -65,63 +62,6 @@ pub struct Encoded {
     pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
     pub links: Vec<(Destination, Rect)>,
-    /// The page's used resources
-    pub resources: HashMap<Resource, usize>,
-}
-
-/// Represents a resource being used in a PDF page by its name.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct Resource {
-    kind: ResourceKind,
-    name: EcoString,
-}
-
-impl Resource {
-    pub fn new(kind: ResourceKind, name: EcoString) -> Self {
-        Self { kind, name }
-    }
-}
-
-/// A kind of resource being used in a PDF page.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub enum ResourceKind {
-    XObject,
-    Font,
-    Gradient,
-    Pattern,
-    ExtGState,
-}
-
-impl Resource {
-    /// Returns the name of the resource.
-    pub fn name(&self) -> Name<'_> {
-        Name(self.name.as_bytes())
-    }
-
-    /// Returns whether the resource is an XObject.
-    pub fn is_x_object(&self) -> bool {
-        matches!(self.kind, ResourceKind::XObject)
-    }
-
-    /// Returns whether the resource is a font.
-    pub fn is_font(&self) -> bool {
-        matches!(self.kind, ResourceKind::Font)
-    }
-
-    /// Returns whether the resource is a gradient.
-    pub fn is_gradient(&self) -> bool {
-        matches!(self.kind, ResourceKind::Gradient)
-    }
-
-    /// Returns whether the resource is a pattern.
-    pub fn is_pattern(&self) -> bool {
-        matches!(self.kind, ResourceKind::Pattern)
-    }
-
-    /// Returns whether the resource is an external graphics state.
-    pub fn is_ext_g_state(&self) -> bool {
-        matches!(self.kind, ResourceKind::ExtGState)
-    }
 }
 
 /// An exporter for the contents of a single PDF page.
@@ -133,8 +73,6 @@ pub struct Builder<'a, 'b> {
     bottom: f32,
     uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
-    /// Keep track of the resources being used in the page.
-    pub resources: HashMap<Resource, usize>,
 }
 
 impl<'a, 'b> Builder<'a, 'b> {
@@ -147,7 +85,6 @@ impl<'a, 'b> Builder<'a, 'b> {
             saves: vec![],
             bottom: 0.0,
             links: vec![],
-            resources: HashMap::default(),
         }
     }
 }
@@ -229,8 +166,6 @@ impl Builder<'_, '_> {
             let index = self.parent.ext_gs.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
-            self.resources
-                .insert(Resource::new(ResourceKind::ExtGState, name), index);
 
             if graphics_state.uses_opacities() {
                 self.uses_opacities = true;
@@ -288,7 +223,6 @@ impl Builder<'_, '_> {
             let index = self.parent.fonts.insert(font.clone());
             let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
-            self.resources.insert(Resource::new(ResourceKind::Font, name), index);
             self.state.font = Some((font.clone(), size));
         }
     }
@@ -698,8 +632,6 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
         ctx.content.x_object(Name(name.as_bytes()));
     }
 
-    ctx.resources
-        .insert(Resource::new(ResourceKind::XObject, name.clone()), index);
     ctx.content.restore_state();
 }
 

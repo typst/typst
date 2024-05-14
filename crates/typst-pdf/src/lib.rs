@@ -21,6 +21,7 @@ use std::ops::{Deref, DerefMut};
 use base64::Engine;
 use color_font::ColorFontSlice;
 use ecow::EcoString;
+use pattern::PatternRemapper;
 use pdf_writer::{Chunk, Pdf, Ref};
 
 use typst::foundations::{Datetime, Label, Smart};
@@ -188,7 +189,7 @@ struct References {
     /// The IDs of written gradients.
     gradients: HashMap<PdfGradient, Ref>,
     /// The IDs of written patterns.
-    patterns: HashMap<PdfPattern<Ref>, WrittenPattern>,
+    patterns: HashMap<PdfPattern, WrittenPattern>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
 }
@@ -229,8 +230,7 @@ struct PdfContext<'a> {
     /// Deduplicates gradients used across the document.
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
-    patterns: Remapper<PdfPattern<usize>>,
-    remapped_patterns: Vec<PdfPattern<Ref>>,
+    patterns: Option<Box<PatternRemapper<'a>>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
@@ -250,8 +250,7 @@ impl<'a> PdfContext<'a> {
             images: Remapper::new(),
             deferred_images: HashMap::new(),
             gradients: Remapper::new(),
-            patterns: Remapper::new(),
-            remapped_patterns: Vec::new(),
+            patterns: None,
             ext_gs: Remapper::new(),
             color_fonts: None,
         }

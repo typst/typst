@@ -6,23 +6,29 @@ use pdf_writer::{
     Filter, Name, Rect, Ref,
 };
 
-use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
+use typst::{
+    layout::{Abs, Ratio, Transform},
+    model::Document,
+};
 
-use crate::color::PaintEncode;
-use crate::content::{self, Resource, ResourceKind};
+use crate::content;
+use crate::{color::PaintEncode, Remapper};
 use crate::{transform_to_array, PdfChunk, PdfContext, PdfResource, Renumber};
 
 pub struct Patterns;
 
 impl PdfResource for Patterns {
-    type Output = HashMap<PdfPattern<Ref>, WrittenPattern>;
+    type Output = HashMap<PdfPattern, WrittenPattern>;
 
     /// Writes the actual patterns (tiling patterns) to the PDF.
     /// This is performed once after writing all pages.
     fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        let pattern_map = &context.remapped_patterns;
+        let Some(patterns) = &context.patterns else {
+            return;
+        };
+        let pattern_map = &patterns.remapper.to_items;
 
         for pdf_pattern in pattern_map {
             let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
@@ -83,15 +89,13 @@ impl Renumber for WrittenPattern {
 
 /// A pattern and its transform.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct PdfPattern<R> {
+pub struct PdfPattern {
     /// The transform to apply to the pattern.
     pub transform: Transform,
     /// The pattern to paint.
     pub pattern: Pattern,
     /// The rendered pattern.
     pub content: Vec<u8>,
-    /// The resources used by the pattern.
-    pub resources: Vec<(Resource, R)>,
 }
 
 /// Registers a pattern with the PDF.
@@ -101,6 +105,12 @@ fn register_pattern(
     on_text: bool,
     mut transforms: content::Transforms,
 ) -> usize {
+    let patterns = ctx
+        .parent
+        .patterns
+        .get_or_insert_with(|| Box::new(PatternRemapper::new(ctx.parent.document)))
+        .as_mut();
+
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
         transforms.size.x = Abs::pt(1.0);
@@ -116,18 +126,15 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(ctx.parent, pattern.frame());
+    let content = content::build(&mut patterns.ctx, pattern.frame());
 
-    let mut pdf_pattern = PdfPattern {
+    let pdf_pattern = PdfPattern {
         transform,
         pattern: pattern.clone(),
         content: content.content.wait().clone(),
-        resources: content.resources.into_iter().collect(),
     };
 
-    pdf_pattern.resources.sort();
-
-    ctx.parent.patterns.insert(pdf_pattern)
+    patterns.remapper.insert(pdf_pattern)
 }
 
 impl PaintEncode for Pattern {
@@ -145,7 +152,6 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources.insert(Resource::new(ResourceKind::Pattern, id), index);
     }
 
     fn set_as_stroke(
@@ -162,6 +168,19 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
-        ctx.resources.insert(Resource::new(ResourceKind::Pattern, id), index);
+    }
+}
+
+pub struct PatternRemapper<'a> {
+    pub remapper: Remapper<PdfPattern>,
+    pub ctx: PdfContext<'a>,
+}
+
+impl<'a> PatternRemapper<'a> {
+    fn new(doc: &'a Document) -> Self {
+        Self {
+            remapper: Remapper::new(),
+            ctx: PdfContext::new(doc),
+        }
     }
 }

@@ -16,7 +16,7 @@ use typst::visualize::{
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::content::{self, Resource, ResourceKind};
+use crate::content;
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk, PdfContext, PdfResource};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -257,7 +257,6 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources.insert(Resource::new(ResourceKind::Gradient, id), index);
     }
 
     fn set_as_stroke(
@@ -274,7 +273,6 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
-        ctx.resources.insert(Resource::new(ResourceKind::Gradient, id), index);
     }
 }
 
