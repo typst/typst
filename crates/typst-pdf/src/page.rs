@@ -14,7 +14,7 @@ use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
 use crate::{
-    content, AbsExt, PdfContext, PdfChunk, PdfConstructor, PdfWriter, References,
+    content, AbsExt, PdfChunk, PdfConstructor, PdfContext, PdfWriter, References,
 };
 
 pub struct Pages;
@@ -47,13 +47,7 @@ pub struct PageTree;
 impl PdfWriter for PageTree {
     /// Write the page tree.
 
-    fn write(
-        &self,
-        pdf: &mut Pdf,
-        alloc: &mut Ref,
-        ctx: &PdfContext,
-        refs: &References,
-    ) {
+    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
         for i in 0..ctx.pages.len() {
             write_page(pdf, ctx, alloc.bump(), &refs.loc_to_dest, i);
         }
@@ -75,7 +69,7 @@ fn write_page(
     let page = &ctx.pages[i];
 
     let page_tree_ref = ctx.globals.page_tree;
-    let global_resources_ref = ctx.globals.global_resources;
+    let global_resources_ref = ctx.globals.resources;
     let mut page_writer = chunk.page(ctx.globals.pages[i]);
     page_writer.parent(page_tree_ref);
 

@@ -12,17 +12,12 @@ impl PdfWriter for GlobalResources {
     /// to the root node of the page tree because using the resource inheritance
     /// feature breaks PDF merging with Apple Preview.
     fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
-        let global_res_ref = ctx.globals.global_resources;
-        let type3_font_resources_ref = ctx.globals.type3_font_resources;
-
         #[must_use]
         fn generic_resource_dict(
             pdf: &mut Pdf,
             alloc: &mut Ref,
-            id: Ref,
             ctx: &PdfContext,
             refs: &References,
-            color_fonts: ResourceList,
         ) -> Ref {
             let images_ref = alloc.bump();
             let patterns_ref = alloc.bump();
@@ -31,7 +26,7 @@ impl PdfWriter for GlobalResources {
 
             resource_dict(
                 pdf,
-                id,
+                ctx.globals.resources,
                 images_ref,
                 ResourceList {
                     prefix: "Im",
@@ -58,39 +53,30 @@ impl PdfWriter for GlobalResources {
                     prefix: "F",
                     items: &mut ctx.fonts.pdf_indices(&refs.fonts),
                 },
-                color_fonts,
+                ResourceList {
+                    prefix: "Cf",
+                    // TODO: allocate an actual number for color fonts instead of using their ID?
+                    items: &mut refs.color_fonts.iter().map(|r| (*r, r.get() as usize)),
+                },
             );
+
+            if let Some(color_fonts) = &ctx.color_fonts {
+                let type3_color_spaces = generic_resource_dict(
+                    pdf,
+                    alloc,
+                    &color_fonts.ctx,
+                    refs, // TODO: these refs are not matching with ctx
+                );
+                let color_spaces = pdf.indirect(type3_color_spaces).dict();
+                color_fonts.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+            }
 
             color_spaces_ref
         }
 
-        let global_color_spaces = generic_resource_dict(
-            pdf,
-            alloc,
-            global_res_ref,
-            ctx,
-            refs, // TODO: these refs are not matching with ctx
-            ResourceList {
-                prefix: "Cf",
-                // TODO: allocate an actual number for color fonts instead of using their ID?
-                items: &mut refs.color_fonts.iter().map(|r| (*r, r.get() as usize)),
-            },
-        );
+        let global_color_spaces = generic_resource_dict(pdf, alloc, ctx, refs);
         let color_spaces = pdf.indirect(global_color_spaces).dict();
         ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
-
-        if let Some(color_fonts) = &ctx.color_fonts {
-            let type3_color_spaces = generic_resource_dict(
-                pdf,
-                alloc,
-                type3_font_resources_ref,
-                &color_fonts.ctx,
-                refs,
-                ResourceList { prefix: "", items: &mut std::iter::empty() },
-            );
-            let color_spaces = pdf.indirect(type3_color_spaces).dict();
-            color_fonts.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
-        }
 
         // Write the resources for each pattern
         for (refs, pattern) in refs.patterns.iter().zip(&ctx.remapped_patterns) {

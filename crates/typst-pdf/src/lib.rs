@@ -305,8 +305,7 @@ struct GlobalRefs {
     d65_gray: Ref,
     srgb: Ref,
     // Resources
-    global_resources: Ref,
-    type3_font_resources: Ref,
+    resources: Ref,
     // Page tree and pages
     page_tree: Ref,
     pages: Vec<Ref>,
@@ -316,8 +315,7 @@ impl GlobalRefs {
     fn new(page_count: usize) -> Self {
         let mut alloc = Ref::new(1);
         GlobalRefs {
-            global_resources: alloc.bump(),
-            type3_font_resources: alloc.bump(),
+            resources: alloc.bump(),
             page_tree: alloc.bump(),
             pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
             oklab: alloc.bump(),

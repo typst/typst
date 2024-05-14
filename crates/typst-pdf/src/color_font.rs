@@ -69,7 +69,7 @@ impl PdfResource for ColorFonts {
 
                 // Write the Type3 font object.
                 let mut pdf_font = chunk.type3_font(subfont_id);
-                pdf_font.pair(Name(b"Resources"), context.globals.type3_font_resources);
+                pdf_font.pair(Name(b"Resources"), color_fonts.ctx.globals.resources);
                 pdf_font.bbox(color_font.bbox);
                 pdf_font.matrix([
                     1.0 / scale_factor,
