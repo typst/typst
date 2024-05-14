@@ -195,8 +195,8 @@ enum Segment<'a> {
     /// One or multiple collapsed text or text-equivalent children. Stores how
     /// long the segment is (in bytes of the full text string).
     Text(usize),
-    /// Horizontal spacing between other segments.
-    Spacing(Spacing),
+    /// Horizontal spacing between other segments. Bool when true indicate weak space
+    Spacing(Spacing, bool),
     /// A mathematical equation.
     Equation(Vec<MathParItem>),
     /// A box with arbitrary content.
@@ -210,7 +210,7 @@ impl Segment<'_> {
     fn len(&self) -> usize {
         match *self {
             Self::Text(len) => len,
-            Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
+            Self::Spacing(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, frac) => {
                 (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
             }
@@ -231,7 +231,7 @@ enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
-    Absolute(Abs),
+    Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
@@ -264,7 +264,7 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
+            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) => OBJ_REPLACE.len_utf8(),
             Self::Tag(_) => 0,
             Self::Skip(c) => c.len_utf8(),
@@ -275,7 +275,7 @@ impl<'a> Item<'a> {
     fn width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
-            Self::Absolute(v) => *v,
+            Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
@@ -618,10 +618,10 @@ fn prepare<'a>(
             Segment::Text(_) => {
                 shape_range(&mut items, engine, &bidi, cursor..end, &spans, styles);
             }
-            Segment::Spacing(spacing) => match spacing {
+            Segment::Spacing(spacing, weak) => match spacing {
                 Spacing::Rel(v) => {
                     let resolved = v.resolve(styles).relative_to(region.x);
-                    items.push(Item::Absolute(resolved));
+                    items.push(Item::Absolute(resolved, weak));
                 }
                 Spacing::Fr(v) => {
                     items.push(Item::Fractional(v, None));
@@ -1410,7 +1410,7 @@ fn commit(
         };
 
         match item {
-            Item::Absolute(v) => {
+            Item::Absolute(v, _) => {
                 offset += *v;
             }
             Item::Fractional(v, elem) => {
