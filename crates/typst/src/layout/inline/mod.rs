@@ -1045,17 +1045,12 @@ fn line<'a>(
     let (mut expanded, mut inner) = p.slice(range.clone());
     let mut width = Abs::zero();
 
-    // The trailing element can be space (Item::Absolute); if so, we omit the space at the end of
-    // the line Note we only trim the space that are positive. A non-negative space is not trimmed.
-    while let Some((Item::Absolute(s), before)) = inner.split_last() {
+    // The last element can be space Item::Absolute(_); if so, we omit the space.
+    while let Some((Item::Absolute(_), before)) = inner.split_last() {
         // apply it recursively to ensure the last one is not space
-        if *s > Abs::zero() {
-            inner = before;
-            range.end -= 1;
-            expanded.end -= 1;
-        } else {
-            break;
-        }
+        inner = before;
+        range.end -= 1;
+        expanded.end -= 1;
     }
 
     // Reshape the last item if it's split in half or hyphenated.
