@@ -155,18 +155,20 @@ impl PdfResource for ColorFonts {
 /// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
 /// font, and fonts generally have more color glyphs than that.
 pub struct ColorFontMap<'a, G> {
-    /// The mapping itself
+    /// The mapping itself.
     pub map: IndexMap<Font, ColorFont>,
-    /// A list of all PDF indirect references to Type3 font objects.
-    pub _all_refs: Vec<Ref>,
-
+    /// The context that is used to draw all color glyphs.
     pub ctx: PdfContext<'a, G>,
+    /// The number of font slices (groups of 256 color glyphs), across all color
+    /// fonts.
+    total_slice_count: usize,
 }
 
 /// A collection of Type3 font, belonging to the same TTF font.
 pub struct ColorFont {
-    /// A list of references to Type3 font objects for this font family.
-    pub _refs: Vec<Ref>,
+    /// The IDs of each sub-slice of this font. They are the numbers after "Cf"
+    /// in the Resources dictionnaries.
+    slice_ids: Vec<usize>,
     /// The list of all color glyphs in this family.
     ///
     /// The index in this vector modulo 256 corresponds to the index in one of
@@ -194,7 +196,7 @@ impl<'a> ColorFontMap<'a, ()> {
     pub fn new(document: &'a Document) -> Self {
         Self {
             map: IndexMap::new(),
-            _all_refs: Vec::new(),
+            total_slice_count: 0,
             ctx: PdfContext::new(document),
         }
     }
@@ -202,7 +204,7 @@ impl<'a> ColorFontMap<'a, ()> {
     pub fn with_globals(self, alloc: &mut Ref) -> ColorFontMap<'a, GlobalRefs> {
         ColorFontMap {
             map: self.map,
-            _all_refs: self._all_refs,
+            total_slice_count: self.total_slice_count,
             ctx: self.ctx.with_globals(alloc),
         }
     }
@@ -218,7 +220,7 @@ impl<'a> ColorFontMap<'a, ()> {
             );
             ColorFont {
                 bbox,
-                _refs: Vec::new(),
+                slice_ids: Vec::new(),
                 glyphs: Vec::new(),
                 glyph_indices: HashMap::new(),
             }
@@ -226,19 +228,22 @@ impl<'a> ColorFontMap<'a, ()> {
 
         if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
             // If we already know this glyph, return it.
-            // TODO: font index is incorrect here, only local to the TTF font, not the whole PDF
-            (index_of_glyph / 256, *index_of_glyph as u8)
+            (color_font.slice_ids[index_of_glyph / 256], *index_of_glyph as u8)
         } else {
             // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
             // if needed
             let index = color_font.glyphs.len();
+            if index % 256 == 0 {
+                color_font.slice_ids.push(self.total_slice_count);
+                self.total_slice_count += 1;
+            }
 
             let frame = frame_for_glyph(font, gid);
             let instructions = content::build(&mut self.ctx, &frame);
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
-            (index / 256, index as u8)
+            (color_font.slice_ids[index / 256], index as u8)
         }
     }
 }
