@@ -141,6 +141,12 @@ impl Debug for FontWeight {
     }
 }
 
+impl From<fontdb::Weight> for FontWeight {
+    fn from(weight: fontdb::Weight) -> Self {
+        Self::from_number(weight.0)
+    }
+}
+
 cast! {
     FontWeight,
     self => IntoValue::into_value(match self {
@@ -248,6 +254,7 @@ impl Default for FontStretch {
         Self::NORMAL
     }
 }
+
 impl Repr for FontStretch {
     fn repr(&self) -> EcoString {
         self.to_ratio().repr()

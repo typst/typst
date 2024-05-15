@@ -4,12 +4,11 @@ use std::io::Read;
 
 use ecow::EcoString;
 use ttf_parser::GlyphId;
-use usvg::{TreeParsing, TreeWriting};
 
 use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{Font, Glyph, Lang, TextItem};
-use crate::visualize::{Color, Image, Paint, Rgb};
+use crate::visualize::{Color, Image, Rgb};
 
 /// Tells if a glyph is a color glyph or not in a given font.
 pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
@@ -78,7 +77,8 @@ fn draw_raster_glyph(
 /// Draws a COLR glyph in a frame.
 fn draw_colr_glyph(frame: &mut Frame, font: &Font, glyph_id: GlyphId) {
     let mut painter = ColrPainter { font, current_glyph: glyph_id, frame };
-    font.ttf().paint_color_glyph(glyph_id, 0, &mut painter);
+    let black = ttf_parser::RgbaColor::new(0, 0, 0, 255);
+    font.ttf().paint_color_glyph(glyph_id, 0, black, &mut painter);
 }
 
 /// Draws COLR glyphs in a frame.
@@ -91,8 +91,20 @@ struct ColrPainter<'f, 't> {
     current_glyph: GlyphId,
 }
 
-impl<'f, 't> ColrPainter<'f, 't> {
-    fn paint(&mut self, fill: Paint) {
+impl<'f, 't> ttf_parser::colr::Painter<'_> for ColrPainter<'f, 't> {
+    fn outline_glyph(&mut self, glyph_id: GlyphId) {
+        self.current_glyph = glyph_id;
+    }
+
+    fn paint(&mut self, paint: ttf_parser::colr::Paint) {
+        let ttf_parser::colr::Paint::Solid(color) = paint else { return };
+        let color = Color::Rgb(Rgb::new(
+            color.red as f32 / 255.0,
+            color.green as f32 / 255.0,
+            color.blue as f32 / 255.0,
+            color.alpha as f32 / 255.0,
+        ));
+
         self.frame.push(
             // With images, the position corresponds to the top-left corner, but
             // in the case of text it matches the baseline-left point. Here, we
@@ -101,7 +113,7 @@ impl<'f, 't> ColrPainter<'f, 't> {
             FrameItem::Text(TextItem {
                 font: self.font.clone(),
                 size: Abs::pt(self.font.units_per_em()),
-                fill,
+                fill: color.into(),
                 stroke: None,
                 lang: Lang::ENGLISH,
                 region: None,
@@ -116,29 +128,21 @@ impl<'f, 't> ColrPainter<'f, 't> {
                     span: (Span::detached(), 0),
                 }],
             }),
-        )
-    }
-}
-
-impl<'f, 't> ttf_parser::colr::Painter for ColrPainter<'f, 't> {
-    fn outline(&mut self, glyph_id: GlyphId) {
-        self.current_glyph = glyph_id;
+        );
     }
 
-    fn paint_foreground(&mut self) {
-        // Default to black if no color was specified
-        self.paint(Paint::Solid(Color::BLACK))
-    }
-
-    fn paint_color(&mut self, color: ttf_parser::RgbaColor) {
-        let color = Color::Rgb(Rgb::new(
-            color.red as f32 / 255.0,
-            color.green as f32 / 255.0,
-            color.blue as f32 / 255.0,
-            color.alpha as f32 / 255.0,
-        ));
-        self.paint(Paint::Solid(color));
-    }
+    // These are not implemented.
+    fn push_clip(&mut self) {}
+    fn push_clip_box(&mut self, _: ttf_parser::colr::ClipBox) {}
+    fn pop_clip(&mut self) {}
+    fn push_layer(&mut self, _: ttf_parser::colr::CompositeMode) {}
+    fn pop_layer(&mut self) {}
+    fn push_translate(&mut self, _: f32, _: f32) {}
+    fn push_scale(&mut self, _: f32, _: f32) {}
+    fn push_rotate(&mut self, _: f32) {}
+    fn push_skew(&mut self, _: f32, _: f32) {}
+    fn push_transform(&mut self, _: ttf_parser::Transform) {}
+    fn pop_transform(&mut self) {}
 }
 
 /// Draws an SVG glyph in a frame.
@@ -164,24 +168,16 @@ fn draw_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let tree =
+        usvg::Tree::from_xmltree(&document, &opts, &fontdb::Database::new()).ok()?;
 
-    // Compute the space we need to draw our glyph.
-    // See https://github.com/RazrFalcon/resvg/issues/602 for why
-    // using the svg size is problematic here.
-    tree.calculate_bounding_boxes();
-    let mut bbox = usvg::BBox::default();
-    if let Some(tree_bbox) = tree.root.bounding_box {
-        bbox = bbox.expand(tree_bbox);
-    }
-    let bbox = bbox.to_rect()?;
-
-    let mut data = tree.to_string(&usvg::XmlOptions::default());
-
+    let bbox = tree.root().bounding_box();
     let width = bbox.width() as f64;
     let height = bbox.height() as f64;
     let left = bbox.left() as f64;
     let top = bbox.top() as f64;
+
+    let mut data = tree.to_string(&usvg::WriteOptions::default());
 
     // The SVG coordinates and the font coordinates are not the same: the Y axis
     // is mirrored. But the origin of the axes are the same (which means that
