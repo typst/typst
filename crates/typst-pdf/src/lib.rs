@@ -123,10 +123,7 @@ impl<'a> PdfBuilder<'a, ()> {
         mut self,
         constructor: impl PdfConstructor,
     ) -> PdfBuilder<'a, GlobalRefs> {
-        let mut chunk = PdfChunk::new(self.current_alloc_section * ALLOC_SECTION_SIZE);
-        self.current_alloc_section += 1;
-
-        constructor.write(&mut self.context, &mut chunk);
+        constructor.write(&mut self.context);
 
         improve_glyph_sets(&mut self.context.glyph_sets);
 
@@ -140,14 +137,6 @@ impl<'a> PdfBuilder<'a, ()> {
                 + ctx.patterns.as_ref().map(|x| count_globals(&x.ctx)).unwrap_or(0)
         }
         let globals_count = count_globals(&new_ctx);
-
-        let mut mapping = HashMap::new();
-        chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < globals_count {
-                return r;
-            }
-            *mapping.entry(r).or_insert_with(|| self.alloc.bump())
-        });
 
         PdfBuilder {
             context: new_ctx,
@@ -364,7 +353,7 @@ impl<'a> PdfContext<'a, ()> {
 /// in the `PdfContext` that is being passed to the `write` function.
 /// This function can write to the final document by using the given `PdfChunk`.
 trait PdfConstructor {
-    fn write(&self, context: &mut PdfContext<()>, chunk: &mut PdfChunk);
+    fn write(&self, context: &mut PdfContext<()>);
 }
 
 /// A specific kind of resource that is present in a PDF document.

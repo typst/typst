@@ -13,16 +13,14 @@ use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-use crate::{
-    content, AbsExt, PdfChunk, PdfConstructor, PdfContext, PdfWriter, References,
-};
+use crate::{content, AbsExt, PdfConstructor, PdfContext, PdfWriter, References};
 
 pub struct Pages;
 
 impl PdfConstructor for Pages {
     /// Construct page objects.
     #[typst_macros::time(name = "construct pages")]
-    fn write(&self, context: &mut PdfContext<()>, _chunk: &mut PdfChunk) {
+    fn write(&self, context: &mut PdfContext<()>) {
         for page in &context.document.pages {
             let mut encoded = construct_page(context, &page.frame);
             encoded.label = page
