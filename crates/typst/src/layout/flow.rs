@@ -665,6 +665,7 @@ impl<'a> FlowLayouter<'a> {
         Ok(())
     }
 
+    /// Lays out all floating elements before continuing with other content.
     fn flush(&mut self, engine: &mut Engine) -> SourceResult<()> {
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
