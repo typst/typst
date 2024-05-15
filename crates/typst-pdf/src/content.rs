@@ -28,7 +28,7 @@ use crate::{
 
 // TODO: remove all references to "page"
 
-pub fn build(ctx: &mut PdfContext, frame: &Frame) -> Encoded {
+pub fn build(ctx: &mut PdfContext<()>, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(ctx, size);
 
@@ -66,7 +66,7 @@ pub struct Encoded {
 
 /// An exporter for the contents of a single PDF page.
 pub struct Builder<'a, 'b> {
-    pub(crate) parent: &'a mut PdfContext<'b>,
+    pub(crate) parent: &'a mut PdfContext<'b, ()>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -76,7 +76,7 @@ pub struct Builder<'a, 'b> {
 }
 
 impl<'a, 'b> Builder<'a, 'b> {
-    pub fn new(parent: &'a mut PdfContext<'b>, size: Size) -> Self {
+    pub fn new(parent: &'a mut PdfContext<'b, ()>, size: Size) -> Self {
         Builder {
             parent,
             uses_opacities: false,
@@ -500,9 +500,10 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let color_fonts = ctx.parent.color_fonts.get_or_insert_with(|| {
-            Box::new(ColorFontMap::new(ctx.parent.document, &ctx.parent.globals))
-        });
+        let color_fonts = ctx
+            .parent
+            .color_fonts
+            .get_or_insert_with(|| Box::new(ColorFontMap::new(ctx.parent.document)));
         let (font, index) = color_fonts.get(&text.item.font, glyph.id);
 
         if last_font != Some(font) {

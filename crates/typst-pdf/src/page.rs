@@ -22,7 +22,7 @@ pub struct Pages;
 impl PdfConstructor for Pages {
     /// Construct page objects.
     #[typst_macros::time(name = "construct pages")]
-    fn write(&self, context: &mut PdfContext, _chunk: &mut PdfChunk) {
+    fn write(&self, context: &mut PdfContext<()>, _chunk: &mut PdfChunk) {
         for page in &context.document.pages {
             let mut encoded = construct_page(context, &page.frame);
             encoded.label = page
@@ -36,7 +36,7 @@ impl PdfConstructor for Pages {
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(res: &mut PdfContext, frame: &Frame) -> EncodedPage {
+pub(crate) fn construct_page(res: &mut PdfContext<()>, frame: &Frame) -> EncodedPage {
     let content = content::build(res, frame);
 
     EncodedPage { content, label: None }

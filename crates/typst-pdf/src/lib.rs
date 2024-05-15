@@ -16,7 +16,7 @@ mod resources;
 
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
-use std::ops::{Deref, DerefMut, Range};
+use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
 use color_font::ColorFontSlice;
@@ -90,10 +90,10 @@ pub fn pdf(
 /// - first, all resources that will be later be needed are collected with `construct`.
 /// - then, each kind of resource is stored in the document using `with_resource`
 /// - finally, some global information is written, with `write`
-struct PdfBuilder<'a> {
+struct PdfBuilder<'a, G> {
     /// Some context about the current document: the different pages, images,
     /// fonts, and so on.
-    context: PdfContext<'a>,
+    context: PdfContext<'a, G>,
     /// A list of all references that were allocated for the resources of this
     /// PDF document.
     references: References,
@@ -105,7 +105,7 @@ struct PdfBuilder<'a> {
     globals_count: i32,
 }
 
-impl<'a> PdfBuilder<'a> {
+impl<'a> PdfBuilder<'a, ()> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
@@ -119,46 +119,48 @@ impl<'a> PdfBuilder<'a> {
     }
 
     /// Run a [`PdfConstructor`] in the context of this document.
-    fn construct(mut self, constructor: impl PdfConstructor) -> Self {
+    fn construct(
+        mut self,
+        constructor: impl PdfConstructor,
+    ) -> PdfBuilder<'a, GlobalRefs> {
         let mut chunk = PdfChunk::new(self.current_alloc_section * ALLOC_SECTION_SIZE);
         self.current_alloc_section += 1;
 
         constructor.write(&mut self.context, &mut chunk);
 
-        // At this point, we know how many contexts are needed, but none of
-        // their global IDs have been referenced, so we are free to rewrite
-        // them.
+        improve_glyph_sets(&mut self.context.glyph_sets);
+
+        let new_ctx = self.context.with_globals(&mut self.alloc);
 
         /// Remap globals and return the number of allocated global references
         /// (including those in subcontexts).
-        fn remap_globals(alloc: &mut Ref, ctx: &mut PdfContext) -> i32 {
-            ctx.globals.remap(alloc);
-
-            ctx.color_fonts
-                .as_mut()
-                .map(|x| remap_globals(alloc, &mut x.ctx))
-                .unwrap_or(0)
-                + ctx
-                    .patterns
-                    .as_mut()
-                    .map(|x| remap_globals(alloc, &mut x.ctx))
-                    .unwrap_or(0)
-                + ctx.globals.len() as i32
+        fn count_globals<'a>(ctx: &PdfContext<'a>) -> i32 {
+            ctx.globals.len() as i32
+                + ctx.color_fonts.as_ref().map(|x| count_globals(&x.ctx)).unwrap_or(0)
+                + ctx.patterns.as_ref().map(|x| count_globals(&x.ctx)).unwrap_or(0)
         }
-        self.globals_count = remap_globals(&mut self.alloc, &mut self.context);
-
-        improve_glyph_sets(&mut self.context.glyph_sets);
+        let globals_count = count_globals(&new_ctx);
 
         let mut mapping = HashMap::new();
         chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < self.globals_count {
+            if r.get() < globals_count {
                 return r;
             }
             *mapping.entry(r).or_insert_with(|| self.alloc.bump())
         });
-        self
-    }
 
+        PdfBuilder {
+            context: new_ctx,
+            references: self.references,
+            alloc: self.alloc,
+            pdf: self.pdf,
+            current_alloc_section: self.current_alloc_section,
+            globals_count,
+        }
+    }
+}
+
+impl<'a> PdfBuilder<'a, GlobalRefs> {
     /// Write data related to a [`PdfResource`] in the document.
     fn with_resource<R: PdfResource>(mut self, resource: R) -> Self {
         fn write<R: PdfResource>(
@@ -273,7 +275,7 @@ struct References {
 /// as the pages they are in to avoid some infinite recursion that some
 /// PDF readers don't appreciate (Acrobat can't parse a Type3 font if
 /// its Resources dictionnary references this same font for instance).
-struct PdfContext<'a> {
+struct PdfContext<'a, G = GlobalRefs> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// Content of exported pages.
@@ -295,7 +297,7 @@ struct PdfContext<'a> {
     ///
     /// These references are allocated at the very begining of the PDF export process,
     /// and can be used in the whole document without ever needing remapping.
-    globals: GlobalRefs,
+    globals: G,
 
     /// Handles color space writing.
     colors: ColorSpaces,
@@ -309,20 +311,20 @@ struct PdfContext<'a> {
     /// Deduplicates gradients used across the document.
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
-    patterns: Option<Box<PatternRemapper<'a>>>,
+    patterns: Option<Box<PatternRemapper<'a, G>>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
-    color_fonts: Option<Box<ColorFontMap<'a>>>,
+    color_fonts: Option<Box<ColorFontMap<'a, G>>>,
 }
 
 const ALLOC_SECTION_SIZE: i32 = 1_000_000;
 
-impl<'a> PdfContext<'a> {
+impl<'a> PdfContext<'a, ()> {
     fn new(document: &'a Document) -> Self {
         Self {
             document,
-            globals: GlobalRefs::new(document.pages.len(), 1..ALLOC_SECTION_SIZE),
+            globals: (),
             pages: vec![],
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
@@ -337,15 +339,21 @@ impl<'a> PdfContext<'a> {
         }
     }
 
-    fn sub_context(document: &'a Document, globals: &GlobalRefs, slot: i32) -> Self {
-        const TOTAL_SUBCONTEXTS: i32 = 2;
-        let available_alloc_range = globals.max().get()..globals.range.end;
-        let range_len = available_alloc_range.len() as i32 / TOTAL_SUBCONTEXTS;
-        let range_start = available_alloc_range.start + slot * range_len;
-        let range = range_start..(range_start + range_len);
-        Self {
-            globals: GlobalRefs::new(document.pages.len(), range),
-            ..Self::new(&document)
+    fn with_globals(self, alloc: &mut Ref) -> PdfContext<'a> {
+        PdfContext {
+            document: &self.document,
+            pages: self.pages,
+            glyph_sets: self.glyph_sets,
+            languages: self.languages,
+            colors: self.colors,
+            fonts: self.fonts,
+            images: self.images,
+            deferred_images: self.deferred_images,
+            gradients: self.gradients,
+            ext_gs: self.ext_gs,
+            globals: GlobalRefs::new(alloc, self.document.pages.len()),
+            patterns: self.patterns.map(|x| Box::new(x.with_globals(alloc))),
+            color_fonts: self.color_fonts.map(|x| Box::new(x.with_globals(alloc))),
         }
     }
 }
@@ -356,7 +364,7 @@ impl<'a> PdfContext<'a> {
 /// in the `PdfContext` that is being passed to the `write` function.
 /// This function can write to the final document by using the given `PdfChunk`.
 trait PdfConstructor {
-    fn write(&self, context: &mut PdfContext, chunk: &mut PdfChunk);
+    fn write(&self, context: &mut PdfContext<()>, chunk: &mut PdfChunk);
 }
 
 /// A specific kind of resource that is present in a PDF document.
@@ -424,12 +432,10 @@ struct GlobalRefs {
     // Page tree and pages
     page_tree: Ref,
     pages: Vec<Ref>,
-    range: Range<i32>,
 }
 
 impl GlobalRefs {
-    fn new(page_count: usize, range: Range<i32>) -> Self {
-        let mut alloc = Ref::new(range.start);
+    fn new(alloc: &mut Ref, page_count: usize) -> Self {
         GlobalRefs {
             resources: alloc.bump(),
             page_tree: alloc.bump(),
@@ -437,23 +443,7 @@ impl GlobalRefs {
             oklab: alloc.bump(),
             d65_gray: alloc.bump(),
             srgb: alloc.bump(),
-            range,
         }
-    }
-
-    fn remap(&mut self, alloc: &mut Ref) {
-        self.resources = alloc.bump();
-        self.page_tree = alloc.bump();
-        self.pages = std::iter::repeat_with(|| alloc.bump())
-            .take(self.pages.len())
-            .collect();
-        self.oklab = alloc.bump();
-        self.d65_gray = alloc.bump();
-        self.srgb = alloc.bump();
-    }
-
-    fn max(&self) -> Ref {
-        self.srgb
     }
 
     fn len(&self) -> usize {

@@ -105,9 +105,10 @@ fn register_pattern(
     on_text: bool,
     mut transforms: content::Transforms,
 ) -> usize {
-    let patterns = ctx.parent.patterns.get_or_insert_with(|| {
-        Box::new(PatternRemapper::new(ctx.parent.document, &ctx.parent.globals))
-    });
+    let patterns = ctx
+        .parent
+        .patterns
+        .get_or_insert_with(|| Box::new(PatternRemapper::new(ctx.parent.document)));
 
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
@@ -169,16 +170,23 @@ impl PaintEncode for Pattern {
     }
 }
 
-pub struct PatternRemapper<'a> {
+pub struct PatternRemapper<'a, G> {
     pub remapper: Remapper<PdfPattern>,
-    pub ctx: PdfContext<'a>,
+    pub ctx: PdfContext<'a, G>,
 }
 
-impl<'a> PatternRemapper<'a> {
-    pub fn new(doc: &'a Document, globals: &GlobalRefs) -> Self {
+impl<'a> PatternRemapper<'a, ()> {
+    pub fn new(doc: &'a Document) -> Self {
         Self {
             remapper: Remapper::new(),
-            ctx: PdfContext::sub_context(doc, globals, 1),
+            ctx: PdfContext::new(doc),
+        }
+    }
+
+    pub fn with_globals(self, alloc: &mut Ref) -> PatternRemapper<'a, GlobalRefs> {
+        PatternRemapper {
+            remapper: self.remapper,
+            ctx: self.ctx.with_globals(alloc),
         }
     }
 }

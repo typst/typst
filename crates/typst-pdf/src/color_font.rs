@@ -151,13 +151,13 @@ impl PdfResource for ColorFonts {
 ///
 /// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
 /// font, and fonts generally have more color glyphs than that.
-pub struct ColorFontMap<'a> {
+pub struct ColorFontMap<'a, G> {
     /// The mapping itself
     pub map: IndexMap<Font, ColorFont>,
     /// A list of all PDF indirect references to Type3 font objects.
     pub _all_refs: Vec<Ref>,
 
-    pub ctx: PdfContext<'a>,
+    pub ctx: PdfContext<'a, G>,
 }
 
 /// A collection of Type3 font, belonging to the same TTF font.
@@ -186,13 +186,21 @@ pub struct ColorGlyph {
     pub instructions: content::Encoded,
 }
 
-impl<'a> ColorFontMap<'a> {
+impl<'a> ColorFontMap<'a, ()> {
     /// Creates a new empty mapping
-    pub fn new(document: &'a Document, globals: &GlobalRefs) -> Self {
+    pub fn new(document: &'a Document) -> Self {
         Self {
             map: IndexMap::new(),
             _all_refs: Vec::new(),
-            ctx: PdfContext::sub_context(document, globals, 0),
+            ctx: PdfContext::new(document),
+        }
+    }
+
+    pub fn with_globals(self, alloc: &mut Ref) -> ColorFontMap<'a, GlobalRefs> {
+        ColorFontMap {
+            map: self.map,
+            _all_refs: self._all_refs,
+            ctx: self.ctx.with_globals(alloc),
         }
     }
 
