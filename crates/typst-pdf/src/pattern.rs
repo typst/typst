@@ -32,6 +32,10 @@ impl PdfResource for Patterns {
 
         for pdf_pattern in pattern_map {
             let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
+            if out.contains_key(pdf_pattern) {
+                continue;
+            }
+
             let tiling = chunk.alloc();
             let resources = chunk.alloc();
             out.insert(

@@ -20,6 +20,10 @@ impl PdfResource for Images {
     #[typst_macros::time(name = "write images")]
     fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         for (i, image) in context.images.items().enumerate() {
+            if out.contains_key(image) {
+                continue;
+            }
+
             let handle = context.deferred_images.get(&i).unwrap();
             match handle.wait() {
                 EncodedImage::Raster {

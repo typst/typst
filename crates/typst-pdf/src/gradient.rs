@@ -43,6 +43,10 @@ impl PdfResource for Gradients {
     /// This is performed once after writing all pages.
     fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         for pdf_gradient in context.gradients.items().cloned().collect::<Vec<_>>() {
+            if out.contains_key(&pdf_gradient) {
+                continue;
+            }
+
             let shading = chunk.alloc();
             out.insert(pdf_gradient.clone(), shading);
 

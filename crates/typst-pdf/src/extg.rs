@@ -33,6 +33,10 @@ impl PdfResource for ExtGraphicsState {
     /// Embed all used external graphics states into the PDF.
     fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         for external_gs in context.ext_gs.items() {
+            if out.contains_key(external_gs) {
+                continue;
+            }
+
             let id = chunk.alloc();
             out.insert(external_gs.clone(), id);
             chunk

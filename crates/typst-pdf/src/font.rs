@@ -34,6 +34,10 @@ impl PdfResource for Fonts {
     #[typst_macros::time(name = "write fonts")]
     fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
         for font in context.fonts.items() {
+            if out.contains_key(font) {
+                continue;
+            }
+
             let type0_ref = chunk.alloc();
             let cid_ref = chunk.alloc();
             let descriptor_ref = chunk.alloc();

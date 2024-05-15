@@ -31,11 +31,14 @@ impl PdfResource for ColorFonts {
         for (font, color_font) in &color_fonts.map {
             // For each Type3 font that is part of this family…
             for font_index in dbg!(0..(color_font.glyphs.len() / 256) + 1) {
+                let font_slice =
+                    ColorFontSlice { font: font.clone(), subfont: font_index };
+                if out.contains_key(&font_slice) {
+                    continue;
+                }
+
                 let subfont_id = chunk.alloc();
-                out.insert(
-                    ColorFontSlice { font: font.clone(), subfont: font_index },
-                    subfont_id,
-                );
+                out.insert(font_slice, subfont_id);
 
                 // Allocate some IDs.
                 let cmap_ref = chunk.alloc();
