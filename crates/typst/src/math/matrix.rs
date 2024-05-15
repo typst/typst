@@ -10,7 +10,8 @@ use crate::layout::{
 };
 use crate::math::{
     alignments, scaled_font_size, stack, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LayoutMath, MathContext, Scaled, DELIM_SHORT_FALL,
+    FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, Scaled,
+    DELIM_SHORT_FALL,
 };
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
@@ -67,6 +68,7 @@ impl LayoutMath for Packed<VecElem> {
             self.children(),
             FixedAlignment::Center,
             self.gap(styles),
+            LeftRightAlternator::Right,
         )?;
 
         layout_delimiters(
@@ -324,6 +326,7 @@ impl LayoutMath for Packed<CasesElem> {
             self.children(),
             FixedAlignment::Start,
             self.gap(styles),
+            LeftRightAlternator::None,
         )?;
 
         let (open, close) = if self.reverse(styles) {
@@ -387,6 +390,7 @@ fn layout_vec_body(
     column: &[Content],
     align: FixedAlignment,
     row_gap: Rel<Abs>,
+    alternator: LeftRightAlternator,
 ) -> SourceResult<Frame> {
     let gap = row_gap.relative_to(ctx.regions.base().y);
 
@@ -396,7 +400,7 @@ fn layout_vec_body(
         flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
     }
 
-    Ok(stack(flat, align, gap, 0))
+    Ok(stack(flat, align, gap, 0, alternator))
 }
 
 /// Layout the inner contents of a matrix.
@@ -480,7 +484,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_line_frame(&points, FixedAlignment::Center);
+            let cell = cell.into_line_frame(&points, LeftRightAlternator::Right);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),

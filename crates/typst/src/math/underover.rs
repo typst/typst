@@ -3,7 +3,8 @@ use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use crate::math::{
     alignments, scaled_font_size, style_cramped, style_for_subscript, AlignmentResult,
-    FrameFragment, GlyphFragment, LayoutMath, MathContext, MathRun, Scaled,
+    FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, MathRun,
+    Scaled,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -290,7 +291,8 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(rows, FixedAlignment::Center, gap, baseline);
+    let frame =
+        stack(rows, FixedAlignment::Center, gap, baseline, LeftRightAlternator::Right);
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
 
     Ok(())
@@ -298,28 +300,30 @@ fn layout_underoverspreader(
 
 /// Stack rows on top of each other.
 ///
-/// Add a `gap` between each row and uses the baseline of the `baseline`th
-/// row for the whole frame.
+/// Add a `gap` between each row and uses the baseline of the `baseline`-th
+/// row for the whole frame. `alternator` controls the left/right alternating
+/// alignment behavior of `AlignPointElem` in the rows.
 pub(super) fn stack(
     rows: Vec<MathRun>,
     align: FixedAlignment,
     gap: Abs,
     baseline: usize,
+    alternator: LeftRightAlternator,
 ) -> Frame {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.into_line_frame(&points, align))
+        .map(|row| row.into_line_frame(&points, alternator))
         .collect();
 
-    let mut y = Abs::zero();
     let mut frame = Frame::soft(Size::new(
         width,
         rows.iter().map(|row| row.height()).sum::<Abs>()
             + rows.len().saturating_sub(1) as f64 * gap,
     ));
 
+    let mut y = Abs::zero();
     for (i, row) in rows.into_iter().enumerate() {
         let x = align.position(width - row.width());
         let pos = Point::new(x, y);

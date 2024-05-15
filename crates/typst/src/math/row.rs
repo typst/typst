@@ -3,7 +3,7 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Resolve, StyleChain};
-use crate::layout::{Abs, AlignElem, Em, FixedAlignment, Frame, FrameKind, Point, Size};
+use crate::layout::{Abs, AlignElem, Em, Frame, FrameKind, Point, Size};
 use crate::math::{
     alignments, scaled_font_size, spacing, EquationElem, FrameFragment, MathContext,
     MathFragment, MathParItem, MathSize,
@@ -140,7 +140,7 @@ impl MathRun {
 
     pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
         if !self.is_multiline() {
-            self.into_line_frame(&[], AlignElem::alignment_in(styles).resolve(styles).x)
+            self.into_line_frame(&[], LeftRightAlternator::Right)
         } else {
             self.multiline_frame_builder(ctx, styles).build()
         }
@@ -181,7 +181,7 @@ impl MathRun {
                 continue;
             }
 
-            let sub = row.into_line_frame(&alignments.points, align);
+            let sub = row.into_line_frame(&alignments.points, LeftRightAlternator::Right);
             if i > 0 {
                 size.y += leading;
             }
@@ -200,43 +200,37 @@ impl MathRun {
 
     /// Lay out [`MathFragment`]s into a one-row [`Frame`], using the
     /// caller-provided alignment points.
-    pub fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
+    pub fn into_line_frame(
+        self,
+        points: &[Abs],
+        mut alternator: LeftRightAlternator,
+    ) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
         let mut next_x = {
-            let mut widths = Vec::new();
-            if !points.is_empty() && align != FixedAlignment::Start {
-                let mut width = Abs::zero();
-                for fragment in self.iter() {
-                    if matches!(fragment, MathFragment::Align) {
-                        widths.push(width);
-                        width = Abs::zero();
-                    } else {
-                        width += fragment.width();
-                    }
-                }
-                widths.push(width);
-            }
-            let widths = widths;
+            let widths: Vec<Abs> = if points.is_empty() {
+                vec![]
+            } else {
+                self.iter()
+                    .as_slice()
+                    .split(|e| matches!(e, MathFragment::Align))
+                    .map(|chunk| chunk.iter().map(|e| e.width()).sum())
+                    .collect()
+            };
 
             let mut prev_points = once(Abs::zero()).chain(points.iter().copied());
             let mut point_widths = points.iter().copied().zip(widths);
-            let mut alternator = LeftRightAlternator::Right;
-            move || match align {
-                FixedAlignment::Start => prev_points.next(),
-                FixedAlignment::End => {
-                    point_widths.next().map(|(point, width)| point - width)
-                }
-                _ => point_widths
+            move || {
+                point_widths
                     .next()
                     .zip(prev_points.next())
                     .zip(alternator.next())
                     .map(|(((point, width), prev_point), alternator)| match alternator {
-                        LeftRightAlternator::Left => prev_point,
                         LeftRightAlternator::Right => point - width,
-                    }),
+                        _ => prev_point,
+                    })
             }
         };
         let mut x = next_x().unwrap_or_default();
@@ -352,8 +346,11 @@ impl<T: Into<MathFragment>> From<T> for MathRun {
     }
 }
 
+/// An iterator that alternates between the `Left` and `Right` values, if the
+/// initial value is not `None`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum LeftRightAlternator {
+pub enum LeftRightAlternator {
+    None,
     Left,
     Right,
 }
@@ -364,6 +361,7 @@ impl Iterator for LeftRightAlternator {
     fn next(&mut self) -> Option<Self::Item> {
         let r = Some(*self);
         match self {
+            Self::None => {}
             Self::Left => *self = Self::Right,
             Self::Right => *self = Self::Left,
         }
