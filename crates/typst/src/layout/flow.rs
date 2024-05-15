@@ -20,6 +20,8 @@ use crate::layout::{
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::utils::Numeric;
 
+use super::FlushElem;
+
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
 /// This element is responsible for layouting both the top-level content flow
@@ -57,6 +59,8 @@ impl LayoutMultiple for Packed<FlowElem> {
 
             if let Some(elem) = child.to_packed::<TagElem>() {
                 layouter.layout_tag(elem);
+            } else if child.is::<FlushElem>() {
+                layouter.flush(engine)?;
             } else if let Some(elem) = child.to_packed::<VElem>() {
                 layouter.layout_spacing(engine, elem, styles)?;
             } else if let Some(placed) = child.to_packed::<PlaceElem>() {
@@ -656,6 +660,17 @@ impl<'a> FlowLayouter<'a> {
         // Try to place floats into the next region.
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
+        }
+
+        Ok(())
+    }
+
+    fn flush(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        for item in std::mem::take(&mut self.pending_floats) {
+            self.layout_item(engine, item)?;
+        }
+        while !self.pending_floats.is_empty() {
+            self.finish_region(engine, false)?;
         }
 
         Ok(())

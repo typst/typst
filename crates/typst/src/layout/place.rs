@@ -1,6 +1,6 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::foundations::{elem, Content, Packed, Smart, StyleChain, Unlabellable};
 use crate::layout::{
     Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, Size, VAlignment,
 };
@@ -136,3 +136,19 @@ impl Behave for Packed<PlaceElem> {
         Behaviour::Ignorant
     }
 }
+
+/// Asks the layout algorithm to place pending figures before
+/// continuing with the content.
+///
+/// This is useful for preventing floating figures from spilling
+/// into the next section.
+#[elem(Behave, Unlabellable)]
+pub struct FlushElem {}
+
+impl Behave for Packed<FlushElem> {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Invisible
+    }
+}
+
+impl Unlabellable for Packed<FlushElem> {}

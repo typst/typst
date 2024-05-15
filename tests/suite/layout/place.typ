@@ -121,6 +121,19 @@ Second
   image("/assets/images/diagram.svg", width: 80%),
 )
 
+--- place-float-flush ---
+#set page(height: 150pt, width: 150pt)
+
+#let floater = place(auto, float: true, rect(width: 100%, height: 90pt, text(size: 24pt)[I float!]))
+
+Some introductory text.
+
+#floater #floater #floater #floater
+
+#flush()
+
+Some conclusive text. // Should appear after all the floating figures
+
 --- place-bottom-in-box ---
 #box(
   fill: aqua,
