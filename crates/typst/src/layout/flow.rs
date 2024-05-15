@@ -13,14 +13,12 @@ use crate::foundations::{
 };
 use crate::introspection::TagElem;
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
-    Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
-    Rel, Size, Spacing, VElem,
+    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment,
+    FlushElem, Fr, Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem,
+    Point, Regions, Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::utils::Numeric;
-
-use super::FlushElem;
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
