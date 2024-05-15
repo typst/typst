@@ -804,7 +804,8 @@ impl Array {
         /// How many elements each window will contain.
         window_size: NonZeroUsize,
     ) -> Array {
-        self.0.windows(window_size.get())
+        self.0
+            .windows(window_size.get())
             .map(|window| Array::from(window).into_value())
             .collect()
     }
