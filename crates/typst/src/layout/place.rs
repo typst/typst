@@ -144,6 +144,24 @@ impl Behave for Packed<PlaceElem> {
 ///
 /// This is useful for preventing floating figures from spilling
 /// into the next section.
+///
+/// # Example
+///
+/// ```example
+/// #set page(height: 150pt, width: 150pt)
+///
+/// #let floater = place(auto, float: true, rect(width: 100%, height: 90pt, text(size: 24pt)[I float!]))
+///
+/// Some introductory text.
+///
+/// #floater #floater #floater #floater
+///
+/// Some additional text.
+///
+/// #flush()
+///
+/// Some conclusive text.
+/// ```
 #[elem(Behave, Unlabellable)]
 pub struct FlushElem {}
 

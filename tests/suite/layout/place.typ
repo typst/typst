@@ -130,6 +130,8 @@ Some introductory text.
 
 #floater #floater #floater #floater
 
+Some additional text.
+
 #flush()
 
 Some conclusive text. // Should appear after all the floating figures
