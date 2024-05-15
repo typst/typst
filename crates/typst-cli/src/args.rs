@@ -394,6 +394,14 @@ pub struct UpdateCommand {
     /// `typst update` has previously ran)
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,
+
+    /// Backup path
+    #[clap(
+        long = "backup-path",
+        env = "TYPST_UPDATE_BACKUP_PATH",
+        value_name = "DIR",
+    )]
+    pub backup_path: Option<PathBuf>,
 }
 
 /// Which format to use for the generated output file.

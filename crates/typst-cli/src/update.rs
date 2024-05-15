@@ -40,7 +40,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let backup_path = backup_path()?;
+    let backup_path = backup_path(command.backup_path.clone())?;
     if command.revert {
         if !backup_path.exists() {
             bail!(
@@ -221,15 +221,20 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 ///    - `$XDG_DATA_HOME` or `~/.local/share` if the above path isn't available
 ///  - `~/Library/Application Support` on macOS
 ///  - `%APPDATA%` on Windows
-fn backup_path() -> StrResult<PathBuf> {
+///
+/// If a custom backup path is provided via the environment variable `TYPST_UPDATE_BACKUP_PATH`,
+/// it will be used instead of the default directories determined by the platform.
+fn backup_path(backup_path: Option<PathBuf>) -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
-    let root_backup_dir = dirs::state_dir()
+    let root_backup_dir = backup_path
+        .or_else(dirs::state_dir)
         .or_else(dirs::data_dir)
         .ok_or("unable to locate local data or state directory")?;
 
     #[cfg(not(target_os = "linux"))]
-    let root_backup_dir =
-        dirs::data_dir().ok_or("unable to locate local data directory")?;
+    let root_backup_dir = backup_path
+        .or_else(dirs::data_dir)
+        .ok_or("unable to locate local data directory")?;
 
     let backup_dir = root_backup_dir.join("typst");
 
