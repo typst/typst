@@ -43,7 +43,9 @@ pub struct PlaceElem {
     /// Whether the placed element has floating layout.
     ///
     /// Floating elements are positioned at the top or bottom of the page,
-    /// displacing in-flow content.
+    /// displacing in-flow content. They are always placed in the in-flow
+    /// order relative to each other, as well as before any content following
+    /// a later [`flush`] element.
     ///
     /// ```example
     /// #set page(height: 150pt)
