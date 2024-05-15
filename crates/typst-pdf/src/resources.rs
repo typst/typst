@@ -38,7 +38,7 @@ impl PdfWriter for GlobalResources {
             let mut color_font_slices = Vec::new();
             if let Some(color_fonts) = &ctx.color_fonts {
                 for (font, color_font) in &color_fonts.map {
-                    for i in 0..(color_font.glyphs.len() / 256) {
+                    for i in 0..(color_font.glyphs.len() / 256) + 1 {
                         color_font_slices
                             .push(ColorFontSlice { font: font.clone(), subfont: i })
                     }

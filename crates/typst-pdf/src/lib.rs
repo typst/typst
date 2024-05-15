@@ -103,6 +103,7 @@ struct PdfBuilder<'a> {
     pdf: Pdf,
     mapping: HashMap<Ref, Ref>,
     current_alloc_section: i32,
+    globals_count: i32,
 }
 
 impl<'a> PdfBuilder<'a> {
@@ -115,6 +116,7 @@ impl<'a> PdfBuilder<'a> {
             context: PdfContext::new(document),
             mapping: HashMap::new(),
             current_alloc_section: 1,
+            globals_count: 0,
         }
     }
 
@@ -145,13 +147,11 @@ impl<'a> PdfBuilder<'a> {
                     .unwrap_or(0)
                 + ctx.globals.len() as i32
         }
-        let globals_count = remap_globals(&mut self.alloc, &mut self.context);
-        dbg!(globals_count);
-        self.alloc = Ref::new(globals_count);
+        self.globals_count = remap_globals(&mut self.alloc, &mut self.context);
 
         improve_glyph_sets(&mut self.context.glyph_sets);
         chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < ALLOC_SECTION_SIZE {
+            if r.get() < self.globals_count {
                 return r;
             }
             *self.mapping.entry(r).or_insert_with(|| self.alloc.bump())
@@ -162,6 +162,7 @@ impl<'a> PdfBuilder<'a> {
     /// Write data related to a [`PdfResource`] in the document.
     fn with_resource<R: PdfResource>(mut self, resource: R) -> Self {
         fn write<R: PdfResource>(
+            globals_count: i32,
             mapping: &mut HashMap<Ref, Ref>,
             current_alloc_section: &mut i32,
             alloc: &mut Ref,
@@ -176,7 +177,7 @@ impl<'a> PdfBuilder<'a> {
 
             resource.write(ctx, &mut chunk, output);
             chunk.renumber_into(pdf, |r| {
-                if r.get() < ALLOC_SECTION_SIZE {
+                if r.get() < globals_count {
                     println!("identity mapping for {:?}", r);
                     return r;
                 }
@@ -185,6 +186,7 @@ impl<'a> PdfBuilder<'a> {
 
             if let Some(color_fonts) = &ctx.color_fonts {
                 write(
+                    globals_count,
                     mapping,
                     current_alloc_section,
                     alloc,
@@ -196,6 +198,7 @@ impl<'a> PdfBuilder<'a> {
             }
             if let Some(patterns) = &ctx.patterns {
                 write(
+                    globals_count,
                     mapping,
                     current_alloc_section,
                     alloc,
@@ -210,6 +213,7 @@ impl<'a> PdfBuilder<'a> {
         let mut output = Default::default();
 
         write(
+            self.globals_count,
             &mut self.mapping,
             &mut self.current_alloc_section,
             &mut self.alloc,
@@ -260,6 +264,14 @@ struct References {
     ext_gs: HashMap<ExtGState, Ref>,
 }
 
+/// Keeps track of resources used in a specific part of the document.
+///
+/// The main context is the one for the pages of the document, but
+/// it can have sub-contexts for color fonts and patterns, if those are
+/// used in the pages. They do not share the same Resources dictionnary
+/// as the pages they are in to avoid some infinite recursion that some
+/// PDF readers don't appreciate (Acrobat can't parse a Type3 font if
+/// its Resources dictionnary references this same font for instance).
 struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
@@ -303,7 +315,7 @@ struct PdfContext<'a> {
     color_fonts: Option<Box<ColorFontMap<'a>>>,
 }
 
-const ALLOC_SECTION_SIZE: i32 = 1_000;
+const ALLOC_SECTION_SIZE: i32 = 1_000_000;
 
 impl<'a> PdfContext<'a> {
     fn new(document: &'a Document) -> Self {

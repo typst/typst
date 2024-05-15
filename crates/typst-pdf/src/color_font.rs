@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use ecow::eco_format;
 use indexmap::IndexMap;
+use pdf_writer::Filter;
 use pdf_writer::{types::UnicodeCmap, Finish, Name, Rect, Ref};
 use ttf_parser::name_id;
 
@@ -29,7 +30,7 @@ impl PdfResource for ColorFonts {
 
         for (font, color_font) in &color_fonts.map {
             // For each Type3 font that is part of this family…
-            for font_index in 0..(color_font.glyphs.len() / 256) {
+            for font_index in dbg!(0..(color_font.glyphs.len() / 256) + 1) {
                 let subfont_id = chunk.alloc();
                 out.insert(
                     ColorFontSlice { font: font.clone(), subfont: font_index },
@@ -61,10 +62,12 @@ impl PdfResource for ColorFonts {
                         .unwrap_or(Em::new(0.0))
                         .to_font_units();
                     widths.push(width);
-                    chunk.stream(
-                        instructions_stream_ref,
-                        color_glyph.instructions.content.wait(),
-                    );
+                    chunk
+                        .stream(
+                            instructions_stream_ref,
+                            color_glyph.instructions.content.wait(),
+                        )
+                        .filter(Filter::FlateDecode);
 
                     // Use this stream as instructions to draw the glyph.
                     glyphs_to_instructions.push(instructions_stream_ref);
