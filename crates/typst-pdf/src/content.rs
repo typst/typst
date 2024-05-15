@@ -500,10 +500,9 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let color_fonts = ctx
-            .parent
-            .color_fonts
-            .get_or_insert_with(|| Box::new(ColorFontMap::new(ctx.parent.document)));
+        let color_fonts = ctx.parent.color_fonts.get_or_insert_with(|| {
+            Box::new(ColorFontMap::new(ctx.parent.document, &ctx.parent.globals))
+        });
         let (font, index) = color_fonts.get(&text.item.font, glyph.id);
 
         if last_font != Some(font) {

@@ -16,7 +16,7 @@ mod resources;
 
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Range};
 
 use base64::Engine;
 use color_font::ColorFontSlice;
@@ -101,60 +101,126 @@ struct PdfBuilder<'a> {
     alloc: Ref,
     /// The PDF document that is being written.
     pdf: Pdf,
+    mapping: HashMap<Ref, Ref>,
+    current_alloc_section: i32,
 }
 
 impl<'a> PdfBuilder<'a> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
-        let context = PdfContext::new(document);
         Self {
             references: References::default(),
-            alloc: Ref::new(context.globals.max().get() + 1),
+            alloc: Ref::new(1),
             pdf: Pdf::new(),
-            context,
+            context: PdfContext::new(document),
+            mapping: HashMap::new(),
+            current_alloc_section: 1,
         }
     }
 
     /// Run a [`PdfConstructor`] in the context of this document.
     fn construct(mut self, constructor: impl PdfConstructor) -> Self {
-        let mut chunk = PdfChunk::new(self.context.globals.max().next());
+        let mut chunk = PdfChunk::new(self.current_alloc_section * ALLOC_SECTION_SIZE);
+        self.current_alloc_section += 1;
+
         constructor.write(&mut self.context, &mut chunk);
+
+        // At this point, we know how many contexts are needed, but none of
+        // their global IDs have been referenced, so we are free to rewrite
+        // them.
+
+        /// Remap globals and return the number of allocated global references
+        /// (including those in subcontexts).
+        fn remap_globals(alloc: &mut Ref, ctx: &mut PdfContext) -> i32 {
+            ctx.globals.remap(alloc);
+
+            ctx.color_fonts
+                .as_mut()
+                .map(|x| remap_globals(alloc, &mut x.ctx))
+                .unwrap_or(0)
+                + ctx
+                    .patterns
+                    .as_mut()
+                    .map(|x| remap_globals(alloc, &mut x.ctx))
+                    .unwrap_or(0)
+                + ctx.globals.len() as i32
+        }
+        let globals_count = remap_globals(&mut self.alloc, &mut self.context);
+        dbg!(globals_count);
+        self.alloc = Ref::new(globals_count);
+
         improve_glyph_sets(&mut self.context.glyph_sets);
-        let mut mapping = HashMap::new();
         chunk.renumber_into(&mut self.pdf, |r| {
-            if r <= self.context.globals.max() {
-                r
-            } else {
-                let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
-                new
+            if r.get() < ALLOC_SECTION_SIZE {
+                return r;
             }
+            *self.mapping.entry(r).or_insert_with(|| self.alloc.bump())
         });
         self
     }
 
     /// Write data related to a [`PdfResource`] in the document.
     fn with_resource<R: PdfResource>(mut self, resource: R) -> Self {
+        fn write<R: PdfResource>(
+            mapping: &mut HashMap<Ref, Ref>,
+            current_alloc_section: &mut i32,
+            alloc: &mut Ref,
+            pdf: &mut Pdf,
+            resource: &R,
+            ctx: &PdfContext,
+            output: &mut R::Output,
+        ) {
+            let mut chunk: PdfChunk =
+                PdfChunk::new(*current_alloc_section * ALLOC_SECTION_SIZE);
+            *current_alloc_section += 1;
+
+            resource.write(ctx, &mut chunk, output);
+            chunk.renumber_into(pdf, |r| {
+                if r.get() < ALLOC_SECTION_SIZE {
+                    println!("identity mapping for {:?}", r);
+                    return r;
+                }
+                *mapping.entry(r).or_insert_with(|| alloc.bump())
+            });
+
+            if let Some(color_fonts) = &ctx.color_fonts {
+                write(
+                    mapping,
+                    current_alloc_section,
+                    alloc,
+                    pdf,
+                    resource,
+                    &color_fonts.ctx,
+                    output,
+                );
+            }
+            if let Some(patterns) = &ctx.patterns {
+                write(
+                    mapping,
+                    current_alloc_section,
+                    alloc,
+                    pdf,
+                    resource,
+                    &patterns.ctx,
+                    output,
+                );
+            }
+        }
+
         let mut output = Default::default();
 
-        let mut write = |ctx: &PdfContext| {
-            let mut chunk: PdfChunk = PdfChunk::new(ctx.globals.max().next());
-            resource.write(ctx, &mut chunk, &mut output);
+        write(
+            &mut self.mapping,
+            &mut self.current_alloc_section,
+            &mut self.alloc,
+            &mut self.pdf,
+            &resource,
+            &self.context,
+            &mut output,
+        );
 
-            let mut mapping = HashMap::new();
-            chunk.renumber_into(&mut self.pdf, |r| {
-                if r <= ctx.globals.max() {
-                    r
-                } else {
-                    let new = *mapping.entry(r).or_insert_with(|| self.alloc.bump());
-                    output.renumber(r, new);
-                    new
-                }
-            });
-        };
-
-        write(&self.context);
-        if let Some(color_fonts) = &self.context.color_fonts {
-            write(&color_fonts.ctx)
+        for (old, new) in &self.mapping {
+            output.renumber(*old, *new);
         }
 
         R::save(&mut self.references, output);
@@ -237,11 +303,13 @@ struct PdfContext<'a> {
     color_fonts: Option<Box<ColorFontMap<'a>>>,
 }
 
+const ALLOC_SECTION_SIZE: i32 = 1_000;
+
 impl<'a> PdfContext<'a> {
     fn new(document: &'a Document) -> Self {
         Self {
             document,
-            globals: GlobalRefs::new(document.pages.len()),
+            globals: GlobalRefs::new(document.pages.len(), 1..ALLOC_SECTION_SIZE),
             pages: vec![],
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
@@ -253,6 +321,18 @@ impl<'a> PdfContext<'a> {
             patterns: None,
             ext_gs: Remapper::new(),
             color_fonts: None,
+        }
+    }
+
+    fn sub_context(document: &'a Document, globals: &GlobalRefs, slot: i32) -> Self {
+        const TOTAL_SUBCONTEXTS: i32 = 2;
+        let available_alloc_range = globals.max().get()..globals.range.end;
+        let range_len = available_alloc_range.len() as i32 / TOTAL_SUBCONTEXTS;
+        let range_start = available_alloc_range.start + slot * range_len;
+        let range = range_start..(range_start + range_len);
+        Self {
+            globals: GlobalRefs::new(document.pages.len(), range),
+            ..Self::new(&document)
         }
     }
 }
@@ -331,11 +411,12 @@ struct GlobalRefs {
     // Page tree and pages
     page_tree: Ref,
     pages: Vec<Ref>,
+    range: Range<i32>,
 }
 
 impl GlobalRefs {
-    fn new(page_count: usize) -> Self {
-        let mut alloc = Ref::new(1);
+    fn new(page_count: usize, range: Range<i32>) -> Self {
+        let mut alloc = Ref::new(range.start);
         GlobalRefs {
             resources: alloc.bump(),
             page_tree: alloc.bump(),
@@ -343,11 +424,27 @@ impl GlobalRefs {
             oklab: alloc.bump(),
             d65_gray: alloc.bump(),
             srgb: alloc.bump(),
+            range,
         }
+    }
+
+    fn remap(&mut self, alloc: &mut Ref) {
+        self.resources = alloc.bump();
+        self.page_tree = alloc.bump();
+        self.pages = std::iter::repeat_with(|| alloc.bump())
+            .take(self.pages.len())
+            .collect();
+        self.oklab = alloc.bump();
+        self.d65_gray = alloc.bump();
+        self.srgb = alloc.bump();
     }
 
     fn max(&self) -> Ref {
         self.srgb
+    }
+
+    fn len(&self) -> usize {
+        self.pages.len() + 5
     }
 }
 
@@ -360,12 +457,10 @@ struct PdfChunk {
 }
 
 impl PdfChunk {
-    fn new(alloc_start: Ref) -> Self {
-        PdfChunk { chunk: Chunk::new(), alloc: alloc_start }
+    fn new(alloc_start: i32) -> Self {
+        PdfChunk { chunk: Chunk::new(), alloc: Ref::new(alloc_start) }
     }
-}
 
-impl PdfChunk {
     fn alloc(&mut self) -> Ref {
         self.alloc.bump()
     }

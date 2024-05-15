@@ -13,8 +13,8 @@ use typst::{
     model::Document,
 };
 
-use crate::content;
 use crate::{color::PaintEncode, Remapper};
+use crate::{content, GlobalRefs};
 use crate::{transform_to_array, PdfChunk, PdfContext, PdfResource, Renumber};
 
 pub struct Patterns;
@@ -105,11 +105,9 @@ fn register_pattern(
     on_text: bool,
     mut transforms: content::Transforms,
 ) -> usize {
-    let patterns = ctx
-        .parent
-        .patterns
-        .get_or_insert_with(|| Box::new(PatternRemapper::new(ctx.parent.document)))
-        .as_mut();
+    let patterns = ctx.parent.patterns.get_or_insert_with(|| {
+        Box::new(PatternRemapper::new(ctx.parent.document, &ctx.parent.globals))
+    });
 
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
@@ -177,10 +175,10 @@ pub struct PatternRemapper<'a> {
 }
 
 impl<'a> PatternRemapper<'a> {
-    fn new(doc: &'a Document) -> Self {
+    pub fn new(doc: &'a Document, globals: &GlobalRefs) -> Self {
         Self {
             remapper: Remapper::new(),
-            ctx: PdfContext::new(doc),
+            ctx: PdfContext::sub_context(doc, globals, 1),
         }
     }
 }

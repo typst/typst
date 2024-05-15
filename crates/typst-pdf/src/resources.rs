@@ -19,13 +19,12 @@ impl PdfWriter for GlobalResources {
     /// to the root node of the page tree because using the resource inheritance
     /// feature breaks PDF merging with Apple Preview.
     fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
-        #[must_use]
         fn generic_resource_dict(
             pdf: &mut Pdf,
             alloc: &mut Ref,
             ctx: &PdfContext,
             refs: &References,
-        ) -> Ref {
+        ) {
             let images_ref = alloc.bump();
             let patterns_ref = alloc.bump();
             let ext_gs_states_ref = alloc.bump();
@@ -45,6 +44,7 @@ impl PdfWriter for GlobalResources {
                     }
                 }
             }
+
             resource_dict(
                 pdf,
                 ctx.globals.resources,
@@ -88,26 +88,19 @@ impl PdfWriter for GlobalResources {
                 },
             );
 
+            let color_spaces = pdf.indirect(color_spaces_ref).dict();
+            ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+
             if let Some(color_fonts) = &ctx.color_fonts {
-                let type3_color_spaces =
-                    generic_resource_dict(pdf, alloc, &color_fonts.ctx, refs);
-                let color_spaces = pdf.indirect(type3_color_spaces).dict();
-                color_fonts.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+                generic_resource_dict(pdf, alloc, &color_fonts.ctx, refs);
             }
 
             if let Some(patterns) = &ctx.patterns {
-                let pattern_color_spaces =
-                    generic_resource_dict(pdf, alloc, &patterns.ctx, refs);
-                let color_spaces = pdf.indirect(pattern_color_spaces).dict();
-                patterns.ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+                generic_resource_dict(pdf, alloc, &patterns.ctx, refs);
             }
-
-            color_spaces_ref
         }
 
-        let global_color_spaces = generic_resource_dict(pdf, alloc, ctx, refs);
-        let color_spaces = pdf.indirect(global_color_spaces).dict();
-        ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+        generic_resource_dict(pdf, alloc, ctx, refs);
 
         // Write all of the functions used by the document.
         // TODO: subcontexts may refer to these functions I think,

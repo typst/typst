@@ -9,12 +9,12 @@ use typst::layout::Em;
 use typst::model::Document;
 use typst::text::{color::frame_for_glyph, Font};
 
-use crate::PdfResource;
 use crate::{
     content,
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
     EmExt, PdfChunk, PdfContext,
 };
+use crate::{GlobalRefs, PdfResource};
 
 pub struct ColorFonts;
 
@@ -185,11 +185,11 @@ pub struct ColorGlyph {
 
 impl<'a> ColorFontMap<'a> {
     /// Creates a new empty mapping
-    pub fn new(doc: &'a Document) -> Self {
+    pub fn new(document: &'a Document, globals: &GlobalRefs) -> Self {
         Self {
             map: IndexMap::new(),
             _all_refs: Vec::new(),
-            ctx: PdfContext::new(doc),
+            ctx: PdfContext::sub_context(document, globals, 0),
         }
     }
 
