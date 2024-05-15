@@ -101,7 +101,6 @@ struct PdfBuilder<'a> {
     alloc: Ref,
     /// The PDF document that is being written.
     pdf: Pdf,
-    mapping: HashMap<Ref, Ref>,
     current_alloc_section: i32,
     globals_count: i32,
 }
@@ -114,7 +113,6 @@ impl<'a> PdfBuilder<'a> {
             alloc: Ref::new(1),
             pdf: Pdf::new(),
             context: PdfContext::new(document),
-            mapping: HashMap::new(),
             current_alloc_section: 1,
             globals_count: 0,
         }
@@ -150,11 +148,13 @@ impl<'a> PdfBuilder<'a> {
         self.globals_count = remap_globals(&mut self.alloc, &mut self.context);
 
         improve_glyph_sets(&mut self.context.glyph_sets);
+
+        let mut mapping = HashMap::new();
         chunk.renumber_into(&mut self.pdf, |r| {
             if r.get() < self.globals_count {
                 return r;
             }
-            *self.mapping.entry(r).or_insert_with(|| self.alloc.bump())
+            *mapping.entry(r).or_insert_with(|| self.alloc.bump())
         });
         self
     }
@@ -212,9 +212,10 @@ impl<'a> PdfBuilder<'a> {
 
         let mut output = Default::default();
 
+        let mut mapping = HashMap::new();
         write(
             self.globals_count,
-            &mut self.mapping,
+            &mut mapping,
             &mut self.current_alloc_section,
             &mut self.alloc,
             &mut self.pdf,
@@ -223,8 +224,8 @@ impl<'a> PdfBuilder<'a> {
             &mut output,
         );
 
-        for (old, new) in &self.mapping {
-            output.renumber(*old, *new);
+        for (old, new) in mapping {
+            output.renumber(old, new);
         }
 
         R::save(&mut self.references, output);
