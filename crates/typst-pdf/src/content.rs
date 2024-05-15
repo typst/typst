@@ -26,8 +26,6 @@ use crate::{
     image::deferred_image, AbsExt, EmExt, PdfContext,
 };
 
-// TODO: remove all references to "page"
-
 pub fn build(ctx: &mut PdfContext<()>, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(ctx, size);
@@ -41,7 +39,7 @@ pub fn build(ctx: &mut PdfContext<()>, frame: &Frame) -> Encoded {
             .post_concat(Transform::translate(Abs::zero(), size.y)),
     );
 
-    // Encode the page into the content stream.
+    // Encode the frame into the content stream.
     write_frame(&mut ctx, frame);
 
     Encoded {
@@ -64,7 +62,13 @@ pub struct Encoded {
     pub links: Vec<(Destination, Rect)>,
 }
 
-/// An exporter for the contents of a single PDF page.
+/// An exporter for a single PDF content stream.
+///
+/// Content streams are a series of PDF commands. They can reference external
+/// objects only through resources.
+///
+/// Content streams can be used for page contents, but also to describe color
+/// glyphs and patterns.
 pub struct Builder<'a, 'b> {
     pub(crate) parent: &'a mut PdfContext<'b, ()>,
     pub content: Content,
@@ -109,7 +113,7 @@ struct State {
 }
 
 impl State {
-    /// Creates a new, clean state for a given page `size`.
+    /// Creates a new, clean state for a given `size`.
     pub fn new(size: Size) -> Self {
         Self {
             transform: Transform::identity(),

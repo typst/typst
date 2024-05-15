@@ -98,14 +98,12 @@ impl PdfWriter for GlobalResources {
             if let Some(patterns) = &ctx.patterns {
                 generic_resource_dict(pdf, alloc, &patterns.ctx, refs);
             }
+
+            // Write all of the functions used by the document.
+            ctx.colors.write_functions(pdf, &ctx.globals);
         }
 
         generic_resource_dict(pdf, alloc, ctx, refs);
-
-        // Write all of the functions used by the document.
-        // TODO: subcontexts may refer to these functions I think,
-        // but here they are only valid for the main context
-        ctx.colors.write_functions(pdf, &ctx.globals);
     }
 }
 
