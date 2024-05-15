@@ -169,7 +169,6 @@ impl<'a> PdfBuilder<'a, GlobalRefs> {
             resource.write(ctx, &mut chunk, output);
             chunk.renumber_into(pdf, |r| {
                 if r.get() < globals_count {
-                    println!("identity mapping for {:?}", r);
                     return r;
                 }
                 *mapping.entry(r).or_insert_with(|| alloc.bump())
