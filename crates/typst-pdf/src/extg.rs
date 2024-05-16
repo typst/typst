@@ -38,7 +38,7 @@ impl<'a> WriteStep<AllocRefs<'a>> for ExtGraphicsState {
             }
 
             let id = chunk.alloc();
-            out.insert(external_gs.clone(), id);
+            out.insert(*external_gs, id);
             chunk
                 .ext_graphics(id)
                 .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)

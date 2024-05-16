@@ -117,7 +117,7 @@ impl<'a> WriteStep<AllocRefs<'a>> for ColorFonts {
                 pdf_font.finish();
 
                 // Encode a CMAP to make it possible to search or copy glyphs.
-                let glyph_set = context.resources.glyph_sets.get(&font).unwrap();
+                let glyph_set = context.resources.glyph_sets.get(font).unwrap();
                 let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
                 for (index, glyph) in subset.iter().enumerate() {
                     let Some(text) = glyph_set.get(&glyph.gid) else {
@@ -137,7 +137,7 @@ impl<'a> WriteStep<AllocRefs<'a>> for ColorFonts {
                     .find_name(name_id::POST_SCRIPT_NAME)
                     .unwrap_or_else(|| "unknown".to_string());
                 let base_font = eco_format!("{subset_tag}+{postscript_name}");
-                write_font_descriptor(chunk, descriptor_ref, &font, &base_font);
+                write_font_descriptor(chunk, descriptor_ref, font, &base_font);
 
                 // Write the widths array
                 chunk.indirect(widths_ref).array().items(widths);
@@ -242,7 +242,7 @@ impl<'a> ColorFontMap<BuildContent<'a>> {
     }
 }
 
-impl<'a, S: State> ColorFontMap<S> {
+impl<S: State> ColorFontMap<S> {
     pub fn next(self, alloc: &mut Ref) -> ColorFontMap<S::Next> {
         ColorFontMap {
             map: self.map,

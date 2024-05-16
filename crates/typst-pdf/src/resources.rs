@@ -59,7 +59,7 @@ impl<'a> WriteStep<WriteResources<'a>> for GlobalResources {
                 },
                 ResourceList {
                     prefix: "P",
-                    items: &ctx
+                    items: ctx
                         .resources
                         .patterns
                         .as_ref()
@@ -124,6 +124,7 @@ impl<'a, T: Eq + Hash> ResourceList<'a, T> {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // TODO
 fn resource_dict(
     pdf: &mut PdfChunk,
     id: Ref,

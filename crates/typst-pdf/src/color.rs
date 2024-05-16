@@ -31,6 +31,7 @@ static OKLAB_DEFLATED: Lazy<Vec<u8>> =
 /// The color spaces present in the PDF document
 #[derive(Default)]
 pub struct ColorSpaces {
+    // TODO: get rid of Cells
     use_oklab: Cell<bool>,
     use_srgb: Cell<bool>,
     use_d65_gray: Cell<bool>,

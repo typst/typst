@@ -137,7 +137,7 @@ trait State: Sized {
 
     /// In case steps run at this point of the export should also be run in
     /// sub-contexts, this function should return an iterator over these.
-    fn subcontexts<'a>(&'a self) -> impl Iterator<Item = &'a Self>;
+    fn subcontexts(&self) -> impl Iterator<Item = &Self>;
 }
 
 /// The initial state: we are exploring the document, collecting all resources
@@ -158,7 +158,7 @@ impl<'a> State for BuildContent<'a> {
 
     fn next(self, alloc: &mut Ref, resources: Resources<Self>) -> Self::Next {
         AllocRefs {
-            document: &self.document,
+            document: self.document,
             globals: GlobalRefs::new(alloc, self.document.pages.len()),
             resources: resources.next(alloc),
         }
@@ -267,7 +267,7 @@ impl<'a> State for AllocRefs<'a> {
 
     fn next(self, alloc: &mut Ref, references: References) -> Self::Next {
         WritePageTree {
-            document: &self.document,
+            document: self.document,
             resources: self.resources.next(alloc),
             globals: self.globals,
             references,
@@ -353,9 +353,7 @@ impl<'a> State for WriteResources<'a> {
 
     type Next = Self;
 
-    fn start() -> Self::ToBuild {
-        ()
-    }
+    fn start() -> Self::ToBuild {}
 
     fn next(self, _alloc: &mut Ref, (): ()) -> Self::Next {
         self
@@ -453,7 +451,6 @@ impl<S: State> PdfBuilder<S> {
 
         fn write<S: State, W: WriteStep<S>>(
             chunk: &mut PdfChunk,
-            mapping: &mut HashMap<Ref, Ref>,
             ctx: &S,
             output: &mut W::Output,
             step: &W,
@@ -461,14 +458,14 @@ impl<S: State> PdfBuilder<S> {
             step.run(ctx, chunk, output);
 
             for subcontext in ctx.subcontexts() {
-                write(chunk, mapping, subcontext, output, step);
+                write(chunk, subcontext, output, step);
             }
         }
 
         let mut output = Default::default();
         let mut chunk: PdfChunk = PdfChunk::new(TEMPORARY_REFS_START);
         let mut mapping = HashMap::new();
-        write(&mut chunk, &mut mapping, &self.state, &mut output, &step);
+        write(&mut chunk, &self.state, &mut output, &step);
 
         chunk.renumber_into(&mut self.pdf, |r| {
             if r.get() < TEMPORARY_REFS_START {
@@ -534,7 +531,7 @@ impl<R: Renumber> Renumber for Vec<R> {
 
 impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
     fn renumber(&mut self, old: Ref, new: Ref) {
-        for (_, v) in self {
+        for v in self.values_mut() {
             v.renumber(old, new);
         }
     }
