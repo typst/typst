@@ -101,9 +101,13 @@ type Range = std::ops::Range<usize>;
 // paragraph's full text.
 const SPACING_REPLACE: char = ' '; // Space
 const OBJ_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
+
+// Unicode BiDi control characters.
 const LTR_EMBEDDING: char = '\u{202A}';
 const RTL_EMBEDDING: char = '\u{202B}';
 const POP_EMBEDDING: char = '\u{202C}';
+const LTR_ISOLATE: char = '\u{2066}';
+const POP_ISOLATE: char = '\u{2069}';
 
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
@@ -213,7 +217,7 @@ impl Segment<'_> {
             Self::Equation(ref par_items) => par_items
                 .iter()
                 .map(MathParItem::text)
-                .chain([LTR_EMBEDDING, POP_EMBEDDING])
+                .chain([LTR_ISOLATE, POP_ISOLATE])
                 .map(char::len_utf8)
                 .sum(),
             Self::Meta => 0,
@@ -546,9 +550,9 @@ fn collect<'a>(
                 let MathParItem::Frame(frame) = item else { continue };
                 frame.meta(styles, false);
             }
-            full.push(LTR_EMBEDDING);
+            full.push(LTR_ISOLATE);
             full.extend(items.iter().map(MathParItem::text));
-            full.push(POP_EMBEDDING);
+            full.push(POP_ISOLATE);
             Segment::Equation(items)
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
             let frac = elem.width(styles).is_fractional();
@@ -621,7 +625,7 @@ fn prepare<'a>(
                 }
             },
             Segment::Equation(par_items) => {
-                items.push(Item::Skip(LTR_EMBEDDING));
+                items.push(Item::Skip(LTR_ISOLATE));
                 for item in par_items {
                     match item {
                         MathParItem::Space(s) => items.push(Item::Absolute(s)),
@@ -631,7 +635,7 @@ fn prepare<'a>(
                         }
                     }
                 }
-                items.push(Item::Skip(POP_EMBEDDING));
+                items.push(Item::Skip(POP_ISOLATE));
             }
             Segment::Box(elem, _) => {
                 if let Sizing::Fr(v) = elem.width(styles) {
