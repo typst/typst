@@ -101,6 +101,9 @@ type Range = std::ops::Range<usize>;
 // paragraph's full text.
 const SPACING_REPLACE: char = ' '; // Space
 const OBJ_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
+const LTR_EMBEDDING: char = '\u{202A}';
+const RTL_EMBEDDING: char = '\u{202B}';
+const POP_EMBEDDING: char = '\u{202C}';
 
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
@@ -207,9 +210,12 @@ impl Segment<'_> {
             Self::Box(_, frac) => {
                 (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
             }
-            Self::Equation(ref par_items) => {
-                par_items.iter().map(MathParItem::text).map(char::len_utf8).sum()
-            }
+            Self::Equation(ref par_items) => par_items
+                .iter()
+                .map(MathParItem::text)
+                .chain([LTR_EMBEDDING, POP_EMBEDDING])
+                .map(char::len_utf8)
+                .sum(),
             Self::Meta => 0,
         }
     }
@@ -228,6 +234,9 @@ enum Item<'a> {
     Frame(Frame),
     /// Metadata.
     Meta(Frame),
+    /// An item that is invisible and needs to be skipped, e.g. a Unicode
+    /// isolate.
+    Skip(char),
 }
 
 impl<'a> Item<'a> {
@@ -254,6 +263,7 @@ impl<'a> Item<'a> {
             Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) => OBJ_REPLACE.len_utf8(),
             Self::Meta(_) => 0,
+            Self::Skip(c) => c.len_utf8(),
         }
     }
 
@@ -264,6 +274,7 @@ impl<'a> Item<'a> {
             Self::Absolute(v) => *v,
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Meta(_) => Abs::zero(),
+            Self::Skip(_) => Abs::zero(),
         }
     }
 }
@@ -466,8 +477,8 @@ fn collect<'a>(
             if dir != outer_dir {
                 // Insert "Explicit Directional Embedding".
                 match dir {
-                    Dir::LTR => full.push('\u{202A}'),
-                    Dir::RTL => full.push('\u{202B}'),
+                    Dir::LTR => full.push(LTR_EMBEDDING),
+                    Dir::RTL => full.push(RTL_EMBEDDING),
                     _ => {}
                 }
             }
@@ -480,7 +491,7 @@ fn collect<'a>(
 
             if dir != outer_dir {
                 // Insert "Pop Directional Formatting".
-                full.push('\u{202C}');
+                full.push(POP_EMBEDDING);
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<HElem>() {
@@ -535,7 +546,9 @@ fn collect<'a>(
                 let MathParItem::Frame(frame) = item else { continue };
                 frame.meta(styles, false);
             }
+            full.push(LTR_EMBEDDING);
             full.extend(items.iter().map(MathParItem::text));
+            full.push(POP_EMBEDDING);
             Segment::Equation(items)
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
             let frac = elem.width(styles).is_fractional();
@@ -608,6 +621,7 @@ fn prepare<'a>(
                 }
             },
             Segment::Equation(par_items) => {
+                items.push(Item::Skip(LTR_EMBEDDING));
                 for item in par_items {
                     match item {
                         MathParItem::Space(s) => items.push(Item::Absolute(s)),
@@ -617,6 +631,7 @@ fn prepare<'a>(
                         }
                     }
                 }
+                items.push(Item::Skip(POP_EMBEDDING));
             }
             Segment::Box(elem, _) => {
                 if let Sizing::Fr(v) = elem.width(styles) {
@@ -1407,6 +1422,7 @@ fn commit(
             Item::Frame(frame) | Item::Meta(frame) => {
                 push(&mut offset, frame.clone());
             }
+            Item::Skip(_) => {}
         }
     }
 
