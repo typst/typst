@@ -7,7 +7,8 @@ use crate::realize::{Behave, Behaviour};
 /// Exposes a value to the query system without producing visible content.
 ///
 /// This element can be retrieved with the [`query`] function and from the
-/// command line with [`typst query`]($reference/meta/query/#cli-queries). Its
+/// command line with
+/// [`typst query`]($reference/introspection/query/#command-line-queries). Its
 /// purpose is to expose an arbitrary value to the introspection system. To
 /// identify a metadata value among others, you can attach a [`label`] to it and
 /// query for that label.
