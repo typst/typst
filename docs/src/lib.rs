@@ -15,7 +15,9 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
+use typst::foundations::AutoValue;
 use typst::foundations::Bytes;
+use typst::foundations::NoneValue;
 use typst::foundations::{
     CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
     FOUNDATIONS,
@@ -56,12 +58,21 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     let mut lib = Library::default();
+    let scope = lib.global.scope_mut();
+
+    // Add those types, so that they show up in the docs.
+    scope.category(FOUNDATIONS);
+    scope.define_type::<NoneValue>();
+    scope.define_type::<AutoValue>();
+
+    // Adjust the default look.
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
     lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(15.0).into(),
     )))));
+
     Prehashed::new(lib)
 });
 
@@ -240,7 +251,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
         shorthands = Some(ShorthandsModel { markup, math });
     }
 
-    // Add functions.
+    // Add values and types.
     let scope = module.scope();
     for (name, value) in scope.iter() {
         if scope.get_category(name) != Some(category) {

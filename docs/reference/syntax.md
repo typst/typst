@@ -89,8 +89,20 @@ a table listing all syntax that is available in code mode:
 
 | Name                     | Example                       | See                                |
 | ------------------------ | ----------------------------- | ---------------------------------- |
+| None                     | `{none}`                      | [`none`]                           |
+| Auto                     | `{auto}`                      | [`auto`]                           |
+| Boolean                  | `{false, true}`               | [`bool`]                           |
+| Integer                  | `{10, 0xff}`                  | [`int`]                            |
+| Floating-point number    | `{3.14, 1e5}`                 | [`float`]                          |
+| Length                   | `{2pt, 3mm, 1em, ..}`         | [`length`]                         |
+| Angle                    | `{90deg, 1rad}`               | [`angle`]                          |
+| Fraction                 | `{2fr}`                       | [`fraction`]                       |
+| Ratio                    | `{50%}`                       | [`ratio`]                          |
+| String                   | `{"hello"}`                   | [`str`]                            |
+| Label                    | `{<intro>}`                   | [`label`]                          |
+| Math                     | `[$x^2$]`                     | [Math]($category/math)             |
+| Raw text                 | ``[`print(1)`]``              | [`raw`]                            |
 | Variable access          | `{x}`                         | [Scripting]($scripting/#blocks)    |
-| Any literal              | `{1pt, "hey"}`                | [Scripting]($scripting/#expressions) |
 | Code block               | `{{ let x = 1; x + 2 }}`      | [Scripting]($scripting/#blocks)    |
 | Content block            | `{[*Hello*]}`                 | [Scripting]($scripting/#blocks)    |
 | Parenthesized expression | `{(1 + 2)}`                   | [Scripting]($scripting/#blocks)    |
