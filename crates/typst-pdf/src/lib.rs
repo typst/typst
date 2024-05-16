@@ -89,14 +89,19 @@ pub fn pdf(
 
 /// A struct to build a PDF following a fixed sequence of steps.
 ///
-/// There are three different kind of steps:
-/// - first, all resources that will be later be needed are collected with `construct`.
-/// - then, each kind of resource is stored in the document using `with_resource`
-/// - finally, some global information is written, with `write`
+/// Steps are run in the order given by the successive [`PdfBuilder::with`]
+/// calls. A step can read the current context (`S`) and write to the new part
+/// of the context being built (`S::ToBuild`).
+///
+/// To combine the last state and what was built by the previous steps in a new
+/// state, [`PdfBuilder::then`] is used.
+///
+/// A final step, that has direct access to the global reference allocator and
+/// PDF document, can be run with [`PdfBuilder::export_with`].
 struct PdfBuilder<S: State> {
-    /// Some context about the current document: the different pages, images,
-    /// fonts, and so on.
+    /// The context that has been accumulated so far.
     state: S,
+    /// A new part of the context that is currently being built.
     building: S::ToBuild,
     /// A global bump allocator.
     alloc: Ref,
@@ -104,17 +109,67 @@ struct PdfBuilder<S: State> {
     pdf: Pdf,
 }
 
+/// Current state of a [`PdfBuilder`].
+///
+/// Depending how far in the process of building the PDF document we are, we
+/// have collected more or less information. The different stages and data that
+/// is available at this point are represented by implementors of this trait.
+///
+/// This design ensures that it is not possible to read data that has not
+/// actually been initialized yet.
+///
+/// The differents states are implemented below, in the order they are executed.
 trait State: Sized {
+    /// The data that will be constructed by the next steps.
     type ToBuild;
+    /// The next state, that is a combination of `Self` and `Self::ToBuild`.
+    ///
+    /// States form a chain, linked using this associated type. The last type of
+    /// the chain points to itself.
     type Next: State;
 
+    /// Start building the new data.
     fn start() -> Self::ToBuild;
 
+    // TODO: add a step to allocate globals instead of having alloc here?
+    /// Transition to the next state.
     fn next(self, alloc: &mut Ref, built: Self::ToBuild) -> Self::Next;
 
+    /// In case steps run at this point of the export should also be run in
+    /// sub-contexts, this function should return an iterator over these.
     fn subcontexts<'a>(&'a self) -> impl Iterator<Item = &'a Self>;
 }
 
+/// The initial state: we are exploring the document, collecting all resources
+/// that will be necessary later.
+///
+/// The only step here is [`Pages`].
+struct BuildContent<'a> {
+    document: &'a Document,
+}
+
+impl<'a> State for BuildContent<'a> {
+    type Next = AllocRefs<'a>;
+    type ToBuild = Resources<Self>;
+
+    fn start() -> Self::ToBuild {
+        Resources::default()
+    }
+
+    fn next(self, alloc: &mut Ref, resources: Resources<Self>) -> Self::Next {
+        AllocRefs {
+            document: &self.document,
+            globals: GlobalRefs::new(alloc, self.document.pages.len()),
+            resources: resources.next(alloc),
+        }
+    }
+
+    fn subcontexts(&self) -> impl Iterator<Item = &Self> {
+        std::iter::empty()
+    }
+}
+
+/// All the resources that have been collected when traversing the document.
 struct Resources<S: State> {
     /// Content of exported pages.
     pages: Vec<EncodedPage>,
@@ -190,55 +245,15 @@ impl<S: State> Resources<S> {
     }
 }
 
-impl<'a> BuildContent<'a> {
-    fn new(document: &'a Document) -> Self {
-        BuildContent { document }
-    }
-}
-
-struct BuildContent<'a> {
-    /// The document that we're currently exporting.
-    document: &'a Document,
-}
+/// At this point, the resources have been collected, and global references have
+/// been allocated.
+///
+/// We are now writing objects corresponding to resources, and giving them references,
+/// that will be collected in [`References`].
 struct AllocRefs<'a> {
     document: &'a Document,
     globals: GlobalRefs,
     resources: Resources<Self>,
-}
-struct WritePageTree<'a> {
-    globals: GlobalRefs,
-    document: &'a Document,
-    resources: Resources<Self>,
-    references: References,
-}
-
-struct WriteResources<'a> {
-    globals: GlobalRefs,
-    document: &'a Document,
-    resources: Resources<Self>,
-    references: References,
-    page_tree_ref: Ref,
-}
-
-impl<'a> State for BuildContent<'a> {
-    type Next = AllocRefs<'a>;
-    type ToBuild = Resources<Self>;
-
-    fn start() -> Self::ToBuild {
-        Resources::default()
-    }
-
-    fn next(self, alloc: &mut Ref, resources: Resources<Self>) -> Self::Next {
-        AllocRefs {
-            document: &self.document,
-            globals: GlobalRefs::new(alloc, self.document.pages.len()),
-            resources: resources.next(alloc),
-        }
-    }
-
-    fn subcontexts(&self) -> impl Iterator<Item = &Self> {
-        std::iter::empty()
-    }
 }
 
 impl<'a> State for AllocRefs<'a> {
@@ -266,6 +281,37 @@ impl<'a> State for AllocRefs<'a> {
     }
 }
 
+/// The references that have been assigned to each object.
+#[derive(Default, Debug)]
+struct References {
+    /// A map between elements and their associated labels
+    loc_to_dest: HashMap<Location, Label>,
+    /// A sorted list of all named destinations.
+    dests: Vec<(Label, Ref)>,
+    /// The IDs of written fonts.
+    fonts: HashMap<Font, Ref>,
+    /// The IDs of written color fonts.
+    color_fonts: HashMap<ColorFontSlice, Ref>,
+    /// The IDs of written images.
+    images: HashMap<Image, Ref>,
+    /// The IDs of written gradients.
+    gradients: HashMap<PdfGradient, Ref>,
+    /// The IDs of written patterns.
+    patterns: HashMap<PdfPattern, WrittenPattern>,
+    /// The IDs of written external graphics states.
+    ext_gs: HashMap<ExtGState, Ref>,
+}
+
+/// At this point, the references have been assigned to all resources. The page
+/// tree is going to be written, and given an ID. It is also at this point that
+/// the page contents is actually written.
+struct WritePageTree<'a> {
+    globals: GlobalRefs,
+    document: &'a Document,
+    resources: Resources<Self>,
+    references: References,
+}
+
 impl<'a> State for WritePageTree<'a> {
     type ToBuild = PageTreeRef;
 
@@ -286,8 +332,20 @@ impl<'a> State for WritePageTree<'a> {
     }
 
     fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
+        // The page tree is only relevant for the root context.
         std::iter::empty()
     }
+}
+
+/// The final step: write global resources dictionnaries.
+///
+/// Each subcontext gets its own isolated resource dictionnary.
+struct WriteResources<'a> {
+    globals: GlobalRefs,
+    document: &'a Document,
+    resources: Resources<Self>,
+    references: References,
+    page_tree_ref: Ref,
 }
 
 impl<'a> State for WriteResources<'a> {
@@ -315,6 +373,8 @@ impl<'a> State for WriteResources<'a> {
     }
 }
 
+/// An export step, that does not write anything to the file,
+/// only collects data.
 trait Step<S: State> {
     fn run(&self, state: &S, output: &mut S::ToBuild);
 }
@@ -324,13 +384,29 @@ trait Step<S: State> {
 /// Because what is written is local to the current chunk only, the
 /// output of this step will be renumbered before being saved.
 trait WriteStep<S: State> {
+    /// The kind of data that this steps exports.
+    ///
+    /// This generally corresponds to a field of `S::ToBuild` (or to
+    /// all of it).
     type Output: Default + Renumber;
 
+    /// Runs the step.
+    ///
+    /// References can be allocated using `PdfChunk::alloc`.
+    /// The only way to share references with further steps is through
+    /// `output`, which is renumbered before being shared.
     fn run(&self, state: &S, chunk: &mut PdfChunk, output: &mut Self::Output);
 
+    /// Save the output of this step in the state, after it has been renumbered
+    /// to use global references.
+    ///
+    /// This function is generally implemented as a single assignement to a
+    /// field.
     fn save(context: &mut S::ToBuild, output: Self::Output);
 }
 
+/// This implementation exists to be able to call [`PdfBuilder::with`] on a
+/// [`Step`].
 impl<R: Default + Renumber, S: State<ToBuild = R>, T: Step<S>> WriteStep<S> for T {
     type Output = S::ToBuild;
 
@@ -343,6 +419,10 @@ impl<R: Default + Renumber, S: State<ToBuild = R>, T: Step<S>> WriteStep<S> for 
     }
 }
 
+/// A final step, that exports the PDF document.
+///
+/// It has direct access to the whole state, the PDF document, and the global
+/// allocator.
 trait FinalStep<S: State> {
     fn run(&self, state: S, pdf: &mut Pdf, alloc: &mut Ref);
 }
@@ -353,14 +433,24 @@ impl<'a> PdfBuilder<BuildContent<'a>> {
         Self {
             alloc: Ref::new(1),
             pdf: Pdf::new(),
-            state: BuildContent::new(document),
+            state: BuildContent { document },
             building: Resources::default(),
         }
     }
 }
 
 impl<S: State> PdfBuilder<S> {
+    /// Runs a step with the current state.
     fn with<W: WriteStep<S>>(mut self, step: W) -> Self {
+        // Any reference below that value was already allocated before and
+        // should not be rewritten. Anything above was allocated in the current
+        // chunk, and should be remapped.
+        //
+        // This is a constant (large enough to avoid collisions) and not
+        // dependant on self.alloc to allow for better memoization of steps, if
+        // needed in the future.
+        const TEMPORARY_REFS_START: i32 = 1_000_000_000;
+
         fn write<S: State, W: WriteStep<S>>(
             chunk: &mut PdfChunk,
             mapping: &mut HashMap<Ref, Ref>,
@@ -376,12 +466,12 @@ impl<S: State> PdfBuilder<S> {
         }
 
         let mut output = Default::default();
-        let mut chunk: PdfChunk = PdfChunk::new(ALLOC_SECTION_SIZE);
+        let mut chunk: PdfChunk = PdfChunk::new(TEMPORARY_REFS_START);
         let mut mapping = HashMap::new();
         write(&mut chunk, &mut mapping, &self.state, &mut output, &step);
 
         chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < ALLOC_SECTION_SIZE {
+            if r.get() < TEMPORARY_REFS_START {
                 return r;
             }
             *mapping.entry(r).or_insert_with(|| self.alloc.bump())
@@ -396,6 +486,7 @@ impl<S: State> PdfBuilder<S> {
         self
     }
 
+    /// Transitions to the next state.
     fn then(mut self) -> PdfBuilder<S::Next> {
         PdfBuilder {
             state: self.state.next(&mut self.alloc, self.building),
@@ -405,66 +496,12 @@ impl<S: State> PdfBuilder<S> {
         }
     }
 
+    /// Finalize the PDF export and returns the buffer representing the
+    /// document.
     fn export_with(mut self, step: impl FinalStep<S>) -> Vec<u8> {
         step.run(self.state, &mut self.pdf, &mut self.alloc);
         self.pdf.finish()
     }
-}
-
-#[derive(Default, Debug)]
-struct References {
-    /// A map between elements and their associated labels
-    loc_to_dest: HashMap<Location, Label>,
-    /// A sorted list of all named destinations.
-    dests: Vec<(Label, Ref)>,
-    /// The IDs of written fonts.
-    fonts: HashMap<Font, Ref>,
-    /// The IDs of written color fonts.
-    color_fonts: HashMap<ColorFontSlice, Ref>,
-    /// The IDs of written images.
-    images: HashMap<Image, Ref>,
-    /// The IDs of written gradients.
-    gradients: HashMap<PdfGradient, Ref>,
-    /// The IDs of written patterns.
-    patterns: HashMap<PdfPattern, WrittenPattern>,
-    /// The IDs of written external graphics states.
-    ext_gs: HashMap<ExtGState, Ref>,
-}
-
-const ALLOC_SECTION_SIZE: i32 = 1_000_000;
-
-/// Collects all objects that will have to be embedded in the final PDF.
-///
-/// This can be pages, images, fonts, gradients, etc. They should all be saved
-/// in the `PdfContext` that is being passed to the `write` function.
-/// This function can write to the final document by using the given `PdfChunk`.
-trait PdfConstructor {
-    fn write(&self, context: &mut BuildContent);
-}
-
-/// A specific kind of resource that is present in a PDF document.
-trait PdfResource {
-    type Output: Renumber + Default;
-
-    /// Write all data related to this kind of resource in the document.
-    ///
-    /// This function can return references that are local to `chunk`, they
-    /// will be correctly re-numbered before being saved for later steps.
-    fn write(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output);
-
-    /// Save references that this step exported.
-    fn save(context: &mut References, output: Self::Output);
-}
-
-/// Write global information about the PDF document.
-trait PdfWriter {
-    fn write(
-        &self,
-        pdf: &mut Pdf,
-        alloc: &mut Ref,
-        ctx: &WritePageTree,
-        refs: &mut References,
-    );
 }
 
 /// A reference or collection of references that can be re-numbered,
@@ -477,6 +514,8 @@ impl Renumber for () {
     fn renumber(&mut self, _old: Ref, _new: Ref) {}
 }
 
+// TODO: introduce GlobalRef for that purpose, instead of having PageTreeRef and
+// others (+more type safety I guess)?
 impl Renumber for Ref {
     fn renumber(&mut self, old: Ref, new: Ref) {
         if *self == old {

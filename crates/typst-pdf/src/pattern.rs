@@ -182,10 +182,10 @@ pub struct PatternRemapper<S: State> {
 }
 
 impl<'a> PatternRemapper<BuildContent<'a>> {
-    pub fn new(doc: &'a Document) -> Self {
+    pub fn new(document: &'a Document) -> Self {
         Self {
             remapper: Remapper::new(),
-            ctx: BuildContent::new(doc),
+            ctx: BuildContent { document },
             building: Resources::default(),
         }
     }

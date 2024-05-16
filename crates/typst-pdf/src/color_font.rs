@@ -198,7 +198,7 @@ impl<'a> ColorFontMap<BuildContent<'a>> {
         Self {
             map: IndexMap::new(),
             total_slice_count: 0,
-            ctx: BuildContent::new(document),
+            ctx: BuildContent { document },
             building: Resources::default(),
         }
     }
