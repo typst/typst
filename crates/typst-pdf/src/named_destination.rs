@@ -6,7 +6,7 @@ use typst::introspection::Location;
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, PdfChunk, PdfContext, PdfResource, References, Renumber};
+use crate::{AbsExt, AllocRefs, PdfChunk, References, Renumber, WriteStep};
 
 pub struct NamedDestinations;
 
@@ -24,12 +24,12 @@ impl Renumber for NamedDestinationsOutput {
     }
 }
 
-impl PdfResource for NamedDestinations {
+impl<'a> WriteStep<AllocRefs<'a>> for NamedDestinations {
     type Output = NamedDestinationsOutput;
 
     /// Fills in the map and vector for named destinations and writes the indirect
     /// destination objects.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
         let mut seen = HashSet::new();
 
         // Find all headings that have a label and are the first among other
@@ -51,7 +51,7 @@ impl PdfResource for NamedDestinations {
             let index = pos.page.get() - 1;
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-            if let Some(page) = context.pages.get(index) {
+            if let Some(page) = context.resources.pages.get(index) {
                 let dest_ref = chunk.alloc();
                 let x = pos.point.x.to_f32();
                 let y = (page.content.size.y - y).to_f32();

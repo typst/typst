@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 use pdf_writer::{
     types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle},
-    Filter, Finish, Name, Pdf, Rect, Ref, Str,
+    Filter, Finish, Name, Rect, Ref, Str,
 };
 
 use typst::foundations::Label;
@@ -13,60 +13,100 @@ use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-use crate::{content, AbsExt, PdfConstructor, PdfContext, PdfWriter, References};
+use crate::{
+    content, AbsExt, BuildContent, PdfChunk, Renumber, Step, WritePageTree, WriteStep,
+};
+use crate::{font::improve_glyph_sets, Resources};
 
 pub struct Pages;
 
-impl PdfConstructor for Pages {
+impl<'a> Step<BuildContent<'a>> for Pages {
     /// Construct page objects.
     #[typst_macros::time(name = "construct pages")]
-    fn write(&self, context: &mut PdfContext<()>) {
-        for page in &context.document.pages {
-            let mut encoded = construct_page(context, &page.frame);
+    fn run(&self, state: &BuildContent<'a>, out: &mut Resources<BuildContent<'a>>) {
+        for page in &state.document.pages {
+            let mut encoded = construct_page(state, out, &page.frame);
             encoded.label = page
                 .numbering
                 .as_ref()
                 .and_then(|num| PdfPageLabel::generate(num, page.number));
-            context.pages.push(encoded);
+            out.pages.push(encoded);
         }
+
+        improve_glyph_sets(&mut out.glyph_sets)
     }
 }
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page(res: &mut PdfContext<()>, frame: &Frame) -> EncodedPage {
-    let content = content::build(res, frame);
+pub(crate) fn construct_page<'a, 'b>(
+    state: &'a BuildContent<'b>,
+    out: &'a mut Resources<BuildContent<'b>>,
+    frame: &Frame,
+) -> EncodedPage {
+    let content = content::build(state, out, frame);
 
     EncodedPage { content, label: None }
 }
 
 pub struct PageTree;
+pub struct PageTreeRef(pub Ref);
 
-impl PdfWriter for PageTree {
+impl Default for PageTreeRef {
+    fn default() -> Self {
+        PageTreeRef(Ref::new(1))
+    }
+}
+
+impl Renumber for PageTreeRef {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        self.0.renumber(old, new)
+    }
+}
+
+impl<'a> WriteStep<WritePageTree<'a>> for PageTree {
+    type Output = PageTreeRef;
+
     /// Write the page tree.
+    fn run(&self, ctx: &WritePageTree, chunk: &mut PdfChunk, out: &mut PageTreeRef) {
+        let page_tree_ref = chunk.alloc.bump();
 
-    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
-        for i in 0..ctx.pages.len() {
-            write_page(pdf, ctx, alloc.bump(), &refs.loc_to_dest, i);
+        for i in 0..ctx.resources.pages.len() {
+            let content_id = chunk.alloc.bump();
+            write_page(
+                chunk,
+                ctx,
+                content_id,
+                page_tree_ref,
+                &ctx.references.loc_to_dest,
+                i,
+            );
         }
 
-        pdf.pages(ctx.globals.page_tree)
-            .count(ctx.pages.len() as i32)
+        chunk
+            .pages(page_tree_ref)
+            .count(ctx.resources.pages.len() as i32)
             .kids(ctx.globals.pages.iter().copied());
+
+        *out = PageTreeRef(page_tree_ref)
+    }
+
+    fn save(page_tree_ref: &mut PageTreeRef, output: PageTreeRef) {
+        *page_tree_ref = output;
     }
 }
 
 /// Write a page tree node.
 fn write_page(
-    chunk: &mut Pdf,
-    ctx: &PdfContext,
+    chunk: &mut PdfChunk,
+    ctx: &WritePageTree,
     content_id: Ref,
+    page_tree_ref: Ref,
     loc_to_dest: &HashMap<Location, Label>,
     i: usize,
 ) {
-    let page = &ctx.pages[i];
+    let page = &ctx.resources.pages[i];
 
-    let page_tree_ref = ctx.globals.page_tree;
     let global_resources_ref = ctx.globals.resources;
     let mut page_writer = chunk.page(ctx.globals.pages[i]);
     page_writer.parent(page_tree_ref);
@@ -119,7 +159,7 @@ fn write_page(
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        if let Some(page) = ctx.resources.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)

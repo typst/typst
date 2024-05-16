@@ -23,12 +23,16 @@ use typst::visualize::{
 
 use crate::{
     color::PaintEncode, color_font::ColorFontMap, deflate_deferred, extg::ExtGState,
-    image::deferred_image, AbsExt, EmExt, PdfContext,
+    image::deferred_image, AbsExt, BuildContent, EmExt, Resources,
 };
 
-pub fn build(ctx: &mut PdfContext<()>, frame: &Frame) -> Encoded {
+pub fn build<'a, 'b>(
+    state: &'a BuildContent<'b>,
+    out: &'a mut Resources<BuildContent<'b>>,
+    frame: &Frame,
+) -> Encoded {
     let size = frame.size();
-    let mut ctx = Builder::new(ctx, size);
+    let mut ctx = Builder::new(state, out, size);
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
@@ -70,7 +74,8 @@ pub struct Encoded {
 /// Content streams can be used for page contents, but also to describe color
 /// glyphs and patterns.
 pub struct Builder<'a, 'b> {
-    pub(crate) parent: &'a mut PdfContext<'b, ()>,
+    pub(crate) global_state: &'a BuildContent<'b>,
+    pub(crate) resources: &'a mut Resources<BuildContent<'b>>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -80,9 +85,14 @@ pub struct Builder<'a, 'b> {
 }
 
 impl<'a, 'b> Builder<'a, 'b> {
-    pub fn new(parent: &'a mut PdfContext<'b, ()>, size: Size) -> Self {
+    pub fn new(
+        state: &'a BuildContent<'b>,
+        resources: &'a mut Resources<BuildContent<'b>>,
+        size: Size,
+    ) -> Self {
         Builder {
-            parent,
+            global_state: state,
+            resources,
             uses_opacities: false,
             content: Content::new(),
             state: State::new(size),
@@ -167,7 +177,7 @@ impl Builder<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            let index = self.parent.ext_gs.insert(*graphics_state);
+            let index = self.resources.ext_gs.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
 
@@ -224,7 +234,7 @@ impl Builder<'_, '_> {
 
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
-            let index = self.parent.fonts.insert(font.clone());
+            let index = self.resources.fonts.insert(font.clone());
             let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.state.font = Some((font.clone(), size));
@@ -414,9 +424,9 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
-    *ctx.parent.languages.entry(text.item.lang).or_insert(0) += text.glyph_range.len();
+    *ctx.resources.languages.entry(text.item.lang).or_insert(0) += text.glyph_range.len();
 
-    let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
+    let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
     for g in text.glyphs() {
         let t = text.text();
         let segment = &t[g.range()];
@@ -500,14 +510,13 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
     // displays regular glyphs and not color glyphs.
     ctx.state.font = None;
 
-    let glyph_set = ctx.parent.glyph_sets.entry(text.item.font.clone()).or_default();
+    let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let color_fonts = ctx
-            .parent
-            .color_fonts
-            .get_or_insert_with(|| Box::new(ColorFontMap::new(ctx.parent.document)));
+        let color_fonts = ctx.resources.color_fonts.get_or_insert_with(|| {
+            Box::new(ColorFontMap::new(ctx.global_state.document))
+        });
         let (font, index) = color_fonts.get(&text.item.font, glyph.id);
 
         if last_font != Some(font) {
@@ -610,8 +619,8 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
 
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
-    let index = ctx.parent.images.insert(image.clone());
-    ctx.parent
+    let index = ctx.resources.images.insert(image.clone());
+    ctx.resources
         .deferred_images
         .entry(index)
         .or_insert_with(|| deferred_image(image.clone()));

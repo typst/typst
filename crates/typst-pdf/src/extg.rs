@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use pdf_writer::Ref;
 
-use crate::{PdfChunk, PdfContext, PdfResource};
+use crate::{AllocRefs, PdfChunk, WriteStep};
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -27,12 +27,12 @@ impl ExtGState {
 
 pub struct ExtGraphicsState;
 
-impl PdfResource for ExtGraphicsState {
+impl<'a> WriteStep<AllocRefs<'a>> for ExtGraphicsState {
     type Output = HashMap<ExtGState, Ref>;
 
     /// Embed all used external graphics states into the PDF.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        for external_gs in context.ext_gs.items() {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        for external_gs in context.resources.ext_gs.items() {
             if out.contains_key(external_gs) {
                 continue;
             }

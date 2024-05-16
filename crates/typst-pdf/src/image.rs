@@ -9,22 +9,22 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, PdfChunk, PdfContext, PdfResource};
+use crate::{deflate, AllocRefs, PdfChunk, WriteStep};
 
 pub struct Images;
 
-impl PdfResource for Images {
+impl<'a> WriteStep<AllocRefs<'a>> for Images {
     type Output = HashMap<Image, Ref>;
 
     /// Embed all used images into the PDF.
     #[typst_macros::time(name = "write images")]
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        for (i, image) in context.images.items().enumerate() {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        for (i, image) in context.resources.images.items().enumerate() {
             if out.contains_key(image) {
                 continue;
             }
 
-            let handle = context.deferred_images.get(&i).unwrap();
+            let handle = context.resources.deferred_images.get(&i).unwrap();
             match handle.wait() {
                 EncodedImage::Raster {
                     data,
@@ -51,9 +51,13 @@ impl PdfResource for Images {
                         space.icc_based(id);
                         icc_ref = Some(id);
                     } else if *has_color {
-                        context.colors.write(ColorSpace::Srgb, space, &context.globals);
+                        context.resources.colors.write(
+                            ColorSpace::Srgb,
+                            space,
+                            &context.globals,
+                        );
                     } else {
-                        context.colors.write(
+                        context.resources.colors.write(
                             ColorSpace::D65Gray,
                             space,
                             &context.globals,

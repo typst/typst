@@ -10,20 +10,24 @@ use typst::foundations::{Datetime, Smart};
 use typst::layout::Dir;
 use typst::text::Lang;
 
-use crate::{
-    hash_base64, outline, page::PdfPageLabel, PdfContext, PdfWriter, References,
-};
+use crate::{hash_base64, outline, page::PdfPageLabel};
+use crate::{FinalStep, WriteResources};
 
 pub struct Catalog<'a> {
     pub ident: Smart<&'a str>,
     pub timestamp: Option<Datetime>,
 }
 
-impl<'a> PdfWriter for Catalog<'a> {
+impl<'a> FinalStep<WriteResources<'a>> for Catalog<'a> {
     /// Write the document catalog.
 
-    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
-        let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
+    fn run(&self, ctx: WriteResources, pdf: &mut Pdf, alloc: &mut Ref) {
+        let lang = ctx
+            .resources
+            .languages
+            .iter()
+            .max_by_key(|(_, &count)| count)
+            .map(|(&l, _)| l);
 
         let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
             Direction::R2L
@@ -32,10 +36,10 @@ impl<'a> PdfWriter for Catalog<'a> {
         };
 
         // Write the outline tree.
-        let outline_root_id = outline::write_outline(pdf, alloc, ctx);
+        let outline_root_id = outline::write_outline(pdf, alloc, &ctx);
 
         // Write the page labels.
-        let page_labels = write_page_labels(pdf, alloc, ctx);
+        let page_labels = write_page_labels(pdf, alloc, &ctx);
 
         // Write the document information.
         let info_ref = alloc.bump();
@@ -95,7 +99,7 @@ impl<'a> PdfWriter for Catalog<'a> {
         info.finish();
         xmp.num_pages(ctx.document.pages.len() as u32);
         xmp.format("application/pdf");
-        xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
+        xmp.language(ctx.resources.languages.keys().map(|lang| LangId(lang.as_str())));
 
         // A unique ID for this instance of the document. Changes if anything
         // changes in the frames.
@@ -132,7 +136,7 @@ impl<'a> PdfWriter for Catalog<'a> {
         // Write the document catalog.
         let catalog_ref = alloc.bump();
         let mut catalog = pdf.catalog(catalog_ref);
-        catalog.pages(ctx.globals.page_tree);
+        catalog.pages(ctx.page_tree_ref);
         catalog.viewer_preferences().direction(dir);
         catalog.metadata(meta_ref);
 
@@ -140,7 +144,7 @@ impl<'a> PdfWriter for Catalog<'a> {
         let mut name_dict = catalog.names();
         let mut dests_name_tree = name_dict.destinations();
         let mut names = dests_name_tree.names();
-        for &(name, dest_ref, ..) in &refs.dests {
+        for &(name, dest_ref, ..) in &ctx.references.dests {
             names.insert(Str(name.as_str().as_bytes()), dest_ref);
         }
         names.finish();
@@ -172,10 +176,10 @@ impl<'a> PdfWriter for Catalog<'a> {
 pub(crate) fn write_page_labels(
     chunk: &mut Pdf,
     alloc: &mut Ref,
-    ctx: &PdfContext,
+    ctx: &WriteResources,
 ) -> Vec<(NonZeroUsize, Ref)> {
     // If there is no page labeled, we skip the writing
-    if !ctx.pages.iter().any(|p| {
+    if !ctx.resources.pages.iter().any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
@@ -187,7 +191,7 @@ pub(crate) fn write_page_labels(
     let empty_label = PdfPageLabel::default();
     let mut prev: Option<&PdfPageLabel> = None;
 
-    for (i, page) in ctx.pages.iter().enumerate() {
+    for (i, page) in ctx.resources.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
         // If there are pages with empty labels between labeled pages, we must
         // write empty PageLabel entries.

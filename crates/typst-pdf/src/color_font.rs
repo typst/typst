@@ -13,18 +13,18 @@ use typst::text::{color::frame_for_glyph, Font};
 use crate::{
     content,
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
-    EmExt, PdfChunk, PdfContext,
+    EmExt, PdfChunk,
 };
-use crate::{GlobalRefs, PdfResource};
+use crate::{AllocRefs, BuildContent, Resources, State, WriteStep};
 
 pub struct ColorFonts;
 
-impl PdfResource for ColorFonts {
+impl<'a> WriteStep<AllocRefs<'a>> for ColorFonts {
     type Output = HashMap<ColorFontSlice, Ref>;
 
     /// Writes color fonts as Type3 fonts
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        let Some(color_fonts) = &context.color_fonts else {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        let Some(color_fonts) = &context.resources.color_fonts else {
             return;
         };
 
@@ -117,7 +117,7 @@ impl PdfResource for ColorFonts {
                 pdf_font.finish();
 
                 // Encode a CMAP to make it possible to search or copy glyphs.
-                let glyph_set = context.glyph_sets.get(&font).unwrap();
+                let glyph_set = context.resources.glyph_sets.get(&font).unwrap();
                 let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
                 for (index, glyph) in subset.iter().enumerate() {
                     let Some(text) = glyph_set.get(&glyph.gid) else {
@@ -154,11 +154,12 @@ impl PdfResource for ColorFonts {
 ///
 /// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
 /// font, and fonts generally have more color glyphs than that.
-pub struct ColorFontMap<'a, G> {
+pub struct ColorFontMap<S: State> {
     /// The mapping itself.
     pub map: IndexMap<Font, ColorFont>,
     /// The context that is used to draw all color glyphs.
-    pub ctx: PdfContext<'a, G>,
+    pub ctx: S,
+    building: S::ToBuild,
     /// The number of font slices (groups of 256 color glyphs), across all color
     /// fonts.
     total_slice_count: usize,
@@ -191,21 +192,14 @@ pub struct ColorGlyph {
     pub instructions: content::Encoded,
 }
 
-impl<'a> ColorFontMap<'a, ()> {
+impl<'a> ColorFontMap<BuildContent<'a>> {
     /// Creates a new empty mapping
     pub fn new(document: &'a Document) -> Self {
         Self {
             map: IndexMap::new(),
             total_slice_count: 0,
-            ctx: PdfContext::new(document),
-        }
-    }
-
-    pub fn with_globals(self, alloc: &mut Ref) -> ColorFontMap<'a, GlobalRefs> {
-        ColorFontMap {
-            map: self.map,
-            total_slice_count: self.total_slice_count,
-            ctx: self.ctx.with_globals(alloc),
+            ctx: BuildContent::new(document),
+            building: Resources::default(),
         }
     }
 
@@ -239,7 +233,7 @@ impl<'a> ColorFontMap<'a, ()> {
             }
 
             let frame = frame_for_glyph(font, gid);
-            let instructions = content::build(&mut self.ctx, &frame);
+            let instructions = content::build(&self.ctx, &mut self.building, &frame);
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
@@ -248,7 +242,18 @@ impl<'a> ColorFontMap<'a, ()> {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+impl<'a, S: State> ColorFontMap<S> {
+    pub fn next(self, alloc: &mut Ref) -> ColorFontMap<S::Next> {
+        ColorFontMap {
+            map: self.map,
+            total_slice_count: self.total_slice_count,
+            ctx: self.ctx.next(alloc, self.building),
+            building: S::Next::start(),
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub struct ColorFontSlice {
     pub font: Font,
     pub subfont: usize,

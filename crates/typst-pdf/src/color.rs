@@ -258,7 +258,7 @@ impl PaintEncode for Color {
     fn set_as_fill(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
         match self {
             Color::Luma(_) => {
-                ctx.parent.colors.d65_gray();
+                ctx.resources.colors.d65_gray();
                 ctx.set_fill_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -266,21 +266,21 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.parent.colors.oklab();
+                ctx.resources.colors.oklab();
                 ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_fill_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
-                ctx.parent.colors.linear_rgb();
+                ctx.resources.colors.linear_rgb();
                 ctx.set_fill_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                ctx.parent.colors.srgb();
+                ctx.resources.colors.srgb();
                 ctx.set_fill_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
@@ -298,7 +298,7 @@ impl PaintEncode for Color {
     fn set_as_stroke(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
         match self {
             Color::Luma(_) => {
-                ctx.parent.colors.d65_gray();
+                ctx.resources.colors.d65_gray();
                 ctx.set_stroke_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -306,21 +306,21 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.parent.colors.oklab();
+                ctx.resources.colors.oklab();
                 ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_stroke_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
-                ctx.parent.colors.linear_rgb();
+                ctx.resources.colors.linear_rgb();
                 ctx.set_stroke_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                ctx.parent.colors.srgb();
+                ctx.resources.colors.srgb();
                 ctx.set_stroke_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);

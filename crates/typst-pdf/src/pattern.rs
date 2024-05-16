@@ -13,22 +13,22 @@ use typst::{
     model::Document,
 };
 
-use crate::{color::PaintEncode, Remapper};
-use crate::{content, GlobalRefs};
-use crate::{transform_to_array, PdfChunk, PdfContext, PdfResource, Renumber};
+use crate::{color::PaintEncode, AllocRefs, BuildContent, Remapper, Resources, State};
+use crate::{content, WriteStep};
+use crate::{transform_to_array, PdfChunk, Renumber};
 
 pub struct Patterns;
 
-impl PdfResource for Patterns {
+impl<'a> WriteStep<AllocRefs<'a>> for Patterns {
     type Output = HashMap<PdfPattern, WrittenPattern>;
 
     /// Writes the actual patterns (tiling patterns) to the PDF.
     /// This is performed once after writing all pages.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        let Some(patterns) = &context.patterns else {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        let Some(patterns) = &context.resources.patterns else {
             return;
         };
-        let pattern_map = &patterns.remapper.to_items;
+        let pattern_map: &Vec<PdfPattern> = &patterns.remapper.to_items;
 
         for pdf_pattern in pattern_map {
             let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
@@ -77,6 +77,7 @@ impl PdfResource for Patterns {
     }
 }
 
+#[derive(Debug)]
 pub struct WrittenPattern {
     /// Reference to the pattern itself
     pub pattern_ref: Ref,
@@ -92,7 +93,7 @@ impl Renumber for WrittenPattern {
 }
 
 /// A pattern and its transform.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PdfPattern {
     /// The transform to apply to the pattern.
     pub transform: Transform,
@@ -110,9 +111,9 @@ fn register_pattern(
     mut transforms: content::Transforms,
 ) -> usize {
     let patterns = ctx
-        .parent
+        .resources
         .patterns
-        .get_or_insert_with(|| Box::new(PatternRemapper::new(ctx.parent.document)));
+        .get_or_insert_with(|| Box::new(PatternRemapper::new(ctx.global_state.document)));
 
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
@@ -129,7 +130,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(&mut patterns.ctx, pattern.frame());
+    let content = content::build(&patterns.ctx, &mut patterns.building, pattern.frame());
 
     let pdf_pattern = PdfPattern {
         transform,
@@ -174,23 +175,28 @@ impl PaintEncode for Pattern {
     }
 }
 
-pub struct PatternRemapper<'a, G> {
+pub struct PatternRemapper<S: State> {
     pub remapper: Remapper<PdfPattern>,
-    pub ctx: PdfContext<'a, G>,
+    pub ctx: S,
+    building: S::ToBuild,
 }
 
-impl<'a> PatternRemapper<'a, ()> {
+impl<'a> PatternRemapper<BuildContent<'a>> {
     pub fn new(doc: &'a Document) -> Self {
         Self {
             remapper: Remapper::new(),
-            ctx: PdfContext::new(doc),
+            ctx: BuildContent::new(doc),
+            building: Resources::default(),
         }
     }
+}
 
-    pub fn with_globals(self, alloc: &mut Ref) -> PatternRemapper<'a, GlobalRefs> {
+impl<S: State> PatternRemapper<S> {
+    pub fn next(self, alloc: &mut Ref) -> PatternRemapper<S::Next> {
         PatternRemapper {
             remapper: self.remapper,
-            ctx: self.ctx.with_globals(alloc),
+            ctx: self.ctx.next(alloc, self.building),
+            building: S::Next::start(),
         }
     }
 }

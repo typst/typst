@@ -6,13 +6,13 @@ use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, PdfContext};
+use crate::{AbsExt, WriteResources};
 
 /// Construct the outline for the document.
 pub(crate) fn write_outline(
     chunk: &mut Pdf,
     alloc: &mut Ref,
-    ctx: &PdfContext,
+    ctx: &WriteResources,
 ) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
 
@@ -147,7 +147,7 @@ impl<'a> HeadingNode<'a> {
 
 /// Write an outline item and all its children.
 fn write_outline_item(
-    ctx: &PdfContext,
+    ctx: &WriteResources,
     chunk: &mut Pdf,
     alloc: &mut Ref,
     node: &HeadingNode,
@@ -181,7 +181,7 @@ fn write_outline_item(
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
     let index = pos.page.get() - 1;
-    if let Some(page) = ctx.pages.get(index) {
+    if let Some(page) = ctx.resources.pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
         outline.dest().page(ctx.globals.pages[index]).xyz(
             pos.point.x.to_f32(),

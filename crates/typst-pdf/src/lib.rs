@@ -21,6 +21,7 @@ use std::ops::{Deref, DerefMut};
 use base64::Engine;
 use color_font::ColorFontSlice;
 use ecow::EcoString;
+use page::PageTreeRef;
 use pattern::PatternRemapper;
 use pdf_writer::{Chunk, Pdf, Ref};
 
@@ -36,7 +37,7 @@ use crate::catalog::Catalog;
 use crate::color::ColorSpaces;
 use crate::color_font::{ColorFontMap, ColorFonts};
 use crate::extg::{ExtGState, ExtGraphicsState};
-use crate::font::{improve_glyph_sets, Fonts};
+use crate::font::Fonts;
 use crate::gradient::{Gradients, PdfGradient};
 use crate::image::{EncodedImage, Images};
 use crate::named_destination::NamedDestinations;
@@ -70,18 +71,20 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     PdfBuilder::new(document)
-        .construct(Pages)
-        .with_resource(ColorFonts)
-        .with_resource(Fonts)
-        .with_resource(Images)
-        .with_resource(Gradients)
-        .with_resource(ExtGraphicsState)
-        .with_resource(Patterns)
-        .with_resource(NamedDestinations)
-        .write(PageTree)
-        .write(GlobalResources)
-        .write(Catalog { ident, timestamp })
-        .export()
+        .with(Pages)
+        .then()
+        .with(ColorFonts)
+        .with(Fonts)
+        .with(Images)
+        .with(Gradients)
+        .with(ExtGraphicsState)
+        .with(Patterns)
+        .with(NamedDestinations)
+        .then()
+        .with(PageTree)
+        .then()
+        .with(GlobalResources)
+        .export_with(Catalog { ident, timestamp })
 }
 
 /// A struct to build a PDF following a fixed sequence of steps.
@@ -90,152 +93,325 @@ pub fn pdf(
 /// - first, all resources that will be later be needed are collected with `construct`.
 /// - then, each kind of resource is stored in the document using `with_resource`
 /// - finally, some global information is written, with `write`
-struct PdfBuilder<'a, G> {
+struct PdfBuilder<S: State> {
     /// Some context about the current document: the different pages, images,
     /// fonts, and so on.
-    context: PdfContext<'a, G>,
-    /// A list of all references that were allocated for the resources of this
-    /// PDF document.
-    references: References,
+    state: S,
+    building: S::ToBuild,
     /// A global bump allocator.
     alloc: Ref,
     /// The PDF document that is being written.
     pdf: Pdf,
-    current_alloc_section: i32,
-    globals_count: i32,
 }
 
-impl<'a> PdfBuilder<'a, ()> {
+trait State: Sized {
+    type ToBuild;
+    type Next: State;
+
+    fn start() -> Self::ToBuild;
+
+    fn next(self, alloc: &mut Ref, built: Self::ToBuild) -> Self::Next;
+
+    fn subcontexts<'a>(&'a self) -> impl Iterator<Item = &'a Self>;
+}
+
+struct Resources<S: State> {
+    /// Content of exported pages.
+    pages: Vec<EncodedPage>,
+    /// The number of glyphs for all referenced languages in the document.
+    /// We keep track of this to determine the main document language.
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
+
+    /// For each font a mapping from used glyphs to their text representation.
+    /// May contain multiple chars in case of ligatures or similar things. The
+    /// same glyph can have a different text representation within one document,
+    /// then we just save the first one. The resulting strings are used for the
+    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
+    /// cmap. This is important for copy-paste and searching.
+    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+
+    /// Handles color space writing.
+    colors: ColorSpaces,
+
+    /// Deduplicates fonts used across the document.
+    fonts: Remapper<Font>,
+    /// Deduplicates images used across the document.
+    images: Remapper<Image>,
+    /// Handles to deferred image conversions.
+    deferred_images: HashMap<usize, Deferred<EncodedImage>>,
+    /// Deduplicates gradients used across the document.
+    gradients: Remapper<PdfGradient>,
+    /// Deduplicates patterns used across the document.
+    patterns: Option<Box<PatternRemapper<S>>>,
+    /// Deduplicates external graphics states used across the document.
+    ext_gs: Remapper<ExtGState>,
+    /// Deduplicates color glyphs.
+    color_fonts: Option<Box<ColorFontMap<S>>>,
+}
+
+impl<S: State> Renumber for Resources<S> {
+    fn renumber(&mut self, _old: Ref, _new: Ref) {}
+}
+
+impl<S: State> Default for Resources<S> {
+    fn default() -> Self {
+        Resources {
+            pages: Vec::new(),
+            glyph_sets: HashMap::new(),
+            languages: BTreeMap::new(),
+            colors: ColorSpaces::default(),
+            fonts: Remapper::new(),
+            images: Remapper::new(),
+            deferred_images: HashMap::new(),
+            gradients: Remapper::new(),
+            patterns: None,
+            ext_gs: Remapper::new(),
+            color_fonts: None,
+        }
+    }
+}
+
+impl<S: State> Resources<S> {
+    fn next(self, alloc: &mut Ref) -> Resources<S::Next> {
+        Resources::<S::Next> {
+            pages: self.pages,
+            languages: self.languages,
+            glyph_sets: self.glyph_sets,
+            colors: self.colors,
+            fonts: self.fonts,
+            images: self.images,
+            deferred_images: self.deferred_images,
+            gradients: self.gradients,
+            patterns: self.patterns.map(|p| Box::new((*p).next(alloc))),
+            ext_gs: self.ext_gs,
+            color_fonts: self.color_fonts.map(|c| Box::new((*c).next(alloc))),
+        }
+    }
+}
+
+impl<'a> BuildContent<'a> {
+    fn new(document: &'a Document) -> Self {
+        BuildContent { document }
+    }
+}
+
+struct BuildContent<'a> {
+    /// The document that we're currently exporting.
+    document: &'a Document,
+}
+struct AllocRefs<'a> {
+    document: &'a Document,
+    globals: GlobalRefs,
+    resources: Resources<Self>,
+}
+struct WritePageTree<'a> {
+    globals: GlobalRefs,
+    document: &'a Document,
+    resources: Resources<Self>,
+    references: References,
+}
+
+struct WriteResources<'a> {
+    globals: GlobalRefs,
+    document: &'a Document,
+    resources: Resources<Self>,
+    references: References,
+    page_tree_ref: Ref,
+}
+
+impl<'a> State for BuildContent<'a> {
+    type Next = AllocRefs<'a>;
+    type ToBuild = Resources<Self>;
+
+    fn start() -> Self::ToBuild {
+        Resources::default()
+    }
+
+    fn next(self, alloc: &mut Ref, resources: Resources<Self>) -> Self::Next {
+        AllocRefs {
+            document: &self.document,
+            globals: GlobalRefs::new(alloc, self.document.pages.len()),
+            resources: resources.next(alloc),
+        }
+    }
+
+    fn subcontexts(&self) -> impl Iterator<Item = &Self> {
+        std::iter::empty()
+    }
+}
+
+impl<'a> State for AllocRefs<'a> {
+    type ToBuild = References;
+
+    type Next = WritePageTree<'a>;
+
+    fn start() -> Self::ToBuild {
+        References::default()
+    }
+
+    fn next(self, alloc: &mut Ref, references: References) -> Self::Next {
+        WritePageTree {
+            document: &self.document,
+            resources: self.resources.next(alloc),
+            globals: self.globals,
+            references,
+        }
+    }
+
+    fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
+        let x = self.resources.patterns.as_ref().map(|p| &p.ctx).into_iter();
+        let y = self.resources.color_fonts.as_ref().map(|c| &c.ctx).into_iter();
+        y.chain(x)
+    }
+}
+
+impl<'a> State for WritePageTree<'a> {
+    type ToBuild = PageTreeRef;
+
+    type Next = WriteResources<'a>;
+
+    fn start() -> Self::ToBuild {
+        PageTreeRef(Ref::new(1))
+    }
+
+    fn next(self, alloc: &mut Ref, page_tree_ref: PageTreeRef) -> Self::Next {
+        WriteResources {
+            globals: self.globals,
+            document: self.document,
+            resources: self.resources.next(alloc),
+            references: self.references,
+            page_tree_ref: page_tree_ref.0,
+        }
+    }
+
+    fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
+        std::iter::empty()
+    }
+}
+
+impl<'a> State for WriteResources<'a> {
+    type ToBuild = ();
+
+    type Next = Self;
+
+    fn start() -> Self::ToBuild {
+        ()
+    }
+
+    fn next(self, _alloc: &mut Ref, (): ()) -> Self::Next {
+        self
+    }
+
+    fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
+        // HACK: because WriteStep::save is only called on the top level
+        // context, subcontexts always have empty References, which crashes the
+        // GlobalResources step.
+        //
+        // For the moment, we do as if there were no subcontext here, and
+        // manually recurse (but always with the root references) in
+        // GlobalResources::run.
+        std::iter::empty()
+    }
+}
+
+trait Step<S: State> {
+    fn run(&self, state: &S, output: &mut S::ToBuild);
+}
+
+/// Same as [`Step`] but also writes a part of the final PDF file.
+///
+/// Because what is written is local to the current chunk only, the
+/// output of this step will be renumbered before being saved.
+trait WriteStep<S: State> {
+    type Output: Default + Renumber;
+
+    fn run(&self, state: &S, chunk: &mut PdfChunk, output: &mut Self::Output);
+
+    fn save(context: &mut S::ToBuild, output: Self::Output);
+}
+
+impl<R: Default + Renumber, S: State<ToBuild = R>, T: Step<S>> WriteStep<S> for T {
+    type Output = S::ToBuild;
+
+    fn run(&self, state: &S, _chunk: &mut PdfChunk, output: &mut Self::Output) {
+        self.run(state, output);
+    }
+
+    fn save(context: &mut <S as State>::ToBuild, output: Self::Output) {
+        *context = output;
+    }
+}
+
+trait FinalStep<S: State> {
+    fn run(&self, state: S, pdf: &mut Pdf, alloc: &mut Ref);
+}
+
+impl<'a> PdfBuilder<BuildContent<'a>> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
-            references: References::default(),
             alloc: Ref::new(1),
             pdf: Pdf::new(),
-            context: PdfContext::new(document),
-            current_alloc_section: 1,
-            globals_count: 0,
-        }
-    }
-
-    /// Run a [`PdfConstructor`] in the context of this document.
-    fn construct(
-        mut self,
-        constructor: impl PdfConstructor,
-    ) -> PdfBuilder<'a, GlobalRefs> {
-        constructor.write(&mut self.context);
-
-        improve_glyph_sets(&mut self.context.glyph_sets);
-
-        let new_ctx = self.context.with_globals(&mut self.alloc);
-
-        /// Remap globals and return the number of allocated global references
-        /// (including those in subcontexts).
-        fn count_globals<'a>(ctx: &PdfContext<'a>) -> i32 {
-            ctx.globals.len() as i32
-                + ctx.color_fonts.as_ref().map(|x| count_globals(&x.ctx)).unwrap_or(0)
-                + ctx.patterns.as_ref().map(|x| count_globals(&x.ctx)).unwrap_or(0)
-        }
-        let globals_count = count_globals(&new_ctx);
-
-        PdfBuilder {
-            context: new_ctx,
-            references: self.references,
-            alloc: self.alloc,
-            pdf: self.pdf,
-            current_alloc_section: self.current_alloc_section,
-            globals_count,
+            state: BuildContent::new(document),
+            building: Resources::default(),
         }
     }
 }
 
-impl<'a> PdfBuilder<'a, GlobalRefs> {
-    /// Write data related to a [`PdfResource`] in the document.
-    fn with_resource<R: PdfResource>(mut self, resource: R) -> Self {
-        fn write<R: PdfResource>(
-            globals_count: i32,
+impl<S: State> PdfBuilder<S> {
+    fn with<W: WriteStep<S>>(mut self, step: W) -> Self {
+        fn write<S: State, W: WriteStep<S>>(
+            chunk: &mut PdfChunk,
             mapping: &mut HashMap<Ref, Ref>,
-            current_alloc_section: &mut i32,
-            alloc: &mut Ref,
-            pdf: &mut Pdf,
-            resource: &R,
-            ctx: &PdfContext,
-            output: &mut R::Output,
+            ctx: &S,
+            output: &mut W::Output,
+            step: &W,
         ) {
-            let mut chunk: PdfChunk =
-                PdfChunk::new(*current_alloc_section * ALLOC_SECTION_SIZE);
-            *current_alloc_section += 1;
+            step.run(ctx, chunk, output);
 
-            resource.write(ctx, &mut chunk, output);
-            chunk.renumber_into(pdf, |r| {
-                if r.get() < globals_count {
-                    return r;
-                }
-                *mapping.entry(r).or_insert_with(|| alloc.bump())
-            });
-
-            if let Some(color_fonts) = &ctx.color_fonts {
-                write(
-                    globals_count,
-                    mapping,
-                    current_alloc_section,
-                    alloc,
-                    pdf,
-                    resource,
-                    &color_fonts.ctx,
-                    output,
-                );
-            }
-            if let Some(patterns) = &ctx.patterns {
-                write(
-                    globals_count,
-                    mapping,
-                    current_alloc_section,
-                    alloc,
-                    pdf,
-                    resource,
-                    &patterns.ctx,
-                    output,
-                );
+            for subcontext in ctx.subcontexts() {
+                write(chunk, mapping, subcontext, output, step);
             }
         }
 
         let mut output = Default::default();
-
+        let mut chunk: PdfChunk = PdfChunk::new(ALLOC_SECTION_SIZE);
         let mut mapping = HashMap::new();
-        write(
-            self.globals_count,
-            &mut mapping,
-            &mut self.current_alloc_section,
-            &mut self.alloc,
-            &mut self.pdf,
-            &resource,
-            &self.context,
-            &mut output,
-        );
+        write(&mut chunk, &mut mapping, &self.state, &mut output, &step);
+
+        chunk.renumber_into(&mut self.pdf, |r| {
+            if r.get() < ALLOC_SECTION_SIZE {
+                return r;
+            }
+            *mapping.entry(r).or_insert_with(|| self.alloc.bump())
+        });
 
         for (old, new) in mapping {
             output.renumber(old, new);
         }
 
-        R::save(&mut self.references, output);
+        W::save(&mut self.building, output);
 
         self
     }
 
-    /// Write some global information in the document.
-    fn write(mut self, writer: impl PdfWriter) -> Self {
-        writer.write(&mut self.pdf, &mut self.alloc, &self.context, &self.references);
-        self
+    fn then(mut self) -> PdfBuilder<S::Next> {
+        PdfBuilder {
+            state: self.state.next(&mut self.alloc, self.building),
+            building: S::Next::start(),
+            alloc: self.alloc,
+            pdf: self.pdf,
+        }
     }
 
-    /// The buffer that represents the finished PDF file.
-    fn export(self) -> Vec<u8> {
+    fn export_with(mut self, step: impl FinalStep<S>) -> Vec<u8> {
+        step.run(self.state, &mut self.pdf, &mut self.alloc);
         self.pdf.finish()
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct References {
     /// A map between elements and their associated labels
     loc_to_dest: HashMap<Location, Label>,
@@ -255,96 +431,7 @@ struct References {
     ext_gs: HashMap<ExtGState, Ref>,
 }
 
-/// Keeps track of resources used in a specific part of the document.
-///
-/// The main context is the one for the pages of the document, but
-/// it can have sub-contexts for color fonts and patterns, if those are
-/// used in the pages. They do not share the same Resources dictionnary
-/// as the pages they are in to avoid some infinite recursion that some
-/// PDF readers don't appreciate (Acrobat can't parse a Type3 font if
-/// its Resources dictionnary references this same font for instance).
-struct PdfContext<'a, G = GlobalRefs> {
-    /// The document that we're currently exporting.
-    document: &'a Document,
-    /// Content of exported pages.
-    pages: Vec<EncodedPage>,
-    /// The number of glyphs for all referenced languages in the document.
-    /// We keep track of this to determine the main document language.
-    /// BTreeMap is used to write sorted list of languages to metadata.
-    languages: BTreeMap<Lang, usize>,
-
-    /// For each font a mapping from used glyphs to their text representation.
-    /// May contain multiple chars in case of ligatures or similar things. The
-    /// same glyph can have a different text representation within one document,
-    /// then we just save the first one. The resulting strings are used for the
-    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
-    /// cmap. This is important for copy-paste and searching.
-    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
-
-    /// Global references.
-    ///
-    /// These references are allocated at the very begining of the PDF export process,
-    /// and can be used in the whole document without ever needing remapping.
-    globals: G,
-
-    /// Handles color space writing.
-    colors: ColorSpaces,
-
-    /// Deduplicates fonts used across the document.
-    fonts: Remapper<Font>,
-    /// Deduplicates images used across the document.
-    images: Remapper<Image>,
-    /// Handles to deferred image conversions.
-    deferred_images: HashMap<usize, Deferred<EncodedImage>>,
-    /// Deduplicates gradients used across the document.
-    gradients: Remapper<PdfGradient>,
-    /// Deduplicates patterns used across the document.
-    patterns: Option<Box<PatternRemapper<'a, G>>>,
-    /// Deduplicates external graphics states used across the document.
-    ext_gs: Remapper<ExtGState>,
-    /// Deduplicates color glyphs.
-    color_fonts: Option<Box<ColorFontMap<'a, G>>>,
-}
-
 const ALLOC_SECTION_SIZE: i32 = 1_000_000;
-
-impl<'a> PdfContext<'a, ()> {
-    fn new(document: &'a Document) -> Self {
-        Self {
-            document,
-            globals: (),
-            pages: vec![],
-            glyph_sets: HashMap::new(),
-            languages: BTreeMap::new(),
-            colors: ColorSpaces::default(),
-            fonts: Remapper::new(),
-            images: Remapper::new(),
-            deferred_images: HashMap::new(),
-            gradients: Remapper::new(),
-            patterns: None,
-            ext_gs: Remapper::new(),
-            color_fonts: None,
-        }
-    }
-
-    fn with_globals(self, alloc: &mut Ref) -> PdfContext<'a> {
-        PdfContext {
-            document: &self.document,
-            pages: self.pages,
-            glyph_sets: self.glyph_sets,
-            languages: self.languages,
-            colors: self.colors,
-            fonts: self.fonts,
-            images: self.images,
-            deferred_images: self.deferred_images,
-            gradients: self.gradients,
-            ext_gs: self.ext_gs,
-            globals: GlobalRefs::new(alloc, self.document.pages.len()),
-            patterns: self.patterns.map(|x| Box::new(x.with_globals(alloc))),
-            color_fonts: self.color_fonts.map(|x| Box::new(x.with_globals(alloc))),
-        }
-    }
-}
 
 /// Collects all objects that will have to be embedded in the final PDF.
 ///
@@ -352,7 +439,7 @@ impl<'a> PdfContext<'a, ()> {
 /// in the `PdfContext` that is being passed to the `write` function.
 /// This function can write to the final document by using the given `PdfChunk`.
 trait PdfConstructor {
-    fn write(&self, context: &mut PdfContext<()>);
+    fn write(&self, context: &mut BuildContent);
 }
 
 /// A specific kind of resource that is present in a PDF document.
@@ -363,7 +450,7 @@ trait PdfResource {
     ///
     /// This function can return references that are local to `chunk`, they
     /// will be correctly re-numbered before being saved for later steps.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output);
+    fn write(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output);
 
     /// Save references that this step exported.
     fn save(context: &mut References, output: Self::Output);
@@ -371,7 +458,13 @@ trait PdfResource {
 
 /// Write global information about the PDF document.
 trait PdfWriter {
-    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References);
+    fn write(
+        &self,
+        pdf: &mut Pdf,
+        alloc: &mut Ref,
+        ctx: &WritePageTree,
+        refs: &mut References,
+    );
 }
 
 /// A reference or collection of references that can be re-numbered,
@@ -418,7 +511,6 @@ struct GlobalRefs {
     // Resources
     resources: Ref,
     // Page tree and pages
-    page_tree: Ref,
     pages: Vec<Ref>,
 }
 
@@ -426,16 +518,11 @@ impl GlobalRefs {
     fn new(alloc: &mut Ref, page_count: usize) -> Self {
         GlobalRefs {
             resources: alloc.bump(),
-            page_tree: alloc.bump(),
             pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
             oklab: alloc.bump(),
             d65_gray: alloc.bump(),
             srgb: alloc.bump(),
         }
-    }
-
-    fn len(&self) -> usize {
-        self.pages.len() + 5
     }
 }
 

@@ -16,8 +16,8 @@ use typst::visualize::{
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::content;
-use crate::{deflate, transform_to_array, AbsExt, PdfChunk, PdfContext, PdfResource};
+use crate::{content, AllocRefs, WriteStep};
+use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -36,13 +36,15 @@ pub struct PdfGradient {
 
 pub struct Gradients;
 
-impl PdfResource for Gradients {
+impl<'a> WriteStep<AllocRefs<'a>> for Gradients {
     type Output = HashMap<PdfGradient, Ref>;
 
     /// Writes the actual gradients (shading patterns) to the PDF.
     /// This is performed once after writing all pages.
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        for pdf_gradient in context.gradients.items().cloned().collect::<Vec<_>>() {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        for pdf_gradient in
+            context.resources.gradients.items().cloned().collect::<Vec<_>>()
+        {
             if out.contains_key(&pdf_gradient) {
                 continue;
             }
@@ -66,7 +68,7 @@ impl PdfResource for Gradients {
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Axial);
 
-                    context.colors.write(
+                    context.resources.colors.write(
                         color_space,
                         shading.color_space(),
                         &context.globals,
@@ -103,7 +105,7 @@ impl PdfResource for Gradients {
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Radial);
 
-                    context.colors.write(
+                    context.resources.colors.write(
                         color_space,
                         shading.color_space(),
                         &context.globals,
@@ -133,7 +135,7 @@ impl PdfResource for Gradients {
                     let mut stream_shading =
                         chunk.chunk.stream_shading(stream_shading_id, &vertices);
 
-                    context.colors.write(
+                    context.resources.colors.write(
                         color_space,
                         stream_shading.color_space(),
                         &context.globals,
@@ -335,7 +337,7 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    ctx.parent.gradients.insert(pdf_gradient)
+    ctx.resources.gradients.insert(pdf_gradient)
 }
 
 /// Writes a single Coons Patch as defined in the PDF specification

@@ -2,33 +2,30 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use ecow::eco_format;
-use pdf_writer::{writers::Resources, Dict, Finish, Name, Pdf, Ref};
+use pdf_writer::{writers::Resources, Dict, Finish, Name, Ref};
 use typst::{text::Font, visualize::Image};
 
 use crate::{
     color_font::ColorFontSlice, extg::ExtGState, gradient::PdfGradient,
-    pattern::PdfPattern, PdfContext, PdfWriter, References,
+    pattern::PdfPattern, PdfChunk, References, WriteResources, WriteStep,
 };
 
 pub struct GlobalResources;
 
-impl PdfWriter for GlobalResources {
+impl<'a> WriteStep<WriteResources<'a>> for GlobalResources {
+    type Output = ();
+
     /// Write the global resource dictionary that will be referenced by all pages.
     ///
     /// We add a reference to this dictionary to each page individually instead of
     /// to the root node of the page tree because using the resource inheritance
     /// feature breaks PDF merging with Apple Preview.
-    fn write(&self, pdf: &mut Pdf, alloc: &mut Ref, ctx: &PdfContext, refs: &References) {
-        fn generic_resource_dict(
-            pdf: &mut Pdf,
-            alloc: &mut Ref,
-            ctx: &PdfContext,
-            refs: &References,
-        ) {
-            let images_ref = alloc.bump();
-            let patterns_ref = alloc.bump();
-            let ext_gs_states_ref = alloc.bump();
-            let color_spaces_ref = alloc.bump();
+    fn run(&self, ctx: &WriteResources, chunk: &mut PdfChunk, _out: &mut ()) {
+        fn inner(ctx: &WriteResources, refs: &References, chunk: &mut PdfChunk) {
+            let images_ref = chunk.alloc.bump();
+            let patterns_ref = chunk.alloc.bump();
+            let ext_gs_states_ref = chunk.alloc.bump();
+            let color_spaces_ref = chunk.alloc.bump();
 
             let mut pattern_mapping = HashMap::new();
             for (pattern, pattern_refs) in &refs.patterns {
@@ -36,7 +33,7 @@ impl PdfWriter for GlobalResources {
             }
 
             let mut color_font_slices = Vec::new();
-            if let Some(color_fonts) = &ctx.color_fonts {
+            if let Some(color_fonts) = &ctx.resources.color_fonts {
                 for (font, color_font) in &color_fonts.map {
                     for i in 0..(color_font.glyphs.len() / 256) + 1 {
                         color_font_slices
@@ -46,23 +43,24 @@ impl PdfWriter for GlobalResources {
             }
 
             resource_dict(
-                pdf,
+                chunk,
                 ctx.globals.resources,
                 images_ref,
                 ResourceList {
                     prefix: "Im",
-                    items: &ctx.images.to_items,
+                    items: &ctx.resources.images.to_items,
                     mapping: &refs.images,
                 },
                 patterns_ref,
                 ResourceList {
                     prefix: "Gr",
-                    items: &ctx.gradients.to_items,
+                    items: &ctx.resources.gradients.to_items,
                     mapping: &refs.gradients,
                 },
                 ResourceList {
                     prefix: "P",
                     items: &ctx
+                        .resources
                         .patterns
                         .as_ref()
                         .map(|p| &p.remapper.to_items[..])
@@ -72,13 +70,13 @@ impl PdfWriter for GlobalResources {
                 ext_gs_states_ref,
                 ResourceList {
                     prefix: "Gs",
-                    items: &ctx.ext_gs.to_items,
+                    items: &ctx.resources.ext_gs.to_items,
                     mapping: &refs.ext_gs,
                 },
                 color_spaces_ref,
                 ResourceList {
                     prefix: "F",
-                    items: &ctx.fonts.to_items,
+                    items: &ctx.resources.fonts.to_items,
                     mapping: &refs.fonts,
                 },
                 ResourceList {
@@ -88,23 +86,25 @@ impl PdfWriter for GlobalResources {
                 },
             );
 
-            let color_spaces = pdf.indirect(color_spaces_ref).dict();
-            ctx.colors.write_color_spaces(color_spaces, &ctx.globals);
+            let color_spaces = chunk.indirect(color_spaces_ref).dict();
+            ctx.resources.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-            if let Some(color_fonts) = &ctx.color_fonts {
-                generic_resource_dict(pdf, alloc, &color_fonts.ctx, refs);
+            if let Some(color_fonts) = &ctx.resources.color_fonts {
+                inner(&color_fonts.ctx, refs, chunk);
             }
 
-            if let Some(patterns) = &ctx.patterns {
-                generic_resource_dict(pdf, alloc, &patterns.ctx, refs);
+            if let Some(patterns) = &ctx.resources.patterns {
+                inner(&patterns.ctx, refs, chunk);
             }
 
             // Write all of the functions used by the document.
-            ctx.colors.write_functions(pdf, &ctx.globals);
+            ctx.resources.colors.write_functions(chunk, &ctx.globals);
         }
 
-        generic_resource_dict(pdf, alloc, ctx, refs);
+        inner(ctx, &ctx.references, chunk)
     }
+
+    fn save(_context: &mut (), _output: ()) {}
 }
 
 struct ResourceList<'a, T> {
@@ -125,7 +125,7 @@ impl<'a, T: Eq + Hash> ResourceList<'a, T> {
 }
 
 fn resource_dict(
-    pdf: &mut Pdf,
+    pdf: &mut PdfChunk,
     id: Ref,
     images_ref: Ref,
     mut images: ResourceList<Image>,

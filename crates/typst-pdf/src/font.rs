@@ -14,7 +14,7 @@ use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 use typst::text::Font;
 use typst::util::SliceExt;
 
-use crate::{deflate, EmExt, PdfChunk, PdfContext, PdfResource};
+use crate::{deflate, AllocRefs, EmExt, PdfChunk, WriteStep};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -27,13 +27,13 @@ pub(crate) const SYSTEM_INFO: SystemInfo = SystemInfo {
 
 pub struct Fonts;
 
-impl PdfResource for Fonts {
+impl<'a> WriteStep<AllocRefs<'a>> for Fonts {
     type Output = HashMap<Font, Ref>;
 
     /// Embed all used fonts into the PDF.
     #[typst_macros::time(name = "write fonts")]
-    fn write(&self, context: &PdfContext, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        for font in context.fonts.items() {
+    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
+        for font in context.resources.fonts.items() {
             if out.contains_key(font) {
                 continue;
             }
@@ -45,7 +45,7 @@ impl PdfResource for Fonts {
             let data_ref = chunk.alloc();
             out.insert(font.clone(), type0_ref);
 
-            let glyph_set = context.glyph_sets.get(font).unwrap();
+            let glyph_set = context.resources.glyph_sets.get(font).unwrap();
             let ttf = font.ttf();
 
             // Do we have a TrueType or CFF font?
