@@ -28,7 +28,7 @@ use crate::{
 
 pub fn build<'a, 'b>(
     state: &'a BuildContent<'b>,
-    out: &'a mut Resources<BuildContent<'b>>,
+    out: &'a mut Resources<'b>,
     frame: &Frame,
 ) -> Encoded {
     let size = frame.size();
@@ -75,7 +75,7 @@ pub struct Encoded {
 /// glyphs and patterns.
 pub struct Builder<'a, 'b> {
     pub(crate) global_state: &'a BuildContent<'b>,
-    pub(crate) resources: &'a mut Resources<BuildContent<'b>>,
+    pub(crate) resources: &'a mut Resources<'b>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -87,7 +87,7 @@ pub struct Builder<'a, 'b> {
 impl<'a, 'b> Builder<'a, 'b> {
     pub fn new(
         state: &'a BuildContent<'b>,
-        resources: &'a mut Resources<BuildContent<'b>>,
+        resources: &'a mut Resources<'b>,
         size: Size,
     ) -> Self {
         Builder {

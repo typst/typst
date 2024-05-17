@@ -7,7 +7,7 @@ use typst::{text::Font, visualize::Image};
 
 use crate::{
     color_font::ColorFontSlice, extg::ExtGState, gradient::PdfGradient,
-    pattern::PdfPattern, PdfChunk, References, WriteResources, WriteStep,
+    pattern::PdfPattern, PdfChunk, WriteResources, WriteStep,
 };
 
 pub struct GlobalResources;
@@ -21,87 +21,79 @@ impl<'a> WriteStep<WriteResources<'a>> for GlobalResources {
     /// to the root node of the page tree because using the resource inheritance
     /// feature breaks PDF merging with Apple Preview.
     fn run(&self, ctx: &WriteResources, chunk: &mut PdfChunk, _out: &mut ()) {
-        fn inner(ctx: &WriteResources, refs: &References, chunk: &mut PdfChunk) {
-            let images_ref = chunk.alloc.bump();
-            let patterns_ref = chunk.alloc.bump();
-            let ext_gs_states_ref = chunk.alloc.bump();
-            let color_spaces_ref = chunk.alloc.bump();
+        ctx.resources.write_with_ref(
+            ctx.globals.resources,
+            &mut |resources, resources_ref| {
+                let images_ref = chunk.alloc.bump();
+                let patterns_ref = chunk.alloc.bump();
+                let ext_gs_states_ref = chunk.alloc.bump();
+                let color_spaces_ref = chunk.alloc.bump();
 
-            let mut pattern_mapping = HashMap::new();
-            for (pattern, pattern_refs) in &refs.patterns {
-                pattern_mapping.insert(pattern.clone(), pattern_refs.pattern_ref);
-            }
+                let mut pattern_mapping = HashMap::new();
+                for (pattern, pattern_refs) in &ctx.references.patterns {
+                    pattern_mapping.insert(pattern.clone(), pattern_refs.pattern_ref);
+                }
 
-            let mut color_font_slices = Vec::new();
-            if let Some(color_fonts) = &ctx.resources.color_fonts {
-                for (font, color_font) in &color_fonts.map {
-                    for i in 0..(color_font.glyphs.len() / 256) + 1 {
-                        color_font_slices
-                            .push(ColorFontSlice { font: font.clone(), subfont: i })
+                let mut color_font_slices = Vec::new();
+                if let Some(color_fonts) = &resources.color_fonts {
+                    for (font, color_font) in &color_fonts.map {
+                        for i in 0..(color_font.glyphs.len() / 256) + 1 {
+                            color_font_slices
+                                .push(ColorFontSlice { font: font.clone(), subfont: i })
+                        }
                     }
                 }
-            }
 
-            resource_dict(
-                chunk,
-                ctx.globals.resources,
-                images_ref,
-                ResourceList {
-                    prefix: "Im",
-                    items: &ctx.resources.images.to_items,
-                    mapping: &refs.images,
-                },
-                patterns_ref,
-                ResourceList {
-                    prefix: "Gr",
-                    items: &ctx.resources.gradients.to_items,
-                    mapping: &refs.gradients,
-                },
-                ResourceList {
-                    prefix: "P",
-                    items: ctx
-                        .resources
-                        .patterns
-                        .as_ref()
-                        .map(|p| &p.remapper.to_items[..])
-                        .unwrap_or_default(),
-                    mapping: &pattern_mapping,
-                },
-                ext_gs_states_ref,
-                ResourceList {
-                    prefix: "Gs",
-                    items: &ctx.resources.ext_gs.to_items,
-                    mapping: &refs.ext_gs,
-                },
-                color_spaces_ref,
-                ResourceList {
-                    prefix: "F",
-                    items: &ctx.resources.fonts.to_items,
-                    mapping: &refs.fonts,
-                },
-                ResourceList {
-                    prefix: "Cf",
-                    items: &color_font_slices,
-                    mapping: &refs.color_fonts,
-                },
-            );
+                resource_dict(
+                    chunk,
+                    resources_ref,
+                    images_ref,
+                    ResourceList {
+                        prefix: "Im",
+                        items: &resources.images.to_items,
+                        mapping: &ctx.references.images,
+                    },
+                    patterns_ref,
+                    ResourceList {
+                        prefix: "Gr",
+                        items: &resources.gradients.to_items,
+                        mapping: &ctx.references.gradients,
+                    },
+                    ResourceList {
+                        prefix: "P",
+                        items: resources
+                            .patterns
+                            .as_ref()
+                            .map(|p| &p.remapper.to_items[..])
+                            .unwrap_or_default(),
+                        mapping: &pattern_mapping,
+                    },
+                    ext_gs_states_ref,
+                    ResourceList {
+                        prefix: "Gs",
+                        items: &resources.ext_gs.to_items,
+                        mapping: &ctx.references.ext_gs,
+                    },
+                    color_spaces_ref,
+                    ResourceList {
+                        prefix: "F",
+                        items: &resources.fonts.to_items,
+                        mapping: &ctx.references.fonts,
+                    },
+                    ResourceList {
+                        prefix: "Cf",
+                        items: &color_font_slices,
+                        mapping: &ctx.references.color_fonts,
+                    },
+                );
 
-            let color_spaces = chunk.indirect(color_spaces_ref).dict();
-            ctx.resources.colors.write_color_spaces(color_spaces, &ctx.globals);
+                let color_spaces = chunk.indirect(color_spaces_ref).dict();
+                resources.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-            if let Some(color_fonts) = &ctx.resources.color_fonts {
-                inner(&color_fonts.ctx, refs, chunk);
-            }
-
-            if let Some(patterns) = &ctx.resources.patterns {
-                inner(&patterns.ctx, refs, chunk);
-            }
-
-            // Write all of the functions used by the document.
-            ctx.resources.colors.write_functions(chunk, &ctx.globals);
-        }
-
-        inner(ctx, &ctx.references, chunk)
+                // Write all of the functions used by the document.
+                resources.colors.write_functions(chunk, &ctx.globals);
+            },
+        );
     }
 
     fn save(_context: &mut (), _output: ()) {}

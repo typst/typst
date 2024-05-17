@@ -134,10 +134,6 @@ trait State: Sized {
     // TODO: add a step to allocate globals instead of having alloc here?
     /// Transition to the next state.
     fn next(self, alloc: &mut Ref, built: Self::ToBuild) -> Self::Next;
-
-    /// In case steps run at this point of the export should also be run in
-    /// sub-contexts, this function should return an iterator over these.
-    fn subcontexts(&self) -> impl Iterator<Item = &Self>;
 }
 
 /// The initial state: we are exploring the document, collecting all resources
@@ -150,27 +146,24 @@ struct BuildContent<'a> {
 
 impl<'a> State for BuildContent<'a> {
     type Next = AllocRefs<'a>;
-    type ToBuild = Resources<Self>;
+    type ToBuild = Resources<'a>;
 
     fn start() -> Self::ToBuild {
         Resources::default()
     }
 
-    fn next(self, alloc: &mut Ref, resources: Resources<Self>) -> Self::Next {
+    fn next(self, alloc: &mut Ref, mut resources: Resources<'a>) -> Self::Next {
+        resources.alloc_refs(alloc);
         AllocRefs {
             document: self.document,
             globals: GlobalRefs::new(alloc, self.document.pages.len()),
-            resources: resources.next(alloc),
+            resources,
         }
-    }
-
-    fn subcontexts(&self) -> impl Iterator<Item = &Self> {
-        std::iter::empty()
     }
 }
 
 /// All the resources that have been collected when traversing the document.
-struct Resources<S: State> {
+struct Resources<'a> {
     /// Content of exported pages.
     pages: Vec<EncodedPage>,
     /// The number of glyphs for all referenced languages in the document.
@@ -198,18 +191,18 @@ struct Resources<S: State> {
     /// Deduplicates gradients used across the document.
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
-    patterns: Option<Box<PatternRemapper<S>>>,
+    patterns: Option<Box<PatternRemapper<'a>>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
-    color_fonts: Option<Box<ColorFontMap<S>>>,
+    color_fonts: Option<Box<ColorFontMap<'a>>>,
 }
 
-impl<S: State> Renumber for Resources<S> {
+impl<'a> Renumber for Resources<'a> {
     fn renumber(&mut self, _old: Ref, _new: Ref) {}
 }
 
-impl<S: State> Default for Resources<S> {
+impl<'a> Default for Resources<'a> {
     fn default() -> Self {
         Resources {
             pages: Vec::new(),
@@ -227,20 +220,46 @@ impl<S: State> Default for Resources<S> {
     }
 }
 
-impl<S: State> Resources<S> {
-    fn next(self, alloc: &mut Ref) -> Resources<S::Next> {
-        Resources::<S::Next> {
-            pages: self.pages,
-            languages: self.languages,
-            glyph_sets: self.glyph_sets,
-            colors: self.colors,
-            fonts: self.fonts,
-            images: self.images,
-            deferred_images: self.deferred_images,
-            gradients: self.gradients,
-            patterns: self.patterns.map(|p| Box::new((*p).next(alloc))),
-            ext_gs: self.ext_gs,
-            color_fonts: self.color_fonts.map(|c| Box::new((*c).next(alloc))),
+impl<'a> Resources<'a> {
+    fn write<P>(&self, process: &mut P)
+    where
+        P: FnMut(&Self),
+    {
+        process(self);
+        if let Some(color_fonts) = &self.color_fonts {
+            color_fonts.resources.write(process)
+        }
+        if let Some(patterns) = &self.patterns {
+            patterns.resources.write(process)
+        }
+    }
+
+    fn write_with_ref<P>(&self, global_ref: Ref, process: &mut P)
+    where
+        P: FnMut(&Self, Ref),
+    {
+        process(self, global_ref);
+        if let Some(color_fonts) = &self.color_fonts {
+            color_fonts
+                .resources
+                .write_with_ref(color_fonts.resources_ref.unwrap(), process)
+        }
+        if let Some(patterns) = &self.patterns {
+            patterns
+                .resources
+                .write_with_ref(patterns.resources_ref.unwrap(), process)
+        }
+    }
+
+    fn alloc_refs(&mut self, alloc: &mut Ref) {
+        if let Some(color_fonts) = &mut self.color_fonts {
+            color_fonts.resources_ref = Some(alloc.bump());
+            color_fonts.resources.alloc_refs(alloc);
+        }
+
+        if let Some(patterns) = &mut self.patterns {
+            patterns.resources_ref = Some(alloc.bump());
+            patterns.resources.alloc_refs(alloc);
         }
     }
 }
@@ -253,7 +272,7 @@ impl<S: State> Resources<S> {
 struct AllocRefs<'a> {
     document: &'a Document,
     globals: GlobalRefs,
-    resources: Resources<Self>,
+    resources: Resources<'a>,
 }
 
 impl<'a> State for AllocRefs<'a> {
@@ -265,19 +284,13 @@ impl<'a> State for AllocRefs<'a> {
         References::default()
     }
 
-    fn next(self, alloc: &mut Ref, references: References) -> Self::Next {
+    fn next(self, _alloc: &mut Ref, references: References) -> Self::Next {
         WritePageTree {
             document: self.document,
-            resources: self.resources.next(alloc),
+            resources: self.resources,
             globals: self.globals,
             references,
         }
-    }
-
-    fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
-        let x = self.resources.patterns.as_ref().map(|p| &p.ctx).into_iter();
-        let y = self.resources.color_fonts.as_ref().map(|c| &c.ctx).into_iter();
-        y.chain(x)
     }
 }
 
@@ -308,7 +321,7 @@ struct References {
 struct WritePageTree<'a> {
     globals: GlobalRefs,
     document: &'a Document,
-    resources: Resources<Self>,
+    resources: Resources<'a>,
     references: References,
 }
 
@@ -321,19 +334,14 @@ impl<'a> State for WritePageTree<'a> {
         PageTreeRef(Ref::new(1))
     }
 
-    fn next(self, alloc: &mut Ref, page_tree_ref: PageTreeRef) -> Self::Next {
+    fn next(self, _alloc: &mut Ref, page_tree_ref: PageTreeRef) -> Self::Next {
         WriteResources {
             globals: self.globals,
             document: self.document,
-            resources: self.resources.next(alloc),
+            resources: self.resources,
             references: self.references,
             page_tree_ref: page_tree_ref.0,
         }
-    }
-
-    fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
-        // The page tree is only relevant for the root context.
-        std::iter::empty()
     }
 }
 
@@ -343,7 +351,7 @@ impl<'a> State for WritePageTree<'a> {
 struct WriteResources<'a> {
     globals: GlobalRefs,
     document: &'a Document,
-    resources: Resources<Self>,
+    resources: Resources<'a>,
     references: References,
     page_tree_ref: Ref,
 }
@@ -357,17 +365,6 @@ impl<'a> State for WriteResources<'a> {
 
     fn next(self, _alloc: &mut Ref, (): ()) -> Self::Next {
         self
-    }
-
-    fn subcontexts<'b>(&'b self) -> impl Iterator<Item = &'b Self> {
-        // HACK: because WriteStep::save is only called on the top level
-        // context, subcontexts always have empty References, which crashes the
-        // GlobalResources step.
-        //
-        // For the moment, we do as if there were no subcontext here, and
-        // manually recurse (but always with the root references) in
-        // GlobalResources::run.
-        std::iter::empty()
     }
 }
 
@@ -456,10 +453,6 @@ impl<S: State> PdfBuilder<S> {
             step: &W,
         ) {
             step.run(ctx, chunk, output);
-
-            for subcontext in ctx.subcontexts() {
-                write(chunk, subcontext, output, step);
-            }
         }
 
         let mut output = Default::default();

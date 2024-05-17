@@ -32,18 +32,20 @@ impl<'a> WriteStep<AllocRefs<'a>> for ExtGraphicsState {
 
     /// Embed all used external graphics states into the PDF.
     fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        for external_gs in context.resources.ext_gs.items() {
-            if out.contains_key(external_gs) {
-                continue;
-            }
+        context.resources.write(&mut |resources| {
+            for external_gs in resources.ext_gs.items() {
+                if out.contains_key(external_gs) {
+                    continue;
+                }
 
-            let id = chunk.alloc();
-            out.insert(*external_gs, id);
-            chunk
-                .ext_graphics(id)
-                .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)
-                .stroking_alpha(external_gs.stroke_opacity as f32 / 255.0);
-        }
+                let id = chunk.alloc();
+                out.insert(*external_gs, id);
+                chunk
+                    .ext_graphics(id)
+                    .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)
+                    .stroking_alpha(external_gs.stroke_opacity as f32 / 255.0);
+            }
+        })
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {

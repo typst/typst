@@ -42,128 +42,130 @@ impl<'a> WriteStep<AllocRefs<'a>> for Gradients {
     /// Writes the actual gradients (shading patterns) to the PDF.
     /// This is performed once after writing all pages.
     fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        for pdf_gradient in
-            context.resources.gradients.items().cloned().collect::<Vec<_>>()
-        {
-            if out.contains_key(&pdf_gradient) {
-                continue;
+        context.resources.write(&mut |resources| {
+            for pdf_gradient in resources.gradients.items().cloned().collect::<Vec<_>>() {
+                if out.contains_key(&pdf_gradient) {
+                    continue;
+                }
+
+                let shading = chunk.alloc();
+                out.insert(pdf_gradient.clone(), shading);
+
+                let PdfGradient { transform, aspect_ratio, gradient, angle } =
+                    pdf_gradient;
+
+                let color_space = if gradient.space().hue_index().is_some() {
+                    ColorSpace::Oklab
+                } else {
+                    gradient.space()
+                };
+
+                let mut shading_pattern = match &gradient {
+                    Gradient::Linear(_) => {
+                        let shading_function =
+                            shading_function(&gradient, chunk, color_space);
+                        let mut shading_pattern = chunk.chunk.shading_pattern(shading);
+                        let mut shading = shading_pattern.function_shading();
+                        shading.shading_type(FunctionShadingType::Axial);
+
+                        resources.colors.write(
+                            color_space,
+                            shading.color_space(),
+                            &context.globals,
+                        );
+
+                        let (mut sin, mut cos) = (angle.sin(), angle.cos());
+
+                        // Scale to edges of unit square.
+                        let factor = cos.abs() + sin.abs();
+                        sin *= factor;
+                        cos *= factor;
+
+                        let (x1, y1, x2, y2): (f64, f64, f64, f64) =
+                            match angle.quadrant() {
+                                Quadrant::First => (0.0, 0.0, cos, sin),
+                                Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
+                                Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
+                                Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
+                            };
+
+                        shading
+                            .anti_alias(gradient.anti_alias())
+                            .function(shading_function)
+                            .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
+                            .extend([true; 2]);
+
+                        shading.finish();
+
+                        shading_pattern
+                    }
+                    Gradient::Radial(radial) => {
+                        let shading_function =
+                            shading_function(&gradient, chunk, color_space);
+                        let mut shading_pattern = chunk.chunk.shading_pattern(shading);
+                        let mut shading = shading_pattern.function_shading();
+                        shading.shading_type(FunctionShadingType::Radial);
+
+                        resources.colors.write(
+                            color_space,
+                            shading.color_space(),
+                            &context.globals,
+                        );
+
+                        shading
+                            .anti_alias(gradient.anti_alias())
+                            .function(shading_function)
+                            .coords([
+                                radial.focal_center.x.get() as f32,
+                                radial.focal_center.y.get() as f32,
+                                radial.focal_radius.get() as f32,
+                                radial.center.x.get() as f32,
+                                radial.center.y.get() as f32,
+                                radial.radius.get() as f32,
+                            ])
+                            .extend([true; 2]);
+
+                        shading.finish();
+
+                        shading_pattern
+                    }
+                    Gradient::Conic(_) => {
+                        let vertices = compute_vertex_stream(&gradient, aspect_ratio);
+
+                        let stream_shading_id = chunk.alloc();
+                        let mut stream_shading =
+                            chunk.chunk.stream_shading(stream_shading_id, &vertices);
+
+                        resources.colors.write(
+                            color_space,
+                            stream_shading.color_space(),
+                            &context.globals,
+                        );
+
+                        let range = color_space.range();
+                        stream_shading
+                            .bits_per_coordinate(16)
+                            .bits_per_component(16)
+                            .bits_per_flag(8)
+                            .shading_type(StreamShadingType::CoonsPatch)
+                            .decode([
+                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
+                                range[3], range[4], range[5],
+                            ])
+                            .anti_alias(gradient.anti_alias())
+                            .filter(Filter::FlateDecode);
+
+                        stream_shading.finish();
+
+                        let mut shading_pattern = chunk.shading_pattern(shading);
+                        shading_pattern.shading_ref(stream_shading_id);
+                        shading_pattern
+                    }
+                };
+
+                shading_pattern.matrix(transform_to_array(transform));
             }
-
-            let shading = chunk.alloc();
-            out.insert(pdf_gradient.clone(), shading);
-
-            let PdfGradient { transform, aspect_ratio, gradient, angle } = pdf_gradient;
-
-            let color_space = if gradient.space().hue_index().is_some() {
-                ColorSpace::Oklab
-            } else {
-                gradient.space()
-            };
-
-            let mut shading_pattern = match &gradient {
-                Gradient::Linear(_) => {
-                    let shading_function =
-                        shading_function(&gradient, chunk, color_space);
-                    let mut shading_pattern = chunk.chunk.shading_pattern(shading);
-                    let mut shading = shading_pattern.function_shading();
-                    shading.shading_type(FunctionShadingType::Axial);
-
-                    context.resources.colors.write(
-                        color_space,
-                        shading.color_space(),
-                        &context.globals,
-                    );
-
-                    let (mut sin, mut cos) = (angle.sin(), angle.cos());
-
-                    // Scale to edges of unit square.
-                    let factor = cos.abs() + sin.abs();
-                    sin *= factor;
-                    cos *= factor;
-
-                    let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
-                        Quadrant::First => (0.0, 0.0, cos, sin),
-                        Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
-                        Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
-                        Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
-                    };
-
-                    shading
-                        .anti_alias(gradient.anti_alias())
-                        .function(shading_function)
-                        .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
-                        .extend([true; 2]);
-
-                    shading.finish();
-
-                    shading_pattern
-                }
-                Gradient::Radial(radial) => {
-                    let shading_function =
-                        shading_function(&gradient, chunk, color_space);
-                    let mut shading_pattern = chunk.chunk.shading_pattern(shading);
-                    let mut shading = shading_pattern.function_shading();
-                    shading.shading_type(FunctionShadingType::Radial);
-
-                    context.resources.colors.write(
-                        color_space,
-                        shading.color_space(),
-                        &context.globals,
-                    );
-
-                    shading
-                        .anti_alias(gradient.anti_alias())
-                        .function(shading_function)
-                        .coords([
-                            radial.focal_center.x.get() as f32,
-                            radial.focal_center.y.get() as f32,
-                            radial.focal_radius.get() as f32,
-                            radial.center.x.get() as f32,
-                            radial.center.y.get() as f32,
-                            radial.radius.get() as f32,
-                        ])
-                        .extend([true; 2]);
-
-                    shading.finish();
-
-                    shading_pattern
-                }
-                Gradient::Conic(_) => {
-                    let vertices = compute_vertex_stream(&gradient, aspect_ratio);
-
-                    let stream_shading_id = chunk.alloc();
-                    let mut stream_shading =
-                        chunk.chunk.stream_shading(stream_shading_id, &vertices);
-
-                    context.resources.colors.write(
-                        color_space,
-                        stream_shading.color_space(),
-                        &context.globals,
-                    );
-
-                    let range = color_space.range();
-                    stream_shading
-                        .bits_per_coordinate(16)
-                        .bits_per_component(16)
-                        .bits_per_flag(8)
-                        .shading_type(StreamShadingType::CoonsPatch)
-                        .decode([
-                            0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                            range[4], range[5],
-                        ])
-                        .anti_alias(gradient.anti_alias())
-                        .filter(Filter::FlateDecode);
-
-                    stream_shading.finish();
-
-                    let mut shading_pattern = chunk.shading_pattern(shading);
-                    shading_pattern.shading_ref(stream_shading_id);
-                    shading_pattern
-                }
-            };
-
-            shading_pattern.matrix(transform_to_array(transform));
-        }
+        })
     }
 
     fn save(context: &mut crate::References, output: Self::Output) {

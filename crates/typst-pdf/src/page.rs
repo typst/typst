@@ -23,7 +23,7 @@ pub struct Pages;
 impl<'a> Step<BuildContent<'a>> for Pages {
     /// Construct page objects.
     #[typst_macros::time(name = "construct pages")]
-    fn run(&self, state: &BuildContent<'a>, out: &mut Resources<BuildContent<'a>>) {
+    fn run(&self, state: &BuildContent<'a>, out: &mut Resources<'a>) {
         for page in &state.document.pages {
             let mut encoded = construct_page(state, out, &page.frame);
             encoded.label = page
@@ -41,7 +41,7 @@ impl<'a> Step<BuildContent<'a>> for Pages {
 #[typst_macros::time(name = "construct page")]
 pub(crate) fn construct_page<'a, 'b>(
     state: &'a BuildContent<'b>,
-    out: &'a mut Resources<BuildContent<'b>>,
+    out: &'a mut Resources<'b>,
     frame: &Frame,
 ) -> EncodedPage {
     let content = content::build(state, out, frame);
@@ -266,6 +266,7 @@ impl PdfPageLabelStyle {
 }
 
 /// Data for an exported page.
+#[derive(Clone)]
 pub struct EncodedPage {
     pub content: content::Encoded,
     pub label: Option<PdfPageLabel>,
