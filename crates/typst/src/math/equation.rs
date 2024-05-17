@@ -224,6 +224,12 @@ impl Packed<EquationElem> {
             vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
         };
 
+        // An empty equation should have a height, so we still create a frame
+        // (which is then resized in the loop).
+        if items.is_empty() {
+            items.push(MathParItem::Frame(Frame::soft(Size::zero())));
+        }
+
         for item in &mut items {
             let MathParItem::Frame(frame) = item else { continue };
 

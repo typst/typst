@@ -210,3 +210,8 @@ $ <quadratic>
 // Error: 14-24 cannot reference equation without numbering
 // Hint: 14-24 you can enable equation numbering with `#set math.equation(numbering: "1.")`
 Looks at the @quadratic formula.
+
+--- issue-3696-equation-rtl ---
+#set page(width: 150pt)
+#set text(lang: "he")
+תהא סדרה $a_n$: $[a_n: 1, 1/2, 1/3, dots]$
