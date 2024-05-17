@@ -153,6 +153,10 @@ pub struct QueryCommand {
     /// The format to serialize in
     #[clap(long = "format", default_value = "json")]
     pub format: SerializationFormat,
+
+    /// Pretty-print JSON
+    #[clap(long)]
+    pub pretty: bool,
 }
 
 // Output file format for query command
