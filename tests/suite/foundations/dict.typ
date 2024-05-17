@@ -136,8 +136,8 @@
 
 --- dict-from-module ---
 // Test dictionary constructor
-#dictionary(sys).at("version")
-#dictionary(sys).at("no-crash", default: none)
+#test(type(dictionary(sys).at("version")), version)
+#test(dictionary(sys).at("no-crash", default: none), none)
 
 --- dict-remove-order ---
 // Test that removal keeps order.
