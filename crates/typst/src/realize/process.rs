@@ -198,9 +198,14 @@ fn prepare(
     // Generate a location for the element, which uniquely identifies it in
     // the document. This has some overhead, so we only do it for elements
     // that are explicitly marked as locatable and labelled elements.
-    if target.can::<dyn Locatable>() || target.label().is_some() {
+    //
+    // The element could already have a location even if it is not prepared
+    // when it stems from a query.
+    let mut located = target.location().is_some();
+    if !located && (target.can::<dyn Locatable>() || target.label().is_some()) {
         let location = engine.locator.locate(hash128(&target));
         target.set_location(location);
+        located = true;
     }
 
     // Apply built-in show-set rules. User-defined show-set rules are already
@@ -220,24 +225,24 @@ fn prepare(
     // available in rules.
     target.materialize(styles.chain(map));
 
+    if located {
+        // Apply metadata to be able to find the element in the frames. Do this
+        // after synthesis and materialization, so that it includes the
+        // synthesized fields. Do it before marking as prepared so that show-set
+        // rules will apply to this element when queried. This adds a style to
+        // the whole element's subtree identifying it as belonging to the
+        // element.
+        map.set(MetaElem::set_data(smallvec![Meta::Elem(target.clone())]));
+    }
+
     // Ensure that this preparation only runs once by marking the element as
     // prepared.
     target.mark_prepared();
 
-    // Apply metadata be able to find the element in the frames.
-    // Do this after synthesis, so that it includes the synthesized fields.
-    if target.location().is_some() {
-        // Add a style to the whole element's subtree identifying it as
-        // belonging to the element.
-        map.set(MetaElem::set_data(smallvec![Meta::Elem(target.clone())]));
-
-        // Return an extra meta elem that will be attached so that the metadata
-        // styles are not lost in case the element's show rule results in
-        // nothing.
-        return Ok(Some(Packed::new(MetaElem::new()).spanned(target.span())));
-    }
-
-    Ok(None)
+    // If the element is located, return an extra meta elem that will be
+    // attached so that the metadata styles are not lost in case the element's
+    // show rule results in nothing.
+    Ok(located.then(|| Packed::new(MetaElem::new()).spanned(target.span())))
 }
 
 /// Apply a step.
