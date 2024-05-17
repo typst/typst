@@ -3,7 +3,7 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Resolve, StyleChain};
-use crate::layout::{Abs, AlignElem, Em, Frame, FrameKind, Point, Size};
+use crate::layout::{Abs, AlignElem, Em, Frame, Point, Size};
 use crate::math::{
     alignments, scaled_font_size, spacing, EquationElem, FrameFragment, MathContext,
     MathFragment, MathParItem, MathSize,
@@ -257,7 +257,7 @@ impl MathRun {
         let mut x = Abs::zero();
         let mut ascent = Abs::zero();
         let mut descent = Abs::zero();
-        let mut frame = Frame::new(Size::zero(), FrameKind::Soft);
+        let mut frame = Frame::soft(Size::zero());
         let mut empty = true;
 
         let finalize_frame = |frame: &mut Frame, x, ascent, descent| {
@@ -301,10 +301,8 @@ impl MathRun {
                 || (class == MathClass::Relation
                     && !iter.peek().map(is_relation).unwrap_or_default())
             {
-                let mut frame_prev = std::mem::replace(
-                    &mut frame,
-                    Frame::new(Size::zero(), FrameKind::Soft),
-                );
+                let mut frame_prev =
+                    std::mem::replace(&mut frame, Frame::soft(Size::zero()));
 
                 finalize_frame(&mut frame_prev, x, ascent, descent);
                 items.push(MathParItem::Frame(frame_prev));

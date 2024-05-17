@@ -35,6 +35,26 @@ $#here[f] := #here[Hi there]$.
 // Test boxes with a baseline are respected
 #box(stroke: 0.2pt, $a #box(baseline:0.5em, stroke: 0.2pt, $a$)$)
 
+--- math-at-par-start ---
+// Test that equation at start of paragraph works fine.
+$x$ is a variable.
+
+--- math-at-par-end ---
+// Test that equation at end of paragraph works fine.
+One number is $1$
+
+--- math-at-line-start ---
+// Test math at the natural end of a line.
+#h(60pt) Number $1$ exists.
+
+--- math-at-line-end ---
+// Test math at the natural end of a line.
+#h(50pt) Number $1$ exists.
+
+--- math-consecutive ---
+// Test immediately consecutive equations.
+$x$$y$
+
 --- issue-2821-missing-fields ---
 // Issue #2821: Setting a figure's supplement to none removes the field
 #show figure.caption: it => {
