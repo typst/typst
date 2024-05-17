@@ -297,16 +297,12 @@ impl Lexer<'_> {
             self.push_raw(SyntaxKind::RawLang);
         }
 
-        // Determine inner content between backticks and with trimmed
-        // single spaces (line trimming comes later).
+        // Determine inner content between backticks.
         self.s.eat_if(' ');
-        let mut inner = self.s.to(end - backticks);
-        if inner.trim_end().ends_with('`') {
-            inner = inner.strip_suffix(' ').unwrap_or(inner);
-        }
+        let inner = self.s.to(end - backticks);
 
         // Determine dedent level.
-        let lines = split_newlines(inner);
+        let mut lines = split_newlines(inner);
         let dedent = lines
             .iter()
             .skip(1)
@@ -316,6 +312,15 @@ impl Lexer<'_> {
             .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
             .min()
             .unwrap_or(0);
+
+        // Trim single space in last line if text ends with a backtick. The last
+        // line is the one directly before the closing backticks and if it is
+        // just whitespace, it will be completely trimmed below.
+        if inner.trim_end().ends_with('`') {
+            if let Some(last) = lines.last_mut() {
+                *last = last.strip_suffix(' ').unwrap_or(last);
+            }
+        }
 
         let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
         let starts_whitespace = lines.first().is_some_and(is_whitespace);
