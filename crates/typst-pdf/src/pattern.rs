@@ -194,11 +194,11 @@ impl<'a> PatternRemapper<'a, ()> {
         }
     }
 
-    pub fn with_refs(self, refs: ResourcesRefs) -> PatternRemapper<'a, Ref> {
+    pub fn with_refs(self, refs: &ResourcesRefs) -> PatternRemapper<'a, Ref> {
         PatternRemapper {
             remapper: self.remapper,
             ctx: self.ctx,
-            resources: self.resources.with_refs(refs),
+            resources: self.resources.with_refs(&refs),
         }
     }
 }

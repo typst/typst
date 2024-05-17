@@ -19,6 +19,7 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
+use color::{alloc_color_functions_refs, ColorFunctionRefs};
 use color_font::{write_color_fonts, ColorFontSlice};
 use ecow::EcoString;
 use extg::write_graphic_states;
@@ -26,7 +27,7 @@ use font::write_fonts;
 use gradient::write_gradients;
 use image::write_images;
 use named_destination::write_named_destinations;
-use page::{traverse_pages, write_page_tree, PageTreeRef};
+use page::{alloc_page_refs, traverse_pages, write_page_tree, PageTreeRef};
 use pattern::{write_patterns, PatternRemapper};
 use pdf_writer::{Chunk, Pdf, Ref};
 
@@ -75,7 +76,9 @@ pub fn pdf(
 ) -> Vec<u8> {
     PdfBuilder::new(document)
         .with(traverse_pages)
-        .start_building::<ResourcesRefs, AllocResourcesRefs>()
+        .start_building::<GlobalRefs, AllocGlobalRefs>()
+        .with(alloc_page_refs)
+        .with(alloc_color_functions_refs)
         .with(alloc_resources_refs)
         .start_building::<References, AllocRefs>()
         .with(write_color_fonts)
@@ -220,7 +223,7 @@ impl<'a> Default for Resources<'a, ()> {
 }
 
 impl<'a> Resources<'a, ()> {
-    fn with_refs(self, refs: ResourcesRefs) -> Resources<'a, Ref> {
+    fn with_refs(self, refs: &ResourcesRefs) -> Resources<'a, Ref> {
         Resources {
             reference: refs.reference,
             pages: self.pages,
@@ -233,13 +236,13 @@ impl<'a> Resources<'a, ()> {
             gradients: self.gradients,
             patterns: self
                 .patterns
-                .zip(refs.patterns)
-                .map(|(p, r)| Box::new(p.with_refs(*r))),
+                .zip(refs.patterns.as_ref())
+                .map(|(p, r)| Box::new(p.with_refs(&*r))),
             ext_gs: self.ext_gs,
             color_fonts: self
                 .color_fonts
-                .zip(refs.color_fonts)
-                .map(|(c, r)| Box::new(c.with_refs(*r))),
+                .zip(refs.color_fonts.as_ref())
+                .map(|(c, r)| Box::new(c.with_refs(&*r))),
         }
     }
 }
@@ -278,19 +281,14 @@ impl<'a, R> Resources<'a, R> {
     }
 }
 
-struct AllocResourcesRefs<'a> {
+struct AllocGlobalRefs<'a> {
     document: &'a Document,
-    globals: GlobalRefs,
     resources: Resources<'a, ()>,
 }
 
-impl<'a> From<(BuildContent<'a>, Resources<'a, ()>)> for AllocResourcesRefs<'a> {
+impl<'a> From<(BuildContent<'a>, Resources<'a, ()>)> for AllocGlobalRefs<'a> {
     fn from((previous, resources): (BuildContent<'a>, Resources<'a, ()>)) -> Self {
-        Self {
-            document: previous.document,
-            resources,
-            globals: todo!(),
-        }
+        Self { document: previous.document, resources }
     }
 }
 
@@ -305,12 +303,12 @@ struct AllocRefs<'a> {
     resources: Resources<'a>,
 }
 
-impl<'a> From<(AllocResourcesRefs<'a>, ResourcesRefs)> for AllocRefs<'a> {
-    fn from((previous, refs): (AllocResourcesRefs<'a>, ResourcesRefs)) -> Self {
+impl<'a> From<(AllocGlobalRefs<'a>, GlobalRefs)> for AllocRefs<'a> {
+    fn from((previous, globals): (AllocGlobalRefs<'a>, GlobalRefs)) -> Self {
         Self {
             document: previous.document,
-            resources: previous.resources.with_refs(refs),
-            globals: todo!(),
+            resources: previous.resources.with_refs(&globals.resources),
+            globals,
         }
     }
 }
@@ -419,16 +417,18 @@ impl<S, B> PdfBuilder<S, B> {
 
         let mut output = Default::default();
         let mut chunk: PdfChunk = PdfChunk::new(TEMPORARY_REFS_START);
-        let mut mapping = HashMap::new();
         let save = process(&self.state, &mut chunk, &mut output);
 
-        chunk.renumber_into(&mut self.pdf, |r| {
-            if r.get() < TEMPORARY_REFS_START {
-                return r;
-            }
-            *mapping.entry(r).or_insert_with(|| self.alloc.bump())
-        });
+        // Allocate a final reference for each temporary one
+        let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
+        let mapping: HashMap<_, _> = (0..allocated)
+            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
+            .collect();
 
+        // Merge the chunk into the PDF, using the new references
+        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
+
+        // Also update the references in the output
         for (old, new) in mapping {
             output.renumber(old, new);
         }
@@ -493,25 +493,11 @@ impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
 }
 
 /// Global references
-#[derive(Debug)]
+#[derive(Default)]
 struct GlobalRefs {
-    // Color spaces
-    oklab: Ref,
-    d65_gray: Ref,
-    srgb: Ref,
-    // Page tree and pages
+    color_functions: ColorFunctionRefs,
     pages: Vec<Ref>,
-}
-
-impl GlobalRefs {
-    fn new(alloc: &mut Ref, page_count: usize) -> Self {
-        GlobalRefs {
-            pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
-            oklab: alloc.bump(),
-            d65_gray: alloc.bump(),
-            srgb: alloc.bump(),
-        }
-    }
+    resources: ResourcesRefs,
 }
 
 /// A portion of a PDF file.

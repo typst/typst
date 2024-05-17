@@ -241,7 +241,7 @@ impl<'a> ColorFontMap<'a, ()> {
         }
     }
 
-    pub fn with_refs(self, refs: ResourcesRefs) -> ColorFontMap<'a, Ref> {
+    pub fn with_refs(self, refs: &ResourcesRefs) -> ColorFontMap<'a, Ref> {
         ColorFontMap {
             map: self.map,
             ctx: self.ctx,

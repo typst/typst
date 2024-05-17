@@ -71,7 +71,7 @@ pub fn write_gradients(
                     resources.colors.write(
                         color_space,
                         shading.color_space(),
-                        &context.globals,
+                        &context.globals.color_functions,
                     );
 
                     let (mut sin, mut cos) = (angle.sin(), angle.cos());
@@ -100,16 +100,10 @@ pub fn write_gradients(
                 }
                 Gradient::Radial(radial) => {
                     let shading_function =
-                        shading_function(&gradient, chunk, color_space);
+                        shading_function(&gradient, chunk, color_space_of(&gradient));
                     let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Radial);
-
-                    resources.colors.write(
-                        color_space,
-                        shading.color_space(),
-                        &context.globals,
-                    );
 
                     shading
                         .anti_alias(gradient.anti_alias())
@@ -138,7 +132,7 @@ pub fn write_gradients(
                     resources.colors.write(
                         color_space,
                         stream_shading.color_space(),
-                        &context.globals,
+                        &context.globals.color_functions,
                     );
 
                     let range = color_space.range();
@@ -335,6 +329,8 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
+    ctx.resources.colors.mark_as_used(color_space_of(&gradient));
+
     ctx.resources.gradients.insert(pdf_gradient)
 }
 
@@ -493,4 +489,12 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
     }
 
     Arc::new(deflate(&vertices))
+}
+
+fn color_space_of(gradient: &Gradient) -> ColorSpace {
+    if gradient.space().hue_index().is_some() {
+        ColorSpace::Oklab
+    } else {
+        gradient.space()
+    }
 }

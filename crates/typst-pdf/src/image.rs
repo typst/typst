@@ -56,13 +56,13 @@ pub fn write_images(
                         context.resources.colors.write(
                             ColorSpace::Srgb,
                             space,
-                            &context.globals,
+                            &context.globals.color_functions,
                         );
                     } else {
                         context.resources.colors.write(
                             ColorSpace::D65Gray,
                             space,
-                            &context.globals,
+                            &context.globals.color_functions,
                         );
                     }
 

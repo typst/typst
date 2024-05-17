@@ -1,11 +1,9 @@
-use std::cell::Cell;
-
 use once_cell::sync::Lazy;
-use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name};
+use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
 
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, GlobalRefs};
+use crate::{content, deflate, AllocGlobalRefs, GlobalRefs, PdfChunk, Renumber};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -31,11 +29,10 @@ static OKLAB_DEFLATED: Lazy<Vec<u8>> =
 /// The color spaces present in the PDF document
 #[derive(Default)]
 pub struct ColorSpaces {
-    // TODO: get rid of Cells
-    use_oklab: Cell<bool>,
-    use_srgb: Cell<bool>,
-    use_d65_gray: Cell<bool>,
-    use_linear_rgb: Cell<bool>,
+    use_oklab: bool,
+    use_srgb: bool,
+    use_d65_gray: bool,
+    use_linear_rgb: bool,
 }
 
 impl ColorSpaces {
@@ -44,23 +41,42 @@ impl ColorSpaces {
     /// # Warning
     /// The A and B components of the color must be offset by +0.4 before being
     /// encoded into the PDF file.
-    pub fn oklab(&self) {
-        self.use_oklab.set(true);
+    pub fn oklab(&mut self) {
+        self.use_oklab = true;
     }
 
     /// Get a reference to the srgb color space.
-    pub fn srgb(&self) {
-        self.use_srgb.set(true);
+    pub fn srgb(&mut self) {
+        self.use_srgb = true;
     }
 
     /// Get a reference to the gray color space.
-    pub fn d65_gray(&self) {
-        self.use_d65_gray.set(true);
+    pub fn d65_gray(&mut self) {
+        self.use_d65_gray = true;
     }
 
     /// Mark linear RGB as used.
-    pub fn linear_rgb(&self) {
-        self.use_linear_rgb.set(true);
+    pub fn linear_rgb(&mut self) {
+        self.use_linear_rgb = true;
+    }
+
+    pub fn mark_as_used(&mut self, color_space: ColorSpace) {
+        match color_space {
+            ColorSpace::Oklch | ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
+                self.oklab();
+                self.linear_rgb();
+            }
+            ColorSpace::Srgb => {
+                self.srgb();
+            }
+            ColorSpace::D65Gray => {
+                self.d65_gray();
+            }
+            ColorSpace::LinearRgb => {
+                self.linear_rgb();
+            }
+            ColorSpace::Cmyk => {}
+        }
     }
 
     /// Write the color space on usage.
@@ -68,25 +84,18 @@ impl ColorSpaces {
         &self,
         color_space: ColorSpace,
         writer: writers::ColorSpace,
-        refs: &GlobalRefs,
+        refs: &ColorFunctionRefs,
     ) {
         match color_space {
             ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
-                self.oklab();
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
                 self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), refs);
                 oklab.tint_ref(refs.oklab);
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
             }
             ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, refs),
-            ColorSpace::Srgb => {
-                self.srgb();
-                writer.icc_based(refs.srgb)
-            }
-            ColorSpace::D65Gray => {
-                self.d65_gray();
-                writer.icc_based(refs.d65_gray)
-            }
+            ColorSpace::Srgb => writer.icc_based(refs.srgb),
+            ColorSpace::D65Gray => writer.icc_based(refs.d65_gray),
             ColorSpace::LinearRgb => {
                 writer.cal_rgb(
                     [0.9505, 1.0, 1.0888],
@@ -103,29 +112,29 @@ impl ColorSpaces {
     }
 
     // Write the color spaces to the PDF file.
-    pub fn write_color_spaces(&self, mut spaces: Dict, refs: &GlobalRefs) {
-        if self.use_oklab.get() {
+    pub fn write_color_spaces(&self, mut spaces: Dict, refs: &ColorFunctionRefs) {
+        if self.use_oklab {
             self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
         }
 
-        if self.use_srgb.get() {
+        if self.use_srgb {
             self.write(ColorSpace::Srgb, spaces.insert(SRGB).start(), refs);
         }
 
-        if self.use_d65_gray.get() {
+        if self.use_d65_gray {
             self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), refs);
         }
 
-        if self.use_linear_rgb.get() {
+        if self.use_linear_rgb {
             self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), refs);
         }
     }
 
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
-    pub fn write_functions(&self, chunk: &mut Chunk, refs: &GlobalRefs) {
+    pub fn write_functions(&self, chunk: &mut Chunk, refs: &ColorFunctionRefs) {
         // Write the Oklab function & color space.
-        if self.use_oklab.get() {
+        if self.use_oklab {
             chunk
                 .post_script_function(refs.oklab, &OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
@@ -134,7 +143,7 @@ impl ColorSpaces {
         }
 
         // Write the sRGB color space.
-        if self.use_srgb.get() {
+        if self.use_srgb {
             chunk
                 .icc_profile(refs.srgb, &SRGB_ICC_DEFLATED)
                 .n(3)
@@ -143,7 +152,7 @@ impl ColorSpaces {
         }
 
         // Write the gray color space.
-        if self.use_d65_gray.get() {
+        if self.use_d65_gray {
             chunk
                 .icc_profile(refs.d65_gray, &GRAY_ICC_DEFLATED)
                 .n(1)
@@ -151,6 +160,49 @@ impl ColorSpaces {
                 .filter(Filter::FlateDecode);
         }
     }
+
+    pub fn merge(&mut self, other: &Self) {
+        self.use_d65_gray |= other.use_d65_gray;
+        self.use_linear_rgb |= other.use_linear_rgb;
+        self.use_oklab |= other.use_oklab;
+        self.use_srgb |= other.use_srgb;
+    }
+}
+
+pub struct ColorFunctionRefs {
+    oklab: Ref,
+    srgb: Ref,
+    d65_gray: Ref,
+}
+
+impl Default for ColorFunctionRefs {
+    fn default() -> Self {
+        Self {
+            oklab: Ref::new(1),
+            srgb: Ref::new(1),
+            d65_gray: Ref::new(1),
+        }
+    }
+}
+
+impl Renumber for ColorFunctionRefs {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        self.oklab.renumber(old, new);
+        self.srgb.renumber(old, new);
+        self.d65_gray.renumber(old, new);
+    }
+}
+
+pub fn alloc_color_functions_refs(
+    _context: &AllocGlobalRefs,
+    chunk: &mut PdfChunk,
+    out: &mut ColorFunctionRefs,
+) -> impl Fn(&mut GlobalRefs) -> &mut ColorFunctionRefs {
+    out.oklab = chunk.alloc();
+    out.srgb = chunk.alloc();
+    out.d65_gray = chunk.alloc();
+
+    |globals| &mut globals.color_functions
 }
 
 /// This function removes comments, line spaces and carriage returns from a

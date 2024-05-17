@@ -13,7 +13,10 @@ use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-use crate::{content, AbsExt, BuildContent, PdfChunk, Renumber, WritePageTree};
+use crate::{
+    content, AbsExt, AllocGlobalRefs, BuildContent, GlobalRefs, PdfChunk, Renumber,
+    WritePageTree,
+};
 use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
@@ -39,7 +42,7 @@ pub fn traverse_pages<'a>(
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-pub(crate) fn construct_page<'a, 'b>(
+fn construct_page<'a, 'b>(
     state: &'a BuildContent<'b>,
     out: &'a mut Resources<'b, ()>,
     frame: &Frame,
@@ -47,6 +50,16 @@ pub(crate) fn construct_page<'a, 'b>(
     let content = content::build(state, out, frame);
 
     EncodedPage { content, label: None }
+}
+
+pub fn alloc_page_refs(
+    context: &AllocGlobalRefs,
+    chunk: &mut PdfChunk,
+    out: &mut Vec<Ref>,
+) -> impl Fn(&mut GlobalRefs) -> &mut Vec<Ref> {
+    *out = context.document.pages.iter().map(|_| chunk.alloc()).collect();
+
+    |globals| &mut globals.pages
 }
 
 pub struct PageTreeRef(pub Ref);

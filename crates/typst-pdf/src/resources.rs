@@ -6,9 +6,9 @@ use pdf_writer::{Dict, Finish, Name, Ref};
 use typst::{text::Font, visualize::Image};
 
 use crate::{
-    color_font::ColorFontSlice, extg::ExtGState, gradient::PdfGradient,
-    pattern::PdfPattern, AllocResourcesRefs, PdfChunk, Renumber, Resources,
-    WriteResources,
+    color::ColorSpaces, color_font::ColorFontSlice, extg::ExtGState,
+    gradient::PdfGradient, pattern::PdfPattern, AllocGlobalRefs, GlobalRefs, PdfChunk,
+    Renumber, Resources, WriteResources,
 };
 
 pub struct ResourcesRefs {
@@ -40,10 +40,10 @@ impl Renumber for ResourcesRefs {
 }
 
 pub fn alloc_resources_refs<'a>(
-    context: &AllocResourcesRefs<'a>,
+    context: &AllocGlobalRefs<'a>,
     chunk: &mut PdfChunk,
     out: &mut ResourcesRefs,
-) -> impl Fn(&mut ResourcesRefs) -> &mut ResourcesRefs {
+) -> impl Fn(&mut GlobalRefs) -> &mut ResourcesRefs {
     fn refs_for(resources: &Resources<()>, chunk: &mut PdfChunk) -> ResourcesRefs {
         ResourcesRefs {
             reference: chunk.alloc(),
@@ -60,7 +60,7 @@ pub fn alloc_resources_refs<'a>(
 
     *out = refs_for(&context.resources, chunk);
 
-    |resources| resources
+    |globals| &mut globals.resources
 }
 
 /// Write the global resource dictionary that will be referenced by all pages.
@@ -73,7 +73,11 @@ pub fn write_global_resources(
     chunk: &mut PdfChunk,
     _out: &mut (),
 ) -> impl Fn(&mut ()) -> &mut () {
+    let mut used_color_spaces = ColorSpaces::default();
+
     ctx.resources.write(&mut |resources| {
+        used_color_spaces.merge(&resources.colors);
+
         let images_ref = chunk.alloc.bump();
         let patterns_ref = chunk.alloc.bump();
         let ext_gs_states_ref = chunk.alloc.bump();
@@ -138,11 +142,12 @@ pub fn write_global_resources(
         );
 
         let color_spaces = chunk.indirect(color_spaces_ref).dict();
-        resources.colors.write_color_spaces(color_spaces, &ctx.globals);
-
-        // Write all of the functions used by the document.
-        resources.colors.write_functions(chunk, &ctx.globals);
+        resources
+            .colors
+            .write_color_spaces(color_spaces, &ctx.globals.color_functions);
     });
+
+    used_color_spaces.write_functions(chunk, &ctx.globals.color_functions);
 
     |nothing| nothing
 }
