@@ -144,7 +144,7 @@ impl<'a> FinalStep<WriteResources<'a>> for Catalog<'a> {
         let mut name_dict = catalog.names();
         let mut dests_name_tree = name_dict.destinations();
         let mut names = dests_name_tree.names();
-        for &(name, dest_ref, ..) in &ctx.references.dests {
+        for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
             names.insert(Str(name.as_str().as_bytes()), dest_ref);
         }
         names.finish();

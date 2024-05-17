@@ -9,106 +9,104 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, AllocRefs, PdfChunk, WriteStep};
+use crate::{deflate, AllocRefs, PdfChunk, References};
 
-pub struct Images;
+type Output = HashMap<Image, Ref>;
 
-impl<'a> WriteStep<AllocRefs<'a>> for Images {
-    type Output = HashMap<Image, Ref>;
+/// Embed all used images into the PDF.
+#[typst_macros::time(name = "write images")]
+pub fn write_images(
+    context: &AllocRefs,
+    chunk: &mut PdfChunk,
+    out: &mut Output,
+) -> impl Fn(&mut References) -> &mut Output {
+    context.resources.write(&mut |resources| {
+        for (i, image) in resources.images.items().enumerate() {
+            if out.contains_key(image) {
+                continue;
+            }
 
-    /// Embed all used images into the PDF.
-    #[typst_macros::time(name = "write images")]
-    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        context.resources.write(&mut |resources| {
-            for (i, image) in resources.images.items().enumerate() {
-                if out.contains_key(image) {
-                    continue;
+            let handle = resources.deferred_images.get(&i).unwrap();
+            match handle.wait() {
+                EncodedImage::Raster {
+                    data,
+                    filter,
+                    has_color,
+                    width,
+                    height,
+                    icc,
+                    alpha,
+                } => {
+                    let image_ref = chunk.alloc();
+                    out.insert(image.clone(), image_ref);
+
+                    let mut image = chunk.chunk.image_xobject(image_ref, data);
+                    image.filter(*filter);
+                    image.width(*width as i32);
+                    image.height(*height as i32);
+                    image.bits_per_component(8);
+
+                    let mut icc_ref = None;
+                    let space = image.color_space();
+                    if icc.is_some() {
+                        let id = chunk.alloc.bump();
+                        space.icc_based(id);
+                        icc_ref = Some(id);
+                    } else if *has_color {
+                        context.resources.colors.write(
+                            ColorSpace::Srgb,
+                            space,
+                            &context.globals,
+                        );
+                    } else {
+                        context.resources.colors.write(
+                            ColorSpace::D65Gray,
+                            space,
+                            &context.globals,
+                        );
+                    }
+
+                    // Add a second gray-scale image containing the alpha values if
+                    // this image has an alpha channel.
+                    if let Some((alpha_data, alpha_filter)) = alpha {
+                        let mask_ref = chunk.alloc.bump();
+                        image.s_mask(mask_ref);
+                        image.finish();
+
+                        let mut mask = chunk.image_xobject(mask_ref, alpha_data);
+                        mask.filter(*alpha_filter);
+                        mask.width(*width as i32);
+                        mask.height(*height as i32);
+                        mask.color_space().device_gray();
+                        mask.bits_per_component(8);
+                    } else {
+                        image.finish();
+                    }
+
+                    if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
+                        let mut stream = chunk.icc_profile(icc_ref, icc);
+                        stream.filter(Filter::FlateDecode);
+                        if *has_color {
+                            stream.n(3);
+                            stream.alternate().srgb();
+                        } else {
+                            stream.n(1);
+                            stream.alternate().d65_gray();
+                        }
+                    }
                 }
-
-                let handle = resources.deferred_images.get(&i).unwrap();
-                match handle.wait() {
-                    EncodedImage::Raster {
-                        data,
-                        filter,
-                        has_color,
-                        width,
-                        height,
-                        icc,
-                        alpha,
-                    } => {
-                        let image_ref = chunk.alloc();
-                        out.insert(image.clone(), image_ref);
-
-                        let mut image = chunk.chunk.image_xobject(image_ref, data);
-                        image.filter(*filter);
-                        image.width(*width as i32);
-                        image.height(*height as i32);
-                        image.bits_per_component(8);
-
-                        let mut icc_ref = None;
-                        let space = image.color_space();
-                        if icc.is_some() {
-                            let id = chunk.alloc.bump();
-                            space.icc_based(id);
-                            icc_ref = Some(id);
-                        } else if *has_color {
-                            context.resources.colors.write(
-                                ColorSpace::Srgb,
-                                space,
-                                &context.globals,
-                            );
-                        } else {
-                            context.resources.colors.write(
-                                ColorSpace::D65Gray,
-                                space,
-                                &context.globals,
-                            );
-                        }
-
-                        // Add a second gray-scale image containing the alpha values if
-                        // this image has an alpha channel.
-                        if let Some((alpha_data, alpha_filter)) = alpha {
-                            let mask_ref = chunk.alloc.bump();
-                            image.s_mask(mask_ref);
-                            image.finish();
-
-                            let mut mask = chunk.image_xobject(mask_ref, alpha_data);
-                            mask.filter(*alpha_filter);
-                            mask.width(*width as i32);
-                            mask.height(*height as i32);
-                            mask.color_space().device_gray();
-                            mask.bits_per_component(8);
-                        } else {
-                            image.finish();
-                        }
-
-                        if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
-                            let mut stream = chunk.icc_profile(icc_ref, icc);
-                            stream.filter(Filter::FlateDecode);
-                            if *has_color {
-                                stream.n(3);
-                                stream.alternate().srgb();
-                            } else {
-                                stream.n(1);
-                                stream.alternate().d65_gray();
-                            }
-                        }
-                    }
-                    EncodedImage::Svg(svg_chunk) => {
-                        let mut map = HashMap::new();
-                        svg_chunk.renumber_into(&mut chunk.chunk, |old| {
-                            *map.entry(old).or_insert_with(|| chunk.alloc.bump())
-                        });
-                        out.insert(image.clone(), map[&Ref::new(1)]);
-                    }
+                EncodedImage::Svg(svg_chunk) => {
+                    let mut map = HashMap::new();
+                    svg_chunk.renumber_into(&mut chunk.chunk, |old| {
+                        *map.entry(old).or_insert_with(|| chunk.alloc.bump())
+                    });
+                    out.insert(image.clone(), map[&Ref::new(1)]);
                 }
             }
-        })
-    }
+        }
+    });
 
-    fn save(context: &mut crate::References, output: Self::Output) {
-        context.images = output;
-    }
+    |references| &mut references.images
 }
 
 /// Creates a new PDF image from the given image.

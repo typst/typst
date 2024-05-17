@@ -19,14 +19,19 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
-use color_font::ColorFontSlice;
+use color_font::{write_color_fonts, ColorFontSlice};
 use ecow::EcoString;
-use page::PageTreeRef;
-use pattern::PatternRemapper;
+use extg::write_graphic_states;
+use font::write_fonts;
+use gradient::write_gradients;
+use image::write_images;
+use named_destination::write_named_destinations;
+use page::{traverse_pages, write_page_tree, PageTreeRef};
+use pattern::{write_patterns, PatternRemapper};
 use pdf_writer::{Chunk, Pdf, Ref};
 
-use typst::foundations::{Datetime, Label, Smart};
-use typst::introspection::Location;
+use resources::write_global_resources;
+use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
@@ -35,15 +40,13 @@ use typst::visualize::Image;
 
 use crate::catalog::Catalog;
 use crate::color::ColorSpaces;
-use crate::color_font::{ColorFontMap, ColorFonts};
-use crate::extg::{ExtGState, ExtGraphicsState};
-use crate::font::Fonts;
-use crate::gradient::{Gradients, PdfGradient};
-use crate::image::{EncodedImage, Images};
+use crate::color_font::ColorFontMap;
+use crate::extg::ExtGState;
+use crate::gradient::PdfGradient;
+use crate::image::EncodedImage;
 use crate::named_destination::NamedDestinations;
-use crate::page::{EncodedPage, PageTree, Pages};
-use crate::pattern::{Patterns, PdfPattern, WrittenPattern};
-use crate::resources::GlobalResources;
+use crate::page::EncodedPage;
+use crate::pattern::{PdfPattern, WrittenPattern};
 
 /// Export a document into a PDF file.
 ///
@@ -71,19 +74,19 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     PdfBuilder::new(document)
-        .with(Pages)
-        .then()
-        .with(ColorFonts)
-        .with(Fonts)
-        .with(Images)
-        .with(Gradients)
-        .with(ExtGraphicsState)
-        .with(Patterns)
-        .with(NamedDestinations)
-        .then()
-        .with(PageTree)
-        .then()
-        .with(GlobalResources)
+        .with(traverse_pages)
+        .start_building::<References, AllocRefs>()
+        .with(write_color_fonts)
+        .with(write_fonts)
+        .with(write_images)
+        .with(write_gradients)
+        .with(write_graphic_states)
+        .with(write_patterns)
+        .with(write_named_destinations)
+        .start_building::<PageTreeRef, WritePageTree>()
+        .with(write_page_tree)
+        .start_building::<(), WriteResources>()
+        .with(write_global_resources)
         .export_with(Catalog { ident, timestamp })
 }
 
@@ -98,11 +101,11 @@ pub fn pdf(
 ///
 /// A final step, that has direct access to the global reference allocator and
 /// PDF document, can be run with [`PdfBuilder::export_with`].
-struct PdfBuilder<S: State> {
+struct PdfBuilder<S, B> {
     /// The context that has been accumulated so far.
     state: S,
     /// A new part of the context that is currently being built.
-    building: S::ToBuild,
+    building: B,
     /// A global bump allocator.
     alloc: Ref,
     /// The PDF document that is being written.
@@ -142,24 +145,6 @@ trait State: Sized {
 /// The only step here is [`Pages`].
 struct BuildContent<'a> {
     document: &'a Document,
-}
-
-impl<'a> State for BuildContent<'a> {
-    type Next = AllocRefs<'a>;
-    type ToBuild = Resources<'a>;
-
-    fn start() -> Self::ToBuild {
-        Resources::default()
-    }
-
-    fn next(self, alloc: &mut Ref, mut resources: Resources<'a>) -> Self::Next {
-        resources.alloc_refs(alloc);
-        AllocRefs {
-            document: self.document,
-            globals: GlobalRefs::new(alloc, self.document.pages.len()),
-            resources,
-        }
-    }
 }
 
 /// All the resources that have been collected when traversing the document.
@@ -275,32 +260,20 @@ struct AllocRefs<'a> {
     resources: Resources<'a>,
 }
 
-impl<'a> State for AllocRefs<'a> {
-    type ToBuild = References;
-
-    type Next = WritePageTree<'a>;
-
-    fn start() -> Self::ToBuild {
-        References::default()
-    }
-
-    fn next(self, _alloc: &mut Ref, references: References) -> Self::Next {
-        WritePageTree {
-            document: self.document,
-            resources: self.resources,
-            globals: self.globals,
-            references,
+impl<'a> From<(BuildContent<'a>, Resources<'a>)> for AllocRefs<'a> {
+    fn from((previous, resources): (BuildContent<'a>, Resources<'a>)) -> Self {
+        Self {
+            document: previous.document,
+            resources,
+            globals: todo!(),
         }
     }
 }
 
 /// The references that have been assigned to each object.
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct References {
-    /// A map between elements and their associated labels
-    loc_to_dest: HashMap<Location, Label>,
-    /// A sorted list of all named destinations.
-    dests: Vec<(Label, Ref)>,
+    named_destinations: NamedDestinations,
     /// The IDs of written fonts.
     fonts: HashMap<Font, Ref>,
     /// The IDs of written color fonts.
@@ -325,22 +298,13 @@ struct WritePageTree<'a> {
     references: References,
 }
 
-impl<'a> State for WritePageTree<'a> {
-    type ToBuild = PageTreeRef;
-
-    type Next = WriteResources<'a>;
-
-    fn start() -> Self::ToBuild {
-        PageTreeRef(Ref::new(1))
-    }
-
-    fn next(self, _alloc: &mut Ref, page_tree_ref: PageTreeRef) -> Self::Next {
-        WriteResources {
-            globals: self.globals,
-            document: self.document,
-            resources: self.resources,
-            references: self.references,
-            page_tree_ref: page_tree_ref.0,
+impl<'a> From<(AllocRefs<'a>, References)> for WritePageTree<'a> {
+    fn from((previous, references): (AllocRefs<'a>, References)) -> Self {
+        Self {
+            globals: previous.globals,
+            document: previous.document,
+            resources: previous.resources,
+            references,
         }
     }
 }
@@ -356,61 +320,15 @@ struct WriteResources<'a> {
     page_tree_ref: Ref,
 }
 
-impl<'a> State for WriteResources<'a> {
-    type ToBuild = ();
-
-    type Next = Self;
-
-    fn start() -> Self::ToBuild {}
-
-    fn next(self, _alloc: &mut Ref, (): ()) -> Self::Next {
-        self
-    }
-}
-
-/// An export step, that does not write anything to the file,
-/// only collects data.
-trait Step<S: State> {
-    fn run(&self, state: &S, output: &mut S::ToBuild);
-}
-
-/// Same as [`Step`] but also writes a part of the final PDF file.
-///
-/// Because what is written is local to the current chunk only, the
-/// output of this step will be renumbered before being saved.
-trait WriteStep<S: State> {
-    /// The kind of data that this steps exports.
-    ///
-    /// This generally corresponds to a field of `S::ToBuild` (or to
-    /// all of it).
-    type Output: Default + Renumber;
-
-    /// Runs the step.
-    ///
-    /// References can be allocated using `PdfChunk::alloc`.
-    /// The only way to share references with further steps is through
-    /// `output`, which is renumbered before being shared.
-    fn run(&self, state: &S, chunk: &mut PdfChunk, output: &mut Self::Output);
-
-    /// Save the output of this step in the state, after it has been renumbered
-    /// to use global references.
-    ///
-    /// This function is generally implemented as a single assignement to a
-    /// field.
-    fn save(context: &mut S::ToBuild, output: Self::Output);
-}
-
-/// This implementation exists to be able to call [`PdfBuilder::with`] on a
-/// [`Step`].
-impl<R: Default + Renumber, S: State<ToBuild = R>, T: Step<S>> WriteStep<S> for T {
-    type Output = S::ToBuild;
-
-    fn run(&self, state: &S, _chunk: &mut PdfChunk, output: &mut Self::Output) {
-        self.run(state, output);
-    }
-
-    fn save(context: &mut <S as State>::ToBuild, output: Self::Output) {
-        *context = output;
+impl<'a> From<(WritePageTree<'a>, PageTreeRef)> for WriteResources<'a> {
+    fn from((previous, page_tree_ref): (WritePageTree<'a>, PageTreeRef)) -> Self {
+        Self {
+            globals: previous.globals,
+            document: previous.document,
+            resources: previous.resources,
+            references: previous.references,
+            page_tree_ref: page_tree_ref.0,
+        }
     }
 }
 
@@ -418,11 +336,11 @@ impl<R: Default + Renumber, S: State<ToBuild = R>, T: Step<S>> WriteStep<S> for 
 ///
 /// It has direct access to the whole state, the PDF document, and the global
 /// allocator.
-trait FinalStep<S: State> {
+trait FinalStep<S> {
     fn run(&self, state: S, pdf: &mut Pdf, alloc: &mut Ref);
 }
 
-impl<'a> PdfBuilder<BuildContent<'a>> {
+impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a>> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
@@ -434,9 +352,17 @@ impl<'a> PdfBuilder<BuildContent<'a>> {
     }
 }
 
-impl<S: State> PdfBuilder<S> {
+impl<S, B> PdfBuilder<S, B> {
     /// Runs a step with the current state.
-    fn with<W: WriteStep<S>>(mut self, step: W) -> Self {
+    fn with<P, O, F>(mut self, process: P) -> Self
+    where
+        // Process
+        P: Fn(&S, &mut PdfChunk, &mut O) -> F,
+        // Output
+        O: Default + Renumber,
+        // Field access
+        F: for<'a> Fn(&'a mut B) -> &'a mut O,
+    {
         // Any reference below that value was already allocated before and
         // should not be rewritten. Anything above was allocated in the current
         // chunk, and should be remapped.
@@ -446,19 +372,10 @@ impl<S: State> PdfBuilder<S> {
         // needed in the future.
         const TEMPORARY_REFS_START: i32 = 1_000_000_000;
 
-        fn write<S: State, W: WriteStep<S>>(
-            chunk: &mut PdfChunk,
-            ctx: &S,
-            output: &mut W::Output,
-            step: &W,
-        ) {
-            step.run(ctx, chunk, output);
-        }
-
         let mut output = Default::default();
         let mut chunk: PdfChunk = PdfChunk::new(TEMPORARY_REFS_START);
         let mut mapping = HashMap::new();
-        write(&mut chunk, &self.state, &mut output, &step);
+        let save = process(&self.state, &mut chunk, &mut output);
 
         chunk.renumber_into(&mut self.pdf, |r| {
             if r.get() < TEMPORARY_REFS_START {
@@ -471,16 +388,16 @@ impl<S: State> PdfBuilder<S> {
             output.renumber(old, new);
         }
 
-        W::save(&mut self.building, output);
+        *save(&mut self.building) = output;
 
         self
     }
 
     /// Transitions to the next state.
-    fn then(mut self) -> PdfBuilder<S::Next> {
+    fn start_building<NB: Default, NS: From<(S, B)>>(self) -> PdfBuilder<NS, NB> {
         PdfBuilder {
-            state: self.state.next(&mut self.alloc, self.building),
-            building: S::Next::start(),
+            state: NS::from((self.state, self.building)),
+            building: NB::default(),
             alloc: self.alloc,
             pdf: self.pdf,
         }

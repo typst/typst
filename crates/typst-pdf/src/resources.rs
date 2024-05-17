@@ -7,96 +7,94 @@ use typst::{text::Font, visualize::Image};
 
 use crate::{
     color_font::ColorFontSlice, extg::ExtGState, gradient::PdfGradient,
-    pattern::PdfPattern, PdfChunk, WriteResources, WriteStep,
+    pattern::PdfPattern, PdfChunk, WriteResources,
 };
 
-pub struct GlobalResources;
+/// Write the global resource dictionary that will be referenced by all pages.
+///
+/// We add a reference to this dictionary to each page individually instead of
+/// to the root node of the page tree because using the resource inheritance
+/// feature breaks PDF merging with Apple Preview.
+pub fn write_global_resources(
+    ctx: &WriteResources,
+    chunk: &mut PdfChunk,
+    _out: &mut (),
+) -> impl Fn(&mut ()) -> &mut () {
+    ctx.resources.write_with_ref(
+        ctx.globals.resources,
+        &mut |resources, resources_ref| {
+            let images_ref = chunk.alloc.bump();
+            let patterns_ref = chunk.alloc.bump();
+            let ext_gs_states_ref = chunk.alloc.bump();
+            let color_spaces_ref = chunk.alloc.bump();
 
-impl<'a> WriteStep<WriteResources<'a>> for GlobalResources {
-    type Output = ();
+            let mut pattern_mapping = HashMap::new();
+            for (pattern, pattern_refs) in &ctx.references.patterns {
+                pattern_mapping.insert(pattern.clone(), pattern_refs.pattern_ref);
+            }
 
-    /// Write the global resource dictionary that will be referenced by all pages.
-    ///
-    /// We add a reference to this dictionary to each page individually instead of
-    /// to the root node of the page tree because using the resource inheritance
-    /// feature breaks PDF merging with Apple Preview.
-    fn run(&self, ctx: &WriteResources, chunk: &mut PdfChunk, _out: &mut ()) {
-        ctx.resources.write_with_ref(
-            ctx.globals.resources,
-            &mut |resources, resources_ref| {
-                let images_ref = chunk.alloc.bump();
-                let patterns_ref = chunk.alloc.bump();
-                let ext_gs_states_ref = chunk.alloc.bump();
-                let color_spaces_ref = chunk.alloc.bump();
-
-                let mut pattern_mapping = HashMap::new();
-                for (pattern, pattern_refs) in &ctx.references.patterns {
-                    pattern_mapping.insert(pattern.clone(), pattern_refs.pattern_ref);
-                }
-
-                let mut color_font_slices = Vec::new();
-                if let Some(color_fonts) = &resources.color_fonts {
-                    for (font, color_font) in &color_fonts.map {
-                        for i in 0..(color_font.glyphs.len() / 256) + 1 {
-                            color_font_slices
-                                .push(ColorFontSlice { font: font.clone(), subfont: i })
-                        }
+            let mut color_font_slices = Vec::new();
+            if let Some(color_fonts) = &resources.color_fonts {
+                for (font, color_font) in &color_fonts.map {
+                    for i in 0..(color_font.glyphs.len() / 256) + 1 {
+                        color_font_slices
+                            .push(ColorFontSlice { font: font.clone(), subfont: i })
                     }
                 }
+            }
 
-                resource_dict(
-                    chunk,
-                    resources_ref,
-                    images_ref,
-                    ResourceList {
-                        prefix: "Im",
-                        items: &resources.images.to_items,
-                        mapping: &ctx.references.images,
-                    },
-                    patterns_ref,
-                    ResourceList {
-                        prefix: "Gr",
-                        items: &resources.gradients.to_items,
-                        mapping: &ctx.references.gradients,
-                    },
-                    ResourceList {
-                        prefix: "P",
-                        items: resources
-                            .patterns
-                            .as_ref()
-                            .map(|p| &p.remapper.to_items[..])
-                            .unwrap_or_default(),
-                        mapping: &pattern_mapping,
-                    },
-                    ext_gs_states_ref,
-                    ResourceList {
-                        prefix: "Gs",
-                        items: &resources.ext_gs.to_items,
-                        mapping: &ctx.references.ext_gs,
-                    },
-                    color_spaces_ref,
-                    ResourceList {
-                        prefix: "F",
-                        items: &resources.fonts.to_items,
-                        mapping: &ctx.references.fonts,
-                    },
-                    ResourceList {
-                        prefix: "Cf",
-                        items: &color_font_slices,
-                        mapping: &ctx.references.color_fonts,
-                    },
-                );
+            resource_dict(
+                chunk,
+                resources_ref,
+                images_ref,
+                ResourceList {
+                    prefix: "Im",
+                    items: &resources.images.to_items,
+                    mapping: &ctx.references.images,
+                },
+                patterns_ref,
+                ResourceList {
+                    prefix: "Gr",
+                    items: &resources.gradients.to_items,
+                    mapping: &ctx.references.gradients,
+                },
+                ResourceList {
+                    prefix: "P",
+                    items: resources
+                        .patterns
+                        .as_ref()
+                        .map(|p| &p.remapper.to_items[..])
+                        .unwrap_or_default(),
+                    mapping: &pattern_mapping,
+                },
+                ext_gs_states_ref,
+                ResourceList {
+                    prefix: "Gs",
+                    items: &resources.ext_gs.to_items,
+                    mapping: &ctx.references.ext_gs,
+                },
+                color_spaces_ref,
+                ResourceList {
+                    prefix: "F",
+                    items: &resources.fonts.to_items,
+                    mapping: &ctx.references.fonts,
+                },
+                ResourceList {
+                    prefix: "Cf",
+                    items: &color_font_slices,
+                    mapping: &ctx.references.color_fonts,
+                },
+            );
 
-                let color_spaces = chunk.indirect(color_spaces_ref).dict();
-                resources.colors.write_color_spaces(color_spaces, &ctx.globals);
+            let color_spaces = chunk.indirect(color_spaces_ref).dict();
+            resources.colors.write_color_spaces(color_spaces, &ctx.globals);
 
-                // Write all of the functions used by the document.
-                resources.colors.write_functions(chunk, &ctx.globals);
-            },
-        );
-    }
+            // Write all of the functions used by the document.
+            resources.colors.write_functions(chunk, &ctx.globals);
+        },
+    );
 
-    fn save(_context: &mut (), _output: ()) {}
+    |nothing| nothing
 }
 
 struct ResourceList<'a, T> {

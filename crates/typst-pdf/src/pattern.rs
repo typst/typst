@@ -13,72 +13,72 @@ use typst::{
     model::Document,
 };
 
-use crate::{color::PaintEncode, AllocRefs, BuildContent, Remapper, Resources};
-use crate::{content, WriteStep};
+use crate::content;
+use crate::{
+    color::PaintEncode, AllocRefs, BuildContent, References, Remapper, Resources,
+};
 use crate::{transform_to_array, PdfChunk, Renumber};
 
-pub struct Patterns;
+type Output = HashMap<PdfPattern, WrittenPattern>;
 
-impl<'a> WriteStep<AllocRefs<'a>> for Patterns {
-    type Output = HashMap<PdfPattern, WrittenPattern>;
+/// Writes the actual patterns (tiling patterns) to the PDF.
+/// This is performed once after writing all pages.
+pub fn write_patterns(
+    context: &AllocRefs,
+    chunk: &mut PdfChunk,
+    out: &mut Output,
+) -> impl Fn(&mut References) -> &mut Output {
+    context.resources.write(&mut |resources| {
+        let Some(patterns) = &resources.patterns else {
+            return;
+        };
+        let pattern_map: &Vec<PdfPattern> = &patterns.remapper.to_items;
 
-    /// Writes the actual patterns (tiling patterns) to the PDF.
-    /// This is performed once after writing all pages.
-    fn run(&self, context: &AllocRefs, chunk: &mut PdfChunk, out: &mut Self::Output) {
-        context.resources.write(&mut |resources| {
-            let Some(patterns) = &resources.patterns else {
-                return;
-            };
-            let pattern_map: &Vec<PdfPattern> = &patterns.remapper.to_items;
-
-            for pdf_pattern in pattern_map {
-                let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
-                if out.contains_key(pdf_pattern) {
-                    continue;
-                }
-
-                let tiling = chunk.alloc();
-                out.insert(
-                    pdf_pattern.clone(),
-                    WrittenPattern {
-                        pattern_ref: tiling,
-                        resources_ref: patterns.resources_ref.unwrap(),
-                    },
-                );
-
-                let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
-                tiling_pattern
-                    .tiling_type(TilingType::ConstantSpacing)
-                    .paint_type(PaintType::Colored)
-                    .bbox(Rect::new(
-                        0.0,
-                        0.0,
-                        pattern.size().x.to_pt() as _,
-                        pattern.size().y.to_pt() as _,
-                    ))
-                    .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
-                    .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
-
-                // The actual resource dict will be written in a later step
-                tiling_pattern.pair(Name(b"Resources"), patterns.resources_ref.unwrap());
-
-                tiling_pattern
-                    .matrix(transform_to_array(
-                        transform
-                            .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
-                            .post_concat(Transform::translate(
-                                Abs::zero(),
-                                pattern.spacing().y,
-                            )),
-                    ))
-                    .filter(Filter::FlateDecode);
+        for pdf_pattern in pattern_map {
+            let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
+            if out.contains_key(pdf_pattern) {
+                continue;
             }
-        })
-    }
 
-    fn save(context: &mut crate::References, output: Self::Output) {
-        context.patterns = output;
-    }
+            let tiling = chunk.alloc();
+            out.insert(
+                pdf_pattern.clone(),
+                WrittenPattern {
+                    pattern_ref: tiling,
+                    resources_ref: patterns.resources_ref.unwrap(),
+                },
+            );
+
+            let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
+            tiling_pattern
+                .tiling_type(TilingType::ConstantSpacing)
+                .paint_type(PaintType::Colored)
+                .bbox(Rect::new(
+                    0.0,
+                    0.0,
+                    pattern.size().x.to_pt() as _,
+                    pattern.size().y.to_pt() as _,
+                ))
+                .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
+                .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
+
+            // The actual resource dict will be written in a later step
+            tiling_pattern.pair(Name(b"Resources"), patterns.resources_ref.unwrap());
+
+            tiling_pattern
+                .matrix(transform_to_array(
+                    transform
+                        .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
+                        .post_concat(Transform::translate(
+                            Abs::zero(),
+                            pattern.spacing().y,
+                        )),
+                ))
+                .filter(Filter::FlateDecode);
+        }
+    });
+
+    |references| &mut references.patterns
 }
 
 #[derive(Debug)]
