@@ -13,10 +13,10 @@ use typst::{
     model::Document,
 };
 
-use crate::content;
 use crate::{
     color::PaintEncode, AllocRefs, BuildContent, References, Remapper, Resources,
 };
+use crate::{content, resources::ResourcesRefs};
 use crate::{transform_to_array, PdfChunk, Renumber};
 
 type Output = HashMap<PdfPattern, WrittenPattern>;
@@ -45,7 +45,7 @@ pub fn write_patterns(
                 pdf_pattern.clone(),
                 WrittenPattern {
                     pattern_ref: tiling,
-                    resources_ref: patterns.resources_ref.unwrap(),
+                    resources_ref: patterns.resources.reference,
                 },
             );
 
@@ -63,7 +63,7 @@ pub fn write_patterns(
                 .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
 
             // The actual resource dict will be written in a later step
-            tiling_pattern.pair(Name(b"Resources"), patterns.resources_ref.unwrap());
+            tiling_pattern.pair(Name(b"Resources"), patterns.resources.reference);
 
             tiling_pattern
                 .matrix(transform_to_array(
@@ -179,20 +179,26 @@ impl PaintEncode for Pattern {
     }
 }
 
-pub struct PatternRemapper<'a> {
+pub struct PatternRemapper<'a, R> {
     pub remapper: Remapper<PdfPattern>,
     pub ctx: BuildContent<'a>,
-    pub resources: Resources<'a>,
-    pub resources_ref: Option<Ref>,
+    pub resources: Resources<'a, R>,
 }
 
-impl<'a> PatternRemapper<'a> {
+impl<'a> PatternRemapper<'a, ()> {
     pub fn new(document: &'a Document) -> Self {
         Self {
             remapper: Remapper::new(),
             ctx: BuildContent { document },
             resources: Resources::default(),
-            resources_ref: None,
+        }
+    }
+
+    pub fn with_refs(self, refs: ResourcesRefs) -> PatternRemapper<'a, Ref> {
+        PatternRemapper {
+            remapper: self.remapper,
+            ctx: self.ctx,
+            resources: self.resources.with_refs(refs),
         }
     }
 }

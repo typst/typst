@@ -21,10 +21,10 @@ use crate::{font::improve_glyph_sets, Resources};
 pub fn traverse_pages<'a>(
     state: &BuildContent<'a>,
     _chunk: &mut PdfChunk,
-    out: &mut Resources<'a>,
-) -> impl for<'b> Fn(&'b mut Resources<'a>) -> &'b mut Resources<'a> {
+    out: &mut Resources<'a, ()>,
+) -> impl for<'b> Fn(&'b mut Resources<'a, ()>) -> &'b mut Resources<'a, ()> {
     for page in &state.document.pages {
-        let mut encoded = construct_page(state, out, &page.frame);
+        let mut encoded = construct_page(&state, out, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
@@ -41,7 +41,7 @@ pub fn traverse_pages<'a>(
 #[typst_macros::time(name = "construct page")]
 pub(crate) fn construct_page<'a, 'b>(
     state: &'a BuildContent<'b>,
-    out: &'a mut Resources<'b>,
+    out: &'a mut Resources<'b, ()>,
     frame: &Frame,
 ) -> EncodedPage {
     let content = content::build(state, out, frame);
@@ -75,7 +75,7 @@ pub fn write_page_tree(
         let content_id = chunk.alloc.bump();
         write_page(
             chunk,
-            ctx,
+            &ctx,
             content_id,
             page_tree_ref,
             &ctx.references.named_destinations.loc_to_dest,
@@ -104,7 +104,7 @@ fn write_page(
 ) {
     let page = &ctx.resources.pages[i];
 
-    let global_resources_ref = ctx.globals.resources;
+    let global_resources_ref = ctx.resources.reference;
     let mut page_writer = chunk.page(ctx.globals.pages[i]);
     page_writer.parent(page_tree_ref);
 

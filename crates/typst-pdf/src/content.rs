@@ -28,7 +28,7 @@ use crate::{
 
 pub fn build<'a, 'b>(
     state: &'a BuildContent<'b>,
-    out: &'a mut Resources<'b>,
+    out: &'a mut Resources<'b, ()>,
     frame: &Frame,
 ) -> Encoded {
     let size = frame.size();
@@ -73,9 +73,9 @@ pub struct Encoded {
 ///
 /// Content streams can be used for page contents, but also to describe color
 /// glyphs and patterns.
-pub struct Builder<'a, 'b> {
+pub struct Builder<'a, 'b, R = ()> {
     pub(crate) global_state: &'a BuildContent<'b>,
-    pub(crate) resources: &'a mut Resources<'b>,
+    pub(crate) resources: &'a mut Resources<'b, R>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -84,10 +84,10 @@ pub struct Builder<'a, 'b> {
     links: Vec<(Destination, Rect)>,
 }
 
-impl<'a, 'b> Builder<'a, 'b> {
+impl<'a, 'b, R> Builder<'a, 'b, R> {
     pub fn new(
         state: &'a BuildContent<'b>,
-        resources: &'a mut Resources<'b>,
+        resources: &'a mut Resources<'b, R>,
         size: Size,
     ) -> Self {
         Builder {
@@ -163,7 +163,7 @@ pub(super) struct Transforms {
     pub size: Size,
 }
 
-impl Builder<'_, '_> {
+impl Builder<'_, '_, ()> {
     fn save_state(&mut self) {
         self.saves.push(self.state.clone());
         self.content.save_state();

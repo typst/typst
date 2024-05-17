@@ -30,7 +30,7 @@ use page::{traverse_pages, write_page_tree, PageTreeRef};
 use pattern::{write_patterns, PatternRemapper};
 use pdf_writer::{Chunk, Pdf, Ref};
 
-use resources::write_global_resources;
+use resources::{alloc_resources_refs, write_global_resources, ResourcesRefs};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, Transform};
 use typst::model::Document;
@@ -75,6 +75,8 @@ pub fn pdf(
 ) -> Vec<u8> {
     PdfBuilder::new(document)
         .with(traverse_pages)
+        .start_building::<ResourcesRefs, AllocResourcesRefs>()
+        .with(alloc_resources_refs)
         .start_building::<References, AllocRefs>()
         .with(write_color_fonts)
         .with(write_fonts)
@@ -148,7 +150,8 @@ struct BuildContent<'a> {
 }
 
 /// All the resources that have been collected when traversing the document.
-struct Resources<'a> {
+struct Resources<'a, R = Ref> {
+    reference: R,
     /// Content of exported pages.
     pages: Vec<EncodedPage>,
     /// The number of glyphs for all referenced languages in the document.
@@ -176,20 +179,31 @@ struct Resources<'a> {
     /// Deduplicates gradients used across the document.
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
-    patterns: Option<Box<PatternRemapper<'a>>>,
+    patterns: Option<Box<PatternRemapper<'a, R>>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
-    color_fonts: Option<Box<ColorFontMap<'a>>>,
+    color_fonts: Option<Box<ColorFontMap<'a, R>>>,
 }
 
-impl<'a> Renumber for Resources<'a> {
-    fn renumber(&mut self, _old: Ref, _new: Ref) {}
+impl<'a, R: Renumber> Renumber for Resources<'a, R> {
+    fn renumber(&mut self, old: Ref, new: Ref) {
+        self.reference.renumber(old, new);
+
+        if let Some(color_fonts) = &mut self.color_fonts {
+            color_fonts.resources.renumber(old, new);
+        }
+
+        if let Some(patterns) = &mut self.patterns {
+            patterns.resources.renumber(old, new);
+        }
+    }
 }
 
-impl<'a> Default for Resources<'a> {
+impl<'a> Default for Resources<'a, ()> {
     fn default() -> Self {
         Resources {
+            reference: (),
             pages: Vec::new(),
             glyph_sets: HashMap::new(),
             languages: BTreeMap::new(),
@@ -205,7 +219,51 @@ impl<'a> Default for Resources<'a> {
     }
 }
 
-impl<'a> Resources<'a> {
+impl<'a> Resources<'a, ()> {
+    fn with_refs(self, refs: ResourcesRefs) -> Resources<'a, Ref> {
+        Resources {
+            reference: refs.reference,
+            pages: self.pages,
+            languages: self.languages,
+            glyph_sets: self.glyph_sets,
+            colors: self.colors,
+            fonts: self.fonts,
+            images: self.images,
+            deferred_images: self.deferred_images,
+            gradients: self.gradients,
+            patterns: self
+                .patterns
+                .zip(refs.patterns)
+                .map(|(p, r)| Box::new(p.with_refs(*r))),
+            ext_gs: self.ext_gs,
+            color_fonts: self
+                .color_fonts
+                .zip(refs.color_fonts)
+                .map(|(c, r)| Box::new(c.with_refs(*r))),
+        }
+    }
+}
+
+impl<'a> Default for Resources<'a> {
+    fn default() -> Self {
+        Resources {
+            reference: Ref::new(1),
+            pages: Vec::new(),
+            glyph_sets: HashMap::new(),
+            languages: BTreeMap::new(),
+            colors: ColorSpaces::default(),
+            fonts: Remapper::new(),
+            images: Remapper::new(),
+            deferred_images: HashMap::new(),
+            gradients: Remapper::new(),
+            patterns: None,
+            ext_gs: Remapper::new(),
+            color_fonts: None,
+        }
+    }
+}
+
+impl<'a, R> Resources<'a, R> {
     fn write<P>(&self, process: &mut P)
     where
         P: FnMut(&Self),
@@ -218,33 +276,20 @@ impl<'a> Resources<'a> {
             patterns.resources.write(process)
         }
     }
+}
 
-    fn write_with_ref<P>(&self, global_ref: Ref, process: &mut P)
-    where
-        P: FnMut(&Self, Ref),
-    {
-        process(self, global_ref);
-        if let Some(color_fonts) = &self.color_fonts {
-            color_fonts
-                .resources
-                .write_with_ref(color_fonts.resources_ref.unwrap(), process)
-        }
-        if let Some(patterns) = &self.patterns {
-            patterns
-                .resources
-                .write_with_ref(patterns.resources_ref.unwrap(), process)
-        }
-    }
+struct AllocResourcesRefs<'a> {
+    document: &'a Document,
+    globals: GlobalRefs,
+    resources: Resources<'a, ()>,
+}
 
-    fn alloc_refs(&mut self, alloc: &mut Ref) {
-        if let Some(color_fonts) = &mut self.color_fonts {
-            color_fonts.resources_ref = Some(alloc.bump());
-            color_fonts.resources.alloc_refs(alloc);
-        }
-
-        if let Some(patterns) = &mut self.patterns {
-            patterns.resources_ref = Some(alloc.bump());
-            patterns.resources.alloc_refs(alloc);
+impl<'a> From<(BuildContent<'a>, Resources<'a, ()>)> for AllocResourcesRefs<'a> {
+    fn from((previous, resources): (BuildContent<'a>, Resources<'a, ()>)) -> Self {
+        Self {
+            document: previous.document,
+            resources,
+            globals: todo!(),
         }
     }
 }
@@ -260,11 +305,11 @@ struct AllocRefs<'a> {
     resources: Resources<'a>,
 }
 
-impl<'a> From<(BuildContent<'a>, Resources<'a>)> for AllocRefs<'a> {
-    fn from((previous, resources): (BuildContent<'a>, Resources<'a>)) -> Self {
+impl<'a> From<(AllocResourcesRefs<'a>, ResourcesRefs)> for AllocRefs<'a> {
+    fn from((previous, refs): (AllocResourcesRefs<'a>, ResourcesRefs)) -> Self {
         Self {
             document: previous.document,
-            resources,
+            resources: previous.resources.with_refs(refs),
             globals: todo!(),
         }
     }
@@ -340,7 +385,7 @@ trait FinalStep<S> {
     fn run(&self, state: S, pdf: &mut Pdf, alloc: &mut Ref);
 }
 
-impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a>> {
+impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a, ()>> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
@@ -454,8 +499,6 @@ struct GlobalRefs {
     oklab: Ref,
     d65_gray: Ref,
     srgb: Ref,
-    // Resources
-    resources: Ref,
     // Page tree and pages
     pages: Vec<Ref>,
 }
@@ -463,7 +506,6 @@ struct GlobalRefs {
 impl GlobalRefs {
     fn new(alloc: &mut Ref, page_count: usize) -> Self {
         GlobalRefs {
-            resources: alloc.bump(),
             pages: std::iter::repeat_with(|| alloc.bump()).take(page_count).collect(),
             oklab: alloc.bump(),
             d65_gray: alloc.bump(),

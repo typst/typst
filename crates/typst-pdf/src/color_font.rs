@@ -10,6 +10,7 @@ use typst::layout::Em;
 use typst::model::Document;
 use typst::text::{color::frame_for_glyph, Font};
 
+use crate::resources::ResourcesRefs;
 use crate::{
     content,
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
@@ -80,7 +81,7 @@ pub fn write_color_fonts(
 
                 // Write the Type3 font object.
                 let mut pdf_font = chunk.type3_font(subfont_id);
-                pdf_font.pair(Name(b"Resources"), color_fonts.resources_ref.unwrap()); // TODO: find a way to not unwrap here?
+                pdf_font.pair(Name(b"Resources"), color_fonts.resources.reference);
                 pdf_font.bbox(color_font.bbox);
                 pdf_font.matrix([
                     1.0 / scale_factor,
@@ -153,13 +154,12 @@ pub fn write_color_fonts(
 ///
 /// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
 /// font, and fonts generally have more color glyphs than that.
-pub struct ColorFontMap<'a> {
+pub struct ColorFontMap<'a, R> {
     /// The mapping itself.
     pub map: IndexMap<Font, ColorFont>,
     /// The context that is used to draw all color glyphs.
     pub ctx: BuildContent<'a>,
-    pub resources: Resources<'a>,
-    pub resources_ref: Option<Ref>,
+    pub resources: Resources<'a, R>,
     /// The number of font slices (groups of 256 color glyphs), across all color
     /// fonts.
     total_slice_count: usize,
@@ -192,7 +192,7 @@ pub struct ColorGlyph {
     pub instructions: content::Encoded,
 }
 
-impl<'a> ColorFontMap<'a> {
+impl<'a> ColorFontMap<'a, ()> {
     /// Creates a new empty mapping
     pub fn new(document: &'a Document) -> Self {
         Self {
@@ -200,7 +200,6 @@ impl<'a> ColorFontMap<'a> {
             total_slice_count: 0,
             ctx: BuildContent { document },
             resources: Resources::default(),
-            resources_ref: None,
         }
     }
 
@@ -239,6 +238,15 @@ impl<'a> ColorFontMap<'a> {
             color_font.glyph_indices.insert(gid, index);
 
             (color_font.slice_ids[index / 256], index as u8)
+        }
+    }
+
+    pub fn with_refs(self, refs: ResourcesRefs) -> ColorFontMap<'a, Ref> {
+        ColorFontMap {
+            map: self.map,
+            ctx: self.ctx,
+            resources: self.resources.with_refs(refs),
+            total_slice_count: self.total_slice_count,
         }
     }
 }
