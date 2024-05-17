@@ -15,7 +15,7 @@ use typst::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
 
-use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
+use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::{content, AllocRefs, References};
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
 
@@ -68,7 +68,7 @@ pub fn write_gradients(
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Axial);
 
-                    resources.colors.write(
+                    color::write(
                         color_space,
                         shading.color_space(),
                         &context.globals.color_functions,
@@ -129,7 +129,7 @@ pub fn write_gradients(
                     let mut stream_shading =
                         chunk.chunk.stream_shading(stream_shading_id, &vertices);
 
-                    resources.colors.write(
+                    color::write(
                         color_space,
                         stream_shading.color_space(),
                         &context.globals.color_functions,
@@ -329,7 +329,7 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    ctx.resources.colors.mark_as_used(color_space_of(&gradient));
+    ctx.resources.colors.mark_as_used(color_space_of(gradient));
 
     ctx.resources.gradients.insert(pdf_gradient)
 }

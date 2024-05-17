@@ -117,33 +117,6 @@ struct PdfBuilder<S, B> {
     pdf: Pdf,
 }
 
-/// Current state of a [`PdfBuilder`].
-///
-/// Depending how far in the process of building the PDF document we are, we
-/// have collected more or less information. The different stages and data that
-/// is available at this point are represented by implementors of this trait.
-///
-/// This design ensures that it is not possible to read data that has not
-/// actually been initialized yet.
-///
-/// The differents states are implemented below, in the order they are executed.
-trait State: Sized {
-    /// The data that will be constructed by the next steps.
-    type ToBuild;
-    /// The next state, that is a combination of `Self` and `Self::ToBuild`.
-    ///
-    /// States form a chain, linked using this associated type. The last type of
-    /// the chain points to itself.
-    type Next: State;
-
-    /// Start building the new data.
-    fn start() -> Self::ToBuild;
-
-    // TODO: add a step to allocate globals instead of having alloc here?
-    /// Transition to the next state.
-    fn next(self, alloc: &mut Ref, built: Self::ToBuild) -> Self::Next;
-}
-
 /// The initial state: we are exploring the document, collecting all resources
 /// that will be necessary later.
 ///
@@ -237,12 +210,12 @@ impl<'a> Resources<'a, ()> {
             patterns: self
                 .patterns
                 .zip(refs.patterns.as_ref())
-                .map(|(p, r)| Box::new(p.with_refs(&*r))),
+                .map(|(p, r)| Box::new(p.with_refs(r))),
             ext_gs: self.ext_gs,
             color_fonts: self
                 .color_fonts
                 .zip(refs.color_fonts.as_ref())
-                .map(|(c, r)| Box::new(c.with_refs(&*r))),
+                .map(|(c, r)| Box::new(c.with_refs(r))),
         }
     }
 }
@@ -466,8 +439,6 @@ impl Renumber for () {
     fn renumber(&mut self, _old: Ref, _new: Ref) {}
 }
 
-// TODO: introduce GlobalRef for that purpose, instead of having PageTreeRef and
-// others (+more type safety I guess)?
 impl Renumber for Ref {
     fn renumber(&mut self, old: Ref, new: Ref) {
         if *self == old {

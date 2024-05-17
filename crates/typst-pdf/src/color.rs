@@ -79,54 +79,22 @@ impl ColorSpaces {
         }
     }
 
-    /// Write the color space on usage.
-    pub fn write(
-        &self,
-        color_space: ColorSpace,
-        writer: writers::ColorSpace,
-        refs: &ColorFunctionRefs,
-    ) {
-        match color_space {
-            ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
-                let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
-                self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), refs);
-                oklab.tint_ref(refs.oklab);
-                oklab.attrs().subtype(DeviceNSubtype::DeviceN);
-            }
-            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, refs),
-            ColorSpace::Srgb => writer.icc_based(refs.srgb),
-            ColorSpace::D65Gray => writer.icc_based(refs.d65_gray),
-            ColorSpace::LinearRgb => {
-                writer.cal_rgb(
-                    [0.9505, 1.0, 1.0888],
-                    None,
-                    Some([1.0, 1.0, 1.0]),
-                    Some([
-                        0.4124, 0.2126, 0.0193, 0.3576, 0.715, 0.1192, 0.1805, 0.0722,
-                        0.9505,
-                    ]),
-                );
-            }
-            ColorSpace::Cmyk => writer.device_cmyk(),
-        }
-    }
-
     // Write the color spaces to the PDF file.
     pub fn write_color_spaces(&self, mut spaces: Dict, refs: &ColorFunctionRefs) {
         if self.use_oklab {
-            self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
+            write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
         }
 
         if self.use_srgb {
-            self.write(ColorSpace::Srgb, spaces.insert(SRGB).start(), refs);
+            write(ColorSpace::Srgb, spaces.insert(SRGB).start(), refs);
         }
 
         if self.use_d65_gray {
-            self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), refs);
+            write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), refs);
         }
 
         if self.use_linear_rgb {
-            self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), refs);
+            write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), refs);
         }
     }
 
@@ -166,6 +134,36 @@ impl ColorSpaces {
         self.use_linear_rgb |= other.use_linear_rgb;
         self.use_oklab |= other.use_oklab;
         self.use_srgb |= other.use_srgb;
+    }
+}
+
+/// Write the color space.
+pub fn write(
+    color_space: ColorSpace,
+    writer: writers::ColorSpace,
+    refs: &ColorFunctionRefs,
+) {
+    match color_space {
+        ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
+            let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
+            write(ColorSpace::LinearRgb, oklab.alternate_color_space(), refs);
+            oklab.tint_ref(refs.oklab);
+            oklab.attrs().subtype(DeviceNSubtype::DeviceN);
+        }
+        ColorSpace::Oklch => write(ColorSpace::Oklab, writer, refs),
+        ColorSpace::Srgb => writer.icc_based(refs.srgb),
+        ColorSpace::D65Gray => writer.icc_based(refs.d65_gray),
+        ColorSpace::LinearRgb => {
+            writer.cal_rgb(
+                [0.9505, 1.0, 1.0888],
+                None,
+                Some([1.0, 1.0, 1.0]),
+                Some([
+                    0.4124, 0.2126, 0.0193, 0.3576, 0.715, 0.1192, 0.1805, 0.0722, 0.9505,
+                ]),
+            );
+        }
+        ColorSpace::Cmyk => writer.device_cmyk(),
     }
 }
 

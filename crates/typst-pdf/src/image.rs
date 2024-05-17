@@ -9,7 +9,7 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, AllocRefs, PdfChunk, References};
+use crate::{color, deflate, AllocRefs, PdfChunk, References};
 
 type Output = HashMap<Image, Ref>;
 
@@ -53,13 +53,13 @@ pub fn write_images(
                         space.icc_based(id);
                         icc_ref = Some(id);
                     } else if *has_color {
-                        context.resources.colors.write(
+                        color::write(
                             ColorSpace::Srgb,
                             space,
                             &context.globals.color_functions,
                         );
                     } else {
-                        context.resources.colors.write(
+                        color::write(
                             ColorSpace::D65Gray,
                             space,
                             &context.globals.color_functions,

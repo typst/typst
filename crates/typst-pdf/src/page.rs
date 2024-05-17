@@ -27,7 +27,7 @@ pub fn traverse_pages<'a>(
     out: &mut Resources<'a, ()>,
 ) -> impl for<'b> Fn(&'b mut Resources<'a, ()>) -> &'b mut Resources<'a, ()> {
     for page in &state.document.pages {
-        let mut encoded = construct_page(&state, out, &page.frame);
+        let mut encoded = construct_page(state, out, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
@@ -88,7 +88,7 @@ pub fn write_page_tree(
         let content_id = chunk.alloc.bump();
         write_page(
             chunk,
-            &ctx,
+            ctx,
             content_id,
             page_tree_ref,
             &ctx.references.named_destinations.loc_to_dest,

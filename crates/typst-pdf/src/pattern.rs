@@ -198,7 +198,7 @@ impl<'a> PatternRemapper<'a, ()> {
         PatternRemapper {
             remapper: self.remapper,
             ctx: self.ctx,
-            resources: self.resources.with_refs(&refs),
+            resources: self.resources.with_refs(refs),
         }
     }
 }
