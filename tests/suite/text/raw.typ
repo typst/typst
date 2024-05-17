@@ -628,3 +628,11 @@ fn main() {
 // Unterminated.
 // Error: 1-2:1 unclosed raw text
 `endless
+--- issue-3820-raw-space-when-end-with-backtick ---
+```typ
+`code`
+```
+
+  ```typ
+  `code`
+  ```
