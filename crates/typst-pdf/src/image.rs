@@ -20,7 +20,7 @@ pub fn write_images(
     chunk: &mut PdfChunk,
     out: &mut Output,
 ) -> impl Fn(&mut References) -> &mut Output {
-    context.resources.write(&mut |resources| {
+    context.resources.traverse(&mut |resources| {
         for (i, image) in resources.images.items().enumerate() {
             if out.contains_key(image) {
                 continue;

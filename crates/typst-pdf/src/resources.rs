@@ -75,7 +75,7 @@ pub fn write_global_resources(
 ) -> impl Fn(&mut ()) -> &mut () {
     let mut used_color_spaces = ColorSpaces::default();
 
-    ctx.resources.write(&mut |resources| {
+    ctx.resources.traverse(&mut |resources| {
         used_color_spaces.merge(&resources.colors);
 
         let images_ref = chunk.alloc.bump();

@@ -25,7 +25,7 @@ pub fn write_color_fonts(
     chunk: &mut PdfChunk,
     out: &mut Output,
 ) -> impl Fn(&mut References) -> &mut Output {
-    context.resources.write(&mut |resources: &Resources| {
+    context.resources.traverse(&mut |resources: &Resources| {
         let Some(color_fonts) = &resources.color_fonts else {
             return;
         };

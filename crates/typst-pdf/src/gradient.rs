@@ -43,7 +43,7 @@ pub fn write_gradients(
     chunk: &mut PdfChunk,
     out: &mut Output,
 ) -> impl Fn(&mut References) -> &mut Output {
-    context.resources.write(&mut |resources| {
+    context.resources.traverse(&mut |resources| {
         for pdf_gradient in resources.gradients.items().cloned().collect::<Vec<_>>() {
             if out.contains_key(&pdf_gradient) {
                 continue;

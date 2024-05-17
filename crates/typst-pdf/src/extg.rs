@@ -33,7 +33,7 @@ pub fn write_graphic_states(
     chunk: &mut PdfChunk,
     out: &mut Output,
 ) -> impl Fn(&mut References) -> &mut Output {
-    context.resources.write(&mut |resources| {
+    context.resources.traverse(&mut |resources| {
         for external_gs in resources.ext_gs.items() {
             if out.contains_key(external_gs) {
                 continue;

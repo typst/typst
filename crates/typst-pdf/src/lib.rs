@@ -19,6 +19,7 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
+use catalog::write_catalog;
 use color::{alloc_color_functions_refs, ColorFunctionRefs};
 use color_font::{write_color_fonts, ColorFontSlice};
 use ecow::EcoString;
@@ -39,7 +40,6 @@ use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
 
-use crate::catalog::Catalog;
 use crate::color::ColorSpaces;
 use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
@@ -75,34 +75,42 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     PdfBuilder::new(document)
-        .with(traverse_pages)
-        .start_building::<GlobalRefs, AllocGlobalRefs>()
-        .with(alloc_page_refs)
-        .with(alloc_color_functions_refs)
-        .with(alloc_resources_refs)
-        .start_building::<References, AllocRefs>()
-        .with(write_color_fonts)
-        .with(write_fonts)
-        .with(write_images)
-        .with(write_gradients)
-        .with(write_graphic_states)
-        .with(write_patterns)
-        .with(write_named_destinations)
-        .start_building::<PageTreeRef, WritePageTree>()
-        .with(write_page_tree)
-        .start_building::<(), WriteResources>()
-        .with(write_global_resources)
-        .export_with(Catalog { ident, timestamp })
+        .run(traverse_pages)
+        .transition::<GlobalRefs, AllocGlobalRefs>()
+        .run(alloc_page_refs)
+        .run(alloc_color_functions_refs)
+        .run(alloc_resources_refs)
+        .transition::<References, AllocRefs>()
+        .run(write_color_fonts)
+        .run(write_fonts)
+        .run(write_images)
+        .run(write_gradients)
+        .run(write_graphic_states)
+        .run(write_patterns)
+        .run(write_named_destinations)
+        .transition::<PageTreeRef, WritePageTree>()
+        .run(write_page_tree)
+        .transition::<(), WriteResources>()
+        .run(write_global_resources)
+        .export_with(ident, timestamp, write_catalog)
 }
 
-/// A struct to build a PDF following a fixed sequence of steps.
+/// A struct to build a PDF following a fixed succession of phases.
 ///
-/// Steps are run in the order given by the successive [`PdfBuilder::with`]
-/// calls. A step can read the current context (`S`) and write to the new part
-/// of the context being built (`S::ToBuild`).
+/// This type uses generics to represent its current state. `S` (for "state") is
+/// all data that was produced by the previous phases, that is now read-only.
+/// `B` (for "building") is a new set of data, that is currently being produced
+/// and that should be considered write-only.
 ///
-/// To combine the last state and what was built by the previous steps in a new
-/// state, [`PdfBuilder::then`] is used.
+/// In other words: this struct follows the **typestate pattern**. This prevents
+/// you from using data that is not yet available, at the type level.
+///
+/// Each phase consists of processes, that can read the state of the previous
+/// phases (`S`), and write to the new state (`B`). These processes are run
+/// in the order [`PdfBuilder::run`] is called on them.
+///
+/// To combine the last state and what was built by the previous phases in a new
+/// state, [`PdfBuilder::transition`] is used. A new phase is then entered.
 ///
 /// A final step, that has direct access to the global reference allocator and
 /// PDF document, can be run with [`PdfBuilder::export_with`].
@@ -126,7 +134,32 @@ struct BuildContent<'a> {
 }
 
 /// All the resources that have been collected when traversing the document.
+///
+/// This does not allocate references to resources, only track what was used
+/// and deduplicate what can be deduplicated.
+///
+/// You may notice that this structure is a tree: [`PatternRemapper`] and
+/// [`ColorFontMap`] (that are present in the fields of [`Resources`]),
+/// themselves contain [`Resources`] (that will be called "sub-resources" from
+/// now on). Because color glyphs and patterns are defined using content
+/// streams, just like pages, they can refer to resources too, which are tracked
+/// by the respective sub-resources.
+///
+/// Each instance of this structure will become a `/Resources` dictionnary in
+/// the final PDF. It is not possible to use a single shared dictionnary for all
+/// pages, patterns and color fonts, because if a resource is listed in its own
+/// `/Resources` dictionnary, some PDF readers will fail to open the document.
+///
+/// Because we need to lazily initialize sub-resources (we don't know how deep
+/// the tree will be before reading the document), and that this is done in a
+/// context where no PDF reference allocator is available, `Resources` are
+/// originally created with the type parameter `R = ()`. The reference for each
+/// dictionnary will only be allocated in the next phase, once we know the shape
+/// of the tree, at which point `R` becomes `Ref`. No other value of `R` should
+/// ever exist.
 struct Resources<'a, R = Ref> {
+    /// The global reference to this resource dictionnary, or `()` if it has not
+    /// been allocated yet.
     reference: R,
     /// Content of exported pages.
     pages: Vec<EncodedPage>,
@@ -196,6 +229,8 @@ impl<'a> Default for Resources<'a, ()> {
 }
 
 impl<'a> Resources<'a, ()> {
+    /// Associate a reference with this resource dictionnary (and do so
+    /// recursively for sub-resources).
     fn with_refs(self, refs: &ResourcesRefs) -> Resources<'a, Ref> {
         Resources {
             reference: refs.reference,
@@ -240,23 +275,37 @@ impl<'a> Default for Resources<'a> {
 }
 
 impl<'a, R> Resources<'a, R> {
-    fn write<P>(&self, process: &mut P)
+    /// Run a function on this resource dictionnary and all
+    /// of its sub-resources.
+    fn traverse<P>(&self, process: &mut P)
     where
         P: FnMut(&Self),
     {
         process(self);
         if let Some(color_fonts) = &self.color_fonts {
-            color_fonts.resources.write(process)
+            color_fonts.resources.traverse(process)
         }
         if let Some(patterns) = &self.patterns {
-            patterns.resources.write(process)
+            patterns.resources.traverse(process)
         }
     }
 }
 
+/// At this point, resources were listed, but they don't have any reference
+/// associated with them.
+///
+/// This phase allocates some global references.
 struct AllocGlobalRefs<'a> {
     document: &'a Document,
     resources: Resources<'a, ()>,
+}
+
+/// Global references
+#[derive(Default)]
+struct GlobalRefs {
+    color_functions: ColorFunctionRefs,
+    pages: Vec<Ref>,
+    resources: ResourcesRefs,
 }
 
 impl<'a> From<(BuildContent<'a>, Resources<'a, ()>)> for AllocGlobalRefs<'a> {
@@ -305,7 +354,7 @@ struct References {
 }
 
 /// At this point, the references have been assigned to all resources. The page
-/// tree is going to be written, and given an ID. It is also at this point that
+/// tree is going to be written, and given a reference. It is also at this point that
 /// the page contents is actually written.
 struct WritePageTree<'a> {
     globals: GlobalRefs,
@@ -325,9 +374,9 @@ impl<'a> From<(AllocRefs<'a>, References)> for WritePageTree<'a> {
     }
 }
 
-/// The final step: write global resources dictionnaries.
+/// In this phase, we write resource dictionnaries.
 ///
-/// Each subcontext gets its own isolated resource dictionnary.
+/// Each sub-resource gets its own isolated resource dictionnary.
 struct WriteResources<'a> {
     globals: GlobalRefs,
     document: &'a Document,
@@ -348,14 +397,6 @@ impl<'a> From<(WritePageTree<'a>, PageTreeRef)> for WriteResources<'a> {
     }
 }
 
-/// A final step, that exports the PDF document.
-///
-/// It has direct access to the whole state, the PDF document, and the global
-/// allocator.
-trait FinalStep<S> {
-    fn run(&self, state: S, pdf: &mut Pdf, alloc: &mut Ref);
-}
-
 impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a, ()>> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
@@ -370,7 +411,7 @@ impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a, ()>> {
 
 impl<S, B> PdfBuilder<S, B> {
     /// Runs a step with the current state.
-    fn with<P, O, F>(mut self, process: P) -> Self
+    fn run<P, O, F>(mut self, process: P) -> Self
     where
         // Process
         P: Fn(&S, &mut PdfChunk, &mut O) -> F,
@@ -411,8 +452,11 @@ impl<S, B> PdfBuilder<S, B> {
         self
     }
 
-    /// Transitions to the next state.
-    fn start_building<NB: Default, NS: From<(S, B)>>(self) -> PdfBuilder<NS, NB> {
+    /// Transitions to the next phase.
+    ///
+    /// The two type arguments are what is going to be built in this new phase,
+    /// and what state is available in this phase, respectively.
+    fn transition<NB: Default, NS: From<(S, B)>>(self) -> PdfBuilder<NS, NB> {
         PdfBuilder {
             state: NS::from((self.state, self.building)),
             building: NB::default(),
@@ -423,8 +467,16 @@ impl<S, B> PdfBuilder<S, B> {
 
     /// Finalize the PDF export and returns the buffer representing the
     /// document.
-    fn export_with(mut self, step: impl FinalStep<S>) -> Vec<u8> {
-        step.run(self.state, &mut self.pdf, &mut self.alloc);
+    fn export_with<P>(
+        mut self,
+        ident: Smart<&str>,
+        timestamp: Option<Datetime>,
+        process: P,
+    ) -> Vec<u8>
+    where
+        P: Fn(S, Smart<&str>, Option<Datetime>, &mut Pdf, &mut Ref),
+    {
+        process(self.state, ident, timestamp, &mut self.pdf, &mut self.alloc);
         self.pdf.finish()
     }
 }
@@ -461,14 +513,6 @@ impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
             v.renumber(old, new);
         }
     }
-}
-
-/// Global references
-#[derive(Default)]
-struct GlobalRefs {
-    color_functions: ColorFunctionRefs,
-    pages: Vec<Ref>,
-    resources: ResourcesRefs,
 }
 
 /// A portion of a PDF file.

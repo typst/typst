@@ -34,7 +34,7 @@ pub fn write_fonts(
     chunk: &mut PdfChunk,
     out: &mut Output,
 ) -> impl Fn(&mut References) -> &mut Output {
-    context.resources.write(&mut |resources| {
+    context.resources.traverse(&mut |resources| {
         for font in resources.fonts.items() {
             if out.contains_key(font) {
                 continue;
