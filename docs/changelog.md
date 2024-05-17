@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.11.1 (May 17, 2024) { #v0.11.1 }
 - Security
   - Fixed a vulnerability where image files at known paths could be embedded
     into the PDF even if they were outside of the project directory
@@ -58,6 +58,8 @@ description: |
   - Fixed a bug where the path and entrypoint printed by `typst init` were not
     properly escaped
   - Fixed various documentation errors
+
+<contributors from="v0.11.0" to="v0.11.1" />
 
 ## Version 0.11.0 (March 15, 2024) { #v0.11.0 }
 - Tables (thanks to [@PgBiel](https://github.com/PgBiel))
