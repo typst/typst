@@ -633,6 +633,21 @@ fn main() {
   `code`
   ```
 
+--- raw-theme-set-to-auto ---
+```typ
+#let hi = "Hello World"
+```
+
+#set raw(theme: "/assets/themes/halcyon.tmTheme")
+```typ
+#let hi = "Hello World"
+```
+
+#set raw(theme: auto)
+```typ
+#let hi = "Hello World"
+```
+
 --- raw-unclosed ---
 // Test unterminated raw text.
 //
