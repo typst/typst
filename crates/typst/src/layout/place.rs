@@ -153,8 +153,6 @@ impl Behave for Packed<PlaceElem> {
 /// This is useful for preventing floating figures from spilling
 /// into the next section.
 ///
-/// # Example
-///
 /// ```example
 /// #set page(height: 150pt, width: 150pt)
 ///
