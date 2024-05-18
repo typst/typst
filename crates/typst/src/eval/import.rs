@@ -62,65 +62,60 @@ impl Eval for ast::ModuleImport<'_> {
             }
             Some(ast::Imports::Items(items)) => {
                 let mut errors = eco_vec![];
-                'outer: for item in items.iter() {
+                for item in items.iter() {
                     let temporary_path = [item.original_name()]; // TODO: unmock
                     let mut path = temporary_path.iter().peekable();
                     let mut scope = scope;
 
                     while let Some(component) = &path.next() {
+                        let Some(value) = scope.get(component) else {
+                            errors.push(error!(component.span(), "unresolved import"));
+                            break;
+                        };
+
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.
                             // This must be a submodule.
-                            let Some(submodule) = scope.get(component) else {
-                                errors
-                                    .push(error!(component.span(), "unresolved import"));
-                                continue 'outer;
-                            };
-
-                            if matches!(submodule, Value::Func(function) if function.scope().is_none())
+                            if matches!(value, Value::Func(function) if function.scope().is_none())
                             {
                                 errors.push(error!(
                                     component.span(),
                                     "cannot import from user-defined functions"
                                 ));
-                                continue 'outer;
+                                break;
                             } else if !matches!(
-                                submodule,
+                                value,
                                 Value::Func(_) | Value::Module(_) | Value::Type(_)
                             ) {
                                 errors.push(error!(
                                     component.span(),
                                     "expected module, function, or type, found {}",
-                                    submodule.ty()
+                                    value.ty()
                                 ));
-                                continue 'outer;
+                                break;
                             }
 
                             // Walk into the submodule.
-                            scope = submodule.scope().unwrap();
-                        }
-                    }
+                            scope = value.scope().unwrap();
+                        } else {
+                            // Now that we have the scope of the innermost submodule
+                            // in the import path, we may extract the desired item from
+                            // it.
 
-                    // Now that we have the scope of the innermost submodule
-                    // in the import path, we may extract the desired item from
-                    // it.
-                    let original_ident = item.original_name();
-                    if let Some(value) = scope.get(&original_ident) {
-                        // Warn on `import ...: x as x`
-                        if let ast::ImportItem::Renamed(renamed_item) = &item {
-                            if renamed_item.original_name().as_str()
-                                == renamed_item.new_name().as_str()
-                            {
-                                vm.engine.tracer.warn(warning!(
-                                    renamed_item.new_name().span(),
-                                    "unnecessary import rename to same name",
-                                ));
+                            // Warn on `import ...: x as x`
+                            if let ast::ImportItem::Renamed(renamed_item) = &item {
+                                if renamed_item.original_name().as_str()
+                                    == renamed_item.new_name().as_str()
+                                {
+                                    vm.engine.tracer.warn(warning!(
+                                        renamed_item.new_name().span(),
+                                        "unnecessary import rename to same name",
+                                    ));
+                                }
                             }
-                        }
 
-                        vm.define(item.bound_name(), value.clone());
-                    } else {
-                        errors.push(error!(original_ident.span(), "unresolved import"));
+                            vm.define(item.bound_name(), value.clone());
+                        }
                     }
                 }
                 if !errors.is_empty() {
