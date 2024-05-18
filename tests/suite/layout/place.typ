@@ -132,7 +132,7 @@ Some introductory text.
 
 Some additional text.
 
-#flush()
+#place.flush()
 
 Some conclusive text. // Should appear after all the floating figures
 
@@ -150,7 +150,7 @@ Some explanatory text.
 
 Some additional text.
 
-#flush()
+#place.flush()
 
 Some conclusive text. // Should appear after all the floating figures
 

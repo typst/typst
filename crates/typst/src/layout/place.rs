@@ -1,3 +1,5 @@
+use typst_macros::scope;
+
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Smart, StyleChain, Unlabellable};
@@ -26,7 +28,7 @@ use crate::realize::{Behave, Behaviour};
 ///   ),
 /// )
 /// ```
-#[elem(Behave)]
+#[elem(scope, Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -97,6 +99,12 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
+#[scope]
+impl PlaceElem {
+    #[elem]
+    type FlushElem;
+}
+
 impl Packed<PlaceElem> {
     #[typst_macros::time(name = "place", span = self.span())]
     pub fn layout(
@@ -158,7 +166,7 @@ impl Behave for Packed<PlaceElem> {
 ///
 /// Some additional text.
 ///
-/// #flush()
+/// #place.flush()
 ///
 /// Some conclusive text.
 /// ```
