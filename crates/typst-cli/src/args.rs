@@ -209,6 +209,14 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+
+    /// Where diagnostics should be reported
+    #[clap(
+        long,
+        default_value_t = DiagnosticLocation::WithinRoot,
+        value_parser = clap::value_parser!(DiagnosticLocation)
+    )]
+    pub diagnostic_location: DiagnosticLocation,
 }
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
@@ -360,6 +368,25 @@ pub enum DiagnosticFormat {
 }
 
 impl Display for DiagnosticFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
+}
+
+/// The place where diagnostics should be located.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum DiagnosticLocation {
+    /// Locate diagnostics at the function call that caused them within the
+    /// current root
+    WithinRoot,
+    /// Locate diagnostics at the place they originated
+    Source,
+}
+
+impl Display for DiagnosticLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.to_possible_value()
             .expect("no values are skipped")

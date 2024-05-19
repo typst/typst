@@ -18,7 +18,8 @@ use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{
-    CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
+    CompileCommand, DiagnosticFormat, DiagnosticLocation, Input, Output, OutputFormat,
+    PageRangeArgument,
 };
 use crate::timings::Timer;
 use crate::watch::Status;
@@ -75,6 +76,17 @@ impl CompileCommand {
     }
 }
 
+impl DiagnosticLocation {
+    pub fn contains(self, span: Span) -> bool {
+        match (self, span.id()) {
+            (Self::Source, _) => true,
+
+            (Self::WithinRoot, Some(id)) => id.package().is_none(),
+            (Self::WithinRoot, None) => false,
+        }
+    }
+}
+
 /// Execute a compilation command.
 pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let mut world =
@@ -104,8 +116,14 @@ pub fn compile_once(
             Status::Error.print(command).unwrap();
         }
 
-        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
-            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+        print_diagnostics(
+            world,
+            &errors,
+            &[],
+            command.common.diagnostic_format,
+            command.common.diagnostic_location,
+        )
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
         return Ok(());
     }
@@ -128,8 +146,14 @@ pub fn compile_once(
                 }
             }
 
-            print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
-                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+            print_diagnostics(
+                world,
+                &[],
+                &warnings,
+                command.common.diagnostic_format,
+                command.common.diagnostic_location,
+            )
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             write_make_deps(world, command)?;
 
@@ -153,6 +177,7 @@ pub fn compile_once(
                 &errors,
                 &warnings,
                 command.common.diagnostic_format,
+                command.common.diagnostic_location,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
@@ -489,6 +514,7 @@ pub fn print_diagnostics(
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
     diagnostic_format: DiagnosticFormat,
+    diagnostic_location: DiagnosticLocation,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut config = term::Config { tab_width: 2, ..Default::default() };
     if diagnostic_format == DiagnosticFormat::Short {
@@ -496,6 +522,19 @@ pub fn print_diagnostics(
     }
 
     for diagnostic in warnings.iter().chain(errors) {
+        let mut filtered_trace = diagnostic
+            .trace
+            .iter()
+            .filter(|point| diagnostic_location.contains(point.span));
+        let span = if diagnostic_location.contains(diagnostic.span) {
+            diagnostic.span
+        } else {
+            filtered_trace
+                .next()
+                .map(|point| point.span)
+                .unwrap_or(diagnostic.span)
+        };
+
         let diag = match diagnostic.severity {
             Severity::Error => Diagnostic::error(),
             Severity::Warning => Diagnostic::warning(),
@@ -505,15 +544,15 @@ pub fn print_diagnostics(
             diagnostic
                 .hints
                 .iter()
-                .map(|e| (eco_format!("hint: {e}")).into())
+                .map(|e| eco_format!("hint: {e}").into())
                 .collect(),
         )
-        .with_labels(label(world, diagnostic.span).into_iter().collect());
+        .with_labels(label(world, span).into_iter().collect());
 
         term::emit(&mut terminal::out(), &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
-        for point in &diagnostic.trace {
+        for point in filtered_trace {
             let message = point.v.to_string();
             let help = Diagnostic::help()
                 .with_message(message)

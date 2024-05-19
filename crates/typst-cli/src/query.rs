@@ -31,8 +31,14 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
             let data = retrieve(&world, command, &document)?;
             let serialized = format(data, command)?;
             println!("{serialized}");
-            print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
-                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+            print_diagnostics(
+                &world,
+                &[],
+                &warnings,
+                command.common.diagnostic_format,
+                command.common.diagnostic_location,
+            )
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
 
         // Print diagnostics.
@@ -43,6 +49,7 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
                 &errors,
                 &warnings,
                 command.common.diagnostic_format,
+                command.common.diagnostic_location,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
