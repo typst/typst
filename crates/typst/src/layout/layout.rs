@@ -60,7 +60,7 @@ pub fn layout(
     ///
     /// This function is called once for each time the content returned by
     /// `layout` appears in the document. This makes it possible to generate
-    /// content that depends on the size of its container.
+    /// content that depends on the dimensions of its container.
     func: Func,
 ) -> Content {
     LayoutElem::new(func).pack().spanned(span)
