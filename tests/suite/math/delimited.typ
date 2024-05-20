@@ -62,3 +62,7 @@ $ 1/(2 y (x) (2(3)) $
 // Test ignoring weak spacing immediately after the opening
 // and immediately before the closing.
 $ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $
+
+--- math-lr-corner-brackets ---
+// Test positioning of U+231C to U+231F
+$⌜a⌟⌞b⌝$ vs $⌜$$a$$⌟$$⌞$$b$$⌝$

@@ -159,8 +159,7 @@ fn scale(
         };
 
         let short_fall = DELIM_SHORT_FALL.at(glyph.font_size);
-        let mut stretched = glyph.stretch_vertical(ctx, height, short_fall);
-        stretched.center_on_axis(ctx);
+        let stretched = glyph.stretch_vertical(ctx, height, short_fall);
 
         *fragment = MathFragment::Variant(stretched);
         if let Some(class) = apply {
