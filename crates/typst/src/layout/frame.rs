@@ -77,6 +77,17 @@ impl Frame {
         self.items.is_empty()
     }
 
+    /// Tests whether the frame is zero-sized or if one of its dimensions is
+    /// strictly negative.
+    pub fn is_zero_sized_or_negative(&self) -> bool {
+        self.size.is_zero() || self.size.min_by_side() < Abs::zero()
+    }
+
+    /// Tests whether the frame contains only [`FrameItem::Meta`] items.
+    pub fn is_meta(&self) -> bool {
+        self.items().all(|(_, item)| matches!(item, FrameItem::Meta(..)))
+    }
+
     /// The size of the frame.
     pub fn size(&self) -> Size {
         self.size

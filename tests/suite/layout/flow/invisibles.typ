@@ -59,3 +59,15 @@ Mix-and-match all the previous tests.
   #place(dy: -0.8em)[OOF]
   #rect(height: 2cm, fill: gray)
 ]
+
+--- flow-first-region-placed-then-pad ---
+// Placed item in the first region, padded content in the second region.
+#set page(height: 5cm, margin: 1cm)
+Placed item in the first region, then padded content.
+#block(breakable: true, stroke: 1pt, inset: 0.5cm)[
+  #place(dx: -0.5cm, dy: -0.75cm, box(width: 200%)[OOF])
+  #pad(
+    top: 0.5cm,
+    rect(height: 1cm, fill: gray)
+  )
+]

@@ -81,7 +81,19 @@ impl LayoutMultiple for Packed<PadElem> {
         let pod = regions.map(&mut backlog, |size| shrink(size, padding));
         let mut fragment = self.body().layout(engine, styles, pod)?;
 
-        for frame in &mut fragment {
+        let fragment_count = fragment.len();
+        let mut has_seen_non_empty_frame = false;
+        for (i, frame) in &mut fragment.iter_mut().enumerate() {
+            if !has_seen_non_empty_frame
+                && i != fragment_count - 1
+                && frame.is_zero_sized_or_negative()
+                && frame.is_meta()
+            {
+                frame.set_size(Size::zero());
+                continue;
+            }
+            has_seen_non_empty_frame = true;
+
             // Apply the padding inversely such that the grown size padded
             // yields the frame's size.
             let padded = grow(frame.size(), padding);

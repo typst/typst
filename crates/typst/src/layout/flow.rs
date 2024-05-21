@@ -164,10 +164,7 @@ impl FlowItem {
     fn is_out_of_flow(&self) -> bool {
         match self {
             Self::Placed { float: false, .. } => true,
-            Self::Frame { frame, .. } => {
-                frame.size().is_zero()
-                    && frame.items().all(|(_, item)| matches!(item, FrameItem::Meta(..)))
-            }
+            Self::Frame { frame, .. } => frame.size().is_zero() && frame.is_meta(),
             _ => false,
         }
     }
