@@ -161,3 +161,15 @@ $ mat(#1, #(foo: "bar")) $
 )
 
 $mat(augment: #1, M, v) arrow.r.squiggly mat(augment: #1, R, b)$
+
+--- math-mat-delims ---
+$ mat(delim: "(", 1, 2; 3, 4) $
+$ mat(delim: "[", 1, 2; 3, 4) $
+$ mat(delim: "⟦", 1, 2; 3, 4) $
+$ mat(delim: "[|", 1, 2; 3, 4) $
+$ mat(delim: "{", 1, 2; 3, 4) $
+$ mat(delim: "|", 1, 2; 3, 4) $
+$ mat(delim: "‖", 1, 2; 3, 4) $
+$ mat(delim: "||", 1, 2; 3, 4) $
+$ mat(delim: "⟨", 1, 2; 3, 4) $
+$ mat(delim: "<", 1, 2; 3, 4) $

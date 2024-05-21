@@ -23,5 +23,5 @@ $ v = vec(1, 2+3, 4) $
 $ vec(1, 2) $
 
 --- math-vec-delim-invalid ---
-// Error: 22-25 expected "(", "[", "{", "|", "||", or none
+// Error: 22-25 expected "(", "[", "⟦", "[|", "{", "|", "‖", "||", "⟨", "<", or none
 #set math.vec(delim: "%")
