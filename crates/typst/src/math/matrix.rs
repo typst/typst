@@ -349,7 +349,7 @@ pub enum Delimiter {
     #[string("[")]
     Bracket,
     /// Delimit with double brackets.
-    #[string("⟦", "[|")]
+    #[string("[|", "⟦")]
     DoubleBracket,
     /// Delimit with curly braces.
     #[string("{")]
@@ -358,10 +358,10 @@ pub enum Delimiter {
     #[string("|")]
     Bar,
     /// Delimit with double vertical bars.
-    #[string("‖", "||")]
+    #[string("||", "‖")]
     DoubleBar,
-    /// Delimit with angle brackets.
-    #[string("⟨", "<")]
+    /// Delimit with angles.
+    #[string("<", "⟨")]
     Angle,
 }
 
