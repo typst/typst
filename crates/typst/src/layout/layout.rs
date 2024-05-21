@@ -43,7 +43,7 @@ use crate::syntax::Span;
 /// })
 /// ```
 ///
-/// Note that the provided width or height will be infinite in case the
+/// Note that the width or height provided by `layout` will be infinite if the
 /// corresponding page dimension is set to `{auto}`.
 ///
 /// Moreover, this function also provides [context]($context) to its argument,
