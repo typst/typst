@@ -16,24 +16,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - target: x86_64-unknown-linux-musl
+        - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
           cross: true
-        - target: aarch64-unknown-linux-musl
-          os: ubuntu-latest
-          cross: true
-        - target: armv7-unknown-linux-musleabi
-          os: ubuntu-latest
-          cross: true
-        - target: x86_64-apple-darwin
-          os: macos-latest
-          cross: false
-        - target: aarch64-apple-darwin
-          os: macos-latest
-          cross: false
-        - target: x86_64-pc-windows-msvc
+        - target: aarch64-pc-windows-msvc
           os: windows-latest
-          cross: false
+          cross: true
 
     steps:
     - uses: actions/checkout@v4
