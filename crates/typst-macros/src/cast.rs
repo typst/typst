@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{DeriveInput, Ident, LitStr, Result, Token};
+use syn::{DeriveInput, Ident, Result, Token};
 
 use crate::util::{documentation, foundations};
 
@@ -21,36 +21,29 @@ pub fn derive_cast(item: DeriveInput) -> Result<TokenStream> {
             bail!(expr, "explicit discriminant is not allowed");
         }
 
-        let strings = if let Some(attr) =
+        let string = if let Some(attr) =
             variant.attrs.iter().find(|attr| attr.path().is_ident("string"))
         {
-            let args = attr.parse_args_with(
-                Punctuated::<syn::LitStr, Token![,]>::parse_separated_nonempty,
-            )?;
-            args.iter().map(LitStr::value).collect()
+            attr.parse_args::<syn::LitStr>()?.value()
         } else {
-            vec![variant.ident.to_string().to_kebab_case()]
+            variant.ident.to_string().to_kebab_case()
         };
 
         variants.push(Variant {
             ident: variant.ident.clone(),
-            strings,
+            string,
             docs: documentation(&variant.attrs),
-        })
+        });
     }
 
-    let strs_to_variants =
-        variants.iter().flat_map(|Variant { ident, strings, docs }| {
-            strings.iter().map(move |string| {
-                quote! {
-                    #[doc = #docs]
-                    #string => Self::#ident
-                }
-            })
-        });
+    let strs_to_variants = variants.iter().map(|Variant { ident, string, docs }| {
+        quote! {
+            #[doc = #docs]
+            #string => Self::#ident
+        }
+    });
 
-    let variants_to_strs = variants.iter().map(|Variant { ident, strings, .. }| {
-        let string = &strings[0];
+    let variants_to_strs = variants.iter().map(|Variant { ident, string, .. }| {
         quote! {
             #ty::#ident => #string
         }
@@ -70,7 +63,7 @@ pub fn derive_cast(item: DeriveInput) -> Result<TokenStream> {
 /// An enum variant in a `derive(Cast)`.
 struct Variant {
     ident: Ident,
-    strings: Vec<String>,
+    string: String,
     docs: String,
 }
 

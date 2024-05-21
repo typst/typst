@@ -1,9 +1,10 @@
+use ecow::EcoString;
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, Packed, Resolve, Smart,
-    StyleChain, Value,
+    cast, dict, elem, Array, Content, Dict, Fold, Packed, Resolve, Smart, StyleChain,
+    Value,
 };
 use crate::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
@@ -13,6 +14,7 @@ use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, Scaled,
     DELIM_SHORT_FALL,
 };
+use crate::symbols::Symbol;
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::utils::Numeric;
@@ -340,32 +342,57 @@ impl LayoutMath for Packed<CasesElem> {
 }
 
 /// A vector / matrix delimiter.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Delimiter {
     /// Delimit with parentheses.
-    #[string("(")]
     Paren,
     /// Delimit with brackets.
-    #[string("[")]
     Bracket,
     /// Delimit with double brackets.
-    #[string("[|", "⟦")]
     DoubleBracket,
     /// Delimit with curly braces.
-    #[string("{")]
     Brace,
     /// Delimit with vertical bars.
-    #[string("|")]
     Bar,
     /// Delimit with double vertical bars.
-    #[string("||", "‖")]
     DoubleBar,
     /// Delimit with angles.
-    #[string("<", "⟨")]
     Angle,
 }
 
+cast! {
+    Delimiter,
+
+    self => {
+        match self {
+            Self::Paren => "(",
+            Self::Bracket => "[",
+            Self::DoubleBracket => "[|",
+            Self::Brace => "{",
+            Self::Bar => "|",
+            Self::DoubleBar => "||",
+            Self::Angle => "<",
+        }.into_value()
+    },
+
+    v: EcoString => Self::from_str(&v)?,
+    v: Symbol => Self::from_str(&v.get().to_string())?,
+}
+
 impl Delimiter {
+    fn from_str(s: &str) -> StrResult<Self> {
+        Ok(match s {
+            "(" => Self::Paren,
+            "[" => Self::Bracket,
+            "[|" | "⟦" => Self::DoubleBracket,
+            "{" => Self::Brace,
+            "|" => Self::Bar,
+            "||" | "‖" => Self::DoubleBar,
+            "<" | "⟨" => Self::Angle,
+            _ => bail!("invalid delimiter: {}", s),
+        })
+    }
+
     /// The delimiter's opening character.
     fn open(self) -> char {
         match self {
