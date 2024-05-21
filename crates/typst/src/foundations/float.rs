@@ -19,7 +19,7 @@ use crate::layout::Ratio;
 /// #1e4 \
 /// #(10 / 4)
 /// ```
-#[ty(scope, name = "float")]
+#[ty(scope, cast, name = "float")]
 type f64;
 
 #[scope]
@@ -47,6 +47,53 @@ impl f64 {
     ) -> f64 {
         value.0
     }
+
+    /// Checks if a float is not a number.
+    ///
+    /// In IEEE 754, more than one bit pattern represents a NaN. This function
+    /// returns `true` if the float is any of those bit patterns.
+    ///
+    /// ```example
+    /// #float.is-nan(0) \
+    /// #float.is-nan(1) \
+    /// #float.is-nan(calc.nan)
+    /// ```
+    #[func]
+    pub fn is_nan(self) -> bool {
+        f64::is_nan(self)
+    }
+
+    /// Checks if a float is infinite.
+    ///
+    /// For floats, there is positive and negative infinity. This function
+    /// returns `true` if the float is either positive or negative infinity.
+    ///
+    /// ```example
+    /// #float.is-infinite(0) \
+    /// #float.is-infinite(1) \
+    /// #float.is-infinite(calc.inf)
+    /// ```
+    #[func]
+    pub fn is_infinite(self) -> bool {
+        f64::is_infinite(self)
+    }
+
+    /// Calculates the sign of a floating point number.
+    ///
+    /// - If the number is positive (including `{+0.0}`), returns `{1.0}`.
+    /// - If the number is negative (including `{-0.0}`), returns `{-1.0}`.
+    /// - If the number is [`{calc.nan}`]($calc.nan), returns
+    ///   [`{calc.nan}`]($calc.nan).
+    ///
+    /// ```example
+    /// #(5.0).signum() \
+    /// #(-5.0).signum() \
+    /// #(0.0).signum() \
+    /// ```
+    #[func]
+    pub fn signum(self) -> f64 {
+        f64::signum(self)
+    }
 }
 
 impl Repr for f64 {
@@ -60,6 +107,7 @@ pub struct ToFloat(f64);
 
 cast! {
     ToFloat,
+    v: f64 => Self(v),
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
     v: Ratio => Self(v.get()),
@@ -67,7 +115,6 @@ cast! {
         parse_float(v.clone().into())
             .map_err(|_| eco_format!("invalid float: {}", v))?
     ),
-    v: f64 => Self(v),
 }
 
 fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {

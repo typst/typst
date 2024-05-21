@@ -1,13 +1,16 @@
 use std::str::FromStr;
 
+use comemo::Track;
+use smallvec::{smallvec, SmallVec};
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, Context, Packed, Smart, StyleChain,
 };
 use crate::layout::{
-    Align, Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length,
-    Regions, Sizing, Spacing, VAlign,
+    Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
+    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -68,7 +71,7 @@ use crate::text::TextElem;
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Layout)]
+#[elem(scope, title = "Numbered List", LayoutMultiple)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
@@ -178,8 +181,8 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HAlign::End + VAlign::Top)]
-    pub number_align: Align,
+    #[default(HAlignment::End + VAlignment::Top)]
+    pub number_align: Alignment,
 
     /// The numbered list's items.
     ///
@@ -194,12 +197,13 @@ pub struct EnumElem {
     /// ) [+ #phase]
     /// ```
     #[variadic]
-    pub children: Vec<EnumItem>,
+    pub children: Vec<Packed<EnumItem>>,
 
     /// The numbers of parent items.
     #[internal]
     #[fold]
-    parents: Parent,
+    #[ghost]
+    parents: SmallVec<[usize; 4]>,
 }
 
 #[scope]
@@ -208,8 +212,8 @@ impl EnumElem {
     type EnumItem;
 }
 
-impl Layout for EnumElem {
-    #[tracing::instrument(name = "EnumElem::layout", skip_all)]
+impl LayoutMultiple for Packed<EnumElem> {
+    #[typst_macros::time(name = "enum", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -228,7 +232,8 @@ impl Layout for EnumElem {
 
         let mut cells = vec![];
         let mut number = self.start(styles);
-        let mut parents = self.parents(styles);
+        let mut parents = EnumElem::parents_in(styles);
+
         let full = self.full(styles);
 
         // Horizontally align based on the given respective parameter.
@@ -240,9 +245,11 @@ impl Layout for EnumElem {
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
 
+            let context = Context::new(None, Some(styles));
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply(engine, &parents)?.display();
+                let content =
+                    numbering.apply(engine, context.track(), &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -250,7 +257,7 @@ impl Layout for EnumElem {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply(engine, &[number])?.display(),
+                    other => other.apply(engine, context.track(), &[number])?.display(),
                 }
             };
 
@@ -259,16 +266,16 @@ impl Layout for EnumElem {
             let resolved =
                 resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
-            cells.push(Content::empty());
-            cells.push(resolved);
-            cells.push(Content::empty());
-            cells.push(item.body().clone().styled(Self::set_parents(Parent(number))));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(resolved));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(
+                item.body().clone().styled(EnumElem::set_parents(smallvec![number])),
+            ));
             number = number.saturating_add(1);
         }
 
-        let fill = Celled::Value(None);
-        let stroke = None;
-        let layouter = GridLayouter::new(
+        let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -276,15 +283,11 @@ impl Layout for EnumElem {
                 Sizing::Auto,
             ]),
             Axes::with_y(&[gutter.into()]),
-            &cells,
-            &fill,
-            &stroke,
-            regions,
-            styles,
-            self.span(),
+            cells,
         );
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
-        Ok(layouter.layout(engine)?.fragment)
+        layouter.layout(engine)
     }
 }
 
@@ -310,23 +313,5 @@ cast! {
         };
         Self::new(body).with_number(number)
     },
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-struct Parent(usize);
-
-cast! {
-    Parent,
-    self => self.0.into_value(),
-    v: usize => Self(v),
-}
-
-impl Fold for Parent {
-    type Output = Vec<usize>;
-
-    fn fold(self, mut outer: Self::Output) -> Self::Output {
-        outer.push(self.0);
-        outer
-    }
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
 }

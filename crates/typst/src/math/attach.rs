@@ -1,10 +1,11 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, StyleChain};
-use crate::layout::{Abs, Frame, FrameItem, Point, Size};
+use crate::foundations::{elem, Content, Packed, StyleChain};
+use crate::layout::{Abs, Frame, Point, Size};
 use crate::math::{
-    FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled,
+    style_for_subscript, style_for_superscript, EquationElem, FrameFragment, LayoutMath,
+    MathContext, MathFragment, MathSize, Scaled,
 };
 use crate::text::TextElem;
 
@@ -48,34 +49,34 @@ pub struct AttachElem {
     pub br: Option<Content>,
 }
 
-impl LayoutMath for AttachElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+impl LayoutMath for Packed<AttachElem> {
+    #[typst_macros::time(name = "math.attach", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
-        let layout_attachment = |ctx: &mut MathContext, getter: GetAttachment| {
-            getter(self, ctx.styles())
-                .map(|elem| ctx.layout_fragment(&elem))
-                .transpose()
-        };
 
-        let base = ctx.layout_fragment(self.base())?;
+        let layout_attachment =
+            |ctx: &mut MathContext, styles: StyleChain, getter: GetAttachment| {
+                getter(self, styles)
+                    .map(|elem| ctx.layout_into_fragment(&elem, styles))
+                    .transpose()
+            };
 
-        ctx.style(ctx.style.for_superscript());
-        let tl = layout_attachment(ctx, Self::tl)?;
-        let tr = layout_attachment(ctx, Self::tr)?;
-        let t = layout_attachment(ctx, Self::t)?;
-        ctx.unstyle();
+        let base = ctx.layout_into_fragment(self.base(), styles)?;
 
-        ctx.style(ctx.style.for_subscript());
-        let bl = layout_attachment(ctx, Self::bl)?;
-        let br = layout_attachment(ctx, Self::br)?;
-        let b = layout_attachment(ctx, Self::b)?;
-        ctx.unstyle();
+        let sup_style = style_for_superscript(styles);
+        let tl = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tl)?;
+        let tr = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tr)?;
+        let t = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::t)?;
 
-        let limits = base.limits().active(ctx);
+        let sub_style = style_for_subscript(styles);
+        let bl = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::bl)?;
+        let br = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::br)?;
+        let b = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::b)?;
+
+        let limits = base.limits().active(styles);
         let (t, tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
         let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
-        layout_attachments(ctx, base, [tl, t, tr, bl, b, br])
+        layout_attachments(ctx, styles, base, [tl, t, tr, bl, b, br])
     }
 }
 
@@ -96,23 +97,26 @@ pub struct PrimesElem {
     pub count: usize,
 }
 
-impl LayoutMath for PrimesElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+impl LayoutMath for Packed<PrimesElem> {
+    #[typst_macros::time(name = "math.primes", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         match *self.count() {
             count @ 1..=4 => {
-                let f = ctx.layout_fragment(&TextElem::packed(match count {
+                let c = match count {
                     1 => '′',
                     2 => '″',
                     3 => '‴',
                     4 => '⁗',
                     _ => unreachable!(),
-                }))?;
+                };
+                let f = ctx.layout_into_fragment(&TextElem::packed(c), styles)?;
                 ctx.push(f);
             }
             count => {
                 // Custom amount of primes
-                let prime = ctx.layout_fragment(&TextElem::packed('′'))?.into_frame();
+                let prime = ctx
+                    .layout_into_fragment(&TextElem::packed('′'), styles)?
+                    .into_frame();
                 let width = prime.width() * (count + 1) as f64 / 2.0;
                 let mut frame = Frame::soft(Size::new(width, prime.height()));
                 frame.set_baseline(prime.ascent());
@@ -123,7 +127,7 @@ impl LayoutMath for PrimesElem {
                         prime.clone(),
                     )
                 }
-                ctx.push(FrameFragment::new(ctx, frame));
+                ctx.push(FrameFragment::new(ctx, styles, frame));
             }
         }
         Ok(())
@@ -142,10 +146,10 @@ pub struct ScriptsElem {
     pub body: Content,
 }
 
-impl LayoutMath for ScriptsElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut fragment = ctx.layout_fragment(self.body())?;
+impl LayoutMath for Packed<ScriptsElem> {
+    #[typst_macros::time(name = "math.scripts", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
         fragment.set_limits(Limits::Never);
         ctx.push(fragment);
         Ok(())
@@ -171,15 +175,12 @@ pub struct LimitsElem {
     pub inline: bool,
 }
 
-impl LayoutMath for LimitsElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut fragment = ctx.layout_fragment(self.body())?;
-        fragment.set_limits(if self.inline(ctx.styles()) {
-            Limits::Always
-        } else {
-            Limits::Display
-        });
+impl LayoutMath for Packed<LimitsElem> {
+    #[typst_macros::time(name = "math.limits", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let limits = if self.inline(styles) { Limits::Always } else { Limits::Display };
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
+        fragment.set_limits(limits);
         ctx.push(fragment);
         Ok(())
     }
@@ -212,11 +213,20 @@ impl Limits {
         }
     }
 
+    /// The default limit configuration for a math class.
+    pub fn for_class(class: MathClass) -> Self {
+        match class {
+            MathClass::Large => Self::Display,
+            MathClass::Relation => Self::Always,
+            _ => Self::Never,
+        }
+    }
+
     /// Whether limits should be displayed in this context
-    pub fn active(&self, ctx: &MathContext) -> bool {
+    pub fn active(&self, styles: StyleChain) -> bool {
         match self {
             Self::Always => true,
-            Self::Display => ctx.style.size == MathSize::Display,
+            Self::Display => EquationElem::size_in(styles) == MathSize::Display,
             Self::Never => false,
         }
     }
@@ -231,17 +241,18 @@ macro_rules! measure {
 /// Layout the attachments.
 fn layout_attachments(
     ctx: &mut MathContext,
+    styles: StyleChain,
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
 ) -> SourceResult<()> {
     let (shift_up, shift_down) =
-        compute_shifts_up_and_down(ctx, &base, [&tl, &tr, &bl, &br]);
+        compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br]);
 
     let sup_delta = Abs::zero();
     let sub_delta = -base.italics_correction();
     let (base_width, base_ascent, base_descent) =
         (base.width(), base.ascent(), base.descent());
-    let base_class = base.class().unwrap_or(MathClass::Normal);
+    let base_class = base.class();
 
     let mut ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
@@ -260,9 +271,9 @@ fn layout_attachments(
     let post_width_max =
         (sup_delta + measure!(tr, width)).max(sub_delta + measure!(br, width));
 
-    let (center_frame, base_offset) = attach_top_and_bottom(ctx, base, t, b);
+    let (center_frame, base_offset) = attach_top_and_bottom(ctx, styles, base, t, b);
     if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
-        ctx.push(FrameFragment::new(ctx, center_frame).with_class(base_class));
+        ctx.push(FrameFragment::new(ctx, styles, center_frame).with_class(base_class));
         return Ok(());
     }
 
@@ -270,7 +281,10 @@ fn layout_attachments(
     descent.set_max(center_frame.descent());
 
     let mut frame = Frame::soft(Size::new(
-        pre_width_max + base_width + post_width_max + scaled!(ctx, space_after_script),
+        pre_width_max
+            + base_width
+            + post_width_max
+            + scaled!(ctx, styles, space_after_script),
         ascent + descent,
     ));
     frame.set_baseline(ascent);
@@ -307,21 +321,22 @@ fn layout_attachments(
         frame.push_frame(pos, br.into_frame());
     }
 
-    ctx.push(FrameFragment::new(ctx, frame).with_class(base_class));
+    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
 
     Ok(())
 }
 
 fn attach_top_and_bottom(
     ctx: &mut MathContext,
+    styles: StyleChain,
     base: MathFragment,
     t: Option<MathFragment>,
     b: Option<MathFragment>,
 ) -> (Frame, Abs) {
-    let upper_gap_min = scaled!(ctx, upper_limit_gap_min);
-    let upper_rise_min = scaled!(ctx, upper_limit_baseline_rise_min);
-    let lower_gap_min = scaled!(ctx, lower_limit_gap_min);
-    let lower_drop_min = scaled!(ctx, lower_limit_baseline_drop_min);
+    let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
+    let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
+    let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
+    let lower_drop_min = scaled!(ctx, styles, lower_limit_baseline_drop_min);
 
     let mut base_offset = Abs::zero();
     let mut width = base.width();
@@ -363,26 +378,28 @@ fn attach_top_and_bottom(
 
 fn compute_shifts_up_and_down(
     ctx: &MathContext,
+    styles: StyleChain,
     base: &MathFragment,
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
-    let sup_shift_up = if ctx.style.cramped {
-        scaled!(ctx, superscript_shift_up_cramped)
+    let sup_shift_up = if EquationElem::cramped_in(styles) {
+        scaled!(ctx, styles, superscript_shift_up_cramped)
     } else {
-        scaled!(ctx, superscript_shift_up)
+        scaled!(ctx, styles, superscript_shift_up)
     };
 
-    let sup_bottom_min = scaled!(ctx, superscript_bottom_min);
-    let sup_bottom_max_with_sub = scaled!(ctx, superscript_bottom_max_with_subscript);
-    let sup_drop_max = scaled!(ctx, superscript_baseline_drop_max);
-    let gap_min = scaled!(ctx, sub_superscript_gap_min);
-    let sub_shift_down = scaled!(ctx, subscript_shift_down);
-    let sub_top_max = scaled!(ctx, subscript_top_max);
-    let sub_drop_min = scaled!(ctx, subscript_baseline_drop_min);
+    let sup_bottom_min = scaled!(ctx, styles, superscript_bottom_min);
+    let sup_bottom_max_with_sub =
+        scaled!(ctx, styles, superscript_bottom_max_with_subscript);
+    let sup_drop_max = scaled!(ctx, styles, superscript_baseline_drop_max);
+    let gap_min = scaled!(ctx, styles, sub_superscript_gap_min);
+    let sub_shift_down = scaled!(ctx, styles, subscript_shift_down);
+    let sub_top_max = scaled!(ctx, styles, subscript_top_max);
+    let sub_drop_min = scaled!(ctx, styles, subscript_baseline_drop_min);
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
-    let is_char_box = is_character_box(base);
+    let is_text_like = base.is_text_like();
 
     if tl.is_some() || tr.is_some() {
         let ascent = match &base {
@@ -391,7 +408,7 @@ fn compute_shifts_up_and_down(
         };
         shift_up = shift_up
             .max(sup_shift_up)
-            .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
+            .max(if is_text_like { Abs::zero() } else { ascent - sup_drop_max })
             .max(sup_bottom_min + measure!(tl, descent))
             .max(sup_bottom_min + measure!(tr, descent));
     }
@@ -399,7 +416,7 @@ fn compute_shifts_up_and_down(
     if bl.is_some() || br.is_some() {
         shift_down = shift_down
             .max(sub_shift_down)
-            .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
+            .max(if is_text_like { Abs::zero() } else { base.descent() + sub_drop_min })
             .max(measure!(bl, ascent) - sub_top_max)
             .max(measure!(br, ascent) - sub_top_max);
     }
@@ -428,25 +445,4 @@ fn compute_shifts_up_and_down(
 /// Determines if the character is one of a variety of integral signs
 fn is_integral_char(c: char) -> bool {
     ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
-}
-
-/// Whether the fragment consists of a single character or atomic piece of text.
-fn is_character_box(fragment: &MathFragment) -> bool {
-    match fragment {
-        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
-            fragment.class() != Some(MathClass::Large)
-        }
-        MathFragment::Frame(fragment) => is_atomic_text_frame(&fragment.frame),
-        _ => false,
-    }
-}
-
-/// Handles e.g. "sin", "log", "exp", "CustomOperator".
-fn is_atomic_text_frame(frame: &Frame) -> bool {
-    // Meta information isn't visible or renderable, so we exclude it.
-    let mut iter = frame
-        .items()
-        .map(|(_, item)| item)
-        .filter(|item| !matches!(item, FrameItem::Meta(_, _)));
-    matches!(iter.next(), Some(FrameItem::Text(_))) && iter.next().is_none()
 }

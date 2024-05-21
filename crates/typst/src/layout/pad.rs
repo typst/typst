@@ -1,7 +1,9 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Resolve, StyleChain};
-use crate::layout::{Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, Size};
+use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
+use crate::layout::{
+    Abs, Fragment, LayoutMultiple, Length, Point, Regions, Rel, Sides, Size,
+};
 
 /// Adds spacing around content.
 ///
@@ -16,7 +18,7 @@ use crate::layout::{Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, S
 /// _Typing speeds can be
 ///  measured in words per minute._
 /// ```
-#[elem(title = "Padding", Layout)]
+#[elem(title = "Padding", LayoutMultiple)]
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(
@@ -58,8 +60,8 @@ pub struct PadElem {
     pub body: Content,
 }
 
-impl Layout for PadElem {
-    #[tracing::instrument(name = "PadElem::layout", skip_all)]
+impl LayoutMultiple for Packed<PadElem> {
+    #[typst_macros::time(name = "pad", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -120,5 +122,5 @@ fn shrink(size: Size, padding: Sides<Rel<Abs>>) -> Size {
 ///   <=> (1 - p.rel) * w = s + p.abs
 ///   <=> w = (s + p.abs) / (1 - p.rel)
 fn grow(size: Size, padding: Sides<Rel<Abs>>) -> Size {
-    size.zip_map(padding.sum_by_axis(), |s, p| (s + p.abs).safe_div(1.0 - p.rel.get()))
+    size.zip_map(padding.sum_by_axis(), |s, p| (s + p.abs) / (1.0 - p.rel.get()))
 }

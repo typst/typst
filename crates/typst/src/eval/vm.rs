@@ -2,7 +2,7 @@ use comemo::Tracked;
 
 use crate::engine::Engine;
 use crate::eval::FlowEvent;
-use crate::foundations::{IntoValue, Scopes};
+use crate::foundations::{Context, IntoValue, Scopes, Value};
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::Span;
 use crate::World;
@@ -20,13 +20,20 @@ pub struct Vm<'a> {
     pub(crate) scopes: Scopes<'a>,
     /// A span that is currently under inspection.
     pub(crate) inspected: Option<Span>,
+    /// Data that is contextually made accessible to code behind the scenes.
+    pub(crate) context: Tracked<'a, Context<'a>>,
 }
 
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
-    pub fn new(engine: Engine<'a>, scopes: Scopes<'a>, target: Span) -> Self {
+    pub fn new(
+        engine: Engine<'a>,
+        context: Tracked<'a, Context<'a>>,
+        scopes: Scopes<'a>,
+        target: Span,
+    ) -> Self {
         let inspected = target.id().and_then(|id| engine.tracer.inspected(id));
-        Self { engine, flow: None, scopes, inspected }
+        Self { engine, context, flow: None, scopes, inspected }
     }
 
     /// Access the underlying world.
@@ -35,12 +42,19 @@ impl<'a> Vm<'a> {
     }
 
     /// Define a variable in the current scope.
-    #[tracing::instrument(skip_all)]
     pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
         let value = value.into_value();
         if self.inspected == Some(var.span()) {
-            self.engine.tracer.value(value.clone());
+            self.trace(value.clone());
         }
         self.scopes.top.define(var.get().clone(), value);
+    }
+
+    /// Trace a value.
+    #[cold]
+    pub fn trace(&mut self, value: Value) {
+        self.engine
+            .tracer
+            .value(value.clone(), self.context.styles().ok().map(|s| s.to_map()));
     }
 }

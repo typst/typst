@@ -3,23 +3,24 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
+use crate::utils::LazyHash;
 
 /// A sequence of bytes.
 ///
 /// This is conceptually similar to an array of [integers]($int) between `{0}`
-/// and `{255}`, but represented much more efficiently.
+/// and `{255}`, but represented much more efficiently. You can iterate over it
+/// using a [for loop]($scripting/#loops).
 ///
 /// You can convert
-/// - a [string]($str) or an [array]($array) of integers to bytes with the
-///   [`bytes`]($bytes) constructor
-/// - bytes to a string with the [`str`]($str) constructor
-/// - bytes to an array of integers with the [`array`]($array) constructor
+/// - a [string]($str) or an [array] of integers to bytes with the [`bytes`]
+///   constructor
+/// - bytes to a string with the [`str`] constructor, with UTF-8 encoding
+/// - bytes to an array of integers with the [`array`] constructor
 ///
 /// When [reading]($read) data from a file, you can decide whether to load it
 /// as a string or as raw bytes.
@@ -37,14 +38,14 @@ use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value
 /// #array(data.slice(0, 4)) \
 /// #str(data.slice(1, 4))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
+pub struct Bytes(Arc<LazyHash<Cow<'static, [u8]>>>);
 
 impl Bytes {
     /// Create a buffer from a static byte slice.
     pub fn from_static(slice: &'static [u8]) -> Self {
-        Self(Arc::new(Prehashed::new(Cow::Borrowed(slice))))
+        Self(Arc::new(LazyHash::new(Cow::Borrowed(slice))))
     }
 
     /// Return `true` if the length is 0.
@@ -181,13 +182,13 @@ impl AsRef<[u8]> for Bytes {
 
 impl From<&[u8]> for Bytes {
     fn from(slice: &[u8]) -> Self {
-        Self(Arc::new(Prehashed::new(slice.to_vec().into())))
+        Self(Arc::new(LazyHash::new(slice.to_vec().into())))
     }
 }
 
 impl From<Vec<u8>> for Bytes {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Arc::new(Prehashed::new(vec.into())))
+        Self(Arc::new(LazyHash::new(vec.into())))
     }
 }
 
@@ -207,9 +208,7 @@ impl AddAssign for Bytes {
         } else if self.is_empty() {
             *self = rhs;
         } else if Arc::strong_count(&self.0) == 1 && matches!(**self.0, Cow::Owned(_)) {
-            Arc::make_mut(&mut self.0).update(|cow| {
-                cow.to_mut().extend_from_slice(&rhs);
-            })
+            Arc::make_mut(&mut self.0).to_mut().extend_from_slice(&rhs);
         } else {
             *self = Self::from([self.as_slice(), rhs.as_slice()].concat());
         }

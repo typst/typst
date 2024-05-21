@@ -11,6 +11,7 @@ mod bool;
 mod bytes;
 mod cast;
 mod content;
+mod context;
 mod datetime;
 mod dict;
 mod duration;
@@ -38,6 +39,7 @@ pub use self::auto::*;
 pub use self::bytes::*;
 pub use self::cast::*;
 pub use self::content::*;
+pub use self::context::*;
 pub use self::datetime::*;
 pub use self::dict::*;
 pub use self::duration::*;
@@ -256,10 +258,9 @@ pub fn eval(
     /// The engine.
     engine: &mut Engine,
     /// A string of Typst code to evaluate.
-    ///
-    /// The code in the string cannot interact with the file system.
     source: Spanned<String>,
-    /// The syntactical mode in which the string is parsed.
+    /// The [syntactical mode]($reference/syntax/#modes) in which the string is
+    /// parsed.
     ///
     /// ```example
     /// #eval("= Heading", mode: "markup")

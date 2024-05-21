@@ -2,7 +2,9 @@ use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, StrResult};
-use crate::foundations::{array, cast, dict, elem, Array, Dict, FromValue, Smart, Str};
+use crate::foundations::{
+    array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
+};
 use crate::layout::Dir;
 use crate::syntax::is_newline;
 use crate::text::{Lang, Region};
@@ -26,7 +28,7 @@ use crate::text::{Lang, Region};
 /// # Syntax
 /// This function also has dedicated syntax: The normal quote characters
 /// (`'` and `"`). Typst automatically makes your quotes smart.
-#[elem(name = "smartquote")]
+#[elem(name = "smartquote", PlainText)]
 pub struct SmartQuoteElem {
     /// Whether this should be a double quote.
     #[default(true)]
@@ -67,10 +69,9 @@ pub struct SmartQuoteElem {
     ///   - [string]($str): a string consisting of two characters containing the
     ///     opening and closing double quotes (characters here refer to Unicode
     ///     grapheme clusters)
-    ///   - [array]($array): an array containing the opening and closing double
-    ///     quotes
-    ///   - [dictionary]($dictionary): an array containing the double and single
-    ///     quotes, each specified as either `{auto}`, string, or array
+    ///   - [array]: an array containing the opening and closing double quotes
+    ///   - [dictionary]: an array containing the double and single quotes, each
+    ///     specified as either `{auto}`, string, or array
     ///
     /// ```example
     /// #set text(lang: "de")
@@ -84,6 +85,16 @@ pub struct SmartQuoteElem {
     /// ```
     #[borrowed]
     pub quotes: Smart<SmartQuoteDict>,
+}
+
+impl PlainText for Packed<SmartQuoteElem> {
+    fn plain_text(&self, text: &mut EcoString) {
+        if self.double.unwrap_or(true) {
+            text.push_str("\"");
+        } else {
+            text.push_str("'");
+        }
+    }
 }
 
 /// State machine for smart quote substitution.
@@ -251,7 +262,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// The opening quote.
-    fn open(&self, double: bool) -> &'s str {
+    pub fn open(&self, double: bool) -> &'s str {
         if double {
             self.double_open
         } else {
@@ -260,7 +271,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// The closing quote.
-    fn close(&self, double: bool) -> &'s str {
+    pub fn close(&self, double: bool) -> &'s str {
         if double {
             self.double_close
         } else {
@@ -269,7 +280,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// Which character should be used as a prime.
-    fn prime(&self, double: bool) -> &'static str {
+    pub fn prime(&self, double: bool) -> &'static str {
         if double {
             "″"
         } else {
@@ -278,7 +289,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// Which character should be used as a fallback quote.
-    fn fallback(&self, double: bool) -> &'static str {
+    pub fn fallback(&self, double: bool) -> &'static str {
         if double {
             "\""
         } else {

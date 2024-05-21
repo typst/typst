@@ -4,13 +4,15 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::EcoString;
+use once_cell::sync::Lazy;
 use siphasher::sip128::Hasher128;
-use usvg::{NodeExt, TreeParsing, TreeTextToPath};
+use usvg::{ImageHrefResolver, Node, PostProcessingSteps, TreeParsing, TreePostProc};
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{FontVariant, FontWeight};
+use crate::visualize::Image;
 use crate::World;
 
 /// A decoded SVG.
@@ -20,7 +22,7 @@ pub struct SvgImage(Arc<Repr>);
 /// The internal representation.
 struct Repr {
     data: Bytes,
-    size: Axes<u32>,
+    size: Axes<f64>,
     font_hash: u128,
     tree: sync::SyncTree,
 }
@@ -29,8 +31,9 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let opts = usvg::Options::default();
-        let tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
+        let mut tree =
+            usvg::Tree::from_data(&data, &OPTIONS).map_err(format_usvg_error)?;
+        tree.calculate_bounding_boxes();
         Ok(Self(Arc::new(Repr {
             data,
             size: tree_size(&tree),
@@ -47,19 +50,15 @@ impl SvgImage {
         world: Tracked<dyn World + '_>,
         families: &[String],
     ) -> StrResult<SvgImage> {
-        // Disable usvg's default to "Times New Roman". Instead, we default to
-        // the empty family and later, when we traverse the SVG, we check for
-        // empty and non-existing family names and replace them with the true
-        // fallback family. This way, we can memoize SVG decoding with and without
-        // fonts if the SVG does not contain text.
-        let opts = usvg::Options { font_family: String::new(), ..Default::default() };
-        let mut tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
+        let mut tree =
+            usvg::Tree::from_data(&data, &OPTIONS).map_err(format_usvg_error)?;
         let mut font_hash = 0;
         if tree.has_text_nodes() {
-            let (fontdb, hash) = load_svg_fonts(world, &tree, families);
-            tree.convert_text(&fontdb);
+            let (fontdb, hash) = load_svg_fonts(world, &mut tree, families);
+            tree.postprocess(PostProcessingSteps::default(), &fontdb);
             font_hash = hash;
         }
+        tree.calculate_bounding_boxes();
         Ok(Self(Arc::new(Repr {
             data,
             size: tree_size(&tree),
@@ -75,12 +74,12 @@ impl SvgImage {
     }
 
     /// The SVG's width in pixels.
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> f64 {
         self.0.size.x
     }
 
     /// The SVG's height in pixels.
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> f64 {
         self.0.size.y
     }
 
@@ -125,10 +124,33 @@ impl Hash for Repr {
     }
 }
 
+/// The conversion options.
+static OPTIONS: Lazy<usvg::Options> = Lazy::new(|| usvg::Options {
+    // Disable usvg's default to "Times New Roman". Instead, we default to
+    // the empty family and later, when we traverse the SVG, we check for
+    // empty and non-existing family names and replace them with the true
+    // fallback family. This way, we can memoize SVG decoding with and
+    // without fonts if the SVG does not contain text.
+    font_family: String::new(),
+
+    // We override the DPI here so that we get the correct the size when
+    // scaling the image to its natural size.
+    dpi: Image::DEFAULT_DPI as f32,
+
+    // Override usvg's resource loading defaults.
+    resources_dir: None,
+    image_href_resolver: ImageHrefResolver {
+        resolve_data: ImageHrefResolver::default_data_resolver(),
+        resolve_string: Box::new(|_, _| None),
+    },
+
+    ..Default::default()
+});
+
 /// Discover and load the fonts referenced by an SVG.
 fn load_svg_fonts(
     world: Tracked<dyn World + '_>,
-    tree: &usvg::Tree,
+    tree: &mut usvg::Tree,
     families: &[String],
 ) -> (fontdb::Database, u128) {
     let book = world.book();
@@ -153,62 +175,76 @@ fn load_svg_fonts(
     };
 
     // Determine the best font for each text node.
-    traverse_svg(&tree.root, &mut |node| {
-        let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
-        for chunk in &mut text.chunks {
-            'spans: for span in &mut chunk.spans {
-                let Some(text) = chunk.text.get(span.start..span.end) else { continue };
-                let variant = FontVariant {
-                    style: span.font.style.into(),
-                    weight: FontWeight::from_number(span.font.weight),
-                    stretch: span.font.stretch.into(),
-                };
-
-                // Find a font that covers the whole text among the span's fonts
-                // and the current document font families.
-                let mut like = None;
-                for family in span.font.families.iter().chain(families) {
-                    let Some(id) = book.select(&family.to_lowercase(), variant) else {
+    for child in &mut tree.root.children {
+        traverse_svg(child, &mut |node| {
+            let usvg::Node::Text(ref mut text) = node else { return };
+            for chunk in &mut text.chunks {
+                'spans: for span in &mut chunk.spans {
+                    let Some(text) = chunk.text.get(span.start..span.end) else {
                         continue;
                     };
-                    let Some(info) = book.info(id) else { continue };
-                    like.get_or_insert(info);
+                    let variant = FontVariant {
+                        style: span.font.style.into(),
+                        weight: FontWeight::from_number(span.font.weight),
+                        stretch: span.font.stretch.into(),
+                    };
 
-                    if text.chars().all(|c| info.coverage.contains(c as u32)) {
+                    // Find a font that covers the whole text among the span's fonts
+                    // and the current document font families.
+                    let mut like = None;
+                    for family in span.font.families.iter().chain(families) {
+                        let Some(id) = book.select(&family.to_lowercase(), variant)
+                        else {
+                            continue;
+                        };
+                        let Some(info) = book.info(id) else { continue };
+                        like.get_or_insert(info);
+
+                        if text.chars().all(|c| info.coverage.contains(c as u32)) {
+                            if let Some(usvg_family) = load_into_db(id) {
+                                span.font.families = vec![usvg_family];
+                                continue 'spans;
+                            }
+                        }
+                    }
+
+                    // If we didn't find a match, select a fallback font.
+                    if let Some(id) = book.select_fallback(like, variant, text) {
                         if let Some(usvg_family) = load_into_db(id) {
                             span.font.families = vec![usvg_family];
-                            continue 'spans;
                         }
                     }
                 }
-
-                // If we didn't find a match, select a fallback font.
-                if let Some(id) = book.select_fallback(like, variant, text) {
-                    if let Some(usvg_family) = load_into_db(id) {
-                        span.font.families = vec![usvg_family];
-                    }
-                }
             }
-        }
-    });
+        });
+    }
 
     (fontdb, hasher.finish128().as_u128())
 }
 
 /// Search for all font families referenced by an SVG.
-fn traverse_svg<F>(node: &usvg::Node, f: &mut F)
+fn traverse_svg<F>(node: &mut usvg::Node, f: &mut F)
 where
-    F: FnMut(&usvg::Node),
+    F: FnMut(&mut usvg::Node),
 {
-    for descendant in node.descendants() {
-        f(&descendant);
-        descendant.subroots(|subroot| traverse_svg(&subroot, f))
+    f(node);
+
+    node.subroots_mut(|subroot| {
+        for child in &mut subroot.children {
+            traverse_svg(child, f);
+        }
+    });
+
+    if let Node::Group(ref mut group) = node {
+        for child in &mut group.children {
+            traverse_svg(child, f);
+        }
     }
 }
 
 /// The ceiled pixel size of an SVG.
-fn tree_size(tree: &usvg::Tree) -> Axes<u32> {
-    Axes::new(tree.size.width().ceil() as u32, tree.size.height().ceil() as u32)
+fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
+    Axes::new(tree.size.width() as f64, tree.size.height() as f64)
 }
 
 /// Format the user-facing SVG decoding error message.

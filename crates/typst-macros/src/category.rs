@@ -20,6 +20,7 @@ pub fn category(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
 
     Ok(quote! {
         #(#attrs)*
+        #[allow(rustdoc::broken_intra_doc_links)]
         #vis static #ident: #ty = {
             static DATA: #foundations::CategoryData = #foundations::CategoryData {
                 name: #name,
@@ -32,6 +33,7 @@ pub fn category(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
 }
 
 /// Parse a bare `pub static CATEGORY: Category;` item.
+#[allow(dead_code)]
 pub struct BareStatic {
     pub attrs: Vec<Attribute>,
     pub vis: Visibility,

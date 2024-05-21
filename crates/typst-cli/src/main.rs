@@ -2,28 +2,31 @@ mod args;
 mod compile;
 mod download;
 mod fonts;
+mod init;
 mod package;
 mod query;
-mod tracing;
+mod terminal;
+mod timings;
 #[cfg(feature = "self-update")]
 mod update;
 mod watch;
 mod world;
 
 use std::cell::Cell;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::Parser;
-use codespan_reporting::term::{self, termcolor};
+use codespan_reporting::term;
+use codespan_reporting::term::termcolor::WriteColor;
 use once_cell::sync::Lazy;
-use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
+use crate::timings::Timer;
 
 thread_local! {
     /// The CLI's exit code.
-    static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
+    static EXIT: Cell<ExitCode> = const { Cell::new(ExitCode::SUCCESS) };
 }
 
 /// The parsed commandline arguments.
@@ -31,17 +34,12 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    let _guard = match crate::tracing::setup_tracing(&ARGS) {
-        Ok(guard) => guard,
-        Err(err) => {
-            eprintln!("failed to initialize tracing ({err})");
-            None
-        }
-    };
+    let timer = Timer::new(&ARGS);
 
     let res = match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(command.clone()),
-        Command::Watch(command) => crate::watch::watch(command.clone()),
+        Command::Compile(command) => crate::compile::compile(timer, command.clone()),
+        Command::Watch(command) => crate::watch::watch(timer, command.clone()),
+        Command::Init(command) => crate::init::init(command),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command),
@@ -60,30 +58,21 @@ fn set_failed() {
     EXIT.with(|cell| cell.set(ExitCode::FAILURE));
 }
 
-/// Print an application-level error (independent from a source file).
-fn print_error(msg: &str) -> io::Result<()> {
-    let mut w = color_stream();
-    let styles = term::Styles::default();
-
-    w.set_color(&styles.header_error)?;
-    write!(w, "error")?;
-
-    w.reset()?;
-    writeln!(w, ": {msg}.")
-}
-
-/// Get stderr with color support if desirable.
-fn color_stream() -> termcolor::StandardStream {
-    termcolor::StandardStream::stderr(if std::io::stderr().is_terminal() {
-        ColorChoice::Auto
-    } else {
-        ColorChoice::Never
-    })
-}
-
 /// Used by `args.rs`.
 fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
+}
+
+/// Print an application-level error (independent from a source file).
+fn print_error(msg: &str) -> io::Result<()> {
+    let styles = term::Styles::default();
+
+    let mut output = terminal::out();
+    output.set_color(&styles.header_error)?;
+    write!(output, "error")?;
+
+    output.reset()?;
+    writeln!(output, ": {msg}")
 }
 
 #[cfg(not(feature = "self-update"))]

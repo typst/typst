@@ -1,15 +1,14 @@
 use crate::diag::SourceResult;
-use crate::foundations::elem;
+use crate::foundations::{elem, Packed, StyleChain};
 use crate::layout::Abs;
-use crate::math::{LayoutMath, MathContext, MathFragment, MathRow};
+use crate::math::{LayoutMath, MathContext, MathFragment, MathRun};
 
 /// A math alignment point: `&`, `&&`.
 #[elem(title = "Alignment Point", LayoutMath)]
 pub struct AlignPointElem {}
 
-impl LayoutMath for AlignPointElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+impl LayoutMath for Packed<AlignPointElem> {
+    fn layout_math(&self, ctx: &mut MathContext, _: StyleChain) -> SourceResult<()> {
         ctx.push(MathFragment::Align);
         Ok(())
     }
@@ -20,8 +19,8 @@ pub(super) struct AlignmentResult {
     pub width: Abs,
 }
 
-/// Determine the position of the alignment points.
-pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
+/// Determine the positions of the alignment points, according to the input rows combined.
+pub(super) fn alignments(rows: &[MathRun]) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 
     let mut pending_width = Abs::zero();

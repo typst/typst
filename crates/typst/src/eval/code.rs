@@ -1,8 +1,10 @@
 use ecow::{eco_vec, EcoVec};
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
-use crate::eval::{ops, Eval, Vm};
-use crate::foundations::{Array, Content, Dict, Str, Value};
+use crate::eval::{ops, CapturesVisitor, Eval, Vm};
+use crate::foundations::{
+    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str, Value,
+};
 use crate::syntax::ast::{self, AstNode};
 
 impl Eval for ast::Code<'_> {
@@ -40,7 +42,11 @@ fn eval_code<'a>(
                 }
 
                 let tail = eval_code(vm, exprs)?.display();
-                Value::Content(tail.styled_with_recipe(&mut vm.engine, recipe)?)
+                Value::Content(tail.styled_with_recipe(
+                    &mut vm.engine,
+                    vm.context,
+                    recipe,
+                )?)
             }
             _ => expr.eval(vm)?,
         };
@@ -62,7 +68,6 @@ fn eval_code<'a>(
 impl Eval for ast::Expr<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Expr::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let forbidden = |name| {
@@ -118,6 +123,7 @@ impl Eval for ast::Expr<'_> {
             Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
             Self::Show(_) => bail!(forbidden("show")),
+            Self::Contextual(v) => v.eval(vm).map(Value::Content),
             Self::Conditional(v) => v.eval(vm),
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
@@ -130,7 +136,7 @@ impl Eval for ast::Expr<'_> {
         .spanned(span);
 
         if vm.inspected == Some(span) {
-            vm.engine.tracer.value(v.clone());
+            vm.trace(v.clone());
         }
 
         Ok(v)
@@ -140,7 +146,6 @@ impl Eval for ast::Expr<'_> {
 impl Eval for ast::Ident<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Ident::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.get(&self).cloned().at(self.span())
     }
@@ -149,7 +154,6 @@ impl Eval for ast::Ident<'_> {
 impl Eval for ast::None<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "None::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::None)
     }
@@ -158,7 +162,6 @@ impl Eval for ast::None<'_> {
 impl Eval for ast::Auto<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Auto::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Auto)
     }
@@ -167,7 +170,6 @@ impl Eval for ast::Auto<'_> {
 impl Eval for ast::Bool<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Bool::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Bool(self.get()))
     }
@@ -176,7 +178,6 @@ impl Eval for ast::Bool<'_> {
 impl Eval for ast::Int<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Int::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Int(self.get()))
     }
@@ -185,7 +186,6 @@ impl Eval for ast::Int<'_> {
 impl Eval for ast::Float<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Float::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Float(self.get()))
     }
@@ -194,7 +194,6 @@ impl Eval for ast::Float<'_> {
 impl Eval for ast::Numeric<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Numeric::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::numeric(self.get()))
     }
@@ -203,7 +202,6 @@ impl Eval for ast::Numeric<'_> {
 impl Eval for ast::Str<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Str::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Str(self.get().into()))
     }
@@ -212,7 +210,6 @@ impl Eval for ast::Str<'_> {
 impl Eval for ast::Array<'_> {
     type Output = Array;
 
-    #[tracing::instrument(skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let items = self.items();
 
@@ -220,10 +217,10 @@ impl Eval for ast::Array<'_> {
         for item in items {
             match item {
                 ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
-                ast::ArrayItem::Spread(expr) => match expr.eval(vm)? {
+                ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => vec.extend(array.into_iter()),
-                    v => bail!(expr.span(), "cannot spread {} into array", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }
         }
@@ -235,10 +232,8 @@ impl Eval for ast::Array<'_> {
 impl Eval for ast::Dict<'_> {
     type Output = Dict;
 
-    #[tracing::instrument(skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let mut map = indexmap::IndexMap::new();
-
         let mut invalid_keys = eco_vec![];
 
         for item in self.items() {
@@ -256,10 +251,10 @@ impl Eval for ast::Dict<'_> {
                     });
                     map.insert(key, keyed.expr().eval(vm)?);
                 }
-                ast::DictItem::Spread(expr) => match expr.eval(vm)? {
+                ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Dict(dict) => map.extend(dict.into_iter()),
-                    v => bail!(expr.span(), "cannot spread {} into dictionary", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
         }
@@ -275,7 +270,6 @@ impl Eval for ast::Dict<'_> {
 impl Eval for ast::CodeBlock<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "CodeBlock::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.enter();
         let output = self.body().eval(vm)?;
@@ -287,7 +281,6 @@ impl Eval for ast::CodeBlock<'_> {
 impl Eval for ast::ContentBlock<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "ContentBlock::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.enter();
         let content = self.body().eval(vm)?;
@@ -299,7 +292,6 @@ impl Eval for ast::ContentBlock<'_> {
 impl Eval for ast::Parenthesized<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Parenthesized::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         self.expr().eval(vm)
     }
@@ -308,10 +300,59 @@ impl Eval for ast::Parenthesized<'_> {
 impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FieldAccess::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
         let field = self.field();
-        value.field(&field).at(field.span())
+
+        let err = match value.field(&field).at(field.span()) {
+            Ok(value) => return Ok(value),
+            Err(err) => err,
+        };
+
+        // Check whether this is a get rule field access.
+        if_chain::if_chain! {
+            if let Value::Func(func) = &value;
+            if let Some(element) = func.element();
+            if let Some(id) = element.field_id(&field);
+            let styles = vm.context.styles().at(field.span());
+            if let Some(value) = element.field_from_styles(
+                id,
+                styles.as_ref().map(|&s| s).unwrap_or_default(),
+            );
+            then {
+                // Only validate the context once we know that this is indeed
+                // a field from the style chain.
+                let _ = styles?;
+                return Ok(value);
+            }
+        }
+
+        Err(err)
+    }
+}
+
+impl Eval for ast::Contextual<'_> {
+    type Output = Content;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let body = self.body();
+
+        // Collect captured variables.
+        let captured = {
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Context);
+            visitor.visit(body.to_untyped());
+            visitor.finish()
+        };
+
+        // Define the closure.
+        let closure = Closure {
+            node: self.body().to_untyped().clone(),
+            defaults: vec![],
+            captured,
+            num_pos_params: 0,
+        };
+
+        let func = Func::from(closure).spanned(body.span());
+        Ok(ContextElem::new(func).pack())
     }
 }

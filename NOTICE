@@ -2,7 +2,8 @@ Licenses for third party components used by this project can be found below.
 
 ================================================================================
 The Creative Commons Zero v1.0 Universal License applies to:
-* The ICC profiles found in `crates/typst/icc/*`
+* The ICC profiles found in `crates/typst-pdf/src/icc/*` and
+  `crates/typst/assets/*`.
 
 CC0 1.0 Universal
 
@@ -158,6 +159,10 @@ The MIT License applies to:
    closely modelled after the `DownloadTracker` from rustup
    (https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs)
 
+* The `SyntaxSet` defined in `crates/typst-syntax/src/set.rs` which is
+  based on the `TokenSet` from rust-analyzer
+  (https://github.com/rust-lang/rust-analyzer/blob/master/crates/parser/src/token_set.rs)
+
 The MIT License (MIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -181,7 +186,7 @@ THE SOFTWARE.
 
 ================================================================================
 Alpha multiplication and source-over blending in
-`crates/typst/src/export/render.rs` are ported from Skia code which can be found
+`crates/typst-render/src/text.rs` are ported from Skia code which can be found
 here:
 https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
 

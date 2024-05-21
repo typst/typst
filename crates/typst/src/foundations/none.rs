@@ -20,7 +20,7 @@ use crate::foundations::{
 /// ```example
 /// Not visible: #none
 /// ```
-#[ty(name = "none")]
+#[ty(cast, name = "none")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NoneValue;
 

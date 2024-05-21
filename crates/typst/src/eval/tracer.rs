@@ -3,9 +3,9 @@ use std::collections::HashSet;
 use ecow::EcoVec;
 
 use crate::diag::SourceDiagnostic;
-use crate::foundations::Value;
+use crate::foundations::{Styles, Value};
 use crate::syntax::{FileId, Span};
-use crate::util::hash128;
+use crate::utils::hash128;
 
 /// Traces warnings and which values existed for an expression at a span.
 #[derive(Default, Clone)]
@@ -14,11 +14,11 @@ pub struct Tracer {
     warnings: EcoVec<SourceDiagnostic>,
     warnings_set: HashSet<u128>,
     delayed: EcoVec<SourceDiagnostic>,
-    values: EcoVec<Value>,
+    values: EcoVec<(Value, Option<Styles>)>,
 }
 
 impl Tracer {
-    /// The maximum number of inspeted values.
+    /// The maximum number of inspected values.
     pub const MAX_VALUES: usize = 10;
 
     /// Create a new tracer.
@@ -43,7 +43,7 @@ impl Tracer {
     }
 
     /// Get the values for the inspected span.
-    pub fn values(self) -> EcoVec<Value> {
+    pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
     }
 }
@@ -74,9 +74,9 @@ impl Tracer {
     }
 
     /// Trace a value for the span.
-    pub fn value(&mut self, v: Value) {
+    pub fn value(&mut self, value: Value, styles: Option<Styles>) {
         if self.values.len() < Self::MAX_VALUES {
-            self.values.push(v);
+            self.values.push((value, styles));
         }
     }
 }

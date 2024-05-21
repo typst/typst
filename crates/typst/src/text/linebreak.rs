@@ -1,4 +1,5 @@
-use crate::foundations::{elem, Behave, Behaviour};
+use crate::foundations::{elem, Packed};
+use crate::realize::{Behave, Behaviour};
 
 /// Inserts a line break.
 ///
@@ -36,7 +37,7 @@ pub struct LinebreakElem {
     pub justify: bool,
 }
 
-impl Behave for LinebreakElem {
+impl Behave for Packed<LinebreakElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Destructive
     }

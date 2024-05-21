@@ -11,12 +11,12 @@ use crate::World;
 ///
 /// By default, the file will be read as UTF-8 and returned as a [string]($str).
 ///
-/// If you specify `{encoding: none}`, this returns raw [bytes]($bytes) instead.
+/// If you specify `{encoding: none}`, this returns raw [bytes] instead.
 ///
 /// # Example
 /// ```example
 /// An example for a HTML file: \
-/// #let text = read("data.html")
+/// #let text = read("example.html")
 /// #raw(text, lang: "html")
 ///
 /// Raw bytes:

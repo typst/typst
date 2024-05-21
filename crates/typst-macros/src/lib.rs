@@ -10,6 +10,7 @@ mod elem;
 mod func;
 mod scope;
 mod symbols;
+mod time;
 mod ty;
 
 use proc_macro::TokenStream as BoundaryStream;
@@ -39,6 +40,8 @@ use syn::DeriveInput;
 /// You can customize some properties of the resulting function:
 /// - `scope`: Indicates that the function has an associated scope defined by
 ///   the `#[scope]` macro.
+/// - `contextual`: Indicates that the function makes use of context. This has
+///   no effect on the behaviour itself, but is used for the docs.
 /// - `name`: The functions's normal name (e.g. `min`). Defaults to the Rust
 ///   name in kebab-case.
 /// - `title`: The functions's title case name (e.g. `Minimum`). Defaults to the
@@ -115,6 +118,8 @@ pub fn func(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// You can customize some properties of the resulting type:
 /// - `scope`: Indicates that the type has an associated scope defined by the
 ///   `#[scope]` macro
+/// - `cast`: Indicates that the type has a custom `cast!` implementation.
+///   The macro will then not autogenerate one.
 /// - `name`: The type's normal name (e.g. `str`). Defaults to the Rust name in
 ///   kebab-case.
 /// - `title`: The type's title case name (e.g. `String`). Defaults to the
@@ -131,7 +136,7 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 ///
 /// This implements `NativeElement` for the given type.
 ///
-/// ```
+/// ```ignore
 /// /// A section heading.
 /// #[elem(Show, Count)]
 /// struct HeadingElem {
@@ -339,6 +344,46 @@ pub fn derive_cast(item: BoundaryStream) -> BoundaryStream {
 #[proc_macro]
 pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
     symbols::symbols(stream.into())
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Times the function invokations.
+///
+/// When tracing is enabled in the typst-cli, this macro will record the
+/// invokations of the function and store them in a global map. The map can be
+/// accessed through the `typst_trace::RECORDER` static.
+///
+/// You can also specify the span of the function invokation:
+/// - `#[time(span = ..)]` to record the span, which will be used for the
+///   `EventKey`.
+///
+/// By default, all tracing is omitted using the `wasm32` target flag.
+/// This is done to avoid bloating the web app which doesn't need tracing.
+///
+/// ```ignore
+/// #[time]
+/// fn fibonacci(n: u64) -> u64 {
+///     if n <= 1 {
+///         1
+///     } else {
+///         fibonacci(n - 1) + fibonacci(n - 2)
+///     }
+/// }
+///
+/// #[time(span = span)]
+/// fn fibonacci_spanned(n: u64, span: Span) -> u64 {
+///     if n <= 1 {
+///         1
+///     } else {
+///         fibonacci(n - 1) + fibonacci(n - 2)
+///     }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn time(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+    let item = syn::parse_macro_input!(item as syn::ItemFn);
+    time::time(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

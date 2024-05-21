@@ -1,15 +1,14 @@
 use std::hash::Hash;
 use std::sync::Arc;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
-use crate::layout::{Abs, Axes, Frame, Layout, Length, Regions, Size};
+use crate::layout::{Abs, Axes, Frame, LayoutMultiple, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
-use crate::util::Numeric;
+use crate::utils::{LazyHash, Numeric};
 use crate::visualize::RelativeTo;
 use crate::World;
 
@@ -90,12 +89,11 @@ use crate::World;
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
-/// - For other shapes, the ancestor is the innermost [`block`]($block) or
-///   [`box`]($box) that contains the shape. This includes the boxes and blocks
-///   that are implicitly created by show rules and elements. For example, a
-///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
-///   [`grid`]($grid) will.
-#[ty(scope)]
+/// - For other shapes, the ancestor is the innermost [`block`] or [`box`] that
+///   contains the shape. This includes the boxes and blocks that are implicitly
+///   created by show rules and elements. For example, a [`rotate`] will not
+///   affect the parent of a gradient, but a [`grid`] will.
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Pattern(Arc<Repr>);
 
@@ -103,7 +101,7 @@ pub struct Pattern(Arc<Repr>);
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Repr {
     /// The pattern's rendered content.
-    frame: Prehashed<Frame>,
+    frame: LazyHash<Frame>,
     /// The pattern's tile size.
     size: Size,
     /// The pattern's tile spacing.
@@ -210,7 +208,7 @@ impl Pattern {
 
         Ok(Self(Arc::new(Repr {
             size: frame.size(),
-            frame: Prehashed::new(frame),
+            frame: LazyHash::new(frame),
             spacing: spacing.v.map(|l| l.abs),
             relative,
         })))

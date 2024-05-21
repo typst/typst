@@ -232,6 +232,7 @@ impl Parse for BlockWithReturn {
 }
 
 /// Parse a bare `type Name;` item.
+#[allow(dead_code)]
 pub struct BareType {
     pub attrs: Vec<Attribute>,
     pub type_token: Token![type],
@@ -252,8 +253,11 @@ impl Parse for BareType {
 
 pub mod kw {
     syn::custom_keyword!(name);
+    syn::custom_keyword!(span);
     syn::custom_keyword!(title);
     syn::custom_keyword!(scope);
+    syn::custom_keyword!(contextual);
+    syn::custom_keyword!(cast);
     syn::custom_keyword!(constructor);
     syn::custom_keyword!(keywords);
     syn::custom_keyword!(parent);

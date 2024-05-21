@@ -41,7 +41,6 @@ impl FlowEvent {
 impl Eval for ast::Conditional<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Conditional::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let condition = self.condition();
         if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
@@ -57,7 +56,7 @@ impl Eval for ast::Conditional<'_> {
 impl Eval for ast::WhileLoop<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "WhileLoop::eval", skip_all)]
+    #[typst_macros::time(name = "while loop", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
@@ -103,17 +102,17 @@ impl Eval for ast::WhileLoop<'_> {
 impl Eval for ast::ForLoop<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "ForLoop::eval", skip_all)]
+    #[typst_macros::time(name = "for loop", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
 
         macro_rules! iter {
-            (for $pat:ident in $iter:expr) => {{
+            (for $pat:ident in $iterable:expr) => {{
                 vm.scopes.enter();
 
                 #[allow(unused_parens)]
-                for value in $iter {
+                for value in $iterable {
                     destructure(vm, $pat, value.into_value())?;
 
                     let body = self.body();
@@ -135,27 +134,33 @@ impl Eval for ast::ForLoop<'_> {
             }};
         }
 
-        let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
+        let iterable = self.iterable().eval(vm)?;
+        let iterable_type = iterable.ty();
 
-        match (&pattern, iter.clone()) {
-            (ast::Pattern::Normal(_), Value::Str(string)) => {
-                // Iterate over graphemes of string.
-                iter!(for pattern in string.as_str().graphemes(true));
-            }
-            (_, Value::Dict(dict)) => {
-                // Iterate over pairs of dict.
-                iter!(for pattern in dict.pairs());
-            }
+        use ast::Pattern;
+        match (pattern, iterable) {
             (_, Value::Array(array)) => {
                 // Iterate over values of array.
                 iter!(for pattern in array);
             }
-            (ast::Pattern::Normal(_), _) => {
-                bail!(self.iter().span(), "cannot loop over {}", iter.ty());
+            (_, Value::Dict(dict)) => {
+                // Iterate over key-value pairs of dict.
+                iter!(for pattern in dict.iter());
             }
-            (_, _) => {
-                bail!(pattern.span(), "cannot destructure values of {}", iter.ty())
+            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Str(str)) => {
+                // Iterate over graphemes of string.
+                iter!(for pattern in str.as_str().graphemes(true));
+            }
+            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Bytes(bytes)) => {
+                // Iterate over the integers of bytes.
+                iter!(for pattern in bytes.as_slice());
+            }
+            (Pattern::Destructuring(_), Value::Str(_) | Value::Bytes(_)) => {
+                bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
+            }
+            _ => {
+                bail!(self.iterable().span(), "cannot loop over {}", iterable_type);
             }
         }
 
@@ -170,7 +175,6 @@ impl Eval for ast::ForLoop<'_> {
 impl Eval for ast::LoopBreak<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "LoopBreak::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(FlowEvent::Break(self.span()));
@@ -182,7 +186,6 @@ impl Eval for ast::LoopBreak<'_> {
 impl Eval for ast::LoopContinue<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "LoopContinue::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(FlowEvent::Continue(self.span()));
@@ -194,7 +197,6 @@ impl Eval for ast::LoopContinue<'_> {
 impl Eval for ast::FuncReturn<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FuncReturn::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.body().map(|body| body.eval(vm)).transpose()?;
         if vm.flow.is_none() {

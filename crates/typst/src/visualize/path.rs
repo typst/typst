@@ -3,10 +3,10 @@ use kurbo::{CubicBez, ParamCurveExtrema};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, elem, Array, NativeElement, Reflect, Resolve, Smart, StyleChain,
+    array, cast, elem, Array, Packed, Reflect, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Size,
+    Abs, Axes, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel, Size,
 };
 use crate::visualize::{FixedStroke, Geometry, Paint, Shape, Stroke};
 
@@ -25,7 +25,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct PathElem {
     /// How to fill the path.
     ///
@@ -36,7 +36,7 @@ pub struct PathElem {
     /// rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
-    /// How to [stroke]($stroke) the path. This can be:
+    /// How to [stroke] the path. This can be:
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
@@ -55,8 +55,7 @@ pub struct PathElem {
     ///
     /// Each vertex can be defined in 3 ways:
     ///
-    /// - A regular point, as given to the [`line`]($line) or
-    ///   [`polygon`]($polygon) function.
+    /// - A regular point, as given to the [`line`] or [`polygon`] function.
     /// - An array of two points, the first being the vertex and the second
     ///   being the control point. The control point is expressed relative to
     ///   the vertex and is mirrored to get the second control point. The given
@@ -70,14 +69,14 @@ pub struct PathElem {
     pub vertices: Vec<PathVertex>,
 }
 
-impl Layout for PathElem {
-    #[tracing::instrument(name = "PathElem::layout", skip_all)]
+impl LayoutSingle for Packed<PathElem> {
+    #[typst_macros::time(name = "path", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let resolve = |axes: Axes<Rel<Length>>| {
             axes.resolve(styles)
                 .zip_map(regions.base(), Rel::relative_to)
@@ -89,7 +88,7 @@ impl Layout for PathElem {
 
         let mut size = Size::zero();
         if points.is_empty() {
-            return Ok(Fragment::frame(Frame::soft(size)));
+            return Ok(Frame::soft(size));
         }
 
         // Only create a path if there are more than zero points.
@@ -148,8 +147,7 @@ impl Layout for PathElem {
         let mut frame = Frame::soft(size);
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 

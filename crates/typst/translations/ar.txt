@@ -1,0 +1,7 @@
+figure = شكل
+table = جدول
+equation = معادلة
+bibliography = المراجع
+heading = الفصل
+outline = المحتويات
+raw = قائمة

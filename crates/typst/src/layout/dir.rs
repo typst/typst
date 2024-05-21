@@ -1,6 +1,6 @@
 use ecow::EcoString;
 
-use crate::foundations::{cast, func, scope, ty, Repr};
+use crate::foundations::{func, scope, ty, Repr};
 use crate::layout::{Axis, Side};
 
 /// The four directions into which content can be laid out.
@@ -129,8 +129,4 @@ impl Repr for Dir {
             Self::BTT => "btt".into(),
         }
     }
-}
-
-cast! {
-    type Dir,
 }

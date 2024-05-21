@@ -10,7 +10,10 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 ///
 /// You can access definitions from the module using
 /// [field access notation]($scripting/#fields) and interact with it using the
-/// [import and include syntaxes]($scripting/#modules).
+/// [import and include syntaxes]($scripting/#modules). Alternatively, it is
+/// possible to convert a module to a dictionary, and therefore access its
+/// contents dynamically, using the
+/// [dictionary constructor]($dictionary/#constructor).
 ///
 /// # Example
 /// ```example
@@ -23,7 +26,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 /// >>>
 /// >>> #(-3)
 /// ```
-#[ty]
+#[ty(cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {

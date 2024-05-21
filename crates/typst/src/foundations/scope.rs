@@ -9,7 +9,7 @@ use crate::foundations::{
     Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
     NativeType, Type, Value,
 };
-use crate::util::Static;
+use crate::utils::Static;
 use crate::Library;
 
 #[doc(inline)]
@@ -48,8 +48,14 @@ impl<'a> Scopes<'a> {
     pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
+            .or_else(|| {
+                self.base.and_then(|base| match base.global.scope().get(var) {
+                    Some(value) => Some(value),
+                    None if var == "std" => Some(&base.std),
+                    None => None,
+                })
+            })
             .ok_or_else(|| unknown_variable(var))
     }
 
@@ -57,8 +63,14 @@ impl<'a> Scopes<'a> {
     pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.map(|base| base.math.scope()))
             .find_map(|scope| scope.get(var))
+            .or_else(|| {
+                self.base.and_then(|base| match base.math.scope().get(var) {
+                    Some(value) => Some(value),
+                    None if var == "std" => Some(&base.std),
+                    None => None,
+                })
+            })
             .ok_or_else(|| unknown_variable(var))
     }
 
@@ -69,11 +81,17 @@ impl<'a> Scopes<'a> {
             .find_map(|scope| scope.get_mut(var))
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => eco_format!("cannot mutate a constant: {}", var).into(),
+                    Some(_) => cannot_mutate_constant(var),
+                    _ if var == "std" => cannot_mutate_constant(var),
                     _ => unknown_variable(var),
                 }
             })?
     }
+}
+
+#[cold]
+fn cannot_mutate_constant(var: &str) -> HintedString {
+    eco_format!("cannot mutate a constant: {}", var).into()
 }
 
 /// The error message when a variable is not found.
@@ -169,10 +187,15 @@ impl Scope {
     }
 
     /// Define a captured, immutable binding.
-    pub fn define_captured(&mut self, var: impl Into<EcoString>, value: impl IntoValue) {
+    pub fn define_captured(
+        &mut self,
+        var: impl Into<EcoString>,
+        value: impl IntoValue,
+        capturer: Capturer,
+    ) {
         self.map.insert(
             var.into(),
-            Slot::new(value.into_value(), Kind::Captured, self.category),
+            Slot::new(value.into_value(), Kind::Captured(capturer), self.category),
         );
     }
 
@@ -246,7 +269,16 @@ enum Kind {
     /// A normal, mutable binding.
     Normal,
     /// A captured copy of another variable.
-    Captured,
+    Captured(Capturer),
+}
+
+/// What the variable was captured by.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Capturer {
+    /// Captured by a function / closure.
+    Function,
+    /// Captured by a context expression.
+    Context,
 }
 
 impl Slot {
@@ -264,10 +296,14 @@ impl Slot {
     fn write(&mut self) -> StrResult<&mut Value> {
         match self.kind {
             Kind::Normal => Ok(&mut self.value),
-            Kind::Captured => {
+            Kind::Captured(capturer) => {
                 bail!(
-                    "variables from outside the function are \
-                     read-only and cannot be modified"
+                    "variables from outside the {} are \
+                     read-only and cannot be modified",
+                    match capturer {
+                        Capturer::Function => "function",
+                        Capturer::Context => "context expression",
+                    }
                 )
             }
         }

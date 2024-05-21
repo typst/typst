@@ -24,6 +24,7 @@ struct Func {
     constructor: bool,
     keywords: Vec<String>,
     parent: Option<syn::Type>,
+    contextual: bool,
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
@@ -37,6 +38,7 @@ struct Func {
 struct SpecialParams {
     self_: Option<Param>,
     engine: bool,
+    context: bool,
     args: bool,
     span: bool,
 }
@@ -67,6 +69,7 @@ enum Binding {
 /// The `..` in `#[func(..)]`.
 pub struct Meta {
     pub scope: bool,
+    pub contextual: bool,
     pub name: Option<String>,
     pub title: Option<String>,
     pub constructor: bool,
@@ -78,6 +81,7 @@ impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(Self {
             scope: parse_flag::<kw::scope>(input)?,
+            contextual: parse_flag::<kw::contextual>(input)?,
             name: parse_string::<kw::name>(input)?,
             title: parse_string::<kw::title>(input)?,
             constructor: parse_flag::<kw::constructor>(input)?,
@@ -117,6 +121,7 @@ fn parse(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
         constructor: meta.constructor,
         keywords: meta.keywords,
         parent: meta.parent,
+        contextual: meta.contextual,
         docs,
         vis: item.vis.clone(),
         ident: item.sig.ident.clone(),
@@ -171,6 +176,7 @@ fn parse_param(
 
     match ident.to_string().as_str() {
         "engine" => special.engine = true,
+        "context" => special.context = true,
         "args" => special.args = true,
         "span" => special.span = true,
         _ => {
@@ -227,6 +233,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     quote! {
         #[doc = #docs]
         #[allow(dead_code)]
+        #[allow(rustdoc::broken_intra_doc_links)]
         #item
 
         #[doc(hidden)]
@@ -247,6 +254,7 @@ fn create_func_data(func: &Func) -> TokenStream {
         scope,
         parent,
         constructor,
+        contextual,
         ..
     } = func;
 
@@ -272,6 +280,7 @@ fn create_func_data(func: &Func) -> TokenStream {
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
+            contextual: #contextual,
             scope: #foundations::Lazy::new(|| #scope),
             params: #foundations::Lazy::new(|| ::std::vec![#(#params),*]),
             returns:  #foundations::Lazy::new(|| <#returns as #foundations::Reflect>::output()),
@@ -320,12 +329,13 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
             .as_ref()
             .map(bind)
             .map(|tokens| quote! { #tokens, });
-        let vt_ = func.special.engine.then(|| quote! { engine, });
+        let engine_ = func.special.engine.then(|| quote! { engine, });
+        let context_ = func.special.context.then(|| quote! { context, });
         let args_ = func.special.args.then(|| quote! { args, });
         let span_ = func.special.span.then(|| quote! { args.span, });
         let forwarded = func.params.iter().filter(|param| !param.external).map(bind);
         quote! {
-            __typst_func(#self_ #vt_ #args_ #span_ #(#forwarded,)*)
+            __typst_func(#self_ #engine_ #context_ #args_ #span_ #(#forwarded,)*)
         }
     };
 
@@ -333,7 +343,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
     let ident = &func.ident;
     let parent = func.parent.as_ref().map(|ty| quote! { #ty:: });
     quote! {
-        |engine, args| {
+        |engine, context, args| {
             let __typst_func = #parent #ident;
             #handlers
             #finish

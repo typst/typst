@@ -1,12 +1,12 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
-    Synthesize,
+    cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
+    StyleChain, Styles,
 };
-use crate::layout::{Align, BlockElem, Em, HElem, PadElem, Spacing, VElem};
+use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
 use crate::model::{CitationForm, CiteElem};
-use crate::text::{SmartQuoteElem, SpaceElem, TextElem};
+use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
 /// Displays a quote alongside an optional attribution.
 ///
@@ -40,7 +40,7 @@ use crate::text::{SmartQuoteElem, SpaceElem, TextElem};
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(Finalize, Show, Synthesize)]
+#[elem(ShowSet, Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -63,8 +63,7 @@ pub struct QuoteElem {
     /// Whether double quotes should be added around this quote.
     ///
     /// The double quotes used are inferred from the `quotes` property on
-    /// [smartquote]($smartquote), which is affected by the `lang` property on
-    /// [text]($text).
+    /// [smartquote], which is affected by the `lang` property on [text].
     ///
     /// - `{true}`: Wrap this quote in double quotes.
     /// - `{false}`: Do not wrap this quote in double quotes.
@@ -126,6 +125,12 @@ pub struct QuoteElem {
     /// The quote.
     #[required]
     body: Content,
+
+    /// The nesting depth.
+    #[internal]
+    #[fold]
+    #[ghost]
+    depth: Depth,
 }
 
 /// Attribution for a [quote](QuoteElem).
@@ -145,29 +150,39 @@ cast! {
     label: Label => Self::Label(label),
 }
 
-impl Synthesize for QuoteElem {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_block(self.block(styles));
-        self.push_quotes(self.quotes(styles));
-        Ok(())
-    }
-}
-
-impl Show for QuoteElem {
+impl Show for Packed<QuoteElem> {
+    #[typst_macros::time(name = "quote", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
+            let quotes = SmartQuotes::new(
+                SmartQuoteElem::quotes_in(styles),
+                TextElem::lang_in(styles),
+                TextElem::region_in(styles),
+                SmartQuoteElem::alternative_in(styles),
+            );
+
+            // Alternate between single and double quotes.
+            let Depth(depth) = QuoteElem::depth_in(styles);
+            let double = depth % 2 == 0;
+
             // Add zero-width weak spacing to make the quotes "sticky".
             let hole = HElem::hole().pack();
-            let quote = SmartQuoteElem::new().with_double(true).pack();
-            realized =
-                Content::sequence([quote.clone(), hole.clone(), realized, hole, quote]);
+            realized = Content::sequence([
+                TextElem::packed(quotes.open(double)),
+                hole.clone(),
+                realized,
+                hole,
+                TextElem::packed(quotes.close(double)),
+            ])
+            .styled(QuoteElem::set_depth(Depth(1)));
         }
 
         if block {
-            realized = BlockElem::new().with_body(Some(realized)).pack();
+            realized =
+                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
@@ -180,7 +195,8 @@ impl Show for QuoteElem {
                         seq.push(
                             CiteElem::new(*label)
                                 .with_form(Some(CitationForm::Prose))
-                                .pack(),
+                                .pack()
+                                .spanned(self.span()),
                         );
                     }
                 }
@@ -188,27 +204,29 @@ impl Show for QuoteElem {
                 // Use v(0.9em, weak: true) bring the attribution closer to the
                 // quote.
                 let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
-                realized += weak_v + Content::sequence(seq).aligned(Align::END);
+                realized += weak_v + Content::sequence(seq).aligned(Alignment::END);
             }
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack() + CiteElem::new(*label).pack();
+            realized += SpaceElem::new().pack()
+                + CiteElem::new(*label).pack().spanned(self.span());
         }
 
         Ok(realized)
     }
 }
 
-impl Finalize for QuoteElem {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+impl ShowSet for Packed<QuoteElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
         let x = Em::new(1.0).into();
         let above = Em::new(2.4).into();
         let below = Em::new(1.8).into();
-        realized
-            .styled(PadElem::set_left(x))
-            .styled(PadElem::set_right(x))
-            .styled(BlockElem::set_above(VElem::block_around(above)))
-            .styled(BlockElem::set_below(VElem::block_around(below)))
+        let mut out = Styles::new();
+        out.set(PadElem::set_left(x));
+        out.set(PadElem::set_right(x));
+        out.set(BlockElem::set_above(VElem::block_around(above)));
+        out.set(BlockElem::set_below(VElem::block_around(below)));
+        out
     }
 }

@@ -1,7 +1,9 @@
-use unicode_math_class::MathClass;
+use comemo::Track;
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, elem, Content, Func, NativeElement, Resolve, Smart};
+use crate::foundations::{
+    cast, elem, Content, Context, Func, Packed, Resolve, Smart, StyleChain,
+};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
@@ -99,20 +101,23 @@ pub struct CancelElem {
     #[fold]
     #[default(Stroke {
         // Default stroke has 0.5pt for better visuals.
-        thickness: Smart::Custom(Abs::pt(0.5)),
+        thickness: Smart::Custom(Abs::pt(0.5).into()),
         ..Default::default()
     })]
     pub stroke: Stroke,
 }
 
-impl LayoutMath for CancelElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let body = ctx.layout_fragment(self.body())?;
-        // Use the same math class as the body, in order to preserve automatic spacing around it.
-        let body_class = body.class().unwrap_or(MathClass::Special);
-        let mut body = body.into_frame();
+impl LayoutMath for Packed<CancelElem> {
+    #[typst_macros::time(name = "math.cancel", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let body = ctx.layout_into_fragment(self.body(), styles)?;
+        // Preserve properties of body.
+        let body_class = body.class();
+        let body_italics = body.italics_correction();
+        let body_attach = body.accent_attach();
+        let body_text_like = body.is_text_like();
 
-        let styles = ctx.styles();
+        let mut body = body.into_frame();
         let body_size = body.size();
         let span = self.span();
         let length = self.length(styles).resolve(styles);
@@ -134,6 +139,7 @@ impl LayoutMath for CancelElem {
             invert_first_line,
             &angle,
             body_size,
+            styles,
             span,
         )?;
 
@@ -143,13 +149,20 @@ impl LayoutMath for CancelElem {
 
         if cross {
             // Draw the second line.
-            let second_line =
-                draw_cancel_line(ctx, length, stroke, true, &angle, body_size, span)?;
+            let second_line = draw_cancel_line(
+                ctx, length, stroke, true, &angle, body_size, styles, span,
+            )?;
 
             body.push_frame(center, second_line);
         }
 
-        ctx.push(FrameFragment::new(ctx, body).with_class(body_class));
+        ctx.push(
+            FrameFragment::new(ctx, styles, body)
+                .with_class(body_class)
+                .with_italics_correction(body_italics)
+                .with_accent_attach(body_attach)
+                .with_text_like(body_text_like),
+        );
 
         Ok(())
     }
@@ -173,6 +186,7 @@ cast! {
 }
 
 /// Draws a cancel line.
+#[allow(clippy::too_many_arguments)]
 fn draw_cancel_line(
     ctx: &mut MathContext,
     length_scale: Rel<Abs>,
@@ -180,6 +194,7 @@ fn draw_cancel_line(
     invert: bool,
     angle: &Smart<CancelAngle>,
     body_size: Size,
+    styles: StyleChain,
     span: Span,
 ) -> SourceResult<Frame> {
     let default = default_angle(body_size);
@@ -190,9 +205,10 @@ fn draw_cancel_line(
             // This specifies the absolute angle w.r.t y-axis clockwise.
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
-            CancelAngle::Func(func) => {
-                func.call(ctx.engine, [default])?.cast().at(span)?
-            }
+            CancelAngle::Func(func) => func
+                .call(ctx.engine, Context::new(None, Some(styles)).track(), [default])?
+                .cast()
+                .at(span)?,
         },
     };
 

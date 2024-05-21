@@ -4,7 +4,7 @@
 name: Build Release Binaries
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   build-release:
@@ -25,15 +25,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@stable
+    - uses: dtolnay/rust-toolchain@1.77.0
       with:
         target: ${{ matrix.target }}
 
     - name: Run Cross
-      if: ${{ matrix.cross}}
+      if: ${{ matrix.cross }}
       run: |
-        cargo install cross --git https://github.com/cross-rs/cross.git
-        cross build -p typst-cli --release --target ${{ matrix.target }} --features self-update
+        cargo install cross --git https://github.com/cross-rs/cross.git --locked --rev 085092ca
+        cross build -p typst-cli --release --target ${{ matrix.target }} --features self-update,vendor-openssl
 
     - name: Run Cargo
       if: ${{ !matrix.cross }}
@@ -53,7 +53,7 @@ jobs:
           tar cJf $directory.tar.xz $directory
         fi
 
-    - uses: ncipollo/release-action@v1.13.0
+    - uses: ncipollo/release-action@v1.14.0
       with:
         artifacts: "typst-${{ matrix.target }}.*"
         allowUpdates: true

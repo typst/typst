@@ -10,18 +10,16 @@ repository = { workspace = true }
 license = { workspace = true }
 categories = { workspace = true }
 keywords = { workspace = true }
-
-[lib]
-doctest = false
-bench = false
+readme = { workspace = true }
 
 [dependencies]
 typst = { workspace = true }
+typst-macros = { workspace = true }
+typst-timing = { workspace = true }
 base64 = { workspace = true }
 comemo = { workspace = true }
-ecow = { workspace = true}
+ecow = { workspace = true }
 flate2 = { workspace = true }
-tracing = { workspace = true }
 ttf-parser = { workspace = true }
 xmlparser = { workspace = true }
 xmlwriter = { workspace = true }

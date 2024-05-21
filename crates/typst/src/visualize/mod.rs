@@ -28,7 +28,7 @@ use crate::foundations::{category, Category, Scope};
 ///
 /// If you want to create more advanced drawings or plots, also have a look at
 /// the [CetZ](https://github.com/johannes-wolf/cetz) package as well as more
-/// specialized [packages]($packages) for your use case.
+/// specialized [packages]($universe) for your use case.
 #[category]
 pub static VISUALIZE: Category;
 

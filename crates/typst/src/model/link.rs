@@ -3,7 +3,7 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Repr, Show, Smart, StyleChain,
+    cast, elem, Content, Label, Packed, Repr, Show, Smart, StyleChain,
 };
 use crate::introspection::Location;
 use crate::layout::Position;
@@ -40,16 +40,16 @@ pub struct LinkElem {
     ///
     /// - To link to another part of the document, `dest` can take one of three
     ///   forms:
-    ///   - A [label]($label) attached to an element. If you also want automatic
-    ///     text for the link based on the element, consider using a
+    ///   - A [label] attached to an element. If you also want automatic text
+    ///     for the link based on the element, consider using a
     ///     [reference]($ref) instead.
     ///
-    ///   - A [location]($locate) resulting from a [`locate`]($locate) call or
-    ///     [`query`]($query).
+    ///   - A [`location`] (typically retrieved from [`here`], [`locate`] or
+    ///     [`query`]).
     ///
     ///   - A dictionary with a `page` key of type [integer]($int) and `x` and
-    ///     `y` coordinates of type [length]($length). Pages are counted from
-    ///     one, and the coordinates are relative to the page's top left corner.
+    ///     `y` coordinates of type [length]. Pages are counted from one, and
+    ///     the coordinates are relative to the page's top left corner.
     ///
     /// ```example
     /// = Introduction <intro>
@@ -89,19 +89,17 @@ impl LinkElem {
     }
 }
 
-impl Show for LinkElem {
-    #[tracing::instrument(name = "LinkElem::show", skip(self, engine))]
+impl Show for Packed<LinkElem> {
+    #[typst_macros::time(name = "link", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let linked = match self.dest() {
             LinkTarget::Dest(dest) => body.linked(dest.clone()),
-            LinkTarget::Label(label) => engine
-                .delayed(|engine| {
-                    let elem = engine.introspector.query_label(*label).at(self.span())?;
-                    let dest = Destination::Location(elem.location().unwrap());
-                    Ok(Some(body.clone().linked(dest)))
-                })
-                .unwrap_or(body),
+            LinkTarget::Label(label) => {
+                let elem = engine.introspector.query_label(*label).at(self.span())?;
+                let dest = Destination::Location(elem.location().unwrap());
+                body.clone().linked(dest)
+            }
         };
 
         Ok(linked.styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false)))))

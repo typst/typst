@@ -8,7 +8,6 @@ use crate::syntax::ast::{self, AstNode};
 impl Eval for ast::LetBinding<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "LetBinding::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = match self.init() {
             Some(expr) => expr.eval(vm)?,
@@ -32,7 +31,7 @@ impl Eval for ast::DestructAssignment<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.value().eval(vm)?;
-        destructure_impl(vm, self.pattern(), value, |vm, expr, value| {
+        destructure_impl(vm, self.pattern(), value, &mut |vm, expr, value| {
             let location = expr.access(vm)?;
             *location = value;
             Ok(())
@@ -47,34 +46,34 @@ pub(crate) fn destructure(
     pattern: ast::Pattern,
     value: Value,
 ) -> SourceResult<()> {
-    destructure_impl(vm, pattern, value, |vm, expr, value| match expr {
+    destructure_impl(vm, pattern, value, &mut |vm, expr, value| match expr {
         ast::Expr::Ident(ident) => {
             vm.define(ident, value);
             Ok(())
         }
-        _ => bail!(expr.span(), "nested patterns are currently not supported"),
+        _ => bail!(expr.span(), "cannot assign to this expression"),
     })
 }
 
 /// Destruct the given value into the pattern and apply the function to each binding.
-#[tracing::instrument(skip_all)]
-fn destructure_impl<T>(
+fn destructure_impl<F>(
     vm: &mut Vm,
     pattern: ast::Pattern,
     value: Value,
-    f: T,
+    f: &mut F,
 ) -> SourceResult<()>
 where
-    T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
+    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     match pattern {
-        ast::Pattern::Normal(expr) => {
-            f(vm, expr, value)?;
-        }
+        ast::Pattern::Normal(expr) => f(vm, expr, value)?,
         ast::Pattern::Placeholder(_) => {}
+        ast::Pattern::Parenthesized(parenthesized) => {
+            destructure_impl(vm, parenthesized.pattern(), value, f)?
+        }
         ast::Pattern::Destructuring(destruct) => match value {
-            Value::Array(value) => destructure_array(vm, pattern, value, f, destruct)?,
-            Value::Dict(value) => destructure_dict(vm, value, f, destruct)?,
+            Value::Array(value) => destructure_array(vm, destruct, value, f)?,
+            Value::Dict(value) => destructure_dict(vm, destruct, value, f)?,
             _ => bail!(pattern.span(), "cannot destructure {}", value.ty()),
         },
     }
@@ -83,51 +82,44 @@ where
 
 fn destructure_array<F>(
     vm: &mut Vm,
-    pattern: ast::Pattern,
-    value: Array,
-    f: F,
     destruct: ast::Destructuring,
+    value: Array,
+    f: &mut F,
 ) -> SourceResult<()>
 where
     F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
-    let mut i = 0;
     let len = value.as_slice().len();
-    for p in destruct.bindings() {
+    let mut i = 0;
+
+    for p in destruct.items() {
         match p {
-            ast::DestructuringKind::Normal(expr) => {
+            ast::DestructuringItem::Pattern(pattern) => {
                 let Ok(v) = value.at(i as i64, None) else {
-                    bail!(expr.span(), "not enough elements to destructure");
+                    bail!(pattern.span(), "not enough elements to destructure");
                 };
-                f(vm, expr, v)?;
+                destructure_impl(vm, pattern, v, f)?;
                 i += 1;
             }
-            ast::DestructuringKind::Sink(spread) => {
-                let sink_size = (1 + len).checked_sub(destruct.bindings().count());
+            ast::DestructuringItem::Spread(spread) => {
+                let sink_size = (1 + len).checked_sub(destruct.items().count());
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
-                if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
-                    if let Some(expr) = spread.expr() {
-                        f(vm, expr, Value::Array(sink.into()))?;
-                    }
-                    i += sink_size;
-                } else {
-                    bail!(pattern.span(), "not enough elements to destructure")
+                let (Some(sink_size), Some(sink)) = (sink_size, sink) else {
+                    bail!(spread.span(), "not enough elements to destructure");
+                };
+                if let Some(expr) = spread.sink_expr() {
+                    f(vm, expr, Value::Array(sink.into()))?;
                 }
+                i += sink_size;
             }
-            ast::DestructuringKind::Named(named) => {
-                bail!(named.span(), "cannot destructure named elements from an array")
-            }
-            ast::DestructuringKind::Placeholder(underscore) => {
-                if i < len {
-                    i += 1
-                } else {
-                    bail!(underscore.span(), "not enough elements to destructure")
-                }
+            ast::DestructuringItem::Named(named) => {
+                bail!(named.span(), "cannot destructure named pattern from an array")
             }
         }
     }
+
     if i < len {
-        bail!(pattern.span(), "too many elements to destructure");
+        bail!(destruct.span(), "too many elements to destructure");
     }
 
     Ok(())
@@ -135,32 +127,35 @@ where
 
 fn destructure_dict<F>(
     vm: &mut Vm,
-    dict: Dict,
-    f: F,
     destruct: ast::Destructuring,
+    dict: Dict,
+    f: &mut F,
 ) -> SourceResult<()>
 where
     F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     let mut sink = None;
     let mut used = HashSet::new();
-    for p in destruct.bindings() {
+
+    for p in destruct.items() {
         match p {
-            ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
+            // Shorthand for a direct identifier.
+            ast::DestructuringItem::Pattern(ast::Pattern::Normal(ast::Expr::Ident(
+                ident,
+            ))) => {
                 let v = dict.get(&ident).at(ident.span())?;
                 f(vm, ast::Expr::Ident(ident), v.clone())?;
-                used.insert(ident.as_str());
+                used.insert(ident.get().clone());
             }
-            ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
-            ast::DestructuringKind::Named(named) => {
+            ast::DestructuringItem::Named(named) => {
                 let name = named.name();
                 let v = dict.get(&name).at(name.span())?;
-                f(vm, named.expr(), v.clone())?;
-                used.insert(name.as_str());
+                destructure_impl(vm, named.pattern(), v.clone(), f)?;
+                used.insert(name.get().clone());
             }
-            ast::DestructuringKind::Placeholder(_) => {}
-            ast::DestructuringKind::Normal(expr) => {
-                bail!(expr.span(), "expected key, found expression");
+            ast::DestructuringItem::Spread(spread) => sink = spread.sink_expr(),
+            ast::DestructuringItem::Pattern(expr) => {
+                bail!(expr.span(), "cannot destructure unnamed pattern from dictionary");
             }
         }
     }

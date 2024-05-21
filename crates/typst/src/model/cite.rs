@@ -1,7 +1,7 @@
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Label, NativeElement, Show, Smart, StyleChain, Synthesize,
+    cast, elem, Cast, Content, Label, Packed, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
@@ -10,8 +10,8 @@ use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
 ///
-/// Before you starting citing, you need to add a [bibliography]($bibliography)
-/// somewhere in your document.
+/// Before you starting citing, you need to add a [bibliography] somewhere in
+/// your document.
 ///
 /// # Example
 /// ```example
@@ -25,6 +25,15 @@ use crate::text::{Lang, Region, TextElem};
 /// explicitly. #cite(<arrgh>)
 ///
 /// #bibliography("works.bib")
+/// ```
+///
+/// If your source name contains certain characters such as slashes, which are
+/// not recognized by the `<>` syntax, you can explicitly call `label` instead.
+///
+/// ```typ
+/// Computer Modern is an example of a modernist serif typeface.
+/// #cite(label("DBLP:books/lib/Knuth86a")).
+/// >>> #bibliography("works.bib")
 /// ```
 ///
 /// # Syntax
@@ -99,20 +108,18 @@ pub struct CiteElem {
     pub region: Option<Region>,
 }
 
-impl Synthesize for CiteElem {
+impl Synthesize for Packed<CiteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_supplement(self.supplement(styles));
-        self.push_form(self.form(styles));
-        self.push_style(self.style(styles));
-        self.push_lang(TextElem::lang_in(styles));
-        self.push_region(TextElem::region_in(styles));
+        let elem = self.as_mut();
+        elem.push_lang(TextElem::lang_in(styles));
+        elem.push_region(TextElem::region_in(styles));
         Ok(())
     }
 }
 
 cast! {
     CiteElem,
-    v: Content => v.to::<Self>().cloned().ok_or("expected citation")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected citation")?,
 }
 
 /// The form of the citation.
@@ -139,23 +146,19 @@ pub enum CitationForm {
 pub struct CiteGroup {
     /// The citations.
     #[required]
-    pub children: Vec<CiteElem>,
+    pub children: Vec<Packed<CiteElem>>,
 }
 
-impl Show for CiteGroup {
-    #[tracing::instrument(name = "CiteGroup::show", skip(self, engine))]
+impl Show for Packed<CiteGroup> {
+    #[typst_macros::time(name = "cite", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let location = self.location().unwrap();
-            let span = self.span();
-            Works::generate(engine.world, engine.introspector)
-                .at(span)?
-                .citations
-                .get(&location)
-                .cloned()
-                .unwrap_or_else(|| {
-                    bail!(span, "failed to format citation (this is a bug)")
-                })
-        }))
+        let location = self.location().unwrap();
+        let span = self.span();
+        Works::generate(engine.world, engine.introspector)
+            .at(span)?
+            .citations
+            .get(&location)
+            .cloned()
+            .unwrap_or_else(|| bail!(span, "failed to format citation (this is a bug)"))
     }
 }

@@ -1,14 +1,14 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Resolve, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
-    Abs, Align, Angle, Axes, FixedAlign, Fragment, Frame, HAlign, Layout, Length, Point,
-    Ratio, Regions, Rel, Size, VAlign,
+    Abs, Alignment, Angle, Axes, FixedAlignment, Frame, HAlignment, LayoutMultiple,
+    LayoutSingle, Length, Point, Ratio, Regions, Rel, Size, VAlignment,
 };
 
 /// Moves content without affecting layout.
 ///
-/// The `move` function allows you to move content while th layout still 'sees'
+/// The `move` function allows you to move content while the layout still 'sees'
 /// it at the original positions. Containers will still be sized as if the
 /// content was not moved.
 ///
@@ -24,7 +24,7 @@ use crate::layout::{
 ///   )
 /// ))
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -37,20 +37,20 @@ pub struct MoveElem {
     pub body: Content,
 }
 
-impl Layout for MoveElem {
-    #[tracing::instrument(name = "MoveElem::layout", skip_all)]
+impl LayoutSingle for Packed<MoveElem> {
+    #[typst_macros::time(name = "move", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
         let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 
@@ -68,7 +68,7 @@ impl Layout for MoveElem {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -95,8 +95,8 @@ pub struct RotateElem {
     /// #box(rotate(30deg, origin: bottom + right, square()))
     /// ```
     #[fold]
-    #[default(HAlign::Center + VAlign::Horizon)]
-    pub origin: Align,
+    #[default(HAlignment::Center + VAlignment::Horizon)]
+    pub origin: Alignment,
 
     /// Whether the rotation impacts the layout.
     ///
@@ -115,14 +115,14 @@ pub struct RotateElem {
     pub body: Content,
 }
 
-impl Layout for RotateElem {
-    #[tracing::instrument(name = "RotateElem::layout", skip_all)]
+impl LayoutSingle for Packed<RotateElem> {
+    #[typst_macros::time(name = "rotate", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let angle = self.angle(styles);
         let align = self.origin(styles).resolve(styles);
 
@@ -157,7 +157,7 @@ impl Layout for RotateElem {
 /// #scale(x: -100%)[This is mirrored.]
 /// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct ScaleElem {
     /// The horizontal scaling factor.
     ///
@@ -183,8 +183,8 @@ pub struct ScaleElem {
     /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
     #[fold]
-    #[default(HAlign::Center + VAlign::Horizon)]
-    pub origin: Align,
+    #[default(HAlignment::Center + VAlignment::Horizon)]
+    pub origin: Alignment,
 
     /// Whether the scaling impacts the layout.
     ///
@@ -203,14 +203,14 @@ pub struct ScaleElem {
     pub body: Content,
 }
 
-impl Layout for ScaleElem {
-    #[tracing::instrument(name = "ScaleElem::layout", skip_all)]
+impl LayoutSingle for Packed<ScaleElem> {
+    #[typst_macros::time(name = "scale", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let sx = self.x(styles);
         let sy = self.y(styles);
         let align = self.origin(styles).resolve(styles);
@@ -368,14 +368,14 @@ fn measure_and_layout(
     styles: StyleChain,
     body: &Content,
     transform: Transform,
-    align: Axes<FixedAlign>,
+    align: Axes<FixedAlignment>,
     reflow: bool,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Frame> {
     if !reflow {
         // Layout the body.
         let pod = Regions::one(base_size, Axes::splat(false));
         let mut frame = body.layout(engine, styles, pod)?.into_frame();
-        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
         // Apply the transform.
         let ts = Transform::translate(x, y)
@@ -383,7 +383,7 @@ fn measure_and_layout(
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(ts);
 
-        return Ok(Fragment::frame(frame));
+        return Ok(frame);
     }
 
     // Measure the size of the body.
@@ -393,7 +393,7 @@ fn measure_and_layout(
     // Actually perform the layout.
     let pod = Regions::one(frame.size(), Axes::splat(true));
     let mut frame = body.layout(engine, styles, pod)?.into_frame();
-    let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+    let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
     // Apply the transform.
     let ts = Transform::translate(x, y)
@@ -405,7 +405,7 @@ fn measure_and_layout(
     frame.transform(ts);
     frame.translate(offset);
     frame.set_size(size);
-    Ok(Fragment::frame(frame))
+    Ok(frame)
 }
 
 /// Computes the bounding box and offset of a transformed frame.

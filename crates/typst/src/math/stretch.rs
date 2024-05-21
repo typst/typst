@@ -45,7 +45,7 @@ fn stretch_glyph(
         .table
         .variants
         .and_then(|variants| {
-            min_overlap = variants.min_connector_overlap.scaled(ctx);
+            min_overlap = variants.min_connector_overlap.scaled(ctx, base.font_size);
             if horizontal {
                 variants.horizontal_constructions
             } else {
@@ -106,12 +106,12 @@ fn assemble(
         let mut growable = Abs::zero();
 
         while let Some(part) = parts.next() {
-            let mut advance = part.full_advance.scaled(ctx);
+            let mut advance = part.full_advance.scaled(ctx, base.font_size);
             if let Some(next) = parts.peek() {
                 let max_overlap = part
                     .end_connector_length
                     .min(next.start_connector_length)
-                    .scaled(ctx);
+                    .scaled(ctx, base.font_size);
 
                 advance -= max_overlap;
                 growable += max_overlap - min_overlap;
@@ -136,10 +136,12 @@ fn assemble(
     let mut selected = vec![];
     let mut parts = parts(assembly, repeat).peekable();
     while let Some(part) = parts.next() {
-        let mut advance = part.full_advance.scaled(ctx);
+        let mut advance = part.full_advance.scaled(ctx, base.font_size);
         if let Some(next) = parts.peek() {
-            let max_overlap =
-                part.end_connector_length.min(next.start_connector_length).scaled(ctx);
+            let max_overlap = part
+                .end_connector_length
+                .min(next.start_connector_length)
+                .scaled(ctx, base.font_size);
             advance -= max_overlap;
             advance += ratio * (max_overlap - min_overlap);
         }
@@ -156,7 +158,7 @@ fn assemble(
         size = Size::new(full, height);
         baseline = base.ascent;
     } else {
-        let axis = scaled!(ctx, axis_height);
+        let axis = ctx.constants.axis_height().scaled(ctx, base.font_size);
         let width = selected.iter().map(|(f, _)| f.width).max().unwrap_or_default();
         size = Size::new(width, full);
         baseline = full / 2.0 + axis;
@@ -177,14 +179,17 @@ fn assemble(
         offset += advance;
     }
 
+    let accent_attach = if horizontal { frame.width() / 2.0 } else { base.accent_attach };
+
     VariantFragment {
         c: base.c,
         id: None,
         frame,
-        style: base.style,
         font_size: base.font_size,
         italics_correction: Abs::zero(),
+        accent_attach,
         class: base.class,
+        math_size: base.math_size,
         span: base.span,
         limits: base.limits,
         mid_stretched: None,

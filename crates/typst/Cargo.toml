@@ -10,21 +10,22 @@ edition = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
-
-[lib]
-doctest = false
-bench = false
+readme = { workspace = true }
 
 [dependencies]
+typst-assets = { workspace = true }
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
 chinese-number = { workspace = true }
 ciborium = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
-ecow = { workspace = true}
+ecow = { workspace = true }
+flate2 = { workspace = true }
 fontdb = { workspace = true }
 hayagriva = { workspace = true }
 hypher = { workspace = true }
@@ -33,13 +34,19 @@ icu_provider = { workspace = true }
 icu_provider_adapters = { workspace = true }
 icu_provider_blob = { workspace = true }
 icu_segmenter = { workspace = true }
+if_chain = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+kamadak-exif = { workspace = true }
 kurbo = { workspace = true }
 lipsum = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 palette = { workspace = true }
+qcms = { workspace = true }
+phf = { workspace = true }
+png = { workspace = true }
+portable-atomic = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
@@ -52,7 +59,6 @@ smallvec = { workspace = true }
 syntect = { workspace = true }
 time = { workspace = true }
 toml = { workspace = true }
-tracing = { workspace = true }
 ttf-parser = { workspace = true }
 two-face = { workspace = true }
 typed-arena = { workspace = true }
@@ -60,11 +66,15 @@ unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
+unscanny = { workspace = true }
 usvg = { workspace = true }
 wasmi = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = { workspace = true }
+
+[dev-dependencies]
+typst-dev-assets = { workspace = true }
 
 [lints]
 workspace = true

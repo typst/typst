@@ -174,25 +174,24 @@ conditionally remove the header on the first page:
 
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
-#set page(header: locate(loc => {
-  if counter(page).at(loc).first() > 1 [
+#set page(header: context {
+  if counter(page).get().first() > 1 [
     _Lisa Strassner's Thesis_
     #h(1fr)
     National Academy of Sciences
   ]
-}))
+})
 
 #lorem(150)
 ```
 
-This example may look intimidating, but let's break it down: We are telling
-Typst that the header depends on the current [location]($locate). The `loc`
-value allows other functions to find out where on the page we currently are. We
-then ask Typst if the page [counter]($counter) is larger than one at our current
-position. The page counter starts at one, so we are skipping the header on a
-single page. Counters may have multiple levels. This feature is used for items
-like headings, but the page counter will always have a single level, so we can
-just look at the first one.
+This example may look intimidating, but let's break it down: By using the
+`{context}` keyword, we are telling Typst that the header depends on where we
+are in the document. We then ask Typst if the page [counter] is larger than one
+at our (context-dependant) current position. The page counter starts at one, so
+we are skipping the header on a single page. Counters may have multiple levels.
+This feature is used for items like headings, but the page counter will always
+have a single level, so we can just look at the first one.
 
 You can, of course, add an `else` to this example to add a different header to
 the first page instead.
@@ -201,17 +200,17 @@ the first page instead.
 The technique described in the previous section can be adapted to perform more
 advanced tasks using Typst's labels. For example, pages with big tables could
 omit their headers to help keep clutter down. We will mark our tables with a
-`<big-table>` [label]($label) and use the [query system]($query) to find out if
-such a label exists on the current page:
+`<big-table>` [label] and use the [query system]($query) to find out if such a
+label exists on the current page:
 
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
-#set page(header: locate(loc => {
-  let page-counter = counter(page)
-  let matches = query(<big-table>, loc)
-  let current = page-counter.at(loc)
+#set page(header: context {
+  let page-counter =
+  let matches = query(<big-table>)
+  let current = counter(page).get()
   let has-table = matches.any(m =>
-    page-counter.at(m.location()) == current
+    counter(page).at(m.location()) == current
   )
 
   if not has-table [
@@ -291,7 +290,7 @@ a custom footer with page numbers and more.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
-#set page(footer: [
+#set page(footer: context [
   *American Society of Proceedings*
   #h(1fr)
   #counter(page).display(
@@ -314,31 +313,29 @@ circle for each page.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
-#set page(footer: [
+#set page(footer: context [
   *Fun Typography Club*
   #h(1fr)
-  #counter(page).display(num => {
-    let circles = num * (
-      box(circle(
-        radius: 2pt,
-        fill: navy,
-      )),
-    )
-    box(
-      inset: (bottom: 1pt),
-      circles.join(h(1pt))
-    )
-  })
+  #let (num,) = counter(page).get()
+  #let circles = num * (
+    box(circle(
+      radius: 2pt,
+      fill: navy,
+    )),
+  )
+  #box(
+    inset: (bottom: 1pt),
+    circles.join(h(1pt))
+  )
 ])
 
 This page has a custom footer.
 ```
 
 In this example, we use the number of pages to create an array of
-[circles]($circle). The circles are wrapped in a [box]($box) so they can all
-appear on the same line because they are blocks and would otherwise create
-paragraph breaks. The length of this [array]($array) depends on the current page
-number.
+[circles]($circle). The circles are wrapped in a [box] so they can all appear on
+the same line because they are blocks and would otherwise create paragraph
+breaks. The length of this [array] depends on the current page number.
 
 We then insert the circles at the right side of the footer, with 1pt of space
 between them. The join method of an array will attempt to
@@ -355,8 +352,8 @@ want to start with the first page only after the title page. Or maybe you need
 to skip a few page numbers because you will insert pages into the final printed
 product.
 
-The right way to modify the page number is to manipulate the page
-[counter]($counter). The simplest manipulation is to set the counter back to 1.
+The right way to modify the page number is to manipulate the page [counter]. The
+simplest manipulation is to set the counter back to 1.
 
 ```typ
 #counter(page).update(1)
@@ -374,19 +371,19 @@ In this example, we skip five pages. `n` is the current value of the page
 counter and `n + 5` is the return value of our function.
 
 In case you need to retrieve the actual page number instead of the value of the
-page counter, you can use the [`page`]($locate) method on the argument of the
-`{locate}` closure:
+page counter, you can use the [`page`]($location.page) method on the return
+value of the [`here`] function:
 
 ```example
 #counter(page).update(n => n + 5)
 
 // This returns one even though the
 // page counter was incremented by 5.
-#locate(loc => loc.page())
+#context here().page()
 ```
 
-You can also obtain the page numbering pattern from the `{locate}` closure
-parameter with the [`page-numbering`]($locate) method.
+You can also obtain the page numbering pattern from the location returned by
+`here` with the [`page-numbering`]($location.page-numbering) method.
 
 ## Add columns { #columns }
 Add columns to your document to fit more on a page while maintaining legible

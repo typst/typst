@@ -6,7 +6,7 @@ use crate::foundations::{
     Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Length};
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 use crate::visualize::{Color, Gradient, Paint, Pattern};
 
 /// Defines how to draw a line.
@@ -39,17 +39,16 @@ use crate::visualize::{Color, Gradient, Paint, Pattern};
 /// - A stroke combined from color and thickness using the `+` operator as in
 ///   `{2pt + red}`.
 ///
-/// For full control, you can also provide a [dictionary]($dictionary) or a
-/// `{stroke}` object to any function that expects a stroke. The dictionary's
-/// keys may include any of the parameters for the constructor function, shown
-/// below.
+/// For full control, you can also provide a [dictionary] or a `{stroke}` object
+/// to any function that expects a stroke. The dictionary's keys may include any
+/// of the parameters for the constructor function, shown below.
 ///
 /// # Fields
 /// On a stroke object, you can access any of the fields listed in the
 /// constructor function. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
 /// set to `{auto}` are inherited.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
@@ -64,6 +63,17 @@ pub struct Stroke<T: Numeric = Length> {
     pub dash: Smart<Option<DashPattern<T>>>,
     /// The miter limit.
     pub miter_limit: Smart<Scalar>,
+}
+
+impl Stroke {
+    /// Create a stroke from a paint and a thickness.
+    pub fn from_pair(paint: impl Into<Paint>, thickness: Length) -> Self {
+        Self {
+            paint: Smart::Custom(paint.into()),
+            thickness: Smart::Custom(thickness),
+            ..Default::default()
+        }
+    }
 }
 
 #[scope]
@@ -128,11 +138,12 @@ impl Stroke {
         ///   - `{"dash-dotted"}`
         ///   - `{"densely-dash-dotted"}`
         ///   - `{"loosely-dash-dotted"}`
-        /// - An [array]($array) with alternating lengths for dashes and gaps. You can
-        ///   also use the string `{"dot"}` for a length equal to the line thickness.
-        /// - A [dictionary]($dictionary) with the keys `array` (same as the array
-        ///   above), and `phase` (of type [length]($length)), which defines where in
-        ///   the pattern to start drawing.
+        /// - An [array] with alternating lengths for dashes and gaps. You can
+        ///   also use the string `{"dot"}` for a length equal to the line
+        ///   thickness.
+        /// - A [dictionary] with the keys `array` (same as the array above),
+        ///   and `phase` (of type [length]), which defines where in the pattern
+        ///   to start drawing.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{none}`.
         ///
@@ -300,7 +311,7 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
             }
             if let Smart::Custom(dash) = &dash {
                 r.push_str(sep);
-                r.push_str("cap: ");
+                r.push_str("dash: ");
                 if let Some(dash) = dash {
                     r.push_str(&dash.repr());
                 } else {
@@ -319,6 +330,19 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
     }
 }
 
+impl<T: Numeric + Fold> Fold for Stroke<T> {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            paint: self.paint.or(outer.paint),
+            thickness: self.thickness.or(outer.thickness),
+            cap: self.cap.or(outer.cap),
+            join: self.join.or(outer.join),
+            dash: self.dash.or(outer.dash),
+            miter_limit: self.miter_limit.or(outer.miter_limit),
+        }
+    }
+}
+
 impl Resolve for Stroke {
     type Output = Stroke<Abs>;
 
@@ -330,21 +354,6 @@ impl Resolve for Stroke {
             join: self.join,
             dash: self.dash.resolve(styles),
             miter_limit: self.miter_limit,
-        }
-    }
-}
-
-impl Fold for Stroke<Abs> {
-    type Output = Self;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        Self {
-            paint: self.paint.or(outer.paint),
-            thickness: self.thickness.or(outer.thickness),
-            cap: self.cap.or(outer.cap),
-            join: self.join.or(outer.join),
-            dash: self.dash.or(outer.dash),
-            miter_limit: self.miter_limit.or(outer.miter_limit),
         }
     }
 }
@@ -581,6 +590,17 @@ pub struct FixedStroke {
     pub dash: Option<DashPattern<Abs, Abs>>,
     /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
     pub miter_limit: Scalar,
+}
+
+impl FixedStroke {
+    /// Create a stroke from a paint and a thickness.
+    pub fn from_pair(paint: impl Into<Paint>, thickness: Abs) -> Self {
+        Self {
+            paint: paint.into(),
+            thickness,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for FixedStroke {

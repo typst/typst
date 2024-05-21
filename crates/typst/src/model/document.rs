@@ -3,10 +3,11 @@ use ecow::EcoString;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Smart, StyleChain, Value,
+    cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
+    StyledElem, Value,
 };
 use crate::introspection::{Introspector, ManualPageCounter};
-use crate::layout::{Frame, LayoutRoot, PageElem};
+use crate::layout::{LayoutRoot, Page, PageElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -50,6 +51,9 @@ pub struct DocumentElem {
     ///
     /// The year component must be at least zero in order to be embedded into a
     /// PDF.
+    ///
+    /// If you want to create byte-by-byte reproducible PDFs, set this to
+    /// something other than `{auto}`.
     #[ghost]
     pub date: Smart<Option<Datetime>>,
 
@@ -65,16 +69,13 @@ impl Construct for DocumentElem {
     }
 }
 
-impl LayoutRoot for DocumentElem {
-    /// Layout the document into a sequence of frames, one per page.
-    #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
+impl LayoutRoot for Packed<DocumentElem> {
+    #[typst_macros::time(name = "document", span = self.span())]
     fn layout_root(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<Document> {
-        tracing::info!("Document layout");
-
         let mut pages = Vec::with_capacity(self.children().len());
         let mut page_counter = ManualPageCounter::new();
 
@@ -84,21 +85,21 @@ impl LayoutRoot for DocumentElem {
         while let Some(mut child) = iter.next() {
             let outer = styles;
             let mut styles = styles;
-            if let Some((elem, local)) = child.to_styled() {
-                styles = outer.chain(local);
-                child = elem;
+            if let Some(styled) = child.to_packed::<StyledElem>() {
+                child = &styled.child;
+                styles = outer.chain(&styled.styles);
             }
 
-            if let Some(page) = child.to::<PageElem>() {
+            if let Some(page) = child.to_packed::<PageElem>() {
                 let extend_to = iter.peek().and_then(|&next| {
-                    next.to_styled()
-                        .map_or(next, |(elem, _)| elem)
-                        .to::<PageElem>()?
-                        .clear_to(styles)
+                    *next
+                        .to_packed::<StyledElem>()
+                        .map_or(next, |styled| &styled.child)
+                        .to_packed::<PageElem>()?
+                        .clear_to()?
                 });
-                let fragment =
-                    page.layout(engine, styles, &mut page_counter, extend_to)?;
-                pages.extend(fragment);
+                let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
+                pages.extend(run);
             } else {
                 bail!(child.span(), "unexpected document child");
             }
@@ -106,10 +107,10 @@ impl LayoutRoot for DocumentElem {
 
         Ok(Document {
             pages,
-            title: self.title(styles).map(|content| content.plain_text()),
-            author: self.author(styles).0,
-            keywords: self.keywords(styles).0,
-            date: self.date(styles),
+            title: DocumentElem::title_in(styles).map(|content| content.plain_text()),
+            author: DocumentElem::author_in(styles).0,
+            keywords: DocumentElem::keywords_in(styles).0,
+            date: DocumentElem::date_in(styles),
             introspector: Introspector::default(),
         })
     }
@@ -140,8 +141,8 @@ cast! {
 /// A finished document with metadata and page frames.
 #[derive(Debug, Default, Clone)]
 pub struct Document {
-    /// The page frames.
-    pub pages: Vec<Frame>,
+    /// The document's finished pages.
+    pub pages: Vec<Page>,
     /// The document's title.
     pub title: Option<EcoString>,
     /// The document's author.

@@ -4,8 +4,8 @@ use std::ops::{Add, Div, Mul, Neg, Rem};
 
 use ecow::EcoString;
 
-use crate::foundations::{cast, repr, Repr, Value};
-use crate::util::{Numeric, Scalar};
+use crate::foundations::{cast, repr, Fold, Repr, Value};
+use crate::utils::{Numeric, Scalar};
 
 /// An absolute length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -118,15 +118,9 @@ impl Abs {
         self == other || (self - other).to_raw().abs() < 1e-6
     }
 
-    /// Perform a checked division by a number, returning zero if the result
-    /// is not finite.
-    pub fn safe_div(self, number: f64) -> Self {
-        let result = self.to_raw() / number;
-        if result.is_finite() {
-            Self::raw(result)
-        } else {
-            Self::zero()
-        }
+    /// Returns a number that represent the sign of this length
+    pub fn signum(self) -> f64 {
+        self.0.get().signum()
     }
 }
 
@@ -168,7 +162,7 @@ impl Add for Abs {
     }
 }
 
-sub_impl!(Abs - Abs -> Abs);
+typst_utils::sub_impl!(Abs - Abs -> Abs);
 
 impl Mul<f64> for Abs {
     type Output = Self;
@@ -202,10 +196,10 @@ impl Div for Abs {
     }
 }
 
-assign_impl!(Abs += Abs);
-assign_impl!(Abs -= Abs);
-assign_impl!(Abs *= f64);
-assign_impl!(Abs /= f64);
+typst_utils::assign_impl!(Abs += Abs);
+typst_utils::assign_impl!(Abs -= Abs);
+typst_utils::assign_impl!(Abs *= f64);
+typst_utils::assign_impl!(Abs /= f64);
 
 impl Rem for Abs {
     type Output = Self;
@@ -224,6 +218,12 @@ impl Sum for Abs {
 impl<'a> Sum<&'a Self> for Abs {
     fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
         Self(iter.map(|s| s.0).sum())
+    }
+}
+
+impl Fold for Abs {
+    fn fold(self, _: Self) -> Self {
+        self
     }
 }
 

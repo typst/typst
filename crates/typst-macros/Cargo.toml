@@ -10,12 +10,10 @@ repository = { workspace = true }
 license = { workspace = true }
 categories = { workspace = true }
 keywords = { workspace = true }
+readme = { workspace = true }
 
 [lib]
 proc-macro = true
-test = false
-doctest = false
-bench = false
 
 [dependencies]
 heck = { workspace = true }

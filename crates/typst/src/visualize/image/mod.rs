@@ -10,24 +10,24 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked};
+use comemo::Tracked;
 use ecow::EcoString;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Resolve, Smart,
+    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Resolve, Smart,
     StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, FixedAlign, Fragment, Frame, FrameItem, Layout, Length, Point, Regions,
+    Abs, Axes, FixedAlignment, Frame, FrameItem, LayoutSingle, Length, Point, Regions,
     Rel, Size,
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
-use crate::syntax::Spanned;
-use crate::text::{families, Lang, LocalName, Region};
-use crate::util::{option_eq, Numeric};
+use crate::syntax::{Span, Spanned};
+use crate::text::{families, LocalName};
+use crate::utils::LazyHash;
 use crate::visualize::Path;
 use crate::World;
 
@@ -51,7 +51,7 @@ use crate::World;
 /// ```
 ///
 /// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
-#[elem(scope, Layout, LocalName, Figurable)]
+#[elem(scope, LayoutSingle, LocalName, Figurable)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
@@ -83,7 +83,17 @@ pub struct ImageElem {
     /// A text describing the image.
     pub alt: Option<EcoString>,
 
-    /// How the image should adjust itself to a given area.
+    /// How the image should adjust itself to a given area (the area is defined
+    /// by the `width` and `height` fields). Note that `fit` doesn't visually
+    /// change anything if the area's aspect ratio is the same as the image's
+    /// one.
+    ///
+    /// ```example
+    /// #set page(width: 300pt, height: 50pt, margin: 10pt)
+    /// #image("tiger.jpg", width: 100%, fit: "cover")
+    /// #image("tiger.jpg", width: 100%, fit: "contain")
+    /// #image("tiger.jpg", width: 100%, fit: "stretch")
+    /// ```
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
 }
@@ -104,6 +114,8 @@ impl ImageElem {
     /// ```
     #[func(title = "Decode Image")]
     pub fn decode(
+        /// The call span of this function.
+        span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
         data: Readable,
         /// The image's format. Detected automatically by default.
@@ -138,18 +150,18 @@ impl ImageElem {
         if let Some(fit) = fit {
             elem.push_fit(fit);
         }
-        Ok(elem.pack())
+        Ok(elem.pack().spanned(span))
     }
 }
 
-impl Layout for ImageElem {
-    #[tracing::instrument(name = "ImageElem::layout", skip_all)]
+impl LayoutSingle for Packed<ImageElem> {
+    #[typst_macros::time(name = "image", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         // Take the format that was explicitly defined, or parse the extension,
         // or try to detect the format.
         let data = self.data();
@@ -196,20 +208,30 @@ impl Layout for ImageElem {
         let region_ratio = region.x / region.y;
 
         // Find out whether the image is wider or taller than the target size.
-        let pxw = image.width() as f64;
-        let pxh = image.height() as f64;
+        let pxw = image.width();
+        let pxh = image.height();
         let px_ratio = pxw / pxh;
         let wide = px_ratio > region_ratio;
 
         // The space into which the image will be placed according to its fit.
         let target = if expand.x && expand.y {
+            // If both width and height are forced, take them.
             region
-        } else if expand.x || (!expand.y && wide && region.x.is_finite()) {
-            Size::new(region.x, region.y.min(region.x.safe_div(px_ratio)))
-        } else if region.y.is_finite() {
+        } else if expand.x {
+            // If just width is forced, take it.
+            Size::new(region.x, region.y.min(region.x / px_ratio))
+        } else if expand.y {
+            // If just height is forced, take it.
             Size::new(region.x.min(region.y * px_ratio), region.y)
         } else {
-            Size::new(Abs::pt(pxw), Abs::pt(pxh))
+            // If neither is forced, take the natural image size at the image's
+            // DPI bounded by the available space.
+            let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
+            let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
+            Size::new(
+                natural.x.min(region.x).min(region.y * px_ratio),
+                natural.y.min(region.y).min(region.x / px_ratio),
+            )
         };
 
         // Compute the actual size of the fitted image.
@@ -230,68 +252,37 @@ impl Layout for ImageElem {
         // process.
         let mut frame = Frame::soft(fitted);
         frame.push(Point::zero(), FrameItem::Image(image, fitted, self.span()));
-        frame.resize(target, Axes::splat(FixedAlign::Center));
+        frame.resize(target, Axes::splat(FixedAlignment::Center));
 
         // Create a clipping group if only part of the image should be visible.
         if fit == ImageFit::Cover && !target.fits(fitted) {
             frame.clip(Path::rect(frame.size()));
         }
 
-        // Apply metadata.
-        frame.meta(styles, false);
-
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 
-impl LocalName for ImageElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Figurë",
-            Lang::ARABIC => "شكل",
-            Lang::BOKMÅL => "Figur",
-            Lang::CHINESE if option_eq(region, "TW") => "圖",
-            Lang::CHINESE => "图",
-            Lang::CZECH => "Obrázek",
-            Lang::DANISH => "Figur",
-            Lang::DUTCH => "Figuur",
-            Lang::ESTONIAN => "Joonis",
-            Lang::FILIPINO => "Pigura",
-            Lang::FINNISH => "Kuva",
-            Lang::FRENCH => "Fig.",
-            Lang::GERMAN => "Abbildung",
-            Lang::GREEK => "Σχήμα",
-            Lang::HUNGARIAN => "Ábra",
-            Lang::ITALIAN => "Figura",
-            Lang::NYNORSK => "Figur",
-            Lang::POLISH => "Rysunek",
-            Lang::PORTUGUESE => "Figura",
-            Lang::ROMANIAN => "Figura",
-            Lang::RUSSIAN => "Рис.",
-            Lang::SERBIAN => "Слика",
-            Lang::SLOVENIAN => "Slika",
-            Lang::SPANISH => "Figura",
-            Lang::SWEDISH => "Figur",
-            Lang::TURKISH => "Şekil",
-            Lang::UKRAINIAN => "Рисунок",
-            Lang::VIETNAMESE => "Hình",
-            Lang::JAPANESE => "図",
-            Lang::ENGLISH | _ => "Figure",
-        }
-    }
+impl LocalName for Packed<ImageElem> {
+    const KEY: &'static str = "figure";
 }
 
-impl Figurable for ImageElem {}
+impl Figurable for Packed<ImageElem> {}
 
-/// How an image should adjust itself to a given area.
+/// How an image should adjust itself to a given area,
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ImageFit {
-    /// The image should completely cover the area. This is the default.
+    /// The image should completely cover the area (preserves aspect ratio by
+    /// cropping the image only horizontally or vertically). This is the
+    /// default.
     Cover,
-    /// The image should be fully contained in the area.
+    /// The image should be fully contained in the area (preserves aspect
+    /// ratio; doesn't crop the image; one dimension can be narrower than
+    /// specified).
     Contain,
     /// The image should be stretched so that it exactly fills the area, even if
-    /// this means that the image will be distorted.
+    /// this means that the image will be distorted (doesn't preserve aspect
+    /// ratio and doesn't crop the image).
     Stretch,
 }
 
@@ -299,7 +290,7 @@ pub enum ImageFit {
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Image(Arc<Prehashed<Repr>>);
+pub struct Image(Arc<LazyHash<Repr>>);
 
 /// The internal representation.
 #[derive(Hash)]
@@ -320,8 +311,13 @@ pub enum ImageKind {
 }
 
 impl Image {
+    /// When scaling an image to it's natural size, we default to this DPI
+    /// if the image doesn't contain DPI metadata.
+    pub const DEFAULT_DPI: f64 = 72.0;
+
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
+    #[typst_macros::time(name = "load image")]
     pub fn new(
         data: Bytes,
         format: ImageFormat,
@@ -336,11 +332,12 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(Prehashed::new(Repr { kind, alt }))))
+        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
     /// Create a possibly font-dependant image from a buffer and a format.
     #[comemo::memoize]
+    #[typst_macros::time(name = "load image")]
     pub fn with_fonts(
         data: Bytes,
         format: ImageFormat,
@@ -357,7 +354,7 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(Prehashed::new(Repr { kind, alt }))))
+        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
     /// The raw image data.
@@ -377,18 +374,26 @@ impl Image {
     }
 
     /// The width of the image in pixels.
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> f64 {
         match &self.0.kind {
-            ImageKind::Raster(raster) => raster.width(),
+            ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
         }
     }
 
     /// The height of the image in pixels.
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> f64 {
         match &self.0.kind {
-            ImageKind::Raster(raster) => raster.height(),
+            ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+        }
+    }
+
+    /// The image's pixel density in pixels per inch, if known.
+    pub fn dpi(&self) -> Option<f64> {
+        match &self.0.kind {
+            ImageKind::Raster(raster) => raster.dpi(),
+            ImageKind::Svg(_) => None,
         }
     }
 

@@ -3,11 +3,11 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::eval::{CapturesVisitor, Tracer};
-use typst::foundations::{repr, CastInfo, Repr, Value};
+use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
-use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use typst::util::{round_2, Numeric};
+use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
+use typst::utils::{round_2, Numeric};
 use typst::World;
 
 use crate::analyze::{analyze_expr, analyze_labels};
@@ -23,8 +23,9 @@ pub fn tooltip(
     document: Option<&Document>,
     source: &Source,
     cursor: usize,
+    side: Side,
 ) -> Option<Tooltip> {
-    let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
+    let leaf = LinkedNode::new(source.root()).leaf_at(cursor, side)?;
     if leaf.kind().is_trivia() {
         return None;
     }
@@ -59,7 +60,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 
     let values = analyze_expr(world, ancestor);
 
-    if let [value] = values.as_slice() {
+    if let [(value, _)] = values.as_slice() {
         if let Some(docs) = value.docs() {
             return Some(Tooltip::Text(plain_docs_sentence(docs)));
         }
@@ -78,7 +79,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut last = None;
     let mut pieces: Vec<EcoString> = vec![];
     let mut iter = values.iter();
-    for value in (&mut iter).take(Tracer::MAX_VALUES - 1) {
+    for (value, _) in (&mut iter).take(Tracer::MAX_VALUES - 1) {
         if let Some((prev, count)) = &mut last {
             if *prev == value {
                 *count += 1;
@@ -120,7 +121,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     // Analyze the closure's captures.
-    let mut visitor = CapturesVisitor::new(None);
+    let mut visitor = CapturesVisitor::new(None, Capturer::Function);
     visitor.visit(parent);
 
     let captures = visitor.finish();

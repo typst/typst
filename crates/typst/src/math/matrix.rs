@@ -2,19 +2,20 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, NativeElement, Resolve, Smart,
+    cast, dict, elem, Array, Cast, Content, Dict, Fold, Packed, Resolve, Smart,
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Em, FixedAlign, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
+    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
 };
 use crate::math::{
-    alignments, stack, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath,
-    MathContext, Scaled, DELIM_SHORT_FALL,
+    alignments, scaled_font_size, stack, style_for_denominator, AlignmentResult,
+    FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, Scaled,
+    DELIM_SHORT_FALL,
 };
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.5);
@@ -57,18 +58,22 @@ pub struct VecElem {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for VecElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = self.delim(ctx.styles());
+impl LayoutMath for Packed<VecElem> {
+    #[typst_macros::time(name = "math.vec", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let delim = self.delim(styles);
         let frame = layout_vec_body(
             ctx,
+            styles,
             self.children(),
-            FixedAlign::Center,
-            self.gap(ctx.styles()),
+            FixedAlignment::Center,
+            self.gap(styles),
+            LeftRightAlternator::Right,
         )?;
+
         layout_delimiters(
             ctx,
+            styles,
             frame,
             delim.map(Delimiter::open),
             delim.map(Delimiter::close),
@@ -210,12 +215,10 @@ pub struct MatElem {
     pub rows: Vec<Vec<Content>>,
 }
 
-impl LayoutMath for MatElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        // validate inputs
-
-        let augment = self.augment(ctx.styles());
+impl LayoutMath for Packed<MatElem> {
+    #[typst_macros::time(name = "math.mat", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let augment = self.augment(styles);
         let rows = self.rows();
 
         if let Some(aug) = &augment {
@@ -244,17 +247,19 @@ impl LayoutMath for MatElem {
             }
         }
 
-        let delim = self.delim(ctx.styles());
+        let delim = self.delim(styles);
         let frame = layout_mat_body(
             ctx,
+            styles,
             rows,
             augment,
-            Axes::new(self.column_gap(ctx.styles()), self.row_gap(ctx.styles())),
+            Axes::new(self.column_gap(styles), self.row_gap(styles)),
             self.span(),
         )?;
 
         layout_delimiters(
             ctx,
+            styles,
             frame,
             delim.map(Delimiter::open),
             delim.map(Delimiter::close),
@@ -311,24 +316,26 @@ pub struct CasesElem {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for CasesElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = self.delim(ctx.styles());
+impl LayoutMath for Packed<CasesElem> {
+    #[typst_macros::time(name = "math.cases", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let delim = self.delim(styles);
         let frame = layout_vec_body(
             ctx,
+            styles,
             self.children(),
-            FixedAlign::Start,
-            self.gap(ctx.styles()),
+            FixedAlignment::Start,
+            self.gap(styles),
+            LeftRightAlternator::None,
         )?;
 
-        let (open, close) = if self.reverse(ctx.styles()) {
+        let (open, close) = if self.reverse(styles) {
             (None, Some(delim.close()))
         } else {
             (Some(delim.open()), None)
         };
 
-        layout_delimiters(ctx, frame, open, close, self.span())
+        layout_delimiters(ctx, styles, frame, open, close, self.span())
     }
 }
 
@@ -379,23 +386,27 @@ impl Delimiter {
 /// Layout the inner contents of a vector.
 fn layout_vec_body(
     ctx: &mut MathContext,
+    styles: StyleChain,
     column: &[Content],
-    align: FixedAlign,
+    align: FixedAlignment,
     row_gap: Rel<Abs>,
+    alternator: LeftRightAlternator,
 ) -> SourceResult<Frame> {
     let gap = row_gap.relative_to(ctx.regions.base().y);
-    ctx.style(ctx.style.for_denominator());
+
+    let denom_style = style_for_denominator(styles);
     let mut flat = vec![];
     for child in column {
-        flat.push(ctx.layout_row(child)?);
+        flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
     }
-    ctx.unstyle();
-    Ok(stack(ctx, flat, align, gap, 0))
+
+    Ok(stack(flat, align, gap, 0, alternator))
 }
 
 /// Layout the inner contents of a matrix.
 fn layout_mat_body(
     ctx: &mut MathContext,
+    styles: StyleChain,
     rows: &[Vec<Content>],
     augment: Option<Augment<Abs>>,
     gap: Axes<Rel<Abs>>,
@@ -408,20 +419,20 @@ fn layout_mat_body(
     // with font size to ensure that augmentation lines
     // look correct by default at all matrix sizes.
     // The line cap is also set to square because it looks more "correct".
-    let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.scaled(ctx);
+    let font_size = scaled_font_size(ctx, styles);
+    let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.at(font_size);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
-        paint: TextElem::fill_in(ctx.styles()).as_decoration(),
+        paint: TextElem::fill_in(styles).as_decoration(),
         cap: LineCap::Square,
         ..Default::default()
     };
 
     let (hline, vline, stroke) = match augment {
-        Some(v) => {
-            // need to get stroke here for ownership
-            let stroke = v.stroke_or(default_stroke);
-
-            (v.hline, v.vline, stroke)
+        Some(augment) => {
+            // We need to get stroke here for ownership.
+            let stroke = augment.stroke.unwrap_or_default().unwrap_or(default_stroke);
+            (augment.hline, augment.vline, stroke)
         }
         _ => (AugmentOffsets::default(), AugmentOffsets::default(), default_stroke),
     };
@@ -445,10 +456,10 @@ fn layout_mat_body(
     // individual cells are then added to it.
     let mut cols = vec![vec![]; ncols];
 
-    ctx.style(ctx.style.for_denominator());
+    let denom_style = style_for_denominator(styles);
     for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
         for (cell, col) in row.iter().zip(&mut cols) {
-            let cell = ctx.layout_row(cell)?;
+            let cell = ctx.layout_into_run(cell, styles.chain(&denom_style))?;
 
             ascent.set_max(cell.ascent());
             descent.set_max(cell.descent());
@@ -456,7 +467,6 @@ fn layout_mat_body(
             col.push(cell);
         }
     }
-    ctx.unstyle();
 
     // For each row, combine maximum ascent and descent into a row height.
     // Sum the row heights, then add the total height of the gaps between rows.
@@ -474,7 +484,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_aligned_frame(ctx, &points, FixedAlign::Center);
+            let cell = cell.into_line_frame(&points, LeftRightAlternator::Right);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),
@@ -544,28 +554,30 @@ fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> Fr
 /// Layout the outer wrapper around the body of a vector or matrix.
 fn layout_delimiters(
     ctx: &mut MathContext,
+    styles: StyleChain,
     mut frame: Frame,
     left: Option<char>,
     right: Option<char>,
     span: Span,
 ) -> SourceResult<()> {
-    let axis = scaled!(ctx, axis_height);
-    let short_fall = DELIM_SHORT_FALL.scaled(ctx);
+    let font_size = scaled_font_size(ctx, styles);
+    let short_fall = DELIM_SHORT_FALL.at(font_size);
+    let axis = ctx.constants.axis_height().scaled(ctx, font_size);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
 
     if let Some(left) = left {
-        let mut left =
-            GlyphFragment::new(ctx, left, span).stretch_vertical(ctx, target, short_fall);
+        let mut left = GlyphFragment::new(ctx, styles, left, span)
+            .stretch_vertical(ctx, target, short_fall);
         left.center_on_axis(ctx);
         ctx.push(left);
     }
 
-    ctx.push(FrameFragment::new(ctx, frame));
+    ctx.push(FrameFragment::new(ctx, styles, frame));
 
     if let Some(right) = right {
-        let mut right = GlyphFragment::new(ctx, right, span)
+        let mut right = GlyphFragment::new(ctx, styles, right, span)
             .stretch_vertical(ctx, target, short_fall);
         right.center_on_axis(ctx);
         ctx.push(right);
@@ -583,11 +595,19 @@ pub struct Augment<T: Numeric = Length> {
     pub stroke: Smart<Stroke<T>>,
 }
 
-impl Augment<Abs> {
-    fn stroke_or(&self, fallback: FixedStroke) -> FixedStroke {
-        match &self.stroke {
-            Smart::Custom(v) => v.clone().unwrap_or(fallback),
-            Smart::Auto => fallback,
+impl<T: Numeric + Fold> Fold for Augment<T> {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            stroke: match (self.stroke, outer.stroke) {
+                (Smart::Custom(inner), Smart::Custom(outer)) => {
+                    Smart::Custom(inner.fold(outer))
+                }
+                // Usually, folding an inner `auto` with an `outer` preferres
+                // the explicit `auto`. However, here `auto` means unspecified
+                // and thus we want `outer`.
+                (inner, outer) => inner.or(outer),
+            },
+            ..self
         }
     }
 }
@@ -604,21 +624,6 @@ impl Resolve for Augment {
     }
 }
 
-impl Fold for Augment<Abs> {
-    type Output = Augment<Abs>;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        // Special case for handling `auto` strokes in subsequent `Augment`.
-        if self.stroke.is_auto() && outer.stroke.is_custom() {
-            self.stroke = outer.stroke;
-        } else {
-            self.stroke = self.stroke.fold(outer.stroke);
-        }
-
-        self
-    }
-}
-
 cast! {
     Augment,
     self => {
@@ -627,13 +632,11 @@ cast! {
             return self.vline.0[0].into_value();
         }
 
-        let d = dict! {
-            "hline" => self.hline.into_value(),
-            "vline" => self.vline.into_value(),
-            "stroke" => self.stroke.into_value()
-        };
-
-        d.into_value()
+        dict! {
+            "hline" => self.hline,
+            "vline" => self.vline,
+            "stroke" => self.stroke,
+        }.into_value()
     },
     v: isize => Augment {
         hline: AugmentOffsets::default(),
@@ -641,15 +644,15 @@ cast! {
         stroke: Smart::Auto,
     },
     mut dict: Dict => {
-        // need the transpose for the defaults to work
-        let hline = dict.take("hline").ok().map(AugmentOffsets::from_value)
-            .transpose().unwrap_or_default().unwrap_or_default();
-        let vline = dict.take("vline").ok().map(AugmentOffsets::from_value)
-            .transpose().unwrap_or_default().unwrap_or_default();
-
-        let stroke = dict.take("stroke").ok().map(Stroke::from_value)
-            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
-
+        let mut take = |key| dict.take(key).ok().map(AugmentOffsets::from_value).transpose();
+        let hline = take("hline")?.unwrap_or_default();
+        let vline = take("vline")?.unwrap_or_default();
+        let stroke = dict.take("stroke")
+            .ok()
+            .map(Stroke::from_value)
+            .transpose()?
+            .map(Smart::Custom)
+            .unwrap_or(Smart::Auto);
         Augment { hline, vline, stroke }
     },
 }

@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Show, StyleChain};
+use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 use crate::text::{TextElem, WeightDelta};
 
 /// Strongly emphasizes content by increasing the font weight.
@@ -21,7 +21,7 @@ use crate::text::{TextElem, WeightDelta};
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
-#[elem(title = "Strong Emphasis", Show)]
+#[elem(title = "Strong Emphasis", keywords = ["bold", "weight"], Show)]
 pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///
@@ -37,8 +37,8 @@ pub struct StrongElem {
     pub body: Content,
 }
 
-impl Show for StrongElem {
-    #[tracing::instrument(name = "StrongElem::show", skip_all)]
+impl Show for Packed<StrongElem> {
+    #[typst_macros::time(name = "strong", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()

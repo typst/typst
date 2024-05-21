@@ -1,0 +1,7 @@
+figure = Σχήμα
+table = Πίνακας
+equation = Εξίσωση
+bibliography = Βιβλιογραφία
+heading = Κεφάλαιο
+outline = Περιεχόμενα
+raw = Παράθεση

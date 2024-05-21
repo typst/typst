@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::foundations::{NativeElement, Scope};
 use crate::layout::{Abs, Em, HElem};
-use crate::math::{MathFragment, MathSize};
+use crate::math::{MathFragment, MathSize, SpacingFragment};
 
 pub(super) const THIN: Em = Em::new(1.0 / 6.0);
 pub(super) const MEDIUM: Em = Em::new(2.0 / 9.0);
@@ -27,14 +27,13 @@ pub(super) fn spacing(
 ) -> Option<MathFragment> {
     use MathClass::*;
 
-    let class = |f: &MathFragment| f.class().unwrap_or(Special);
-    let resolve = |v: Em, f: &MathFragment| {
-        Some(MathFragment::Spacing(f.font_size().map_or(Abs::zero(), |size| v.at(size))))
+    let resolve = |v: Em, size_ref: &MathFragment| -> Option<MathFragment> {
+        let width = size_ref.font_size().map_or(Abs::zero(), |size| v.at(size));
+        Some(SpacingFragment { width, weak: false }.into())
     };
-    let script =
-        |f: &MathFragment| f.style().map_or(false, |s| s.size <= MathSize::Script);
+    let script = |f: &MathFragment| f.math_size().is_some_and(|s| s <= MathSize::Script);
 
-    match (class(l), class(r)) {
+    match (l.class(), r.class()) {
         // No spacing before punctuation; thin spacing after punctuation, unless
         // in script size.
         (_, Punctuation) => None,

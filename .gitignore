@@ -6,11 +6,8 @@ desktop.ini
 .DS_Store
 
 # Tests and benchmarks
-tests/png
-tests/pdf
-tests/svg
-tests/target
-tests/typ/**/*.pdf
+tests/store
+tests/suite/**/*.pdf
 tests/fuzz/target
 tests/fuzz/corpus
 tests/fuzz/artifacts
@@ -23,6 +20,7 @@ tarpaulin-report.html
 
 # Node
 node_modules
+tools/test-helper/dist
 package-lock.json
 
 # Nix

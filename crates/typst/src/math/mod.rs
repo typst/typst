@@ -6,7 +6,8 @@ mod accent;
 mod align;
 mod attach;
 mod cancel;
-mod class;
+#[path = "class.rs"]
+mod class_;
 mod equation;
 mod frac;
 mod fragment;
@@ -24,7 +25,7 @@ pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
-pub use self::class::*;
+pub use self::class_::*;
 pub use self::equation::*;
 pub use self::frac::*;
 pub use self::lr::*;
@@ -39,14 +40,14 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 
-use std::borrow::Cow;
-
 use crate::diag::SourceResult;
+use crate::foundations::SequenceElem;
+use crate::foundations::StyledElem;
 use crate::foundations::{
     category, Category, Content, Module, Resolve, Scope, StyleChain,
 };
 use crate::layout::{BoxElem, HElem, Spacing};
-use crate::realize::BehavedBuilder;
+use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
 /// Typst has special [syntax]($syntax/#math) and library functions to typeset
@@ -181,6 +182,7 @@ pub fn module() -> Module {
     math.define_elem::<RootElem>();
     math.define_elem::<ClassElem>();
     math.define_elem::<OpElem>();
+    math.define_elem::<PrimesElem>();
     math.define_func::<abs>();
     math.define_func::<norm>();
     math.define_func::<floor>();
@@ -214,59 +216,54 @@ pub fn module() -> Module {
 /// Layout for math elements.
 pub trait LayoutMath {
     /// Layout the element, producing fragment in the context.
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()>;
 }
 
 impl LayoutMath for Content {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    #[typst_macros::time(name = "math", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         // Directly layout the body of nested equations instead of handling it
         // like a normal equation so that things like this work:
         // ```
         // #let my = $pi$
         // $ my r^2 $
         // ```
-        if let Some(elem) = self.to::<EquationElem>() {
-            return elem.layout_math(ctx);
+        if let Some(elem) = self.to_packed::<EquationElem>() {
+            return elem.layout_math(ctx, styles);
         }
 
-        if let Some(realized) = ctx.realize(self)? {
-            return realized.layout_math(ctx);
+        if let Some(realized) = process(ctx.engine, self, styles)? {
+            return realized.layout_math(ctx, styles);
         }
 
-        if self.is_sequence() {
+        if self.is::<SequenceElem>() {
             let mut bb = BehavedBuilder::new();
             self.sequence_recursive_for_each(&mut |child: &Content| {
-                bb.push(Cow::Owned(child.clone()), StyleChain::default())
+                bb.push(child, StyleChain::default());
             });
-
-            for (child, _) in bb.finish().0.iter() {
-                child.layout_math(ctx)?;
+            for child in bb.finish::<Content>().0 {
+                child.layout_math(ctx, styles)?;
             }
             return Ok(());
         }
 
-        if let Some((elem, styles)) = self.to_styled() {
-            if TextElem::font_in(ctx.styles().chain(styles))
-                != TextElem::font_in(ctx.styles())
-            {
-                let frame = ctx.layout_content(self)?;
-                ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+        if let Some(styled) = self.to_packed::<StyledElem>() {
+            let outer = styles;
+            let styles = outer.chain(&styled.styles);
+
+            if TextElem::font_in(styles) != TextElem::font_in(outer) {
+                let frame = ctx.layout_content(&styled.child, styles)?;
+                ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
                 return Ok(());
             }
 
-            let prev_map = std::mem::replace(&mut ctx.local, styles.clone());
-            let prev_size = ctx.size;
-            ctx.local.apply(prev_map.clone());
-            ctx.size = TextElem::size_in(ctx.styles());
-            elem.layout_math(ctx)?;
-            ctx.size = prev_size;
-            ctx.local = prev_map;
+            styled.child.layout_math(ctx, styles)?;
             return Ok(());
         }
 
         if self.is::<SpaceElem>() {
-            ctx.push(MathFragment::Space(ctx.space_width.scaled(ctx)));
+            let font_size = scaled_font_size(ctx, styles);
+            ctx.push(MathFragment::Space(ctx.space_width.at(font_size)));
             return Ok(());
         }
 
@@ -275,37 +272,40 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(elem) = self.to::<HElem>() {
+        if let Some(elem) = self.to_packed::<HElem>() {
             if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
-                    ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
+                    ctx.push(SpacingFragment {
+                        width: rel.abs.resolve(styles),
+                        weak: elem.weak(styles),
+                    });
                 }
             }
             return Ok(());
         }
 
-        if let Some(elem) = self.to::<TextElem>() {
-            let fragment = ctx.layout_text(elem)?;
+        if let Some(elem) = self.to_packed::<TextElem>() {
+            let fragment = ctx.layout_text(elem, styles)?;
             ctx.push(fragment);
             return Ok(());
         }
 
-        if let Some(boxed) = self.to::<BoxElem>() {
-            let frame = ctx.layout_box(boxed)?;
-            ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+        if let Some(boxed) = self.to_packed::<BoxElem>() {
+            let frame = ctx.layout_box(boxed, styles)?;
+            ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
             return Ok(());
         }
 
         if let Some(elem) = self.with::<dyn LayoutMath>() {
-            return elem.layout_math(ctx);
+            return elem.layout_math(ctx, styles);
         }
 
-        let mut frame = ctx.layout_content(self)?;
+        let mut frame = ctx.layout_content(self, styles)?;
         if !frame.has_baseline() {
-            let axis = scaled!(ctx, axis_height);
+            let axis = scaled!(ctx, styles, axis_height);
             frame.set_baseline(frame.height() / 2.0 + axis);
         }
-        ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+        ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
 
         Ok(())
     }

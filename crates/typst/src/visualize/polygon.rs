@@ -3,12 +3,13 @@ use std::f64::consts::PI;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, Content, NativeElement, Resolve, Smart, StyleChain,
+    elem, func, scope, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
+    Axes, Em, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel,
 };
-use crate::util::Numeric;
+use crate::syntax::Span;
+use crate::utils::Numeric;
 use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 
 /// A closed polygon.
@@ -26,7 +27,7 @@ use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope, Layout)]
+#[elem(scope, LayoutSingle)]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
@@ -37,7 +38,7 @@ pub struct PolygonElem {
     /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
-    /// How to [stroke]($stroke) the polygon. This can be:
+    /// How to [stroke] the polygon. This can be:
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
@@ -65,6 +66,8 @@ impl PolygonElem {
     /// ```
     #[func(title = "Regular Polygon")]
     pub fn regular(
+        /// The call span of this function.
+        span: Span,
         /// How to fill the polygon. See the general
         /// [polygon's documentation]($polygon.fill) for more details.
         #[named]
@@ -118,18 +121,18 @@ impl PolygonElem {
         if let Some(stroke) = stroke {
             elem.push_stroke(stroke);
         }
-        elem.pack()
+        elem.pack().spanned(span)
     }
 }
 
-impl Layout for PolygonElem {
-    #[tracing::instrument(name = "PolygonElem::layout", skip_all)]
+impl LayoutSingle for Packed<PolygonElem> {
+    #[typst_macros::time(name = "polygon", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let points: Vec<Point> = self
             .vertices()
             .iter()
@@ -147,7 +150,7 @@ impl Layout for PolygonElem {
 
         // Only create a path if there are more than zero points.
         if points.is_empty() {
-            return Ok(Fragment::frame(frame));
+            return Ok(frame);
         }
 
         // Prepare fill and stroke.
@@ -168,7 +171,6 @@ impl Layout for PolygonElem {
 
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }

@@ -5,6 +5,330 @@ description: |
 ---
 
 # Changelog
+## Version 0.11.1 (May 17, 2024) { #v0.11.1 }
+- Security
+  - Fixed a vulnerability where image files at known paths could be embedded
+    into the PDF even if they were outside of the project directory
+
+- Bibliography
+  - Fixed et-al handling in subsequent citations
+  - Fixed suppression of title for citations and bibliography references with no
+    author
+  - Fixed handling of initials in citation styles without a delimiter
+  - Fixed bug with citations in footnotes
+
+- Text and Layout
+  - Fixed interaction of [`first-line-indent`]($par.first-line-indent) and
+    [`outline`]
+  - Fixed compression of CJK punctuation marks at line start and end
+  - Fixed handling of [rectangles]($rect) with negative dimensions
+  - Fixed layout of [`path`] in explicitly sized container
+  - Fixed broken [`raw`] text in right-to-left paragraphs
+  - Fixed tab rendering in `raw` text with language `typ` or `typc`
+  - Fixed highlighting of multi-line `raw` text enclosed by single backticks
+  - Fixed indentation of overflowing lines in `raw` blocks
+  - Fixed extra space when `raw` text ends with a backtick
+
+- Math
+  - Fixed broken [equations]($math.equation) in right-to-left paragraphs
+  - Fixed missing [blackboard bold]($math.bb) letters
+  - Fixed error on empty arguments in 2D math argument list
+  - Fixed stretching via [`mid`]($math.mid) for various characters
+  - Fixed that alignment points in equations were affected by `{set align(..)}`
+
+- Export
+  - Fixed [smart quotes]($smartquote) in PDF outline
+  - Fixed [patterns]($pattern) with spacing in PDF
+  - Fixed wrong PDF page labels when [page numbering]($page.numbering) was
+    disabled after being previously enabled
+
+- Scripting
+  - Fixed overflow for large numbers in external data files (by converting to
+    floats instead)
+  - Fixed [`{str.trim(regex, at: end)}`]($str.trim) when the whole string is
+    matched
+
+- Miscellaneous
+  - Fixed deformed strokes for specific shapes and thicknesses
+  - Fixed newline handling in code mode: There can now be comments within
+    chained method calls and between an `if` branch and the `else` keyword
+  - Fixed inefficiency with incremental reparsing
+  - Fixed autocompletions for relative file imports
+  - Fixed crash in autocompletion handler
+  - Fixed a bug where the path and entrypoint printed by `typst init` were not
+    properly escaped
+  - Fixed various documentation errors
+
+<contributors from="v0.11.0" to="v0.11.1" />
+
+## Version 0.11.0 (March 15, 2024) { #v0.11.0 }
+- Tables (thanks to [@PgBiel](https://github.com/PgBiel))
+  - Tables are now _much_ more flexible, read the new
+    [table guide]($guides/table-guide) to get started
+  - Added [`table.cell`] element for per-cell configuration
+  - Cells can now span multiple [columns]($table.cell.colspan) or
+    [rows]($table.cell.rowspan)
+  - The [stroke]($table.cell.stroke) of individual cells can now be customized
+  - The [`align`]($table.align) and [`inset`]($table.inset) arguments of the
+    table function now also take `{(x, y) => ..}` functions
+  - Added [`table.hline`] and [`table.vline`] for convenient line customization
+  - Added [`table.header`] element for table headers that repeat on every page
+  - Added [`table.footer`] element for table footers that repeat on every page
+  - All the new table functionality is also available for [grids]($grid)
+  - Fixed gutter-related bugs
+
+- Templates
+  - You can now use template packages to get started with new projects. Click
+    _Start from template_ on the web app's dashboard and choose your preferred
+    template or run the `typst init <template>` command in the CLI. You can
+    [browse the available templates here]($universe/search/?kind=templates).
+  - Switching templates after the fact has become easier. You can just import a
+    styling function from a different template package.
+  - Package authors can now submit their own templates to the
+    [package repository](https://github.com/typst/packages). Share a template
+    for a paper, your institution, or an original work to help the community get
+    a head start on their projects.
+  - Templates and packages are now organized by category and discipline. Filter
+    packages by either taxonomy in the _Start from template_ wizard. If you are
+    a package author, take a look at the new documentation for
+    [categories](https://github.com/typst/packages/blob/main/CATEGORIES.md) and
+    [disciplines](https://github.com/typst/packages/blob/main/DISCIPLINES.md).
+
+- Context
+  - Added _context expressions:_ Read the chapter on [context] to get started
+  - With context, you can access settable properties, e.g. `{context text.lang}`
+    to access the language set via `{set text(lang: "..")}`
+  - The following existing functions have been made contextual: [`query`],
+    [`locate`], [`measure`], [`counter.display`], [`counter.at`],
+    [`counter.final`], [`state.at`], and [`state.final`]
+  - Added contextual methods [`counter.get`] and [`state.get`] to retrieve the
+    value of a counter or state in the current context
+  - Added contextual function [`here`] to retrieve the [location] of the current
+    context
+  - The [`locate`] function now returns the location of a selector's unique
+    match. Its old behavior has been replaced by context expressions and only
+    remains temporarily available for compatibility.
+  - The [`counter.at`] and [`state.at`] methods are now more flexible: They
+    directly accept any kind of [locatable]($location/#locatable) selector with
+    a unique match (e.g. a label) instead of just locations
+  - When context is available, [`counter.display`] now directly returns the
+    result of applying the numbering instead of yielding opaque content. It
+    should not be used anymore without context. (Deprecation planned)
+  - The [`state.display`] function should not be used anymore, use [`state.get`]
+    instead (Deprecation planned)
+  - The `location` argument of [`query`], [`counter.final`], and
+    [`state.final`] should not be used anymore (Deprecation planned)
+  - The [`styles`]($measure.styles) argument of the `measure` function should
+    not be used anymore (Deprecation planned)
+  - The [`style`] function should not be used anymore, use context instead
+    (Deprecation planned)
+  - The correct context is now also provided in various other places where it is
+    available, e.g. in show rules, layout callbacks, and numbering functions
+    in the outline
+
+- Styling
+  - Fixed priority of multiple [show-set rules]($styling/#show-rules): They now
+    apply in the same order as normal set rules would
+  - Show-set rules on the same element
+    (e.g. `{show heading.where(level: 1): set heading(numbering: "1.")}`) now
+    work properly
+  - Setting properties on an element within a transformational show rule (e.g.
+    `{show heading: it => { set heading(..); it }}`) is **not** supported
+    anymore (previously it also only worked sometimes); use show-set rules
+    instead (**Breaking change**)
+  - Text show rules that match their own output now work properly
+    (e.g. `` {show "cmd": `cmd`} ``)
+  - The elements passed to show rules and returned by queries now contain all
+    fields of their respective element functions rather than just specific ones
+  - All settable properties can now be used in [where]($function.where)
+    selectors
+  - [And]($selector.and) and [or]($selector.or) selectors can now be used with
+    show rules
+  - Errors within show rules and context expressions are now ignored in all but
+    the last introspection iteration, in line with the behavior of the old
+    [`locate`]
+  - Fixed a bug where document set rules were allowed after content
+
+- Layout
+  - Added `reflow` argument to [`rotate`]($rotate) and [`scale`]($scale) which
+    lets them affect the layout
+  - Fixed a bug where [floating placement]($place.float) or
+    [floating figures]($figure.placement) could end up out of order
+  - Fixed overlap of text and figure for full-page floating figures
+  - Fixed various cases where the [`hide`] function didn't hide its contents
+    properly
+  - Fixed usage of [`h`] and [`v`] in [stacks]($stack)
+  - Invisible content like a counter update will no longer force a visible
+    block for just itself
+  - Fixed a bug with horizontal spacing followed by invisible content (like a
+    counter update) directly at the start of a paragraph
+
+- Text
+  - Added [`stroke`]($text.stroke) property for text
+  - Added basic i18n for Serbian and Catalan
+  - Added support for contemporary Japanese [numbering] method
+  - Added patches for various wrong metadata in specific fonts
+  - The [text direction]($text.dir) can now be overridden within a paragraph
+  - Fixed Danish [smart quotes]($smartquote)
+  - Fixed font fallback next to a line break
+  - Fixed width adjustment of JIS-style Japanese punctuation
+  - Fixed Finnish translation of "Listing"
+  - Fixed Z-ordering of multiple text decorations (underlines, etc.)
+  - Fixed a bug due to which text [features]($text.features) could not be
+    overridden in consecutive set rules
+
+- Model
+  - Added [`depth`]($heading.depth) and [`offset`]($heading.offset) arguments to
+    heading to increase or decrease the heading level for a bunch of content;
+    the heading syntax now sets `depth` rather than `level`
+    (**Breaking change**)
+  - List [markers]($list.marker) now cycle by default
+  - The [`quote`] function now more robustly selects the correct quotes based on
+    language and nesting
+  - Fixed indent bugs related to the default show rule of [terms]
+
+- Math
+  - Inline equations now automatically linebreak at appropriate places
+  - Added [`number-align`]($math.equation.number-align) argument to equations
+  - Added support for adjusting the [`size`]($math.accent.size) of accents
+    relative to their base
+  - Improved positioning of accents
+  - [Primes]($math.primes) are now always attached as [scripts]($math.scripts)
+    by default
+  - Exposed [`math.primes`] element which backs the `[$f'$]` syntax in math
+  - Math mode is not affected by [`strong`] and [`emph`] anymore
+  - Fixed [`attach`]($math.attach) under [fractions]($math.frac)
+  - Fixed that [`math.class`] did not affect smart limit placement
+  - Fixed weak spacing in [`lr`]($math.lr) groups
+  - Fixed layout of large operators for Cambria Math font
+  - Fixed math styling of Hebrew symbol codepoints
+
+- Symbols
+  - Added `gradient` as an alias for `nabla`
+  - Added `partial` as an alias for `diff`, `diff` will be deprecated in the
+    future
+  - Added `colon.double`, `gt.approx`, `gt.napprox`, `lt.approx`, and
+    `lt.napprox`
+  - Added `arrow.r.tilde` and `arrow.l.tilde`
+  - Added `tilde.dot`
+  - Added `forces` and `forces.not`
+  - Added `space.nobreak.narrow`
+  - Added `lrm` (Left-to-Right Mark) and `rlm` (Right-to-Left Mark)
+  - Fixed `star.stroked` symbol (which previously had the wrong codepoint)
+
+- Scripting
+  - Arrays can now be compared lexicographically
+  - Added contextual method [`to-absolute`]($length.to-absolute) to lengths
+  - Added [`calc.root`]($calc.root)
+  - Added [`int.signum`] and [`float.signum`] methods
+  - Added [`float.is-nan`] and [`float.is-infinite`] methods
+  - Added [`int.bit-not`], [`int.bit-and`], [`int.bit-or`], [`int.bit-xor`],
+    [`int.bit-lshift`], and [`int.bit-rshift`] methods
+  - Added [`array.chunks`] method
+  - A module can now be converted to a dictionary with the
+    [dictionary constructor]($dictionary/#constructor) to access its contents
+    dynamically
+  - Added [`row-type`]($csv.row-type) argument to `csv` function to configure
+    how rows will be represented
+  - [XML parsing]($xml) now allows DTDs (document type definitions)
+  - Improved formatting of negative numbers with [`str`]($str) and
+    [`repr`]($repr)
+  - For loops can now iterate over [bytes]
+  - Fixed a bug with pattern matching in for loops
+  - Fixed a bug with labels not being part of [`{.fields()}`]($content.fields)
+    dictionaries
+  - Fixed a bug where unnamed argument sinks wouldn't capture excess arguments
+  - Fixed typo in `repr` output of strokes
+
+- Syntax
+  - Added support for nested [destructuring patterns]($scripting/#bindings)
+  - Special spaces (like thin or non-breaking spaces) are now parsed literally
+    instead of being collapsed into normal spaces (**Breaking change**)
+  - Korean text can now use emphasis syntax without adding spaces
+    (**Breaking change**)
+  - The token [`context`] is now a keyword and cannot be used as an identifier
+    anymore (**Breaking change**)
+  - Nested line comments aren't allowed anymore in block comments
+    (**Breaking change**)
+  - Fixed a bug where `x.)` would be treated as a field access
+  - Text elements can now span across curly braces in markup
+  - Fixed silently wrong parsing when function name is parenthesized
+  - Fixed various bugs with parsing of destructuring patterns, arrays, and
+    dictionaries
+
+- Tooling & Diagnostics
+  - Click-to-jump now works properly within [`raw`] text
+  - Added suggestion for accessing a field if a method doesn't exist
+  - Improved hint for calling a function stored in a dictionary
+  - Improved errors for mutable accessor functions on arrays and dictionaries
+  - Fixed error message when calling constructor of type that doesn't have one
+  - Fixed confusing error message with nested dictionaries for strokes on
+    different sides
+  - Fixed autocompletion for multiple packages with the same name from different
+    namespaces
+
+- Visualization
+  - The [`image`] function doesn't upscale images beyond their natural size
+    anymore
+  - The [`image`] function now respects rotation stored in EXIF metadata
+  - Added support for SVG filters
+  - Added alpha component to [`luma`]($color.luma) colors
+  - Added [`color.transparentize`] and [`color.opacify`] methods
+  - Improved [`color.negate`] function
+  - Added [`stroke`]($highlight.stroke) and [`radius`]($highlight.radius)
+    arguments to `highlight` function
+  - Changed default [`highlight`] color to be transparent
+  - CMYK to RGB conversion is now color-managed
+  - Fixed crash with gradients in Oklch color space
+  - Fixed color-mixing for hue-based spaces
+  - Fixed bugs with color conversion
+  - SVG sizes are not rounded anymore, preventing slightly wrong aspect ratios
+  - Fixed a few other SVG-related bugs
+  - [`color.components`] doesn't round anything anymore
+
+- Export
+  - PDFs now contain named destinations for headings derived from their labels
+  - The internal PDF structure was changed to make it easier for external tools
+    to extract or modify individual pages, avoiding a bug with Typst PDFs in
+    Apple Preview
+  - PDFs produced by Typst should now be byte-by-byte reproducible when
+    `{set document(date: none)}` is set
+  - Added missing flag to PDF annotation
+  - Fixed multiple bugs with gradients in PDF export
+  - Fixed a bug with patterns in PDF export
+  - Fixed a bug with embedding of grayscale images in PDF export
+  - Fixed a bug with To-Unicode mapping of CFF fonts in PDF export
+  - Fixed a bug with the generation of the PDF outline
+  - Fixed a sorting bug in PDF export leading to non-reproducible output
+  - Fixed a bug with transparent text in PNG export
+  - Exported SVG files now include units in their top-level `width` and `height`
+
+- Command line interface
+  - Added support for passing [inputs]($category/foundations/sys) via a CLI flag
+  - When passing the filename `-`, Typst will now read input from stdin
+  - Now uses the system-native TLS implementation for network fetching which
+    should be generally more robust
+  - Watch mode will now properly detect when a previously missing file is
+    created
+  - Added `--color` flag to configure whether to print colored output
+  - Fixed user agent with which packages are downloaded
+  - Updated bundled fonts to the newest versions
+
+- Development
+  - Added `--vendor-openssl` to CLI to configure whether to link OpenSSL
+    statically instead of dynamically (not applicable to Windows and Apple
+    platforms)
+  - Removed old tracing (and its verbosity) flag from the CLI
+  - Added new `--timings` flag which supersedes the old flamegraph profiling in
+    the CLI
+  - Added minimal CLI to `typst-docs` crate for extracting the language and
+    standard library documentation as JSON
+  - The `typst_pdf::export` function's `ident` argument switched from `Option`
+    to `Smart`. It should only be set to `Smart::Custom` if you can provide
+    a stable identifier (like the web app can). The CLI sets `Smart::Auto`.
+
+<contributors from="v0.10.0" to="v0.11.0" />
+
 ## Version 0.10.0 (December 4, 2023) { #v0.10.0 }
 - Bibliography management
   - Added support for citation collapsing (e.g. `[[1]-[3]]` instead of
@@ -53,8 +377,8 @@ description: |
     Chinese, French, and Russian
   - Changed default [figure supplement]($figure.supplement) for Russian to
     short form
-  - Fixed [CJK-Latin-spacing]($text.cjk-latin-spacing) before line breaks
-    and in [`locate`]($locate) calls
+  - Fixed [CJK-Latin-spacing]($text.cjk-latin-spacing) before line breaks and in
+    [`locate`] calls
   - Fixed line breaking at the end of links
 
 - Math
@@ -68,13 +392,13 @@ description: |
 - Scripting
   - Any non-identifier dictionary key is now interpreted as an expression: For
     instance, `{((key): value)}` will create a dictionary with a dynamic key
-  - The [`stroke`]($stroke) type now has a constructor that converts a value to
-    a stroke or creates one from its parts
-  - Added constructor for [`arguments`]($arguments) type
+  - The [`stroke`] type now has a constructor that converts a value to a stroke
+    or creates one from its parts
+  - Added constructor for [`arguments`] type
   - Added [`calc.div-euclid`]($calc.div-euclid) and
     [`calc.rem-euclid`]($calc.rem-euclid) functions
-  - Fixed equality of [`arguments`]($arguments)
-  - Fixed [`repr`]($repr) of [`cmyk`]($color.cmyk) colors
+  - Fixed equality of [`arguments`]
+  - Fixed [`repr`]of [`cmyk`]($color.cmyk) colors
   - Fixed crashes with provided elements like figure captions, outline entries,
     and footnote entries
 
@@ -117,10 +441,10 @@ description: |
     of just a string
   - The [`number-align`]($enum.number-align) parameter on numbered lists now
     also accepts vertical alignments
-  - Fixed selectors on [quote]($quote) elements
+  - Fixed selectors on [quote] elements
   - Fixed parsing of `[#return]` expression in markup
   - Fixed bug where inline equations were displayed in equation outlines
-  - Fixed potential CRLF issue in [`raw`]($raw) blocks
+  - Fixed potential CRLF issue in [`raw`] blocks
   - Fixed a bug where Chinese numbering couldn't exceed the number 255
 
 - Development
@@ -138,11 +462,11 @@ description: |
   - Added new [`form`]($cite.form) argument to the `cite` function to produce
     different forms of citations (e.g. for producing a citation suitable for
     inclusion in prose)
-  - The [`cite`]($cite) function now takes only a single label/key instead of
-    allowing multiple. Adjacent citations are merged and formatted according to
-    the citation style's rules automatically. This works both with the reference
+  - The [`cite`] function now takes only a single label/key instead of allowing
+    multiple. Adjacent citations are merged and formatted according to the
+    citation style's rules automatically. This works both with the reference
     syntax and explicit calls to the `cite` function. (**Breaking change**)
-  - The `cite` function now takes a [label]($label) instead of a string
+  - The `cite` function now takes a [label] instead of a string
     (**Breaking change**)
   - Added [`full`]($bibliography.full) argument to bibliography function to
     print the full bibliography even if not all works were cited
@@ -172,8 +496,8 @@ description: |
     stroke widths
   - Added support for properly clipping [boxes]($box.clip) and
     [blocks]($block.clip) with a border radius
-  - Added `background` parameter to [`overline`]($overline),
-    [`underline`]($underline), and [`strike`]($strike) functions
+  - Added `background` parameter to [`overline`], [`underline`], and [`strike`]
+    functions
   - Fixed inaccurate color embedding in PDFs
   - Fixed ICC profile handling for images embedded in PDFs
 
@@ -182,8 +506,8 @@ description: |
     [spacing]($text.cjk-latin-spacing) between CJK and Latin text (enabled by
     default)
   - Added support for automatic adjustment of more CJK punctuation
-  - Added [`quote`]($quote) element for inserting inline and block quotes with
-    optional attributions
+  - Added [`quote`] element for inserting inline and block quotes with optional
+    attributions
   - Added [`raw.line`]($raw.line) element for customizing the display of
     individual lines of raw text, e.g. to add line numbers while keeping proper
     syntax highlighting
@@ -212,8 +536,8 @@ description: |
   - Fixed spacing around [placed]($place) elements
   - Fixed coalescing of [`above`]($block.above) and [`below`]($block.below)
     spacing if given in em units and the font sizes differ
-  - Fixed handling of `extent` parameter of [`underline`]($underline),
-    [`overline`]($overline), and [`strike`]($strike) functions
+  - Fixed handling of `extent` parameter of [`underline`], [`overline`], and
+    [`strike`] functions
   - Fixed crash for [floating placed elements]($place.float) with no specified
     vertical alignment
   - Partially fixed a bug with citations in footnotes
@@ -290,12 +614,11 @@ description: |
     PNG or SVG export
 
 - Miscellaneous Improvements
-  - Added [`version`]($version) type and `sys.version` constant specifying the
-    current compiler version. Can be used to gracefully support multiple
-    versions.
+  - Added [`version`] type and `sys.version` constant specifying the current
+    compiler version. Can be used to gracefully support multiple versions.
   - The U+2212 MINUS SIGN is now used when displaying a numeric value, in the
-    [`repr`]($repr) of any numeric value and to replace a normal hyphen in text
-    mode when before a digit. This improves, in particular, how negative integer
+    [`repr`] of any numeric value and to replace a normal hyphen in text mode
+    when before a digit. This improves, in particular, how negative integer
     values are displayed in math mode.
   - Added support for specifying a default value instead of failing for
     `remove` function in [array]($array.remove) and
@@ -329,9 +652,9 @@ description: |
     - Plugins can be shipped as part of [packages]($scripting/#packages)
     - Plugins work just the same in the web app
   - Types are now first-class values (**Breaking change**)
-    - A [type]($type) is now itself a value
+    - A [type] is now itself a value
     - Some types can be called like functions (those that have a constructor),
-      e.g. [`int`]($int) and [`str`]($str)
+      e.g. [`int`] and [`str`]
     - Type checks are now of the form `{type(10) == int}` instead of the old
       `{type(10) == "integer"}`. [Compatibility]($type/#compatibility) with the
       old way will remain for a while to give package authors time to upgrade,
@@ -339,7 +662,7 @@ description: |
     - Methods are now syntax sugar for calling a function scoped to a type,
       meaning that `{"hello".len()}` is equivalent to `{str.len("hello")}`
   - Added support for [`import`]($scripting/#modules) renaming with `as`
-  - Added a [`duration`]($duration) type
+  - Added a [`duration`] type
   - Added support for [CBOR]($cbor) encoding and decoding
   - Added encoding and decoding functions from and to bytes for data formats:
     [`json.decode`]($json.decode), [`json.encode`]($json.encode), and similar
@@ -347,9 +670,9 @@ description: |
   - Added [`array.intersperse`]($array.intersperse) function
   - Added [`str.rev`]($str.rev) function
   - Added `calc.tau` constant
-  - Made [bytes]($bytes) joinable and addable
+  - Made [bytes] joinable and addable
   - Made [`array.zip`]($array.zip) function variadic
-  - Fixed bug with [`eval`]($eval) when the `mode` was set to `{"math"}`
+  - Fixed bug with [`eval`] when the `mode` was set to `{"math"}`
   - Fixed bug with [`ends-with`]($str.ends-with) function on strings
   - Fixed bug with destructuring in combination with break, continue, and return
   - Fixed argument types of [hyperbolic functions]($calc.cosh), they don't allow
@@ -365,11 +688,11 @@ description: |
     [page numbering]($page.numbering) style in the PDF
 
 - Text and Layout
-  - Added [`highlight`]($highlight) function for highlighting text with a
+  - Added [`highlight`] function for highlighting text with a
     background color
   - Added [`polygon.regular`]($polygon.regular) function for drawing a regular
     polygon
-  - Added support for tabs in [`raw`]($raw) elements alongside
+  - Added support for tabs in [`raw`] elements alongside
     [`tab-width`]($raw.tab-size) parameter
   - The layout engine now tries to prevent "runts" (final lines consisting of
     just a single word)
@@ -514,18 +837,16 @@ description: |
     - Added `inv` method to [2d alignments]($align.alignment)
     - Added `start` argument to [`enumerate`]($array.enumerate) method on arrays
   - Added [`color.mix`]($color.mix) function
-  - Added `mode` and `scope` arguments to [`eval`]($eval) function
-  - Added [`bytes`]($bytes) type for holding large byte buffers
+  - Added `mode` and `scope` arguments to [`eval`] function
+  - Added [`bytes`] type for holding large byte buffers
     - Added [`encoding`]($read.encoding) argument to read function to read a
       file as bytes instead of a string
     - Added [`image.decode`]($image.decode) function for decoding an image
       directly from a string or bytes
-    - Added [`bytes`]($bytes) function for converting a string or an array of
-      integers to bytes
-    - Added [`array`]($array) function for converting bytes to an array of
-      integers
-    - Added support for converting bytes to a string with the [`str`]($str)
-      function
+    - Added [`bytes`] function for converting a string or an array of integers
+      to bytes
+    - Added [`array`] function for converting bytes to an array of integers
+    - Added support for converting bytes to a string with the [`str`] function
 
 - Tooling and Diagnostics
   - Added support for compiler warnings
@@ -560,15 +881,15 @@ description: |
     whether a heading becomes part of the PDF outline
   - Added [`caption-pos`]($figure.caption.position) argument to control the
     position of a figure's caption
-  - Added [`metadata`]($metadata) function for exposing an arbitrary value to
-    the introspection system
-  - Fixed that a [`state`]($state) was identified by the pair `(key, init)`
-    instead of just its `key`
+  - Added [`metadata`] function for exposing an arbitrary value to the
+    introspection system
+  - Fixed that a [`state`] was identified by the pair `(key, init)` instead of
+    just its `key`
   - Improved indent logic of [enumerations]($enum). Instead of requiring at
     least as much indent as the end of the marker, they now require only one
     more space indent than the start of the marker. As a result, even long
     markers like `12.` work with just 2 spaces of indent.
-  - Fixed bug with indent logic of [`raw`]($raw) blocks
+  - Fixed bug with indent logic of [`raw`] blocks
   - Fixed a parsing bug with dictionaries
 
 - Development
@@ -582,7 +903,7 @@ description: |
 ## Version 0.6.0 (June 30, 2023) { #v0.6.0 }
 - Package Management
   - Typst now has built-in [package management]($scripting/#packages)
-  - You can import [published]($packages) community packages or create and use
+  - You can import [published]($universe) community packages or create and use
     [system-local](https://github.com/typst/packages#local-packages) ones
   - Published packages are also supported in the web app
 
@@ -626,10 +947,10 @@ description: |
   - Added [`outline.entry`]($outline.entry) to customize outline entries with
     show rules
   - Added some hints for error messages
-  - Added some missing syntaxes for [`raw`]($raw) highlighting
+  - Added some missing syntaxes for [`raw`] highlighting
   - Improved rendering of rotated images in PNG export and web app
   - Made [footnotes]($footnote) reusable and referenceable
-  - Fixed bug with citations and bibliographies in [`locate`]($locate)
+  - Fixed bug with citations and bibliographies in [`locate`]
   - Fixed inconsistent tense in documentation
 
 - Development
@@ -641,8 +962,8 @@ description: |
 
 ## Version 0.5.0 (June 9, 2023) { #v0.5.0 }
 - Text and Layout
-  - Added [`raw`]($raw) syntax highlighting for many more languages
-  - Added support for Korean [numbering]($numbering)
+  - Added [`raw`] syntax highlighting for many more languages
+  - Added support for Korean [numbering]
   - Added basic i18n for a few more languages (NL, SV, DA)
   - Improved line breaking for East Asian languages
   - Expanded functionality of outline [`indent`]($outline.indent) property
@@ -651,7 +972,7 @@ description: |
   - Fixed bug with handling of footnotes in lists, tables, and figures
   - Fixed a bug with CJK punctuation adjustment
   - Fixed a crash with rounded rectangles
-  - Fixed alignment of [`line`]($line) elements
+  - Fixed alignment of [`line`] elements
 
 - Math
   - **Breaking change:** The syntax rules for mathematical
@@ -668,12 +989,12 @@ description: |
   - Fixed a crash in the [`attach`]($math.attach) function
 
 - Scripting
-  - Added new [`datetime`]($datetime) type and
-    [`datetime.today`]($datetime.today) to retrieve the current date
+  - Added new [`datetime`] type and [`datetime.today`]($datetime.today) to
+    retrieve the current date
   - Added [`str.from-unicode`]($str.from-unicode) and
     [`str.to-unicode`]($str.to-unicode) functions
   - Added [`fields`]($content.fields) method on content
-  - Added `base` parameter to [`str`]($str) function
+  - Added `base` parameter to [`str`] function
   - Added [`calc.exp`]($calc.exp) and [`calc.ln`]($calc.ln)
   - Improved accuracy of [`calc.pow`]($calc.pow) and [`calc.log`]($calc.log) for
     specific bases
@@ -695,7 +1016,7 @@ description: |
   - Improved error message for failed length comparisons
   - Fixed a bug with images not showing up in Apple Preview
   - Fixed multiple bugs with the PDF outline
-  - Fixed citations and other searchable elements in [`hide`]($hide)
+  - Fixed citations and other searchable elements in [`hide`]
   - Fixed bugs with [reference supplements]($ref.supplement)
   - Fixed Nix flake
 
@@ -704,7 +1025,7 @@ description: |
 ## Version 0.4.0 (May 20, 2023) { #v0.4.0 }
 - Footnotes
   - Implemented support for footnotes
-  - The [`footnote`]($footnote) function inserts a footnote
+  - The [`footnote`] function inserts a footnote
   - The [`footnote.entry`]($footnote.entry) function can be used to customize
     the footnote listing
   - The `{"chicago-notes"}` [citation style]($cite.style) is now available
@@ -714,7 +1035,7 @@ description: |
   - Now shows default values for optional arguments
   - Added richer outlines in "On this Page"
   - Added initial support for search keywords: "Table of Contents" will now find
-    the [outline]($outline) function. Suggestions for more keywords are welcome!
+    the [outline] function. Suggestions for more keywords are welcome!
   - Fixed issue with search result ranking
   - Fixed many more small issues
 
@@ -736,8 +1057,8 @@ description: |
 - Scripting
   - Added function scopes: A function can now hold related definitions in its
     own scope, similar to a module. The new [`assert.eq`]($assert.eq) function,
-    for instance, is part of the [`assert`]($assert) function's scope. Note that
-    function scopes are currently only available for built-in functions.
+    for instance, is part of the [`assert`] function's scope. Note that function
+    scopes are currently only available for built-in functions.
   - Added [`assert.eq`]($assert.eq) and [`assert.ne`]($assert.ne) functions for
     simpler equality and inequality assertions with more helpful error messages
   - Exposed [list]($list.item), [enum]($enum.item), and [term list]($terms.item)
@@ -811,8 +1132,8 @@ description: |
     grace period.
   - A lone underscore is not a valid identifier anymore, it can now only be used
     in patterns
-  - Removed `before` and `after` arguments from [`query`]($query). This is now
-    handled through flexible [selectors]($selector) combinator methods
+  - Removed `before` and `after` arguments from [`query`]. This is now handled
+    through flexible [selectors]($selector) combinator methods
   - Added support for [attachments]($math.attach) (sub-, superscripts) that
     precede the base symbol. The `top` and `bottom` arguments have been renamed
     to `t` and `b`.
@@ -824,7 +1145,7 @@ description: |
   - Added support for [destructuring]($scripting/#bindings) in argument lists
     and assignments
   - Added [`alt`]($image.alt) text argument to image function
-  - Added [`toml`]($toml) function for loading data from a TOML file
+  - Added [`toml`] function for loading data from a TOML file
   - Added [`zip`]($array.zip), [`sum`]($array.sum), and
     [`product`]($array.product) methods for arrays
   - Added `fact`, `perm`, `binom`, `gcd`, `lcm`, `atan2`, `quo`, `trunc`, and
@@ -839,8 +1160,8 @@ description: |
   - Locations are now a valid kind of selector
   - Added a few symbols for algebra
   - Added Spanish smart quote support
-  - Added [`selector`]($selector) function to turn a selector-like value into a
-    selector on which combinator methods can be called
+  - Added [`selector`] function to turn a selector-like value into a selector on
+    which combinator methods can be called
   - Improved some error messages
   - The outline and bibliography headings can now be styled with show-set rules
   - Operations on numbers now produce an error instead of overflowing
@@ -886,9 +1207,9 @@ description: |
   - Added [unpacking syntax]($scripting/#bindings) for let bindings, which
     allows things like `{let (1, 2) = array}`
   - Added [`enumerate`]($array.enumerate) method
-  - Added [`path`]($path) function for drawing Bézier paths
-  - Added [`layout`]($layout) function to access the size of the surrounding
-    page or container
+  - Added [`path`] function for drawing Bézier paths
+  - Added [`layout`] function to access the size of the surrounding page or
+    container
   - Added `key` parameter to [`sorted`]($array.sorted) method
 
 - Command line interface
@@ -904,7 +1225,7 @@ description: |
     (AR, NB, CS, NN, PL, SL, ES, UA, VI)
   - Added a few numbering patterns (Ihora, Chinese)
   - Added `sinc` [operator]($math.op)
-  - Fixed bug where math could not be hidden with [`hide`]($hide)
+  - Fixed bug where math could not be hidden with [`hide`]
   - Fixed sizing issues with box, block, and shapes
   - Fixed some translations
   - Fixed inversion of "R" in [`cal`]($math.cal) and [`frak`]($math.frak) styles
@@ -912,7 +1233,7 @@ description: |
   - Fixed supplements of references to headings
   - Fixed syntax highlighting of identifiers in certain scenarios
   - [Ratios]($ratio) can now be multiplied with more types and be converted to
-    [floats]($float) with the [`float`]($float) function
+    [floats]($float) with the [`float`] function
 
 <contributors from="v0.1.0" to="v0.2.0" />
 
@@ -937,8 +1258,8 @@ description: |
     gives access to the automatically resolved kind, supplement, and counter
 
 - Bibliography improvements
-  - The [`bibliography`]($bibliography) now also accepts multiple bibliography
-    paths (as an array)
+  - The [`bibliography`] now also accepts multiple bibliography paths (as an
+    array)
   - Parsing of BibLaTeX files is now more permissive (accepts non-numeric
     edition, pages, volumes, dates, and Jabref-style comments; fixed
     abbreviation parsing)
@@ -946,7 +1267,7 @@ description: |
   - Fixed APA bibliography ordering
 
 - Drawing additions
-  - Added [`polygon`]($polygon) function for drawing polygons
+  - Added [`polygon`] function for drawing polygons
   - Added support for clipping in [boxes]($box.clip) and [blocks]($block.clip)
 
 - Command line interface
@@ -957,12 +1278,12 @@ description: |
   - Added `--open` flag to directly open the PDF
 
 - Miscellaneous improvements
-  - Added [`yaml`]($yaml) function to load data from YAML files
+  - Added [`yaml`] function to load data from YAML files
   - Added basic i18n for a few more languages (IT, RU, ZH, FR, PT)
   - Added numbering support for Hebrew
   - Added support for [integers]($int) with base 2, 8, and 16
   - Added symbols for double bracket and laplace operator
-  - The [`link`]($link) function now accepts [labels]($label)
+  - The [`link`] function now accepts [labels]($label)
   - The link syntax now allows more characters
   - Improved justification of Japanese and Chinese text
   - Calculation functions behave more consistently w.r.t to non-real results
@@ -976,7 +1297,7 @@ description: |
   - Fixed invalid parsing of language tag in raw block with a single backtick
   - Fixed bugs with displaying counters and state
   - Fixed crash related to page counter
-  - Fixed crash when [`symbol`]($symbol) function was called without arguments
+  - Fixed crash when [`symbol`] function was called without arguments
   - Fixed crash in bibliography generation
   - Fixed access to label of certain content elements
   - Fixed line number in error message for CSV parsing
@@ -1005,7 +1326,7 @@ description: |
   - Numberings now allow zeros. To reset a counter, you can write
     `[#counter(..).update(0)]`
   - Added documentation for `{page()}` and `{position()}` methods on
-    [`location`]($location) type
+    [`location`] type
   - Added symbols for double, triple, and quadruple dot accent
   - Added smart quotes for Norwegian Bokmål
   - Added Nix flake
@@ -1014,8 +1335,7 @@ description: |
   - Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
   - Fixed unexpected parsing of numbers as enumerations, e.g. in `[1.2]`
   - Fixed combination of page fill and header
-  - Fixed compiler crash if [`repeat`]($repeat) is used in page with automatic
-    width
+  - Fixed compiler crash if [`repeat`] is used in page with automatic width
   - Fixed [matrices]($math.mat) with explicit delimiter
   - Fixed [`indent`]($terms.indent) property of term lists
   - Numerous documentation fixes
@@ -1035,57 +1355,57 @@ description: |
     - `[$ A = pi r^2 $ <area>]`
 
 - Introspection system for interactions between different parts of the document
-  - [`counter`]($counter) function
+  - [`counter`] function
     - Access and modify counters for pages, headings, figures, and equations
     - Define and use your own custom counters
     - Time travel: Find out what the counter value was or will be at some other
       point in the document (e.g. when you're building a list of figures, you
       can determine the value of the figure counter at any given figure).
     - Counters count in layout order and not in code order
-  - [`state`]($state) function
+  - [`state`] function
     - Manage arbitrary state across your document
     - Time travel: Find out the value of your state at any position in the
       document
     - State is modified in layout order and not in code order
-  - [`query`]($query) function
+  - [`query`] function
     - Find all occurrences of an element or a label, either in the whole
       document or before/after some location
     - Link to elements, find out their position on the pages and access their
       fields
     - Example use cases: Custom list of figures or page header with current
       chapter title
-  - [`locate`]($locate) function
+  - [`locate`] function
     - Determines the location of itself in the final layout
     - Can be accessed to get the `page` and `x`, `y` coordinates
     - Can be used with counters and state to find out their values at that
       location
     - Can be used with queries to find elements before or after its location
 
-- New [`measure`]($measure) function
+- New [`measure`] function
   - Measure the layouted size of elements
-  - To be used in combination with the new [`style`]($style) function that lets
-    you generate different content based on the style context something is
-    inserted into (because that affects the measured size of content)
+  - To be used in combination with the new [`style`] function that lets you
+    generate different content based on the style context something is inserted
+    into (because that affects the measured size of content)
 
 - Exposed content representation
   - Content is not opaque anymore
   - Content can be compared for equality
   - The tree of content elements can be traversed with code
-  - Can be observed in hover tooltips or with [`repr`]($repr)
+  - Can be observed in hover tooltips or with [`repr`]
   - New [methods]($content) on content: `func`, `has`, `at`, and `location`
   - All optional fields on elements are now settable
   - More uniform field names (`heading.title` becomes `heading.body`,
     `list.items` becomes `list.children`, and a few more changes)
 
 - Further improvements
-  - Added [`figure`]($figure) function
+  - Added [`figure`] function
   - Added [`numbering`]($math.equation.numbering) parameter on equation function
   - Added [`numbering`]($page.numbering) and
     [`number-align`]($page.number-align) parameters on page function
   - The page function's [`header`]($page.header) and [`footer`]($page.footer)
     parameters do not take functions anymore. If you want to customize them
     based on the page number, use the new [`numbering`]($page.numbering)
-    parameter or [`counter`]($counter) function instead.
+    parameter or [`counter`] function instead.
   - Added [`footer-descent`]($page.footer-descent) and
     [`header-ascent`]($page.header-ascent) parameters
   - Better default alignment in header and footer
@@ -1097,7 +1417,7 @@ description: |
   - Renamed paragraph `indent` to [`first-line-indent`]($par.first-line-indent)
   - More accurate [logarithm]($calc.log) when base is `2` or `10`
   - Improved some error messages
-  - Fixed layout of [`terms`]($terms) list
+  - Fixed layout of [`terms`] list
 
 - Web app improvements
   - Added template gallery
@@ -1124,9 +1444,9 @@ description: |
   - Lots of new math fonts available
   - Removed Latin Modern fonts in favor of New Computer Modern family
   - Removed unnecessary smallcaps fonts which are already accessible through the
-    corresponding main font and the [`smallcaps`]($smallcaps) function
+    corresponding main font and the [`smallcaps`] function
 - Improved default spacing for headings
-- Added [`panic`]($panic) function
+- Added [`panic`] function
 - Added [`clusters`]($str.clusters) and [`codepoints`]($str.codepoints) methods
   for strings
 - Support for multiple authors in [`set document`]($document.author)
@@ -1139,14 +1459,14 @@ description: |
 - Improved incremental compilation for user-defined functions
 
 ## February 15, 2023 { #_ }
-- [Box]($box) and [block]($block) have gained `fill`, `stroke`, `radius`, and
-  `inset` properties
+- [Box]($box) and [block] have gained `fill`, `stroke`, `radius`, and `inset`
+  properties
 - Blocks may now be explicitly sized, fixed-height blocks can still break across
   pages
 - Blocks can now be configured to be [`breakable`]($block.breakable) or not
 - [Numbering style]($enum.numbering) can now be configured for nested enums
 - [Markers]($list.marker) can now be configured for nested lists
-- The [`eval`]($eval) function now expects code instead of markup and returns an
+- The [`eval`] function now expects code instead of markup and returns an
   arbitrary value. Markup can still be evaluated by surrounding the string with
   brackets.
 - PDFs generated by Typst now contain XMP metadata
@@ -1156,8 +1476,8 @@ description: |
 
 ## February 12, 2023 { #_ }
 - Shapes, images, and transformations (move/rotate/scale/repeat) are now
-  block-level. To integrate them into a paragraph, use a [`box`]($box) as with
-  other elements.
+  block-level. To integrate them into a paragraph, use a [`box`] as with other
+  elements.
 - A colon is now required in an "everything" show rule: Write `{show: it => ..}`
   instead of `{show it => ..}`. This prevents intermediate states that ruin your
   whole document.
@@ -1170,14 +1490,14 @@ description: |
 - Fixed bug where columns jump to next page
 - Fixed bug where list items have no leading
 - Fixed relative sizing in lists, squares and grid auto columns
-- Fixed relative displacement in [`place`]($place) function
+- Fixed relative displacement in [`place`] function
 - Fixed that lines don't have a size
 - Fixed bug where `{set document(..)}` complains about being after content
 - Fixed parsing of `{not in}` operation
 - Fixed hover tooltips in math
 - Fixed bug where a heading show rule may not contain a pagebreak when an
   outline is present
-- Added [`baseline`]($box.baseline) property on [`box`]($box)
+- Added [`baseline`]($box.baseline) property on [`box`]
 - Added [`tg`]($math.op) and [`ctg`]($math.op) operators in math
 - Added delimiter setting for [`cases`]($math.cases) function
 - Parentheses are now included when accepting a function autocompletion

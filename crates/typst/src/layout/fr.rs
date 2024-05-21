@@ -6,21 +6,21 @@ use ecow::EcoString;
 
 use crate::foundations::{repr, ty, Repr};
 use crate::layout::Abs;
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 
-/// Defines how the the remaining space in a layout is distributed.
+/// Defines how the remaining space in a layout is distributed.
 ///
 /// Each fractionally sized element gets space based on the ratio of its
 /// fraction to the sum of all fractions.
 ///
-/// For more details, also see the [h]($h) and [v]($v) functions and the
+/// For more details, also see the [h] and [v] functions and the
 /// [grid function]($grid).
 ///
 /// # Example
 /// ```example
 /// Left #h(1fr) Left-ish #h(2fr) Right
 /// ```
-#[ty(name = "fraction")]
+#[ty(cast, name = "fraction")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fr(Scalar);
 
@@ -99,7 +99,7 @@ impl Add for Fr {
     }
 }
 
-sub_impl!(Fr - Fr -> Fr);
+typst_utils::sub_impl!(Fr - Fr -> Fr);
 
 impl Mul<f64> for Fr {
     type Output = Self;
@@ -133,10 +133,10 @@ impl Div<f64> for Fr {
     }
 }
 
-assign_impl!(Fr += Fr);
-assign_impl!(Fr -= Fr);
-assign_impl!(Fr *= f64);
-assign_impl!(Fr /= f64);
+typst_utils::assign_impl!(Fr += Fr);
+typst_utils::assign_impl!(Fr -= Fr);
+typst_utils::assign_impl!(Fr *= f64);
+typst_utils::assign_impl!(Fr /= f64);
 
 impl Sum for Fr {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {

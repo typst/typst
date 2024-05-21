@@ -1,13 +1,15 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
 };
 use crate::layout::{
-    BlockElem, Em, Fragment, HElem, Layout, Length, Regions, Spacing, VElem,
+    BlockElem, Dir, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Sides, Spacing,
+    StackChild, StackElem,
 };
 use crate::model::ParElem;
-use crate::util::Numeric;
+use crate::text::TextElem;
+use crate::utils::Numeric;
 
 /// A list of terms and their descriptions.
 ///
@@ -25,7 +27,7 @@ use crate::util::Numeric;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Layout)]
+#[elem(scope, title = "Term List", LayoutMultiple)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
@@ -98,7 +100,7 @@ pub struct TermsElem {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
-    pub children: Vec<TermItem>,
+    pub children: Vec<Packed<TermItem>>,
 }
 
 #[scope]
@@ -107,8 +109,8 @@ impl TermsElem {
     type TermItem;
 }
 
-impl Layout for TermsElem {
-    #[tracing::instrument(name = "TermsElem::layout", skip_all)]
+impl LayoutMultiple for Packed<TermsElem> {
+    #[typst_macros::time(name = "terms", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -125,21 +127,31 @@ impl Layout for TermsElem {
                 .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
-        let mut seq = vec![];
-        for (i, child) in self.children().iter().enumerate() {
-            if i > 0 {
-                seq.push(VElem::new(gutter).with_weakness(1).pack());
-            }
-            if !indent.is_zero() {
-                seq.push(HElem::new(indent.into()).pack());
-            }
+        let pad = hanging_indent + indent;
+        let unpad = (!hanging_indent.is_zero())
+            .then(|| HElem::new((-hanging_indent).into()).pack());
+
+        let mut children = vec![];
+        for child in self.children().iter() {
+            let mut seq = vec![];
+            seq.extend(unpad.clone());
             seq.push(child.term().clone().strong());
             seq.push((*separator).clone());
             seq.push(child.description().clone());
+            children.push(StackChild::Block(Content::sequence(seq)));
         }
 
-        Content::sequence(seq)
-            .styled(ParElem::set_hanging_indent(hanging_indent + indent))
+        let mut padding = Sides::default();
+        if TextElem::dir_in(styles) == Dir::LTR {
+            padding.left = pad.into();
+        } else {
+            padding.right = pad.into();
+        }
+
+        StackElem::new(children)
+            .with_spacing(Some(gutter))
+            .pack()
+            .padded(padding)
             .layout(engine, styles, regions)
     }
 }
@@ -166,5 +178,5 @@ cast! {
         };
         Self::new(term, description)
     },
-    v: Content => v.to::<Self>().cloned().ok_or("expected term item or array")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
 }

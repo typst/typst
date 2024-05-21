@@ -2,9 +2,9 @@ use ecow::EcoString;
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, NativeElement, Scope};
+use crate::foundations::{elem, Content, NativeElement, Packed, Scope, StyleChain};
 use crate::layout::HElem;
-use crate::math::{FrameFragment, LayoutMath, Limits, MathContext, MathStyleElem, THIN};
+use crate::math::{upright, FrameFragment, LayoutMath, Limits, MathContext, THIN};
 use crate::text::TextElem;
 
 /// A text operator in an equation.
@@ -33,14 +33,21 @@ pub struct OpElem {
     pub limits: bool,
 }
 
-impl LayoutMath for OpElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let fragment = ctx.layout_fragment(self.text())?;
+impl LayoutMath for Packed<OpElem> {
+    #[typst_macros::time(name = "math.op", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let fragment = ctx.layout_into_fragment(self.text(), styles)?;
+        let italics = fragment.italics_correction();
+        let accent_attach = fragment.accent_attach();
+        let text_like = fragment.is_text_like();
+
         ctx.push(
-            FrameFragment::new(ctx, fragment.into_frame())
+            FrameFragment::new(ctx, styles, fragment.into_frame())
                 .with_class(MathClass::Large)
-                .with_limits(if self.limits(ctx.styles()) {
+                .with_italics_correction(italics)
+                .with_accent_attach(accent_attach)
+                .with_text_like(text_like)
+                .with_limits(if self.limits(styles) {
                     Limits::Display
                 } else {
                     Limits::Never
@@ -65,7 +72,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + MathStyleElem::new(TextElem::packed(d)).with_italic(Some(false)).pack()
+                    + upright(TextElem::packed(d))
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

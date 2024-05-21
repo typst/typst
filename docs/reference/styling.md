@@ -62,11 +62,10 @@ a _set-if_ rule.
 ## Show rules
 With show rules, you can deeply customize the look of a type of element. The
 most basic form of show rule is a _show-set rule._ Such a rule is written as the
-`{show}` keyword followed by a [selector]($selector), a colon and then a set
-rule. The most basic form of selector is an
-[element function]($function/#element-functions). This lets the set rule only
-apply to the selected element. In the example below, headings become dark blue
-while all other text stays black.
+`{show}` keyword followed by a [selector], a colon and then a set rule. The most
+basic form of selector is an [element function]($function/#element-functions).
+This lets the set rule only apply to the selected element. In the example below,
+headings become dark blue while all other text stays black.
 
 ```example
 #show heading: set text(navy)
@@ -79,11 +78,11 @@ With show-set rules you can mix and match properties from different functions to
 achieve many different effects. But they still limit you to what is predefined
 in Typst. For maximum flexibility, you can instead write a show rule that
 defines how to format an element from scratch. To write such a show rule,
-replace the set rule after the colon with an arbitrary [function]($function).
-This function receives the element in question and can return arbitrary content.
-Different [fields]($scripting/#fields) are available on the element passed to
-the function. Below, we define a show rule that formats headings for a fantasy
-encyclopedia.
+replace the set rule after the colon with an arbitrary [function]. This function
+receives the element in question and can return arbitrary content. The available
+[fields]($scripting/#fields) on the element passed to the function again match
+the parameters of the respective element function. Below, we define a show rule
+that formats headings for a fantasy encyclopedia.
 
 ```example
 #set heading(numbering: "(I)")
@@ -91,7 +90,9 @@ encyclopedia.
   #set align(center)
   #set text(font: "Inria Serif")
   \~ #emph(it.body)
-     #counter(heading).display() \~
+     #counter(heading).display(
+       it.numbering
+     ) \~
 ]
 
 = Dragon

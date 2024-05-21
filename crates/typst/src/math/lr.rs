@@ -1,9 +1,13 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Content, NativeElement, Resolve, Smart};
+use crate::foundations::{
+    elem, func, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+};
 use crate::layout::{Abs, Em, Length, Rel};
-use crate::math::{GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled};
+use crate::math::{
+    GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled, SpacingFragment,
+};
 use crate::text::TextElem;
 
 /// How much less high scaled delimiters can be than what they wrap.
@@ -33,18 +37,18 @@ pub struct LrElem {
     pub body: Content,
 }
 
-impl LayoutMath for LrElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+impl LayoutMath for Packed<LrElem> {
+    #[typst_macros::time(name = "math.lr", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let mut body = self.body();
-        if let Some(elem) = body.to::<LrElem>() {
-            if elem.size(ctx.styles()).is_auto() {
+        if let Some(elem) = body.to_packed::<LrElem>() {
+            if elem.size(styles).is_auto() {
                 body = elem.body();
             }
         }
 
-        let mut fragments = ctx.layout_fragments(body)?;
-        let axis = scaled!(ctx, axis_height);
+        let mut fragments = ctx.layout_into_fragments(body, styles)?;
+        let axis = scaled!(ctx, styles, axis_height);
         let max_extent = fragments
             .iter()
             .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
@@ -52,17 +56,17 @@ impl LayoutMath for LrElem {
             .unwrap_or_default();
 
         let height = self
-            .size(ctx.styles())
+            .size(styles)
             .unwrap_or(Rel::one())
-            .resolve(ctx.styles())
+            .resolve(styles)
             .relative_to(2.0 * max_extent);
 
         // Scale up fragments at both ends.
         match fragments.as_mut_slice() {
-            [one] => scale(ctx, one, height, None),
+            [one] => scale(ctx, styles, one, height, None),
             [first, .., last] => {
-                scale(ctx, first, height, Some(MathClass::Opening));
-                scale(ctx, last, height, Some(MathClass::Closing));
+                scale(ctx, styles, first, height, Some(MathClass::Opening));
+                scale(ctx, styles, last, height, Some(MathClass::Closing));
             }
             _ => {}
         }
@@ -72,10 +76,23 @@ impl LayoutMath for LrElem {
             if let MathFragment::Variant(ref mut variant) = fragment {
                 if variant.mid_stretched == Some(false) {
                     variant.mid_stretched = Some(true);
-                    scale(ctx, fragment, height, Some(MathClass::Large));
+                    scale(ctx, styles, fragment, height, Some(MathClass::Large));
                 }
             }
         }
+
+        // Remove weak SpacingFragment immediately after the opening or immediately
+        // before the closing.
+        let original_len = fragments.len();
+        let mut index = 0;
+        fragments.retain(|fragment| {
+            index += 1;
+            (index != 2 && index + 1 != original_len)
+                || !matches!(
+                    fragment,
+                    MathFragment::Spacing(SpacingFragment { weak: true, .. })
+                )
+        });
 
         ctx.extend(fragments);
 
@@ -95,20 +112,22 @@ pub struct MidElem {
     pub body: Content,
 }
 
-impl LayoutMath for MidElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut fragments = ctx.layout_fragments(self.body())?;
+impl LayoutMath for Packed<MidElem> {
+    #[typst_macros::time(name = "math.mid", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let mut fragments = ctx.layout_into_fragments(self.body(), styles)?;
 
         for fragment in &mut fragments {
             match fragment {
                 MathFragment::Glyph(glyph) => {
                     let mut new = glyph.clone().into_variant();
                     new.mid_stretched = Some(false);
+                    new.class = MathClass::Fence;
                     *fragment = MathFragment::Variant(new);
                 }
                 MathFragment::Variant(variant) => {
                     variant.mid_stretched = Some(false);
+                    variant.class = MathClass::Fence;
                 }
                 _ => {}
             }
@@ -122,23 +141,24 @@ impl LayoutMath for MidElem {
 /// Scale a math fragment to a height.
 fn scale(
     ctx: &mut MathContext,
+    styles: StyleChain,
     fragment: &mut MathFragment,
     height: Abs,
     apply: Option<MathClass>,
 ) {
     if matches!(
         fragment.class(),
-        Some(MathClass::Opening | MathClass::Closing | MathClass::Fence)
+        MathClass::Opening | MathClass::Closing | MathClass::Fence
     ) {
         let glyph = match fragment {
             MathFragment::Glyph(glyph) => glyph.clone(),
             MathFragment::Variant(variant) => {
-                GlyphFragment::new(ctx, variant.c, variant.span)
+                GlyphFragment::new(ctx, styles, variant.c, variant.span)
             }
             _ => return,
         };
 
-        let short_fall = DELIM_SHORT_FALL.scaled(ctx);
+        let short_fall = DELIM_SHORT_FALL.at(glyph.font_size);
         let mut stretched = glyph.stretch_vertical(ctx, height, short_fall);
         stretched.center_on_axis(ctx);
 
@@ -235,6 +255,7 @@ fn delimited(
     right: char,
     size: Option<Smart<Rel<Length>>>,
 ) -> Content {
+    let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
         TextElem::packed(left),
         body,
@@ -244,5 +265,5 @@ fn delimited(
     if let Some(size) = size {
         elem.push_size(size);
     }
-    elem.pack()
+    elem.pack().spanned(span)
 }

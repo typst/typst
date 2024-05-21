@@ -1,68 +1,73 @@
+use comemo::Tracked;
+
+use crate::diag::HintedStrResult;
 use crate::engine::Engine;
-use crate::foundations::{func, Array, LocatableSelector, Value};
+use crate::foundations::{func, Array, Context, LocatableSelector, Value};
 use crate::introspection::Location;
 
 /// Finds elements in the document.
 ///
 /// The `query` functions lets you search your document for elements of a
 /// particular type or with a particular label. To use it, you first need to
-/// retrieve the current document location with the [`locate`]($locate)
-/// function.
+/// ensure that [context] is available.
 ///
-/// You can get the location of the elements returned by `query` with
-/// [`location`]($content.location).
-///
+
 /// # Finding elements
-/// In the example below, we create a custom page header that displays the text
-/// "Typst Academy" in small capitals and the current section title. On the
-/// first page, the section title is omitted because the header is before the
-/// first section heading.
+/// In the example below, we manually create a table of contents instead of
+/// using the [`outline`] function.
 ///
-/// To realize this layout, we call `locate` and then query for all headings
-/// after the current location. The function we pass to locate is called twice
-/// in this case: Once per page.
+/// To do this, we first query for all headings in the document at level 1 and
+/// where `outlined` is true. Querying only for headings at level 1 ensures
+/// that, for the purpose of this example, sub-headings are not included in the
+/// table of contents. The `outlined` field is used to exclude the "Table of
+/// Contents" heading itself.
 ///
-/// - On the first page the query for all headings before the current location
-///   yields an empty array: There are no previous headings. We check for this
-///   case and and just display "Typst Academy".
-///
-/// - For the second page, we retrieve the last element from the query's result.
-///   This is the latest heading before the current position and as such, it is
-///   the heading of the section we are currently in. We access its content
-///   through the `body` field and display it alongside "Typst Academy".
+/// Note that we open a `context` to be able to use the `query` function.
 ///
 /// ```example
 /// >>> #set page(
-/// >>>   width: 240pt,
-/// >>>   height: 180pt,
-/// >>>   margin: (top: 35pt, rest: 15pt),
-/// >>>   header-ascent: 12pt,
+/// >>>  width: 240pt,
+/// >>>  height: 180pt,
+/// >>>  margin: (top: 20pt, bottom: 35pt)
 /// >>> )
-/// #set page(header: locate(loc => {
-///   let elems = query(
-///     selector(heading).before(loc),
-///     loc,
+/// #set page(numbering: "1")
+///
+/// #heading(outlined: false)[
+///   Table of Contents
+/// ]
+/// #context {
+///   let chapters = query(
+///     heading.where(
+///       level: 1,
+///       outlined: true,
+///     )
 ///   )
-///   let academy = smallcaps[
-///     Typst Academy
-///   ]
-///   if elems == () {
-///     align(right, academy)
-///   } else {
-///     let body = elems.last().body
-///     academy + h(1fr) + emph(body)
+///   for chapter in chapters {
+///     let loc = chapter.location()
+///     let nr = numbering(
+///       loc.page-numbering(),
+///       ..counter(page).at(loc),
+///     )
+///     [#chapter.body #h(1fr) #nr \ ]
 ///   }
-/// }))
+/// }
 ///
 /// = Introduction
-/// #lorem(23)
+/// #lorem(10)
+/// #pagebreak()
 ///
-/// = Background
-/// #lorem(30)
+/// == Sub-Heading
+/// #lorem(8)
 ///
-/// = Analysis
-/// #lorem(15)
+/// = Discussion
+/// #lorem(18)
 /// ```
+///
+/// To get the page numbers, we first get the location of the elements returned
+/// by `query` with [`location`]($content.location). We then also retrieve the
+/// [page numbering]($location.page-numbering) and [page
+/// counter]($counter/#page-counter) at that location and apply the numbering to
+/// the counter.
 ///
 /// # A word of caution { #caution }
 /// To resolve all your queries, Typst evaluates and layouts parts of the
@@ -80,22 +85,22 @@ use crate::introspection::Location;
 ///
 /// In general, you should try not to write queries that affect themselves. The
 /// same words of caution also apply to other introspection features like
-/// [counters]($counter) and [state]($state).
+/// [counters]($counter) and [state].
 ///
 /// ```example
 /// = Real
-/// #locate(loc => {
-///   let elems = query(heading, loc)
+/// #context {
+///   let elems = query(heading)
 ///   let count = elems.len()
 ///   count * [= Fake]
-/// })
+/// }
 /// ```
 ///
 /// # Command line queries
 /// You can also perform queries from the command line with the `typst query`
 /// command. This command executes an arbitrary query on the document and
 /// returns the resulting elements in serialized form. Consider the following
-/// `example.typ` file which contains some invisible [metadata]($metadata):
+/// `example.typ` file which contains some invisible [metadata]:
 ///
 /// ```typ
 /// #metadata("This is a note") <note>
@@ -130,33 +135,29 @@ use crate::introspection::Location;
 /// $ typst query example.typ "<note>" --field value --one
 /// "This is a note"
 /// ```
-#[func]
+#[func(contextual)]
 pub fn query(
     /// The engine.
     engine: &mut Engine,
-    /// Can be an element function like a `heading` or `figure`, a `{<label>}`
-    /// or a more complex selector like `{heading.where(level: 1)}`.
+    /// The callsite context.
+    context: Tracked<Context>,
+    /// Can be
+    /// - an element function like a `heading` or `figure`,
+    /// - a `{<label>}`,
+    /// - a more complex selector like `{heading.where(level: 1)}`,
+    /// - or `{selector(heading).before(here())}`.
     ///
-    /// Currently, only a subset of element functions is supported. Aside from
-    /// headings and figures, this includes equations, references and all
-    /// elements with an explicit label. As a result, you _can_ query for e.g.
-    /// [`strong`]($strong) elements, but you will find only those that have an
-    /// explicit label attached to them. This limitation will be resolved in the
-    /// future.
+    /// Only [locatable]($location/#locatable) element functions are supported.
     target: LocatableSelector,
-    /// Can be an arbitrary location, as its value is irrelevant for the
-    /// function's return value. Why is it required then? As noted before, Typst
-    /// has to evaluate parts of your code multiple times to determine the
-    /// values of all state. By only allowing this function within
-    /// [`locate`]($locate) calls, the amount of code that can depend on the
-    /// query's result is reduced. If you could call it directly at the top
-    /// level of a module, the evaluation of the whole module and its exports
-    /// could depend on the query's result.
-    location: Location,
-) -> Array {
-    let _ = location;
+    /// _Compatibility:_ This argument only exists for compatibility with
+    /// Typst 0.10 and lower and shouldn't be used anymore.
+    #[default]
+    location: Option<Location>,
+) -> HintedStrResult<Array> {
+    if location.is_none() {
+        context.introspect()?;
+    }
+
     let vec = engine.introspector.query(&target.0);
-    vec.into_iter()
-        .map(|elem| Value::Content(elem.into_inner()))
-        .collect()
+    Ok(vec.into_iter().map(Value::Content).collect())
 }

@@ -1,4 +1,5 @@
-use comemo::Prehashed;
+use std::f64::consts::SQRT_2;
+
 use ecow::EcoString;
 use rustybuzz::Feature;
 use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
@@ -10,29 +11,30 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, NativeElement, Smart, StyleChain, Styles};
-use crate::layout::{Abs, Axes, BoxElem, Em, Frame, Layout, Regions, Size};
+use crate::foundations::{Content, Packed, StyleChain};
+use crate::layout::{Abs, Axes, BoxElem, Em, Frame, LayoutMultiple, Regions, Size};
 use crate::math::{
-    FrameFragment, GlyphFragment, LayoutMath, MathFragment, MathRow, MathSize, MathStyle,
-    MathVariant, THICK,
+    scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
+    LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
 use crate::model::ParElem;
-use crate::realize::realize;
 use crate::syntax::{is_newline, Span};
 use crate::text::{
-    features, variant, BottomEdge, BottomEdgeMetric, Font, FontStyle, FontWeight,
-    TextElem, TextSize, TopEdge, TopEdgeMetric,
+    features, BottomEdge, BottomEdgeMetric, Font, TextElem, TextSize, TopEdge,
+    TopEdgeMetric,
 };
 
 macro_rules! scaled {
-    ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
-        match $ctx.style.size {
-            MathSize::Display => scaled!($ctx, $display),
-            _ => scaled!($ctx, $text),
+    ($ctx:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
+        match $crate::math::EquationElem::size_in($styles) {
+            $crate::math::MathSize::Display => scaled!($ctx, $styles, $display),
+            _ => scaled!($ctx, $styles, $text),
         }
     };
-    ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name().scaled($ctx)
+    ($ctx:expr, $styles:expr, $name:ident) => {
+        $ctx.constants
+            .$name()
+            .scaled($ctx, $crate::math::scaled_font_size($ctx, $styles))
     };
 }
 
@@ -44,8 +46,10 @@ macro_rules! percent {
 
 /// The context for math layout.
 pub struct MathContext<'a, 'b, 'v> {
+    // External.
     pub engine: &'v mut Engine<'b>,
     pub regions: Regions<'static>,
+    // Font-related.
     pub font: &'a Font,
     pub ttf: &'a ttf_parser::Face<'a>,
     pub table: ttf_parser::math::Table<'a>,
@@ -53,12 +57,8 @@ pub struct MathContext<'a, 'b, 'v> {
     pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
     pub glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
     pub space_width: Em,
+    // Mutable.
     pub fragments: Vec<MathFragment>,
-    pub local: Styles,
-    pub style: MathStyle,
-    pub size: Abs,
-    outer: StyleChain<'a>,
-    style_stack: Vec<(MathStyle, Abs)>,
 }
 
 impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
@@ -67,7 +67,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         styles: StyleChain<'a>,
         regions: Regions,
         font: &'a Font,
-        block: bool,
     ) -> Self {
         let math_table = font.ttf().tables().math.unwrap();
         let gsub_table = font.ttf().tables().gsub;
@@ -94,7 +93,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 .collect()
         });
 
-        let size = TextElem::size_in(styles);
         let ttf = font.ttf();
         let space_width = ttf
             .glyph_index(' ')
@@ -102,7 +100,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .map(|advance| font.to_em(advance))
             .unwrap_or(THICK);
 
-        let variant = variant(styles);
         Self {
             engine,
             regions: Regions::one(regions.base(), Axes::splat(false)),
@@ -114,21 +111,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             glyphwise_tables,
             space_width,
             fragments: vec![],
-            local: Styles::new(),
-            style: MathStyle {
-                variant: MathVariant::Serif,
-                size: if block { MathSize::Display } else { MathSize::Text },
-                class: Smart::Auto,
-                cramped: false,
-                bold: variant.weight >= FontWeight::BOLD,
-                italic: match variant.style {
-                    FontStyle::Normal => Smart::Auto,
-                    FontStyle::Italic | FontStyle::Oblique => Smart::Custom(true),
-                },
-            },
-            size,
-            outer: styles,
-            style_stack: vec![],
         }
     }
 
@@ -140,56 +122,91 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
-    pub fn layout_fragment(
+    /// Layout the given element and return the resulting [`MathFragment`]s.
+    pub fn layout_into_fragments(
         &mut self,
         elem: &dyn LayoutMath,
-    ) -> SourceResult<MathFragment> {
-        let row = self.layout_fragments(elem)?;
-        Ok(MathRow::new(row).into_fragment(self))
-    }
-
-    pub fn layout_fragments(
-        &mut self,
-        elem: &dyn LayoutMath,
+        styles: StyleChain,
     ) -> SourceResult<Vec<MathFragment>> {
+        // The element's layout_math() changes the fragments held in this
+        // MathContext object, but for convenience this function shouldn't change
+        // them, so we restore the MathContext's fragments after obtaining the
+        // layout result.
         let prev = std::mem::take(&mut self.fragments);
-        elem.layout_math(self)?;
+        elem.layout_math(self, styles)?;
         Ok(std::mem::replace(&mut self.fragments, prev))
     }
 
-    pub fn layout_row(&mut self, elem: &dyn LayoutMath) -> SourceResult<MathRow> {
-        let fragments = self.layout_fragments(elem)?;
-        Ok(MathRow::new(fragments))
+    /// Layout the given element and return the result as a [`MathRun`].
+    pub fn layout_into_run(
+        &mut self,
+        elem: &dyn LayoutMath,
+        styles: StyleChain,
+    ) -> SourceResult<MathRun> {
+        Ok(MathRun::new(self.layout_into_fragments(elem, styles)?))
     }
 
-    pub fn layout_frame(&mut self, elem: &dyn LayoutMath) -> SourceResult<Frame> {
-        Ok(self.layout_fragment(elem)?.into_frame())
+    /// Layout the given element and return the result as a
+    /// unified [`MathFragment`].
+    pub fn layout_into_fragment(
+        &mut self,
+        elem: &dyn LayoutMath,
+        styles: StyleChain,
+    ) -> SourceResult<MathFragment> {
+        Ok(self.layout_into_run(elem, styles)?.into_fragment(self, styles))
     }
 
-    pub fn layout_box(&mut self, boxed: &BoxElem) -> SourceResult<Frame> {
-        Ok(boxed
-            .layout(self.engine, self.outer.chain(&self.local), self.regions)?
-            .into_frame())
+    /// Layout the given element and return the result as a [`Frame`].
+    pub fn layout_into_frame(
+        &mut self,
+        elem: &dyn LayoutMath,
+        styles: StyleChain,
+    ) -> SourceResult<Frame> {
+        Ok(self.layout_into_fragment(elem, styles)?.into_frame())
     }
 
-    pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
+    /// Layout the given [`BoxElem`] into a [`Frame`].
+    pub fn layout_box(
+        &mut self,
+        boxed: &Packed<BoxElem>,
+        styles: StyleChain,
+    ) -> SourceResult<Frame> {
+        let local =
+            TextElem::set_size(TextSize(scaled_font_size(self, styles).into())).wrap();
+        boxed.layout(self.engine, styles.chain(&local), self.regions)
+    }
+
+    /// Layout the given [`Content`] into a [`Frame`].
+    pub fn layout_content(
+        &mut self,
+        content: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Frame> {
+        let local =
+            TextElem::set_size(TextSize(scaled_font_size(self, styles).into())).wrap();
         Ok(content
-            .layout(self.engine, self.outer.chain(&self.local), self.regions)?
+            .layout(self.engine, styles.chain(&local), self.regions)?
             .into_frame())
     }
 
-    pub fn layout_text(&mut self, elem: &TextElem) -> SourceResult<MathFragment> {
+    /// Layout the given [`TextElem`] into a [`MathFragment`].
+    pub fn layout_text(
+        &mut self,
+        elem: &Packed<TextElem>,
+        styles: StyleChain,
+    ) -> SourceResult<MathFragment> {
         let text = elem.text();
         let span = elem.span();
         let mut chars = text.chars();
+        let math_size = EquationElem::size_in(styles);
         let fragment = if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
-            .map(|c| self.style.styled_char(c))
-            .and_then(|c| GlyphFragment::try_new(self, c, span))
+            .map(|c| styled_char(styles, c, true))
+            .and_then(|c| GlyphFragment::try_new(self, styles, c, span))
         {
             // A single letter that is available in the math font.
-            match self.style.size {
+            match math_size {
                 MathSize::Script => {
                     glyph.make_scriptsize(self);
                 }
@@ -199,10 +216,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 _ => (),
             }
 
-            let class = self.style.class.as_custom().or(glyph.class);
-            if class == Some(MathClass::Large) {
-                let mut variant = if self.style.size == MathSize::Display {
-                    let height = scaled!(self, display_operator_min_height);
+            if glyph.class == MathClass::Large {
+                let mut variant = if math_size == MathSize::Display {
+                    let height = scaled!(self, styles, display_operator_min_height)
+                        .max(SQRT_2 * glyph.height());
                     glyph.stretch_vertical(self, height, Abs::zero())
                 } else {
                     glyph.into_variant()
@@ -217,18 +234,23 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             // Numbers aren't that difficult.
             let mut fragments = vec![];
             for c in text.chars() {
-                let c = self.style.styled_char(c);
-                fragments.push(GlyphFragment::new(self, c, span).into());
+                let c = styled_char(styles, c, false);
+                fragments.push(GlyphFragment::new(self, styles, c, span).into());
             }
-            let frame = MathRow::new(fragments).into_frame(self);
-            FrameFragment::new(self, frame).into()
+            let frame = MathRun::new(fragments).into_frame(self, styles);
+            FrameFragment::new(self, styles, frame).with_text_like(true).into()
         } else {
+            let local = [
+                TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
+                TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+                TextElem::set_size(TextSize(scaled_font_size(self, styles).into())),
+            ]
+            .map(|p| p.wrap());
+
             // Anything else is handled by Typst's standard text layout.
-            let mut style = self.style;
-            if self.style.italic == Smart::Auto {
-                style = style.with_italic(false);
-            }
-            let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
+            let styles = styles.chain(&local);
+            let text: EcoString =
+                text.chars().map(|c| styled_char(styles, c, false)).collect();
             if text.contains(is_newline) {
                 let mut fragments = vec![];
                 for (i, piece) in text.split(is_newline).enumerate() {
@@ -236,116 +258,66 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                         fragments.push(MathFragment::Linebreak);
                     }
                     if !piece.is_empty() {
-                        fragments.push(self.layout_complex_text(piece, span)?.into());
+                        fragments
+                            .push(self.layout_complex_text(piece, span, styles)?.into());
                     }
                 }
-                let mut frame = MathRow::new(fragments).into_frame(self);
-                let axis = scaled!(self, axis_height);
+                let mut frame = MathRun::new(fragments).into_frame(self, styles);
+                let axis = scaled!(self, styles, axis_height);
                 frame.set_baseline(frame.height() / 2.0 + axis);
-                FrameFragment::new(self, frame).into()
+                FrameFragment::new(self, styles, frame).into()
             } else {
-                self.layout_complex_text(&text, span)?.into()
+                self.layout_complex_text(&text, span, styles)?.into()
             }
         };
         Ok(fragment)
     }
 
-    pub fn layout_complex_text(
+    /// Layout the given text string into a [`FrameFragment`].
+    fn layout_complex_text(
         &mut self,
         text: &str,
         span: Span,
+        styles: StyleChain,
     ) -> SourceResult<FrameFragment> {
-        let spaced = text.graphemes(true).nth(1).is_some();
-        let elem = TextElem::packed(text)
-            .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
-            .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
-                BottomEdgeMetric::Bounds,
-            )))
-            .spanned(span);
-
         // There isn't a natural width for a paragraph in a math environment;
         // because it will be placed somewhere probably not at the left margin
-        // it will overflow.  So emulate an `hbox` instead and allow the paragraph
+        // it will overflow. So emulate an `hbox` instead and allow the paragraph
         // to extend as far as needed.
-        let span = elem.span();
-        let frame = ParElem::new(vec![Prehashed::new(elem)])
+        let spaced = text.graphemes(true).nth(1).is_some();
+        let text = TextElem::packed(text).spanned(span);
+        let par = ParElem::new(vec![text]);
+        let frame = Packed::new(par)
             .spanned(span)
-            .layout(
-                self.engine,
-                self.outer.chain(&self.local),
-                false,
-                Size::splat(Abs::inf()),
-                false,
-            )?
+            .layout(self.engine, styles, false, Size::splat(Abs::inf()), false)?
             .into_frame();
 
-        Ok(FrameFragment::new(self, frame)
+        Ok(FrameFragment::new(self, styles, frame)
             .with_class(MathClass::Alphabetic)
+            .with_text_like(true)
             .with_spaced(spaced))
-    }
-
-    pub fn styles(&self) -> StyleChain {
-        self.outer.chain(&self.local)
-    }
-
-    pub fn realize(&mut self, content: &Content) -> SourceResult<Option<Content>> {
-        realize(self.engine, content, self.outer.chain(&self.local))
-    }
-
-    pub fn style(&mut self, style: MathStyle) {
-        self.style_stack.push((self.style, self.size));
-        let base_size = TextElem::size_in(self.styles()) / self.style.size.factor(self);
-        self.size = base_size * style.size.factor(self);
-        self.local.set(TextElem::set_size(TextSize(self.size.into())));
-        self.local
-            .set(TextElem::set_style(if style.italic == Smart::Custom(true) {
-                FontStyle::Italic
-            } else {
-                FontStyle::Normal
-            }));
-        self.local.set(TextElem::set_weight(if style.bold {
-            FontWeight::BOLD
-        } else {
-            // The normal weight is what we started with.
-            // It's 400 for CM Regular, 450 for CM Book.
-            self.font.info().variant.weight
-        }));
-        self.style = style;
-    }
-
-    pub fn unstyle(&mut self) {
-        (self.style, self.size) = self.style_stack.pop().unwrap();
-        self.local.unset();
-        self.local.unset();
-        self.local.unset();
     }
 }
 
 pub(super) trait Scaled {
-    fn scaled(self, ctx: &MathContext) -> Abs;
+    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs;
 }
 
 impl Scaled for i16 {
-    fn scaled(self, ctx: &MathContext) -> Abs {
-        ctx.font.to_em(self).scaled(ctx)
+    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
+        ctx.font.to_em(self).at(font_size)
     }
 }
 
 impl Scaled for u16 {
-    fn scaled(self, ctx: &MathContext) -> Abs {
-        ctx.font.to_em(self).scaled(ctx)
-    }
-}
-
-impl Scaled for Em {
-    fn scaled(self, ctx: &MathContext) -> Abs {
-        self.at(ctx.size)
+    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
+        ctx.font.to_em(self).at(font_size)
     }
 }
 
 impl Scaled for MathValue<'_> {
-    fn scaled(self, ctx: &MathContext) -> Abs {
-        self.value.scaled(ctx)
+    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
+        self.value.scaled(ctx, font_size)
     }
 }
 

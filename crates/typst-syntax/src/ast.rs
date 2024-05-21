@@ -8,9 +8,7 @@ use std::ops::Deref;
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use crate::{
-    is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
-};
+use crate::{is_newline, Span, SyntaxKind, SyntaxNode};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -181,12 +179,14 @@ pub enum Expr<'a> {
     Closure(Closure<'a>),
     /// A let binding: `let x = 1`.
     Let(LetBinding<'a>),
-    //// A destructuring assignment: `(x, y) = (1, 2)`.
+    /// A destructuring assignment: `(x, y) = (1, 2)`.
     DestructAssign(DestructAssignment<'a>),
     /// A set rule: `set text(...)`.
     Set(SetRule<'a>),
     /// A show rule: `show heading: it => emph(it.body)`.
     Show(ShowRule<'a>),
+    /// A contextual expression: `context text.lang`.
+    Contextual(Contextual<'a>),
     /// An if-else conditional: `if x { y } else { z }`.
     Conditional(Conditional<'a>),
     /// A while loop: `while x { y }`.
@@ -264,6 +264,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::DestructAssignment => node.cast().map(Self::DestructAssign),
             SyntaxKind::SetRule => node.cast().map(Self::Set),
             SyntaxKind::ShowRule => node.cast().map(Self::Show),
+            SyntaxKind::Contextual => node.cast().map(Self::Contextual),
             SyntaxKind::Conditional => node.cast().map(Self::Conditional),
             SyntaxKind::WhileLoop => node.cast().map(Self::While),
             SyntaxKind::ForLoop => node.cast().map(Self::For),
@@ -326,6 +327,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::DestructAssign(v) => v.to_untyped(),
             Self::Set(v) => v.to_untyped(),
             Self::Show(v) => v.to_untyped(),
+            Self::Contextual(v) => v.to_untyped(),
             Self::Conditional(v) => v.to_untyped(),
             Self::While(v) => v.to_untyped(),
             Self::For(v) => v.to_untyped(),
@@ -361,6 +363,7 @@ impl Expr<'_> {
                 | Self::Let(_)
                 | Self::Set(_)
                 | Self::Show(_)
+                | Self::Contextual(_)
                 | Self::Conditional(_)
                 | Self::While(_)
                 | Self::For(_)
@@ -553,84 +556,48 @@ node! {
 }
 
 impl<'a> Raw<'a> {
-    /// The trimmed raw text.
-    pub fn text(self) -> EcoString {
-        let mut text = self.0.text().as_str();
-        let blocky = text.starts_with("```");
-        text = text.trim_matches('`');
-
-        // Trim tag, one space at the start, and one space at the end if the
-        // last non-whitespace char is a backtick.
-        if blocky {
-            let mut s = Scanner::new(text);
-            if s.eat_if(is_id_start) {
-                s.eat_while(is_id_continue);
-            }
-            text = s.after();
-            text = text.strip_prefix(' ').unwrap_or(text);
-            if text.trim_end().ends_with('`') {
-                text = text.strip_suffix(' ').unwrap_or(text);
-            }
-        }
-
-        // Split into lines.
-        let mut lines = split_newlines(text);
-
-        if blocky {
-            let dedent = lines
-                .iter()
-                .skip(1)
-                .filter(|line| !line.chars().all(char::is_whitespace))
-                // The line with the closing ``` is always taken into account
-                .chain(lines.last())
-                .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
-                .min()
-                .unwrap_or(0);
-
-            // Dedent based on column, but not for the first line.
-            for line in lines.iter_mut().skip(1) {
-                let offset = line.chars().take(dedent).map(char::len_utf8).sum();
-                *line = &line[offset..];
-            }
-
-            let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
-
-            // Trims a sequence of whitespace followed by a newline at the start.
-            if lines.first().map_or(false, is_whitespace) {
-                lines.remove(0);
-            }
-
-            // Trims a newline followed by a sequence of whitespace at the end.
-            if lines.last().map_or(false, is_whitespace) {
-                lines.pop();
-            }
-        }
-
-        lines.join("\n").into()
+    /// The lines in the raw block.
+    pub fn lines(self) -> impl DoubleEndedIterator<Item = Text<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
-    pub fn lang(self) -> Option<&'a str> {
-        let text = self.0.text();
-
+    pub fn lang(self) -> Option<RawLang<'a>> {
         // Only blocky literals are supposed to contain a language.
-        if !text.starts_with("```") {
+        let delim: RawDelim = self.0.cast_first_match()?;
+        if delim.0.len() < 3 {
             return Option::None;
         }
 
-        let inner = text.trim_start_matches('`');
-        let mut s = Scanner::new(inner);
-        s.eat_if(is_id_start).then(|| {
-            s.eat_while(is_id_continue);
-            s.before()
-        })
+        self.0.cast_first_match()
     }
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(self) -> bool {
-        let text = self.0.text();
-        text.starts_with("```") && text.chars().any(is_newline)
+        self.0
+            .cast_first_match()
+            .is_some_and(|delim: RawDelim| delim.0.len() >= 3)
+            && self.0.children().any(|e| {
+                e.kind() == SyntaxKind::RawTrimmed && e.text().chars().any(is_newline)
+            })
     }
+}
+
+node! {
+    /// A language tag at the start of raw element: ``typ ``.
+    RawLang
+}
+
+impl<'a> RawLang<'a> {
+    /// Get the language tag.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+node! {
+    /// A raw delimiter in single or 3+ backticks: `` ` ``.
+    RawDelim
 }
 
 node! {
@@ -690,7 +657,7 @@ impl<'a> Heading<'a> {
     }
 
     /// The section depth (number of equals signs).
-    pub fn level(self) -> NonZeroUsize {
+    pub fn depth(self) -> NonZeroUsize {
         self.0
             .children()
             .find(|node| node.kind() == SyntaxKind::HeadingMarker)
@@ -877,6 +844,7 @@ node! {
 }
 
 impl MathPrimes<'_> {
+    /// The number of grouped primes.
     pub fn count(self) -> usize {
         self.0
             .children()
@@ -1157,7 +1125,16 @@ node! {
 
 impl<'a> Parenthesized<'a> {
     /// The wrapped expression.
+    ///
+    /// Should only be accessed if this is contained in an `Expr`.
     pub fn expr(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The wrapped pattern.
+    ///
+    /// Should only be accessed if this is contained in a `Pattern`.
+    pub fn pattern(self) -> Pattern<'a> {
         self.0.cast_first_match().unwrap_or_default()
     }
 }
@@ -1180,13 +1157,13 @@ pub enum ArrayItem<'a> {
     /// A bare expression: `12`.
     Pos(Expr<'a>),
     /// A spread expression: `..things`.
-    Spread(Expr<'a>),
+    Spread(Spread<'a>),
 }
 
 impl<'a> AstNode<'a> for ArrayItem<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
+            SyntaxKind::Spread => node.cast().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1219,7 +1196,7 @@ pub enum DictItem<'a> {
     /// A keyed pair: `"spacy key": true`.
     Keyed(Keyed<'a>),
     /// A spread expression: `..things`.
-    Spread(Expr<'a>),
+    Spread(Spread<'a>),
 }
 
 impl<'a> AstNode<'a> for DictItem<'a> {
@@ -1227,7 +1204,7 @@ impl<'a> AstNode<'a> for DictItem<'a> {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Keyed => node.cast().map(Self::Keyed),
-            SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
+            SyntaxKind::Spread => node.cast().map(Self::Spread),
             _ => Option::None,
         }
     }
@@ -1253,13 +1230,19 @@ impl<'a> Named<'a> {
     }
 
     /// The right-hand side of the pair: `3pt`.
+    ///
+    /// This should only be accessed if this `Named` is contained in a
+    /// `DictItem`, `Arg`, or `Param`.
     pub fn expr(self) -> Expr<'a> {
         self.0.cast_last_match().unwrap_or_default()
     }
 
-    /// The right-hand side of the pair as an identifier.
-    pub fn expr_ident(self) -> Option<Ident<'a>> {
-        self.0.cast_last_match()
+    /// The right-hand side of the pair as a pattern.
+    ///
+    /// This should only be accessed if this `Named` is contained in a
+    /// `Destructuring`.
+    pub fn pattern(self) -> Pattern<'a> {
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1275,8 +1258,42 @@ impl<'a> Keyed<'a> {
     }
 
     /// The right-hand side of the pair: `true`.
+    ///
+    /// This should only be accessed if this `Keyed` is contained in a
+    /// `DictItem`.
     pub fn expr(self) -> Expr<'a> {
         self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A spread: `..x` or `..x.at(0)`.
+    Spread
+}
+
+impl<'a> Spread<'a> {
+    /// The spread expression.
+    ///
+    /// This should only be accessed if this `Spread` is contained in an
+    /// `ArrayItem`, `DictItem`, or `Arg`.
+    pub fn expr(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The sink identifier, if present.
+    ///
+    /// This should only be accessed if this `Spread` is contained in a
+    /// `Param` or binding `DestructuringItem`.
+    pub fn sink_ident(self) -> Option<Ident<'a>> {
+        self.0.cast_first_match()
+    }
+
+    /// The sink expressions, if present.
+    ///
+    /// This should only be accessed if this `Spread` is contained in a
+    /// `DestructuringItem`.
+    pub fn sink_expr(self) -> Option<Expr<'a>> {
+        self.0.cast_first_match()
     }
 }
 
@@ -1591,14 +1608,14 @@ pub enum Arg<'a> {
     /// A named argument: `draw: false`.
     Named(Named<'a>),
     /// A spread argument: `..things`.
-    Spread(Expr<'a>),
+    Spread(Spread<'a>),
 }
 
 impl<'a> AstNode<'a> for Arg<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
+            SyntaxKind::Spread => node.cast().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1648,28 +1665,6 @@ impl<'a> Params<'a> {
     }
 }
 
-node! {
-    /// A spread: `..x` or `..x.at(0)`.
-    Spread
-}
-
-impl<'a> Spread<'a> {
-    /// Try to get an identifier.
-    pub fn name(self) -> Option<Ident<'a>> {
-        self.0.cast_first_match()
-    }
-
-    /// Try to get an expression.
-    pub fn expr(self) -> Option<Expr<'a>> {
-        self.0.cast_first_match()
-    }
-}
-
-node! {
-    /// An underscore: `_`
-    Underscore
-}
-
 /// A parameter to a closure.
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum Param<'a> {
@@ -1677,15 +1672,15 @@ pub enum Param<'a> {
     Pos(Pattern<'a>),
     /// A named parameter with a default value: `draw: false`.
     Named(Named<'a>),
-    /// An argument sink: `..args`.
-    Sink(Spread<'a>),
+    /// An argument sink: `..args` or `..`.
+    Spread(Spread<'a>),
 }
 
 impl<'a> AstNode<'a> for Param<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast().map(Self::Sink),
+            SyntaxKind::Spread => node.cast().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1694,62 +1689,7 @@ impl<'a> AstNode<'a> for Param<'a> {
         match self {
             Self::Pos(v) => v.to_untyped(),
             Self::Named(v) => v.to_untyped(),
-            Self::Sink(v) => v.to_untyped(),
-        }
-    }
-}
-
-node! {
-    /// A destructuring pattern: `x` or `(x, _, ..y)`.
-    Destructuring
-}
-
-impl<'a> Destructuring<'a> {
-    /// The bindings of the destructuring.
-    pub fn bindings(self) -> impl DoubleEndedIterator<Item = DestructuringKind<'a>> {
-        self.0.children().filter_map(SyntaxNode::cast)
-    }
-
-    /// Returns a list of all identifiers in the pattern.
-    pub fn idents(self) -> impl DoubleEndedIterator<Item = Ident<'a>> {
-        self.bindings().filter_map(|binding| match binding {
-            DestructuringKind::Normal(Expr::Ident(ident)) => Some(ident),
-            DestructuringKind::Sink(spread) => spread.name(),
-            DestructuringKind::Named(named) => named.expr_ident(),
-            _ => Option::None,
-        })
-    }
-}
-
-/// The kind of an element in a destructuring pattern.
-#[derive(Debug, Copy, Clone, Hash)]
-pub enum DestructuringKind<'a> {
-    /// An expression: `x`.
-    Normal(Expr<'a>),
-    /// An argument sink: `..y`.
-    Sink(Spread<'a>),
-    /// Named arguments: `x: 1`.
-    Named(Named<'a>),
-    /// A placeholder: `_`.
-    Placeholder(Underscore<'a>),
-}
-
-impl<'a> AstNode<'a> for DestructuringKind<'a> {
-    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast().map(Self::Sink),
-            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
-            _ => node.cast().map(Self::Normal),
-        }
-    }
-
-    fn to_untyped(self) -> &'a SyntaxNode {
-        match self {
-            Self::Normal(v) => v.to_untyped(),
-            Self::Named(v) => v.to_untyped(),
-            Self::Sink(v) => v.to_untyped(),
-            Self::Placeholder(v) => v.to_untyped(),
+            Self::Spread(v) => v.to_untyped(),
         }
     }
 }
@@ -1761,6 +1701,8 @@ pub enum Pattern<'a> {
     Normal(Expr<'a>),
     /// A placeholder: `_`.
     Placeholder(Underscore<'a>),
+    /// A parenthesized pattern.
+    Parenthesized(Parenthesized<'a>),
     /// A destructuring pattern: `(x, _, ..y)`.
     Destructuring(Destructuring<'a>),
 }
@@ -1768,8 +1710,9 @@ pub enum Pattern<'a> {
 impl<'a> AstNode<'a> for Pattern<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
             SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
+            SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
+            SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
             _ => node.cast().map(Self::Normal),
         }
     }
@@ -1777,18 +1720,20 @@ impl<'a> AstNode<'a> for Pattern<'a> {
     fn to_untyped(self) -> &'a SyntaxNode {
         match self {
             Self::Normal(v) => v.to_untyped(),
-            Self::Destructuring(v) => v.to_untyped(),
             Self::Placeholder(v) => v.to_untyped(),
+            Self::Parenthesized(v) => v.to_untyped(),
+            Self::Destructuring(v) => v.to_untyped(),
         }
     }
 }
 
 impl<'a> Pattern<'a> {
-    /// Returns a list of all identifiers in the pattern.
-    pub fn idents(self) -> Vec<Ident<'a>> {
+    /// Returns a list of all new bindings introduced by the pattern.
+    pub fn bindings(self) -> Vec<Ident<'a>> {
         match self {
-            Pattern::Normal(Expr::Ident(ident)) => vec![ident],
-            Pattern::Destructuring(destruct) => destruct.idents().collect(),
+            Self::Normal(Expr::Ident(ident)) => vec![ident],
+            Self::Parenthesized(v) => v.pattern().bindings(),
+            Self::Destructuring(v) => v.bindings(),
             _ => vec![],
         }
     }
@@ -1797,6 +1742,65 @@ impl<'a> Pattern<'a> {
 impl Default for Pattern<'_> {
     fn default() -> Self {
         Self::Normal(Expr::default())
+    }
+}
+
+node! {
+    /// An underscore: `_`
+    Underscore
+}
+
+node! {
+    /// A destructuring pattern: `x` or `(x, _, ..y)`.
+    Destructuring
+}
+
+impl<'a> Destructuring<'a> {
+    /// The items of the destructuring.
+    pub fn items(self) -> impl DoubleEndedIterator<Item = DestructuringItem<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+
+    /// Returns a list of all new bindings introduced by the destructuring.
+    pub fn bindings(self) -> Vec<Ident<'a>> {
+        self.items()
+            .flat_map(|binding| match binding {
+                DestructuringItem::Pattern(pattern) => pattern.bindings(),
+                DestructuringItem::Named(named) => named.pattern().bindings(),
+                DestructuringItem::Spread(spread) => {
+                    spread.sink_ident().into_iter().collect()
+                }
+            })
+            .collect()
+    }
+}
+
+/// The kind of an element in a destructuring pattern.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum DestructuringItem<'a> {
+    /// A sub-pattern: `x`.
+    Pattern(Pattern<'a>),
+    /// A renamed destructuring: `x: y`.
+    Named(Named<'a>),
+    /// A destructuring sink: `..y` or `..`.
+    Spread(Spread<'a>),
+}
+
+impl<'a> AstNode<'a> for DestructuringItem<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Named => node.cast().map(Self::Named),
+            SyntaxKind::Spread => node.cast().map(Self::Spread),
+            _ => node.cast().map(Self::Pattern),
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            Self::Pattern(v) => v.to_untyped(),
+            Self::Named(v) => v.to_untyped(),
+            Self::Spread(v) => v.to_untyped(),
+        }
     }
 }
 
@@ -1815,13 +1819,11 @@ pub enum LetBindingKind<'a> {
 }
 
 impl<'a> LetBindingKind<'a> {
-    /// Returns a list of all identifiers in the pattern.
-    pub fn idents(self) -> Vec<Ident<'a>> {
+    /// Returns a list of all new bindings introduced by the let binding.
+    pub fn bindings(self) -> Vec<Ident<'a>> {
         match self {
-            LetBindingKind::Normal(pattern) => pattern.idents(),
-            LetBindingKind::Closure(ident) => {
-                vec![ident]
-            }
+            LetBindingKind::Normal(pattern) => pattern.bindings(),
+            LetBindingKind::Closure(ident) => vec![ident],
         }
     }
 }
@@ -1840,7 +1842,7 @@ impl<'a> LetBinding<'a> {
     /// The expression the binding is initialized with.
     pub fn init(self) -> Option<Expr<'a>> {
         match self.kind() {
-            LetBindingKind::Normal(Pattern::Normal(_)) => {
+            LetBindingKind::Normal(Pattern::Normal(_) | Pattern::Parenthesized(_)) => {
                 self.0.children().filter_map(SyntaxNode::cast).nth(1)
             }
             LetBindingKind::Normal(_) => self.0.cast_first_match(),
@@ -1913,6 +1915,18 @@ impl<'a> ShowRule<'a> {
 }
 
 node! {
+    /// A contextual expression: `context text.lang`.
+    Contextual
+}
+
+impl<'a> Contextual<'a> {
+    /// The expression which depends on the context.
+    pub fn body(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+}
+
+node! {
     /// An if-else conditional: `if x { y } else { z }`.
     Conditional
 }
@@ -1967,7 +1981,7 @@ impl<'a> ForLoop<'a> {
     }
 
     /// The expression to iterate over.
-    pub fn iter(self) -> Expr<'a> {
+    pub fn iterable(self) -> Expr<'a> {
         self.0
             .children()
             .skip_while(|&c| c.kind() != SyntaxKind::In)

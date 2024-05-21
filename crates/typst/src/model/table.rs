@@ -1,32 +1,68 @@
-use crate::diag::SourceResult;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+
+use ecow::{eco_format, EcoString};
+
+use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Smart, StyleChain};
+use crate::foundations::{
+    cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
+};
 use crate::layout::{
-    apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, GridLayouter, Layout,
-    Length, Regions, Rel, Sides, TrackSizings,
+    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
+    GridCell, GridFooter, GridHLine, GridHeader, GridLayouter, GridVLine, LayoutMultiple,
+    Length, LinePosition, OuterHAlignment, OuterVAlignment, Regions, Rel, ResolvableCell,
+    ResolvableGridChild, ResolvableGridItem, Sides, TrackSizings,
 };
 use crate::model::Figurable;
-use crate::text::{Lang, LocalName, Region};
+use crate::syntax::Span;
+use crate::text::{LocalName, TextElem};
+use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// A table of items.
 ///
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
-/// Because tables are just grids with configurable cell properties, refer to
-/// the [grid documentation]($grid) for more information on how to size the
-/// table tracks.
+/// For a hands-on explanation of all the ways you can use and customize tables
+/// in Typst, check out the [table guide]($guides/table-guide).
+///
+/// Because tables are just grids with different defaults for some cell
+/// properties (notably `stroke` and `inset`), refer to the [grid
+/// documentation]($grid) for more information on how to size the table tracks
+/// and specify the cell appearance properties.
+///
+/// If you are unsure whether you should be using a table or a grid, consider
+/// whether the content you are arranging semantically belongs together as a set
+/// of related data points or similar or whether you are just want to enhance
+/// your presentation by arranging unrelated content in a grid. In the former
+/// case, a table is the right choice, while in the latter case, a grid is more
+/// appropriate. Furthermore, Typst will annotate its output in the future such
+/// that screenreaders will annouce content in `table` as tabular while a grid's
+/// content will be announced no different than multiple content blocks in the
+/// document flow.
+///
+/// Note that, to override a particular cell's properties or apply show rules on
+/// table cells, you can use the [`table.cell`]($table.cell) element. See its
+/// documentation for more information.
+///
+/// Although the `table` and the `grid` share most properties, set and show
+/// rules on one of them do not affect the other.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
-/// [figure]($figure).
+/// [figure].
 ///
 /// # Example
+///
+/// The example below demonstrates some of the most common table options.
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
 ///   inset: 10pt,
 ///   align: horizon,
-///   [], [*Area*], [*Parameters*],
+///   table.header(
+///     [], [*Area*], [*Parameters*],
+///   ),
 ///   image("cylinder.svg"),
 ///   $ pi h (D^2 - d^2) / 4 $,
 ///   [
@@ -39,7 +75,52 @@ use crate::visualize::{Paint, Stroke};
 ///   [$a$: edge length]
 /// )
 /// ```
-#[elem(Layout, LocalName, Figurable)]
+///
+/// Much like with grids, you can use [`table.cell`]($table.cell) to customize
+/// the appearance and the position of each cell.
+///
+/// ```example
+/// >>> #set page(width: auto)
+/// >>> #set text(font: "IBM Plex Sans")
+/// >>> #let gray = rgb("#565565")
+/// >>>
+/// #set table(
+///   stroke: none,
+///   gutter: 0.2em,
+///   fill: (x, y) =>
+///     if x == 0 or y == 0 { gray },
+///   inset: (right: 1.5em),
+/// )
+///
+/// #show table.cell: it => {
+///   if it.x == 0 or it.y == 0 {
+///     set text(white)
+///     strong(it)
+///   } else if it.body == [] {
+///     // Replace empty cells with 'N/A'
+///     pad(..it.inset)[_N/A_]
+///   } else {
+///     it
+///   }
+/// }
+///
+/// #let a = table.cell(
+///   fill: green.lighten(60%),
+/// )[A]
+/// #let b = table.cell(
+///   fill: aqua.lighten(60%),
+/// )[B]
+///
+/// #table(
+///   columns: 4,
+///   [], [Exam 1], [Exam 2], [Exam 3],
+///
+///   [John], [], a, [],
+///   [Mary], [], a, a,
+///   [Robert], b, a, b,
+/// )
+/// ```
+#[elem(scope, LayoutMultiple, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
@@ -51,8 +132,8 @@ pub struct TableElem {
     #[borrowed]
     pub rows: TrackSizings,
 
-    /// The gaps between rows & columns. See the [grid documentation]($grid) for
-    /// more information on gutters.
+    /// The gaps between rows and columns. See the [grid documentation]($grid)
+    /// for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
@@ -73,16 +154,18 @@ pub struct TableElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function is
-    /// passed the cells' column and row index, starting at zero. This can be
-    /// used to implement striped tables.
+    /// This can be a color or a function that returns a color. The function
+    /// receives the cells' column and row indices, starting from zero. This can
+    /// be used to implement striped tables.
     ///
     /// ```example
     /// #table(
-    ///   fill: (col, _) => if calc.odd(col) { luma(240) } else { white },
-    ///   align: (col, row) =>
-    ///     if row == 0 { center }
-    ///     else if col == 0 { left }
+    ///   fill: (x, _) =>
+    ///     if calc.odd(x) { luma(240) }
+    ///     else { white },
+    ///   align: (x, y) =>
+    ///     if y == 0 { center }
+    ///     else if x == 0 { left }
     ///     else { right },
     ///   columns: 4,
     ///   [], [*Q1*], [*Q2*], [*Q3*],
@@ -98,31 +181,36 @@ pub struct TableElem {
     ///
     /// This can either be a single alignment, an array of alignments
     /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cells' column and row index, starting at zero.
-    /// If set to `{auto}`, the outer alignment is used.
+    /// The function receives the cells' column and row indices, starting from
+    /// zero. If set to `{auto}`, the outer alignment is used.
     ///
     /// ```example
     /// #table(
     ///   columns: 3,
-    ///   align: (x, y) => (left, center, right).at(x),
+    ///   align: (left, center, right),
     ///   [Hello], [Hello], [Hello],
     ///   [A], [B], [C],
     /// )
     /// ```
     #[borrowed]
-    pub align: Celled<Smart<Align>>,
+    pub align: Celled<Smart<Alignment>>,
 
-    /// How to [stroke]($stroke) the cells.
+    /// How to [stroke] the cells.
     ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
-    /// _Note:_ Richer stroke customization for individual cells is not yet
-    /// implemented, but will be in the future. In the meantime, you can use the
-    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
+    /// If it is necessary to place lines which can cross spacing between cells
+    /// produced by the `gutter` option, or to override the stroke between
+    /// multiple specific cells, consider specifying one or more of
+    /// [`table.hline`]($table.hline) and [`table.vline`]($table.vline)
+    /// alongside your table cells.
+    ///
+    /// See the [grid documentation]($grid.stroke) for more information on
+    /// strokes.
     #[resolve]
     #[fold]
-    #[default(Some(Stroke::default()))]
-    pub stroke: Option<Stroke>,
+    #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
+    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// How much to pad the cells' content.
     ///
@@ -144,16 +232,36 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
-    pub inset: Sides<Option<Rel<Length>>>,
+    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
-    /// The contents of the table cells.
+    /// The contents of the table cells, plus any extra table lines specified
+    /// with the [`table.hline`]($table.hline) and
+    /// [`table.vline`]($table.vline) elements.
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<TableChild>,
 }
 
-impl Layout for TableElem {
-    #[tracing::instrument(name = "TableElem::layout", skip_all)]
+#[scope]
+impl TableElem {
+    #[elem]
+    type TableCell;
+
+    #[elem]
+    type TableHLine;
+
+    #[elem]
+    type TableVLine;
+
+    #[elem]
+    type TableHeader;
+
+    #[elem]
+    type TableFooter;
+}
+
+impl LayoutMultiple for Packed<TableElem> {
+    #[typst_macros::time(name = "table", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -167,63 +275,618 @@ impl Layout for TableElem {
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+        let stroke = self.stroke(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let cells =
-            apply_align_inset_to_cells(engine, &tracks, self.children(), align, inset)?;
-
-        // Prepare grid layout by unifying content and gutter tracks.
-        let layouter = GridLayouter::new(
+        // Use trace to link back to the table when a specific cell errors
+        let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
+        let resolve_item = |item: &TableItem| item.to_resolvable(styles);
+        let children = self.children().iter().map(|child| match child {
+            TableChild::Header(header) => ResolvableGridChild::Header {
+                repeat: header.repeat(styles),
+                span: header.span(),
+                items: header.children().iter().map(resolve_item),
+            },
+            TableChild::Footer(footer) => ResolvableGridChild::Footer {
+                repeat: footer.repeat(styles),
+                span: footer.span(),
+                items: footer.children().iter().map(resolve_item),
+            },
+            TableChild::Item(item) => {
+                ResolvableGridChild::Item(item.to_resolvable(styles))
+            }
+        });
+        let grid = CellGrid::resolve(
             tracks,
             gutter,
-            &cells,
+            children,
             fill,
+            align,
+            &inset,
             &stroke,
-            regions,
+            engine,
             styles,
             self.span(),
-        );
+        )
+        .trace(engine.world, tracepoint, self.span())?;
 
-        Ok(layouter.layout(engine)?.fragment)
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
+        layouter.layout(engine)
     }
 }
 
-impl LocalName for TableElem {
-    fn local_name(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::ALBANIAN => "Tabel",
-            Lang::ARABIC => "جدول",
-            Lang::BOKMÅL => "Tabell",
-            Lang::CHINESE => "表",
-            Lang::CZECH => "Tabulka",
-            Lang::DANISH => "Tabel",
-            Lang::DUTCH => "Tabel",
-            Lang::ESTONIAN => "Tabel",
-            Lang::FILIPINO => "Talaan",
-            Lang::FINNISH => "Taulukko",
-            Lang::FRENCH => "Tableau",
-            Lang::GERMAN => "Tabelle",
-            Lang::GREEK => "Πίνακας",
-            Lang::HUNGARIAN => "Táblázat",
-            Lang::ITALIAN => "Tabella",
-            Lang::NYNORSK => "Tabell",
-            Lang::POLISH => "Tabela",
-            Lang::PORTUGUESE => "Tabela",
-            Lang::ROMANIAN => "Tabelul",
-            Lang::RUSSIAN => "Таблица",
-            Lang::SERBIAN => "Табела",
-            Lang::SLOVENIAN => "Tabela",
-            Lang::SPANISH => "Tabla",
-            Lang::SWEDISH => "Tabell",
-            Lang::TURKISH => "Tablo",
-            Lang::UKRAINIAN => "Таблиця",
-            Lang::VIETNAMESE => "Bảng",
-            Lang::JAPANESE => "表",
-            Lang::ENGLISH | _ => "Table",
+impl LocalName for Packed<TableElem> {
+    const KEY: &'static str = "table";
+}
+
+impl Figurable for Packed<TableElem> {}
+
+/// Any child of a table element.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub enum TableChild {
+    Header(Packed<TableHeader>),
+    Footer(Packed<TableFooter>),
+    Item(TableItem),
+}
+
+cast! {
+    TableChild,
+    self => match self {
+        Self::Header(header) => header.into_value(),
+        Self::Footer(footer) => footer.into_value(),
+        Self::Item(item) => item.into_value(),
+    },
+    v: Content => {
+        v.try_into()?
+    },
+}
+
+impl TryFrom<Content> for TableChild {
+    type Error = EcoString;
+
+    fn try_from(value: Content) -> StrResult<Self> {
+        if value.is::<GridHeader>() {
+            bail!(
+                "cannot use `grid.header` as a table header; use `table.header` instead"
+            )
+        }
+        if value.is::<GridFooter>() {
+            bail!(
+                "cannot use `grid.footer` as a table footer; use `table.footer` instead"
+            )
+        }
+
+        value
+            .into_packed::<TableHeader>()
+            .map(Self::Header)
+            .or_else(|value| value.into_packed::<TableFooter>().map(Self::Footer))
+            .or_else(|value| TableItem::try_from(value).map(Self::Item))
+    }
+}
+
+/// A table item, which is the basic unit of table specification.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub enum TableItem {
+    HLine(Packed<TableHLine>),
+    VLine(Packed<TableVLine>),
+    Cell(Packed<TableCell>),
+}
+
+impl TableItem {
+    fn to_resolvable(&self, styles: StyleChain) -> ResolvableGridItem<Packed<TableCell>> {
+        match self {
+            Self::HLine(hline) => ResolvableGridItem::HLine {
+                y: hline.y(styles),
+                start: hline.start(styles),
+                end: hline.end(styles),
+                stroke: hline.stroke(styles),
+                span: hline.span(),
+                position: match hline.position(styles) {
+                    OuterVAlignment::Top => LinePosition::Before,
+                    OuterVAlignment::Bottom => LinePosition::After,
+                },
+            },
+            Self::VLine(vline) => ResolvableGridItem::VLine {
+                x: vline.x(styles),
+                start: vline.start(styles),
+                end: vline.end(styles),
+                stroke: vline.stroke(styles),
+                span: vline.span(),
+                position: match vline.position(styles) {
+                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::After
+                    }
+                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::Start | OuterHAlignment::Left => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
+                },
+            },
+            Self::Cell(cell) => ResolvableGridItem::Cell(cell.clone()),
         }
     }
 }
 
-impl Figurable for TableElem {}
+cast! {
+    TableItem,
+    self => match self {
+        Self::HLine(hline) => hline.into_value(),
+        Self::VLine(vline) => vline.into_value(),
+        Self::Cell(cell) => cell.into_value(),
+    },
+    v: Content => {
+        v.try_into()?
+    },
+}
+
+impl TryFrom<Content> for TableItem {
+    type Error = EcoString;
+
+    fn try_from(value: Content) -> StrResult<Self> {
+        if value.is::<GridHeader>() {
+            bail!("cannot place a grid header within another header or footer");
+        }
+        if value.is::<TableHeader>() {
+            bail!("cannot place a table header within another header or footer");
+        }
+        if value.is::<GridFooter>() {
+            bail!("cannot place a grid footer within another footer or header");
+        }
+        if value.is::<TableFooter>() {
+            bail!("cannot place a table footer within another footer or header");
+        }
+        if value.is::<GridCell>() {
+            bail!("cannot use `grid.cell` as a table cell; use `table.cell` instead");
+        }
+        if value.is::<GridHLine>() {
+            bail!("cannot use `grid.hline` as a table line; use `table.hline` instead");
+        }
+        if value.is::<GridVLine>() {
+            bail!("cannot use `grid.vline` as a table line; use `table.vline` instead");
+        }
+
+        Ok(value
+            .into_packed::<TableHLine>()
+            .map(Self::HLine)
+            .or_else(|value| value.into_packed::<TableVLine>().map(Self::VLine))
+            .or_else(|value| value.into_packed::<TableCell>().map(Self::Cell))
+            .unwrap_or_else(|value| {
+                let span = value.span();
+                Self::Cell(Packed::new(TableCell::new(value)).spanned(span))
+            }))
+    }
+}
+
+/// A repeatable table header.
+///
+/// You should wrap your tables' heading rows in this function even if you do not
+/// plan to wrap your table across pages because Typst will use this function to
+/// attach accessibility metadata to tables in the future and ensure universal
+/// access to your document.
+///
+/// You can use the `repeat` parameter to control whether your table's header
+/// will be repeated across pages.
+///
+/// ```example
+/// #set page(height: 11.5em)
+/// #set table(
+///   fill: (x, y) =>
+///     if x == 0 or y == 0 {
+///       gray.lighten(40%)
+///     },
+///   align: right,
+/// )
+///
+/// #show table.cell.where(x: 0): strong
+/// #show table.cell.where(y: 0): strong
+///
+/// #table(
+///   columns: 4,
+///   table.header(
+///     [], [Blue chip],
+///     [Fresh IPO], [Penny st'k],
+///   ),
+///   table.cell(
+///     rowspan: 6,
+///     align: horizon,
+///     rotate(-90deg, reflow: true)[
+///       *USD / day*
+///     ],
+///   ),
+///   [0.20], [104], [5],
+///   [3.17], [108], [4],
+///   [1.59], [84],  [1],
+///   [0.26], [98],  [15],
+///   [0.01], [195], [4],
+///   [7.34], [57],  [2],
+/// )
+/// ```
+#[elem(name = "header", title = "Table Header")]
+pub struct TableHeader {
+    /// Whether this header should be repeated across pages.
+    #[default(true)]
+    pub repeat: bool,
+
+    /// The cells and lines within the header.
+    #[variadic]
+    pub children: Vec<TableItem>,
+}
+
+/// A repeatable table footer.
+///
+/// Just like the [`table.header`]($table.header) element, the footer can repeat
+/// itself on every page of the table. This is useful for improving legibility
+/// by adding the column labels in both the header and footer of a large table,
+/// totals, or other information that should be visible on every page.
+///
+/// No other table cells may be placed after the footer.
+#[elem(name = "footer", title = "Table Footer")]
+pub struct TableFooter {
+    /// Whether this footer should be repeated across pages.
+    #[default(true)]
+    pub repeat: bool,
+
+    /// The cells and lines within the footer.
+    #[variadic]
+    pub children: Vec<TableItem>,
+}
+
+/// A horizontal line in the table.
+///
+/// Overrides any per-cell stroke, including stroke specified through the
+/// table's `stroke` field. Can cross spacing between cells created through the
+/// table's [`column-gutter`]($table.column-gutter) option.
+///
+/// Use this function instead of the table's `stroke` field if you want to
+/// manually place a horizontal line at a specific position in a single table.
+/// Consider using [table's `stroke`]($table.stroke) field or [`table.cell`'s
+/// `stroke`]($table.cell.stroke) field instead if the line you want to place is
+/// part of all your tables' designs.
+///
+/// ```example
+/// #set table.hline(stroke: .6pt)
+///
+/// #table(
+///   stroke: none,
+///   columns: (auto, 1fr),
+///   [09:00], [Badge pick up],
+///   [09:45], [Opening Keynote],
+///   [10:30], [Talk: Typst's Future],
+///   [11:15], [Session: Good PRs],
+///   table.hline(start: 1),
+///   [Noon], [_Lunch break_],
+///   table.hline(start: 1),
+///   [14:00], [Talk: Tracked Layout],
+///   [15:00], [Talk: Automations],
+///   [16:00], [Workshop: Tables],
+///   table.hline(),
+///   [19:00], [Day 1 Attendee Mixer],
+/// )
+/// ```
+#[elem(name = "hline", title = "Table Horizontal Line")]
+pub struct TableHLine {
+    /// The row above which the horizontal line is placed (zero-indexed).
+    /// Functions identically to the `y` field in [`grid.hline`]($grid.hline.y).
+    pub y: Smart<usize>,
+
+    /// The column at which the horizontal line starts (zero-indexed, inclusive).
+    pub start: usize,
+
+    /// The column before which the horizontal line ends (zero-indexed,
+    /// exclusive).
+    pub end: Option<NonZeroUsize>,
+
+    /// The line's stroke.
+    ///
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including hlines or per-cell stroke below it.
+    #[resolve]
+    #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
+    pub stroke: Option<Arc<Stroke>>,
+
+    /// The position at which the line is placed, given its row (`y`) - either
+    /// `{top}` to draw above it or `{bottom}` to draw below it.
+    ///
+    /// This setting is only relevant when row gutter is enabled (and
+    /// shouldn't be used otherwise - prefer just increasing the `y` field by
+    /// one instead), since then the position below a row becomes different
+    /// from the position above the next row due to the spacing between both.
+    #[default(OuterVAlignment::Top)]
+    pub position: OuterVAlignment,
+}
+
+/// A vertical line in the table. See the docs for [`grid.vline`]($grid.vline)
+/// for more information regarding how to use this element's fields.
+///
+/// Overrides any per-cell stroke, including stroke specified through the
+/// table's `stroke` field. Can cross spacing between cells created through the
+/// table's [`row-gutter`]($table.row-gutter) option.
+///
+/// Similar to [`table.hline`]($table.hline), use this function if you want to
+/// manually place a vertical line at a specific position in a single table and
+/// use the [table's `stroke`]($table.stroke) field or [`table.cell`'s
+/// `stroke`]($table.cell.stroke) field instead if the line you want to place is
+/// part of all your tables' designs.
+#[elem(name = "vline", title = "Table Vertical Line")]
+pub struct TableVLine {
+    /// The column before which the horizontal line is placed (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
+    pub x: Smart<usize>,
+
+    /// The row at which the vertical line starts (zero-indexed, inclusive).
+    pub start: usize,
+
+    /// The row on top of which the vertical line ends (zero-indexed,
+    /// exclusive).
+    pub end: Option<NonZeroUsize>,
+
+    /// The line's stroke.
+    ///
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including vlines or per-cell stroke below it.
+    #[resolve]
+    #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
+    pub stroke: Option<Arc<Stroke>>,
+
+    /// The position at which the line is placed, given its column (`x`) -
+    /// either `{start}` to draw before it or `{end}` to draw after it.
+    ///
+    /// The values `{left}` and `{right}` are also accepted, but discouraged as
+    /// they cause your table to be inconsistent between left-to-right and
+    /// right-to-left documents.
+    ///
+    /// This setting is only relevant when column gutter is enabled (and
+    /// shouldn't be used otherwise - prefer just increasing the `x` field by
+    /// one instead), since then the position after a column becomes different
+    /// from the position before the next column due to the spacing between
+    /// both.
+    #[default(OuterHAlignment::Start)]
+    pub position: OuterHAlignment,
+}
+
+/// A cell in the table. Use this to position a cell manually or to apply
+/// styling. To do the latter, you can either use the function to override the
+/// properties for a particular cell, or use it in show rules to apply certain
+/// styles to multiple cells at once.
+///
+/// Perhaps the most important use case of `{table.cell}` is to make a cell span
+/// multiple columns and/or rows with the `colspan` and `rowspan` fields.
+///
+/// ```example
+/// >>> #set page(width: auto)
+/// >>> #show table.cell.where(y: 0): strong
+/// >>> #set table(
+/// >>>   stroke: (x, y) => if y == 0 {
+/// >>>     (bottom: 0.7pt + black)
+/// >>>   },
+/// >>>   align: (x, y) =>
+/// >>>     if x > 0 { center }
+/// >>>     else { left }
+/// >>> )
+/// #table(
+///   columns: 3,
+///   table.header(
+///     [Substance],
+///     [Subcritical °C],
+///     [Supercritical °C],
+///   ),
+///   [Hydrochloric Acid],
+///   [12.0], [92.1],
+///   [Sodium Myreth Sulfate],
+///   [16.6], [104],
+///   [Potassium Hydroxide],
+///   table.cell(colspan: 2)[24.7],
+/// )
+/// ```
+///
+/// For example, you can override the fill, alignment or inset for a single
+/// cell:
+///
+/// ```example
+/// >>> #set page(width: auto)
+/// // You can also import those.
+/// #import table: cell, header
+///
+/// #table(
+///   columns: 2,
+///   align: center,
+///   header(
+///     [*Trip progress*],
+///     [*Itinerary*],
+///   ),
+///   cell(
+///     align: right,
+///     fill: fuchsia.lighten(80%),
+///     [🚗],
+///   ),
+///   [Get in, folks!],
+///   [🚗], [Eat curbside hotdog],
+///   cell(align: left)[🌴🚗],
+///   cell(
+///     inset: 0.06em,
+///     text(1.62em)[🛖🌅🌊],
+///   ),
+/// )
+/// ```
+///
+/// You may also apply a show rule on `table.cell` to style all cells at once.
+/// Combined with selectors, this allows you to apply styles based on a cell's
+/// position:
+///
+/// ```example
+/// #show table.cell.where(x: 0): strong
+///
+/// #table(
+///   columns: 3,
+///   gutter: 3pt,
+///   [Name], [Age], [Strength],
+///   [Hannes], [36], [Grace],
+///   [Irma], [50], [Resourcefulness],
+///   [Vikram], [49], [Perseverance],
+/// )
+/// ```
+#[elem(name = "cell", title = "Table Cell", Show)]
+pub struct TableCell {
+    /// The cell's body.
+    #[required]
+    pub body: Content,
+
+    /// The cell's column (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
+    pub x: Smart<usize>,
+
+    /// The cell's row (zero-indexed).
+    /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
+    pub y: Smart<usize>,
+
+    /// The amount of columns spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    pub colspan: NonZeroUsize,
+
+    /// The amount of rows spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    rowspan: NonZeroUsize,
+
+    /// The cell's [fill]($table.fill) override.
+    pub fill: Smart<Option<Paint>>,
+
+    /// The cell's [alignment]($table.align) override.
+    pub align: Smart<Alignment>,
+
+    /// The cell's [inset]($table.inset) override.
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+
+    /// The cell's [stroke]($table.stroke) override.
+    #[resolve]
+    #[fold]
+    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    /// Whether rows spanned by this cell can be placed in different pages.
+    /// When equal to `{auto}`, a cell spanning only fixed-size rows is
+    /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
+    /// breakable.
+    pub breakable: Smart<bool>,
+}
+
+cast! {
+    TableCell,
+    v: Content => v.into(),
+}
+
+impl Default for Packed<TableCell> {
+    fn default() -> Self {
+        Packed::new(TableCell::new(Content::default()))
+    }
+}
+
+impl ResolvableCell for Packed<TableCell> {
+    fn resolve_cell(
+        mut self,
+        x: usize,
+        y: usize,
+        fill: &Option<Paint>,
+        align: Smart<Alignment>,
+        inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        breakable: bool,
+        styles: StyleChain,
+    ) -> Cell {
+        let cell = &mut *self;
+        let colspan = cell.colspan(styles);
+        let rowspan = cell.rowspan(styles);
+        let breakable = cell.breakable(styles).unwrap_or(breakable);
+        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+
+        let cell_stroke = cell.stroke(styles);
+        let stroke_overridden =
+            cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
+
+        // Using a typical 'Sides' fold, an unspecified side loses to a
+        // specified side. Additionally, when both are specified, an inner
+        // None wins over the outer Some, and vice-versa. When both are
+        // specified and Some, fold occurs, which, remarkably, leads to an Arc
+        // clone.
+        //
+        // In the end, we flatten because, for layout purposes, an unspecified
+        // cell stroke is the same as specifying 'none', so we equate the two
+        // concepts.
+        let stroke = cell_stroke.fold(stroke).map(Option::flatten);
+        cell.push_x(Smart::Custom(x));
+        cell.push_y(Smart::Custom(y));
+        cell.push_fill(Smart::Custom(fill.clone()));
+        cell.push_align(match align {
+            Smart::Custom(align) => {
+                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
+            }
+            // Don't fold if the table is using outer alignment. Use the
+            // cell's alignment instead (which, in the end, will fold with
+            // the outer alignment when it is effectively displayed).
+            Smart::Auto => cell.align(styles),
+        });
+        cell.push_inset(Smart::Custom(
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
+        ));
+        cell.push_stroke(
+            // Here we convert the resolved stroke to a regular stroke, however
+            // with resolved units (that is, 'em' converted to absolute units).
+            // We also convert any stroke unspecified by both the cell and the
+            // outer stroke ('None' in the folded stroke) to 'none', that is,
+            // all sides are present in the resulting Sides object accessible
+            // by show rules on table cells.
+            stroke.as_ref().map(|side| {
+                Some(side.as_ref().map(|cell_stroke| {
+                    Arc::new((**cell_stroke).clone().map(Length::from))
+                }))
+            }),
+        );
+        cell.push_breakable(Smart::Custom(breakable));
+        Cell {
+            body: self.pack(),
+            fill,
+            colspan,
+            rowspan,
+            stroke,
+            stroke_overridden,
+            breakable,
+        }
+    }
+
+    fn x(&self, styles: StyleChain) -> Smart<usize> {
+        (**self).x(styles)
+    }
+
+    fn y(&self, styles: StyleChain) -> Smart<usize> {
+        (**self).y(styles)
+    }
+
+    fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
+        (**self).colspan(styles)
+    }
+
+    fn rowspan(&self, styles: StyleChain) -> NonZeroUsize {
+        (**self).rowspan(styles)
+    }
+
+    fn span(&self) -> Span {
+        Packed::span(self)
+    }
+}
+
+impl Show for Packed<TableCell> {
+    fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+    }
+}
+
+impl From<Content> for TableCell {
+    fn from(value: Content) -> Self {
+        #[allow(clippy::unwrap_or_default)]
+        value.unpack::<Self>().unwrap_or_else(Self::new)
+    }
+}

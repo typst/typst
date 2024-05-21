@@ -1,34 +1,38 @@
-use comemo::Prehashed;
+//! Layout flows.
+//!
+//! A *flow* is a collection of block-level layoutable elements.
+//! This is analogous to a paragraph, which is a collection of
+//! inline-level layoutable elements.
+
+use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain, StyledElem,
+};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlign, Fr, Fragment,
-    Frame, FrameItem, Layout, PlaceElem, Point, Regions, Rel, Size, Spacing, VAlign,
-    VElem,
+    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
+    Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
+    Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
-use crate::util::Numeric;
-use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
-    SquareElem,
-};
+use crate::utils::Numeric;
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
 /// This element is responsible for layouting both the top-level content flow
 /// and the contents of boxes.
-#[elem(Layout)]
+#[elem(Debug, LayoutMultiple)]
 pub struct FlowElem {
-    /// The children that will be arranges into a flow.
+    /// The children that will be arranged into a flow.
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
-impl Layout for FlowElem {
-    #[tracing::instrument(name = "FlowElem::layout", skip_all)]
+impl LayoutMultiple for Packed<FlowElem> {
+    #[typst_macros::time(name = "flow", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -41,55 +45,46 @@ impl Layout for FlowElem {
         if !regions.size.y.is_finite() && regions.expand.y {
             bail!(self.span(), "cannot expand into infinite height");
         }
-        let mut layouter = FlowLayouter::new(regions, styles);
 
-        for mut child in self.children().iter().map(|c| &**c) {
+        let mut layouter = FlowLayouter::new(regions, styles);
+        for mut child in self.children().iter() {
             let outer = styles;
             let mut styles = styles;
-            if let Some((elem, map)) = child.to_styled() {
-                child = elem;
-                styles = outer.chain(map);
+            if let Some(styled) = child.to_packed::<StyledElem>() {
+                child = &styled.child;
+                styles = outer.chain(&styled.styles);
             }
 
-            if let Some(elem) = child.to::<VElem>() {
+            if child.is::<MetaElem>() {
+                layouter.layout_meta(styles);
+            } else if let Some(elem) = child.to_packed::<VElem>() {
                 layouter.layout_spacing(engine, elem, styles)?;
-            } else if let Some(elem) = child.to::<ParElem>() {
-                layouter.layout_par(engine, elem, styles)?;
-            } else if child.is::<LineElem>()
-                || child.is::<RectElem>()
-                || child.is::<SquareElem>()
-                || child.is::<EllipseElem>()
-                || child.is::<CircleElem>()
-                || child.is::<ImageElem>()
-                || child.is::<PolygonElem>()
-                || child.is::<PathElem>()
-            {
-                let layoutable = child.with::<dyn Layout>().unwrap();
-                layouter.layout_single(engine, layoutable, styles)?;
-            } else if child.is::<MetaElem>() {
-                let mut frame = Frame::soft(Size::zero());
-                frame.meta(styles, true);
-                layouter.items.push(FlowItem::Frame {
-                    frame,
-                    align: Axes::splat(FixedAlign::Start),
-                    sticky: true,
-                    movable: false,
-                });
-            } else if let Some(placed) = child.to::<PlaceElem>() {
+            } else if let Some(placed) = child.to_packed::<PlaceElem>() {
                 layouter.layout_placed(engine, placed, styles)?;
-            } else if child.can::<dyn Layout>() {
-                layouter.layout_multiple(engine, child, styles)?;
             } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
                     layouter.finish_region(engine, true)?;
                 }
+            } else if let Some(elem) = child.to_packed::<ParElem>() {
+                layouter.layout_par(engine, elem, styles)?;
+            } else if let Some(layoutable) = child.with::<dyn LayoutSingle>() {
+                layouter.layout_single(engine, layoutable, styles)?;
+            } else if child.can::<dyn LayoutMultiple>() {
+                layouter.layout_multiple(engine, child, styles)?;
             } else {
                 bail!(child.span(), "unexpected flow child");
             }
         }
 
         layouter.finish(engine)
+    }
+}
+
+impl Debug for FlowElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Flow ")?;
+        f.debug_list().entries(&self.children).finish()
     }
 }
 
@@ -107,10 +102,12 @@ struct FlowLayouter<'a> {
     /// subtracting.
     initial: Size,
     /// Whether the last block was a paragraph.
+    ///
+    /// Used for indenting paragraphs after the first in a block.
     last_was_par: bool,
     /// Spacing and layouted blocks for the current region.
     items: Vec<FlowItem>,
-    /// A queue of floats.
+    /// A queue of floating elements.
     pending_floats: Vec<FlowItem>,
     /// Whether we have any footnotes in the current region.
     has_footnotes: bool,
@@ -134,15 +131,24 @@ enum FlowItem {
     Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted block, how to align it, whether it sticks to the
-    /// item after it (for orphan prevention), and whether it is movable
-    /// (to keep it together with its footnotes).
-    Frame { frame: Frame, align: Axes<FixedAlign>, sticky: bool, movable: bool },
+    /// A frame for a layouted block.
+    Frame {
+        /// The frame itself.
+        frame: Frame,
+        /// How to align the frame.
+        align: Axes<FixedAlignment>,
+        /// Whether the frame sticks to the item after it (for orphan prevention).
+        sticky: bool,
+        /// Whether the frame is movable; that is, kept together with its footnotes.
+        ///
+        /// This is true for frames created by paragraphs and [`LayoutSingle`] elements.
+        movable: bool,
+    },
     /// An absolutely placed frame.
     Placed {
         frame: Frame,
-        x_align: FixedAlign,
-        y_align: Smart<Option<FixedAlign>>,
+        x_align: FixedAlignment,
+        y_align: Smart<Option<FixedAlignment>>,
         delta: Axes<Rel<Abs>>,
         float: bool,
         clearance: Abs,
@@ -152,23 +158,15 @@ enum FlowItem {
 }
 
 impl FlowItem {
-    /// The inherent height of the item.
-    fn height(&self) -> Abs {
-        match self {
-            Self::Absolute(v, _) => *v,
-            Self::Fractional(_) | Self::Placed { .. } => Abs::zero(),
-            Self::Frame { frame, .. } | Self::Footnote(frame) => frame.height(),
-        }
-    }
-
     /// Whether this item is out-of-flow.
     ///
-    /// Out-of-flow items are guaranteed to have a [`Size::zero()`].
+    /// Out-of-flow items are guaranteed to have a [zero size][Size::zero()].
     fn is_out_of_flow(&self) -> bool {
         match self {
             Self::Placed { float: false, .. } => true,
             Self::Frame { frame, .. } => {
-                frame.items().all(|(_, item)| matches!(item, FrameItem::Meta(..)))
+                frame.size().is_zero()
+                    && frame.items().all(|(_, item)| matches!(item, FrameItem::Meta(..)))
             }
             _ => false,
         }
@@ -203,12 +201,23 @@ impl<'a> FlowLayouter<'a> {
         }
     }
 
+    /// Place explicit metadata into the flow.
+    fn layout_meta(&mut self, styles: StyleChain) {
+        let mut frame = Frame::soft(Size::zero());
+        frame.meta(styles, true);
+        self.items.push(FlowItem::Frame {
+            frame,
+            align: Axes::splat(FixedAlignment::Start),
+            sticky: true,
+            movable: false,
+        });
+    }
+
     /// Layout vertical spacing.
-    #[tracing::instrument(name = "FlowLayouter::layout_spacing", skip_all)]
     fn layout_spacing(
         &mut self,
         engine: &mut Engine,
-        v: &VElem,
+        v: &Packed<VElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         self.layout_item(
@@ -224,11 +233,10 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a paragraph.
-    #[tracing::instrument(name = "FlowLayouter::layout_par", skip_all)]
     fn layout_par(
         &mut self,
         engine: &mut Engine,
-        par: &ParElem,
+        par: &Packed<ParElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
@@ -244,21 +252,29 @@ impl<'a> FlowLayouter<'a> {
             )?
             .into_frames();
 
-        let mut sticky = self.items.len();
-        for (i, item) in self.items.iter().enumerate().rev() {
-            match *item {
-                FlowItem::Absolute(_, _) => {}
-                FlowItem::Frame { sticky: true, .. } => sticky = i,
-                _ => break,
-            }
-        }
-
+        // If the first line doesn’t fit in this region, then defer any
+        // previous sticky frame to the next region (if available)
         if let Some(first) = lines.first() {
-            if !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
+            while !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
+                let mut sticky = self.items.len();
+                for (i, item) in self.items.iter().enumerate().rev() {
+                    match *item {
+                        FlowItem::Absolute(_, _) => {}
+                        FlowItem::Frame { sticky: true, .. } => sticky = i,
+                        _ => break,
+                    }
+                }
+
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
                 self.finish_region(engine, false)?;
+                let in_last = self.regions.in_last();
+
                 for item in carry {
                     self.layout_item(engine, item)?;
+                }
+
+                if in_last {
+                    break;
                 }
             }
         }
@@ -279,17 +295,17 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout into a single region.
-    #[tracing::instrument(name = "FlowLayouter::layout_single", skip_all)]
     fn layout_single(
         &mut self,
         engine: &mut Engine,
-        content: &dyn Layout,
+        layoutable: &dyn LayoutSingle,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
-        let frame = content.layout(engine, styles, pod)?.into_frame();
+        let mut frame = layoutable.layout(engine, styles, pod)?;
+        frame.meta(styles, false);
         self.layout_item(
             engine,
             FlowItem::Frame { frame, align, sticky, movable: true },
@@ -302,18 +318,19 @@ impl<'a> FlowLayouter<'a> {
     fn layout_placed(
         &mut self,
         engine: &mut Engine,
-        placed: &PlaceElem,
+        placed: &Packed<PlaceElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let float = placed.float(styles);
         let clearance = placed.clearance(styles);
         let alignment = placed.alignment(styles);
         let delta = Axes::new(placed.dx(styles), placed.dy(styles)).resolve(styles);
-        let x_align = alignment.map_or(FixedAlign::Center, |align| {
+        let x_align = alignment.map_or(FixedAlignment::Center, |align| {
             align.x().unwrap_or_default().resolve(styles)
         });
-        let y_align = alignment.map(|align| align.y().map(VAlign::fix));
-        let frame = placed.layout(engine, styles, self.regions)?.into_frame();
+        let y_align = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
+        let mut frame = placed.layout(engine, styles, self.regions.base())?.into_frame();
+        frame.meta(styles, false);
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
         self.layout_item(engine, item)
     }
@@ -322,12 +339,12 @@ impl<'a> FlowLayouter<'a> {
     fn layout_multiple(
         &mut self,
         engine: &mut Engine,
-        block: &Content,
+        child: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
         // Temporarily delegerate rootness to the columns.
         let is_root = self.root;
-        if is_root && block.is::<ColumnsElem>() {
+        if is_root && child.is::<ColumnsElem>() {
             self.root = false;
             self.regions.root = true;
         }
@@ -340,10 +357,10 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let align = if let Some(align) = block.to::<AlignElem>() {
+        let align = if let Some(align) = child.to_packed::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some((_, local)) = block.to_styled() {
-            AlignElem::alignment_in(styles.chain(local))
+        } else if let Some(styled) = child.to_packed::<StyledElem>() {
+            AlignElem::alignment_in(styles.chain(&styled.styles))
         } else {
             AlignElem::alignment_in(styles)
         }
@@ -351,9 +368,9 @@ impl<'a> FlowLayouter<'a> {
 
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
-        let fragment = block.layout(engine, styles, self.regions)?;
+        let fragment = child.layout(engine, styles, self.regions)?;
 
-        for (i, frame) in fragment.into_iter().enumerate() {
+        for (i, mut frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.
             if self.root {
                 find_footnotes(&mut notes, &frame);
@@ -363,8 +380,11 @@ impl<'a> FlowLayouter<'a> {
                 self.finish_region(engine, false)?;
             }
 
-            let item = FlowItem::Frame { frame, align, sticky, movable: false };
-            self.layout_item(engine, item)?;
+            frame.meta(styles, false);
+            self.layout_item(
+                engine,
+                FlowItem::Frame { frame, align, sticky, movable: false },
+            )?;
         }
 
         self.try_handle_footnotes(engine, notes)?;
@@ -377,7 +397,6 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a finished frame.
-    #[tracing::instrument(name = "FlowLayouter::layout_item", skip_all)]
     fn layout_item(
         &mut self,
         engine: &mut Engine,
@@ -398,16 +417,20 @@ impl<'a> FlowLayouter<'a> {
             FlowItem::Fractional(_) => {}
             FlowItem::Frame { ref frame, movable, .. } => {
                 let height = frame.height();
-                if !self.regions.size.y.fits(height) && !self.regions.in_last() {
+                while !self.regions.size.y.fits(height) && !self.regions.in_last() {
                     self.finish_region(engine, false)?;
                 }
 
+                let in_last = self.regions.in_last();
                 self.regions.size.y -= height;
                 if self.root && movable {
                     let mut notes = Vec::new();
                     find_footnotes(&mut notes, frame);
                     self.items.push(item);
-                    if !self.handle_footnotes(engine, &mut notes, true, false)? {
+
+                    // When we are already in_last, we can directly force the
+                    // footnotes.
+                    if !self.handle_footnotes(engine, &mut notes, true, in_last)? {
                         let item = self.items.pop();
                         self.finish_region(engine, false)?;
                         self.items.extend(item);
@@ -425,9 +448,11 @@ impl<'a> FlowLayouter<'a> {
                 clearance,
                 ..
             } => {
-                // If the float doesn't fit, queue it for the next region.
-                if !self.regions.size.y.fits(frame.height() + clearance)
-                    && !self.regions.in_last()
+                // If there is a queued float in front or if the float doesn't
+                // fit, queue it for the next region.
+                if !self.pending_floats.is_empty()
+                    || (!self.regions.size.y.fits(frame.height() + clearance)
+                        && !self.regions.in_last())
                 {
                     self.pending_floats.push(item);
                     return Ok(());
@@ -438,15 +463,18 @@ impl<'a> FlowLayouter<'a> {
                     let ratio = (self.regions.size.y
                         - (frame.height() + clearance) / 2.0)
                         / self.regions.full;
-                    let better_align =
-                        if ratio <= 0.5 { FixedAlign::End } else { FixedAlign::Start };
+                    let better_align = if ratio <= 0.5 {
+                        FixedAlignment::End
+                    } else {
+                        FixedAlignment::Start
+                    };
                     *y_align = Smart::Custom(Some(better_align));
                 }
 
                 // Add some clearance so that the float doesn't touch the main
                 // content.
                 frame.size_mut().y += clearance;
-                if *y_align == Smart::Custom(Some(FixedAlign::End)) {
+                if *y_align == Smart::Custom(Some(FixedAlignment::End)) {
                     frame.translate(Point::with_y(clearance));
                 }
 
@@ -486,7 +514,7 @@ impl<'a> FlowLayouter<'a> {
         while self
             .items
             .last()
-            .map_or(false, |item| matches!(item, FlowItem::Absolute(_, true)))
+            .is_some_and(|item| matches!(item, FlowItem::Absolute(_, true)))
         {
             self.items.pop();
         }
@@ -508,10 +536,10 @@ impl<'a> FlowLayouter<'a> {
                 }
                 FlowItem::Placed { float: false, .. } => {}
                 FlowItem::Placed { frame, float: true, y_align, .. } => match y_align {
-                    Smart::Custom(Some(FixedAlign::Start)) => {
+                    Smart::Custom(Some(FixedAlignment::Start)) => {
                         float_top_height += frame.height()
                     }
-                    Smart::Custom(Some(FixedAlign::End)) => {
+                    Smart::Custom(Some(FixedAlignment::End)) => {
                         float_bottom_height += frame.height()
                     }
                     _ => {}
@@ -537,7 +565,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         let mut output = Frame::soft(size);
-        let mut ruler = FixedAlign::Start;
+        let mut ruler = FixedAlignment::Start;
         let mut float_top_offset = Abs::zero();
         let mut offset = float_top_height;
         let mut float_bottom_offset = Abs::zero();
@@ -565,12 +593,12 @@ impl<'a> FlowLayouter<'a> {
                     let x = x_align.position(size.x - frame.width());
                     let y = if float {
                         match y_align {
-                            Smart::Custom(Some(FixedAlign::Start)) => {
+                            Smart::Custom(Some(FixedAlignment::Start)) => {
                                 let y = float_top_offset;
                                 float_top_offset += frame.height();
                                 y
                             }
-                            Smart::Custom(Some(FixedAlign::End)) => {
+                            Smart::Custom(Some(FixedAlignment::End)) => {
                                 let y = size.y - footnote_height - float_bottom_height
                                     + float_bottom_offset;
                                 float_bottom_offset += frame.height();
@@ -606,7 +634,7 @@ impl<'a> FlowLayouter<'a> {
         self.initial = self.regions.size;
         self.has_footnotes = false;
 
-        // Try to place floats.
+        // Try to place floats into the next region.
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
         }
@@ -632,12 +660,24 @@ impl<'a> FlowLayouter<'a> {
 }
 
 impl FlowLayouter<'_> {
+    /// Tries to process all footnotes in the frame, placing them
+    /// in the next region if they could not be placed in the current
+    /// one.
     fn try_handle_footnotes(
         &mut self,
         engine: &mut Engine,
-        mut notes: Vec<FootnoteElem>,
+        mut notes: Vec<Packed<FootnoteElem>>,
     ) -> SourceResult<()> {
-        if self.root && !self.handle_footnotes(engine, &mut notes, false, false)? {
+        // When we are already in_last, we can directly force the
+        // footnotes.
+        if self.root
+            && !self.handle_footnotes(
+                engine,
+                &mut notes,
+                false,
+                self.regions.in_last(),
+            )?
+        {
             self.finish_region(engine, false)?;
             self.handle_footnotes(engine, &mut notes, false, true)?;
         }
@@ -645,16 +685,21 @@ impl FlowLayouter<'_> {
     }
 
     /// Processes all footnotes in the frame.
-    #[tracing::instrument(skip_all)]
+    ///
+    /// Returns true if the footnote entries fit in the allotted
+    /// regions.
     fn handle_footnotes(
         &mut self,
         engine: &mut Engine,
-        notes: &mut Vec<FootnoteElem>,
+        notes: &mut Vec<Packed<FootnoteElem>>,
         movable: bool,
         force: bool,
     ) -> SourceResult<bool> {
-        let items_len = self.items.len();
-        let notes_len = notes.len();
+        let prev_notes_len = notes.len();
+        let prev_items_len = self.items.len();
+        let prev_size = self.regions.size;
+        let prev_has_footnotes = self.has_footnotes;
+        let prev_locator = engine.locator.clone();
 
         // Process footnotes one at a time.
         let mut k = 0;
@@ -669,7 +714,6 @@ impl FlowLayouter<'_> {
             }
 
             self.regions.size.y -= self.footnote_config.gap;
-            let checkpoint = engine.locator.clone();
             let frames = FootnoteEntry::new(notes[k].clone())
                 .pack()
                 .layout(engine, self.styles, self.regions.with_root(false))?
@@ -679,20 +723,14 @@ impl FlowLayouter<'_> {
             // together).
             if !force
                 && (k == 0 || movable)
-                && frames.first().map_or(false, Frame::is_empty)
+                && frames.first().is_some_and(Frame::is_empty)
             {
-                // Remove existing footnotes attempts because we need to
-                // move the item to the next page.
-                notes.truncate(notes_len);
-
-                // Undo region modifications.
-                for item in self.items.drain(items_len..) {
-                    self.regions.size.y -= item.height();
-                }
-
-                // Undo locator modifications.
-                *engine.locator = checkpoint;
-
+                // Undo everything.
+                notes.truncate(prev_notes_len);
+                self.items.truncate(prev_items_len);
+                self.regions.size = prev_size;
+                self.has_footnotes = prev_has_footnotes;
+                *engine.locator = prev_locator;
                 return Ok(false);
             }
 
@@ -722,7 +760,6 @@ impl FlowLayouter<'_> {
     }
 
     /// Layout and save the footnote separator, typically a line.
-    #[tracing::instrument(skip_all)]
     fn layout_footnote_separator(&mut self, engine: &mut Engine) -> SourceResult<()> {
         let expand = Axes::new(self.regions.expand.x, false);
         let pod = Regions::one(self.regions.base(), expand);
@@ -741,15 +778,16 @@ impl FlowLayouter<'_> {
 }
 
 /// Finds all footnotes in the frame.
-#[tracing::instrument(skip_all)]
-fn find_footnotes(notes: &mut Vec<FootnoteElem>, frame: &Frame) {
+fn find_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
     for (_, item) in frame.items() {
         match item {
             FrameItem::Group(group) => find_footnotes(notes, &group.frame),
             FrameItem::Meta(Meta::Elem(content), _)
                 if !notes.iter().any(|note| note.location() == content.location()) =>
             {
-                let Some(footnote) = content.to::<FootnoteElem>() else { continue };
+                let Some(footnote) = content.to_packed::<FootnoteElem>() else {
+                    continue;
+                };
                 notes.push(footnote.clone());
             }
             _ => {}

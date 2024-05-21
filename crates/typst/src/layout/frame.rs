@@ -4,16 +4,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
-
-use crate::foundations::{cast, dict, Dict, Repr, StyleChain, Value};
+use crate::foundations::{cast, dict, Dict, StyleChain, Value};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
-    Abs, Axes, Corners, FixedAlign, Length, Point, Rel, Sides, Size, Transform,
+    Abs, Axes, Corners, FixedAlignment, Length, Point, Rel, Sides, Size, Transform,
 };
 use crate::syntax::Span;
 use crate::text::TextItem;
-use crate::util::Numeric;
+use crate::utils::{LazyHash, Numeric};
 use crate::visualize::{
     ellipse, styled_rect, Color, FixedStroke, Geometry, Image, Paint, Path, Shape,
 };
@@ -27,7 +25,7 @@ pub struct Frame {
     /// frame's implicit baseline is at the bottom.
     baseline: Option<Abs>,
     /// The items composing this layout.
-    items: Arc<Vec<(Point, FrameItem)>>,
+    items: Arc<LazyHash<Vec<(Point, FrameItem)>>>,
     /// The hardness of this frame.
     kind: FrameKind,
 }
@@ -43,7 +41,7 @@ impl Frame {
         Self {
             size,
             baseline: None,
-            items: Arc::new(vec![]),
+            items: Arc::new(LazyHash::new(vec![])),
             kind,
         }
     }
@@ -223,7 +221,7 @@ impl Frame {
             let sink = Arc::make_mut(&mut self.items);
             match Arc::try_unwrap(frame.items) {
                 Ok(items) => {
-                    sink.splice(range, items);
+                    sink.splice(range, items.into_inner());
                 }
                 Err(arc) => {
                     sink.splice(range, arc.iter().cloned());
@@ -237,7 +235,10 @@ impl Frame {
         let sink = Arc::make_mut(&mut self.items);
         match Arc::try_unwrap(frame.items) {
             Ok(items) => {
-                sink.splice(range, items.into_iter().map(|(p, e)| (p + pos, e)));
+                sink.splice(
+                    range,
+                    items.into_inner().into_iter().map(|(p, e)| (p + pos, e)),
+                );
             }
             Err(arc) => {
                 sink.splice(range, arc.iter().cloned().map(|(p, e)| (p + pos, e)));
@@ -253,18 +254,22 @@ impl Frame {
         if Arc::strong_count(&self.items) == 1 {
             Arc::make_mut(&mut self.items).clear();
         } else {
-            self.items = Arc::new(vec![]);
+            self.items = Arc::new(LazyHash::new(vec![]));
         }
     }
 
-    /// Resize the frame to a new size, distributing new space according to the
-    /// given alignments.
-    pub fn resize(&mut self, target: Size, align: Axes<FixedAlign>) {
-        if self.size != target {
-            let offset = align.zip_map(target - self.size, FixedAlign::position);
-            self.size = target;
-            self.translate(offset.to_point());
+    /// Adjust the frame's size, translate the original content by an offset
+    /// computed according to the given alignments, and return the amount of
+    /// offset.
+    pub fn resize(&mut self, target: Size, align: Axes<FixedAlignment>) -> Point {
+        if self.size == target {
+            return Point::zero();
         }
+        let offset =
+            align.zip_map(target - self.size, FixedAlignment::position).to_point();
+        self.size = target;
+        self.translate(offset);
+        offset
     }
 
     /// Move the baseline and contents of the frame by an offset.
@@ -273,13 +278,17 @@ impl Frame {
             if let Some(baseline) = &mut self.baseline {
                 *baseline += offset.y;
             }
-            for (point, _) in Arc::make_mut(&mut self.items) {
+            for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
                 *point += offset;
             }
         }
     }
 
     /// Attach the metadata from this style chain to the frame.
+    ///
+    /// If `force` is true, then the metadata is attached even when
+    /// the frame is empty.
+    // TODO: when would you want to pass true to `force` as opposed to false?
     pub fn meta(&mut self, styles: StyleChain, force: bool) {
         if force || !self.is_empty() {
             self.meta_iter(MetaElem::data_in(styles));
@@ -289,18 +298,30 @@ impl Frame {
     /// Attach metadata from an iterator.
     pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
         let mut hide = false;
-        for meta in iter {
+        let size = self.size;
+        self.prepend_multiple(iter.into_iter().filter_map(|meta| {
             if matches!(meta, Meta::Hide) {
                 hide = true;
+                None
             } else {
-                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+                Some((Point::zero(), FrameItem::Meta(meta, size)))
             }
-        }
+        }));
         if hide {
-            Arc::make_mut(&mut self.items).retain(|(_, item)| {
-                matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
-            });
+            self.hide();
         }
+    }
+
+    /// Hide all content in the frame, but keep metadata.
+    pub fn hide(&mut self) {
+        Arc::make_mut(&mut self.items).retain_mut(|(_, item)| match item {
+            FrameItem::Group(group) => {
+                group.frame.hide();
+                !group.frame.is_empty()
+            }
+            FrameItem::Meta(Meta::Elem(_), _) => true,
+            _ => false,
+        });
     }
 
     /// Add a background fill.
@@ -384,11 +405,8 @@ impl Frame {
             1,
             Point::with_y(self.baseline()),
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
-                    paint: Color::RED.into(),
-                    thickness: Abs::pt(1.0),
-                    ..FixedStroke::default()
-                }),
+                Geometry::Line(Point::with_x(self.size.x))
+                    .stroked(FixedStroke::from_pair(Color::RED, Abs::pt(1.0))),
                 Span::detached(),
             ),
         );
@@ -411,11 +429,8 @@ impl Frame {
         self.push(
             Point::with_y(y),
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
-                    paint: Color::GREEN.into(),
-                    thickness: Abs::pt(1.0),
-                    ..FixedStroke::default()
-                }),
+                Geometry::Line(Point::with_x(self.size.x))
+                    .stroked(FixedStroke::from_pair(Color::GREEN, Abs::pt(1.0))),
                 Span::detached(),
             ),
         );
@@ -445,6 +460,8 @@ pub enum FrameKind {
     #[default]
     Soft,
     /// A container which uses its own size.
+    ///
+    /// This is used for page, block, box, column, grid, and stack elements.
     Hard,
 }
 
@@ -545,43 +562,4 @@ impl From<Position> for Dict {
             "y" => pos.point.y,
         }
     }
-}
-
-/// Specification for a PDF page label.
-#[derive(Debug, Clone, PartialEq, Hash, Default)]
-pub struct PdfPageLabel {
-    /// Can be any string or none. Will always be prepended to the numbering style.
-    pub prefix: Option<EcoString>,
-    /// Based on the numbering pattern.
-    ///
-    /// If `None` or numbering is a function, the field will be empty.
-    pub style: Option<PdfPageLabelStyle>,
-    /// Offset for the page label start.
-    ///
-    /// Describes where to start counting from when setting a style.
-    /// (Has to be greater or equal than 1)
-    pub offset: Option<NonZeroUsize>,
-}
-
-impl Repr for PdfPageLabel {
-    fn repr(&self) -> EcoString {
-        eco_format!("{self:?}")
-    }
-}
-
-/// A PDF page label number style.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PdfPageLabelStyle {
-    /// Decimal arabic numerals (1, 2, 3).
-    Arabic,
-    /// Lowercase roman numerals (i, ii, iii).
-    LowerRoman,
-    /// Uppercase roman numerals (I, II, III).
-    UpperRoman,
-    /// Lowercase letters (`a` to `z` for the first 26 pages,
-    /// `aa` to `zz` and so on for the next).
-    LowerAlpha,
-    /// Uppercase letters (`A` to `Z` for the first 26 pages,
-    /// `AA` to `ZZ` and so on for the next).
-    UpperAlpha,
 }

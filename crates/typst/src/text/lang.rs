@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use ecow::EcoString;
@@ -5,6 +6,46 @@ use ecow::EcoString;
 use crate::foundations::{cast, StyleChain};
 use crate::layout::Dir;
 use crate::text::TextElem;
+
+macro_rules! translation {
+    ($lang:literal) => {
+        ($lang, include_str!(concat!("../../translations/", $lang, ".txt")))
+    };
+}
+
+const TRANSLATIONS: [(&str, &str); 31] = [
+    translation!("ar"),
+    translation!("cs"),
+    translation!("da"),
+    translation!("de"),
+    translation!("en"),
+    translation!("es"),
+    translation!("et"),
+    translation!("fi"),
+    translation!("fr"),
+    translation!("gr"),
+    translation!("hu"),
+    translation!("it"),
+    translation!("ja"),
+    translation!("nb"),
+    translation!("nl"),
+    translation!("nn"),
+    translation!("pl"),
+    translation!("pt-PT"),
+    translation!("pt"),
+    translation!("ro"),
+    translation!("ru"),
+    translation!("sl"),
+    translation!("sq"),
+    translation!("sr"),
+    translation!("sv"),
+    translation!("tl"),
+    translation!("tr"),
+    translation!("ua"),
+    translation!("vi"),
+    translation!("zh-TW"),
+    translation!("zh"),
+];
 
 /// An identifier for a natural language.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -14,7 +55,9 @@ impl Lang {
     pub const ALBANIAN: Self = Self(*b"sq ", 2);
     pub const ARABIC: Self = Self(*b"ar ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
+    pub const CATALAN: Self = Self(*b"ca ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
+    pub const CROATIAN: Self = Self(*b"hr ", 2);
     pub const CZECH: Self = Self(*b"cs ", 2);
     pub const DANISH: Self = Self(*b"da ", 2);
     pub const DUTCH: Self = Self(*b"nl ", 2);
@@ -25,21 +68,23 @@ impl Lang {
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const GREEK: Self = Self(*b"gr ", 2);
+    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
+    pub const LOWER_SORBIAN: Self = Self(*b"dsb", 3);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
+    pub const ROMANIAN: Self = Self(*b"ro ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const SERBIAN: Self = Self(*b"sr ", 2);
+    pub const SLOVAK: Self = Self(*b"sk ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
     pub const SWEDISH: Self = Self(*b"sv ", 2);
     pub const TURKISH: Self = Self(*b"tr ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
-    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
-    pub const ROMANIAN: Self = Self(*b"ro ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
@@ -158,8 +203,13 @@ cast! {
 
 /// The name with which an element is referenced.
 pub trait LocalName {
+    /// The key of an element in order to get its localized name.
+    const KEY: &'static str;
+
     /// Get the name in the given language and (optionally) region.
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str;
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+        localized_str(lang, region, Self::KEY)
+    }
 
     /// Gets the local name from the style chain.
     fn local_name_in(styles: StyleChain) -> &'static str
@@ -170,10 +220,67 @@ pub trait LocalName {
     }
 }
 
+/// Retrieves the localized string for a given language and region.
+/// Silently falls back to English if no fitting string exists for
+/// the given language + region. Panics if no fitting string exists
+/// in both given language + region and English.
+#[comemo::memoize]
+pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static str {
+    let lang_region_bundle = parse_language_bundle(lang, region).unwrap();
+    if let Some(str) = lang_region_bundle.get(key) {
+        return str;
+    }
+    let lang_bundle = parse_language_bundle(lang, None).unwrap();
+    if let Some(str) = lang_bundle.get(key) {
+        return str;
+    }
+    let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
+    english_bundle.get(key).unwrap()
+}
+
+/// Parses the translation file for a given language and region.
+/// Only returns an error if the language file is malformed.
+#[comemo::memoize]
+fn parse_language_bundle(
+    lang: Lang,
+    region: Option<Region>,
+) -> Result<HashMap<&'static str, &'static str>, &'static str> {
+    let language_tuple = TRANSLATIONS.iter().find(|it| it.0 == lang_str(lang, region));
+    let Some((_lang_name, language_file)) = language_tuple else {
+        return Ok(HashMap::new());
+    };
+
+    let mut bundle = HashMap::new();
+    let lines = language_file.trim().lines();
+    for line in lines {
+        if line.trim().starts_with('#') {
+            continue;
+        }
+        let (key, val) = line
+            .split_once('=')
+            .ok_or("malformed translation file: line without \"=\"")?;
+        let (key, val) = (key.trim(), val.trim());
+        if val.is_empty() {
+            return Err("malformed translation file: empty translation value");
+        }
+        let duplicate = bundle.insert(key.trim(), val.trim());
+        if duplicate.is_some() {
+            return Err("malformed translation file: duplicate key");
+        }
+    }
+    Ok(bundle)
+}
+
+/// Convert language + region to a string to be able to get a file name.
+fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
+    EcoString::from(lang.as_str())
+        + region.map_or_else(EcoString::new, |r| EcoString::from("-") + r.as_str())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::option_eq;
+    use crate::utils::option_eq;
 
     #[test]
     fn test_region_option_eq() {

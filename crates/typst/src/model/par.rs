@@ -1,9 +1,9 @@
-use comemo::Prehashed;
+use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Set, Smart, StyleChain,
+    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
     Unlabellable,
 };
 use crate::layout::{Em, Fragment, Length, Size};
@@ -33,7 +33,7 @@ use crate::layout::{Em, Fragment, Length, Size};
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Construct)]
+#[elem(title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
@@ -47,8 +47,8 @@ pub struct ParElem {
     /// [text function's `hyphenate` property]($text.hyphenate) is set to
     /// `{auto}` and the current language is known.
     ///
-    /// Note that the current [alignment]($align) still has an effect on the
-    /// placement of the last line except if it ends with a
+    /// Note that the current [alignment]($align.alignment) still has an effect
+    /// on the placement of the last line except if it ends with a
     /// [justified line break]($linebreak.justify).
     #[ghost]
     #[default(false)]
@@ -85,8 +85,8 @@ pub struct ParElem {
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
-    /// the [paragraph spacing]($block.spacing) to the [`leading`] when
-    /// using this property (e.g. using
+    /// the [paragraph spacing]($block.spacing) to the [`leading`]($par.leading)
+    /// when using this property (e.g. using
     /// `[#show par: set block(spacing: 0.65em)]`).
     #[ghost]
     pub first_line_indent: Length,
@@ -96,6 +96,15 @@ pub struct ParElem {
     #[resolve]
     pub hanging_indent: Length,
 
+    /// Indicates wheter an overflowing line should be shrunk.
+    ///
+    /// This property is set to `false` on raw blocks, because shrinking a line
+    /// could visually break the indentation.
+    #[ghost]
+    #[internal]
+    #[default(true)]
+    pub shrink: bool,
+
     /// The contents of the paragraph.
     #[external]
     #[required]
@@ -104,7 +113,7 @@ pub struct ParElem {
     /// The paragraph's children.
     #[internal]
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl Construct for ParElem {
@@ -122,9 +131,9 @@ impl Construct for ParElem {
     }
 }
 
-impl ParElem {
+impl Packed<ParElem> {
     /// Layout the paragraph into a collection of lines.
-    #[tracing::instrument(name = "ParElement::layout", skip_all)]
+    #[typst_macros::time(name = "par", span = self.span())]
     pub fn layout(
         &self,
         engine: &mut Engine,
@@ -141,6 +150,13 @@ impl ParElem {
             region,
             expand,
         )
+    }
+}
+
+impl Debug for ParElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Par ")?;
+        f.debug_list().entries(&self.children).finish()
     }
 }
 
@@ -177,4 +193,4 @@ pub enum Linebreaks {
 #[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
-impl Unlabellable for ParbreakElem {}
+impl Unlabellable for Packed<ParbreakElem> {}

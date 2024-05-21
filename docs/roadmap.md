@@ -12,16 +12,14 @@ this roadmap will only list larger, more fundamental ones.
 Are you missing something on the roadmap? Typst relies on your feedback as a
 user to plan for and prioritize new features. Get started by filing a new issue
 on [GitHub](https://github.com/typst/typst/issues) or discuss your feature
-request with the [community]($community).
+request with the [community].
 
 ## Language and Compiler
 - **Structure and Styling**
-  - Fix show rule recursion
-  - Fix show-set order
-  - Fix show-set where both show and set affect the same kind of element
-    (to set properties on elements that match a selector)
+  - Support for freezing content, so that e.g. numbers in it remain the same
+    if it appears multiple times
+  - Support for revoking style rules
   - Ancestry selectors (e.g., within)
-  - Custom elements (that work with set and show rules)
   - Possibly a capability system, e.g. to make your own element referenceable
 - **Layout**
   - Advanced floating layout
@@ -35,21 +33,20 @@ request with the [community]($community).
   - Grid-based typesetting
   - Layout with collision
 - **Export**
-  - Implement emoji export
+  - Support for emojis in PDF
   - HTML export
   - EPUB export
   - Tagged PDF for Accessibility
   - PDF/A and PDF/X support
 - **Text and Fonts**
   - Font fallback warnings
-  - Proper foundations for i18n
   - Bold, italic, and smallcaps synthesis
   - Variable fonts support
   - Ruby and Warichu
   - Kashida justification
 - **Scripting**
+  - Custom types (that work with set and show rules)
   - Function hoisting if possible
-  - Get values of set rules
   - Doc comments
   - Type hints
 - **Visualization**
@@ -67,14 +64,12 @@ request with the [community]($community).
 ## Library
 - **Customization**
   - Richer built-in outline customization
-  - Table stroke customization
 - **Numbering**
   - Relative counters, e.g. for figure numbering per section
   - Improve equation numbering
   - Fix issues with numbering patterns
   - Enum continuation
 - **Layout**
-  - Row span and column span in table
   - Balanced columns
   - Drop caps
   - End notes, maybe margin notes
@@ -89,20 +84,19 @@ request with the [community]($community).
 ## Web App
 - **Editing**
   - Smarter & more action buttons
-  - Basic, built-in image editor (cropping, etc.)
+  - Inline documentation
+  - Preview autocomplete entry
+  - Go-to-definition
   - Color Picker
   - Symbol picker
+  - Basic, built-in image editor (cropping, etc.)
   - GUI inspector for editing function calls
-  - Preview autocomplete entry
   - Cursor in preview
-  - Inline documentation
-  - More export options
-  - Preview in a separate window
 - **Writing**
   - Spell check
+  - Outline panel
   - Word count
   - Structure view
-  - Pomodoro
   - Text completion by LLM
 - **Collaboration**
   - Chat-like comments
@@ -123,5 +117,4 @@ request with the [community]($community).
   - Two-Factor Authentication
   - Advanced search in projects
   - Private packages in teams
-  - On-Premise deployment
   - Mobile improvements

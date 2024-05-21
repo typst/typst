@@ -1,0 +1,7 @@
+figure = Ábra
+table = Táblázat
+equation = Egyenlet
+bibliography = Irodalomjegyzék
+heading = Fejezet
+outline = Tartalomjegyzék
+# raw = 

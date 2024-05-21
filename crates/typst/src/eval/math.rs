@@ -9,8 +9,6 @@ use crate::text::TextElem;
 
 impl Eval for ast::Math<'_> {
     type Output = Content;
-
-    #[tracing::instrument(name = "Math::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Content::sequence(
             self.exprs()
@@ -23,7 +21,6 @@ impl Eval for ast::Math<'_> {
 impl Eval for ast::MathIdent<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "MathIdent::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.get_in_math(&self).cloned().at(self.span())
     }
@@ -32,7 +29,6 @@ impl Eval for ast::MathIdent<'_> {
 impl Eval for ast::MathAlignPoint<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "MathAlignPoint::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(AlignPointElem::new().pack())
     }
@@ -41,7 +37,6 @@ impl Eval for ast::MathAlignPoint<'_> {
 impl Eval for ast::MathDelimited<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "MathDelimited::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let open = self.open().eval_display(vm)?;
         let body = self.body().eval(vm)?;
@@ -53,7 +48,6 @@ impl Eval for ast::MathDelimited<'_> {
 impl Eval for ast::MathAttach<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "MathAttach::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval_display(vm)?;
         let mut elem = AttachElem::new(base);
@@ -61,7 +55,7 @@ impl Eval for ast::MathAttach<'_> {
         if let Some(expr) = self.top() {
             elem.push_t(Some(expr.eval_display(vm)?));
         } else if let Some(primes) = self.primes() {
-            elem.push_t(Some(primes.eval(vm)?));
+            elem.push_tr(Some(primes.eval(vm)?));
         }
 
         if let Some(expr) = self.bottom() {
@@ -75,7 +69,6 @@ impl Eval for ast::MathAttach<'_> {
 impl Eval for ast::MathPrimes<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "MathPrimes::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(PrimesElem::new(self.count()).pack())
     }
@@ -84,7 +77,6 @@ impl Eval for ast::MathPrimes<'_> {
 impl Eval for ast::MathFrac<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "MathFrac::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let num = self.num().eval_display(vm)?;
         let denom = self.denom().eval_display(vm)?;

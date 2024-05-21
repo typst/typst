@@ -1,24 +1,20 @@
-use std::any::{Any, TypeId};
-use std::borrow::Cow;
+use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::hash::Hash;
 
 use ecow::EcoString;
 use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, Args, Content, Dict, Func, Label, ParamInfo, Repr, Scope, Selector, StyleChain,
+    cast, Args, Content, Dict, Func, ParamInfo, Repr, Scope, Selector, StyleChain,
     Styles, Value,
 };
-use crate::introspection::Location;
-use crate::syntax::Span;
 use crate::text::{Lang, Region};
-use crate::util::Static;
+use crate::utils::Static;
 
 #[doc(inline)]
 pub use typst_macros::elem;
@@ -31,16 +27,6 @@ impl Element {
     /// Get the element for `T`.
     pub fn of<T: NativeElement>() -> Self {
         T::elem()
-    }
-
-    /// Extract the field ID for the given field name.
-    pub fn field_id(&self, name: &str) -> Option<u8> {
-        (self.0.field_id)(name)
-    }
-
-    /// Extract the field name for the given field ID.
-    pub fn field_name(&self, id: u8) -> Option<&'static str> {
-        (self.0.field_name)(id)
     }
 
     /// The element's normal name (e.g. `enum`).
@@ -120,6 +106,27 @@ impl Element {
         &(self.0).0.params
     }
 
+    /// Extract the field ID for the given field name.
+    pub fn field_id(&self, name: &str) -> Option<u8> {
+        if name == "label" {
+            return Some(255);
+        }
+        (self.0.field_id)(name)
+    }
+
+    /// Extract the field name for the given field ID.
+    pub fn field_name(&self, id: u8) -> Option<&'static str> {
+        if id == 255 {
+            return Some("label");
+        }
+        (self.0.field_name)(id)
+    }
+
+    /// Extract the field name for the given field ID.
+    pub fn field_from_styles(&self, id: u8, styles: StyleChain) -> Option<Value> {
+        (self.0.field_from_styles)(id, styles)
+    }
+
     /// The element's local name, if any.
     pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
         (self.0).0.local_name.map(|f| f(lang, region))
@@ -156,14 +163,21 @@ cast! {
     v: Func => v.element().ok_or("expected element")?,
 }
 
-/// Fields of an element.
-pub trait ElementFields {
-    /// The fields of the element.
-    type Fields;
-}
-
 /// A Typst element that is defined by a native Rust type.
-pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static {
+pub trait NativeElement:
+    Debug
+    + Clone
+    + PartialEq
+    + Hash
+    + Construct
+    + Set
+    + Capable
+    + Fields
+    + Repr
+    + Send
+    + Sync
+    + 'static
+{
     /// Get the element for the native Rust element.
     fn elem() -> Element
     where
@@ -184,101 +198,45 @@ pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static 
     fn data() -> &'static NativeElementData
     where
         Self: Sized;
+}
 
-    /// Get the element data for the native Rust element.
-    fn dyn_elem(&self) -> Element;
+/// Used to cast an element to a trait object for a trait it implements.
+///
+/// # Safety
+/// If the `vtable` function returns `Some(p)`, then `p` must be a valid pointer
+/// to a vtable of `Packed<Self>` w.r.t to the trait `C` where `capability` is
+/// `TypeId::of::<dyn C>()`.
+pub unsafe trait Capable {
+    /// Get the pointer to the vtable for the given capability / trait.
+    fn vtable(capability: TypeId) -> Option<*const ()>;
+}
 
-    /// Dynamically hash the element.
-    fn dyn_hash(&self, hasher: &mut dyn Hasher);
-
-    /// Dynamically compare the element.
-    fn dyn_eq(&self, other: &Content) -> bool;
-
-    /// Dynamically clone the element.
-    fn dyn_clone(&self) -> Arc<dyn NativeElement>;
-
-    /// Get the element as a dynamic value.
-    fn as_any(&self) -> &dyn Any;
-
-    /// Get the element as a mutable dynamic value.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    /// Get the element as a dynamic value.
-    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
-
-    /// Get the element's span.
-    ///
-    /// May be detached if it has not been set.
-    fn span(&self) -> Span;
-
-    /// Sets the span of this element.
-    fn set_span(&mut self, span: Span);
-
-    /// Set the element's span.
-    fn spanned(mut self, span: Span) -> Self
+/// Defines how fields of an element are accessed.
+pub trait Fields {
+    /// An enum with the fields of the element.
+    type Enum
     where
-        Self: Sized,
-    {
-        self.set_span(span);
-        self
-    }
-
-    /// Get the element's label.
-    fn label(&self) -> Option<Label>;
-
-    /// Sets the label of this element.
-    fn set_label(&mut self, label: Label);
-
-    /// Set the element's label.
-    fn labelled(mut self, label: Label) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_label(label);
-        self
-    }
-
-    /// Get the element's location.
-    fn location(&self) -> Option<Location>;
-
-    /// Sets the location of this element.
-    fn set_location(&mut self, location: Location);
-
-    /// Checks whether the element is guarded by the given guard.
-    fn is_guarded(&self, guard: Guard) -> bool;
-
-    /// Pushes a guard onto the element.
-    fn push_guard(&mut self, guard: Guard);
-
-    /// Whether the element is pristine.
-    fn is_pristine(&self) -> bool;
-
-    /// Mark the element as having been prepared.
-    fn mark_prepared(&mut self);
-
-    /// Whether this element needs preparations.
-    fn needs_preparation(&self) -> bool;
-
-    /// Whether this element has been prepared.
-    fn is_prepared(&self) -> bool;
-
-    /// Get the field with the given field ID.
-    fn field(&self, id: u8) -> Option<Value>;
+        Self: Sized;
 
     /// Whether the element has the given field set.
     fn has(&self, id: u8) -> bool;
 
-    /// Set the field with the given ID.
-    fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
+    /// Get the field with the given field ID.
+    fn field(&self, id: u8) -> Option<Value>;
+
+    /// Get the field with the given ID in the presence of styles.
+    fn field_with_styles(&self, id: u8, styles: StyleChain) -> Option<Value>;
+
+    /// Get the field with the given ID from the styles.
+    fn field_from_styles(id: u8, styles: StyleChain) -> Option<Value>
+    where
+        Self: Sized;
+
+    /// Resolve all fields with the styles and save them in-place.
+    fn materialize(&mut self, styles: StyleChain);
 
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
-}
-
-impl Hash for dyn NativeElement {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.dyn_hash(state);
-    }
 }
 
 /// An element's constructor function.
@@ -309,9 +267,10 @@ pub struct NativeElementData {
     pub keywords: &'static [&'static str],
     pub construct: fn(&mut Engine, &mut Args) -> SourceResult<Content>,
     pub set: fn(&mut Engine, &mut Args) -> SourceResult<Styles>,
-    pub vtable: fn(of: TypeId) -> Option<*const ()>,
+    pub vtable: fn(capability: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
+    pub field_from_styles: fn(u8, StyleChain) -> Option<Value>,
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
@@ -336,60 +295,18 @@ pub trait Synthesize {
         -> SourceResult<()>;
 }
 
-/// The base recipe for an element.
+/// Defines a built-in show rule for an element.
 pub trait Show {
     /// Execute the base recipe for this element.
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content>;
 }
 
-/// Post-process an element after it was realized.
-pub trait Finalize {
+/// Defines built-in show set rules for an element.
+///
+/// This is a bit more powerful than a user-defined show-set because it can
+/// access the element's fields.
+pub trait ShowSet {
     /// Finalize the fully realized form of the element. Use this for effects
     /// that should work even in the face of a user-defined show rule.
-    fn finalize(&self, realized: Content, styles: StyleChain) -> Content;
-}
-
-/// How the element interacts with other elements.
-pub trait Behave {
-    /// The element's interaction behaviour.
-    fn behaviour(&self) -> Behaviour;
-
-    /// Whether this weak element is larger than a previous one and thus picked
-    /// as the maximum when the levels are the same.
-    #[allow(unused_variables)]
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
-        false
-    }
-}
-
-/// How an element interacts with other elements in a stream.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Behaviour {
-    /// A weak element which only survives when a supportive element is before
-    /// and after it. Furthermore, per consecutive run of weak elements, only
-    /// one survives: The one with the lowest weakness level (or the larger one
-    /// if there is a tie).
-    Weak(usize),
-    /// An element that enables adjacent weak elements to exist. The default.
-    Supportive,
-    /// An element that destroys adjacent weak elements.
-    Destructive,
-    /// An element that does not interact at all with other elements, having the
-    /// same effect as if it didn't exist, but has a visual representation.
-    Ignorant,
-    /// An element that does not have a visual representation.
-    Invisible,
-}
-
-/// Guards content against being affected by the same show rule multiple times.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Guard {
-    /// The nth recipe from the top of the chain.
-    Nth(usize),
-    /// The [base recipe](Show) for a kind of element.
-    Base(Element),
+    fn show_set(&self, styles: StyleChain) -> Styles;
 }

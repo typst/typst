@@ -3,6 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
+use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
@@ -10,11 +11,12 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Dict, Func, IntoValue, Label, Repr,
-    Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Dict, Func, IntoValue,
+    Label, Repr, Type, Value, Version,
 };
-use crate::layout::Align;
+use crate::layout::Alignment;
 use crate::syntax::{Span, Spanned};
+use crate::utils::PicoStr;
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
@@ -67,7 +69,7 @@ pub use ecow::eco_format;
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
-#[ty(scope, title = "String")]
+#[ty(scope, cast, title = "String")]
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -114,7 +116,7 @@ impl Str {
             .and_then(|v| usize::try_from(v).ok())
             .filter(|&v| v <= self.0.len());
 
-        if resolved.map_or(false, |i| !self.0.is_char_boundary(i)) {
+        if resolved.is_some_and(|i| !self.0.is_char_boundary(i)) {
             return Err(not_a_char_boundary(index));
         }
 
@@ -308,7 +310,7 @@ impl Str {
     ) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
-            StrPattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
+            StrPattern::Regex(re) => re.find(self).is_some_and(|m| m.start() == 0),
         }
     }
 
@@ -424,6 +426,8 @@ impl Str {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The pattern to search for.
         pattern: StrPattern,
         /// The string to replace the matches with or a function that gets a
@@ -449,8 +453,10 @@ impl Str {
             match &replacement {
                 Replacement::Str(s) => output.push_str(s),
                 Replacement::Func(func) => {
-                    let piece =
-                        func.call(engine, [dict])?.cast::<Str>().at(func.span())?;
+                    let piece = func
+                        .call(engine, context, [dict])?
+                        .cast::<Str>()
+                        .at(func.span())?;
                     output.push_str(&piece);
                 }
             }
@@ -486,11 +492,11 @@ impl Str {
     #[func]
     pub fn trim(
         &self,
-        /// The pattern to search for.
+        /// The pattern to search for. If `{none}`, trims white spaces.
         #[default]
         pattern: Option<StrPattern>,
-        /// Can be `start` or `end` to only trim the start or end of the string.
-        /// If omitted, both sides are trimmed.
+        /// Can be `{start}` or `{end}` to only trim the start or end of the
+        /// string. If omitted, both sides are trimmed.
         #[named]
         at: Option<StrSide>,
         /// Whether to repeatedly removes matches of the pattern or just once.
@@ -530,16 +536,16 @@ impl Str {
             }
             Some(StrPattern::Regex(re)) => {
                 let s = self.as_str();
-                let mut last = 0;
+                let mut last = None;
                 let mut range = 0..s.len();
 
                 for m in re.find_iter(s) {
                     // Does this match follow directly after the last one?
-                    let consecutive = last == m.start();
+                    let consecutive = last == Some(m.start());
 
-                    // As long as we're consecutive and still trimming at the
-                    // start, trim.
-                    start &= consecutive;
+                    // As long as we're at the beginning or in a consecutive run
+                    // of matches, and we're still trimming at the start, trim.
+                    start &= m.start() == 0 || consecutive;
                     if start {
                         range.start = m.end();
                         start &= repeat;
@@ -551,11 +557,11 @@ impl Str {
                         range.end = m.start();
                     }
 
-                    last = m.end();
+                    last = Some(m.end());
                 }
 
                 // Is the last match directly at the end?
-                if last < s.len() {
+                if last.is_some_and(|last| last < s.len()) {
                     range.end = s.len();
                 }
 
@@ -746,6 +752,12 @@ cast! {
 }
 
 cast! {
+    PicoStr,
+    self => Value::Str(self.resolve().into()),
+    v: Str => v.as_str().into(),
+}
+
+cast! {
     String,
     self => Value::Str(self.into()),
     v: Str => v.into(),
@@ -898,10 +910,6 @@ impl Hash for Regex {
     }
 }
 
-cast! {
-    type Regex,
-}
-
 /// A pattern which can be searched for in a string.
 #[derive(Debug, Clone)]
 pub enum StrPattern {
@@ -933,9 +941,9 @@ pub enum StrSide {
 
 cast! {
     StrSide,
-    v: Align => match v {
-        Align::START => Self::Start,
-        Align::END => Self::End,
+    v: Alignment => match v {
+        Alignment::START => Self::Start,
+        Alignment::END => Self::End,
         _ => bail!("expected either `start` or `end`"),
     },
 }

@@ -5,7 +5,8 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, ty, Content, Fold, Repr, Resolve, Show, StyleChain,
+    cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
+    Reflect, Repr, Resolve, Show, StyleChain, Value,
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
@@ -23,7 +24,7 @@ use crate::text::TextElem;
 /// ```
 #[elem(Show)]
 pub struct AlignElem {
-    /// The [alignment]($alignment) along both axes.
+    /// The [alignment] along both axes.
     ///
     /// ```example
     /// #set page(height: 6cm)
@@ -38,24 +39,24 @@ pub struct AlignElem {
     #[positional]
     #[fold]
     #[default]
-    pub alignment: Align,
+    pub alignment: Alignment,
 
     /// The content to align.
     #[required]
     pub body: Content,
 }
 
-impl Show for AlignElem {
-    #[tracing::instrument(name = "AlignElem::show", skip_all)]
+impl Show for Packed<AlignElem> {
+    #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()
             .clone()
-            .styled(Self::set_alignment(self.alignment(styles))))
+            .styled(AlignElem::set_alignment(self.alignment(styles))))
     }
 }
 
-/// Where to [align]($align) something along an axis.
+/// Where to [align] something along an axis.
 ///
 /// Possible values are:
 /// - `start`: Aligns at the [start]($direction.start) of the [text
@@ -96,50 +97,50 @@ impl Show for AlignElem {
 /// #left.x \
 /// #left.y (none)
 /// ```
-#[ty(scope, name = "alignment")]
+#[ty(scope)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Align {
-    H(HAlign),
-    V(VAlign),
-    Both(HAlign, VAlign),
+pub enum Alignment {
+    H(HAlignment),
+    V(VAlignment),
+    Both(HAlignment, VAlignment),
 }
 
-impl Align {
+impl Alignment {
     /// The horizontal component.
-    pub const fn x(self) -> Option<HAlign> {
+    pub const fn x(self) -> Option<HAlignment> {
         match self {
-            Self::H(x) | Self::Both(x, _) => Some(x),
+            Self::H(h) | Self::Both(h, _) => Some(h),
             Self::V(_) => None,
         }
     }
 
     /// The vertical component.
-    pub const fn y(self) -> Option<VAlign> {
+    pub const fn y(self) -> Option<VAlignment> {
         match self {
-            Self::V(y) | Self::Both(_, y) => Some(y),
+            Self::V(v) | Self::Both(_, v) => Some(v),
             Self::H(_) => None,
         }
     }
 
     /// Normalize the alignment to a LTR-TTB space.
-    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlign> {
+    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
         Axes::new(
             self.x().unwrap_or_default().fix(text_dir),
-            self.y().unwrap_or_default().fix(),
+            self.y().unwrap_or_default().fix(text_dir),
         )
     }
 }
 
 #[scope]
-impl Align {
-    pub const START: Self = Align::H(HAlign::Start);
-    pub const LEFT: Self = Align::H(HAlign::Left);
-    pub const CENTER: Self = Align::H(HAlign::Center);
-    pub const RIGHT: Self = Align::H(HAlign::Right);
-    pub const END: Self = Align::H(HAlign::End);
-    pub const TOP: Self = Align::V(VAlign::Top);
-    pub const HORIZON: Self = Align::V(VAlign::Horizon);
-    pub const BOTTOM: Self = Align::V(VAlign::Bottom);
+impl Alignment {
+    pub const START: Self = Alignment::H(HAlignment::Start);
+    pub const LEFT: Self = Alignment::H(HAlignment::Left);
+    pub const CENTER: Self = Alignment::H(HAlignment::Center);
+    pub const RIGHT: Self = Alignment::H(HAlignment::Right);
+    pub const END: Self = Alignment::H(HAlignment::End);
+    pub const TOP: Self = Alignment::V(VAlignment::Top);
+    pub const HORIZON: Self = Alignment::V(VAlignment::Horizon);
+    pub const BOTTOM: Self = Alignment::V(VAlignment::Bottom);
 
     /// The axis this alignment belongs to.
     /// - `{"horizontal"}` for `start`, `left`, `center`, `right`, and `end`
@@ -168,7 +169,7 @@ impl Align {
     /// #(left + bottom).inv()
     /// ```
     #[func(title = "Inverse")]
-    pub const fn inv(self) -> Align {
+    pub const fn inv(self) -> Alignment {
         match self {
             Self::H(h) => Self::H(h.inv()),
             Self::V(v) => Self::V(v.inv()),
@@ -177,18 +178,18 @@ impl Align {
     }
 }
 
-impl Default for Align {
+impl Default for Alignment {
     fn default() -> Self {
-        HAlign::default() + VAlign::default()
+        HAlignment::default() + VAlignment::default()
     }
 }
 
-impl Add for Align {
+impl Add for Alignment {
     type Output = StrResult<Self>;
 
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::H(x), Self::V(y)) | (Self::V(y), Self::H(x)) => Ok(x + y),
+            (Self::H(h), Self::V(v)) | (Self::V(v), Self::H(h)) => Ok(h + v),
             (Self::H(_), Self::H(_)) => bail!("cannot add two horizontal alignments"),
             (Self::V(_), Self::V(_)) => bail!("cannot add two vertical alignments"),
             (Self::H(_), Self::Both(..)) | (Self::Both(..), Self::H(_)) => {
@@ -204,37 +205,35 @@ impl Add for Align {
     }
 }
 
-impl Repr for Align {
+impl Repr for Alignment {
     fn repr(&self) -> EcoString {
         match self {
-            Self::H(x) => x.repr(),
-            Self::V(y) => y.repr(),
-            Self::Both(x, y) => eco_format!("{} + {}", x.repr(), y.repr()),
+            Self::H(h) => h.repr(),
+            Self::V(v) => v.repr(),
+            Self::Both(h, v) => eco_format!("{} + {}", h.repr(), v.repr()),
         }
     }
 }
 
-impl Fold for Align {
-    type Output = Self;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
+impl Fold for Alignment {
+    fn fold(self, outer: Self) -> Self {
         match (self, outer) {
-            (Self::H(x), Self::V(y) | Self::Both(_, y)) => Self::Both(x, y),
-            (Self::V(y), Self::H(x) | Self::Both(x, _)) => Self::Both(x, y),
+            (Self::H(h), Self::V(v) | Self::Both(_, v)) => Self::Both(h, v),
+            (Self::V(v), Self::H(h) | Self::Both(h, _)) => Self::Both(h, v),
             _ => self,
         }
     }
 }
 
-impl Resolve for Align {
-    type Output = Axes<FixedAlign>;
+impl Resolve for Alignment {
+    type Output = Axes<FixedAlignment>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.fix(TextElem::dir_in(styles))
     }
 }
 
-impl From<Side> for Align {
+impl From<Side> for Alignment {
     fn from(side: Side) -> Self {
         match side {
             Side::Left => Self::LEFT,
@@ -245,13 +244,15 @@ impl From<Side> for Align {
     }
 }
 
-cast! {
-    type Align,
+/// Alignment on this axis can be fixed to an absolute direction.
+pub trait FixAlignment {
+    /// Resolve to the absolute alignment.
+    fn fix(self, dir: Dir) -> FixedAlignment;
 }
 
 /// Where to align something horizontally.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum HAlign {
+pub enum HAlignment {
     #[default]
     Start,
     Left,
@@ -260,7 +261,7 @@ pub enum HAlign {
     End,
 }
 
-impl HAlign {
+impl HAlignment {
     /// The inverse horizontal alignment.
     pub const fn inv(self) -> Self {
         match self {
@@ -271,20 +272,21 @@ impl HAlign {
             Self::End => Self::Start,
         }
     }
+}
 
-    /// Resolve the axis alignment based on the horizontal direction.
-    pub const fn fix(self, dir: Dir) -> FixedAlign {
+impl FixAlignment for HAlignment {
+    fn fix(self, dir: Dir) -> FixedAlignment {
         match (self, dir.is_positive()) {
-            (Self::Start, true) | (Self::End, false) => FixedAlign::Start,
-            (Self::Left, _) => FixedAlign::Start,
-            (Self::Center, _) => FixedAlign::Center,
-            (Self::Right, _) => FixedAlign::End,
-            (Self::End, true) | (Self::Start, false) => FixedAlign::End,
+            (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
+            (Self::Left, _) => FixedAlignment::Start,
+            (Self::Center, _) => FixedAlignment::Center,
+            (Self::Right, _) => FixedAlignment::End,
+            (Self::End, true) | (Self::Start, false) => FixedAlignment::End,
         }
     }
 }
 
-impl Repr for HAlign {
+impl Repr for HAlignment {
     fn repr(&self) -> EcoString {
         match self {
             Self::Start => "start".into(),
@@ -296,22 +298,36 @@ impl Repr for HAlign {
     }
 }
 
-impl Add<VAlign> for HAlign {
-    type Output = Align;
+impl Add<VAlignment> for HAlignment {
+    type Output = Alignment;
 
-    fn add(self, rhs: VAlign) -> Self::Output {
-        Align::Both(self, rhs)
+    fn add(self, rhs: VAlignment) -> Self::Output {
+        Alignment::Both(self, rhs)
     }
 }
 
-impl From<HAlign> for Align {
-    fn from(align: HAlign) -> Self {
+impl From<HAlignment> for Alignment {
+    fn from(align: HAlignment) -> Self {
         Self::H(align)
     }
 }
 
-impl Resolve for HAlign {
-    type Output = FixedAlign;
+impl TryFrom<Alignment> for HAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::H(h) => Ok(h),
+            v => bail!(
+                "expected `start`, `left`, `center`, `right`, or `end`, found {}",
+                v.repr()
+            ),
+        }
+    }
+}
+
+impl Resolve for HAlignment {
+    type Output = FixedAlignment;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.fix(TextElem::dir_in(styles))
@@ -319,24 +335,82 @@ impl Resolve for HAlign {
 }
 
 cast! {
-    HAlign,
-    self => Align::H(self).into_value(),
-    align: Align => match align {
-        Align::H(v) => v,
-        v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {}", v.repr()),
+    HAlignment,
+    self => Alignment::H(self).into_value(),
+    align: Alignment => Self::try_from(align)?,
+}
+
+/// A horizontal alignment which only allows `left`/`right` and `start`/`end`,
+/// thus excluding `center`.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum OuterHAlignment {
+    #[default]
+    Start,
+    Left,
+    Right,
+    End,
+}
+
+impl FixAlignment for OuterHAlignment {
+    fn fix(self, dir: Dir) -> FixedAlignment {
+        match (self, dir.is_positive()) {
+            (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
+            (Self::Left, _) => FixedAlignment::Start,
+            (Self::Right, _) => FixedAlignment::End,
+            (Self::End, true) | (Self::Start, false) => FixedAlignment::End,
+        }
     }
+}
+
+impl Resolve for OuterHAlignment {
+    type Output = FixedAlignment;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
+    }
+}
+
+impl From<OuterHAlignment> for HAlignment {
+    fn from(value: OuterHAlignment) -> Self {
+        match value {
+            OuterHAlignment::Start => Self::Start,
+            OuterHAlignment::Left => Self::Left,
+            OuterHAlignment::Right => Self::Right,
+            OuterHAlignment::End => Self::End,
+        }
+    }
+}
+
+impl TryFrom<Alignment> for OuterHAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::H(HAlignment::Start) => Ok(Self::Start),
+            Alignment::H(HAlignment::Left) => Ok(Self::Left),
+            Alignment::H(HAlignment::Right) => Ok(Self::Right),
+            Alignment::H(HAlignment::End) => Ok(Self::End),
+            v => bail!("expected `start`, `left`, `right`, or `end`, found {}", v.repr()),
+        }
+    }
+}
+
+cast! {
+    OuterHAlignment,
+    self => HAlignment::from(self).into_value(),
+    align: Alignment => Self::try_from(align)?,
 }
 
 /// Where to align something vertically.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum VAlign {
+pub enum VAlignment {
     #[default]
     Top,
     Horizon,
     Bottom,
 }
 
-impl VAlign {
+impl VAlignment {
     /// The inverse vertical alignment.
     pub const fn inv(self) -> Self {
         match self {
@@ -345,18 +419,20 @@ impl VAlign {
             Self::Bottom => Self::Top,
         }
     }
+}
 
-    /// Turns into a fixed alignment.
-    pub const fn fix(self) -> FixedAlign {
+impl FixAlignment for VAlignment {
+    fn fix(self, _: Dir) -> FixedAlignment {
+        // The vertical alignment does not depend on text direction.
         match self {
-            Self::Top => FixedAlign::Start,
-            Self::Horizon => FixedAlign::Center,
-            Self::Bottom => FixedAlign::End,
+            Self::Top => FixedAlignment::Start,
+            Self::Horizon => FixedAlignment::Center,
+            Self::Bottom => FixedAlignment::End,
         }
     }
 }
 
-impl Repr for VAlign {
+impl Repr for VAlignment {
     fn repr(&self) -> EcoString {
         match self {
             Self::Top => "top".into(),
@@ -366,26 +442,207 @@ impl Repr for VAlign {
     }
 }
 
-impl Add<HAlign> for VAlign {
-    type Output = Align;
+impl Add<HAlignment> for VAlignment {
+    type Output = Alignment;
 
-    fn add(self, rhs: HAlign) -> Self::Output {
-        Align::Both(rhs, self)
+    fn add(self, rhs: HAlignment) -> Self::Output {
+        Alignment::Both(rhs, self)
     }
 }
 
-impl From<VAlign> for Align {
-    fn from(align: VAlign) -> Self {
+impl Resolve for VAlignment {
+    type Output = FixedAlignment;
+
+    fn resolve(self, _: StyleChain) -> Self::Output {
+        self.fix(Dir::TTB)
+    }
+}
+
+impl From<VAlignment> for Alignment {
+    fn from(align: VAlignment) -> Self {
         Self::V(align)
     }
 }
 
+impl TryFrom<Alignment> for VAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::V(v) => Ok(v),
+            v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
+        }
+    }
+}
+
 cast! {
-    VAlign,
-    self => Align::V(self).into_value(),
-    align: Align => match align {
-        Align::V(v) => v,
-        v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
+    VAlignment,
+    self => Alignment::V(self).into_value(),
+    align: Alignment => Self::try_from(align)?,
+}
+
+/// A vertical alignment which only allows `top` and `bottom`, thus excluding
+/// `horizon`.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum OuterVAlignment {
+    #[default]
+    Top,
+    Bottom,
+}
+
+impl FixAlignment for OuterVAlignment {
+    fn fix(self, _: Dir) -> FixedAlignment {
+        // The vertical alignment does not depend on text direction.
+        match self {
+            Self::Top => FixedAlignment::Start,
+            Self::Bottom => FixedAlignment::End,
+        }
+    }
+}
+
+impl From<OuterVAlignment> for VAlignment {
+    fn from(value: OuterVAlignment) -> Self {
+        match value {
+            OuterVAlignment::Top => Self::Top,
+            OuterVAlignment::Bottom => Self::Bottom,
+        }
+    }
+}
+
+impl TryFrom<Alignment> for OuterVAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::V(VAlignment::Top) => Ok(Self::Top),
+            Alignment::V(VAlignment::Bottom) => Ok(Self::Bottom),
+            v => bail!("expected `top` or `bottom`, found {}", v.repr()),
+        }
+    }
+}
+
+cast! {
+    OuterVAlignment,
+    self => VAlignment::from(self).into_value(),
+    align: Alignment => Self::try_from(align)?,
+}
+
+/// An internal representation that combines horizontal or vertical alignments. The
+/// allowed alignment positions are designated by the type parameter `H` and `V`.
+///
+/// This is not user-visible, but an internal type to impose type safety. For example,
+/// `SpecificAlignment<HAlignment, OuterVAlignment>` does not allow vertical alignment
+/// position "center", because `V = OuterVAlignment` doesn't have it.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SpecificAlignment<H, V> {
+    H(H),
+    V(V),
+    Both(H, V),
+}
+
+impl<H, V> SpecificAlignment<H, V>
+where
+    H: Default + Copy + FixAlignment,
+    V: Default + Copy + FixAlignment,
+{
+    /// The horizontal component.
+    pub const fn x(self) -> Option<H> {
+        match self {
+            Self::H(h) | Self::Both(h, _) => Some(h),
+            Self::V(_) => None,
+        }
+    }
+
+    /// The vertical component.
+    pub const fn y(self) -> Option<V> {
+        match self {
+            Self::V(v) | Self::Both(_, v) => Some(v),
+            Self::H(_) => None,
+        }
+    }
+
+    /// Normalize the alignment to a LTR-TTB space.
+    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
+        Axes::new(
+            self.x().unwrap_or_default().fix(text_dir),
+            self.y().unwrap_or_default().fix(text_dir),
+        )
+    }
+}
+
+impl<H, V> Resolve for SpecificAlignment<H, V>
+where
+    H: Default + Copy + FixAlignment,
+    V: Default + Copy + FixAlignment,
+{
+    type Output = Axes<FixedAlignment>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
+    }
+}
+
+impl<H, V> From<SpecificAlignment<H, V>> for Alignment
+where
+    HAlignment: From<H>,
+    VAlignment: From<V>,
+{
+    fn from(value: SpecificAlignment<H, V>) -> Self {
+        type FromType<H, V> = SpecificAlignment<H, V>;
+        match value {
+            FromType::H(h) => Self::H(HAlignment::from(h)),
+            FromType::V(v) => Self::V(VAlignment::from(v)),
+            FromType::Both(h, v) => Self::Both(HAlignment::from(h), VAlignment::from(v)),
+        }
+    }
+}
+
+impl<H, V> Reflect for SpecificAlignment<H, V>
+where
+    H: Reflect,
+    V: Reflect,
+{
+    fn input() -> CastInfo {
+        Alignment::input()
+    }
+
+    fn output() -> CastInfo {
+        Alignment::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        H::castable(value) || V::castable(value)
+    }
+}
+
+impl<H, V> IntoValue for SpecificAlignment<H, V>
+where
+    HAlignment: From<H>,
+    VAlignment: From<V>,
+{
+    fn into_value(self) -> Value {
+        Alignment::from(self).into_value()
+    }
+}
+
+impl<H, V> FromValue for SpecificAlignment<H, V>
+where
+    H: Reflect + TryFrom<Alignment, Error = EcoString>,
+    V: Reflect + TryFrom<Alignment, Error = EcoString>,
+{
+    fn from_value(value: Value) -> StrResult<Self> {
+        if Alignment::castable(&value) {
+            let align = Alignment::from_value(value)?;
+            let result = match align {
+                Alignment::H(_) => Self::H(H::try_from(align)?),
+                Alignment::V(_) => Self::V(V::try_from(align)?),
+                Alignment::Both(h, v) => {
+                    Self::Both(H::try_from(h.into())?, V::try_from(v.into())?)
+                }
+            };
+            return Ok(result);
+        }
+        Err(Self::error(&value))
     }
 }
 
@@ -394,13 +651,13 @@ cast! {
 /// For horizontal alignment, start is globally left and for vertical alignment
 /// it is globally top.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum FixedAlign {
+pub enum FixedAlignment {
     Start,
     Center,
     End,
 }
 
-impl FixedAlign {
+impl FixedAlignment {
     /// Returns the position of this alignment in a container with the given
     /// extent.
     pub fn position(self, extent: Abs) -> Abs {
@@ -410,9 +667,18 @@ impl FixedAlign {
             Self::End => extent,
         }
     }
+
+    /// The inverse alignment.
+    pub const fn inv(self) -> Self {
+        match self {
+            Self::Start => Self::End,
+            Self::Center => Self::Center,
+            Self::End => Self::Start,
+        }
+    }
 }
 
-impl From<Side> for FixedAlign {
+impl From<Side> for FixedAlignment {
     fn from(side: Side) -> Self {
         match side {
             Side::Left => Self::Start,

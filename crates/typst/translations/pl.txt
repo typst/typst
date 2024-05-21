@@ -1,0 +1,7 @@
+figure = Rysunek
+table = Tabela
+equation = Równanie
+bibliography = Bibliografia
+heading = Sekcja
+outline = Spis treści
+raw = Program

@@ -1,31 +1,30 @@
 #![no_main]
 
-use comemo::Prehashed;
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
 use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
+use typst::utils::LazyHash;
 use typst::visualize::Color;
 use typst::{Library, World};
 
-const FONT: &[u8] = include_bytes!("../../../assets/fonts/LinLibertine_R.ttf");
-
 struct FuzzWorld {
-    library: Prehashed<Library>,
-    book: Prehashed<FontBook>,
+    library: LazyHash<Library>,
+    book: LazyHash<FontBook>,
     font: Font,
     source: Source,
 }
 
 impl FuzzWorld {
     fn new(text: &str) -> Self {
-        let font = Font::new(FONT.into(), 0).unwrap();
+        let data = typst_assets::fonts().next().unwrap();
+        let font = Font::new(Bytes::from_static(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
-            library: Prehashed::new(Library::default()),
-            book: Prehashed::new(book),
+            library: LazyHash::new(Library::default()),
+            book: LazyHash::new(book),
             font,
             source: Source::detached(text),
         }
@@ -33,11 +32,11 @@ impl FuzzWorld {
 }
 
 impl World for FuzzWorld {
-    fn library(&self) -> &Prehashed<Library> {
+    fn library(&self) -> &LazyHash<Library> {
         &self.library
     }
 
-    fn book(&self) -> &Prehashed<FontBook> {
+    fn book(&self) -> &LazyHash<FontBook> {
         &self.book
     }
 
@@ -67,7 +66,7 @@ fuzz_target!(|text: &str| {
     let mut tracer = Tracer::new();
     if let Ok(document) = typst::compile(&world, &mut tracer) {
         if let Some(page) = document.pages.first() {
-            std::hint::black_box(typst_render::render(page, 1.0, Color::WHITE));
+            std::hint::black_box(typst_render::render(&page.frame, 1.0, Color::WHITE));
         }
     }
     comemo::evict(10);

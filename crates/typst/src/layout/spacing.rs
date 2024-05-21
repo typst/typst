@@ -1,8 +1,7 @@
-use std::borrow::Cow;
-
-use crate::foundations::{cast, elem, Behave, Behaviour, Content, Resolve, StyleChain};
+use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
-use crate::util::Numeric;
+use crate::realize::{Behave, Behaviour};
+use crate::utils::Numeric;
 
 /// Inserts horizontal spacing into a paragraph.
 ///
@@ -62,27 +61,23 @@ impl HElem {
     }
 }
 
-impl Behave for HElem {
+impl Behave for Packed<HElem> {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
         } else if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
-            Behaviour::Invisible
+            Behaviour::Ignorant
         }
     }
 
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
-        let Some(other) = prev.0.to::<Self>() else { return false };
+    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
+        let Some(other) = prev.0.to_packed::<HElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
-                this.resolve(styles) > other.resolve(prev.2)
+                this.resolve(styles) > other.resolve(prev.1)
             }
             _ => false,
         }
@@ -164,27 +159,23 @@ impl VElem {
     }
 }
 
-impl Behave for VElem {
+impl Behave for Packed<VElem> {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
         } else if self.weakness(StyleChain::default()) > 0 {
             Behaviour::Weak(self.weakness(StyleChain::default()))
         } else {
-            Behaviour::Invisible
+            Behaviour::Ignorant
         }
     }
 
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
-        let Some(other) = prev.0.to::<Self>() else { return false };
+    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
+        let Some(other) = prev.0.to_packed::<VElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
-                this.resolve(styles) > other.resolve(prev.2)
+                this.resolve(styles) > other.resolve(prev.1)
             }
             _ => false,
         }
@@ -193,7 +184,7 @@ impl Behave for VElem {
 
 cast! {
     VElem,
-    v: Content => v.to::<Self>().cloned().ok_or("expected `v` element")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected `v` element")?,
 }
 
 /// Kinds of spacing.

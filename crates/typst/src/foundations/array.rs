@@ -1,20 +1,21 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
-use std::num::NonZeroI64;
+use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
-    Reflect, Repr, Value, Version,
+    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
+    IntoValue, Reflect, Repr, Str, Value, Version,
 };
-use crate::syntax::Span;
+use crate::syntax::{Span, Spanned};
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -67,7 +68,7 @@ pub use crate::__array as array;
 /// #(("A", "B", "C")
 ///     .join(", ", last: " and "))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Default, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Array(EcoVec<Value>);
@@ -113,7 +114,7 @@ impl Array {
         let len = self.len();
         self.locate_opt(index, false)
             .and_then(move |i| self.0.make_mut().get_mut(i))
-            .ok_or_else(|| out_of_bounds_no_default(index, len))
+            .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Resolve an index or throw an out of bounds error.
@@ -222,8 +223,11 @@ impl Array {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
-    /// Inserts a value into the array at the specified index. Fails with an
-    /// error if the index is out of bounds.
+    /// Inserts a value into the array at the specified index, shifting all
+    /// subsequent elements to the right. Fails with an error if the index is
+    /// out of bounds.
+    ///
+    /// To replace an element of an array, use [`at`]($array.at).
     #[func]
     pub fn insert(
         &mut self,
@@ -300,12 +304,14 @@ impl Array {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<Value>> {
         for item in self.iter() {
             if searcher
-                .call(engine, [item.clone()])?
+                .call(engine, context, [item.clone()])?
                 .cast::<bool>()
                 .at(searcher.span())?
             {
@@ -322,12 +328,14 @@ impl Array {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
             if searcher
-                .call(engine, [item.clone()])?
+                .call(engine, context, [item.clone()])?
                 .cast::<bool>()
                 .at(searcher.span())?
             {
@@ -397,12 +405,18 @@ impl Array {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<Array> {
         let mut kept = EcoVec::new();
         for item in self.iter() {
-            if test.call(engine, [item.clone()])?.cast::<bool>().at(test.span())? {
+            if test
+                .call(engine, context, [item.clone()])?
+                .cast::<bool>()
+                .at(test.span())?
+            {
                 kept.push(item.clone())
             }
         }
@@ -416,10 +430,14 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The function to apply to each item.
         mapper: Func,
     ) -> SourceResult<Array> {
-        self.into_iter().map(|item| mapper.call(engine, [item])).collect()
+        self.into_iter()
+            .map(|item| mapper.call(engine, context, [item]))
+            .collect()
     }
 
     /// Returns a new array with the values alongside their indices.
@@ -464,9 +482,14 @@ impl Array {
     #[func]
     pub fn zip(
         self,
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
+        /// The real arguments (the `others` arguments are just for the docs, this
+        /// function is a bit involved, so we parse the positional arguments manually).
         args: &mut Args,
+        /// Whether all arrays have to have the same length.
+        /// For example, `(1, 2).zip((1, 2, 3), exact: true)` produces an error.
+        #[named]
+        #[default(false)]
+        exact: bool,
         /// The arrays to zip with.
         #[external]
         #[variadic]
@@ -481,7 +504,16 @@ impl Array {
 
         // Fast path for just two arrays.
         if remaining == 1 {
-            let other = args.expect::<Array>("others")?;
+            let Spanned { v: other, span: other_span } =
+                args.expect::<Spanned<Array>>("others")?;
+            if exact && self.len() != other.len() {
+                bail!(
+                    other_span,
+                    "second array has different length ({}) from first array ({})",
+                    other.len(),
+                    self.len()
+                );
+            }
             return Ok(self
                 .into_iter()
                 .zip(other)
@@ -491,11 +523,29 @@ impl Array {
 
         // If there is more than one array, we use the manual method.
         let mut out = Self::with_capacity(self.len());
-        let mut iterators = args
-            .all::<Array>()?
-            .into_iter()
-            .map(|i| i.into_iter())
-            .collect::<Vec<_>>();
+        let arrays = args.all::<Spanned<Array>>()?;
+        if exact {
+            let errs = arrays
+                .iter()
+                .filter(|sp| sp.v.len() != self.len())
+                .map(|Spanned { v, span }| {
+                    SourceDiagnostic::error(
+                        *span,
+                        eco_format!(
+                            "array has different length ({}) from first array ({})",
+                            v.len(),
+                            self.len()
+                        ),
+                    )
+                })
+                .collect::<EcoVec<_>>();
+            if !errs.is_empty() {
+                return Err(errs);
+            }
+        }
+
+        let mut iterators =
+            arrays.into_iter().map(|i| i.v.into_iter()).collect::<Vec<_>>();
 
         for this in self {
             let mut row = Self::with_capacity(1 + iterators.len());
@@ -521,6 +571,8 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The initial value to start with.
         init: Value,
         /// The folding function. Must have two parameters: One for the
@@ -529,7 +581,7 @@ impl Array {
     ) -> SourceResult<Value> {
         let mut acc = init;
         for item in self {
-            acc = folder.call(engine, [acc, item])?;
+            acc = folder.call(engine, context, [acc, item])?;
         }
         Ok(acc)
     }
@@ -581,11 +633,13 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
         for item in self {
-            if test.call(engine, [item])?.cast::<bool>().at(test.span())? {
+            if test.call(engine, context, [item])?.cast::<bool>().at(test.span())? {
                 return Ok(true);
             }
         }
@@ -599,11 +653,13 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
         for item in self {
-            if !test.call(engine, [item])?.cast::<bool>().at(test.span())? {
+            if !test.call(engine, context, [item])?.cast::<bool>().at(test.span())? {
                 return Ok(false);
             }
         }
@@ -704,6 +760,36 @@ impl Array {
         Array(vec)
     }
 
+    /// Splits an array into non-overlapping chunks, starting at the beginning,
+    /// ending with a single remainder chunk.
+    ///
+    /// All chunks but the last have `chunk-size` elements.
+    /// If `exact` is set to `{true}`, the remainder is dropped if it
+    /// contains less than `chunk-size` elements.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
+    /// #array.chunks(3)
+    /// #array.chunks(3, exact: true)
+    /// ```
+    #[func]
+    pub fn chunks(
+        self,
+        /// How many elements each chunk may at most contain.
+        chunk_size: NonZeroUsize,
+        /// Whether to keep the remainder if its size is less than `chunk-size`.
+        #[named]
+        #[default(false)]
+        exact: bool,
+    ) -> Array {
+        let to_array = |chunk| Array::from(chunk).into_value();
+        if exact {
+            self.0.chunks_exact(chunk_size.get()).map(to_array).collect()
+        } else {
+            self.0.chunks(chunk_size.get()).map(to_array).collect()
+        }
+    }
+
     /// Return a sorted version of this array, optionally by a given key
     /// function. The sorting algorithm used is stable.
     ///
@@ -714,6 +800,8 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// If given, applies this function to the elements in the array to
@@ -726,7 +814,7 @@ impl Array {
         let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, [x]),
+            Some(f) => f.call(engine, context, [x]),
             None => Ok(x),
         };
         vec.make_mut().sort_by(|a, b| {
@@ -762,6 +850,8 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]
@@ -771,7 +861,7 @@ impl Array {
         let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, [x]),
+            Some(f) => f.call(engine, context, [x]),
             None => Ok(x),
         };
 
@@ -796,6 +886,64 @@ impl Array {
 
         Ok(Self(out))
     }
+
+    /// Converts an array of pairs into a dictionary.
+    /// The first value of each pair is the key, the second the value.
+    ///
+    /// If the same key occurs multiple times, the last value is selected.
+    ///
+    /// ```example
+    /// (("apples", 2), ("peaches", 3), ("apples", 5)).to-dict()
+    /// ```
+    #[func]
+    pub fn to_dict(self) -> StrResult<Dict> {
+        self.into_iter()
+            .map(|value| {
+                let value_ty = value.ty();
+                let pair = value.cast::<Array>().map_err(|_| {
+                    eco_format!("expected (str, any) pairs, found {}", value_ty)
+                })?;
+                if let [key, value] = pair.as_slice() {
+                    let key = key.clone().cast::<Str>().map_err(|_| {
+                        eco_format!("expected key of type str, found {}", value.ty())
+                    })?;
+                    Ok((key, value.clone()))
+                } else {
+                    bail!("expected pairs of length 2, found length {}", pair.len());
+                }
+            })
+            .collect()
+    }
+
+    /// Reduces the elements to a single one, by repeatedly applying a reducing
+    /// operation.
+    ///
+    /// If the array is empty, returns `none`, otherwise, returns the
+    /// result of the reduction.
+    ///
+    /// The reducing function is a closure with two arguments: an 'accumulator', and an element.
+    ///
+    /// For arrays with at least one element, this is the same as `array.fold`
+    /// with the first element of the array as the initial accumulator value, folding
+    /// every subsequent element into it.
+    #[func]
+    pub fn reduce(
+        self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: Tracked<Context>,
+        /// The reducing function. Must have two parameters: One for the
+        /// accumulated value and one for an item.
+        reducer: Func,
+    ) -> SourceResult<Value> {
+        let mut iter = self.into_iter();
+        let mut acc = iter.next().unwrap_or_default();
+        for item in iter {
+            acc = reducer.call(engine, context, [acc, item])?;
+        }
+        Ok(acc)
+    }
 }
 
 /// A value that can be cast to bytes.
@@ -803,8 +951,8 @@ pub struct ToArray(Array);
 
 cast! {
     ToArray,
-    v: Bytes => Self(v.iter().map(|&b| Value::Int(b.into())).collect()),
     v: Array => Self(v),
+    v: Bytes => Self(v.iter().map(|&b| Value::Int(b.into())).collect()),
     v: Version => Self(v.values().iter().map(|&v| Value::Int(v as i64)).collect())
 }
 

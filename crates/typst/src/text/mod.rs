@@ -32,18 +32,21 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, EcoString};
 use rustybuzz::{Feature, Tag};
+use smallvec::SmallVec;
 use ttf_parser::Rect;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, warning, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
-    NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain, Value,
+    cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
+    Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
+    StyleChain,
 };
-use crate::layout::{Abs, Axis, Dir, Length, Rel};
+use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
+use crate::World;
 
 /// Text styling.
 ///
@@ -63,10 +66,10 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<OverlineElem>();
     global.define_elem::<StrikeElem>();
     global.define_elem::<HighlightElem>();
+    global.define_elem::<SmallcapsElem>();
     global.define_elem::<RawElem>();
     global.define_func::<lower>();
     global.define_func::<upper>();
-    global.define_func::<smallcaps>();
     global.define_func::<lorem>();
 }
 
@@ -85,7 +88,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Construct, PlainText, Repr)]
+#[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family name or priority list of font family names.
     ///
@@ -99,11 +102,16 @@ pub struct TextElem {
     /// - In the web app, you can see the list of available fonts by clicking on
     ///   the "Ag" button. You can provide additional fonts by uploading `.ttf`
     ///   or `.otf` files into your project. They will be discovered
-    ///   automatically.
+    ///   automatically. The priority is: project fonts > server fonts.
     ///
-    /// - Locally, Typst uses your installed system fonts. In addition, you can
-    ///   use the `--font-path` argument or `TYPST_FONT_PATHS` environment
-    ///   variable to add directories that should be scanned for fonts.
+    /// - Locally, Typst uses your installed system fonts or embedded fonts in
+    ///   the CLI, which are `Linux Libertine`, `New Computer Modern`,
+    ///   `New Computer Modern Math`, and `DejaVu Sans Mono`. In addition, you
+    ///   can use the `--font-path` argument or `TYPST_FONT_PATHS` environment
+    ///   variable to add directories that should be scanned for fonts. The
+    ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
+    ///   `typst fonts` to see the fonts that Typst has discovered on your
+    ///   system.
     ///
     /// ```example
     /// #set text(font: "PT Sans")
@@ -117,6 +125,22 @@ pub struct TextElem {
     /// This is Latin. \
     /// هذا عربي.
     /// ```
+    #[parse({
+        let font_list: Option<Spanned<FontList>> = args.named("font")?;
+        if let Some(font_list) = &font_list {
+            let book = engine.world.book();
+            for family in &font_list.v {
+                if !book.contains_family(family.as_str()) {
+                    engine.tracer.warn(warning!(
+                        font_list.span,
+                        "unknown font family: {}",
+                        family.as_str(),
+                    ));
+                }
+            }
+        }
+        font_list.map(|font_list| font_list.v)
+    })]
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
     #[borrowed]
     #[ghost]
@@ -152,9 +176,9 @@ pub struct TextElem {
     /// available either in an italic or oblique style, the difference between
     /// italic and oblique style is rarely observable.
     ///
-    /// If you want to emphasize your text, you should do so using the
-    /// [emph]($emph) function instead. This makes it easy to adapt the style
-    /// later if you change your mind about how to signify the emphasis.
+    /// If you want to emphasize your text, you should do so using the [emph]
+    /// function instead. This makes it easy to adapt the style later if you
+    /// change your mind about how to signify the emphasis.
     ///
     /// ```example
     /// #text(font: "Linux Libertine", style: "italic")[Italic]
@@ -169,9 +193,8 @@ pub struct TextElem {
     /// that is closest in weight.
     ///
     /// If you want to strongly emphasize your text, you should do so using the
-    /// [strong]($strong) function instead. This makes it easy to adapt the
-    /// style later if you change your mind about how to signify the strong
-    /// emphasis.
+    /// [strong] function instead. This makes it easy to adapt the style later
+    /// if you change your mind about how to signify the strong emphasis.
     ///
     /// ```example
     /// #set text(font: "IBM Plex Sans")
@@ -213,7 +236,8 @@ pub struct TextElem {
     /// ```
     #[parse(args.named_or_find("size")?)]
     #[fold]
-    #[default(Abs::pt(11.0))]
+    #[default(TextSize(Abs::pt(11.0).into()))]
+    #[resolve]
     #[ghost]
     pub size: TextSize,
 
@@ -460,6 +484,52 @@ pub struct TextElem {
     #[ghost]
     pub hyphenate: Hyphenate,
 
+    /// The "cost" of various choices when laying out text. A higher cost means
+    /// the layout engine will make the choice less often. Costs are specified
+    /// as a ratio of the default cost, so `50%` will make text layout twice as
+    /// eager to make a given choice, while `200%` will make it half as eager.
+    ///
+    /// Currently, the following costs can be customized:
+    /// - `hyphenation`: splitting a word across multiple lines
+    /// - `runt`: ending a paragraph with a line with a single word
+    /// - `widow`: leaving a single line of paragraph on the next page
+    /// - `orphan`: leaving single line of paragraph on the previous page
+    ///
+    /// Hyphenation is generally avoided by placing the whole word on the next
+    /// line, so a higher hyphenation cost can result in awkward justification
+    /// spacing.
+    ///
+    /// Runts are avoided by placing more or fewer words on previous lines, so a
+    /// higher runt cost can result in more awkward in justification spacing.
+    ///
+    /// Text layout prevents widows and orphans by default because they are
+    /// generally discouraged by style guides. However, in some contexts they
+    /// are allowed because the prevention method, which moves a line to the
+    /// next page, can result in an uneven number of lines between pages.
+    /// The `widow` and `orphan` costs allow disabling these modifications.
+    /// (Currently, 0% allows widows/orphans; anything else, including the
+    /// default of `auto`, prevents them. More nuanced cost specification for
+    /// these modifications is planned for the future.)
+    ///
+    /// The default costs are an acceptable balance, but some may find that it
+    /// hyphenates or avoids runs too eagerly, breaking the flow of dense prose.
+    /// A cost of 600% (six times the normal cost) may work better for such
+    /// contexts.
+    ///
+    /// ```example
+    /// #set text(hyphenate: true, size: 11.4pt)
+    /// #set par(justify: true)
+    ///
+    /// #lorem(10)
+    ///
+    /// // Set hyphenation to ten times the normal cost.
+    /// #set text(costs: (hyphenation: 1000%))
+    ///
+    /// #lorem(10)
+    /// ```
+    #[fold]
+    pub costs: Costs,
+
     /// Whether to apply kerning.
     ///
     /// When enabled, specific letter pairings move closer together or further
@@ -618,6 +688,12 @@ pub struct TextElem {
     #[required]
     pub text: EcoString,
 
+    /// The offset of the text in the text syntax node referenced by this
+    /// element's span.
+    #[internal]
+    #[ghost]
+    pub span_offset: usize,
+
     /// A delta to apply on the font weight.
     #[internal]
     #[fold]
@@ -627,7 +703,7 @@ pub struct TextElem {
     /// Whether the font style should be inverted.
     #[internal]
     #[fold]
-    #[default(false)]
+    #[default(ItalicToggle(false))]
     #[ghost]
     pub emph: ItalicToggle,
 
@@ -635,7 +711,7 @@ pub struct TextElem {
     #[internal]
     #[fold]
     #[ghost]
-    pub deco: Decoration,
+    pub deco: SmallVec<[Decoration; 1]>,
 
     /// A case transformation that should be applied to the text.
     #[internal]
@@ -656,6 +732,12 @@ impl TextElem {
     }
 }
 
+impl Debug for TextElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Text({})", self.text)
+    }
+}
+
 impl Repr for TextElem {
     fn repr(&self) -> EcoString {
         eco_format!("[{}]", self.text)
@@ -673,7 +755,7 @@ impl Construct for TextElem {
     }
 }
 
-impl PlainText for TextElem {
+impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
         text.push_str(self.text());
     }
@@ -756,12 +838,12 @@ pub(crate) fn variant(styles: StyleChain) -> FontVariant {
         TextElem::stretch_in(styles),
     );
 
-    let delta = TextElem::delta_in(styles);
+    let WeightDelta(delta) = TextElem::delta_in(styles);
     variant.weight = variant
         .weight
         .thicken(delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16);
 
-    if TextElem::emph_in(styles) {
+    if TextElem::emph_in(styles).0 {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
             FontStyle::Italic => FontStyle::Normal,
@@ -777,10 +859,20 @@ pub(crate) fn variant(styles: StyleChain) -> FontVariant {
 pub struct TextSize(pub Length);
 
 impl Fold for TextSize {
+    fn fold(self, outer: Self) -> Self {
+        // Multiply the two linear functions.
+        Self(Length {
+            em: Em::new(self.0.em.get() * outer.0.em.get()),
+            abs: self.0.em.get() * outer.0.abs + self.0.abs,
+        })
+    }
+}
+
+impl Resolve for TextSize {
     type Output = Abs;
 
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.0.em.at(outer) + self.0.abs
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.0.resolve(styles)
     }
 }
 
@@ -932,7 +1024,7 @@ cast! {
     TextDir,
     self => self.0.into_value(),
     v: Smart<Dir> => {
-        if v.map_or(false, |dir| dir.axis() == Axis::Y) {
+        if v.is_custom_and(|dir| dir.axis() == Axis::Y) {
             bail!("text direction must be horizontal");
         }
         Self(v)
@@ -1049,11 +1141,8 @@ cast! {
 }
 
 impl Fold for FontFeatures {
-    type Output = Self;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.0.extend(outer.0);
-        self
+    fn fold(self, outer: Self) -> Self {
+        Self(self.0.fold(outer.0))
     }
 }
 
@@ -1126,36 +1215,88 @@ pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
 
 /// A toggle that turns on and off alternatingly if folded.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ItalicToggle;
-
-cast! {
-    ItalicToggle,
-    self => Value::None,
-    _: Value => Self,
-}
+pub struct ItalicToggle(pub bool);
 
 impl Fold for ItalicToggle {
-    type Output = bool;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        !outer
+    fn fold(self, outer: Self) -> Self {
+        Self(self.0 ^ outer.0)
     }
 }
 
 /// A delta that is summed up when folded.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct WeightDelta(pub i64);
 
-cast! {
-    WeightDelta,
-    self => self.0.into_value(),
-    v: i64 => Self(v),
+impl Fold for WeightDelta {
+    fn fold(self, outer: Self) -> Self {
+        Self(outer.0 + self.0)
+    }
 }
 
-impl Fold for WeightDelta {
-    type Output = i64;
+/// Costs that are updated (prioritizing the later value) when folded.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[non_exhaustive] // We may add more costs in the future.
+pub struct Costs {
+    pub hyphenation: Option<Ratio>,
+    pub runt: Option<Ratio>,
+    pub widow: Option<Ratio>,
+    pub orphan: Option<Ratio>,
+}
 
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        outer + self.0
+impl Costs {
+    #[inline]
+    #[must_use]
+    pub fn hyphenation(&self) -> Ratio {
+        self.hyphenation.unwrap_or(Ratio::one())
     }
+
+    #[inline]
+    #[must_use]
+    pub fn runt(&self) -> Ratio {
+        self.runt.unwrap_or(Ratio::one())
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn widow(&self) -> Ratio {
+        self.widow.unwrap_or(Ratio::one())
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn orphan(&self) -> Ratio {
+        self.orphan.unwrap_or(Ratio::one())
+    }
+}
+
+impl Fold for Costs {
+    #[inline]
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            hyphenation: self.hyphenation.or(outer.hyphenation),
+            runt: self.runt.or(outer.runt),
+            widow: self.widow.or(outer.widow),
+            orphan: self.orphan.or(outer.orphan),
+        }
+    }
+}
+
+cast! {
+    Costs,
+    self => dict![
+        "hyphenation" => self.hyphenation(),
+        "runt" => self.runt(),
+        "widow" => self.widow(),
+        "orphan" => self.orphan(),
+    ].into_value(),
+    mut v: Dict => {
+        let ret = Self {
+            hyphenation: v.take("hyphenation").ok().map(|v| v.cast()).transpose()?,
+            runt: v.take("runt").ok().map(|v| v.cast()).transpose()?,
+            widow: v.take("widow").ok().map(|v| v.cast()).transpose()?,
+            orphan: v.take("orphan").ok().map(|v| v.cast()).transpose()?,
+        };
+        v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
+        ret
+    },
 }

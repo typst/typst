@@ -7,7 +7,7 @@ use time::ext::NumericalDuration;
 use crate::foundations::{func, repr, scope, ty, Repr};
 
 /// Represents a positive or negative span of time.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
 
@@ -22,8 +22,8 @@ impl Duration {
 impl Duration {
     /// Creates a new duration.
     ///
-    /// You can specify the [duration]($duration) using weeks, days, hours,
-    /// minutes and seconds. You can also get a duration by subtracting two
+    /// You can specify the [duration] using weeks, days, hours, minutes and
+    /// seconds. You can also get a duration by subtracting two
     /// [datetimes]($datetime).
     ///
     /// ```example

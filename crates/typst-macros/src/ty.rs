@@ -28,18 +28,18 @@ pub fn ty(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
 
 /// Holds all relevant parsed data about a type.
 struct Type {
+    meta: Meta,
     ident: Ident,
     name: String,
     long: String,
-    scope: bool,
     title: String,
     docs: String,
-    keywords: Vec<String>,
 }
 
 /// The `..` in `#[ty(..)]`.
 struct Meta {
     scope: bool,
+    cast: bool,
     name: Option<String>,
     title: Option<String>,
     keywords: Vec<String>,
@@ -49,6 +49,7 @@ impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(Self {
             scope: parse_flag::<kw::scope>(input)?,
+            cast: parse_flag::<kw::cast>(input)?,
             name: parse_string::<kw::name>(input)?,
             title: parse_string::<kw::title>(input)?,
             keywords: parse_string_array::<kw::keywords>(input)?,
@@ -59,36 +60,34 @@ impl Parse for Meta {
 /// Parse details about the type from its definition.
 fn parse(meta: Meta, ident: Ident, attrs: &[Attribute]) -> Result<Type> {
     let docs = documentation(attrs);
-    let (name, title) = determine_name_and_title(meta.name, meta.title, &ident, None)?;
+    let (name, title) =
+        determine_name_and_title(meta.name.clone(), meta.title.clone(), &ident, None)?;
     let long = title.to_lowercase();
-    Ok(Type {
-        ident,
-        name,
-        long,
-        scope: meta.scope,
-        keywords: meta.keywords,
-        title,
-        docs,
-    })
+    Ok(Type { meta, ident, name, long, title, docs })
 }
 
 /// Produce the output of the macro.
 fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
-    let Type {
-        ident, name, long, title, docs, keywords, scope, ..
-    } = ty;
+    let Type { ident, name, long, title, docs, meta, .. } = ty;
+    let Meta { keywords, .. } = meta;
 
-    let constructor = if *scope {
+    let constructor = if meta.scope {
         quote! { <#ident as #foundations::NativeScope>::constructor() }
     } else {
         quote! { None }
     };
 
-    let scope = if *scope {
+    let scope = if meta.scope {
         quote! { <#ident as #foundations::NativeScope>::scope() }
     } else {
         quote! { #foundations::Scope::new() }
     };
+
+    let cast = (!meta.cast).then(|| {
+        quote! {
+            #foundations::cast! { type #ident, }
+        }
+    });
 
     let data = quote! {
         #foundations::NativeTypeData {
@@ -102,8 +101,16 @@ fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
         }
     };
 
+    let attr = item.map(|_| {
+        quote! {
+            #[allow(rustdoc::broken_intra_doc_links)]
+        }
+    });
+
     quote! {
+        #attr
         #item
+        #cast
 
         impl #foundations::NativeType for #ident {
             const NAME: &'static str = #name;

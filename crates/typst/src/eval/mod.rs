@@ -27,7 +27,7 @@ use comemo::{Track, Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::foundations::{Cast, Module, NativeElement, Scope, Scopes, Value};
+use crate::foundations::{Cast, Context, Module, NativeElement, Scope, Scopes, Value};
 use crate::introspection::{Introspector, Locator};
 use crate::math::EquationElem;
 use crate::syntax::{ast, parse, parse_code, parse_math, Source, Span};
@@ -35,7 +35,7 @@ use crate::World;
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
@@ -60,9 +60,10 @@ pub fn eval(
     };
 
     // Prepare VM.
-    let root = source.root();
+    let context = Context::none();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, scopes, root.span());
+    let root = source.root();
+    let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
     // Check for well-formedness unless we are in trace mode.
     let errors = root.errors();
@@ -128,8 +129,9 @@ pub fn eval_string(
     };
 
     // Prepare VM.
+    let context = Context::none();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, scopes, root.span());
+    let mut vm = Vm::new(engine, context.track(), scopes, root.span());
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.

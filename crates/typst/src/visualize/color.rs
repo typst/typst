@@ -4,11 +4,11 @@ use std::str::FromStr;
 
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
-use palette::convert::FromColorUnclamped;
 use palette::encoding::{self, Linear};
 use palette::{
-    Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
+    Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
+use qcms::Profile;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
@@ -19,16 +19,41 @@ use crate::layout::{Angle, Ratio};
 use crate::syntax::{Span, Spanned};
 
 // Type aliases for `palette` internal types in f32.
-pub(crate) type Oklab = palette::oklab::Oklaba<f32>;
-pub(crate) type Oklch = palette::oklch::Oklcha<f32>;
-pub(crate) type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
-pub(crate) type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
-pub(crate) type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
-pub(crate) type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
-pub(crate) type Luma = palette::luma::Luma<encoding::Srgb, f32>;
+pub type Oklab = palette::oklab::Oklaba<f32>;
+pub type Oklch = palette::oklch::Oklcha<f32>;
+pub type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
+pub type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
+pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
+pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
+pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 
-/// Equivalent of [`std::f32::EPSILON`] but for hue angles.
-const ANGLE_EPSILON: f32 = 1e-5;
+/// The ICC profile used to convert from CMYK to RGB.
+///
+/// This is a minimal CMYK profile that only contains the necessary information
+/// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
+/// specification. See
+/// <https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk>.
+static CMYK_TO_XYZ: Lazy<Box<Profile>> =
+    Lazy::new(|| Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap());
+
+/// The target sRGB profile.
+static SRGB_PROFILE: Lazy<Box<Profile>> = Lazy::new(|| {
+    let mut out = Profile::new_sRGB();
+    out.precache_output_transform();
+    out
+});
+
+static TO_SRGB: Lazy<qcms::Transform> = Lazy::new(|| {
+    qcms::Transform::new_to(
+        &CMYK_TO_XYZ,
+        &SRGB_PROFILE,
+        qcms::DataType::CMYK,
+        qcms::DataType::RGB8,
+        // Our input profile only supports perceptual intent.
+        qcms::Intent::Perceptual,
+    )
+    .unwrap()
+});
 
 /// A color in a specific color space.
 ///
@@ -92,13 +117,12 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///   columns: 9,
 ///   gutter: 10pt,
 ///   ..colors.map(name => {
-///       let c = eval(name)
-///       let cp = c.components()
-///       let x = cp.sum() / cp.len()
-///       set text(fill: white) if x < 50%
-///       set square(stroke: black) if c == white
+///       let col = eval(name)
+///       let luminance = luma(col).components().first()
+///       set text(fill: white) if luminance < 50%
+///       set square(stroke: black) if col == white
 ///       set align(center + horizon)
-///       square(size: 50pt,  fill: c, name)
+///       square(size: 50pt,  fill: col, name)
 ///   })
 /// )
 /// ```
@@ -163,7 +187,7 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///   )
 /// }))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone)]
 pub enum Color {
     /// A 32-bit luma color.
@@ -193,10 +217,10 @@ impl Color {
         MODULE.clone()
     };
 
-    pub const BLACK: Self = Self::Luma(Luma::new(0.0));
-    pub const GRAY: Self = Self::Luma(Luma::new(0.6666666));
-    pub const WHITE: Self = Self::Luma(Luma::new(1.0));
-    pub const SILVER: Self = Self::Luma(Luma::new(0.8666667));
+    pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
+    pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));
+    pub const WHITE: Self = Self::Luma(Luma::new(1.0, 1.0));
+    pub const SILVER: Self = Self::Luma(Luma::new(0.8666667, 1.0));
     pub const NAVY: Self = Self::Rgb(Rgb::new(0.0, 0.121569, 0.247059, 1.0));
     pub const BLUE: Self = Self::Rgb(Rgb::new(0.0, 0.454902, 0.85098, 1.0));
     pub const AQUA: Self = Self::Rgb(Rgb::new(0.4980392, 0.858823, 1.0, 1.0));
@@ -233,6 +257,9 @@ impl Color {
         /// The lightness component.
         #[external]
         lightness: Component,
+        /// The alpha component.
+        #[external]
+        alpha: RatioComponent,
         /// Alternatively: The color to convert to grayscale.
         ///
         /// If this is given, the `lightness` should not be given.
@@ -244,7 +271,9 @@ impl Color {
         } else {
             let Component(gray) =
                 args.expect("gray component").unwrap_or(Component(Ratio::one()));
-            Self::Luma(Luma::new(gray.get() as f32))
+            let RatioComponent(alpha) =
+                args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
+            Self::Luma(Luma::new(gray.get() as f32, alpha.get() as f32))
         })
     }
 
@@ -257,12 +286,12 @@ impl Color {
     ///
     /// A linear Oklab color is represented internally by an array of four
     /// components:
-    /// - lightness ([`ratio`]($ratio))
-    /// - a ([`float`]($float) or [`ratio`]($ratio).
+    /// - lightness ([`ratio`])
+    /// - a ([`float`] or [`ratio`].
     ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - b ([`float`]($float) or [`ratio`]($ratio).
+    /// - b ([`float`] or [`ratio`].
     ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - alpha ([`ratio`]($ratio))
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -316,11 +345,11 @@ impl Color {
     ///
     /// A linear Oklch color is represented internally by an array of four
     /// components:
-    /// - lightness ([`ratio`]($ratio))
-    /// - chroma ([`float`]($float) or [`ratio`]($ratio).
+    /// - lightness ([`ratio`])
+    /// - chroma ([`float`] or [`ratio`].
     ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - hue ([`angle`]($angle))
-    /// - alpha ([`ratio`]($ratio))
+    /// - hue ([`angle`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -379,10 +408,10 @@ impl Color {
     ///
     /// A linear RGB(A) color is represented internally by an array of four
     /// components:
-    /// - red ([`ratio`]($ratio))
-    /// - green ([`ratio`]($ratio))
-    /// - blue ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - red ([`ratio`])
+    /// - green ([`ratio`])
+    /// - blue ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -436,10 +465,10 @@ impl Color {
     /// The color is specified in the sRGB color space.
     ///
     /// An RGB(A) color is represented internally by an array of four components:
-    /// - red ([`ratio`]($ratio))
-    /// - green ([`ratio`]($ratio))
-    /// - blue ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - red ([`ratio`])
+    /// - green ([`ratio`])
+    /// - blue ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the [`components`]($color.components)
     /// method.
@@ -510,11 +539,11 @@ impl Color {
     /// to RGB for display preview might differ from how your printer reproduces
     /// the color.
     ///
-    /// An HSL color is represented internally by an array of four components:
-    /// - cyan ([`ratio`]($ratio))
-    /// - magenta ([`ratio`]($ratio))
-    /// - yellow ([`ratio`]($ratio))
-    /// - key ([`ratio`]($ratio))
+    /// A CMYK color is represented internally by an array of four components:
+    /// - cyan ([`ratio`])
+    /// - magenta ([`ratio`])
+    /// - yellow ([`ratio`])
+    /// - key ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -570,10 +599,10 @@ impl Color {
     /// while keeping perceived hue.
     ///
     /// An HSL color is represented internally by an array of four components:
-    /// - hue ([`angle`]($angle))
-    /// - saturation ([`ratio`]($ratio))
-    /// - lightness ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - hue ([`angle`])
+    /// - saturation ([`ratio`])
+    /// - lightness ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -629,10 +658,10 @@ impl Color {
     /// while keeping perceived hue.
     ///
     /// An HSV color is represented internally by an array of four components:
-    /// - hue ([`angle`]($angle))
-    /// - saturation ([`ratio`]($ratio))
-    /// - value ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - hue ([`angle`])
+    /// - saturation ([`ratio`])
+    /// - value ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -706,7 +735,7 @@ impl Color {
     ///
     /// ```example
     /// // note that the alpha component is included by default
-    /// #(rgb(40%, 60%, 80%).components() == (40%, 60%, 80%, 100%))
+    /// #rgb(40%, 60%, 80%).components()
     /// ```
     #[func]
     pub fn components(
@@ -716,123 +745,72 @@ impl Color {
         #[default(true)]
         alpha: bool,
     ) -> Array {
-        match self {
-            Self::Luma(c) => array![Ratio::new(c.luma as _)],
+        let mut components = match self {
+            Self::Luma(c) => {
+                array![Ratio::new(c.luma.into()), Ratio::new(c.alpha.into())]
+            }
             Self::Oklab(c) => {
-                if alpha {
-                    array![
-                        Ratio::new(c.l as _),
-                        (c.a as f64 * 1000.0).round() / 1000.0,
-                        (c.b as f64 * 1000.0).round() / 1000.0,
-                        Ratio::new(c.alpha as _),
-                    ]
-                } else {
-                    array![
-                        Ratio::new(c.l as _),
-                        (c.a as f64 * 1000.0).round() / 1000.0,
-                        (c.b as f64 * 1000.0).round() / 1000.0,
-                    ]
-                }
+                array![
+                    Ratio::new(c.l.into()),
+                    f64::from(c.a),
+                    f64::from(c.b),
+                    Ratio::new(c.alpha.into())
+                ]
             }
             Self::Oklch(c) => {
-                if alpha {
-                    array![
-                        Ratio::new(c.l as _),
-                        (c.chroma as f64 * 1000.0).round() / 1000.0,
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.alpha as _),
-                    ]
-                } else {
-                    array![
-                        Ratio::new(c.l as _),
-                        (c.chroma as f64 * 1000.0).round() / 1000.0,
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                    ]
-                }
+                array![
+                    Ratio::new(c.l.into()),
+                    f64::from(c.chroma),
+                    hue_angle(c.hue.into_degrees()),
+                    Ratio::new(c.alpha.into()),
+                ]
             }
             Self::LinearRgb(c) => {
-                if alpha {
-                    array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                        Ratio::new(c.alpha as _),
-                    ]
-                } else {
-                    array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                    ]
-                }
+                array![
+                    Ratio::new(c.red.into()),
+                    Ratio::new(c.green.into()),
+                    Ratio::new(c.blue.into()),
+                    Ratio::new(c.alpha.into()),
+                ]
             }
             Self::Rgb(c) => {
-                if alpha {
-                    array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                        Ratio::new(c.alpha as _),
-                    ]
-                } else {
-                    array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                    ]
-                }
+                array![
+                    Ratio::new(c.red.into()),
+                    Ratio::new(c.green.into()),
+                    Ratio::new(c.blue.into()),
+                    Ratio::new(c.alpha.into()),
+                ]
             }
-            Self::Cmyk(c) => array![
-                Ratio::new(c.c as _),
-                Ratio::new(c.m as _),
-                Ratio::new(c.y as _),
-                Ratio::new(c.k as _),
-            ],
+            Self::Cmyk(c) => {
+                array![
+                    Ratio::new(c.c.into()),
+                    Ratio::new(c.m.into()),
+                    Ratio::new(c.y.into()),
+                    Ratio::new(c.k.into())
+                ]
+            }
             Self::Hsl(c) => {
-                if alpha {
-                    array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.lightness as _),
-                        Ratio::new(c.alpha as _),
-                    ]
-                } else {
-                    array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.lightness as _),
-                    ]
-                }
+                array![
+                    hue_angle(c.hue.into_degrees()),
+                    Ratio::new(c.saturation.into()),
+                    Ratio::new(c.lightness.into()),
+                    Ratio::new(c.alpha.into()),
+                ]
             }
             Self::Hsv(c) => {
-                if alpha {
-                    array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.value as _),
-                        Ratio::new(c.alpha as _),
-                    ]
-                } else {
-                    array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.value as _),
-                    ]
-                }
+                array![
+                    hue_angle(c.hue.into_degrees()),
+                    Ratio::new(c.saturation.into()),
+                    Ratio::new(c.value.into()),
+                    Ratio::new(c.alpha.into()),
+                ]
             }
+        };
+        // Remove the alpha component if the corresponding argument was set.
+        if !alpha && !matches!(self, Self::Cmyk(_)) {
+            let _ = components.pop();
         }
+        components
     }
 
     /// Returns the constructor function for this color's space:
@@ -968,16 +946,29 @@ impl Color {
         })
     }
 
-    /// Produces the negative of the color.
+    /// Produces the complementary color using a provided color space.
+    /// You can think of it as the opposite side on a color wheel.
+    ///
+    /// ```example
+    /// #square(fill: yellow)
+    /// #square(fill: yellow.negate())
+    /// #square(fill: yellow.negate(space: rgb))
+    /// ```
     #[func]
-    pub fn negate(self) -> Color {
-        match self {
-            Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma)),
-            Self::Oklab(c) => Self::Oklab(Oklab::new(c.l, -c.a, -c.b, c.alpha)),
+    pub fn negate(
+        self,
+        /// The color space used for the transformation. By default, a perceptual color space is used.
+        #[named]
+        #[default(ColorSpace::Oklab)]
+        space: ColorSpace,
+    ) -> Color {
+        let result = match self.to_space(space) {
+            Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma, c.alpha)),
+            Self::Oklab(c) => Self::Oklab(Oklab::new(1.0 - c.l, -c.a, -c.b, c.alpha)),
             Self::Oklch(c) => Self::Oklch(Oklch::new(
-                c.l,
-                -c.chroma,
-                OklabHue::from_degrees(360.0 - c.hue.into_degrees()),
+                1.0 - c.l,
+                c.chroma,
+                OklabHue::from_degrees(c.hue.into_degrees() + 180.0),
                 c.alpha,
             )),
             Self::LinearRgb(c) => Self::LinearRgb(LinearRgb::new(
@@ -991,18 +982,19 @@ impl Color {
             }
             Self::Cmyk(c) => Self::Cmyk(Cmyk::new(1.0 - c.c, 1.0 - c.m, 1.0 - c.y, c.k)),
             Self::Hsl(c) => Self::Hsl(Hsl::new(
-                RgbHue::from_degrees(360.0 - c.hue.into_degrees()),
+                RgbHue::from_degrees(c.hue.into_degrees() + 180.0),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             )),
             Self::Hsv(c) => Self::Hsv(Hsv::new(
-                RgbHue::from_degrees(360.0 - c.hue.into_degrees()),
+                RgbHue::from_degrees(c.hue.into_degrees() + 180.0),
                 c.saturation,
                 c.value,
                 c.alpha,
             )),
-        }
+        };
+        result.to_space(self.space())
     }
 
     /// Rotates the hue of the color by a given angle.
@@ -1074,6 +1066,47 @@ impl Color {
         space: ColorSpace,
     ) -> StrResult<Color> {
         Self::mix_iter(colors, space)
+    }
+
+    /// Makes a color more transparent by a given factor.
+    ///
+    /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha - alpha * scale`.
+    /// Negative scales behave like `color.opacify(-scale)`.
+    ///
+    /// ```example
+    /// #block(fill: red)[opaque]
+    /// #block(fill: red.transparentize(50%))[half red]
+    /// #block(fill: red.transparentize(75%))[quarter red]
+    /// ```
+    #[func]
+    pub fn transparentize(
+        self,
+        /// The factor to change the alpha value by.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(-scale)
+    }
+
+    /// Makes a color more opaque by a given scale.
+    ///
+    /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
+    /// Negative scales behave like `color.transparentize(-scale)`.
+    ///
+    /// ```example
+    /// #let half-red = red.transparentize(50%)
+    /// #block(fill: half-red.opacify(100%))[opaque]
+    /// #block(fill: half-red.opacify(50%))[three quarters red]
+    /// #block(fill: half-red.opacify(-50%))[one quarter red]
+    /// ```
+    #[func]
+    pub fn opacify(
+        self,
+        /// The scale to change the alpha value by.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(scale)
     }
 }
 
@@ -1158,22 +1191,21 @@ impl Color {
                 Color::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
             }
             ColorSpace::Cmyk => Color::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0])),
+            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[1])),
         })
     }
 
     /// Construct a new RGBA color from 8-bit values.
     pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::Rgb(Rgb::new(
-            r as f32 / 255.0,
-            g as f32 / 255.0,
-            b as f32 / 255.0,
-            a as f32 / 255.0,
+            f32::from(r) / 255.0,
+            f32::from(g) / 255.0,
+            f32::from(b) / 255.0,
+            f32::from(a) / 255.0,
         ))
     }
 
     /// Converts a 32-bit integer to an RGBA color.
-    #[inline]
     pub fn from_u32(color: u32) -> Self {
         Self::from_u8(
             ((color >> 24) & 0xFF) as u8,
@@ -1186,7 +1218,8 @@ impl Color {
     /// Returns the alpha channel of the color, if it has one.
     pub fn alpha(&self) -> Option<f32> {
         match self {
-            Color::Luma(_) | Color::Cmyk(_) => None,
+            Color::Cmyk(_) => None,
+            Color::Luma(c) => Some(c.alpha),
             Color::Oklab(c) => Some(c.alpha),
             Color::Oklch(c) => Some(c.alpha),
             Color::Rgb(c) => Some(c.alpha),
@@ -1199,7 +1232,8 @@ impl Color {
     /// Sets the alpha channel of the color, if it has one.
     pub fn with_alpha(mut self, alpha: f32) -> Self {
         match &mut self {
-            Color::Luma(_) | Color::Cmyk(_) => {}
+            Color::Cmyk(_) => {}
+            Color::Luma(c) => c.alpha = alpha,
             Color::Oklab(c) => c.alpha = alpha,
             Color::Oklch(c) => c.alpha = alpha,
             Color::Rgb(c) => c.alpha = alpha,
@@ -1211,38 +1245,57 @@ impl Color {
         self
     }
 
+    /// Scales the alpha value of a color by a given amount.
+    ///
+    /// For positive scales, computes `alpha + scale - alpha * scale`.
+    /// For non-positive scales, computes `alpha + alpha * scale`.
+    fn scale_alpha(self, scale: Ratio) -> StrResult<Color> {
+        #[inline]
+        fn transform<C>(mut color: Alpha<C, f32>, scale: Ratio) -> Alpha<C, f32> {
+            let scale = scale.get() as f32;
+            let factor = if scale > 0.0 { 1.0 - color.alpha } else { color.alpha };
+            color.alpha = (color.alpha + scale * factor).clamp(0.0, 1.0);
+            color
+        }
+
+        Ok(match self {
+            Color::Luma(c) => Color::Luma(transform(c, scale)),
+            Color::Oklab(c) => Color::Oklab(transform(c, scale)),
+            Color::Oklch(c) => Color::Oklch(transform(c, scale)),
+            Color::Rgb(c) => Color::Rgb(transform(c, scale)),
+            Color::LinearRgb(c) => Color::LinearRgb(transform(c, scale)),
+            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
+            Color::Hsl(c) => Color::Hsl(transform(c, scale)),
+            Color::Hsv(c) => Color::Hsv(transform(c, scale)),
+        })
+    }
+
     /// Converts the color to a vec of four floats.
     pub fn to_vec4(&self) -> [f32; 4] {
         match self {
-            Color::Luma(c) => [c.luma; 4],
+            Color::Luma(c) => [c.luma, c.luma, c.luma, c.alpha],
             Color::Oklab(c) => [c.l, c.a, c.b, c.alpha],
-            Color::Oklch(c) => [
-                c.l,
-                c.chroma,
-                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
-                c.alpha,
-            ],
+            Color::Oklch(c) => {
+                [c.l, c.chroma, c.hue.into_degrees().rem_euclid(360.0), c.alpha]
+            }
             Color::Rgb(c) => [c.red, c.green, c.blue, c.alpha],
             Color::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
             Color::Cmyk(c) => [c.c, c.m, c.y, c.k],
             Color::Hsl(c) => [
-                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
+                c.hue.into_degrees().rem_euclid(360.0),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             ],
-            Color::Hsv(c) => [
-                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
-                c.saturation,
-                c.value,
-                c.alpha,
-            ],
+            Color::Hsv(c) => {
+                [c.hue.into_degrees().rem_euclid(360.0), c.saturation, c.value, c.alpha]
+            }
         }
     }
 
-    /// Returns the color's RGB(A) representation as an array of 8-bit values.
+    /// Converts the color to a vec of four [`u8`]s.
     pub fn to_vec4_u8(&self) -> [u8; 4] {
-        self.to_rgb().to_vec4().map(|x| (x * 255.0).round() as u8)
+        self.to_vec4().map(|x| (x * 255.0).round() as u8)
     }
 
     pub fn to_space(self, space: ColorSpace) -> Self {
@@ -1261,16 +1314,13 @@ impl Color {
     pub fn to_luma(self) -> Self {
         Self::Luma(match self {
             Self::Luma(c) => c,
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Luma::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Luma::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Luma`].
-            Self::Rgb(c) => Luma::from_color_unclamped(c),
-            Self::LinearRgb(c) => Luma::from_color_unclamped(c),
-            Self::Cmyk(c) => Luma::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Luma::from_color_unclamped(c),
-            Self::Hsv(c) => Luma::from_color_unclamped(c),
+            Self::Oklab(c) => Luma::from_color(c),
+            Self::Oklch(c) => Luma::from_color(c),
+            Self::Rgb(c) => Luma::from_color(c),
+            Self::LinearRgb(c) => Luma::from_color(c),
+            Self::Cmyk(c) => Luma::from_color(c.to_rgba()),
+            Self::Hsl(c) => Luma::from_color(c),
+            Self::Hsv(c) => Luma::from_color(c),
         })
     }
 
@@ -1278,9 +1328,7 @@ impl Color {
         Self::Oklab(match self {
             Self::Luma(c) => Oklab::from_color(c),
             Self::Oklab(c) => c,
-            // No clamping is necessary for this conversion because the
-            // lightness property is the same for both Oklab and Oklch.
-            Self::Oklch(c) => Oklab::from_color_unclamped(c),
+            Self::Oklch(c) => Oklab::from_color(c),
             Self::Rgb(c) => Oklab::from_color(c),
             Self::LinearRgb(c) => Oklab::from_color(c),
             Self::Cmyk(c) => Oklab::from_color(c.to_rgba()),
@@ -1292,9 +1340,7 @@ impl Color {
     pub fn to_oklch(self) -> Self {
         Self::Oklch(match self {
             Self::Luma(c) => Oklch::from_color(c),
-            // No clamping is necessary for this conversion because the
-            // lightness property is the same for both Oklab and Oklch.
-            Self::Oklab(c) => Oklch::from_color_unclamped(c),
+            Self::Oklab(c) => Oklch::from_color(c),
             Self::Oklch(c) => c,
             Self::Rgb(c) => Oklch::from_color(c),
             Self::LinearRgb(c) => Oklch::from_color(c),
@@ -1306,88 +1352,65 @@ impl Color {
 
     pub fn to_rgb(self) -> Self {
         Self::Rgb(match self {
-            // No clamping necessary because Luma is within sRGB, same as [`Rgb`].
-            Self::Luma(c) => Rgb::from_color_unclamped(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Rgb::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Rgb::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Rgb`].
+            Self::Luma(c) => Rgb::from_color(c),
+            Self::Oklab(c) => Rgb::from_color(c),
+            Self::Oklch(c) => Rgb::from_color(c),
             Self::Rgb(c) => c,
             Self::LinearRgb(c) => Rgb::from_linear(c),
-            Self::Cmyk(c) => Rgb::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Rgb::from_color_unclamped(c),
-            Self::Hsv(c) => Rgb::from_color_unclamped(c),
+            Self::Cmyk(c) => Rgb::from_color(c.to_rgba()),
+            Self::Hsl(c) => Rgb::from_color(c),
+            Self::Hsv(c) => Rgb::from_color(c),
         })
     }
 
     pub fn to_linear_rgb(self) -> Self {
         Self::LinearRgb(match self {
-            // No clamping necessary because Luma is within sRGB, same as $to.
-            Self::Luma(c) => LinearRgb::from_color_unclamped(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => LinearRgb::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => LinearRgb::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as $to.
-            Self::Rgb(c) => LinearRgb::from_color_unclamped(c),
+            Self::Luma(c) => LinearRgb::from_color(c),
+            Self::Oklab(c) => LinearRgb::from_color(c),
+            Self::Oklch(c) => LinearRgb::from_color(c),
+            Self::Rgb(c) => LinearRgb::from_color(c),
             Self::LinearRgb(c) => c,
-            Self::Cmyk(c) => LinearRgb::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Rgb::from_color_unclamped(c).into_linear(),
-            Self::Hsv(c) => Rgb::from_color_unclamped(c).into_linear(),
+            Self::Cmyk(c) => LinearRgb::from_color(c.to_rgba()),
+            Self::Hsl(c) => Rgb::from_color(c).into_linear(),
+            Self::Hsv(c) => Rgb::from_color(c).into_linear(),
         })
     }
 
     pub fn to_cmyk(self) -> Self {
         Self::Cmyk(match self {
             Self::Luma(c) => Cmyk::from_luma(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => {
-                Cmyk::from_rgba(Rgb::from_color_unclamped(Okhsva::from_color(c)))
-            }
-            Self::Oklch(c) => {
-                Cmyk::from_rgba(Rgb::from_color_unclamped(Okhsva::from_color(c)))
-            }
+            Self::Oklab(c) => Cmyk::from_rgba(Rgb::from_color(c)),
+            Self::Oklch(c) => Cmyk::from_rgba(Rgb::from_color(c)),
             Self::Rgb(c) => Cmyk::from_rgba(c),
             Self::LinearRgb(c) => Cmyk::from_rgba(Rgb::from_linear(c)),
             Self::Cmyk(c) => c,
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Cmyk`].
-            Self::Hsl(c) => Cmyk::from_rgba(Rgb::from_color_unclamped(c)),
-            Self::Hsv(c) => Cmyk::from_rgba(Rgb::from_color_unclamped(c)),
+            Self::Hsl(c) => Cmyk::from_rgba(Rgb::from_color(c)),
+            Self::Hsv(c) => Cmyk::from_rgba(Rgb::from_color(c)),
         })
     }
 
     pub fn to_hsl(self) -> Self {
         Self::Hsl(match self {
-            // No clamping necessary because Luma is within sRGB, same as [`Hsl`].
-            Self::Luma(c) => Hsl::from_color_unclamped(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Hsl::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Hsl::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Hsl`].
-            Self::Rgb(c) => Hsl::from_color_unclamped(c),
-            Self::LinearRgb(c) => Hsl::from_color_unclamped(Rgb::from_linear(c)),
-            Self::Cmyk(c) => Hsl::from_color_unclamped(c.to_rgba()),
+            Self::Luma(c) => Hsl::from_color(c),
+            Self::Oklab(c) => Hsl::from_color(c),
+            Self::Oklch(c) => Hsl::from_color(c),
+            Self::Rgb(c) => Hsl::from_color(c),
+            Self::LinearRgb(c) => Hsl::from_color(Rgb::from_linear(c)),
+            Self::Cmyk(c) => Hsl::from_color(c.to_rgba()),
             Self::Hsl(c) => c,
-            Self::Hsv(c) => Hsl::from_color_unclamped(c),
+            Self::Hsv(c) => Hsl::from_color(c),
         })
     }
 
     pub fn to_hsv(self) -> Self {
         Self::Hsv(match self {
-            // No clamping necessary because Luma is within sRGB, same as [`Hsv`].
-            Self::Luma(c) => Hsv::from_color_unclamped(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Hsv::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Hsv::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Hsv`].
-            Self::Rgb(c) => Hsv::from_color_unclamped(c),
-            Self::LinearRgb(c) => Hsv::from_color_unclamped(Rgb::from_linear(c)),
-            Self::Cmyk(c) => Hsv::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Hsv::from_color_unclamped(c),
+            Self::Luma(c) => Hsv::from_color(c),
+            Self::Oklab(c) => Hsv::from_color(c),
+            Self::Oklch(c) => Hsv::from_color(c),
+            Self::Rgb(c) => Hsv::from_color(c),
+            Self::LinearRgb(c) => Hsv::from_color(Rgb::from_linear(c)),
+            Self::Cmyk(c) => Hsv::from_color(c.to_rgba()),
+            Self::Hsl(c) => Hsv::from_color(c),
             Self::Hsv(c) => c,
         })
     }
@@ -1396,7 +1419,7 @@ impl Color {
 impl Debug for Color {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Luma(v) => write!(f, "Luma({})", v.luma),
+            Self::Luma(v) => write!(f, "Luma({}, {})", v.luma, v.alpha),
             Self::Oklab(v) => write!(f, "Oklab({}, {}, {}, {})", v.l, v.a, v.b, v.alpha),
             Self::Oklch(v) => {
                 write!(
@@ -1438,50 +1461,60 @@ impl Debug for Color {
 impl Repr for Color {
     fn repr(&self) -> EcoString {
         match self {
-            Self::Luma(c) => eco_format!("luma({})", Ratio::new(c.luma as _).repr()),
+            Self::Luma(c) => {
+                if c.alpha == 1.0 {
+                    eco_format!("luma({})", Ratio::new(c.luma.into()).repr())
+                } else {
+                    eco_format!(
+                        "luma({}, {})",
+                        Ratio::new(c.luma.into()).repr(),
+                        Ratio::new(c.alpha.into()).repr(),
+                    )
+                }
+            }
             Self::Rgb(_) => eco_format!("rgb({})", self.to_hex().repr()),
             Self::LinearRgb(c) => {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "color.linear-rgb({}, {}, {})",
-                        Ratio::new(c.red as _).repr(),
-                        Ratio::new(c.green as _).repr(),
-                        Ratio::new(c.blue as _).repr(),
+                        Ratio::new(c.red.into()).repr(),
+                        Ratio::new(c.green.into()).repr(),
+                        Ratio::new(c.blue.into()).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.linear-rgb({}, {}, {}, {})",
-                        Ratio::new(c.red as _).repr(),
-                        Ratio::new(c.green as _).repr(),
-                        Ratio::new(c.blue as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.red.into()).repr(),
+                        Ratio::new(c.green.into()).repr(),
+                        Ratio::new(c.blue.into()).repr(),
+                        Ratio::new(c.alpha.into()).repr(),
                     )
                 }
             }
             Self::Cmyk(c) => {
                 eco_format!(
                     "cmyk({}, {}, {}, {})",
-                    Ratio::new(c.c as _).repr(),
-                    Ratio::new(c.m as _).repr(),
-                    Ratio::new(c.y as _).repr(),
-                    Ratio::new(c.k as _).repr(),
+                    Ratio::new(c.c.into()).repr(),
+                    Ratio::new(c.m.into()).repr(),
+                    Ratio::new(c.y.into()).repr(),
+                    Ratio::new(c.k.into()).repr(),
                 )
             }
             Self::Oklab(c) => {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "oklab({}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.a as _),
-                        repr::format_float_component(c.b as _),
+                        Ratio::new(c.l.into()).repr(),
+                        repr::format_float_component(c.a.into()),
+                        repr::format_float_component(c.b.into()),
                     )
                 } else {
                     eco_format!(
                         "oklab({}, {}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.a as _),
-                        repr::format_float_component(c.b as _),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.l.into()).repr(),
+                        repr::format_float_component(c.a.into()),
+                        repr::format_float_component(c.b.into()),
+                        Ratio::new(c.alpha.into()).repr(),
                     )
                 }
             }
@@ -1489,17 +1522,17 @@ impl Repr for Color {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "oklch({}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.chroma as _),
+                        Ratio::new(c.l.into()).repr(),
+                        repr::format_float_component(c.chroma.into()),
                         hue_angle(c.hue.into_degrees()).repr(),
                     )
                 } else {
                     eco_format!(
                         "oklch({}, {}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.chroma as _),
+                        Ratio::new(c.l.into()).repr(),
+                        repr::format_float_component(c.chroma.into()),
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.alpha.into()).repr(),
                     )
                 }
             }
@@ -1508,16 +1541,16 @@ impl Repr for Color {
                     eco_format!(
                         "color.hsl({}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.lightness as _).repr(),
+                        Ratio::new(c.saturation.into()).repr(),
+                        Ratio::new(c.lightness.into()).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.hsl({}, {}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.lightness as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.saturation.into()).repr(),
+                        Ratio::new(c.lightness.into()).repr(),
+                        Ratio::new(c.alpha.into()).repr(),
                     )
                 }
             }
@@ -1526,16 +1559,16 @@ impl Repr for Color {
                     eco_format!(
                         "color.hsv({}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.value as _).repr(),
+                        Ratio::new(c.saturation.into()).repr(),
+                        Ratio::new(c.value.into()).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.hsv({}, {}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.value as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.saturation.into()).repr(),
+                        Ratio::new(c.value.into()).repr(),
+                        Ratio::new(c.alpha.into()).repr(),
                     )
                 }
             }
@@ -1544,7 +1577,7 @@ impl Repr for Color {
 }
 
 fn hue_angle(degrees: f32) -> Angle {
-    Angle::deg(degrees.rem_euclid(360.0 + ANGLE_EPSILON) as _)
+    Angle::deg(f64::from(degrees).rem_euclid(360.0))
 }
 
 impl PartialEq for Color {
@@ -1692,6 +1725,8 @@ impl Cmyk {
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
+    // This still uses naive conversion, because qcms does not support
+    // converting to CMYK yet.
     fn from_rgba(rgba: Rgb) -> Self {
         let r = rgba.red;
         let g = rgba.green;
@@ -1710,11 +1745,23 @@ impl Cmyk {
     }
 
     fn to_rgba(self) -> Rgb {
-        let r = (1.0 - self.c) * (1.0 - self.k);
-        let g = (1.0 - self.m) * (1.0 - self.k);
-        let b = (1.0 - self.y) * (1.0 - self.k);
+        let mut dest: [u8; 3] = [0; 3];
+        TO_SRGB.convert(
+            &[
+                (self.c * 255.0).round() as u8,
+                (self.m * 255.0).round() as u8,
+                (self.y * 255.0).round() as u8,
+                (self.k * 255.0).round() as u8,
+            ],
+            &mut dest,
+        );
 
-        Rgb::new(r, g, b, 1.0)
+        Rgb::new(
+            f32::from(dest[0]) / 255.0,
+            f32::from(dest[1]) / 255.0,
+            f32::from(dest[2]) / 255.0,
+            1.0,
+        )
     }
 
     fn lighten(self, factor: f32) -> Self {
@@ -1743,7 +1790,7 @@ impl WeightedColor {
 
 cast! {
     WeightedColor,
-    self => array![self.color, Value::Float(self.weight as _)].into_value(),
+    self => array![self.color, Value::Float(self.weight)].into_value(),
     color: Color => Self { color, weight: 1.0 },
     v: Array => {
         let mut iter = v.into_iter();
@@ -1863,8 +1910,8 @@ pub struct ChromaComponent(f32);
 
 cast! {
     ChromaComponent,
-    v: Ratio => Self((v.get() * 0.4) as f32),
     v: f64 => Self(v as f32),
+    v: Ratio => Self((v.get() * 0.4) as f32),
 }
 
 /// An integer or ratio component.

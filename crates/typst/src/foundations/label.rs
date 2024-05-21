@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::foundations::{func, scope, ty, Repr};
-use crate::util::PicoStr;
+use crate::utils::PicoStr;
 
 /// A label for an element.
 ///
@@ -26,11 +26,12 @@ use crate::util::PicoStr;
 ///
 /// # Syntax
 /// This function also has dedicated syntax: You can create a label by enclosing
-/// its name in angle brackets. This works both in markup and code.
+/// its name in angle brackets. This works both in markup and code. A label's
+/// name can contain letters, numbers, `_`, `-`, `:`, and `.`.
 ///
 /// Currently, labels can only be attached to elements in markup mode, not in
 /// code mode. This might change in the future.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Label(PicoStr);
 
@@ -41,13 +42,11 @@ impl Label {
     }
 
     /// Resolves the label to a string.
-    #[inline]
     pub fn as_str(&self) -> &'static str {
         self.0.resolve()
     }
 
     /// Turns this label into its inner interned string.
-    #[inline]
     pub fn into_inner(self) -> PicoStr {
         self.0
     }

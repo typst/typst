@@ -10,17 +10,13 @@ repository = { workspace = true }
 license = { workspace = true }
 categories = { workspace = true }
 keywords = { workspace = true }
-
-[lib]
-doctest = false
-bench = false
+readme = { workspace = true }
 
 [dependencies]
-comemo = { workspace = true }
+typst-utils = { workspace = true }
 ecow = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
-tracing = { workspace = true }
 unicode-ident = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }

@@ -1,12 +1,14 @@
+use comemo::Track;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Func, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, Context, Depth, Func, Packed, Smart, StyleChain,
     Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
-    Sizing, Spacing, VAlign,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
+    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -42,7 +44,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", Layout)]
+#[elem(scope, title = "Bullet List", LayoutMultiple)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [list spacing]($list.spacing). If it is `{true}`, they use normal
@@ -120,11 +122,12 @@ pub struct ListElem {
     /// ]
     /// ```
     #[variadic]
-    pub children: Vec<ListItem>,
+    pub children: Vec<Packed<ListItem>>,
 
     /// The nesting depth.
     #[internal]
     #[fold]
+    #[ghost]
     depth: Depth,
 }
 
@@ -134,8 +137,8 @@ impl ListElem {
     type ListItem;
 }
 
-impl Layout for ListElem {
-    #[tracing::instrument(name = "ListElem::layout", skip_all)]
+impl LayoutMultiple for Packed<ListElem> {
+    #[typst_macros::time(name = "list", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -151,24 +154,24 @@ impl Layout for ListElem {
                 .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
-        let depth = self.depth(styles);
+        let Depth(depth) = ListElem::depth_in(styles);
         let marker = self
             .marker(styles)
-            .resolve(engine, depth)?
+            .resolve(engine, styles, depth)?
             // avoid '#set align' interference with the list
-            .aligned(HAlign::Start + VAlign::Top);
+            .aligned(HAlignment::Start + VAlignment::Top);
 
         let mut cells = vec![];
         for item in self.children() {
-            cells.push(Content::empty());
-            cells.push(marker.clone());
-            cells.push(Content::empty());
-            cells.push(item.body().clone().styled(Self::set_depth(Depth)));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(marker.clone()));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(
+                item.body().clone().styled(ListElem::set_depth(Depth(1))),
+            ));
         }
 
-        let fill = Celled::Value(None);
-        let stroke = None;
-        let layouter = GridLayouter::new(
+        let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -176,15 +179,11 @@ impl Layout for ListElem {
                 Sizing::Auto,
             ]),
             Axes::with_y(&[gutter.into()]),
-            &cells,
-            &fill,
-            &stroke,
-            regions,
-            styles,
-            self.span(),
+            cells,
         );
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
-        Ok(layouter.layout(engine)?.fragment)
+        layouter.layout(engine)
     }
 }
 
@@ -198,7 +197,7 @@ pub struct ListItem {
 
 cast! {
     ListItem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::new)
 }
 
 /// A list's marker.
@@ -210,12 +209,19 @@ pub enum ListMarker {
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, engine: &mut Engine, depth: usize) -> SourceResult<Content> {
+    fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        depth: usize,
+    ) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
-            Self::Func(func) => func.call(engine, [depth])?.display(),
+            Self::Func(func) => func
+                .call(engine, Context::new(None, Some(styles)).track(), [depth])?
+                .display(),
         })
     }
 }
@@ -238,21 +244,4 @@ cast! {
         Self::Content(array.into_iter().map(Value::display).collect())
     },
     v: Func => Self::Func(v),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-struct Depth;
-
-cast! {
-    Depth,
-    self => Value::None,
-    _: Value => Self,
-}
-
-impl Fold for Depth {
-    type Output = usize;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        outer + 1
-    }
 }

@@ -1,3 +1,5 @@
+//! Definition of the central compilation context.
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
@@ -15,7 +17,7 @@ pub struct Engine<'a> {
     /// Provides access to information about the document.
     pub introspector: Tracked<'a, Introspector>,
     /// The route the engine took during compilation. This is used to detect
-    /// cyclic imports and too much nesting.
+    /// cyclic imports and excessive nesting.
     pub route: Route<'a>,
     /// Provides stable identities to elements.
     pub locator: &'a mut Locator<'a>,
@@ -43,8 +45,11 @@ impl Engine<'_> {
 }
 
 /// The route the engine took during compilation. This is used to detect
-/// cyclic imports and too much nesting.
+/// cyclic imports and excessive nesting.
 pub struct Route<'a> {
+    /// The parent route segment, if present.
+    ///
+    /// This is used when an engine is created from another engine.
     // We need to override the constraint's lifetime here so that `Tracked` is
     // covariant over the constraint. If it becomes invariant, we're in for a
     // world of lifetime pain.
@@ -58,9 +63,10 @@ pub struct Route<'a> {
     /// route exceeds `MAX_DEPTH`, then we throw a "maximum ... depth exceeded"
     /// error.
     len: usize,
-    /// The upper bound we've established for the parent chain length. We don't
-    /// know the exact length (that would defeat the whole purpose because it
-    /// would prevent cache reuse of some computation at different,
+    /// The upper bound we've established for the parent chain length.
+    ///
+    /// We don't know the exact length (that would defeat the whole purpose
+    /// because it would prevent cache reuse of some computation at different,
     /// non-exceeding depths).
     upper: AtomicUsize,
 }
@@ -73,10 +79,10 @@ impl Route<'_> {
     /// The maximum stack nesting depth.
     pub const MAX_SHOW_RULE_DEPTH: usize = 64;
 
-    /// The maxmium layout nesting depth.
+    /// The maximum layout nesting depth.
     pub const MAX_LAYOUT_DEPTH: usize = 72;
 
-    /// The maxmium function call nesting depth.
+    /// The maximum function call nesting depth.
     pub const MAX_CALL_DEPTH: usize = 80;
 }
 
@@ -137,7 +143,7 @@ impl<'a> Route<'a> {
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {
-        self.id == Some(id) || self.outer.map_or(false, |outer| outer.contains(id))
+        self.id == Some(id) || self.outer.is_some_and(|outer| outer.contains(id))
     }
 
     /// Whether the route's depth is less than or equal to the given depth.

@@ -18,9 +18,11 @@ use crate::foundations::{cast, func, repr, scope, ty, Repr};
 /// special case, the empty version (that has no components at all) is the same
 /// as `0`, `0.0`, `0.0.0`, and so on.
 ///
+/// The current version of the Typst compiler is available as `sys.version`.
+///
 /// You can convert a version to an array of explicitly given components using
-/// the [`array`]($array) constructor.
-#[ty(scope)]
+/// the [`array`] constructor.
+#[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Version(EcoVec<u32>);

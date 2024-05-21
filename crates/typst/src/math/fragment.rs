@@ -5,12 +5,14 @@ use ttf_parser::gsub::AlternateSet;
 use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
-use crate::foundations::Smart;
+use crate::foundations::StyleChain;
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{Abs, Corner, Em, Frame, FrameItem, Point, Size};
-use crate::math::{Limits, MathContext, MathStyle, Scaled};
+use crate::math::{
+    scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled,
+};
 use crate::syntax::Span;
-use crate::text::{Font, Glyph, Lang, TextElem, TextItem};
+use crate::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
 use crate::visualize::Paint;
 
 #[derive(Debug, Clone)]
@@ -18,7 +20,7 @@ pub enum MathFragment {
     Glyph(GlyphFragment),
     Variant(VariantFragment),
     Frame(FrameFragment),
-    Spacing(Abs),
+    Spacing(SpacingFragment),
     Space(Abs),
     Linebreak,
     Align,
@@ -34,7 +36,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.width,
             Self::Variant(variant) => variant.frame.width(),
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(amount) => *amount,
+            Self::Spacing(spacing) => spacing.width,
             Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
@@ -67,20 +69,23 @@ impl MathFragment {
         }
     }
 
-    pub fn class(&self) -> Option<MathClass> {
-        self.style().and_then(|style| style.class.as_custom()).or(match self {
+    pub fn class(&self) -> MathClass {
+        match self {
             Self::Glyph(glyph) => glyph.class,
             Self::Variant(variant) => variant.class,
-            Self::Frame(fragment) => Some(fragment.class),
-            _ => None,
-        })
+            Self::Frame(fragment) => fragment.class,
+            Self::Spacing(_) => MathClass::Space,
+            Self::Space(_) => MathClass::Space,
+            Self::Linebreak => MathClass::Space,
+            Self::Align => MathClass::Special,
+        }
     }
 
-    pub fn style(&self) -> Option<MathStyle> {
+    pub fn math_size(&self) -> Option<MathSize> {
         match self {
-            Self::Glyph(glyph) => Some(glyph.style),
-            Self::Variant(variant) => Some(variant.style),
-            Self::Frame(fragment) => Some(fragment.style),
+            Self::Glyph(glyph) => Some(glyph.math_size),
+            Self::Variant(variant) => Some(variant.math_size),
+            Self::Frame(fragment) => Some(fragment.math_size),
             _ => None,
         }
     }
@@ -95,27 +100,10 @@ impl MathFragment {
     }
 
     pub fn set_class(&mut self, class: MathClass) {
-        macro_rules! set_style_class {
-            ($fragment:ident) => {
-                if $fragment.style.class.is_custom() {
-                    $fragment.style.class = Smart::Custom(class);
-                }
-            };
-        }
-
         match self {
-            Self::Glyph(glyph) => {
-                glyph.class = Some(class);
-                set_style_class!(glyph);
-            }
-            Self::Variant(variant) => {
-                variant.class = Some(class);
-                set_style_class!(variant);
-            }
-            Self::Frame(fragment) => {
-                fragment.class = class;
-                set_style_class!(fragment);
-            }
+            Self::Glyph(glyph) => glyph.class = class,
+            Self::Variant(variant) => variant.class = class,
+            Self::Frame(fragment) => fragment.class = class,
             _ => {}
         }
     }
@@ -130,15 +118,24 @@ impl MathFragment {
     }
 
     pub fn is_spaced(&self) -> bool {
-        match self {
-            MathFragment::Frame(frame) => {
-                match self.style().and_then(|style| style.class.as_custom()) {
-                    Some(MathClass::Fence) => true,
-                    Some(_) => false,
-                    None => frame.spaced,
+        self.class() == MathClass::Fence
+            || match self {
+                MathFragment::Frame(frame) => {
+                    frame.spaced
+                        && matches!(
+                            frame.class,
+                            MathClass::Normal | MathClass::Alphabetic
+                        )
                 }
+                _ => false,
             }
-            _ => self.class() == Some(MathClass::Fence),
+    }
+
+    pub fn is_text_like(&self) -> bool {
+        match self {
+            Self::Glyph(_) | Self::Variant(_) => self.class() != MathClass::Large,
+            MathFragment::Frame(frame) => frame.text_like,
+            _ => false,
         }
     }
 
@@ -146,7 +143,17 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.italics_correction,
             Self::Variant(variant) => variant.italics_correction,
+            Self::Frame(fragment) => fragment.italics_correction,
             _ => Abs::zero(),
+        }
+    }
+
+    pub fn accent_attach(&self) -> Abs {
+        match self {
+            Self::Glyph(glyph) => glyph.accent_attach,
+            Self::Variant(variant) => variant.accent_attach,
+            Self::Frame(fragment) => fragment.accent_attach,
+            _ => self.width() / 2.0,
         }
     }
 
@@ -187,63 +194,86 @@ impl From<FrameFragment> for MathFragment {
     }
 }
 
+impl From<SpacingFragment> for MathFragment {
+    fn from(fragment: SpacingFragment) -> Self {
+        Self::Spacing(fragment)
+    }
+}
+
 #[derive(Clone)]
 pub struct GlyphFragment {
     pub id: GlyphId,
     pub c: char,
     pub font: Font,
     pub lang: Lang,
+    pub region: Option<Region>,
     pub fill: Paint,
     pub shift: Abs,
     pub width: Abs,
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
-    pub style: MathStyle,
+    pub accent_attach: Abs,
     pub font_size: Abs,
-    pub class: Option<MathClass>,
+    pub class: MathClass,
+    pub math_size: MathSize,
     pub span: Span,
     pub meta: SmallVec<[Meta; 1]>,
     pub limits: Limits,
 }
 
 impl GlyphFragment {
-    pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
+    pub fn new(ctx: &MathContext, styles: StyleChain, c: char, span: Span) -> Self {
         let id = ctx.ttf.glyph_index(c).unwrap_or_default();
         let id = Self::adjust_glyph_index(ctx, id);
-        Self::with_id(ctx, c, id, span)
+        Self::with_id(ctx, styles, c, id, span)
     }
 
-    pub fn try_new(ctx: &MathContext, c: char, span: Span) -> Option<Self> {
-        let c = ctx.style.styled_char(c);
+    pub fn try_new(
+        ctx: &MathContext,
+        styles: StyleChain,
+        c: char,
+        span: Span,
+    ) -> Option<Self> {
         let id = ctx.ttf.glyph_index(c)?;
         let id = Self::adjust_glyph_index(ctx, id);
-        Some(Self::with_id(ctx, c, id, span))
+        Some(Self::with_id(ctx, styles, c, id, span))
     }
 
-    pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
-        let class = match c {
-            ':' => Some(MathClass::Relation),
-            '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
-            _ => unicode_math_class::class(c),
-        };
+    pub fn with_id(
+        ctx: &MathContext,
+        styles: StyleChain,
+        c: char,
+        id: GlyphId,
+        span: Span,
+    ) -> Self {
+        let class = EquationElem::class_in(styles)
+            .or_else(|| match c {
+                ':' => Some(MathClass::Relation),
+                '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
+                _ => unicode_math_class::class(c),
+            })
+            .unwrap_or(MathClass::Normal);
+
         let mut fragment = Self {
             id,
             c,
             font: ctx.font.clone(),
-            lang: TextElem::lang_in(ctx.styles()),
-            fill: TextElem::fill_in(ctx.styles()).as_decoration(),
-            shift: TextElem::baseline_in(ctx.styles()),
-            style: ctx.style,
-            font_size: ctx.size,
+            lang: TextElem::lang_in(styles),
+            region: TextElem::region_in(styles),
+            fill: TextElem::fill_in(styles).as_decoration(),
+            shift: TextElem::baseline_in(styles),
+            font_size: scaled_font_size(ctx, styles),
+            math_size: EquationElem::size_in(styles),
             width: Abs::zero(),
             ascent: Abs::zero(),
             descent: Abs::zero(),
             limits: Limits::for_char(c),
             italics_correction: Abs::zero(),
+            accent_attach: Abs::zero(),
             class,
             span,
-            meta: MetaElem::data_in(ctx.styles()),
+            meta: MetaElem::data_in(styles),
         };
         fragment.set_id(ctx, id);
         fragment
@@ -262,7 +292,7 @@ impl GlyphFragment {
     /// styles. This is used to replace the glyph with a stretch variant.
     pub fn set_id(&mut self, ctx: &MathContext, id: GlyphId) {
         let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
-        let italics = italics_correction(ctx, id).unwrap_or_default();
+        let italics = italics_correction(ctx, id, self.font_size).unwrap_or_default();
         let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
             x_min: 0,
             y_min: 0,
@@ -270,16 +300,20 @@ impl GlyphFragment {
             y_max: 0,
         });
 
-        let mut width = advance.scaled(ctx);
+        let mut width = advance.scaled(ctx, self.font_size);
+        let accent_attach =
+            accent_attach(ctx, id, self.font_size).unwrap_or((width + italics) / 2.0);
+
         if !is_extended_shape(ctx, id) {
             width += italics;
         }
 
         self.id = id;
         self.width = width;
-        self.ascent = bbox.y_max.scaled(ctx);
-        self.descent = -bbox.y_min.scaled(ctx);
+        self.ascent = bbox.y_max.scaled(ctx, self.font_size);
+        self.descent = -bbox.y_min.scaled(ctx, self.font_size);
         self.italics_correction = italics;
+        self.accent_attach = accent_attach;
     }
 
     pub fn height(&self) -> Abs {
@@ -290,10 +324,11 @@ impl GlyphFragment {
         VariantFragment {
             c: self.c,
             id: Some(self.id),
-            style: self.style,
             font_size: self.font_size,
             italics_correction: self.italics_correction,
+            accent_attach: self.accent_attach,
             class: self.class,
+            math_size: self.math_size,
             span: self.span,
             limits: self.limits,
             frame: self.into_frame(),
@@ -307,6 +342,7 @@ impl GlyphFragment {
             size: self.font_size,
             fill: self.fill,
             lang: self.lang,
+            region: self.region,
             text: self.c.into(),
             stroke: None,
             glyphs: vec![Glyph {
@@ -356,10 +392,11 @@ pub struct VariantFragment {
     pub c: char,
     pub id: Option<GlyphId>,
     pub italics_correction: Abs,
+    pub accent_attach: Abs,
     pub frame: Frame,
-    pub style: MathStyle,
     pub font_size: Abs,
-    pub class: Option<MathClass>,
+    pub class: MathClass,
+    pub math_size: MathSize,
     pub span: Span,
     pub limits: Limits,
     pub mid_stretched: Option<bool>,
@@ -370,7 +407,8 @@ impl VariantFragment {
     /// on the axis.
     pub fn center_on_axis(&mut self, ctx: &MathContext) {
         let h = self.frame.height();
-        self.frame.set_baseline(h / 2.0 + scaled!(ctx, axis_height));
+        let axis = ctx.constants.axis_height().scaled(ctx, self.font_size);
+        self.frame.set_baseline(h / 2.0 + axis);
     }
 }
 
@@ -383,26 +421,33 @@ impl Debug for VariantFragment {
 #[derive(Debug, Clone)]
 pub struct FrameFragment {
     pub frame: Frame,
-    pub style: MathStyle,
     pub font_size: Abs,
     pub class: MathClass,
+    pub math_size: MathSize,
     pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
+    pub italics_correction: Abs,
+    pub accent_attach: Abs,
+    pub text_like: bool,
 }
 
 impl FrameFragment {
-    pub fn new(ctx: &MathContext, mut frame: Frame) -> Self {
+    pub fn new(ctx: &MathContext, styles: StyleChain, mut frame: Frame) -> Self {
         let base_ascent = frame.ascent();
-        frame.meta(ctx.styles(), false);
+        let accent_attach = frame.width() / 2.0;
+        frame.meta(styles, false);
         Self {
             frame,
-            font_size: ctx.size,
-            style: ctx.style,
-            class: MathClass::Normal,
+            font_size: scaled_font_size(ctx, styles),
+            class: EquationElem::class_in(styles).unwrap_or(MathClass::Normal),
+            math_size: EquationElem::size_in(styles),
             limits: Limits::Never,
             spaced: false,
             base_ascent,
+            italics_correction: Abs::zero(),
+            accent_attach,
+            text_like: false,
         }
     }
 
@@ -421,11 +466,46 @@ impl FrameFragment {
     pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
         Self { base_ascent, ..self }
     }
+
+    pub fn with_italics_correction(self, italics_correction: Abs) -> Self {
+        Self { italics_correction, ..self }
+    }
+
+    pub fn with_accent_attach(self, accent_attach: Abs) -> Self {
+        Self { accent_attach, ..self }
+    }
+
+    pub fn with_text_like(self, text_like: bool) -> Self {
+        Self { text_like, ..self }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SpacingFragment {
+    pub width: Abs,
+    pub weak: bool,
 }
 
 /// Look up the italics correction for a glyph.
-fn italics_correction(ctx: &MathContext, id: GlyphId) -> Option<Abs> {
-    Some(ctx.table.glyph_info?.italic_corrections?.get(id)?.scaled(ctx))
+fn italics_correction(ctx: &MathContext, id: GlyphId, font_size: Abs) -> Option<Abs> {
+    Some(
+        ctx.table
+            .glyph_info?
+            .italic_corrections?
+            .get(id)?
+            .scaled(ctx, font_size),
+    )
+}
+
+/// Loop up the top accent attachment position for a glyph.
+fn accent_attach(ctx: &MathContext, id: GlyphId, font_size: Abs) -> Option<Abs> {
+    Some(
+        ctx.table
+            .glyph_info?
+            .top_accent_attachments?
+            .get(id)?
+            .scaled(ctx, font_size),
+    )
 }
 
 /// Look up the script/scriptscript alternates for a glyph
@@ -438,7 +518,7 @@ fn script_alternatives<'a>(
     })
 }
 
-/// Look up the italics correction for a glyph.
+/// Look up whether a glyph is an extended shape.
 fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
     ctx.table
         .glyph_info
@@ -454,6 +534,7 @@ fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
 #[allow(unused)]
 fn kern_at_height(
     ctx: &MathContext,
+    font_size: Abs,
     id: GlyphId,
     corner: Corner,
     height: Abs,
@@ -467,9 +548,9 @@ fn kern_at_height(
     }?;
 
     let mut i = 0;
-    while i < kern.count() && height > kern.height(i)?.scaled(ctx) {
+    while i < kern.count() && height > kern.height(i)?.scaled(ctx, font_size) {
         i += 1;
     }
 
-    Some(kern.kern(i)?.scaled(ctx))
+    Some(kern.kern(i)?.scaled(ctx, font_size))
 }

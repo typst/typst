@@ -1,4 +1,5 @@
 use ecow::EcoString;
+use roxmltree::ParsingOptions;
 
 use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
 use crate::engine::Engine;
@@ -11,7 +12,7 @@ use crate::World;
 ///
 /// The XML file is parsed into an array of dictionaries and strings. XML nodes
 /// can be elements or strings. Elements are represented as dictionaries with
-/// the the following keys:
+/// the following keys:
 ///
 /// - `tag`: The name of the element as a string.
 /// - `attrs`: A dictionary of the element's attributes as strings.
@@ -80,8 +81,12 @@ impl xml {
         let text = std::str::from_utf8(data.as_slice())
             .map_err(FileError::from)
             .at(span)?;
-        let document =
-            roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
+        let document = roxmltree::Document::parse_with_options(
+            text,
+            ParsingOptions { allow_dtd: true, ..Default::default() },
+        )
+        .map_err(format_xml_error)
+        .at(span)?;
         Ok(convert_xml(document.root()))
     }
 }

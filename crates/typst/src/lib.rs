@@ -37,8 +37,6 @@
 
 extern crate self as typst;
 
-#[macro_use]
-pub mod util;
 pub mod diag;
 pub mod engine;
 pub mod eval;
@@ -55,24 +53,29 @@ pub mod visualize;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
+#[doc(inline)]
+pub use typst_utils as utils;
 
 use std::collections::HashSet;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
-use comemo::{Prehashed, Track, Tracked, Validate};
+use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
+use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
+    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::layout::{Align, Dir, LayoutRoot};
+use crate::layout::{Alignment, Dir, LayoutRoot};
 use crate::model::Document;
-use crate::syntax::{FileId, PackageSpec, Source, Span};
+use crate::syntax::package::PackageSpec;
+use crate::syntax::{FileId, Source, Span};
 use crate::text::{Font, FontBook};
+use crate::utils::LazyHash;
 use crate::visualize::Color;
 
 /// Compile a source file into a fully layouted document.
@@ -83,7 +86,7 @@ use crate::visualize::Color;
 /// Requires a mutable reference to a tracer. Such a tracer can be created with
 /// `Tracer::new()`. Independently of whether compilation succeeded, calling
 /// `tracer.warnings()` after compilation will return all compiler warnings.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "compile")]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();
@@ -107,6 +110,10 @@ fn typeset(
     tracer: &mut Tracer,
     content: &Content,
 ) -> SourceResult<Document> {
+    // The name of the iterations for timing scopes.
+    const ITER_NAMES: &[&str] =
+        &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
+
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -116,7 +123,7 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        tracing::info!("Layout iteration {iter}");
+        let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
         // Clear delayed errors.
         tracer.delayed();
@@ -136,7 +143,7 @@ fn typeset(
         document.introspector.rebuild(&document.pages);
         iter += 1;
 
-        if document.introspector.validate(&constraint) {
+        if timed!("check stabilized", document.introspector.validate(&constraint)) {
             break;
         }
 
@@ -162,7 +169,7 @@ fn typeset(
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
     let mut unique = HashSet::new();
     diags.retain(|diag| {
-        let hash = crate::util::hash128(&(&diag.span, &diag.message));
+        let hash = crate::utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)
     });
     diags
@@ -188,10 +195,10 @@ pub trait World {
     /// The standard library.
     ///
     /// Can be created through `Library::build()`.
-    fn library(&self) -> &Prehashed<Library>;
+    fn library(&self) -> &LazyHash<Library>;
 
     /// Metadata about all known fonts.
-    fn book(&self) -> &Prehashed<FontBook>;
+    fn book(&self) -> &LazyHash<FontBook>;
 
     /// Access the main source file.
     fn main(&self) -> Source;
@@ -225,6 +232,48 @@ pub trait World {
     }
 }
 
+macro_rules! delegate_for_ptr {
+    ($W:ident for $ptr:ty) => {
+        impl<$W: World> World for $ptr {
+            fn library(&self) -> &LazyHash<Library> {
+                self.deref().library()
+            }
+
+            fn book(&self) -> &LazyHash<FontBook> {
+                self.deref().book()
+            }
+
+            fn main(&self) -> Source {
+                self.deref().main()
+            }
+
+            fn source(&self, id: FileId) -> FileResult<Source> {
+                self.deref().source(id)
+            }
+
+            fn file(&self, id: FileId) -> FileResult<Bytes> {
+                self.deref().file(id)
+            }
+
+            fn font(&self, index: usize) -> Option<Font> {
+                self.deref().font(index)
+            }
+
+            fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+                self.deref().today(offset)
+            }
+
+            fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
+                self.deref().packages()
+            }
+        }
+    };
+}
+
+delegate_for_ptr!(W for std::boxed::Box<W>);
+delegate_for_ptr!(W for std::sync::Arc<W>);
+delegate_for_ptr!(W for &W);
+
 /// Helper methods on [`World`] implementations.
 pub trait WorldExt {
     /// Get the byte range for a span.
@@ -249,6 +298,9 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
+    /// The standard library as a value.
+    /// Used to provide the `std` variable.
+    pub std: Value,
 }
 
 impl Library {
@@ -285,12 +337,12 @@ impl LibraryBuilder {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
         let global = global(math.clone(), inputs);
-        Library { global, math, styles: Styles::new() }
+        let std = Value::Module(global.clone());
+        Library { global, math, styles: Styles::new(), std }
     }
 }
 
 /// Construct the module with global definitions.
-#[tracing::instrument(skip_all)]
 fn global(math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
     self::foundations::define(&mut global, inputs);
@@ -338,12 +390,12 @@ fn prelude(global: &mut Scope) {
     global.define("rtl", Dir::RTL);
     global.define("ttb", Dir::TTB);
     global.define("btt", Dir::BTT);
-    global.define("start", Align::START);
-    global.define("left", Align::LEFT);
-    global.define("center", Align::CENTER);
-    global.define("right", Align::RIGHT);
-    global.define("end", Align::END);
-    global.define("top", Align::TOP);
-    global.define("horizon", Align::HORIZON);
-    global.define("bottom", Align::BOTTOM);
+    global.define("start", Alignment::START);
+    global.define("left", Alignment::LEFT);
+    global.define("center", Alignment::CENTER);
+    global.define("right", Alignment::RIGHT);
+    global.define("end", Alignment::END);
+    global.define("top", Alignment::TOP);
+    global.define("horizon", Alignment::HORIZON);
+    global.define("bottom", Alignment::BOTTOM);
 }

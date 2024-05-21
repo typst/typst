@@ -2,13 +2,13 @@ use std::f64::consts::SQRT_2;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, Smart, StyleChain};
 use crate::layout::{
-    Abs, Axes, Corner, Corners, Fragment, Frame, FrameItem, Layout, Length, Point, Ratio,
-    Regions, Rel, Sides, Size,
+    Abs, Axes, Corner, Corners, Frame, FrameItem, LayoutMultiple, LayoutSingle, Length,
+    Point, Ratio, Regions, Rel, Sides, Size,
 };
 use crate::syntax::Span;
-use crate::util::Get;
+use crate::utils::Get;
 use crate::visualize::{FixedStroke, Paint, Path, Stroke};
 
 /// A rectangle with optional content.
@@ -24,7 +24,7 @@ use crate::visualize::{FixedStroke, Paint, Path, Stroke};
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(title = "Rectangle", Layout)]
+#[elem(title = "Rectangle", LayoutSingle)]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -47,7 +47,7 @@ pub struct RectElem {
     /// - `{none}` to disable stroking
     /// - `{auto}` for a stroke of `{1pt + black}` if and if only if no fill is
     ///   given.
-    /// - Any kind of [stroke]($stroke)
+    /// - Any kind of [stroke]
     /// - A dictionary describing the stroke for each side inidvidually. The
     ///   dictionary can contain the following keys in order of precedence:
     ///   - `top`: The top stroke.
@@ -114,7 +114,7 @@ pub struct RectElem {
     /// See the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the rectangle's size without affecting the layout.
@@ -131,14 +131,14 @@ pub struct RectElem {
     pub body: Option<Content>,
 }
 
-impl Layout for RectElem {
-    #[tracing::instrument(name = "RectElem::layout", skip_all)]
+impl LayoutSingle for Packed<RectElem> {
+    #[typst_macros::time(name = "rect", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -169,7 +169,7 @@ impl Layout for RectElem {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
@@ -219,7 +219,7 @@ pub struct SquareElem {
     /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the square's size without affecting the layout. See
@@ -237,14 +237,14 @@ pub struct SquareElem {
     pub body: Option<Content>,
 }
 
-impl Layout for SquareElem {
-    #[tracing::instrument(name = "SquareElem::layout", skip_all)]
+impl LayoutSingle for Packed<SquareElem> {
+    #[typst_macros::time(name = "square", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -276,7 +276,7 @@ impl Layout for SquareElem {
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -298,7 +298,7 @@ pub struct EllipseElem {
     /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the ellipse's size without affecting the layout. See
@@ -315,14 +315,14 @@ pub struct EllipseElem {
     pub body: Option<Content>,
 }
 
-impl Layout for EllipseElem {
-    #[tracing::instrument(name = "EllipseElem::layout", skip_all)]
+impl LayoutSingle for Packed<EllipseElem> {
+    #[typst_macros::time(name = "ellipse", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -331,10 +331,10 @@ impl Layout for EllipseElem {
             &self.body(styles),
             Axes::new(self.width(styles), self.height(styles)),
             self.fill(styles),
-            self.stroke(styles).map(Sides::splat),
+            self.stroke(styles).map(|s| Sides::splat(Some(s))),
             self.inset(styles),
             self.outset(styles),
-            Corners::splat(Rel::zero()),
+            Corners::splat(None),
             self.span(),
         )
     }
@@ -354,7 +354,7 @@ impl Layout for EllipseElem {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.
@@ -403,7 +403,7 @@ pub struct CircleElem {
     /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the circle's size without affecting the layout. See
@@ -418,14 +418,14 @@ pub struct CircleElem {
     pub body: Option<Content>,
 }
 
-impl Layout for CircleElem {
-    #[tracing::instrument(name = "CircleElem::layout", skip_all)]
+impl LayoutSingle for Packed<CircleElem> {
+    #[typst_macros::time(name = "circle", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -434,17 +434,16 @@ impl Layout for CircleElem {
             &self.body(styles),
             Axes::new(self.width(styles), self.height(styles)),
             self.fill(styles),
-            self.stroke(styles).map(Sides::splat),
+            self.stroke(styles).map(|s| Sides::splat(Some(s))),
             self.inset(styles),
             self.outset(styles),
-            Corners::splat(Rel::zero()),
+            Corners::splat(None),
             self.span(),
         )
     }
 }
 
 /// Layout a shape.
-#[tracing::instrument(name = "shape::layout", skip_all)]
 #[allow(clippy::too_many_arguments)]
 fn layout(
     engine: &mut Engine,
@@ -454,18 +453,21 @@ fn layout(
     body: &Option<Content>,
     sizing: Axes<Smart<Rel<Length>>>,
     fill: Option<Paint>,
-    stroke: Smart<Sides<Option<Stroke<Abs>>>>,
-    mut inset: Sides<Rel<Abs>>,
-    outset: Sides<Rel<Abs>>,
-    radius: Corners<Rel<Abs>>,
+    stroke: Smart<Sides<Option<Option<Stroke<Abs>>>>>,
+    inset: Sides<Option<Rel<Abs>>>,
+    outset: Sides<Option<Rel<Abs>>>,
+    radius: Corners<Option<Rel<Abs>>>,
     span: Span,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Frame> {
     let resolved = sizing
         .zip_map(regions.base(), |s, r| s.map(|v| v.resolve(styles).relative_to(r)));
 
     let mut frame;
+    let mut inset = inset.unwrap_or_default();
+
     if let Some(child) = body {
         let region = resolved.unwrap_or(regions.base());
+
         if kind.is_round() {
             inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
         }
@@ -508,26 +510,31 @@ fn layout(
     let stroke = match stroke {
         Smart::Auto if fill.is_none() => Sides::splat(Some(FixedStroke::default())),
         Smart::Auto => Sides::splat(None),
-        Smart::Custom(strokes) => strokes.map(|s| s.map(Stroke::unwrap_or_default)),
+        Smart::Custom(strokes) => {
+            strokes.unwrap_or_default().map(|s| s.map(Stroke::unwrap_or_default))
+        }
     };
 
     // Add fill and/or stroke.
     if fill.is_some() || stroke.iter().any(Option::is_some) {
         if kind.is_round() {
-            let outset = outset.relative_to(frame.size());
+            let outset = outset.unwrap_or_default().relative_to(frame.size());
             let size = frame.size() + outset.sum_by_axis();
             let pos = Point::new(-outset.left, -outset.top);
             let shape = ellipse(size, fill, stroke.left);
             frame.prepend(pos, FrameItem::Shape(shape, span));
         } else {
-            frame.fill_and_stroke(fill, stroke, outset, radius, span);
+            frame.fill_and_stroke(
+                fill,
+                stroke,
+                outset.unwrap_or_default(),
+                radius.unwrap_or_default(),
+                span,
+            );
         }
     }
 
-    // Apply metadata.
-    frame.meta(styles, false);
-
-    Ok(Fragment::frame(frame))
+    Ok(frame)
 }
 
 /// A category of shape.
@@ -1101,7 +1108,7 @@ impl ControlPoints {
             + 2.0 * (o.y - c_i.y).to_raw() * (c_i.y - c_o.y).to_raw();
         let c = (c_i.x - c_o.x).to_raw().powi(2) + (c_i.y - c_o.y).to_raw().powi(2)
             - r.to_raw().powi(2);
-        let t = (-b + (b * b - 4.0 * a * c).sqrt()) / (2.0 * a);
+        let t = (-b + (b * b - 4.0 * a * c).max(0.0).sqrt()) / (2.0 * a);
         c_i + t * (o - c_i)
     }
 

@@ -1,0 +1,7 @@
+figure = Abbildung
+table = Tabelle
+equation = Gleichung
+bibliography = Bibliographie
+heading = Abschnitt
+outline = Inhaltsverzeichnis
+raw = Listing

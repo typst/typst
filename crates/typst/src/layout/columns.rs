@@ -2,12 +2,14 @@ use std::num::NonZeroUsize;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Behave, Behaviour, Content, StyleChain};
+use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{
-    Abs, Axes, Dir, Fragment, Frame, Layout, Length, Point, Ratio, Regions, Rel, Size,
+    Abs, Axes, Dir, Fragment, Frame, LayoutMultiple, Length, Point, Ratio, Regions, Rel,
+    Size,
 };
+use crate::realize::{Behave, Behaviour};
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -40,7 +42,7 @@ use crate::util::Numeric;
 /// increasingly been used to solve a
 /// variety of problems.
 /// ```
-#[elem(Layout)]
+#[elem(LayoutMultiple)]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -57,8 +59,8 @@ pub struct ColumnsElem {
     pub body: Content,
 }
 
-impl Layout for ColumnsElem {
-    #[tracing::instrument(name = "ColumnsElem::layout", skip_all)]
+impl LayoutMultiple for Packed<ColumnsElem> {
+    #[typst_macros::time(name = "columns", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -166,7 +168,7 @@ pub struct ColbreakElem {
     pub weak: bool,
 }
 
-impl Behave for ColbreakElem {
+impl Behave for Packed<ColbreakElem> {
     fn behaviour(&self) -> Behaviour {
         if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)

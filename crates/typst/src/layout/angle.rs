@@ -6,7 +6,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::EcoString;
 
 use crate::foundations::{func, repr, scope, ty, Repr};
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 
 /// An angle describing a rotation.
 ///
@@ -19,7 +19,7 @@ use crate::util::{Numeric, Scalar};
 /// ```example
 /// #rotate(10deg)[Hello there!]
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
@@ -155,7 +155,7 @@ impl Add for Angle {
     }
 }
 
-sub_impl!(Angle - Angle -> Angle);
+typst_utils::sub_impl!(Angle - Angle -> Angle);
 
 impl Mul<f64> for Angle {
     type Output = Self;
@@ -189,10 +189,10 @@ impl Div<f64> for Angle {
     }
 }
 
-assign_impl!(Angle += Angle);
-assign_impl!(Angle -= Angle);
-assign_impl!(Angle *= f64);
-assign_impl!(Angle /= f64);
+typst_utils::assign_impl!(Angle += Angle);
+typst_utils::assign_impl!(Angle -= Angle);
+typst_utils::assign_impl!(Angle *= f64);
+typst_utils::assign_impl!(Angle /= f64);
 
 impl Sum for Angle {
     fn sum<I: Iterator<Item = Angle>>(iter: I) -> Self {

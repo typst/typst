@@ -4,16 +4,35 @@ on: [push, pull_request, merge_group]
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
+  TYPST_TESTS_EXTENDED: true
 
 jobs:
+  # This allows us to have one branch protection rule for the full test matrix.
+  # See: https://github.com/orgs/community/discussions/4324
   tests:
     name: Tests
     runs-on: ubuntu-latest
+    needs: [test-matrix]
+    if: always()
+    steps:
+      - name: Tests successful
+        if: ${{ !(contains(needs.*.result, 'failure')) }}
+        run: exit 0
+      - name: Tests failing
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+
+  test-matrix:
+    name: Tests
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.77.0
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --workspace
+      - run: cargo test --workspace --no-run
       - run: cargo test --workspace --no-fail-fast
 
   checks:
@@ -21,7 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.77.0
+        with:
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets --all-features
       - run: cargo fmt --check --all
@@ -32,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.70.0
+      - uses: dtolnay/rust-toolchain@1.74.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
 
@@ -45,5 +66,5 @@ jobs:
         with:
           toolchain: nightly-2023-09-13
       - uses: Swatinem/rust-cache@v2
-      - run: cargo install cargo-fuzz
+      - run: cargo install --locked cargo-fuzz@0.12.0
       - run: cd tests/fuzz && cargo fuzz build --dev

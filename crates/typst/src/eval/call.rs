@@ -1,25 +1,25 @@
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
-    call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Func,
-    IntoValue, NativeElement, Scope, Scopes, Value,
+    call_method_mut, is_mutating_method, Arg, Args, Bytes, Capturer, Closure, Content,
+    Context, Func, IntoValue, NativeElement, Scope, Scopes, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
-use crate::syntax::{Spanned, SyntaxNode};
+use crate::syntax::{Span, Spanned, SyntaxNode};
 use crate::text::TextElem;
+use crate::utils::LazyHash;
 use crate::World;
 
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FuncCall::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let callee = self.callee();
@@ -40,7 +40,7 @@ impl Eval for ast::FuncCall<'_> {
             let field_span = field.span();
 
             let target = if is_mutating_method(&field) {
-                let mut args = args.eval(vm)?;
+                let mut args = args.eval(vm)?.spanned(span);
                 let target = target.access(vm)?;
 
                 // Only arrays and dictionaries have mutable methods.
@@ -59,7 +59,7 @@ impl Eval for ast::FuncCall<'_> {
                 access.target().eval(vm)?
             };
 
-            let mut args = args.eval(vm)?;
+            let mut args = args.eval(vm)?.spanned(span);
 
             // Handle plugins.
             if let Value::Plugin(plugin) = &target {
@@ -111,10 +111,11 @@ impl Eval for ast::FuncCall<'_> {
                 match target {
                     Value::Dict(ref dict) => {
                         if matches!(dict.get(&field), Ok(Value::Func(_))) {
-                            error.hint(
-                                "to call the function stored in the dictionary, \
-                             surround the field access with parentheses",
-                            );
+                            error.hint(eco_format!(
+                                "to call the function stored in the dictionary, surround \
+                                 the field access with parentheses, e.g. `(dict.{})(..)`",
+                               field.as_str(),
+                            ));
                         } else {
                             field_hint();
                         }
@@ -125,7 +126,7 @@ impl Eval for ast::FuncCall<'_> {
                 bail!(error);
             }
         } else {
-            (callee.eval(vm)?, args.eval(vm)?)
+            (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
         // Handle math special cases for non-functions:
@@ -164,7 +165,11 @@ impl Eval for ast::FuncCall<'_> {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
-        let f = || callee.call(&mut vm.engine, args).trace(vm.world(), point, span);
+        let f = || {
+            callee
+                .call(&mut vm.engine, vm.context, args)
+                .trace(vm.world(), point, span)
+        };
 
         // Stacker is broken on WASM.
         #[cfg(target_arch = "wasm32")]
@@ -192,13 +197,14 @@ impl Eval for ast::Args<'_> {
                     });
                 }
                 ast::Arg::Named(named) => {
+                    let expr = named.expr();
                     items.push(Arg {
                         span,
                         name: Some(named.name().get().clone().into()),
-                        value: Spanned::new(named.expr().eval(vm)?, named.expr().span()),
+                        value: Spanned::new(expr.eval(vm)?, expr.span()),
                     });
                 }
-                ast::Arg::Spread(expr) => match expr.eval(vm)? {
+                ast::Arg::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => {
                         items.extend(array.into_iter().map(|value| Arg {
@@ -215,19 +221,20 @@ impl Eval for ast::Args<'_> {
                         }));
                     }
                     Value::Args(args) => items.extend(args.items),
-                    v => bail!(expr.span(), "cannot spread {}", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {}", v.ty()),
                 },
             }
         }
 
-        Ok(Args { span: self.span(), items })
+        // We do *not* use the `self.span()` here because we want the callsite
+        // span to be one level higher (the whole function call).
+        Ok(Args { span: Span::detached(), items })
     }
 }
 
 impl Eval for ast::Closure<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Closure::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // Evaluate default values of named parameters.
         let mut defaults = Vec::new();
@@ -239,7 +246,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Function);
             visitor.visit(self.to_untyped());
             visitor.finish()
         };
@@ -249,6 +256,11 @@ impl Eval for ast::Closure<'_> {
             node: self.to_untyped().clone(),
             defaults,
             captured,
+            num_pos_params: self
+                .params()
+                .children()
+                .filter(|p| matches!(p, ast::Param::Pos(_)))
+                .count(),
         };
 
         Ok(Value::Func(Func::from(closure).spanned(self.params().span())))
@@ -257,19 +269,22 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[tracing::instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
-    closure: &Prehashed<Closure>,
+    closure: &LazyHash<Closure>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
     route: Tracked<Route>,
     locator: Tracked<Locator>,
     tracer: TrackedMut<Tracer>,
+    context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
-    let node = closure.node.cast::<ast::Closure>().unwrap();
+    let (name, params, body) = match closure.node.cast::<ast::Closure>() {
+        Some(node) => (node.name(), node.params(), node.body()),
+        None => (None, ast::Params::default(), closure.node.cast().unwrap()),
+    };
 
     // Don't leak the scopes from the call site. Instead, we use the scope
     // of captured variables we collected earlier.
@@ -287,33 +302,25 @@ pub(crate) fn call_closure(
     };
 
     // Prepare VM.
-    let mut vm = Vm::new(engine, scopes, node.span());
+    let mut vm = Vm::new(engine, context, scopes, body.span());
 
     // Provide the closure itself for recursive calls.
-    if let Some(name) = node.name() {
+    if let Some(name) = name {
         vm.define(name, Value::Func(func.clone()));
     }
 
-    // Parse the arguments according to the parameter list.
-    let num_pos_params = node
-        .params()
-        .children()
-        .filter(|p| matches!(p, ast::Param::Pos(_)))
-        .count();
-
     let num_pos_args = args.to_pos().len();
-    let sink_size = num_pos_args.checked_sub(num_pos_params);
+    let sink_size = num_pos_args.checked_sub(closure.num_pos_params);
 
     let mut sink = None;
     let mut sink_pos_values = None;
     let mut defaults = closure.defaults.iter();
-    for p in node.params().children() {
+    for p in params.children() {
         match p {
             ast::Param::Pos(pattern) => match pattern {
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
                     vm.define(ident, args.expect::<Value>(&ident)?)
                 }
-                ast::Pattern::Normal(_) => unreachable!(),
                 pattern => {
                     crate::eval::destructure(
                         &mut vm,
@@ -322,8 +329,8 @@ pub(crate) fn call_closure(
                     )?;
                 }
             },
-            ast::Param::Sink(ident) => {
-                sink = Some(ident.name());
+            ast::Param::Spread(spread) => {
+                sink = Some(spread.sink_ident());
                 if let Some(sink_size) = sink_size {
                     sink_pos_values = Some(args.consume(sink_size)?);
                 }
@@ -338,10 +345,10 @@ pub(crate) fn call_closure(
         }
     }
 
-    if let Some(sink_name) = sink {
+    if let Some(sink) = sink {
         // Remaining args are captured regardless of whether the sink is named.
         let mut remaining_args = args.take();
-        if let Some(sink_name) = sink_name {
+        if let Some(sink_name) = sink {
             if let Some(sink_pos_values) = sink_pos_values {
                 remaining_args.items.extend(sink_pos_values);
             }
@@ -353,7 +360,7 @@ pub(crate) fn call_closure(
     args.finish()?;
 
     // Handle control flow.
-    let output = node.body().eval(&mut vm)?;
+    let output = body.eval(&mut vm)?;
     match vm.flow {
         Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
         Some(FlowEvent::Return(_, None)) => {}
@@ -377,15 +384,17 @@ pub struct CapturesVisitor<'a> {
     external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
+    capturer: Capturer,
 }
 
 impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: Option<&'a Scopes<'a>>) -> Self {
+    pub fn new(external: Option<&'a Scopes<'a>>, capturer: Capturer) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
             captures: Scope::new(),
+            capturer,
         }
     }
 
@@ -395,7 +404,6 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
-    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.
@@ -439,13 +447,15 @@ impl<'a> CapturesVisitor<'a> {
                 for param in expr.params().children() {
                     match param {
                         ast::Param::Pos(pattern) => {
-                            for ident in pattern.idents() {
+                            for ident in pattern.bindings() {
                                 self.bind(ident);
                             }
                         }
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(spread) => {
-                            self.bind(spread.name().unwrap_or_default())
+                        ast::Param::Spread(spread) => {
+                            if let Some(ident) = spread.sink_ident() {
+                                self.bind(ident);
+                            }
                         }
                     }
                 }
@@ -461,7 +471,7 @@ impl<'a> CapturesVisitor<'a> {
                     self.visit(init.to_untyped());
                 }
 
-                for ident in expr.kind().idents() {
+                for ident in expr.kind().bindings() {
                     self.bind(ident);
                 }
             }
@@ -470,11 +480,11 @@ impl<'a> CapturesVisitor<'a> {
             // active after the iterable is evaluated but before the body is
             // evaluated.
             Some(ast::Expr::For(expr)) => {
-                self.visit(expr.iter().to_untyped());
+                self.visit(expr.iterable().to_untyped());
                 self.internal.enter();
 
                 let pattern = expr.pattern();
-                for ident in pattern.idents() {
+                for ident in pattern.bindings() {
                     self.bind(ident);
                 }
 
@@ -514,7 +524,6 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    #[inline]
     fn capture(
         &mut self,
         ident: &str,
@@ -529,7 +538,7 @@ impl<'a> CapturesVisitor<'a> {
                 return;
             };
 
-            self.captures.define_captured(ident, value.clone());
+            self.captures.define_captured(ident, value.clone(), self.capturer);
         }
     }
 }
@@ -547,7 +556,7 @@ mod tests {
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
-        let mut visitor = CapturesVisitor::new(Some(&scopes));
+        let mut visitor = CapturesVisitor::new(Some(&scopes), Capturer::Function);
         let root = parse(text);
         visitor.visit(&root);
 

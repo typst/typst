@@ -1,6 +1,9 @@
 //! Font handling.
 
+pub mod color;
+
 mod book;
+mod exceptions;
 mod variant;
 
 pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};

@@ -1,9 +1,10 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
+use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::layout::{
+    Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, Size, VAlignment,
 };
-use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign};
+use crate::realize::{Behave, Behaviour};
 
 /// Places content at an absolute position.
 ///
@@ -25,19 +26,19 @@ use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAl
 ///   ),
 /// )
 /// ```
-#[elem(Layout, Behave)]
+#[elem(Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
-    /// Cannot be `{auto}` if `float` is `{false}` and must be either
-    /// `{auto}`, `{top}`, or `{bottom}` if `float` is `{true}`.
+    /// - If `float` is `{false}`, then this can be any alignment other than `{auto}`.
+    /// - If `float` is `{true}`, then this must be `{auto}`, `{top}`, or `{bottom}`.
     ///
     /// When an axis of the page is `{auto}` sized, all alignments relative to
     /// that axis will be ignored, instead, the item will be placed in the
     /// origin of the axis.
     #[positional]
-    #[default(Smart::Custom(Align::START))]
-    pub alignment: Smart<Align>,
+    #[default(Smart::Custom(Alignment::START))]
+    pub alignment: Smart<Alignment>,
 
     /// Whether the placed element has floating layout.
     ///
@@ -76,9 +77,17 @@ pub struct PlaceElem {
     ///   place(center, dx: amount - 32pt, dy: amount)[A]
     /// }
     /// ```
+    ///
+    /// This does not affect the layout of in-flow content.
+    /// In other words, the placed content is treated as if it
+    /// were wrapped in a [`move`] element.
     pub dx: Rel<Length>,
 
     /// The vertical displacement of the placed content.
+    ///
+    /// This does not affect the layout of in-flow content.
+    /// In other words, the placed content is treated as if it
+    /// were wrapped in a [`move`] element.
     pub dy: Rel<Length>,
 
     /// The content to place.
@@ -86,23 +95,23 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
-impl Layout for PlaceElem {
-    #[tracing::instrument(name = "PlaceElem::layout", skip_all)]
-    fn layout(
+impl Packed<PlaceElem> {
+    #[typst_macros::time(name = "place", span = self.span())]
+    pub fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-        regions: Regions,
+        base: Size,
     ) -> SourceResult<Fragment> {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
-        let base = regions.base();
         let float = self.float(styles);
         let alignment = self.alignment(styles);
 
         if float
-            && alignment
-                .map_or(false, |align| matches!(align.y(), None | Some(VAlign::Horizon)))
+            && alignment.is_custom_and(|align| {
+                matches!(align.y(), None | Some(VAlignment::Horizon))
+            })
         {
             bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
         } else if !float && alignment.is_auto() {
@@ -114,7 +123,7 @@ impl Layout for PlaceElem {
         let child = self
             .body()
             .clone()
-            .aligned(alignment.unwrap_or_else(|| Align::CENTER));
+            .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(engine, styles, pod)?.into_frame();
@@ -122,7 +131,7 @@ impl Layout for PlaceElem {
     }
 }
 
-impl Behave for PlaceElem {
+impl Behave for Packed<PlaceElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }

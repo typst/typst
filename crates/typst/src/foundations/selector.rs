@@ -1,23 +1,20 @@
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
-    cast, func, repr, scope, ty, CastInfo, Content, Dict, Element, FromValue, Func,
-    Label, Reflect, Regex, Repr, Str, Type, Value,
+    cast, func, repr, scope, ty, CastInfo, Content, Context, Dict, Element, FromValue,
+    Func, Label, Reflect, Regex, Repr, Str, StyleChain, Type, Value,
 };
-use crate::introspection::{Locatable, Location};
+use crate::introspection::{Introspector, Locatable, Location};
 use crate::symbols::Symbol;
 use crate::text::TextElem;
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
-///
-/// ```ignore
-/// select_where!(SequenceElem, Children => vec![]);
-/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __select_where {
@@ -26,7 +23,7 @@ macro_rules! __select_where {
         let mut fields = ::smallvec::SmallVec::new();
         $(
             fields.push((
-                <$ty as $crate::foundations::ElementFields>::Fields::$field as u8,
+                <$ty as $crate::foundations::Fields>::Enum::$field as u8,
                 $crate::foundations::IntoValue::into_value($value),
             ));
         )*
@@ -43,40 +40,38 @@ pub use crate::__select_where as select_where;
 /// A filter for selecting elements within the document.
 ///
 /// You can construct a selector in the following ways:
-/// - you can use an element [function]($function)
+/// - you can use an element [function]
 /// - you can filter for an element function with
 ///   [specific fields]($function.where)
 /// - you can use a [string]($str) or [regular expression]($regex)
 /// - you can use a [`{<label>}`]($label)
-/// - you can use a [`location`]($location)
-/// - call the [`selector`]($selector) constructor to convert any of the above
-///   types into a selector value and use the methods below to refine it
+/// - you can use a [`location`]
+/// - call the [`selector`] constructor to convert any of the above types into a
+///   selector value and use the methods below to refine it
 ///
 /// Selectors are used to [apply styling rules]($styling/#show-rules) to
-/// elements. You can also use selectors to [query]($query) the document for
-/// certain types of elements.
+/// elements. You can also use selectors to [query] the document for certain
+/// types of elements.
 ///
 /// Furthermore, you can pass a selector to several of Typst's built-in
-/// functions to configure their behaviour. One such example is the
-/// [outline]($outline) where it can be used to change which elements are listed
-/// within the outline.
+/// functions to configure their behaviour. One such example is the [outline]
+/// where it can be used to change which elements are listed within the outline.
 ///
 /// Multiple selectors can be combined using the methods shown below. However,
 /// not all kinds of selectors are supported in all places, at the moment.
 ///
 /// # Example
 /// ```example
-/// #locate(loc => query(
+/// #context query(
 ///   heading.where(level: 1)
-///     .or(heading.where(level: 2)),
-///   loc,
-/// ))
+///     .or(heading.where(level: 2))
+/// )
 ///
 /// = This will be found
 /// == So will this
 /// === But this will not.
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of element.
@@ -128,23 +123,25 @@ impl Selector {
     }
 
     /// Whether the selector matches for the target.
-    pub fn matches(&self, target: &Content) -> bool {
-        // TODO: optimize field access to not clone.
+    pub fn matches(&self, target: &Content, styles: Option<StyleChain>) -> bool {
         match self {
             Self::Elem(element, dict) => {
                 target.func() == *element
-                    && dict
-                        .iter()
-                        .flat_map(|dict| dict.iter())
-                        .all(|(id, value)| target.get(*id).as_ref() == Some(value))
+                    && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
+                        target.get(*id, styles).as_ref() == Some(value)
+                    })
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
-                .to::<TextElem>()
-                .map_or(false, |elem| regex.is_match(elem.text())),
+                .to_packed::<TextElem>()
+                .is_some_and(|elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
-            Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
-            Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
+            Self::Or(selectors) => {
+                selectors.iter().any(move |sel| sel.matches(target, styles))
+            }
+            Self::And(selectors) => {
+                selectors.iter().all(move |sel| sel.matches(target, styles))
+            }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
             Self::Before { .. } | Self::After { .. } => false,
@@ -173,20 +170,20 @@ impl Selector {
         self,
         /// The other selectors to match on.
         #[variadic]
-        others: Vec<LocatableSelector>,
+        others: Vec<Selector>,
     ) -> Selector {
-        Self::Or(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+        Self::Or(others.into_iter().chain(Some(self)).collect())
     }
 
-    /// Selects all elements that match this and all of the the other selectors.
+    /// Selects all elements that match this and all of the other selectors.
     #[func]
     pub fn and(
         self,
         /// The other selectors to match on.
         #[variadic]
-        others: Vec<LocatableSelector>,
+        others: Vec<Selector>,
     ) -> Selector {
-        Self::And(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+        Self::And(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Returns a modified selector that will only match elements that occur
@@ -297,11 +294,29 @@ cast! {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
 
+impl LocatableSelector {
+    /// Resolve this selector into a location that is guaranteed to be unique.
+    pub fn resolve_unique(
+        &self,
+        introspector: Tracked<Introspector>,
+        context: Tracked<Context>,
+    ) -> HintedStrResult<Location> {
+        match &self.0 {
+            Selector::Location(loc) => Ok(*loc),
+            other => {
+                context.introspect()?;
+                Ok(introspector.query_unique(other).map(|c| c.location().unwrap())?)
+            }
+        }
+    }
+}
+
 impl Reflect for LocatableSelector {
     fn input() -> CastInfo {
         CastInfo::Union(vec![
             CastInfo::Type(Type::of::<Label>()),
             CastInfo::Type(Type::of::<Func>()),
+            CastInfo::Type(Type::of::<Location>()),
             CastInfo::Type(Type::of::<Selector>()),
         ])
     }
@@ -311,7 +326,10 @@ impl Reflect for LocatableSelector {
     }
 
     fn castable(value: &Value) -> bool {
-        Label::castable(value) || Func::castable(value) || Selector::castable(value)
+        Label::castable(value)
+            || Func::castable(value)
+            || Location::castable(value)
+            || Selector::castable(value)
     }
 }
 
@@ -404,13 +422,17 @@ cast! {
 
 impl FromValue for ShowableSelector {
     fn from_value(value: Value) -> StrResult<Self> {
-        fn validate(selector: &Selector) -> StrResult<()> {
+        fn validate(selector: &Selector, nested: bool) -> StrResult<()> {
             match selector {
                 Selector::Elem(_, _) => {}
                 Selector::Label(_) => {}
-                Selector::Regex(_) => {}
-                Selector::Or(_)
-                | Selector::And(_)
+                Selector::Regex(_) if !nested => {}
+                Selector::Or(list) | Selector::And(list) => {
+                    for selector in list {
+                        validate(selector, true)?;
+                    }
+                }
+                Selector::Regex(_)
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
@@ -426,7 +448,7 @@ impl FromValue for ShowableSelector {
         }
 
         let selector = Selector::from_value(value)?;
-        validate(&selector)?;
+        validate(&selector, false)?;
         Ok(Self(selector))
     }
 }

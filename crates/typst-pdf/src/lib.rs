@@ -1,4 +1,4 @@
-//! Exporting into PDF documents.
+//! Exporting of Typst documents into PDFs.
 
 mod color;
 mod extg;
@@ -9,20 +9,23 @@ mod outline;
 mod page;
 mod pattern;
 
-use std::cmp::Eq;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use indexmap::IndexMap;
 use pdf_writer::types::Direction;
-use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use typst::foundations::Datetime;
-use typst::layout::{Abs, Dir, Em, Transform};
-use typst::model::Document;
+use pdf_writer::writers::Destination;
+use pdf_writer::{Finish, Name, Pdf, Rect, Ref, Str, TextStr};
+use typst::foundations::{Datetime, Label, NativeElement, Smart};
+use typst::introspection::Location;
+use typst::layout::{Abs, Dir, Em, Frame, PageRanges, Transform};
+use typst::model::{Document, HeadingElem};
+use typst::text::color::frame_for_glyph;
 use typst::text::{Font, Lang};
-use typst::util::Deferred;
+use typst::utils::Deferred;
 use typst::visualize::Image;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
@@ -30,37 +33,48 @@ use crate::color::ColorSpaces;
 use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
-use crate::page::Page;
+use crate::page::EncodedPage;
 use crate::pattern::PdfPattern;
 
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
 ///
-/// The `ident` parameter shall be a string that uniquely and stably identifies
-/// the document. It should not change between compilations of the same
-/// document. Its hash will be used to create a PDF document identifier (the
-/// identifier itself is not leaked). If `ident` is `None`, a hash of the
-/// document is used instead (which means that it _will_ change across
-/// compilations).
+/// The `ident` parameter, if given, shall be a string that uniquely and stably
+/// identifies the document. It should not change between compilations of the
+/// same document.  **If you cannot provide such a stable identifier, just pass
+/// `Smart::Auto` rather than trying to come up with one.** The CLI, for
+/// example, does not have a well-defined notion of a long-lived project and as
+/// such just passes `Smart::Auto`.
+///
+/// If an `ident` is given, the hash of it will be used to create a PDF document
+/// identifier (the identifier itself is not leaked). If `ident` is `Auto`, a
+/// hash of the document's title and author is used instead (which is reasonably
+/// unique and stable).
 ///
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
 /// is `auto`.
-#[tracing::instrument(skip_all)]
+///
+/// The `page_ranges` option specifies which ranges of pages should be exported
+/// in the PDF. When `None`, all pages should be exported.
+#[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
-    ident: Option<&str>,
+    ident: Smart<&str>,
     timestamp: Option<Datetime>,
+    page_ranges: Option<PageRanges>,
 ) -> Vec<u8> {
-    let mut ctx = PdfContext::new(document);
+    let mut ctx = PdfContext::new(document, page_ranges);
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     pattern::write_patterns(&mut ctx);
+    write_named_destinations(&mut ctx);
     page::write_page_tree(&mut ctx);
+    page::write_global_resources(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
 }
@@ -72,7 +86,10 @@ struct PdfContext<'a> {
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
-    pages: Vec<Page>,
+    pages: Vec<Option<EncodedPage>>,
+    /// Page ranges to export.
+    /// When `None`, all pages are exported.
+    exported_pages: Option<PageRanges>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -82,14 +99,22 @@ struct PdfContext<'a> {
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     /// The number of glyphs for all referenced languages in the document.
     /// We keep track of this to determine the main document language.
-    languages: HashMap<Lang, usize>,
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
 
     /// Allocator for indirect reference IDs.
     alloc: Ref,
     /// The ID of the page tree.
     page_tree_ref: Ref,
-    /// The IDs of written pages.
-    page_refs: Vec<Ref>,
+    /// The ID of the globally shared Resources dictionary.
+    global_resources_ref: Ref,
+    /// The ID of the resource dictionary shared by Type3 fonts.
+    ///
+    /// Type3 fonts cannot use the global resources, as it would create some
+    /// kind of infinite recursion (they are themselves present in that
+    /// dictionary), which Acrobat doesn't appreciate (it fails to parse the
+    /// font) even if the specification seems to allow it.
+    type3_font_resources_ref: Ref,
     /// The IDs of written fonts.
     font_refs: Vec<Ref>,
     /// The IDs of written images.
@@ -115,21 +140,32 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+    /// Deduplicates color glyphs.
+    color_font_map: ColorFontMap,
+
+    /// A sorted list of all named destinations.
+    dests: Vec<(Label, Ref)>,
+    /// Maps from locations to named destinations that point to them.
+    loc_to_dest: HashMap<Location, Label>,
 }
 
 impl<'a> PdfContext<'a> {
-    fn new(document: &'a Document) -> Self {
+    fn new(document: &'a Document, page_ranges: Option<PageRanges>) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
+        let global_resources_ref = alloc.bump();
+        let type3_font_resources_ref = alloc.bump();
         Self {
             document,
             pdf: Pdf::new(),
             pages: vec![],
+            exported_pages: page_ranges,
             glyph_sets: HashMap::new(),
-            languages: HashMap::new(),
+            languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
-            page_refs: vec![],
+            global_resources_ref,
+            type3_font_resources_ref,
             font_refs: vec![],
             image_refs: vec![],
             gradient_refs: vec![],
@@ -142,18 +178,16 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
+            color_font_map: ColorFontMap::new(),
+            dests: vec![],
+            loc_to_dest: HashMap::new(),
         }
     }
 }
 
 /// Write the document catalog.
-#[tracing::instrument(skip_all)]
-fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
-    let lang = ctx
-        .languages
-        .iter()
-        .max_by_key(|(&lang, &count)| (count, lang))
-        .map(|(&k, _)| k);
+fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Datetime>) {
+    let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         Direction::R2L
@@ -222,7 +256,8 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     }
 
     info.finish();
-    xmp.num_pages(ctx.document.pages.len() as u32);
+    // Only count exported pages.
+    xmp.num_pages(ctx.pages.iter().filter(|page| page.is_some()).count() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
 
@@ -230,18 +265,25 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     // changes in the frames.
     let instance_id = hash_base64(&ctx.pdf.as_bytes());
 
-    if let Some(ident) = ident {
-        // A unique ID for the document that stays stable across compilations.
-        let doc_id = hash_base64(&("PDF-1.7", ident));
-        xmp.document_id(&doc_id);
-        xmp.instance_id(&instance_id);
-        ctx.pdf
-            .set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+    // Determine the document's ID. It should be as stable as possible.
+    const PDF_VERSION: &str = "PDF-1.7";
+    let doc_id = if let Smart::Custom(ident) = ident {
+        // We were provided with a stable ID. Yay!
+        hash_base64(&(PDF_VERSION, ident))
+    } else if ctx.document.title.is_some() && !ctx.document.author.is_empty() {
+        // If not provided from the outside, but title and author were given, we
+        // compute a hash of them, which should be reasonably stable and unique.
+        hash_base64(&(PDF_VERSION, &ctx.document.title, &ctx.document.author))
     } else {
-        // This is not spec-compliant, but some PDF readers really want an ID.
-        let bytes = instance_id.into_bytes();
-        ctx.pdf.set_file_id((bytes.clone(), bytes));
-    }
+        // The user provided no usable metadata which we can use as an `/ID`.
+        instance_id.clone()
+    };
+
+    // Write IDs.
+    xmp.document_id(&doc_id);
+    xmp.instance_id(&instance_id);
+    ctx.pdf
+        .set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
 
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");
@@ -259,6 +301,17 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
+    // Write the named destination tree.
+    let mut name_dict = catalog.names();
+    let mut dests_name_tree = name_dict.destinations();
+    let mut names = dests_name_tree.names();
+    for &(name, dest_ref, ..) in &ctx.dests {
+        names.insert(Str(name.as_str().as_bytes()), dest_ref);
+    }
+    names.finish();
+    dests_name_tree.finish();
+    name_dict.finish();
+
     // Insert the page labels.
     if !page_labels.is_empty() {
         let mut num_tree = catalog.page_labels();
@@ -275,10 +328,51 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     if let Some(lang) = lang {
         catalog.lang(TextStr(lang.as_str()));
     }
+
+    catalog.finish();
+}
+
+/// Fills in the map and vector for named destinations and writes the indirect
+/// destination objects.
+fn write_named_destinations(ctx: &mut PdfContext) {
+    let mut seen = HashSet::new();
+
+    // Find all headings that have a label and are the first among other
+    // headings with the same label.
+    let mut matches: Vec<_> = ctx
+        .document
+        .introspector
+        .query(&HeadingElem::elem().select())
+        .iter()
+        .filter_map(|elem| elem.location().zip(elem.label()))
+        .filter(|&(_, label)| seen.insert(label))
+        .collect();
+
+    // Named destinations must be sorted by key.
+    matches.sort_by_key(|&(_, label)| label);
+
+    for (loc, label) in matches {
+        let pos = ctx.document.introspector.position(loc);
+        let index = pos.page.get() - 1;
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
+        // If the heading's page exists and is exported, include it.
+        if let Some(Some(page)) = ctx.pages.get(index) {
+            let dest_ref = ctx.alloc.bump();
+            let x = pos.point.x.to_f32();
+            let y = (page.size.y - y).to_f32();
+            ctx.dests.push((label, dest_ref));
+            ctx.loc_to_dest.insert(loc, label);
+            ctx.pdf
+                .indirect(dest_ref)
+                .start::<Destination>()
+                .page(page.id)
+                .xyz(x, y, None);
+        }
+    }
 }
 
 /// Compress data with the DEFLATE algorithm.
-#[tracing::instrument(skip_all)]
 fn deflate(data: &[u8]) -> Vec<u8> {
     const COMPRESSION_LEVEL: u8 = 6;
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
@@ -300,7 +394,7 @@ fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
-        .encode(typst::util::hash128(value).to_be_bytes())
+        .encode(typst::utils::hash128(value).to_be_bytes())
 }
 
 /// Converts a datetime to a pdf-writer date.
@@ -384,6 +478,98 @@ where
 
     fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
+    }
+}
+
+/// A mapping between `Font`s and all the corresponding `ColorFont`s.
+///
+/// This mapping is one-to-many because there can only be 256 glyphs in a Type 3
+/// font, and fonts generally have more color glyphs than that.
+struct ColorFontMap {
+    /// The mapping itself
+    map: IndexMap<Font, ColorFont>,
+    /// A list of all PDF indirect references to Type3 font objects.
+    all_refs: Vec<Ref>,
+}
+
+/// A collection of Type3 font, belonging to the same TTF font.
+struct ColorFont {
+    /// A list of references to Type3 font objects for this font family.
+    refs: Vec<Ref>,
+    /// The list of all color glyphs in this family.
+    ///
+    /// The index in this vector modulo 256 corresponds to the index in one of
+    /// the Type3 fonts in `refs` (the `n`-th in the vector, where `n` is the
+    /// quotient of the index divided by 256).
+    glyphs: Vec<ColorGlyph>,
+    /// The global bounding box of the font.
+    bbox: Rect,
+    /// A mapping between glyph IDs and character indices in the `glyphs`
+    /// vector.
+    glyph_indices: HashMap<u16, usize>,
+}
+
+/// A single color glyph.
+struct ColorGlyph {
+    /// The ID of the glyph.
+    gid: u16,
+    /// A frame that contains the glyph.
+    frame: Frame,
+}
+
+impl ColorFontMap {
+    /// Creates a new empty mapping
+    fn new() -> Self {
+        Self { map: IndexMap::new(), all_refs: Vec::new() }
+    }
+
+    /// Takes the contents of the mapping.
+    ///
+    /// After calling this function, the mapping will be empty.
+    fn take_map(&mut self) -> IndexMap<Font, ColorFont> {
+        std::mem::take(&mut self.map)
+    }
+
+    /// Obtains the reference to a Type3 font, and an index in this font
+    /// that can be used to draw a color glyph.
+    ///
+    /// The glyphs will be de-duplicated if needed.
+    fn get(&mut self, alloc: &mut Ref, font: &Font, gid: u16) -> (Ref, u8) {
+        let color_font = self.map.entry(font.clone()).or_insert_with(|| {
+            let global_bbox = font.ttf().global_bounding_box();
+            let bbox = Rect::new(
+                font.to_em(global_bbox.x_min).to_font_units(),
+                font.to_em(global_bbox.y_min).to_font_units(),
+                font.to_em(global_bbox.x_max).to_font_units(),
+                font.to_em(global_bbox.y_max).to_font_units(),
+            );
+            ColorFont {
+                bbox,
+                refs: Vec::new(),
+                glyphs: Vec::new(),
+                glyph_indices: HashMap::new(),
+            }
+        });
+
+        if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
+            // If we already know this glyph, return it.
+            (color_font.refs[index_of_glyph / 256], *index_of_glyph as u8)
+        } else {
+            // Otherwise, allocate a new ColorGlyph in the font, and a new Type3 font
+            // if needed
+            let index = color_font.glyphs.len();
+            if index % 256 == 0 {
+                let new_ref = alloc.bump();
+                self.all_refs.push(new_ref);
+                color_font.refs.push(new_ref);
+            }
+
+            let instructions = frame_for_glyph(font, gid);
+            color_font.glyphs.push(ColorGlyph { gid, frame: instructions });
+            color_font.glyph_indices.insert(gid, index);
+
+            (color_font.refs[index / 256], index as u8)
+        }
     }
 }
 

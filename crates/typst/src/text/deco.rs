@@ -1,17 +1,18 @@
 use kurbo::{BezPath, Line, ParamCurve};
+use smallvec::smallvec;
 use ttf_parser::{GlyphId, OutlineBuilder};
-
-use ecow::{eco_format, EcoString};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, ty, Content, Fold, Repr, Show, Smart, StyleChain};
-use crate::layout::{Abs, Em, Frame, FrameItem, Length, Point, Size};
+use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
+use crate::layout::{
+    Abs, Corners, Em, Frame, FrameItem, Length, Point, Rel, Sides, Size,
+};
 use crate::syntax::Span;
 use crate::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TextItem, TopEdge, TopEdgeMetric,
 };
-use crate::visualize::{Color, FixedStroke, Geometry, Paint, Stroke};
+use crate::visualize::{styled_rect, Color, FixedStroke, Geometry, Paint, Stroke};
 
 /// Underlines text.
 ///
@@ -21,7 +22,7 @@ use crate::visualize::{Color, FixedStroke, Geometry, Paint, Stroke};
 /// ```
 #[elem(Show)]
 pub struct UnderlineElem {
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -84,10 +85,10 @@ pub struct UnderlineElem {
     pub body: Content,
 }
 
-impl Show for UnderlineElem {
-    #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
+impl Show for Packed<UnderlineElem> {
+    #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Underline {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
@@ -95,7 +96,7 @@ impl Show for UnderlineElem {
                 background: self.background(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -107,7 +108,7 @@ impl Show for UnderlineElem {
 /// ```
 #[elem(Show)]
 pub struct OverlineElem {
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -176,10 +177,10 @@ pub struct OverlineElem {
     pub body: Content,
 }
 
-impl Show for OverlineElem {
-    #[tracing::instrument(name = "OverlineElem::show", skip_all)]
+impl Show for Packed<OverlineElem> {
+    #[typst_macros::time(name = "overline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Overline {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
@@ -187,7 +188,7 @@ impl Show for OverlineElem {
                 background: self.background(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -199,7 +200,7 @@ impl Show for OverlineElem {
 /// ```
 #[elem(title = "Strikethrough", Show)]
 pub struct StrikeElem {
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -253,10 +254,10 @@ pub struct StrikeElem {
     pub body: Content,
 }
 
-impl Show for StrikeElem {
-    #[tracing::instrument(name = "StrikeElem::show", skip_all)]
+impl Show for Packed<StrikeElem> {
+    #[typst_macros::time(name = "strike", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             // Note that we do not support evade option for strikethrough.
             line: DecoLine::Strikethrough {
                 stroke: self.stroke(styles).unwrap_or_default(),
@@ -264,7 +265,7 @@ impl Show for StrikeElem {
                 background: self.background(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -277,13 +278,26 @@ impl Show for StrikeElem {
 #[elem(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
-    /// (Default: 0xffff5f)
     ///
     /// ```example
-    /// This is #highlight(fill: blue)[with blue].
+    /// This is #highlight(
+    ///   fill: blue
+    /// )[highlighted with blue].
     /// ```
-    #[default(Color::from_u8(0xFF, 0xFF, 0x5F, 0xFF).into())]
-    pub fill: Paint,
+    #[default(Some(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into()))]
+    pub fill: Option<Paint>,
+
+    /// The highlight's border color. See the
+    /// [rectangle's documentation]($rect.stroke) for more details.
+    ///
+    /// ```example
+    /// This is a #highlight(
+    ///   stroke: fuchsia
+    /// )[stroked highlighting].
+    /// ```
+    #[resolve]
+    #[fold]
+    pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// The top end of the background rectangle.
     ///
@@ -318,22 +332,39 @@ pub struct HighlightElem {
     #[resolve]
     pub extent: Length,
 
+    /// How much to round the highlight's corners. See the
+    /// [rectangle's documentation]($rect.radius) for more details.
+    ///
+    /// ```example
+    /// Listen #highlight(
+    ///   radius: 5pt, extent: 2pt
+    /// )[carefully], it will be on the test.
+    /// ```
+    #[resolve]
+    #[fold]
+    pub radius: Corners<Option<Rel<Length>>>,
+
     /// The content that should be highlighted.
     #[required]
     pub body: Content,
 }
 
-impl Show for HighlightElem {
-    #[tracing::instrument(name = "HighlightElem::show", skip_all)]
+impl Show for Packed<HighlightElem> {
+    #[typst_macros::time(name = "highlight", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Highlight {
                 fill: self.fill(styles),
+                stroke: self
+                    .stroke(styles)
+                    .unwrap_or_default()
+                    .map(|stroke| stroke.map(Stroke::unwrap_or_default)),
                 top_edge: self.top_edge(styles),
                 bottom_edge: self.bottom_edge(styles),
+                radius: self.radius(styles).unwrap_or_default(),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -341,39 +372,39 @@ impl Show for HighlightElem {
 ///
 /// Can be positioned over, under, or on top of text, or highlight the text with
 /// a background.
-#[ty]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     line: DecoLine,
     extent: Abs,
 }
 
-impl Fold for Decoration {
-    type Output = Vec<Self>;
-
-    fn fold(self, mut outer: Self::Output) -> Self::Output {
-        outer.insert(0, self);
-        outer
-    }
-}
-
-impl Repr for Decoration {
-    fn repr(&self) -> EcoString {
-        eco_format!("{self:?}")
-    }
-}
-
-cast! {
-    type Decoration,
-}
-
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum DecoLine {
-    Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
-    Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs>, background: bool },
-    Overline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
-    Highlight { fill: Paint, top_edge: TopEdge, bottom_edge: BottomEdge },
+    Underline {
+        stroke: Stroke<Abs>,
+        offset: Smart<Abs>,
+        evade: bool,
+        background: bool,
+    },
+    Strikethrough {
+        stroke: Stroke<Abs>,
+        offset: Smart<Abs>,
+        background: bool,
+    },
+    Overline {
+        stroke: Stroke<Abs>,
+        offset: Smart<Abs>,
+        evade: bool,
+        background: bool,
+    },
+    Highlight {
+        fill: Option<Paint>,
+        stroke: Sides<Option<FixedStroke>>,
+        top_edge: TopEdge,
+        bottom_edge: BottomEdge,
+        radius: Corners<Rel<Abs>>,
+    },
 }
 
 /// Add line decorations to a single run of shaped text.
@@ -387,12 +418,18 @@ pub(crate) fn decorate(
 ) {
     let font_metrics = text.font.metrics();
 
-    if let DecoLine::Highlight { fill, top_edge, bottom_edge } = &deco.line {
+    if let DecoLine::Highlight { fill, stroke, top_edge, bottom_edge, radius } =
+        &deco.line
+    {
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
-        let rect = Geometry::Rect(Size::new(width + 2.0 * deco.extent, top - bottom))
-            .filled(fill.clone());
+        let size = Size::new(width + 2.0 * deco.extent, top - bottom);
+        let rects = styled_rect(size, *radius, fill.clone(), stroke.clone());
         let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
-        frame.prepend(origin, FrameItem::Shape(rect, Span::detached()));
+        frame.prepend_multiple(
+            rects
+                .into_iter()
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached()))),
+        );
         return;
     }
 
@@ -410,11 +447,10 @@ pub(crate) fn decorate(
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = stroke.clone().unwrap_or(FixedStroke {
-        paint: text.fill.as_decoration(),
-        thickness: metrics.thickness.at(text.size),
-        ..FixedStroke::default()
-    });
+    let stroke = stroke.clone().unwrap_or(FixedStroke::from_pair(
+        text.fill.as_decoration(),
+        metrics.thickness.at(text.size),
+    ));
 
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;
@@ -462,7 +498,7 @@ pub(crate) fn decorate(
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
-        let intersect = bbox.map_or(false, |bbox| {
+        let intersect = bbox.is_some_and(|bbox| {
             let y_min = -text.font.to_em(bbox.y_max).at(text.size);
             let y_max = -text.font.to_em(bbox.y_min).at(text.size);
             offset >= y_min && offset <= y_max

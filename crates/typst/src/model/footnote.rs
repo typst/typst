@@ -4,14 +4,14 @@ use std::str::FromStr;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
-    Synthesize,
+    cast, elem, scope, Content, Label, NativeElement, Packed, Show, ShowSet, Smart,
+    StyleChain, Styles,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, HElem, Length, Ratio};
 use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
 use crate::text::{SuperElem, TextElem, TextSize};
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -23,8 +23,9 @@ use crate::visualize::{LineElem, Stroke};
 ///
 /// To customize the appearance of the entry in the footnote listing, see
 /// [`footnote.entry`]($footnote.entry). The footnote itself is realized as a
-/// normal superscript, so you can use a set rule on the [`super`]($super)
-/// function to customize it.
+/// normal superscript, so you can use a set rule on the [`super`] function to
+/// customize it. You can also apply a show rule to customize only the footnote
+/// marker (superscript number) in the running text.
 ///
 /// # Example
 /// ```example
@@ -49,14 +50,14 @@ use crate::visualize::{LineElem, Stroke};
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-#[elem(scope, Locatable, Synthesize, Show, Count)]
+#[elem(scope, Locatable, Show, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes.
     ///
     /// By default, the footnote numbering continues throughout your document.
     /// If you prefer per-page footnote numbering, you can reset the footnote
-    /// [counter]($counter) in the page [header]($page.header). In the future,
-    /// there might be a simpler way to achieve this.
+    /// [counter] in the page [header]($page.header). In the future, there might
+    /// be a simpler way to achieve this.
     ///
     /// ```example
     /// #set footnote(numbering: "*")
@@ -104,14 +105,16 @@ impl FootnoteElem {
             _ => None,
         }
     }
+}
 
+impl Packed<FootnoteElem> {
     /// Returns the location of the definition of this footnote.
     pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
         match self.body() {
             FootnoteBody::Reference(label) => {
                 let element = engine.introspector.query_label(*label)?;
                 let footnote = element
-                    .to::<FootnoteElem>()
+                    .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
                 footnote.declaration_location(engine)
             }
@@ -120,30 +123,22 @@ impl FootnoteElem {
     }
 }
 
-impl Synthesize for FootnoteElem {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_numbering(self.numbering(styles).clone());
-        Ok(())
-    }
-}
-
-impl Show for FootnoteElem {
-    #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
+impl Show for Packed<FootnoteElem> {
+    #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let loc = self.declaration_location(engine).at(self.span())?;
-            let numbering = self.numbering(styles);
-            let counter = Counter::of(Self::elem());
-            let num = counter.at(engine, loc)?.display(engine, numbering)?;
-            let sup = SuperElem::new(num).pack();
-            let loc = loc.variant(1);
-            // Add zero-width weak spacing to make the footnote "sticky".
-            Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
-        }))
+        let span = self.span();
+        let loc = self.declaration_location(engine).at(span)?;
+        let numbering = self.numbering(styles);
+        let counter = Counter::of(FootnoteElem::elem());
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let sup = SuperElem::new(num).pack().spanned(span);
+        let loc = loc.variant(1);
+        // Add zero-width weak spacing to make the footnote "sticky".
+        Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
     }
 }
 
-impl Count for FootnoteElem {
+impl Count for Packed<FootnoteElem> {
     fn update(&self) -> Option<CounterUpdate> {
         (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
@@ -172,11 +167,6 @@ cast! {
 /// This function is not intended to be called directly. Instead, it is used
 /// in set and show rules to customize footnote listings.
 ///
-/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
-/// beginning of the document in order to work correctly.
-/// See [here](https://github.com/typst/typst/issues/1348#issuecomment-1566316463)
-/// for more information.
-///
 /// ```example
 /// #show footnote.entry: set text(red)
 ///
@@ -184,7 +174,13 @@ cast! {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
+///
+/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
+/// beginning of the document in order to work correctly. See [here][issue] for
+/// more information.
+///
+/// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
+#[elem(name = "entry", title = "Footnote Entry", Show, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.
@@ -203,7 +199,7 @@ pub struct FootnoteEntry {
     /// listing #footnote[World! 🌏]
     /// ```
     #[required]
-    pub note: FootnoteElem,
+    pub note: Packed<FootnoteElem>,
 
     /// The separator between the document body and the footnote listing.
     ///
@@ -269,8 +265,10 @@ pub struct FootnoteEntry {
     pub indent: Length,
 }
 
-impl Show for FootnoteEntry {
+impl Show for Packed<FootnoteEntry> {
+    #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let note = self.note();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
@@ -278,14 +276,15 @@ impl Show for FootnoteEntry {
         let counter = Counter::of(FootnoteElem::elem());
         let Some(loc) = note.location() else {
             bail!(
-                self.span(), "footnote entry must have a location";
+                span, "footnote entry must have a location";
                 hint: "try using a query or a show rule to customize the footnote instead"
             );
         };
 
-        let num = counter.at(engine, loc)?.display(engine, numbering)?;
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
         let sup = SuperElem::new(num)
             .pack()
+            .spanned(span)
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));
         Ok(Content::sequence([
@@ -297,17 +296,18 @@ impl Show for FootnoteEntry {
     }
 }
 
-impl Finalize for FootnoteEntry {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+impl ShowSet for Packed<FootnoteEntry> {
+    fn show_set(&self, _: StyleChain) -> Styles {
         let text_size = Em::new(0.85);
         let leading = Em::new(0.5);
-        realized
-            .styled(ParElem::set_leading(leading.into()))
-            .styled(TextElem::set_size(TextSize(text_size.into())))
+        let mut out = Styles::new();
+        out.set(ParElem::set_leading(leading.into()));
+        out.set(TextElem::set_size(TextSize(text_size.into())));
+        out
     }
 }
 
 cast! {
     FootnoteElem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::with_content(v.clone())),
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::with_content)
 }
