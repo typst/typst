@@ -118,7 +118,7 @@ Typst's CLI is available from different sources:
   - macOS: `brew install typst`
   - Windows: `winget install --id Typst.Typst`
 
-- If you have a [Rust][rust] toolchain installed, you can also install a specific version with:
+- If you have a [Rust][rust] toolchain installed, you can also install a specific version with `--tag`. For example, you can install v0.11.0 with the command below.
   ```
   cargo install --git https://github.com/typst/typst --tag v0.11.0 --locked typst-cli
   ```
