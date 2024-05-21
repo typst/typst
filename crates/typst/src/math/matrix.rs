@@ -348,6 +348,9 @@ pub enum Delimiter {
     /// Delimit with brackets.
     #[string("[")]
     Bracket,
+    /// Delimit with double brackets.
+    #[string("⟦", "[|")]
+    DoubleBracket,
     /// Delimit with curly braces.
     #[string("{")]
     Brace,
@@ -355,8 +358,11 @@ pub enum Delimiter {
     #[string("|")]
     Bar,
     /// Delimit with double vertical bars.
-    #[string("||")]
+    #[string("‖", "||")]
     DoubleBar,
+    /// Delimit with angle brackets.
+    #[string("⟨", "<")]
+    Angle,
 }
 
 impl Delimiter {
@@ -365,9 +371,11 @@ impl Delimiter {
         match self {
             Self::Paren => '(',
             Self::Bracket => '[',
+            Self::DoubleBracket => '⟦',
             Self::Brace => '{',
             Self::Bar => '|',
             Self::DoubleBar => '‖',
+            Self::Angle => '⟨',
         }
     }
 
@@ -376,9 +384,11 @@ impl Delimiter {
         match self {
             Self::Paren => ')',
             Self::Bracket => ']',
+            Self::DoubleBracket => '⟧',
             Self::Brace => '}',
             Self::Bar => '|',
             Self::DoubleBar => '‖',
+            Self::Angle => '⟩',
         }
     }
 }
