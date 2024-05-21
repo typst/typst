@@ -12,7 +12,6 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use typst::introspection::Meta;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
@@ -749,11 +748,8 @@ pub(crate) fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             FrameItem::Text(text) => write_text(ctx, pos, text),
             FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
-            FrameItem::Meta(meta, size) => match meta {
-                Meta::Link(dest) => write_link(ctx, pos, dest, *size),
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
-            },
+            FrameItem::Link(dest, size) => write_link(ctx, pos, dest, *size),
+            FrameItem::Tag(_) => {}
         }
     }
 }

@@ -6,7 +6,6 @@ mod shape;
 mod text;
 
 use tiny_skia as sk;
-use typst::introspection::Meta;
 use typst::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Size, Transform,
 };
@@ -162,11 +161,8 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             FrameItem::Image(image, size, _) => {
                 image::render_image(canvas, state.pre_translate(*pos), image, *size);
             }
-            FrameItem::Meta(meta, _) => match meta {
-                Meta::Link(_) => {}
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
-            },
+            FrameItem::Link(_, _) => {}
+            FrameItem::Tag(_) => {}
         }
     }
 }

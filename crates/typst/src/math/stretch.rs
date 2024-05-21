@@ -167,7 +167,7 @@ fn assemble(
     let mut frame = Frame::soft(size);
     let mut offset = Abs::zero();
     frame.set_baseline(baseline);
-    frame.meta_iter(base.meta);
+    frame.post_process_raw(base.dests, base.hidden);
 
     for (fragment, advance) in selected {
         let pos = if horizontal {

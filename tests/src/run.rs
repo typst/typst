@@ -7,7 +7,6 @@ use tiny_skia as sk;
 use typst::diag::SourceDiagnostic;
 use typst::eval::Tracer;
 use typst::foundations::Smart;
-use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Page, Transform};
 use typst::model::Document;
 use typst::visualize::Color;
@@ -392,7 +391,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
                 let ts = ts.pre_concat(to_sk_transform(&group.transform));
                 render_links(canvas, ts, &group.frame);
             }
-            FrameItem::Meta(Meta::Link(_), size) => {
+            FrameItem::Link(_, size) => {
                 let w = size.x.to_pt() as f32;
                 let h = size.y.to_pt() as f32;
                 let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
@@ -416,7 +415,7 @@ fn skippable(page: &Page) -> bool {
 fn skippable_frame(frame: &Frame) -> bool {
     frame.items().all(|(_, item)| match item {
         FrameItem::Group(group) => skippable_frame(&group.frame),
-        FrameItem::Meta(..) => true,
+        FrameItem::Tag(_) => true,
         _ => false,
     })
 }
