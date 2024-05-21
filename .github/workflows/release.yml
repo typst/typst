@@ -18,10 +18,10 @@ jobs:
         include:
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
-          cross: true
+          cross: false
         - target: aarch64-pc-windows-msvc
           os: windows-latest
-          cross: true
+          cross: false
 
     steps:
     - uses: actions/checkout@v4
