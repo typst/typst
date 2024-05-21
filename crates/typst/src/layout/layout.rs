@@ -12,7 +12,7 @@ use crate::syntax::Span;
 /// Provides access to the current outer container's (or page's, if none)
 /// dimensions (width and height).
 ///
-/// `layout` accepts a function that receives a single parameter, which is a
+/// Accepts a function that receives a single parameter, which is a
 /// dictionary with keys `width` and `height`, both of type [`length`].
 ///
 /// ```example
