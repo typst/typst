@@ -1,10 +1,10 @@
-use ecow::EcoString;
 use smallvec::{smallvec, SmallVec};
+use unicode_math_class::MathClass;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Content, Dict, Fold, Packed, Resolve, Smart, StyleChain,
-    Value,
+    array, cast, dict, elem, Array, Content, Dict, Fold, Packed, Resolve, Smart, Str,
+    StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
@@ -42,7 +42,7 @@ pub struct VecElem {
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
     /// ```
-    #[default(Some(Delimiter::Paren))]
+    #[default(Some(Delimiter::PAREN))]
     pub delim: Option<Delimiter>,
 
     /// The gap between elements.
@@ -111,7 +111,7 @@ pub struct MatElem {
     /// #set math.mat(delim: "[")
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[default(Some(Delimiter::Paren))]
+    #[default(Some(Delimiter::PAREN))]
     pub delim: Option<Delimiter>,
 
     /// Draws augmentation lines in a matrix.
@@ -291,7 +291,7 @@ pub struct CasesElem {
     /// #set math.cases(delim: "[")
     /// $ x = cases(1, 2) $
     /// ```
-    #[default(Delimiter::Brace)]
+    #[default(Delimiter::BRACE)]
     pub delim: Delimiter,
 
     /// Whether the direction of cases should be reversed.
@@ -343,80 +343,73 @@ impl LayoutMath for Packed<CasesElem> {
 
 /// A vector / matrix delimiter.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Delimiter {
-    /// Delimit with parentheses.
-    Paren,
-    /// Delimit with brackets.
-    Bracket,
-    /// Delimit with double brackets.
-    DoubleBracket,
-    /// Delimit with curly braces.
-    Brace,
-    /// Delimit with vertical bars.
-    Bar,
-    /// Delimit with double vertical bars.
-    DoubleBar,
-    /// Delimit with angles.
-    Angle,
+pub struct Delimiter {
+    open: char,
+    close: char,
+}
+
+fn find_matching_delim(c: char) -> Option<char> {
+    match c {
+        '[' => Some(']'),
+        ']' => Some('['),
+        '{' => Some('}'),
+        '}' => Some('{'),
+        c => match unicode_math_class::class(c) {
+            Some(MathClass::Opening) => char::from_u32(c as u32 + 1),
+            Some(MathClass::Closing) => char::from_u32(c as u32 - 1),
+            Some(MathClass::Fence) => Some(c),
+            _ => None,
+        },
+    }
 }
 
 cast! {
     Delimiter,
 
-    self => {
-        match self {
-            Self::Paren => "(",
-            Self::Bracket => "[",
-            Self::DoubleBracket => "[|",
-            Self::Brace => "{",
-            Self::Bar => "|",
-            Self::DoubleBar => "||",
-            Self::Angle => "<",
-        }.into_value()
-    },
+    self => array![self.open, self.close].into_value(),
 
-    v: EcoString => Self::from_str(&v)?,
-    v: Symbol => Self::from_str(&v.get().to_string())?,
+    v: Symbol => Self::from_opening(v.get())?,
+    v: Str => {
+        let mut chars = v.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => Self::from_opening(c)?,
+            _ => bail!("invalid delimiter: \"{}\"", v),
+        }
+    },
+    v: Array => {
+        let v = v.as_slice();
+        if v.len() != 2 {
+            bail!("expected 2 delimiters, found {}", v.len());
+        }
+        let open = v[0].clone().cast()?;
+        let close = v[1].clone().cast()?;
+        Self::new(open, close)
+    },
 }
 
 impl Delimiter {
-    fn from_str(s: &str) -> StrResult<Self> {
-        Ok(match s {
-            "(" => Self::Paren,
-            "[" => Self::Bracket,
-            "[|" | "⟦" => Self::DoubleBracket,
-            "{" => Self::Brace,
-            "|" => Self::Bar,
-            "||" | "‖" => Self::DoubleBar,
-            "<" | "⟨" => Self::Angle,
-            _ => bail!("invalid delimiter: {}", s),
-        })
+    const PAREN: Self = Self::new('(', ')');
+    const BRACE: Self = Self::new('{', '}');
+
+    const fn new(open: char, close: char) -> Self {
+        Self { open, close }
+    }
+
+    fn from_opening(opening: char) -> StrResult<Self> {
+        match find_matching_delim(opening) {
+            None => bail!("invalid delimiter: \"{}\"", opening),
+            Some(closing) => Ok(Self::new(opening, closing)),
+        }
     }
 
     /// The delimiter's opening character.
     fn open(self) -> char {
-        match self {
-            Self::Paren => '(',
-            Self::Bracket => '[',
-            Self::DoubleBracket => '⟦',
-            Self::Brace => '{',
-            Self::Bar => '|',
-            Self::DoubleBar => '‖',
-            Self::Angle => '⟨',
-        }
+        self.open
     }
 
     /// The delimiter's closing character.
     fn close(self) -> char {
-        match self {
-            Self::Paren => ')',
-            Self::Bracket => ']',
-            Self::DoubleBracket => '⟧',
-            Self::Brace => '}',
-            Self::Bar => '|',
-            Self::DoubleBar => '‖',
-            Self::Angle => '⟩',
-        }
+        self.close
     }
 }
 

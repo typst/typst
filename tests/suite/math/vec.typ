@@ -22,6 +22,18 @@ $ v = vec(1, 2+3, 4) $
 #set math.vec(delim: "[")
 $ vec(1, 2) $
 
---- math-vec-delim-invalid ---
-// Error: 22-25 invalid delimiter: %
+--- math-vec-delim-empty-string ---
+// Error: 22-24 invalid delimiter: ""
+#set math.vec(delim: "")
+
+--- math-vec-delim-not-single-char ---
+// Error: 22-39 invalid delimiter: "not a delimiter"
+#set math.vec(delim: "not a delimiter")
+
+--- math-vec-delim-invalid-char ---
+// Error: 22-25 invalid delimiter: "%"
 #set math.vec(delim: "%")
+
+--- math-vec-delim-invalid-symbol ---
+// Error: 22-33 invalid delimiter: "%"
+#set math.vec(delim: sym.percent)
