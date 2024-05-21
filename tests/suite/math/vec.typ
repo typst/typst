@@ -37,3 +37,11 @@ $ vec(1, 2) $
 --- math-vec-delim-invalid-symbol ---
 // Error: 22-33 invalid delimiter: "%"
 #set math.vec(delim: sym.percent)
+
+--- math-vec-delim-invalid-opening ---
+// Error: 22-33 invalid delimiter: "%"
+#set math.vec(delim: ("%", none))
+
+--- math-vec-delim-invalid-closing ---
+// Error: 22-33 invalid delimiter: "%"
+#set math.vec(delim: (none, "%"))
