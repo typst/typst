@@ -25,7 +25,7 @@ pub fn derive_cast(item: DeriveInput) -> Result<TokenStream> {
             variant.attrs.iter().find(|attr| attr.path().is_ident("string"))
         {
             let args = attr.parse_args_with(
-                Punctuated::<syn::LitStr, Token![,]>::parse_terminated,
+                Punctuated::<syn::LitStr, Token![,]>::parse_separated_nonempty,
             )?;
             args.iter().map(LitStr::value).collect()
         } else {
