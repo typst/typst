@@ -790,6 +790,26 @@ impl Array {
         }
     }
 
+    /// Returns sliding windows of `window-size` elements over an array.
+    ///
+    /// If the array length is less than `window-size`, this will return an empty array.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
+    /// #array.windows(5)
+    /// ```
+    #[func]
+    pub fn windows(
+        self,
+        /// How many elements each window will contain.
+        window_size: NonZeroUsize,
+    ) -> Array {
+        self.0
+            .windows(window_size.get())
+            .map(|window| Array::from(window).into_value())
+            .collect()
+    }
+
     /// Return a sorted version of this array, optionally by a given key
     /// function. The sorting algorithm used is stable.
     ///

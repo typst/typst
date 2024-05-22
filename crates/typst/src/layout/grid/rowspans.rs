@@ -1,12 +1,12 @@
+use super::layout::{in_last_with_offset, points, Row, RowPiece};
+use super::repeated::Repeatable;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::Resolve;
 use crate::layout::{
     Abs, Axes, Cell, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
 };
-use crate::util::MaybeReverseIter;
-
-use super::layout::{in_last_with_offset, points, Repeatable, Row, RowPiece};
+use crate::utils::MaybeReverseIter;
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {

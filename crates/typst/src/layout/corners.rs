@@ -6,7 +6,7 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::Side;
-use crate::util::Get;
+use crate::utils::Get;
 
 /// A container with components for the four corners of a rectangle.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]

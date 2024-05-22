@@ -338,7 +338,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>> )
 #show heading: it => [
   #set align(center)
-  #set text(12pt, weight: "regular")
+  #set text(13pt, weight: "regular")
   #block(smallcaps(it.body))
 ]
 
@@ -417,7 +417,7 @@ differentiate between section and subsection headings:
   level: 1
 ): it => block(width: 100%)[
   #set align(center)
-  #set text(12pt, weight: "regular")
+  #set text(13pt, weight: "regular")
   #smallcaps(it.body)
 ]
 

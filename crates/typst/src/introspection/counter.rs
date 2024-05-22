@@ -13,12 +13,12 @@ use crate::foundations::{
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
     Selector, Show, Smart, Str, StyleChain, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
+use crate::introspection::{Introspector, Locatable, Location, Locator};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::World;
 
 /// Counts through pages, elements, and more.
@@ -223,10 +223,7 @@ impl Counter {
         location: Location,
     ) -> SourceResult<CounterState> {
         let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(location.into(), true))
-            .len();
+        let offset = engine.introspector.query_count_before(&self.selector(), location);
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
@@ -245,16 +242,14 @@ impl Counter {
     pub fn at_loc(
         &self,
         engine: &mut Engine,
-        loc: Location,
+        location: Location,
     ) -> SourceResult<CounterState> {
         let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(loc.into(), true))
-            .len();
+        let offset = engine.introspector.query_count_before(&self.selector(), location);
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
-            let delta = engine.introspector.page(loc).get().saturating_sub(page.get());
+            let delta =
+                engine.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
@@ -820,7 +815,7 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Meta(Meta::Elem(elem), _) => {
+                FrameItem::Tag(elem) => {
                     let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };

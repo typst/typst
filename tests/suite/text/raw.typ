@@ -624,7 +624,20 @@ fn main() {
 
 ~~~~The~spaces~on~this~line~shrink
 
+--- issue-3820-raw-space-when-end-with-backtick ---
+```typ
+`code`
+```
+
+  ```typ
+  `code`
+  ```
+
 --- raw-unclosed ---
-// Unterminated.
+// Test unterminated raw text.
+//
+// Note: This test should be the final one in the file because it messes up
+// syntax highlighting.
+//
 // Error: 1-2:1 unclosed raw text
 `endless

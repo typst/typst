@@ -202,10 +202,7 @@ impl State {
     /// Get the value of the state at the given location.
     pub fn at_loc(&self, engine: &mut Engine, loc: Location) -> SourceResult<Value> {
         let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(loc.into(), true))
-            .len();
+        let offset = engine.introspector.query_count_before(&self.selector(), loc);
         Ok(sequence[offset].clone())
     }
 

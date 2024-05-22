@@ -19,7 +19,7 @@ use crate::layout::{
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.

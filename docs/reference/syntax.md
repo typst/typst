@@ -34,34 +34,34 @@ the syntax elements are just shortcuts for a corresponding function. The table
 below lists all markup that is available and links to the  best place to learn
 more about their syntax and usage.
 
-| Name               | Example                  | See                          |
-| ------------------ | ------------------------ | ---------------------------- |
-| Paragraph break    | Blank line               | [`parbreak`]                 |
-| Strong emphasis    | `[*strong*]`             | [`strong`]                   |
-| Emphasis           | `[_emphasis_]`           | [`emph`]                     |
-| Raw text           | ``[`print(1)`]``         | [`raw`]                      |
-| Link               | `[https://typst.app/]`   | [`link`]                     |
-| Label              | `[<intro>]`              | [`label`]                    |
-| Reference          | `[@intro]`               | [`ref`]                      |
-| Heading            | `[= Heading]`            | [`heading`]                  |
-| Bullet list        | `[- item]`               | [`list`]                     |
-| Numbered list      | `[+ item]`               | [`enum`]                     |
-| Term list          | `[/ Term: description]`  | [`terms`]                    |
-| Math               | `[$x^2$]`                | [Math]($category/math)       |
-| Line break         | `[\]`                    | [`linebreak`]                |
-| Smart quote        | `['single' or "double"]` | [`smartquote`]               |
-| Symbol shorthand   | `[~, ---]`               | [Symbols]($category/symbols/sym) |
-| Code expression    | `[#rect(width: 1cm)]`    | [Scripting]($scripting/#expressions) |
-| Character escape   | `[Tweet at us \#ad]`     | [Below](#escapes)            |
-| Comment            | `[/* block */, // line]` | [Below](#comments)           |
+| Name               | Example                      | See                      |
+| ------------------ | ---------------------------- | ------------------------ |
+| Paragraph break    | Blank line                   | [`parbreak`]             |
+| Strong emphasis    | `[*strong*]`                 | [`strong`]               |
+| Emphasis           | `[_emphasis_]`               | [`emph`]                 |
+| Raw text           | ``[`print(1)`]``             | [`raw`]                  |
+| Link               | `[https://typst.app/]`       | [`link`]                 |
+| Label              | `[<intro>]`                  | [`label`]                |
+| Reference          | `[@intro]`                   | [`ref`]                  |
+| Heading            | `[= Heading]`                | [`heading`]              |
+| Bullet list        | `[- item]`                   | [`list`]                 |
+| Numbered list      | `[+ item]`                   | [`enum`]                 |
+| Term list          | `[/ Term: description]`      | [`terms`]                |
+| Math               | `[$x^2$]`                    | [Math]($category/math)   |
+| Line break         | `[\]`                        | [`linebreak`]            |
+| Smart quote        | `['single' or "double"]`     | [`smartquote`]           |
+| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/sym) |
+| Code expression    | `[#rect(width: 1cm)]`        | [Scripting]($scripting/#expressions) |
+| Character escape   | `[Tweet at us \#ad]`         | [Below](#escapes)        |
+| Comment            | `[/* block */]`, `[// line]` | [Below](#comments)       |
 
 ## Math mode { #math }
 Math mode is a special markup mode that is used to typeset mathematical
-formulas. It is entered by wrapping an equation in `[$]` characters. The
-equation will be typeset into its own block if it starts and ends with at least
-one space (e.g. `[$ x^2 $]`). Inline math can be produced by omitting the
-whitespace (e.g. `[$x^2$]`). An overview over the syntax specific to math mode
-follows:
+formulas. It is entered by wrapping an equation in `[$]` characters. This works
+both in markup and code. The equation will be typeset into its own block if it
+starts and ends with at least one space (e.g. `[$ x^2 $]`). Inline math can be
+produced by omitting the whitespace (e.g. `[$x^2$]`). An overview over the
+syntax specific to math mode follows:
 
 | Name                   | Example                  | See                      |
 | ---------------------- | ------------------------ | ------------------------ |
@@ -75,7 +75,7 @@ follows:
 | Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
-| Symbol shorthand       | `[$->, !=$]`             | [Symbols]($category/symbols/sym) |
+| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/sym) |
 | Text/string in math    | `[$a "is natural"$]`     | [Math]($category/math)   |
 | Math function call     | `[$floor(x)$]`           | [Math]($category/math)   |
 | Code expression        | `[$#rect(width: 1cm)$]`  | [Scripting]($scripting/#expressions) |
@@ -89,8 +89,20 @@ a table listing all syntax that is available in code mode:
 
 | Name                     | Example                       | See                                |
 | ------------------------ | ----------------------------- | ---------------------------------- |
+| None                     | `{none}`                      | [`none`]                           |
+| Auto                     | `{auto}`                      | [`auto`]                           |
+| Boolean                  | `{false}`, `{true}`           | [`bool`]                           |
+| Integer                  | `{10}`, `{0xff}`              | [`int`]                            |
+| Floating-point number    | `{3.14}`, `{1e5}`             | [`float`]                          |
+| Length                   | `{2pt}`, `{3mm}`, `{1em}`, .. | [`length`]                         |
+| Angle                    | `{90deg}`, `{1rad}`           | [`angle`]                          |
+| Fraction                 | `{2fr}`                       | [`fraction`]                       |
+| Ratio                    | `{50%}`                       | [`ratio`]                          |
+| String                   | `{"hello"}`                   | [`str`]                            |
+| Label                    | `{<intro>}`                   | [`label`]                          |
+| Math                     | `[$x^2$]`                     | [Math]($category/math)             |
+| Raw text                 | ``[`print(1)`]``              | [`raw`]                            |
 | Variable access          | `{x}`                         | [Scripting]($scripting/#blocks)    |
-| Any literal              | `{1pt, "hey"}`                | [Scripting]($scripting/#expressions) |
 | Code block               | `{{ let x = 1; x + 2 }}`      | [Scripting]($scripting/#blocks)    |
 | Content block            | `{[*Hello*]}`                 | [Scripting]($scripting/#blocks)    |
 | Parenthesized expression | `{(1 + 2)}`                   | [Scripting]($scripting/#blocks)    |
@@ -120,7 +132,7 @@ a table listing all syntax that is available in code mode:
 | Include module           | `{include "bar.typ"}`         | [Scripting]($scripting/#modules)   |
 | Import module            | `{import "bar.typ"}`          | [Scripting]($scripting/#modules)   |
 | Import items from module | `{import "bar.typ": a, b, c}` | [Scripting]($scripting/#modules)   |
-| Comment                  | `[/* block */, // line]`      | [Below](#comments)                 |
+| Comment                  | `{/* block */}`, `{// line}`  | [Below](#comments)                 |
 
 ## Comments
 Comments are ignored by Typst and will not be included in the output. This is

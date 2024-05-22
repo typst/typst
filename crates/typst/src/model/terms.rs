@@ -9,7 +9,7 @@ use crate::layout::{
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// A list of terms and their descriptions.
 ///

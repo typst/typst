@@ -1,7 +1,7 @@
 use std::ops::{Add, Div, Mul, Neg};
 
 use crate::layout::{Abs, Axes, Point, Ratio};
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// A size in 2D.
 pub type Size = Axes<Abs>;
@@ -54,7 +54,7 @@ impl Add for Size {
     }
 }
 
-sub_impl!(Size - Size -> Size);
+typst_utils::sub_impl!(Size - Size -> Size);
 
 impl Mul<f64> for Size {
     type Output = Self;
@@ -80,7 +80,7 @@ impl Div<f64> for Size {
     }
 }
 
-assign_impl!(Size -= Size);
-assign_impl!(Size += Size);
-assign_impl!(Size *= f64);
-assign_impl!(Size /= f64);
+typst_utils::assign_impl!(Size -= Size);
+typst_utils::assign_impl!(Size += Size);
+typst_utils::assign_impl!(Size *= f64);
+typst_utils::assign_impl!(Size /= f64);

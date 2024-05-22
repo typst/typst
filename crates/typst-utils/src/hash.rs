@@ -44,7 +44,7 @@ impl<T: Default> Default for LazyHash<T> {
 }
 
 impl<T> LazyHash<T> {
-    /// Wrap an item without pre-computed hash.
+    /// Wraps an item without pre-computed hash.
     #[inline]
     pub fn new(value: T) -> Self {
         Self { hash: AtomicU128::new(0), value }
@@ -55,35 +55,30 @@ impl<T> LazyHash<T> {
     /// **Important:** The hash must be correct for the value. This cannot be
     /// enforced at compile time, so use with caution.
     #[inline]
-    pub fn with_hash(value: T, hash: u128) -> Self {
-        Self { hash: AtomicU128::new(hash), value }
+    pub fn reuse<U: ?Sized>(value: T, existing: &LazyHash<U>) -> Self {
+        LazyHash { hash: AtomicU128::new(existing.load_hash()), value }
     }
 
-    /// Return the wrapped value.
+    /// Returns the wrapped value.
     #[inline]
     pub fn into_inner(self) -> T {
         self.value
     }
 }
 
-impl<T: Hash + ?Sized + 'static> LazyHash<T> {
+impl<T: ?Sized> LazyHash<T> {
     /// Get the hash, returns zero if not computed yet.
     #[inline]
-    pub fn hash(&self) -> u128 {
+    fn load_hash(&self) -> u128 {
         self.hash.load(Ordering::SeqCst)
     }
+}
 
-    /// Reset the hash to zero.
-    #[inline]
-    fn reset_hash(&mut self) {
-        // Because we have a mutable reference, we can skip the atomic
-        *self.hash.get_mut() = 0;
-    }
-
+impl<T: Hash + ?Sized + 'static> LazyHash<T> {
     /// Get the hash or compute it if not set yet.
     #[inline]
-    fn get_or_set_hash(&self) -> u128 {
-        let hash = self.hash();
+    fn load_or_compute_hash(&self) -> u128 {
+        let hash = self.load_hash();
         if hash == 0 {
             let hashed = hash_item(&self.value);
             self.hash.store(hashed, Ordering::SeqCst);
@@ -91,6 +86,13 @@ impl<T: Hash + ?Sized + 'static> LazyHash<T> {
         } else {
             hash
         }
+    }
+
+    /// Reset the hash to zero.
+    #[inline]
+    fn reset_hash(&mut self) {
+        // Because we have a mutable reference, we can skip the atomic
+        *self.hash.get_mut() = 0;
     }
 }
 
@@ -108,7 +110,7 @@ fn hash_item<T: Hash + ?Sized + 'static>(item: &T) -> u128 {
 impl<T: Hash + ?Sized + 'static> Hash for LazyHash<T> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u128(self.get_or_set_hash());
+        state.write_u128(self.load_or_compute_hash());
     }
 }
 
@@ -124,7 +126,7 @@ impl<T: Hash + ?Sized + 'static> Eq for LazyHash<T> {}
 impl<T: Hash + ?Sized + 'static> PartialEq for LazyHash<T> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.get_or_set_hash() == other.get_or_set_hash()
+        self.load_or_compute_hash() == other.load_or_compute_hash()
     }
 }
 
@@ -148,7 +150,7 @@ impl<T: Hash + ?Sized + 'static> DerefMut for LazyHash<T> {
 impl<T: Hash + Clone + 'static> Clone for LazyHash<T> {
     fn clone(&self) -> Self {
         Self {
-            hash: AtomicU128::new(self.hash()),
+            hash: AtomicU128::new(self.load_hash()),
             value: self.value.clone(),
         }
     }

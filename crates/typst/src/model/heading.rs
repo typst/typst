@@ -12,7 +12,7 @@ use crate::layout::{
 };
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 
 /// A section heading.
 ///

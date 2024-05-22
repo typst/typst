@@ -1,18 +1,18 @@
 #![no_main]
 
-use comemo::Prehashed;
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
 use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
+use typst::utils::LazyHash;
 use typst::visualize::Color;
 use typst::{Library, World};
 
 struct FuzzWorld {
-    library: Prehashed<Library>,
-    book: Prehashed<FontBook>,
+    library: LazyHash<Library>,
+    book: LazyHash<FontBook>,
     font: Font,
     source: Source,
 }
@@ -23,8 +23,8 @@ impl FuzzWorld {
         let font = Font::new(Bytes::from_static(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
-            library: Prehashed::new(Library::default()),
-            book: Prehashed::new(book),
+            library: LazyHash::new(Library::default()),
+            book: LazyHash::new(book),
             font,
             source: Source::detached(text),
         }
@@ -32,11 +32,11 @@ impl FuzzWorld {
 }
 
 impl World for FuzzWorld {
-    fn library(&self) -> &Prehashed<Library> {
+    fn library(&self) -> &LazyHash<Library> {
         &self.library
     }
 
-    fn book(&self) -> &Prehashed<FontBook> {
+    fn book(&self) -> &LazyHash<FontBook> {
         &self.book
     }
 

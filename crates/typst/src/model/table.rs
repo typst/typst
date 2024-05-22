@@ -17,7 +17,7 @@ use crate::layout::{
 use crate::model::Figurable;
 use crate::syntax::Span;
 use crate::text::{LocalName, TextElem};
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// A table of items.

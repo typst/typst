@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+title: Typst
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Laurenz
+    family-names: Mädje
+    email: laurenz.maedje@typst.app
+  - given-names: Martin
+    family-names: Haug
+    email: martin.haug@typst.app
+  - name: The Typst Project Developers
+references:
+  - title: A Programmable Markup Language for Typesetting
+    authors:
+    - family-names: Mädje
+      given-names: Laurenz
+    year: 2022
+    type: thesis
+    thesis-type: Master's thesis
+    url: https://laurmaedje.github.io/programmable-markup-language-for-typesetting.pdf
+    institution:
+      name: Technische Universität Berlin
+  - title: Fast typesetting with incremental compilation
+    authors:
+    - family-names: Haug
+      given-names: Martin
+    year: 2022
+    type: thesis
+    thesis-type: Master's thesis
+    doi: 10.13140/RG.2.2.15606.88642
+    url: https://doi.org/10.13140/RG.2.2.15606.88642
+    institution:
+      name: Technische Universität Berlin
+repository-code: 'https://github.com/typst/typst'
+url: 'https://typst.app/'
+keywords:
+  - typesetting
+  - markup language
+license: Apache-2.0

@@ -16,6 +16,7 @@ use crate::foundations::{
 };
 use crate::layout::Alignment;
 use crate::syntax::{Span, Spanned};
+use crate::utils::PicoStr;
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
@@ -748,6 +749,12 @@ cast! {
     EcoString,
     self => Value::Str(self.into()),
     v: Str => v.into(),
+}
+
+cast! {
+    PicoStr,
+    self => Value::Str(self.resolve().into()),
+    v: Str => v.as_str().into(),
 }
 
 cast! {

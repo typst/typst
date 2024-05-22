@@ -12,7 +12,7 @@ use crate::foundations::{
     array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
 };
 use crate::syntax::is_ident;
-use crate::util::ArcExt;
+use crate::utils::ArcExt;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]

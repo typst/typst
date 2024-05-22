@@ -1,5 +1,8 @@
 use std::fmt::{self, Display, Formatter};
+use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use clap::builder::ValueParser;
@@ -75,6 +78,18 @@ pub struct CompileCommand {
     /// For example, `doc-page-{0p}-of-{t}.png` creates `doc-page-01-of-10.png` and so on.
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
+
+    /// Which pages to export. When unspecified, all document pages are exported.
+    ///
+    /// Pages to export are separated by commas, and can be either simple page
+    /// numbers (e.g. '2,5' to export only pages 2 and 5) or page ranges
+    /// (e.g. '2,3-6,8-' to export page 2, pages 3 to 6 (inclusive), page 8 and
+    /// any pages after it).
+    ///
+    /// Page numbers are one-indexed and correspond to real page numbers in the
+    /// document (therefore not being affected by the document's page counter).
+    #[arg(long = "pages", value_delimiter = ',')]
+    pub pages: Option<Vec<PageRangeArgument>>,
 
     /// Output a Makefile rule describing the current compilation
     #[clap(long = "make-deps", value_name = "PATH")]
@@ -269,6 +284,55 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
     }
     let val = val.trim().to_owned();
     Ok((key, val))
+}
+
+/// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
+/// `CompileCommand.pages` argument, through the `FromStr` trait instead of
+/// a value parser, in order to generate better errors.
+///
+/// See also: https://github.com/clap-rs/clap/issues/5065
+#[derive(Debug, Clone)]
+pub struct PageRangeArgument(RangeInclusive<Option<NonZeroUsize>>);
+
+impl PageRangeArgument {
+    pub fn to_range(&self) -> RangeInclusive<Option<NonZeroUsize>> {
+        self.0.clone()
+    }
+}
+
+impl FromStr for PageRangeArgument {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.split('-').map(str::trim).collect::<Vec<_>>().as_slice() {
+            [] | [""] => Err("page export range must not be empty"),
+            [single_page] => {
+                let page_number = parse_page_number(single_page)?;
+                Ok(PageRangeArgument(Some(page_number)..=Some(page_number)))
+            }
+            ["", ""] => Err("page export range must have start or end"),
+            [start, ""] => Ok(PageRangeArgument(Some(parse_page_number(start)?)..=None)),
+            ["", end] => Ok(PageRangeArgument(None..=Some(parse_page_number(end)?))),
+            [start, end] => {
+                let start = parse_page_number(start)?;
+                let end = parse_page_number(end)?;
+                if start > end {
+                    Err("page export range must end at a page after the start")
+                } else {
+                    Ok(PageRangeArgument(Some(start)..=Some(end)))
+                }
+            }
+            [_, _, _, ..] => Err("page export range must have a single hyphen"),
+        }
+    }
+}
+
+fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
+    if value == "0" {
+        Err("page numbers start at one")
+    } else {
+        NonZeroUsize::from_str(value).map_err(|_| "not a valid page number")
+    }
 }
 
 /// Lists all discovered fonts in system and custom font paths

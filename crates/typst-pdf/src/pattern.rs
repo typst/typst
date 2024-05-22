@@ -2,7 +2,7 @@ use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
 use pdf_writer::{Filter, Finish, Name, Rect};
 use typst::layout::{Abs, Ratio, Transform};
-use typst::util::Numeric;
+use typst::utils::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
@@ -116,7 +116,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let (_, content) = construct_page(ctx.parent, pattern.frame());
+    let content = construct_page(ctx.parent, pattern.frame());
 
     let mut pdf_pattern = PdfPattern {
         transform,
