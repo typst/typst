@@ -28,7 +28,7 @@ use crate::syntax::Span;
 /// ```
 ///
 /// If the `layout` call is placed inside a box with a width of `{800pt}` and a
-/// height of `{400pt}`, then the specified function will be given the parameter
+/// height of `{400pt}`, then the specified function will be given the argument
 /// `{(width: 800pt, height: 400pt)}`. If it is placed directly into the page, it
 /// receives the page's dimensions minus its margins. This is mostly useful in
 /// combination with [measurement]($measure).
