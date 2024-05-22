@@ -20,6 +20,7 @@ use clap::Parser;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use once_cell::sync::Lazy;
+use typst::diag::HintedString;
 
 use crate::args::{CliArguments, Command};
 use crate::timings::Timer;
@@ -37,17 +38,25 @@ fn main() -> ExitCode {
     let timer = Timer::new(&ARGS);
 
     let res = match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(timer, command.clone()),
-        Command::Watch(command) => crate::watch::watch(timer, command.clone()),
-        Command::Init(command) => crate::init::init(command),
+        Command::Compile(command) => {
+            crate::compile::compile(timer, command.clone()).map_err(HintedString::from)
+        }
+        Command::Watch(command) => {
+            crate::watch::watch(timer, command.clone()).map_err(HintedString::from)
+        }
+        Command::Init(command) => crate::init::init(command).map_err(HintedString::from),
         Command::Query(command) => crate::query::query(command),
-        Command::Fonts(command) => crate::fonts::fonts(command),
-        Command::Update(command) => crate::update::update(command),
+        Command::Fonts(command) => {
+            crate::fonts::fonts(command).map_err(HintedString::from)
+        }
+        Command::Update(command) => {
+            crate::update::update(command).map_err(HintedString::from)
+        }
     };
 
     if let Err(msg) = res {
         set_failed();
-        print_error(&msg).expect("failed to print error");
+        print_error(&msg.message).expect("failed to print error");
     }
 
     EXIT.with(|cell| cell.get())

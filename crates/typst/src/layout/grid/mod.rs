@@ -16,7 +16,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, HintedStrResult, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
@@ -402,7 +402,7 @@ cast! {
     self => self.0.into_value(),
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
-    values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    values: Array => Self(values.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// Any child of a grid element.

@@ -35,7 +35,7 @@ use rustybuzz::{Feature, Tag};
 use smallvec::SmallVec;
 use ttf_parser::Rect;
 
-use crate::diag::{bail, warning, SourceResult, StrResult};
+use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
@@ -810,7 +810,7 @@ cast! {
         self.0.into_value()
     },
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
+    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
 }
 
 /// Resolve a prioritized iterator over the font families.
@@ -1129,7 +1129,7 @@ cast! {
             let tag = v.cast::<EcoString>()?;
             Ok((Tag::from_bytes_lossy(tag.as_bytes()), 1))
         })
-        .collect::<StrResult<_>>()?),
+        .collect::<HintedStrResult<_>>()?),
     values: Dict => Self(values
         .into_iter()
         .map(|(k, v)| {
@@ -1137,7 +1137,7 @@ cast! {
             let tag = Tag::from_bytes_lossy(k.as_bytes());
             Ok((tag, num))
         })
-        .collect::<StrResult<_>>()?),
+        .collect::<HintedStrResult<_>>()?),
 }
 
 impl Fold for FontFeatures {

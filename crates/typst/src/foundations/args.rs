@@ -180,7 +180,7 @@ impl Args {
             let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
             match T::from_value(spanned) {
                 Ok(val) => list.push(val),
-                Err(err) => errors.push(SourceDiagnostic::error(span, err)),
+                Err(err) => errors.push(SourceDiagnostic::hinted_error(span, err)),
             }
             false
         });

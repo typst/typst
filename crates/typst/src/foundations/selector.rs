@@ -339,7 +339,7 @@ cast! {
 }
 
 impl FromValue for LocatableSelector {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
             match selector {
                 Selector::Elem(elem, _) => {
@@ -421,8 +421,8 @@ cast! {
 }
 
 impl FromValue for ShowableSelector {
-    fn from_value(value: Value) -> StrResult<Self> {
-        fn validate(selector: &Selector, nested: bool) -> StrResult<()> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        fn validate(selector: &Selector, nested: bool) -> HintedStrResult<()> {
             match selector {
                 Selector::Elem(_, _) => {}
                 Selector::Label(_) => {}

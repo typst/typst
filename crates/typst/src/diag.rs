@@ -61,7 +61,7 @@ macro_rules! __bail {
 macro_rules! __error {
     // For bail!("just a {}", "string").
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::eco_format!($fmt, $($arg),*)
+        $crate::diag::eco_format!($fmt, $($arg),*).into()
     };
 
     // For bail!(span, ...)
@@ -158,6 +158,17 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+        }
+    }
+
+    /// Create a new error with hints.
+    pub fn hinted_error(span: Span, hinted_message: HintedString) -> Self {
+        Self {
+            severity: Severity::Error,
+            span,
+            trace: eco_vec![],
+            message: hinted_message.message,
+            hints: EcoVec::from(hinted_message.hints),
         }
     }
 

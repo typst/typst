@@ -245,7 +245,7 @@ impl Eval for ast::Dict<'_> {
                     let raw_key = keyed.key();
                     let key = raw_key.eval(vm)?;
                     let key = key.cast::<Str>().unwrap_or_else(|error| {
-                        let error = SourceDiagnostic::error(raw_key.span(), error);
+                        let error = SourceDiagnostic::hinted_error(raw_key.span(), error);
                         invalid_keys.push(error);
                         Str::default()
                     });

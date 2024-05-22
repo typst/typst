@@ -9,7 +9,7 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::diag::StrResult;
+use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::eval::ops;
 use crate::foundations::{
     fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
@@ -151,7 +151,7 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
-    pub fn cast<T: FromValue>(self) -> StrResult<T> {
+    pub fn cast<T: FromValue>(self) -> HintedStrResult<T> {
         T::from_value(self)
     }
 
@@ -606,7 +606,7 @@ macro_rules! primitive {
         }
 
         impl FromValue for $ty {
-            fn from_value(value: Value) -> StrResult<Self> {
+            fn from_value(value: Value) -> HintedStrResult<Self> {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
@@ -614,7 +614,7 @@ macro_rules! primitive {
                         "expected {}, found {}",
                         Type::of::<Self>(),
                         v.ty(),
-                    )),
+                    ).into()),
                 }
             }
         }
@@ -682,7 +682,7 @@ impl<T: Reflect> Reflect for Arc<T> {
         T::castable(value)
     }
 
-    fn error(found: &Value) -> EcoString {
+    fn error(found: &Value) -> HintedString {
         T::error(found)
     }
 }
@@ -694,7 +694,7 @@ impl<T: Clone + IntoValue> IntoValue for Arc<T> {
 }
 
 impl<T: FromValue> FromValue for Arc<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             v if T::castable(&v) => Ok(Arc::new(T::from_value(v)?)),
             _ => Err(Self::error(&value)),
