@@ -8,7 +8,9 @@ use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
+use typst::diag::{
+    bail, At, FileError, FileResult, Severity, SourceDiagnostic, StrResult,
+};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, PageRanges};
@@ -98,10 +100,41 @@ pub fn compile_once(
     }
 
     // Check if main file can be read and opened.
-    if let Err(errors) = world.source(world.main()).at(Span::detached()) {
+    if let Err(error) = world.source(world.main()) {
         set_failed();
         if watching {
             Status::Error.print(command).unwrap();
+        }
+
+        let was_invalid_utf8 = matches!(error, FileError::InvalidUtf8);
+        let mut errors =
+            FileResult::<Source>::Err(error).at(Span::detached()).unwrap_err();
+
+        if was_invalid_utf8 {
+            match &command.common.input {
+                Input::Path(path) => {
+                    let extension = path.extension();
+                    if let Some(extension) = extension {
+                        if extension != "typ" {
+                            errors
+                                .make_mut()
+                                .first_mut()
+                                .unwrap()
+                                .hint(eco_format!("a file with the `.{}` extension is not usually a Typst file. Check if you meant to use `.typ` instead.", extension.to_string_lossy()))
+                        }
+                    } else {
+                        errors
+                            .make_mut()
+                            .first_mut()
+                            .unwrap()
+                            .hint("a file without an extension (`.something`) is not usually a Typst file. Check if you meant to add `.typ` to its name.")
+                    }
+                }
+                _ => {
+                    // We are only interested in providing helpful errors
+                    // when users try to load an invalid path.
+                }
+            }
         }
 
         print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
