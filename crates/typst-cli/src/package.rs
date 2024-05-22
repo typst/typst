@@ -15,6 +15,7 @@ use crate::download::{download, download_with_progress};
 use crate::terminal;
 
 const HOST: &str = "https://packages.typst.org";
+const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
 /// Holds information about where packages should be stored.
 pub struct PackageStorage {
@@ -24,9 +25,12 @@ pub struct PackageStorage {
 
 impl PackageStorage {
     pub fn from_args(args: &PackageStorageArgs) -> Self {
-        let package_cache_path = args.package_cache_path.clone().or_else(dirs::cache_dir);
-        let local_packages_path =
-            args.local_packages_path.clone().or_else(dirs::data_dir);
+        let package_cache_path = args.package_cache_path.clone().or_else(|| {
+            dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
+        });
+        let local_packages_path = args.local_packages_path.clone().or_else(|| {
+            dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+        });
         Self { package_cache_path, local_packages_path }
     }
 }
@@ -36,8 +40,7 @@ pub fn prepare_package(
     spec: &PackageSpec,
     package_storage: &PackageStorage,
 ) -> PackageResult<PathBuf> {
-    let subdir =
-        format!("typst/packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
+    let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
     if let Some(data_dir) = &package_storage.local_packages_path {
         let dir = data_dir.join(&subdir);
@@ -82,7 +85,7 @@ pub fn determine_latest_version(
         // For other namespaces, search locally. We only search in the data
         // directory and not the cache directory, because the latter is not
         // intended for storage of local packages.
-        let subdir = format!("typst/packages/{}/{}", spec.namespace, spec.name);
+        let subdir = format!("{}/{}", spec.namespace, spec.name);
         package_storage
             .local_packages_path
             .iter()
