@@ -223,10 +223,7 @@ impl Counter {
         location: Location,
     ) -> SourceResult<CounterState> {
         let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(location.into(), true))
-            .len();
+        let offset = engine.introspector.query_count_before(&self.selector(), location);
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
@@ -245,16 +242,14 @@ impl Counter {
     pub fn at_loc(
         &self,
         engine: &mut Engine,
-        loc: Location,
+        location: Location,
     ) -> SourceResult<CounterState> {
         let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(loc.into(), true))
-            .len();
+        let offset = engine.introspector.query_count_before(&self.selector(), location);
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
-            let delta = engine.introspector.page(loc).get().saturating_sub(page.get());
+            let delta =
+                engine.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
