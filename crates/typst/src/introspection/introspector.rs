@@ -121,7 +121,7 @@ impl Introspector {
                     indices.iter().map(|&index| self.elems[index].0.clone()).collect()
                 })
                 .unwrap_or_default(),
-            Selector::Elem(..) | Selector::Regex(_) | Selector::Can(_) => self
+            Selector::Elem(..) | Selector::Can(_) => self
                 .all()
                 .filter(|elem| selector.matches(elem, None))
                 .cloned()
@@ -188,6 +188,8 @@ impl Introspector {
                 .into_iter()
                 .map(|index| self.elems[index].0.clone())
                 .collect(),
+            // Not supported here.
+            Selector::Regex(_) => EcoVec::new(),
         };
 
         self.queries.insert(hash, output.clone());
@@ -198,6 +200,11 @@ impl Introspector {
     pub fn query_first(&self, selector: &Selector) -> Option<Content> {
         match selector {
             Selector::Location(location) => self.get(location).cloned(),
+            Selector::Label(label) => self
+                .labels
+                .get(label)
+                .and_then(|indices| indices.first())
+                .map(|&index| self.elems[index].0.clone()),
             _ => self.query(selector).first().cloned(),
         }
     }
@@ -234,6 +241,21 @@ impl Introspector {
         }
 
         Ok(&self.elems[indices[0]].0)
+    }
+
+    /// This is an optimized version of
+    /// `query(selector.before(end, true).len()` used by counters and state.
+    pub fn query_count_before(&self, selector: &Selector, end: Location) -> usize {
+        // See `query()` for details.
+        let list = self.query(selector);
+        if let Some(end) = self.get(&end) {
+            match self.binary_search(&list, end) {
+                Ok(i) => i + 1,
+                Err(i) => i,
+            }
+        } else {
+            list.len()
+        }
     }
 
     /// The total number pages.
