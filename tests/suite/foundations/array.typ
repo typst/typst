@@ -328,6 +328,21 @@
 // Error: 19-21 number must be positive
 #(1, 2, 3).chunks(-5)
 
+--- array-windows ---
+// Test the `windows` method.
+#test(().windows(5), ())
+#test((1, 2, 3).windows(5), ())
+#test((1, 2, 3, 4, 5).windows(3), ((1, 2, 3), (2, 3, 4), (3, 4, 5)))
+#test((1, 2, 3, 4, 5, 6, 7, 8).windows(5), ((1, 2, 3, 4, 5), (2, 3, 4, 5, 6), (3, 4, 5, 6, 7), (4, 5, 6, 7, 8)))
+
+--- array-windows-size-zero ---
+// Error: 20-21 number must be positive
+#(1, 2, 3).windows(0)
+
+--- array-windows-size-negative ---
+// Error: 20-22 number must be positive
+#(1, 2, 3).windows(-5)
+
 --- array-sorted ---
 // Test the `sorted` method.
 #test(().sorted(), ())
@@ -514,4 +529,4 @@
 
 --- array-reduce-unexpected-argument ---
 // Error: 19-21 unexpected argument
-#(1, 2, 3).reduce(() => none) 
+#(1, 2, 3).reduce(() => none)
