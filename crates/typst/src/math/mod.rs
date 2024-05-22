@@ -46,7 +46,7 @@ use crate::foundations::{
     StyledElem,
 };
 use crate::introspection::TagElem;
-use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing};
+use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing, VAlignment};
 use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -315,5 +315,13 @@ impl LayoutMath for Content {
         ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
 
         Ok(())
+    }
+}
+
+fn delimiter_alignment(delimiter: char) -> VAlignment {
+    match delimiter {
+        '\u{231c}' | '\u{231d}' => VAlignment::Top,
+        '\u{231e}' | '\u{231f}' => VAlignment::Bottom,
+        _ => VAlignment::Horizon,
     }
 }
