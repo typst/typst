@@ -63,8 +63,7 @@ impl Eval for ast::ModuleImport<'_> {
             Some(ast::Imports::Items(items)) => {
                 let mut errors = eco_vec![];
                 for item in items.iter() {
-                    let temporary_path = [item.original_name()]; // TODO: unmock
-                    let mut path = temporary_path.iter().peekable();
+                    let mut path = item.path().iter().peekable();
                     let mut scope = scope;
 
                     while let Some(component) = &path.next() {
