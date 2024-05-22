@@ -792,7 +792,7 @@ impl Array {
 
     /// Returns sliding windows of `window-size` elements over an array.
     ///
-    /// If the array length is less than `window-size` this will return an empty array.
+    /// If the array length is less than `window-size`, this will return an empty array.
     ///
     /// ```example
     /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
