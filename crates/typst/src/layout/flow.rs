@@ -641,10 +641,9 @@ impl<'a> FlowLayouter<'a> {
         }
 
         if force && !self.pending_tags.is_empty() {
+            let pos = Point::with_y(offset);
             output.push_multiple(
-                self.pending_tags
-                    .drain(..)
-                    .map(|elem| (Point::zero(), FrameItem::Tag(elem))),
+                self.pending_tags.drain(..).map(|elem| (pos, FrameItem::Tag(elem))),
             );
         }
 
