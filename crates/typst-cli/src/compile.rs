@@ -100,42 +100,45 @@ pub fn compile_once(
     }
 
     // Check if main file can be read and opened.
-    if let Err(error) = world.source(world.main()) {
+    let main_result = world.source(world.main());
+    if main_result.is_err() {
         set_failed();
         if watching {
             Status::Error.print(command).unwrap();
         }
 
-        let was_invalid_utf8 = matches!(error, FileError::InvalidUtf8);
-        let mut errors =
-            FileResult::<Source>::Err(error).at(Span::detached()).unwrap_err();
-
-        if was_invalid_utf8 {
-            match &command.common.input {
+        let errors = match main_result {
+            Err(FileError::InvalidUtf8) => match &command.common.input {
                 Input::Path(path) => {
                     let extension = path.extension();
+                    let mut errors = main_result.at(Span::detached()).unwrap_err();
                     if let Some(extension) = extension {
                         if extension != "typ" {
                             errors
                                 .make_mut()
                                 .first_mut()
                                 .unwrap()
-                                .hint(eco_format!("a file with the `.{}` extension is not usually a Typst file. Check if you meant to use `.typ` instead.", extension.to_string_lossy()))
+                                .hint(eco_format!("a file with the `.{}` extension is not usually a Typst file. Check if you meant to use `.typ` instead.", extension.to_string_lossy()));
                         }
                     } else {
                         errors
                             .make_mut()
                             .first_mut()
                             .unwrap()
-                            .hint("a file without an extension (`.something`) is not usually a Typst file. Check if you meant to add `.typ` to its name.")
+                            .hint("a file without an extension (`.something`) is not usually a Typst file. Check if you meant to add `.typ` to its name.");
                     }
+
+                    errors
                 }
                 _ => {
                     // We are only interested in providing helpful errors
                     // when users try to load an invalid path.
+                    main_result.at(Span::detached()).unwrap_err()
                 }
-            }
-        }
+            },
+
+            main_result => main_result.at(Span::detached()).unwrap_err(),
+        };
 
         print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
