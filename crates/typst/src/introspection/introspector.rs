@@ -249,7 +249,7 @@ impl Introspector {
         // See `query()` for details.
         let list = self.query(selector);
         if let Some(end) = self.get(&end) {
-            match self.binary_search(&list, &end) {
+            match self.binary_search(&list, end) {
                 Ok(i) => i + 1,
                 Err(i) => i,
             }
