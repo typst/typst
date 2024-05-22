@@ -163,12 +163,13 @@ impl SourceDiagnostic {
 
     /// Create a new error with hints.
     pub fn hinted_error(span: Span, hinted_message: HintedString) -> Self {
+        let mut components = hinted_message.components.into_iter();
         Self {
             severity: Severity::Error,
             span,
             trace: eco_vec![],
-            message: hinted_message.message,
-            hints: EcoVec::from(hinted_message.hints),
+            message: components.next().unwrap(),
+            hints: components.collect(),
         }
     }
 
@@ -309,11 +310,37 @@ pub type HintedStrResult<T> = Result<T, HintedString>;
 /// A string message with hints.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HintedString {
+    /// The string's components as a single vector of strings.
+    /// The first element of the vector contains the message.
+    /// The remaining elements are the hints.
+    /// This is done to reduce the size of a HintedString.
+    /// The vector is guaranteed to not be empty.
+    components: EcoVec<EcoString>,
+}
+
+impl HintedString {
+    /// Creates a new hinted string with the given message and hints.
+    pub fn new(message: EcoString, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        Self {
+            components: std::iter::once(message).chain(hints).collect(),
+        }
+    }
+
     /// A diagnostic message describing the problem.
-    pub message: EcoString,
+    pub fn message(&self) -> &EcoString {
+        self.components.first().unwrap()
+    }
+
     /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
-    pub hints: Vec<EcoString>,
+    pub fn hints(&self) -> &[EcoString] {
+        self.components.get(1..).unwrap_or(&[])
+    }
+
+    /// Add another hint to this hinted string.
+    pub fn add_hint(&mut self, hint: EcoString) {
+        self.components.push(hint);
+    }
 }
 
 impl<S> From<S> for HintedString
@@ -321,15 +348,13 @@ where
     S: Into<EcoString>,
 {
     fn from(value: S) -> Self {
-        Self { message: value.into(), hints: vec![] }
+        Self::new(value.into(), [])
     }
 }
 
 impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|diags| {
-            eco_vec![SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)]
-        })
+        self.map_err(|diags| eco_vec![SourceDiagnostic::hinted_error(span, diags)])
     }
 }
 
@@ -344,17 +369,14 @@ where
     S: Into<EcoString>,
 {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
-        self.map_err(|message| HintedString {
-            message: message.into(),
-            hints: vec![hint.into()],
-        })
+        self.map_err(|message| HintedString::new(message.into(), [hint.into()]))
     }
 }
 
 impl<T> Hint<T> for HintedStrResult<T> {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
         self.map_err(|mut error| {
-            error.hints.push(hint.into());
+            error.add_hint(hint.into());
             error
         })
     }

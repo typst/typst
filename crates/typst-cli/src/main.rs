@@ -56,7 +56,7 @@ fn main() -> ExitCode {
 
     if let Err(msg) = res {
         set_failed();
-        print_error(&msg.message).expect("failed to print error");
+        print_error(msg.message()).expect("failed to print error");
     }
 
     EXIT.with(|cell| cell.get())
