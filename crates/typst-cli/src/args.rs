@@ -221,7 +221,15 @@ pub struct SharedArgs {
 
 /// Arguments related to where packages are stored in the system.
 #[derive(Debug, Clone, Args)]
-pub struct PackageStorageArgs {/* TODO */}
+pub struct PackageStorageArgs {
+    /// Custom path to package cache
+    #[clap(
+        long = "package-cache-path",
+        env = "TYPST_PACKAGE_CACHE_PATH",
+        value_name = "DIR"
+    )]
+    pub package_cache_path: Option<PathBuf>,
+}
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
 fn parse_source_date_epoch(raw: &str) -> Result<DateTime<Utc>, String> {
@@ -396,11 +404,7 @@ pub struct UpdateCommand {
     pub revert: bool,
 
     /// Backup path
-    #[clap(
-        long = "backup-path",
-        env = "TYPST_UPDATE_BACKUP_PATH",
-        value_name = "DIR",
-    )]
+    #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "DIR")]
     pub backup_path: Option<PathBuf>,
 }
 

@@ -17,11 +17,14 @@ use crate::terminal;
 const HOST: &str = "https://packages.typst.org";
 
 /// Holds information about where packages should be stored.
-pub struct PackageStorage {/* TODO */}
+pub struct PackageStorage {
+    pub package_cache_path: Option<PathBuf>,
+}
 
 impl PackageStorage {
     pub fn from_args(args: &PackageStorageArgs) -> Self {
-        todo!()
+        let package_cache_path = args.package_cache_path.clone().or_else(dirs::cache_dir);
+        Self { package_cache_path }
     }
 }
 
@@ -40,7 +43,7 @@ pub fn prepare_package(
         }
     }
 
-    if let Some(cache_dir) = dirs::cache_dir() {
+    if let Some(cache_dir) = &package_storage.package_cache_path {
         let dir = cache_dir.join(&subdir);
         if dir.exists() {
             return Ok(dir);
