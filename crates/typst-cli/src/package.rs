@@ -19,12 +19,15 @@ const HOST: &str = "https://packages.typst.org";
 /// Holds information about where packages should be stored.
 pub struct PackageStorage {
     pub package_cache_path: Option<PathBuf>,
+    pub local_packages_path: Option<PathBuf>,
 }
 
 impl PackageStorage {
     pub fn from_args(args: &PackageStorageArgs) -> Self {
         let package_cache_path = args.package_cache_path.clone().or_else(dirs::cache_dir);
-        Self { package_cache_path }
+        let local_packages_path =
+            args.local_packages_path.clone().or_else(dirs::data_dir);
+        Self { package_cache_path, local_packages_path }
     }
 }
 
@@ -36,7 +39,7 @@ pub fn prepare_package(
     let subdir =
         format!("typst/packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-    if let Some(data_dir) = dirs::data_dir() {
+    if let Some(data_dir) = &package_storage.local_packages_path {
         let dir = data_dir.join(&subdir);
         if dir.exists() {
             return Ok(dir);
@@ -80,8 +83,9 @@ pub fn determine_latest_version(
         // directory and not the cache directory, because the latter is not
         // intended for storage of local packages.
         let subdir = format!("typst/packages/{}/{}", spec.namespace, spec.name);
-        dirs::data_dir()
-            .into_iter()
+        package_storage
+            .local_packages_path
+            .iter()
             .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
             .flatten()
             .filter_map(|entry| entry.ok())
