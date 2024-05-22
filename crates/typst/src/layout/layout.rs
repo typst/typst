@@ -12,8 +12,11 @@ use crate::syntax::Span;
 /// Provides access to the current outer container's (or page's, if none)
 /// dimensions (width and height).
 ///
-/// Accepts a function that receives a single parameter, which is a
-/// dictionary with keys `width` and `height`, both of type [`length`].
+/// Accepts a function that receives a single parameter, which is a dictionary
+/// with keys `width` and `height`, both of type [`length`]. The function is
+/// provided [context], meaning you don't need to use it in combination with the
+/// `context` keyword. This is why [`measure`] can be called in the example
+/// below.
 ///
 /// ```example
 /// #let text = lorem(30)
@@ -45,9 +48,6 @@ use crate::syntax::Span;
 ///
 /// Note that the width or height provided by `layout` will be infinite if the
 /// corresponding page dimension is set to `{auto}`.
-///
-/// Moreover, this function also provides [context]($context) to its argument,
-/// so you don't need to use it in combination with the `context` keyword.
 #[func]
 pub fn layout(
     /// The call span of this function.
