@@ -191,7 +191,7 @@ fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> 
 /// [edit](Source::edit) them in-place to benefit from better incremental
 /// performance.
 #[comemo::track]
-pub trait World {
+pub trait World: Send + Sync {
     /// The standard library.
     ///
     /// Can be created through `Library::build()`.
