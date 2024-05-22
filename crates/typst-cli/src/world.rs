@@ -106,7 +106,8 @@ impl SystemWorld {
         };
 
         let mut searcher = FontSearcher::new();
-        searcher.search(&command.font_paths);
+        searcher
+            .search(&command.font_args.font_paths, command.font_args.ignore_system_fonts);
 
         let now = match command.creation_timestamp {
             Some(time) => Now::Fixed(time),

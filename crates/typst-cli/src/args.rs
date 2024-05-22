@@ -186,14 +186,9 @@ pub struct SharedArgs {
     )]
     pub inputs: Vec<(String, String)>,
 
-    /// Adds additional directories to search for fonts
-    #[clap(
-        long = "font-path",
-        env = "TYPST_FONT_PATHS",
-        value_name = "DIR",
-        value_delimiter = ENV_PATH_SEP,
-    )]
-    pub font_paths: Vec<PathBuf>,
+    /// Common font arguments
+    #[clap(flatten)]
+    pub font_args: FontArgs,
 
     /// The document's creation date formatted as a UNIX timestamp.
     ///
@@ -366,6 +361,18 @@ fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
 /// Lists all discovered fonts in system and custom font paths
 #[derive(Debug, Clone, Parser)]
 pub struct FontsCommand {
+    /// Common font arguments
+    #[clap(flatten)]
+    pub font_args: FontArgs,
+
+    /// Also lists style variants of each font family
+    #[arg(long)]
+    pub variants: bool,
+}
+
+/// Common arguments to customize available fonts
+#[derive(Debug, Clone, Parser)]
+pub struct FontArgs {
     /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",
@@ -375,9 +382,10 @@ pub struct FontsCommand {
     )]
     pub font_paths: Vec<PathBuf>,
 
-    /// Also lists style variants of each font family
+    /// Ensures system fonts won't be searched, unless explicitly included via
+    /// `--font-path`
     #[arg(long)]
-    pub variants: bool,
+    pub ignore_system_fonts: bool,
 }
 
 /// Which format to use for diagnostics.
