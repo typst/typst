@@ -4,7 +4,7 @@ use unicode_math_class::MathClass;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Packed, Resolve,
-    Smart, Str, StyleChain, Value,
+    Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
@@ -327,23 +327,21 @@ impl LayoutMath for Packed<CasesElem> {
     }
 }
 
+/// A delimiter is a single character that is used to delimit a matrix, vector
+/// or cases. The character has to be a Unicode codepoint tagged as a math
+/// "opening", "closing" or "fence".
+///
+/// Typically, the delimiter is stretched to fit the height of whatever it
+/// delimits.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 struct Delimiter(Option<char>);
 
 cast! {
     Delimiter,
-
     self => self.0.into_value(),
-
     _: NoneValue => Self::none(),
     v: Symbol => Self::char(v.get())?,
-    v: Str => {
-        let mut chars = v.chars();
-        match (chars.next(), chars.next()) {
-            (Some(c), None) => Self::char(c)?,
-            _ => bail!("invalid delimiter: \"{}\"", v),
-        }
-    },
+    v: char => Self::char(v)?,
 }
 
 impl Delimiter {
@@ -381,7 +379,8 @@ impl Delimiter {
     }
 }
 
-/// A pair of vector / matrix delimiters.
+/// A pair of delimiters (one closing, one opening) used for matrices, vectors
+/// and cases.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct DelimiterPair {
     open: Delimiter,
@@ -393,21 +392,14 @@ cast! {
 
     self => array![self.open, self.close].into_value(),
 
-    v: Array => {
-        let v = v.as_slice();
-        if v.len() != 2 {
-            bail!("expected 2 delimiters, found {}", v.len());
-        }
-        let open = v[0].clone().cast()?;
-        let close = v[1].clone().cast()?;
-        Self { open, close }
+    v: Array => match v.as_slice() {
+        [open, close] => Self {
+            open: open.clone().cast()?,
+            close: close.clone().cast()?,
+        },
+        _ => bail!("expected 2 delimiters, found {}", v.len())
     },
-    v: Delimiter => {
-        Self {
-            open: v,
-            close: v.find_matching(),
-        }
-    }
+    v: Delimiter => Self { open: v, close: v.find_matching() }
 }
 
 impl DelimiterPair {

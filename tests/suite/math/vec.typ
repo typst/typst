@@ -23,11 +23,11 @@ $ v = vec(1, 2+3, 4) $
 $ vec(1, 2) $
 
 --- math-vec-delim-empty-string ---
-// Error: 22-24 invalid delimiter: ""
+// Error: 22-24 expected exactly one character
 #set math.vec(delim: "")
 
 --- math-vec-delim-not-single-char ---
-// Error: 22-39 invalid delimiter: "not a delimiter"
+// Error: 22-39 expected exactly one character
 #set math.vec(delim: "not a delimiter")
 
 --- math-vec-delim-invalid-char ---
