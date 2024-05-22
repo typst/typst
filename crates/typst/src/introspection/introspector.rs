@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::introspection::{Location, Meta};
+use crate::introspection::Location;
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
 use crate::utils::NonZeroExt;
@@ -61,18 +61,18 @@ impl Introspector {
                         .pre_concat(group.transform);
                     self.extract(&group.frame, page, ts);
                 }
-                FrameItem::Meta(Meta::Elem(content), _)
-                    if !self.elems.contains_key(&content.location().unwrap()) =>
+                FrameItem::Tag(elem)
+                    if !self.elems.contains_key(&elem.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
                     let ret = self.elems.insert(
-                        content.location().unwrap(),
-                        (content.clone(), Position { page, point: pos }),
+                        elem.location().unwrap(),
+                        (elem.clone(), Position { page, point: pos }),
                     );
                     assert!(ret.is_none(), "duplicate locations");
 
                     // Build the label cache.
-                    if let Some(label) = content.label() {
+                    if let Some(label) = elem.label() {
                         self.labels.entry(label).or_default().push(self.elems.len() - 1);
                     }
                 }

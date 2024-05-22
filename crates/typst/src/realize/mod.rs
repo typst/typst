@@ -23,7 +23,7 @@ use crate::engine::{Engine, Route};
 use crate::foundations::{
     Content, NativeElement, Packed, SequenceElem, StyleChain, StyledElem, Styles,
 };
-use crate::introspection::MetaElem;
+use crate::introspection::TagElem;
 use crate::layout::{
     AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, LayoutMultiple,
     LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
@@ -389,7 +389,7 @@ impl<'a> FlowBuilder<'a> {
 
         if content.is::<VElem>()
             || content.is::<ColbreakElem>()
-            || content.is::<MetaElem>()
+            || content.is::<TagElem>()
             || content.is::<PlaceElem>()
         {
             self.0.push(content, styles);
@@ -451,7 +451,7 @@ impl<'a> ParBuilder<'a> {
     /// content could not be merged, and paragraph building should be
     /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if content.is::<MetaElem>() {
+        if content.is::<TagElem>() {
             if !self.0.is_empty() {
                 self.0.push(content, styles);
                 return true;
@@ -612,7 +612,7 @@ impl<'a> CiteGroupBuilder<'a> {
     /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if !self.items.is_empty()
-            && (content.is::<SpaceElem>() || content.is::<MetaElem>())
+            && (content.is::<SpaceElem>() || content.is::<TagElem>())
         {
             self.staged.push((content, styles));
             return true;

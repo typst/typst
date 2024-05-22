@@ -14,10 +14,10 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
-use crate::introspection::{Introspector, Locator, MetaElem};
+use crate::introspection::{Introspector, Locator, TagElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
-    Point, Regions, Size, Sizing, Spacing,
+    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame,
+    FrameItem, HElem, Point, Regions, Size, Sizing, Spacing,
 };
 use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
@@ -201,8 +201,8 @@ enum Segment<'a> {
     Equation(Vec<MathParItem>),
     /// A box with arbitrary content.
     Box(&'a Packed<BoxElem>, bool),
-    /// Metadata.
-    Meta,
+    /// A tag.
+    Tag(&'a Packed<TagElem>),
 }
 
 impl Segment<'_> {
@@ -220,7 +220,7 @@ impl Segment<'_> {
                 .chain([LTR_ISOLATE, POP_ISOLATE])
                 .map(char::len_utf8)
                 .sum(),
-            Self::Meta => 0,
+            Self::Tag(_) => 0,
         }
     }
 }
@@ -236,8 +236,8 @@ enum Item<'a> {
     Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame),
-    /// Metadata.
-    Meta(Frame),
+    /// A tag.
+    Tag(&'a Packed<TagElem>),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(char),
@@ -266,7 +266,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) => OBJ_REPLACE.len_utf8(),
-            Self::Meta(_) => 0,
+            Self::Tag(_) => 0,
             Self::Skip(c) => c.len_utf8(),
         }
     }
@@ -277,7 +277,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) | Self::Meta(_) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
     }
@@ -531,6 +531,9 @@ fn collect<'a>(
                     } else if child.is::<SpaceElem>()
                         || child.is::<HElem>()
                         || child.is::<LinebreakElem>()
+                        // This is a temporary hack. We should rather skip these
+                        // and peek at the next child.
+                        || child.is::<TagElem>()
                     {
                         Some(SPACING_REPLACE)
                     } else {
@@ -548,7 +551,7 @@ fn collect<'a>(
             let mut items = elem.layout_inline(engine, styles, pod)?;
             for item in &mut items {
                 let MathParItem::Frame(frame) = item else { continue };
-                frame.meta(styles, false);
+                frame.post_process(styles);
             }
             full.push(LTR_ISOLATE);
             full.extend(items.iter().map(MathParItem::text));
@@ -558,8 +561,8 @@ fn collect<'a>(
             let frac = elem.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
             Segment::Box(elem, frac)
-        } else if child.is::<MetaElem>() {
-            Segment::Meta
+        } else if let Some(elem) = child.to_packed::<TagElem>() {
+            Segment::Tag(elem)
         } else {
             bail!(child.span(), "unexpected paragraph child");
         };
@@ -643,15 +646,13 @@ fn prepare<'a>(
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
                     let mut frame = elem.layout(engine, styles, pod)?;
-                    frame.meta(styles, false);
+                    frame.post_process(styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                     items.push(Item::Frame(frame));
                 }
             }
-            Segment::Meta => {
-                let mut frame = Frame::soft(Size::zero());
-                frame.meta(styles, true);
-                items.push(Item::Meta(frame));
+            Segment::Tag(tag) => {
+                items.push(Item::Tag(tag));
             }
         }
 
@@ -687,7 +688,7 @@ fn prepare<'a>(
 /// See Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition in Horizontal
 /// Written Mode
 fn add_cjk_latin_spacing(items: &mut [Item]) {
-    let mut items = items.iter_mut().filter(|x| !matches!(x, Item::Meta(_))).peekable();
+    let mut items = items.iter_mut().filter(|x| !matches!(x, Item::Tag(_))).peekable();
     let mut prev: Option<&ShapedGlyph> = None;
     while let Some(item) = items.next() {
         let Some(text) = item.text_mut() else {
@@ -1410,7 +1411,7 @@ fn commit(
                     let region = Size::new(amount, full);
                     let pod = Regions::one(region, Axes::new(true, false));
                     let mut frame = elem.layout(engine, *styles, pod)?;
-                    frame.meta(*styles, false);
+                    frame.post_process(*styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
                     push(&mut offset, frame);
                 } else {
@@ -1420,11 +1421,16 @@ fn commit(
             Item::Text(shaped) => {
                 let mut frame =
                     shaped.build(engine, justification_ratio, extra_justification);
-                frame.meta(shaped.styles, false);
+                frame.post_process(shaped.styles);
                 push(&mut offset, frame);
             }
-            Item::Frame(frame) | Item::Meta(frame) => {
+            Item::Frame(frame) => {
                 push(&mut offset, frame.clone());
+            }
+            Item::Tag(tag) => {
+                let mut frame = Frame::soft(Size::zero());
+                frame.push(Point::zero(), FrameItem::Tag(tag.elem.clone()));
+                frames.push((offset, frame));
             }
             Item::Skip(_) => {}
         }
