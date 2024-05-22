@@ -790,7 +790,7 @@ impl Array {
         }
     }
 
-    /// Return sliding windows of `window-size` elements over an array.
+    /// Returns sliding windows of `window-size` elements over an array.
     ///
     /// If the array length is less than `window-size` this will return an empty array.
     ///
