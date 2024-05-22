@@ -217,7 +217,7 @@ pub struct SharedArgs {
 /// Arguments related to where packages are stored in the system.
 #[derive(Debug, Clone, Args)]
 pub struct PackageStorageArgs {
-    /// Custom path to package cache
+    /// Custom path to package cache, defaults to system-dependent location
     #[clap(
         long = "package-cache-path",
         env = "TYPST_PACKAGE_CACHE_PATH",
@@ -225,7 +225,7 @@ pub struct PackageStorageArgs {
     )]
     pub package_cache_path: Option<PathBuf>,
 
-    /// Custom path to local packages
+    /// Custom path to local packages, defaults to system-dependent location
     #[clap(
         long = "local-packages-path",
         env = "TYPST_LOCAL_PACKAGES_PATH",
@@ -419,7 +419,8 @@ pub struct UpdateCommand {
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,
 
-    /// Backup path
+    /// Custom path to store backup used by `--revert`, defaults to
+    /// system-dependent location
     #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "DIR")]
     pub backup_path: Option<PathBuf>,
 }
