@@ -107,6 +107,8 @@ Nothing: $ $, just empty.
 --- math-pagebreaking ---
 // Test breaking of equations at page boundaries.
 #set page(height: 5em)
+#show math.equation: set block(breakable: true)
+
 $ a &+ b + & c \
   a &+ b   &   && + d \
   a &+ b + & c && + d \
@@ -117,6 +119,8 @@ $ a &+ b + & c \
 // Test breaking of equations with numbering.
 #set page(height: 5em)
 #set math.equation(numbering: "1")
+#show math.equation: set block(breakable: true)
+
 $ a &+ b + & c \
   a &+ b   &   && + d \
   a &+ b + & c && + d \

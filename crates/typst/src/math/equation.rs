@@ -174,7 +174,7 @@ impl ShowSet for Packed<EquationElem> {
         let mut out = Styles::new();
         if self.block(styles) {
             out.set(AlignElem::set_alignment(Alignment::CENTER));
-            out.set(BlockElem::set_breakable(true));
+            out.set(BlockElem::set_breakable(false));
             out.set(EquationElem::set_size(MathSize::Display));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
