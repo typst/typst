@@ -13,7 +13,7 @@ use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{Location, Meta};
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 
 /// Can be queried for elements and their positions.
 #[derive(Clone)]
@@ -108,7 +108,7 @@ impl Introspector {
 impl Introspector {
     /// Query for all matching elements.
     pub fn query(&self, selector: &Selector) -> EcoVec<Content> {
-        let hash = crate::util::hash128(selector);
+        let hash = crate::utils::hash128(selector);
         if let Some(output) = self.queries.get(hash) {
             return output;
         }

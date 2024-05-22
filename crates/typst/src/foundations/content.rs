@@ -24,7 +24,7 @@ use crate::model::{Destination, EmphElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::util::{fat, BitSet, LazyHash};
+use crate::utils::{fat, BitSet, LazyHash};
 
 /// A piece of document content.
 ///
@@ -711,7 +711,7 @@ impl<T: NativeElement> Bounds for T {
                 label: inner.label,
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
-                elem: LazyHash::with_hash(self.clone(), inner.elem.hash()),
+                elem: LazyHash::reuse(self.clone(), &inner.elem),
             }),
             span,
         }

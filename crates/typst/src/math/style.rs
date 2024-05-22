@@ -2,7 +2,7 @@ use crate::foundations::{func, Cast, Content, Smart, Style, StyleChain};
 use crate::layout::Abs;
 use crate::math::{EquationElem, MathContext};
 use crate::text::TextElem;
-use crate::util::LazyHash;
+use crate::utils::LazyHash;
 
 /// Bold font style in math.
 ///

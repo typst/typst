@@ -19,7 +19,7 @@ use typst::layout::{
 use typst::model::{Destination, Numbering};
 use typst::text::color::is_color_glyph;
 use typst::text::{Case, Font, TextItem, TextItemView};
-use typst::util::{Deferred, Numeric, SliceExt};
+use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };

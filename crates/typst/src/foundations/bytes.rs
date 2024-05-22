@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
-use crate::util::LazyHash;
+use crate::utils::LazyHash;
 
 /// A sequence of bytes.
 ///

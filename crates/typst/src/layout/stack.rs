@@ -8,7 +8,7 @@ use crate::layout::{
     Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, HElem,
     LayoutMultiple, Point, Regions, Size, Spacing, VElem,
 };
-use crate::util::{Get, Numeric};
+use crate::utils::{Get, Numeric};
 
 /// Arranges content and spacing horizontally or vertically.
 ///

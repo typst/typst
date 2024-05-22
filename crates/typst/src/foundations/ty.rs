@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 
 use crate::diag::StrResult;
 use crate::foundations::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
-use crate::util::Static;
+use crate::utils::Static;
 
 #[rustfmt::skip]
 #[doc(inline)]

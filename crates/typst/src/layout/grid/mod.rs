@@ -1,11 +1,13 @@
+mod cells;
 mod layout;
 mod lines;
+mod repeated;
 mod rowspans;
 
-pub use self::layout::{
-    Cell, CellGrid, Celled, GridLayouter, ResolvableCell, ResolvableGridChild,
-    ResolvableGridItem,
+pub use self::cells::{
+    Cell, CellGrid, Celled, ResolvableCell, ResolvableGridChild, ResolvableGridItem,
 };
+pub use self::layout::GridLayouter;
 pub use self::lines::LinePosition;
 
 use std::num::NonZeroUsize;
@@ -26,7 +28,7 @@ use crate::layout::{
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::syntax::Span;
 use crate::text::TextElem;
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.

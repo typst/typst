@@ -6,7 +6,7 @@ use std::ops::{
     Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign,
 };
 
-use crate::util::Numeric;
+use crate::Numeric;
 
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///

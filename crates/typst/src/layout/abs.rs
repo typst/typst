@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg, Rem};
 use ecow::EcoString;
 
 use crate::foundations::{cast, repr, Fold, Repr, Value};
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 
 /// An absolute length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -162,7 +162,7 @@ impl Add for Abs {
     }
 }
 
-sub_impl!(Abs - Abs -> Abs);
+typst_utils::sub_impl!(Abs - Abs -> Abs);
 
 impl Mul<f64> for Abs {
     type Output = Self;
@@ -196,10 +196,10 @@ impl Div for Abs {
     }
 }
 
-assign_impl!(Abs += Abs);
-assign_impl!(Abs -= Abs);
-assign_impl!(Abs *= f64);
-assign_impl!(Abs /= f64);
+typst_utils::assign_impl!(Abs += Abs);
+typst_utils::assign_impl!(Abs -= Abs);
+typst_utils::assign_impl!(Abs *= f64);
+typst_utils::assign_impl!(Abs /= f64);
 
 impl Rem for Abs {
     type Output = Self;

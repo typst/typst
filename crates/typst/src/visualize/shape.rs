@@ -8,7 +8,7 @@ use crate::layout::{
     Point, Ratio, Regions, Rel, Sides, Size,
 };
 use crate::syntax::Span;
-use crate::util::Get;
+use crate::utils::Get;
 use crate::visualize::{FixedStroke, Paint, Path, Stroke};
 
 /// A rectangle with optional content.

@@ -1,4 +1,10 @@
 //! Realization of content.
+//!
+//! *Realization* is the process of applying show rules to produce
+//! something that can be laid out directly.
+//!
+//! Currently, there are issues with the realization process, and
+//! it is subject to changes in the future.
 
 mod arenas;
 mod behaviour;
@@ -98,11 +104,13 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
+    /// Adds a piece of content to this builder.
     fn accept(
         &mut self,
         mut content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        // Implicitly wrap math content in an equation if needed
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
             content = self
                 .arenas
@@ -132,6 +140,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             }
             return Ok(());
         }
+
+        // Try to merge `content` with an element under construction
 
         if self.cites.accept(content, styles) {
             return Ok(());
@@ -227,6 +237,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts citation grouping and adds the resulting citation group to the builder.
     fn interrupt_cites(&mut self) -> SourceResult<()> {
         if !self.cites.items.is_empty() {
             let staged = mem::take(&mut self.cites.staged);
@@ -239,6 +250,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts list building and adds the resulting list element to the builder.
     fn interrupt_list(&mut self) -> SourceResult<()> {
         self.interrupt_cites()?;
         if !self.list.items.is_empty() {
@@ -252,6 +264,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts paragraph building and adds the resulting paragraph element to the builder.
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
@@ -262,6 +275,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    /// Interrupts page building and adds the resulting page element to the builder.
     fn interrupt_page(
         &mut self,
         styles: Option<StyleChain<'a>>,
@@ -284,7 +298,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     }
 }
 
-/// Accepts pagebreaks and pages.
+/// Builds a [document][DocumentElem] from pagebreaks and pages.
 struct DocBuilder<'a> {
     /// The page runs built so far.
     pages: BehavedBuilder<'a>,
@@ -295,6 +309,12 @@ struct DocBuilder<'a> {
 }
 
 impl<'a> DocBuilder<'a> {
+    /// Tries to accept a piece of content.
+    ///
+    /// Returns true if this content could be merged into the document.
+    /// If this function returns false, then the
+    /// content could not be merged, and document building should be
+    /// interrupted so that the content can be added elsewhere.
     fn accept(
         &mut self,
         arenas: &'a Arenas<'a>,
@@ -324,6 +344,8 @@ impl<'a> DocBuilder<'a> {
         false
     }
 
+    /// Turns this builder into the resulting document, along with
+    /// its [style chain][StyleChain].
     fn finish(self) -> (Packed<DocumentElem>, StyleChain<'a>) {
         let (children, trunk, span) = self.pages.finish();
         (Packed::new(DocumentElem::new(children)).spanned(span), trunk)
@@ -340,11 +362,17 @@ impl Default for DocBuilder<'_> {
     }
 }
 
-/// Accepts flow content.
+/// Builds a [flow][FlowElem] from flow content.
 #[derive(Default)]
 struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
 
 impl<'a> FlowBuilder<'a> {
+    /// Tries to accept a piece of content.
+    ///
+    /// Returns true if this content could be merged into the flow.
+    /// If this function returns false, then the
+    /// content could not be merged, and flow building should be
+    /// interrupted so that the content can be added elsewhere.
     fn accept(
         &mut self,
         arenas: &'a Arenas<'a>,
@@ -403,17 +431,25 @@ impl<'a> FlowBuilder<'a> {
         false
     }
 
+    /// Turns this builder into the resulting flow, along with
+    /// its [style chain][StyleChain].
     fn finish(self) -> (Packed<FlowElem>, StyleChain<'a>) {
         let (children, trunk, span) = self.0.finish();
         (Packed::new(FlowElem::new(children)).spanned(span), trunk)
     }
 }
 
-/// Accepts paragraph content.
+/// Builds a [paragraph][ParElem] from paragraph content.
 #[derive(Default)]
 struct ParBuilder<'a>(BehavedBuilder<'a>);
 
 impl<'a> ParBuilder<'a> {
+    /// Tries to accept a piece of content.
+    ///
+    /// Returns true if this content could be merged into the paragraph.
+    /// If this function returns false, then the
+    /// content could not be merged, and paragraph building should be
+    /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<MetaElem>() {
             if !self.0.is_empty() {
@@ -437,13 +473,16 @@ impl<'a> ParBuilder<'a> {
         false
     }
 
+    /// Turns this builder into the resulting paragraph, along with
+    /// its [style chain][StyleChain].
     fn finish(self) -> (Packed<ParElem>, StyleChain<'a>) {
         let (children, trunk, span) = self.0.finish();
         (Packed::new(ParElem::new(children)).spanned(span), trunk)
     }
 }
 
-/// Accepts list / enum items, spaces, paragraph breaks.
+/// Builds a list (either [`ListElem`], [`EnumElem`], or [`TermsElem`])
+/// from list or enum items, spaces, and paragraph breaks.
 struct ListBuilder<'a> {
     /// The list items collected so far.
     items: BehavedBuilder<'a>,
@@ -454,6 +493,12 @@ struct ListBuilder<'a> {
 }
 
 impl<'a> ListBuilder<'a> {
+    /// Tries to accept a piece of content.
+    ///
+    /// Returns true if this content could be merged into the list.
+    /// If this function returns false, then the
+    /// content could not be merged, and list building should be
+    /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if !self.items.is_empty()
             && (content.is::<SpaceElem>() || content.is::<ParbreakElem>())
@@ -479,6 +524,8 @@ impl<'a> ListBuilder<'a> {
         false
     }
 
+    /// Turns this builder into the resulting list, along with
+    /// its [style chain][StyleChain].
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (items, trunk, span) = self.items.finish_iter();
         let mut items = items.peekable();
@@ -545,7 +592,7 @@ impl Default for ListBuilder<'_> {
     }
 }
 
-/// Accepts citations.
+/// Builds a [citation group][CiteGroup] from citations.
 #[derive(Default)]
 struct CiteGroupBuilder<'a> {
     /// The styles.
@@ -557,6 +604,12 @@ struct CiteGroupBuilder<'a> {
 }
 
 impl<'a> CiteGroupBuilder<'a> {
+    /// Tries to accept a piece of content.
+    ///
+    /// Returns true if this content could be merged into the citation
+    /// group. If this function returns false, then the
+    /// content could not be merged, and citation grouping should be
+    /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if !self.items.is_empty()
             && (content.is::<SpaceElem>() || content.is::<MetaElem>())
@@ -577,6 +630,8 @@ impl<'a> CiteGroupBuilder<'a> {
         false
     }
 
+    /// Turns this builder into the resulting citation group, along with
+    /// its [style chain][StyleChain].
     fn finish(self) -> (Packed<CiteGroup>, StyleChain<'a>) {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
         (Packed::new(CiteGroup::new(self.items)).spanned(span), self.styles)

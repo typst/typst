@@ -3,7 +3,7 @@ use std::io::Cursor;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
-use typst::util::Deferred;
+use typst::utils::Deferred;
 use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };

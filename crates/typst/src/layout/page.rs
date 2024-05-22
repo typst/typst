@@ -21,7 +21,7 @@ use crate::layout::{
 
 use crate::model::Numbering;
 use crate::text::TextElem;
-use crate::util::{NonZeroExt, Numeric, Scalar};
+use crate::utils::{NonZeroExt, Numeric, Scalar};
 use crate::visualize::Paint;
 
 /// Layouts its child onto one or multiple pages.

@@ -464,7 +464,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
 
     // Miscellaneous.
     ballot: ['☐', x: '☒'],
-    checkmark: ['✓', light: '🗸'],
+    checkmark: ['✓', light: '🗸', heavy: '✔'],
+    crossmark: ['✗', heavy: '✘'],
     floral: ['❦', l: '☙', r: '❧'],
     notes: [up: '🎜', down: '🎝'],
     refmark: '※',

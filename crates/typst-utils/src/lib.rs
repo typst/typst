@@ -1,4 +1,4 @@
-//! Utilities.
+//! Utilities for Typst.
 
 pub mod fat;
 

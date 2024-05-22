@@ -107,3 +107,10 @@ B #cite(<netwok>) #cite(<arrgh>).
 
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
+
+--- issue-3699-cite-twice-et-al ---
+// Citing a second time showed all authors instead of "et al".
+@mcintosh_anxiety \
+@mcintosh_anxiety
+#show bibliography: none
+#bibliography("/assets/bib/works.bib", style: "chicago-author-date")

@@ -40,7 +40,7 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{
     FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
 };
-use crate::util::{LazyHash, NonZeroExt, PicoStr};
+use crate::utils::{LazyHash, NonZeroExt, PicoStr};
 use crate::World;
 
 /// A bibliography / reference listing.
@@ -357,7 +357,7 @@ impl Bibliography {
 
         Ok(Bibliography {
             map: Arc::new(map),
-            hash: crate::util::hash128(data),
+            hash: crate::utils::hash128(data),
         })
     }
 

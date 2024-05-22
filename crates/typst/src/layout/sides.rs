@@ -7,7 +7,7 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Rel, Size};
-use crate::util::Get;
+use crate::utils::Get;
 
 /// A container with left, top, right and bottom components.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
