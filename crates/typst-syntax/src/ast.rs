@@ -2050,6 +2050,11 @@ impl<'a> ImportItems<'a> {
     }
 }
 
+node! {
+    /// A path to a submodule's imported name: `a.b.c`.
+    ImportItemPath
+}
+
 /// An imported item, potentially renamed to another identifier.
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum ImportItem<'a> {
