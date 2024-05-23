@@ -335,18 +335,21 @@ impl Eval for ast::Contextual<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let body = self.body();
+        let body = self.body().to_untyped();
+        if !body.is::<ast::Expr>() {
+            bail!(body.span(), "contextual's body must be an expression");
+        }
 
         // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Context);
-            visitor.visit(body.to_untyped());
+            visitor.visit(body);
             visitor.finish()
         };
 
         // Define the closure.
         let closure = Closure {
-            node: self.body().to_untyped().clone(),
+            node: body.clone(),
             defaults: vec![],
             captured,
             num_pos_params: 0,
