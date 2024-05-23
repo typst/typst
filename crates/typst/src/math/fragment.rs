@@ -419,7 +419,7 @@ impl VariantFragment {
         let h = self.frame.height();
         let axis = ctx.constants.axis_height().scaled(ctx, self.font_size);
         let align = (2 - align as u8) as f64;
-        self.frame.set_baseline(h * align / 2.0 + axis * align);
+        self.frame.set_baseline((h / 2.0 + axis) * align);
     }
 }
 
