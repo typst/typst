@@ -39,9 +39,7 @@ impl Renumber for ResourcesRefs {
     }
 }
 
-pub fn alloc_resources_refs<'a>(
-    context: &AllocGlobalRefs<'a>,
-) -> (PdfChunk, ResourcesRefs) {
+pub fn alloc_resources_refs(context: &AllocGlobalRefs) -> (PdfChunk, ResourcesRefs) {
     let mut chunk = PdfChunk::new();
     fn refs_for(resources: &Resources<()>, chunk: &mut PdfChunk) -> ResourcesRefs {
         ResourcesRefs {
