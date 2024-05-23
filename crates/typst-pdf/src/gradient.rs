@@ -16,7 +16,7 @@ use typst::visualize::{
 };
 
 use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::{content, AllocRefs, References};
+use crate::{content, AllocRefs};
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -34,15 +34,13 @@ pub struct PdfGradient {
     pub angle: Angle,
 }
 
-type Output = HashMap<PdfGradient, Ref>;
-
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_gradients(
     context: &AllocRefs,
     chunk: &mut PdfChunk,
-    out: &mut Output,
-) -> impl Fn(&mut References) -> &mut Output {
+) -> HashMap<PdfGradient, Ref> {
+    let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for pdf_gradient in resources.gradients.items().cloned().collect::<Vec<_>>() {
             if out.contains_key(&pdf_gradient) {
@@ -160,7 +158,7 @@ pub fn write_gradients(
         }
     });
 
-    |references| &mut references.gradients
+    out
 }
 
 /// Writes an expotential or stitched function that expresses the gradient.

@@ -6,7 +6,7 @@ use typst::introspection::Location;
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, AllocRefs, PdfChunk, References, Renumber};
+use crate::{AbsExt, AllocRefs, PdfChunk, Renumber};
 
 #[derive(Default)]
 pub struct NamedDestinations {
@@ -24,15 +24,13 @@ impl Renumber for NamedDestinations {
     }
 }
 
-type Output = NamedDestinations;
-
 /// Fills in the map and vector for named destinations and writes the indirect
 /// destination objects.
 pub fn write_named_destinations(
     context: &AllocRefs,
     chunk: &mut PdfChunk,
-    out: &mut Output,
-) -> impl Fn(&mut References) -> &mut Output {
+) -> NamedDestinations {
+    let mut out = NamedDestinations::default();
     let mut seen = HashSet::new();
 
     // Find all headings that have a label and are the first among other
@@ -68,5 +66,5 @@ pub fn write_named_destinations(
         }
     }
 
-    |references| &mut references.named_destinations
+    out
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use pdf_writer::Ref;
 
-use crate::{AllocRefs, PdfChunk, References};
+use crate::{AllocRefs, PdfChunk};
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -25,14 +25,12 @@ impl ExtGState {
     }
 }
 
-type Output = HashMap<ExtGState, Ref>;
-
 /// Embed all used external graphics states into the PDF.
 pub fn write_graphic_states(
     context: &AllocRefs,
     chunk: &mut PdfChunk,
-    out: &mut Output,
-) -> impl Fn(&mut References) -> &mut Output {
+) -> HashMap<ExtGState, Ref> {
+    let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for external_gs in resources.ext_gs.items() {
             if out.contains_key(external_gs) {
@@ -48,5 +46,5 @@ pub fn write_graphic_states(
         }
     });
 
-    |references| &mut references.ext_gs
+    out
 }

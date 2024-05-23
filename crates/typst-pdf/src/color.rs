@@ -3,7 +3,7 @@ use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref}
 
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, AllocGlobalRefs, GlobalRefs, PdfChunk, Renumber};
+use crate::{content, deflate, AllocGlobalRefs, PdfChunk, Renumber};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -194,13 +194,12 @@ impl Renumber for ColorFunctionRefs {
 pub fn alloc_color_functions_refs(
     _context: &AllocGlobalRefs,
     chunk: &mut PdfChunk,
-    out: &mut ColorFunctionRefs,
-) -> impl Fn(&mut GlobalRefs) -> &mut ColorFunctionRefs {
-    out.oklab = chunk.alloc();
-    out.srgb = chunk.alloc();
-    out.d65_gray = chunk.alloc();
-
-    |globals| &mut globals.color_functions
+) -> ColorFunctionRefs {
+    ColorFunctionRefs {
+        oklab: chunk.alloc(),
+        srgb: chunk.alloc(),
+        d65_gray: chunk.alloc(),
+    }
 }
 
 /// This function removes comments, line spaces and carriage returns from a

@@ -16,15 +16,13 @@ use crate::{
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
     EmExt, PdfChunk,
 };
-use crate::{AllocRefs, BuildContent, References, Resources};
-
-type Output = HashMap<ColorFontSlice, Ref>;
+use crate::{AllocRefs, BuildContent, Resources};
 
 pub fn write_color_fonts(
     context: &AllocRefs,
     chunk: &mut PdfChunk,
-    out: &mut Output,
-) -> impl Fn(&mut References) -> &mut Output {
+) -> HashMap<ColorFontSlice, Ref> {
+    let mut out = HashMap::new();
     context.resources.traverse(&mut |resources: &Resources| {
         let Some(color_fonts) = &resources.color_fonts else {
             return;
@@ -147,7 +145,7 @@ pub fn write_color_fonts(
         }
     });
 
-    |references| &mut references.color_fonts
+    out
 }
 
 /// A mapping between `Font`s and all the corresponding `ColorFont`s.

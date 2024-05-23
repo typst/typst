@@ -75,23 +75,23 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     PdfBuilder::new(document)
-        .run(traverse_pages)
+        .run(traverse_pages, |r| r)
         .transition::<GlobalRefs, AllocGlobalRefs>()
-        .run(alloc_page_refs)
-        .run(alloc_color_functions_refs)
-        .run(alloc_resources_refs)
+        .run(alloc_page_refs, |g| &mut g.pages)
+        .run(alloc_color_functions_refs, |g| &mut g.color_functions)
+        .run(alloc_resources_refs, |g| &mut g.resources)
         .transition::<References, AllocRefs>()
-        .run(write_color_fonts)
-        .run(write_fonts)
-        .run(write_images)
-        .run(write_gradients)
-        .run(write_graphic_states)
-        .run(write_patterns)
-        .run(write_named_destinations)
+        .run(write_color_fonts, |r| &mut r.color_fonts)
+        .run(write_fonts, |r| &mut r.fonts)
+        .run(write_images, |r| &mut r.images)
+        .run(write_gradients, |r| &mut r.gradients)
+        .run(write_graphic_states, |r: &mut References| &mut r.ext_gs)
+        .run(write_patterns, |r| &mut r.patterns)
+        .run(write_named_destinations, |r| &mut r.named_destinations)
         .transition::<PageTreeRef, WritePageTree>()
-        .run(write_page_tree)
+        .run(write_page_tree, |r| r)
         .transition::<(), WriteResources>()
-        .run(write_global_resources)
+        .run(write_global_resources, |x| x)
         .export_with(ident, timestamp, write_catalog)
 }
 
@@ -411,12 +411,12 @@ impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a, ()>> {
 
 impl<S, B> PdfBuilder<S, B> {
     /// Runs a step with the current state.
-    fn run<P, O, F>(mut self, process: P) -> Self
+    fn run<P, O, F>(mut self, process: P, save: F) -> Self
     where
         // Process
-        P: Fn(&S, &mut PdfChunk, &mut O) -> F,
+        P: Fn(&S, &mut PdfChunk) -> O,
         // Output
-        O: Default + Renumber,
+        O: Renumber,
         // Field access
         F: for<'a> Fn(&'a mut B) -> &'a mut O,
     {
@@ -429,9 +429,8 @@ impl<S, B> PdfBuilder<S, B> {
         // needed in the future.
         const TEMPORARY_REFS_START: i32 = 1_000_000_000;
 
-        let mut output = Default::default();
         let mut chunk: PdfChunk = PdfChunk::new(TEMPORARY_REFS_START);
-        let save = process(&self.state, &mut chunk, &mut output);
+        let mut output = process(&self.state, &mut chunk);
 
         // Allocate a final reference for each temporary one
         let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;

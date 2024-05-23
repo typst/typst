@@ -13,21 +13,17 @@ use typst::{
     model::Document,
 };
 
-use crate::{
-    color::PaintEncode, AllocRefs, BuildContent, References, Remapper, Resources,
-};
+use crate::{color::PaintEncode, AllocRefs, BuildContent, Remapper, Resources};
 use crate::{content, resources::ResourcesRefs};
 use crate::{transform_to_array, PdfChunk, Renumber};
-
-type Output = HashMap<PdfPattern, WrittenPattern>;
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_patterns(
     context: &AllocRefs,
     chunk: &mut PdfChunk,
-    out: &mut Output,
-) -> impl Fn(&mut References) -> &mut Output {
+) -> HashMap<PdfPattern, WrittenPattern> {
+    let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         let Some(patterns) = &resources.patterns else {
             return;
@@ -78,7 +74,7 @@ pub fn write_patterns(
         }
     });
 
-    |references| &mut references.patterns
+    out
 }
 
 #[derive(Debug)]

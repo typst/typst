@@ -7,8 +7,8 @@ use typst::{text::Font, visualize::Image};
 
 use crate::{
     color::ColorSpaces, color_font::ColorFontSlice, extg::ExtGState,
-    gradient::PdfGradient, pattern::PdfPattern, AllocGlobalRefs, GlobalRefs, PdfChunk,
-    Renumber, Resources, WriteResources,
+    gradient::PdfGradient, pattern::PdfPattern, AllocGlobalRefs, PdfChunk, Renumber,
+    Resources, WriteResources,
 };
 
 pub struct ResourcesRefs {
@@ -42,8 +42,7 @@ impl Renumber for ResourcesRefs {
 pub fn alloc_resources_refs<'a>(
     context: &AllocGlobalRefs<'a>,
     chunk: &mut PdfChunk,
-    out: &mut ResourcesRefs,
-) -> impl Fn(&mut GlobalRefs) -> &mut ResourcesRefs {
+) -> ResourcesRefs {
     fn refs_for(resources: &Resources<()>, chunk: &mut PdfChunk) -> ResourcesRefs {
         ResourcesRefs {
             reference: chunk.alloc(),
@@ -58,9 +57,7 @@ pub fn alloc_resources_refs<'a>(
         }
     }
 
-    *out = refs_for(&context.resources, chunk);
-
-    |globals| &mut globals.resources
+    refs_for(&context.resources, chunk)
 }
 
 /// Write the global resource dictionary that will be referenced by all pages.
@@ -68,11 +65,7 @@ pub fn alloc_resources_refs<'a>(
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-pub fn write_global_resources(
-    ctx: &WriteResources,
-    chunk: &mut PdfChunk,
-    _out: &mut (),
-) -> impl Fn(&mut ()) -> &mut () {
+pub fn write_global_resources(ctx: &WriteResources, chunk: &mut PdfChunk) {
     let mut used_color_spaces = ColorSpaces::default();
 
     ctx.resources.traverse(&mut |resources| {
@@ -148,8 +141,6 @@ pub fn write_global_resources(
     });
 
     used_color_spaces.write_functions(chunk, &ctx.globals.color_functions);
-
-    |nothing| nothing
 }
 
 struct ResourceList<'a, T> {

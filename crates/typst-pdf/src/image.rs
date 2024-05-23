@@ -9,17 +9,12 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{color, deflate, AllocRefs, PdfChunk, References};
-
-type Output = HashMap<Image, Ref>;
+use crate::{color, deflate, AllocRefs, PdfChunk};
 
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
-pub fn write_images(
-    context: &AllocRefs,
-    chunk: &mut PdfChunk,
-    out: &mut Output,
-) -> impl Fn(&mut References) -> &mut Output {
+pub fn write_images(context: &AllocRefs, chunk: &mut PdfChunk) -> HashMap<Image, Ref> {
+    let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for (i, image) in resources.images.items().enumerate() {
             if out.contains_key(image) {
@@ -106,7 +101,7 @@ pub fn write_images(
         }
     });
 
-    |references| &mut references.images
+    out
 }
 
 /// Creates a new PDF image from the given image.

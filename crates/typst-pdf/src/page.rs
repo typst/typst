@@ -14,8 +14,7 @@ use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
 use crate::{
-    content, AbsExt, AllocGlobalRefs, BuildContent, GlobalRefs, PdfChunk, Renumber,
-    WritePageTree,
+    content, AbsExt, AllocGlobalRefs, BuildContent, PdfChunk, Renumber, WritePageTree,
 };
 use crate::{font::improve_glyph_sets, Resources};
 
@@ -24,10 +23,10 @@ use crate::{font::improve_glyph_sets, Resources};
 pub fn traverse_pages<'a>(
     state: &BuildContent<'a>,
     _chunk: &mut PdfChunk,
-    out: &mut Resources<'a, ()>,
-) -> impl for<'b> Fn(&'b mut Resources<'a, ()>) -> &'b mut Resources<'a, ()> {
+) -> Resources<'a, ()> {
+    let mut out = Resources::default();
     for page in &state.document.pages {
-        let mut encoded = construct_page(state, out, &page.frame);
+        let mut encoded = construct_page(state, &mut out, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
@@ -37,7 +36,7 @@ pub fn traverse_pages<'a>(
 
     improve_glyph_sets(&mut out.glyph_sets);
 
-    |resources| resources
+    out
 }
 
 /// Construct a page object.
@@ -52,14 +51,8 @@ fn construct_page<'a, 'b>(
     EncodedPage { content, label: None }
 }
 
-pub fn alloc_page_refs(
-    context: &AllocGlobalRefs,
-    chunk: &mut PdfChunk,
-    out: &mut Vec<Ref>,
-) -> impl Fn(&mut GlobalRefs) -> &mut Vec<Ref> {
-    *out = context.document.pages.iter().map(|_| chunk.alloc()).collect();
-
-    |globals| &mut globals.pages
+pub fn alloc_page_refs(context: &AllocGlobalRefs, chunk: &mut PdfChunk) -> Vec<Ref> {
+    context.document.pages.iter().map(|_| chunk.alloc()).collect()
 }
 
 pub struct PageTreeRef(pub Ref);
@@ -77,11 +70,7 @@ impl Renumber for PageTreeRef {
 }
 
 /// Write the page tree.
-pub fn write_page_tree(
-    ctx: &WritePageTree,
-    chunk: &mut PdfChunk,
-    out: &mut PageTreeRef,
-) -> impl Fn(&mut PageTreeRef) -> &mut PageTreeRef {
+pub fn write_page_tree(ctx: &WritePageTree, chunk: &mut PdfChunk) -> PageTreeRef {
     let page_tree_ref = chunk.alloc.bump();
 
     for i in 0..ctx.resources.pages.len() {
@@ -101,9 +90,7 @@ pub fn write_page_tree(
         .count(ctx.resources.pages.len() as i32)
         .kids(ctx.globals.pages.iter().copied());
 
-    *out = PageTreeRef(page_tree_ref);
-
-    |page_tree_ref| page_tree_ref
+    PageTreeRef(page_tree_ref)
 }
 
 /// Write a page tree node.
