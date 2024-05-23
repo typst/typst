@@ -193,13 +193,16 @@ impl Renumber for ColorFunctionRefs {
 
 pub fn alloc_color_functions_refs(
     _context: &AllocGlobalRefs,
-    chunk: &mut PdfChunk,
-) -> ColorFunctionRefs {
-    ColorFunctionRefs {
+) -> (PdfChunk, ColorFunctionRefs) {
+    let mut chunk = PdfChunk::new();
+
+    let refs = ColorFunctionRefs {
         oklab: chunk.alloc(),
         srgb: chunk.alloc(),
         d65_gray: chunk.alloc(),
-    }
+    };
+
+    (chunk, refs)
 }
 
 /// This function removes comments, line spaces and carriage returns from a

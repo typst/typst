@@ -20,9 +20,9 @@ use crate::{AllocRefs, BuildContent, Resources};
 
 pub fn write_color_fonts(
     context: &AllocRefs,
-    chunk: &mut PdfChunk,
-) -> HashMap<ColorFontSlice, Ref> {
+) -> (PdfChunk, HashMap<ColorFontSlice, Ref>) {
     let mut out = HashMap::new();
+    let mut chunk = PdfChunk::new();
     context.resources.traverse(&mut |resources: &Resources| {
         let Some(color_fonts) = &resources.color_fonts else {
             return;
@@ -137,7 +137,7 @@ pub fn write_color_fonts(
                     .find_name(name_id::POST_SCRIPT_NAME)
                     .unwrap_or_else(|| "unknown".to_string());
                 let base_font = eco_format!("{subset_tag}+{postscript_name}");
-                write_font_descriptor(chunk, descriptor_ref, font, &base_font);
+                write_font_descriptor(&mut chunk, descriptor_ref, font, &base_font);
 
                 // Write the widths array
                 chunk.indirect(widths_ref).array().items(widths);
@@ -145,7 +145,7 @@ pub fn write_color_fonts(
         }
     });
 
-    out
+    (chunk, out)
 }
 
 /// A mapping between `Font`s and all the corresponding `ColorFont`s.

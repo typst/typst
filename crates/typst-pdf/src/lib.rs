@@ -255,25 +255,6 @@ impl<'a> Resources<'a, ()> {
     }
 }
 
-impl<'a> Default for Resources<'a> {
-    fn default() -> Self {
-        Resources {
-            reference: Ref::new(1),
-            pages: Vec::new(),
-            glyph_sets: HashMap::new(),
-            languages: BTreeMap::new(),
-            colors: ColorSpaces::default(),
-            fonts: Remapper::new(),
-            images: Remapper::new(),
-            deferred_images: HashMap::new(),
-            gradients: Remapper::new(),
-            patterns: None,
-            ext_gs: Remapper::new(),
-            color_fonts: None,
-        }
-    }
-}
-
 impl<'a, R> Resources<'a, R> {
     /// Run a function on this resource dictionnary and all
     /// of its sub-resources.
@@ -414,23 +395,13 @@ impl<S, B> PdfBuilder<S, B> {
     fn run<P, O, F>(mut self, process: P, save: F) -> Self
     where
         // Process
-        P: Fn(&S, &mut PdfChunk) -> O,
+        P: Fn(&S) -> (PdfChunk, O),
         // Output
         O: Renumber,
         // Field access
         F: for<'a> Fn(&'a mut B) -> &'a mut O,
     {
-        // Any reference below that value was already allocated before and
-        // should not be rewritten. Anything above was allocated in the current
-        // chunk, and should be remapped.
-        //
-        // This is a constant (large enough to avoid collisions) and not
-        // dependant on self.alloc to allow for better memoization of steps, if
-        // needed in the future.
-        const TEMPORARY_REFS_START: i32 = 1_000_000_000;
-
-        let mut chunk: PdfChunk = PdfChunk::new(TEMPORARY_REFS_START);
-        let mut output = process(&self.state, &mut chunk);
+        let (chunk, mut output) = process(&self.state);
 
         // Allocate a final reference for each temporary one
         let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
@@ -522,9 +493,21 @@ struct PdfChunk {
     alloc: Ref,
 }
 
+// Any reference below that value was already allocated before and
+// should not be rewritten. Anything above was allocated in the current
+// chunk, and should be remapped.
+//
+// This is a constant (large enough to avoid collisions) and not
+// dependant on self.alloc to allow for better memoization of steps, if
+// needed in the future.
+const TEMPORARY_REFS_START: i32 = 1_000_000_000;
+
 impl PdfChunk {
-    fn new(alloc_start: i32) -> Self {
-        PdfChunk { chunk: Chunk::new(), alloc: Ref::new(alloc_start) }
+    fn new() -> Self {
+        PdfChunk {
+            chunk: Chunk::new(),
+            alloc: Ref::new(TEMPORARY_REFS_START),
+        }
     }
 
     fn alloc(&mut self) -> Ref {

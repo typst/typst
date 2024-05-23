@@ -41,8 +41,8 @@ impl Renumber for ResourcesRefs {
 
 pub fn alloc_resources_refs<'a>(
     context: &AllocGlobalRefs<'a>,
-    chunk: &mut PdfChunk,
-) -> ResourcesRefs {
+) -> (PdfChunk, ResourcesRefs) {
+    let mut chunk = PdfChunk::new();
     fn refs_for(resources: &Resources<()>, chunk: &mut PdfChunk) -> ResourcesRefs {
         ResourcesRefs {
             reference: chunk.alloc(),
@@ -57,7 +57,8 @@ pub fn alloc_resources_refs<'a>(
         }
     }
 
-    refs_for(&context.resources, chunk)
+    let refs = refs_for(&context.resources, &mut chunk);
+    (chunk, refs)
 }
 
 /// Write the global resource dictionary that will be referenced by all pages.
@@ -65,7 +66,8 @@ pub fn alloc_resources_refs<'a>(
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-pub fn write_global_resources(ctx: &WriteResources, chunk: &mut PdfChunk) {
+pub fn write_global_resources(ctx: &WriteResources) -> (PdfChunk, ()) {
+    let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
 
     ctx.resources.traverse(&mut |resources| {
@@ -92,7 +94,7 @@ pub fn write_global_resources(ctx: &WriteResources, chunk: &mut PdfChunk) {
         }
 
         resource_dict(
-            chunk,
+            &mut chunk,
             resources.reference,
             images_ref,
             ResourceList {
@@ -140,7 +142,9 @@ pub fn write_global_resources(ctx: &WriteResources, chunk: &mut PdfChunk) {
             .write_color_spaces(color_spaces, &ctx.globals.color_functions);
     });
 
-    used_color_spaces.write_functions(chunk, &ctx.globals.color_functions);
+    used_color_spaces.write_functions(&mut chunk, &ctx.globals.color_functions);
+
+    (chunk, ())
 }
 
 struct ResourceList<'a, T> {

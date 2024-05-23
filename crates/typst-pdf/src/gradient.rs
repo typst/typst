@@ -36,10 +36,8 @@ pub struct PdfGradient {
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_gradients(
-    context: &AllocRefs,
-    chunk: &mut PdfChunk,
-) -> HashMap<PdfGradient, Ref> {
+pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
+    let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for pdf_gradient in resources.gradients.items().cloned().collect::<Vec<_>>() {
@@ -61,7 +59,7 @@ pub fn write_gradients(
             let mut shading_pattern = match &gradient {
                 Gradient::Linear(_) => {
                     let shading_function =
-                        shading_function(&gradient, chunk, color_space);
+                        shading_function(&gradient, &mut chunk, color_space);
                     let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Axial);
@@ -97,8 +95,11 @@ pub fn write_gradients(
                     shading_pattern
                 }
                 Gradient::Radial(radial) => {
-                    let shading_function =
-                        shading_function(&gradient, chunk, color_space_of(&gradient));
+                    let shading_function = shading_function(
+                        &gradient,
+                        &mut chunk,
+                        color_space_of(&gradient),
+                    );
                     let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Radial);
@@ -158,7 +159,7 @@ pub fn write_gradients(
         }
     });
 
-    out
+    (chunk, out)
 }
 
 /// Writes an expotential or stitched function that expresses the gradient.

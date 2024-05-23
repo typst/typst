@@ -27,7 +27,8 @@ pub(crate) const SYSTEM_INFO: SystemInfo = SystemInfo {
 
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
-pub fn write_fonts(context: &AllocRefs, chunk: &mut PdfChunk) -> HashMap<Font, Ref> {
+pub fn write_fonts(context: &AllocRefs) -> (PdfChunk, HashMap<Font, Ref>) {
+    let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for font in resources.fonts.items() {
@@ -131,7 +132,7 @@ pub fn write_fonts(context: &AllocRefs, chunk: &mut PdfChunk) -> HashMap<Font, R
             stream.finish();
 
             let mut font_descriptor =
-                write_font_descriptor(chunk, descriptor_ref, font, &base_font);
+                write_font_descriptor(&mut chunk, descriptor_ref, font, &base_font);
             if is_cff {
                 font_descriptor.font_file3(data_ref);
             } else {
@@ -140,7 +141,7 @@ pub fn write_fonts(context: &AllocRefs, chunk: &mut PdfChunk) -> HashMap<Font, R
         }
     });
 
-    out
+    (chunk, out)
 }
 
 /// Writes a FontDescriptor dictionary.

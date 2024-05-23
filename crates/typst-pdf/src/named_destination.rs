@@ -26,10 +26,8 @@ impl Renumber for NamedDestinations {
 
 /// Fills in the map and vector for named destinations and writes the indirect
 /// destination objects.
-pub fn write_named_destinations(
-    context: &AllocRefs,
-    chunk: &mut PdfChunk,
-) -> NamedDestinations {
+pub fn write_named_destinations(context: &AllocRefs) -> (PdfChunk, NamedDestinations) {
+    let mut chunk = PdfChunk::new();
     let mut out = NamedDestinations::default();
     let mut seen = HashSet::new();
 
@@ -66,5 +64,5 @@ pub fn write_named_destinations(
         }
     }
 
-    out
+    (chunk, out)
 }

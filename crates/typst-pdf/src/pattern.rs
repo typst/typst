@@ -21,8 +21,8 @@ use crate::{transform_to_array, PdfChunk, Renumber};
 /// This is performed once after writing all pages.
 pub fn write_patterns(
     context: &AllocRefs,
-    chunk: &mut PdfChunk,
-) -> HashMap<PdfPattern, WrittenPattern> {
+) -> (PdfChunk, HashMap<PdfPattern, WrittenPattern>) {
+    let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         let Some(patterns) = &resources.patterns else {
@@ -74,7 +74,7 @@ pub fn write_patterns(
         }
     });
 
-    out
+    (chunk, out)
 }
 
 #[derive(Debug)]

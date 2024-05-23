@@ -20,10 +20,7 @@ use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
-pub fn traverse_pages<'a>(
-    state: &BuildContent<'a>,
-    _chunk: &mut PdfChunk,
-) -> Resources<'a, ()> {
+pub fn traverse_pages<'a>(state: &BuildContent<'a>) -> (PdfChunk, Resources<'a, ()>) {
     let mut out = Resources::default();
     for page in &state.document.pages {
         let mut encoded = construct_page(state, &mut out, &page.frame);
@@ -36,7 +33,7 @@ pub fn traverse_pages<'a>(
 
     improve_glyph_sets(&mut out.glyph_sets);
 
-    out
+    (PdfChunk::new(), out)
 }
 
 /// Construct a page object.
@@ -51,8 +48,10 @@ fn construct_page<'a, 'b>(
     EncodedPage { content, label: None }
 }
 
-pub fn alloc_page_refs(context: &AllocGlobalRefs, chunk: &mut PdfChunk) -> Vec<Ref> {
-    context.document.pages.iter().map(|_| chunk.alloc()).collect()
+pub fn alloc_page_refs(context: &AllocGlobalRefs) -> (PdfChunk, Vec<Ref>) {
+    let mut chunk = PdfChunk::new();
+    let page_refs = context.document.pages.iter().map(|_| chunk.alloc()).collect();
+    (chunk, page_refs)
 }
 
 pub struct PageTreeRef(pub Ref);
@@ -70,13 +69,14 @@ impl Renumber for PageTreeRef {
 }
 
 /// Write the page tree.
-pub fn write_page_tree(ctx: &WritePageTree, chunk: &mut PdfChunk) -> PageTreeRef {
+pub fn write_page_tree(ctx: &WritePageTree) -> (PdfChunk, PageTreeRef) {
+    let mut chunk = PdfChunk::new();
     let page_tree_ref = chunk.alloc.bump();
 
     for i in 0..ctx.resources.pages.len() {
         let content_id = chunk.alloc.bump();
         write_page(
-            chunk,
+            &mut chunk,
             ctx,
             content_id,
             page_tree_ref,
@@ -90,7 +90,7 @@ pub fn write_page_tree(ctx: &WritePageTree, chunk: &mut PdfChunk) -> PageTreeRef
         .count(ctx.resources.pages.len() as i32)
         .kids(ctx.globals.pages.iter().copied());
 
-    PageTreeRef(page_tree_ref)
+    (chunk, PageTreeRef(page_tree_ref))
 }
 
 /// Write a page tree node.

@@ -13,7 +13,8 @@ use crate::{color, deflate, AllocRefs, PdfChunk};
 
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
-pub fn write_images(context: &AllocRefs, chunk: &mut PdfChunk) -> HashMap<Image, Ref> {
+pub fn write_images(context: &AllocRefs) -> (PdfChunk, HashMap<Image, Ref>) {
+    let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for (i, image) in resources.images.items().enumerate() {
@@ -101,7 +102,7 @@ pub fn write_images(context: &AllocRefs, chunk: &mut PdfChunk) -> HashMap<Image,
         }
     });
 
-    out
+    (chunk, out)
 }
 
 /// Creates a new PDF image from the given image.

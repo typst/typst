@@ -26,10 +26,8 @@ impl ExtGState {
 }
 
 /// Embed all used external graphics states into the PDF.
-pub fn write_graphic_states(
-    context: &AllocRefs,
-    chunk: &mut PdfChunk,
-) -> HashMap<ExtGState, Ref> {
+pub fn write_graphic_states(context: &AllocRefs) -> (PdfChunk, HashMap<ExtGState, Ref>) {
+    let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         for external_gs in resources.ext_gs.items() {
@@ -46,5 +44,5 @@ pub fn write_graphic_states(
         }
     });
 
-    out
+    (chunk, out)
 }
