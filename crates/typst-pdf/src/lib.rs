@@ -122,9 +122,8 @@ struct PdfBuilder<S, B> {
 }
 
 /// The initial state: we are exploring the document, collecting all resources
-/// that will be necessary later.
-///
-/// The only step here is [`Pages`].
+/// that will be necessary later. The content of the pages is also built during
+/// this phase.
 struct BuildContent<'a> {
     document: &'a Document,
 }
