@@ -222,21 +222,24 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 ///  - `~/Library/Application Support` on macOS
 ///  - `%APPDATA%` on Windows
 ///
-/// If a custom backup path is provided via the environment variable `TYPST_UPDATE_BACKUP_PATH`,
-/// it will be used instead of the default directories determined by the platform.
+/// If a custom backup path is provided via the environment variable
+/// `TYPST_UPDATE_BACKUP_PATH`, it will be used instead of the default
+/// directories determined by the platform.
 fn backup_path(backup_path: Option<PathBuf>) -> StrResult<PathBuf> {
-    #[cfg(target_os = "linux")]
-    let root_backup_dir = backup_path
-        .or_else(dirs::state_dir)
-        .or_else(dirs::data_dir)
-        .ok_or("unable to locate local data or state directory")?;
+    let backup_dir = if let Some(backup_path) = backup_path {
+        backup_path
+    } else {
+        #[cfg(target_os = "linux")]
+        let root_backup_dir = dirs::state_dir()
+            .or_else(dirs::data_dir)
+            .ok_or("unable to locate local data or state directory")?;
 
-    #[cfg(not(target_os = "linux"))]
-    let root_backup_dir = backup_path
-        .or_else(dirs::data_dir)
-        .ok_or("unable to locate local data directory")?;
+        #[cfg(not(target_os = "linux"))]
+        let root_backup_dir =
+            dirs::data_dir().ok_or("unable to locate local data directory")?;
 
-    let backup_dir = root_backup_dir.join("typst");
+        root_backup_dir.join("typst")
+    };
 
     fs::create_dir_all(&backup_dir)
         .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
