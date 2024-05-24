@@ -397,21 +397,9 @@ impl<S: Send + Sync> PdfBuilder<S> {
     {
         let mut out = None;
         rayon::scope(|s| s.spawn(|_| out = Some(process(&self.state))));
-        let (chunk, mut output) = out.unwrap();
+        let (chunk, output) = out.unwrap();
 
-        // Allocate a final reference for each temporary one
-        let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
-        let mapping: HashMap<_, _> = (0..allocated)
-            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
-            .collect();
-
-        // Merge the chunk into the PDF, using the new references
-        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
-
-        // Also update the references in the output
-        output.renumber(&mapping);
-
-        output
+        self.renumber(chunk, output)
     }
 }
 
@@ -440,21 +428,8 @@ impl<S> PdfBuilder<S> {
         // Output
         O: Renumber,
     {
-        let (chunk, mut output) = process(&self.state);
-
-        // Allocate a final reference for each temporary one
-        let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
-        let mapping: HashMap<_, _> = (0..allocated)
-            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
-            .collect();
-
-        // Merge the chunk into the PDF, using the new references
-        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
-
-        // Also update the references in the output
-        output.renumber(&mapping);
-
-        output
+        let (chunk, output) = process(&self.state);
+        self.renumber(chunk, output)
     }
 
     /// Finalize the PDF export and returns the buffer representing the
@@ -470,6 +445,25 @@ impl<S> PdfBuilder<S> {
     {
         process(self.state, ident, timestamp, &mut self.pdf, &mut self.alloc);
         self.pdf.finish()
+    }
+
+    fn renumber<O>(&mut self, chunk: PdfChunk, mut output: O) -> O
+    where
+        O: Renumber,
+    {
+        // Allocate a final reference for each temporary one
+        let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
+        let mapping: HashMap<_, _> = (0..allocated)
+            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
+            .collect();
+
+        // Merge the chunk into the PDF, using the new references
+        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
+
+        // Also update the references in the output
+        output.renumber(&mapping);
+
+        output
     }
 }
 
