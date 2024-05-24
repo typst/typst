@@ -86,9 +86,9 @@ pub struct WrittenPattern {
 }
 
 impl Renumber for WrittenPattern {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        self.pattern_ref.renumber(old, new);
-        self.resources_ref.renumber(old, new);
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        self.pattern_ref.renumber(mapping);
+        self.resources_ref.renumber(mapping);
     }
 }
 

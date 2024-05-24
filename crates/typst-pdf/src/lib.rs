@@ -192,15 +192,15 @@ struct Resources<'a, R = Ref> {
 }
 
 impl<'a, R: Renumber> Renumber for Resources<'a, R> {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        self.reference.renumber(old, new);
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        self.reference.renumber(mapping);
 
         if let Some(color_fonts) = &mut self.color_fonts {
-            color_fonts.resources.renumber(old, new);
+            color_fonts.resources.renumber(mapping);
         }
 
         if let Some(patterns) = &mut self.patterns {
-            patterns.resources.renumber(old, new);
+            patterns.resources.renumber(mapping);
         }
     }
 }
@@ -409,9 +409,7 @@ impl<S, B> PdfBuilder<S, B> {
         chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
 
         // Also update the references in the output
-        for (old, new) in mapping {
-            output.renumber(old, new);
-        }
+        output.renumber(&mapping);
 
         *save(&mut self.building) = output;
 
@@ -450,33 +448,33 @@ impl<S, B> PdfBuilder<S, B> {
 /// A reference or collection of references that can be re-numbered,
 /// to become valid in a global scope.
 trait Renumber {
-    fn renumber(&mut self, old: Ref, new: Ref);
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>);
 }
 
 impl Renumber for () {
-    fn renumber(&mut self, _old: Ref, _new: Ref) {}
+    fn renumber(&mut self, _mapping: &HashMap<Ref, Ref>) {}
 }
 
 impl Renumber for Ref {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        if *self == old {
-            *self = new
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        if let Some(new) = mapping.get(self) {
+            *self = *new
         }
     }
 }
 
 impl<R: Renumber> Renumber for Vec<R> {
-    fn renumber(&mut self, old: Ref, new: Ref) {
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         for item in self {
-            item.renumber(old, new);
+            item.renumber(mapping);
         }
     }
 }
 
 impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
-    fn renumber(&mut self, old: Ref, new: Ref) {
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         for v in self.values_mut() {
-            v.renumber(old, new);
+            v.renumber(mapping);
         }
     }
 }

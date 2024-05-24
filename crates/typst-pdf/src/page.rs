@@ -63,8 +63,8 @@ impl Default for PageTreeRef {
 }
 
 impl Renumber for PageTreeRef {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        self.0.renumber(old, new)
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        self.0.renumber(mapping)
     }
 }
 

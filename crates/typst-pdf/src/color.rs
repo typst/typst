@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
 
@@ -184,10 +186,10 @@ impl Default for ColorFunctionRefs {
 }
 
 impl Renumber for ColorFunctionRefs {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        self.oklab.renumber(old, new);
-        self.srgb.renumber(old, new);
-        self.d65_gray.renumber(old, new);
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        self.oklab.renumber(mapping);
+        self.srgb.renumber(mapping);
+        self.d65_gray.renumber(mapping);
     }
 }
 

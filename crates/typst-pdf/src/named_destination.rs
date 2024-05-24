@@ -17,9 +17,9 @@ pub struct NamedDestinations {
 }
 
 impl Renumber for NamedDestinations {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        if let Some(index) = self.dests.iter().position(|x| x.1 == old) {
-            self.dests[index].1 = new;
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        for (_, reference) in &mut self.dests {
+            reference.renumber(mapping);
         }
     }
 }

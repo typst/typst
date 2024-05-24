@@ -28,13 +28,13 @@ impl Default for ResourcesRefs {
 }
 
 impl Renumber for ResourcesRefs {
-    fn renumber(&mut self, old: Ref, new: Ref) {
-        self.reference.renumber(old, new);
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        self.reference.renumber(mapping);
         if let Some(color_fonts) = &mut self.color_fonts {
-            color_fonts.renumber(old, new);
+            color_fonts.renumber(mapping);
         }
         if let Some(patterns) = &mut self.patterns {
-            patterns.renumber(old, new);
+            patterns.renumber(mapping);
         }
     }
 }
