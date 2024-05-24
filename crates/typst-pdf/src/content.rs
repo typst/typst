@@ -611,10 +611,13 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
     let index = ctx.resources.images.insert(image.clone());
-    ctx.resources
-        .deferred_images
-        .entry(index)
-        .or_insert_with(|| deferred_image(image.clone()));
+    ctx.resources.deferred_images.entry(index).or_insert_with(|| {
+        let (image, color_space) = deferred_image(image.clone());
+        if let Some(color_space) = color_space {
+            ctx.resources.colors.mark_as_used(color_space);
+        }
+        image
+    });
 
     let name = eco_format!("Im{index}");
     let w = size.x.to_f32();

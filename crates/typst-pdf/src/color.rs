@@ -106,7 +106,7 @@ impl ColorSpaces {
         // Write the Oklab function & color space.
         if self.use_oklab {
             chunk
-                .post_script_function(refs.oklab, &OKLAB_DEFLATED)
+                .post_script_function(refs.oklab.unwrap(), &OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -115,7 +115,7 @@ impl ColorSpaces {
         // Write the sRGB color space.
         if self.use_srgb {
             chunk
-                .icc_profile(refs.srgb, &SRGB_ICC_DEFLATED)
+                .icc_profile(refs.srgb.unwrap(), &SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -124,7 +124,7 @@ impl ColorSpaces {
         // Write the gray color space.
         if self.use_d65_gray {
             chunk
-                .icc_profile(refs.d65_gray, &GRAY_ICC_DEFLATED)
+                .icc_profile(refs.d65_gray.unwrap(), &GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -149,12 +149,12 @@ pub fn write(
         ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
             let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
             write(ColorSpace::LinearRgb, oklab.alternate_color_space(), refs);
-            oklab.tint_ref(refs.oklab);
+            oklab.tint_ref(refs.oklab.unwrap());
             oklab.attrs().subtype(DeviceNSubtype::DeviceN);
         }
         ColorSpace::Oklch => write(ColorSpace::Oklab, writer, refs),
-        ColorSpace::Srgb => writer.icc_based(refs.srgb),
-        ColorSpace::D65Gray => writer.icc_based(refs.d65_gray),
+        ColorSpace::Srgb => writer.icc_based(refs.srgb.unwrap()),
+        ColorSpace::D65Gray => writer.icc_based(refs.d65_gray.unwrap()),
         ColorSpace::LinearRgb => {
             writer.cal_rgb(
                 [0.9505, 1.0, 1.0888],
@@ -170,28 +170,39 @@ pub fn write(
 }
 
 pub struct ColorFunctionRefs {
-    oklab: Ref,
-    srgb: Ref,
-    d65_gray: Ref,
+    oklab: Option<Ref>,
+    srgb: Option<Ref>,
+    d65_gray: Option<Ref>,
 }
 
 impl Renumber for ColorFunctionRefs {
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.oklab.renumber(mapping);
-        self.srgb.renumber(mapping);
-        self.d65_gray.renumber(mapping);
+        if let Some(r) = &mut self.oklab {
+            r.renumber(mapping);
+        }
+        if let Some(r) = &mut self.srgb {
+            r.renumber(mapping);
+        }
+        if let Some(r) = &mut self.d65_gray {
+            r.renumber(mapping);
+        }
     }
 }
 
 pub fn alloc_color_functions_refs(
-    _context: &AllocGlobalRefs,
+    context: &AllocGlobalRefs,
 ) -> (PdfChunk, ColorFunctionRefs) {
     let mut chunk = PdfChunk::new();
+    let mut used_color_spaces = ColorSpaces::default();
+
+    context.resources.traverse(&mut |r| {
+        used_color_spaces.merge(&r.colors);
+    });
 
     let refs = ColorFunctionRefs {
-        oklab: chunk.alloc(),
-        srgb: chunk.alloc(),
-        d65_gray: chunk.alloc(),
+        oklab: if used_color_spaces.use_oklab { Some(chunk.alloc()) } else { None },
+        srgb: if used_color_spaces.use_srgb { Some(chunk.alloc()) } else { None },
+        d65_gray: if used_color_spaces.use_d65_gray { Some(chunk.alloc()) } else { None },
     };
 
     (chunk, refs)

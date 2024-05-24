@@ -109,8 +109,19 @@ pub fn write_images(context: &AllocRefs) -> (PdfChunk, HashMap<Image, Ref>) {
 ///
 /// Also starts the deferred encoding of the image.
 #[comemo::memoize]
-pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
-    Deferred::new(move || match image.kind() {
+pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpace>) {
+    let color_space = match image.kind() {
+        ImageKind::Raster(raster) if raster.icc().is_none() => {
+            if raster.dynamic().color().channel_count() > 2 {
+                Some(ColorSpace::Srgb)
+            } else {
+                Some(ColorSpace::D65Gray)
+            }
+        }
+        _ => None,
+    };
+
+    let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
             let raster = raster.clone();
             let (width, height) = (raster.width(), raster.height());
@@ -123,7 +134,9 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
             EncodedImage::Raster { data, filter, has_color, width, height, icc, alpha }
         }
         ImageKind::Svg(svg) => EncodedImage::Svg(encode_svg(svg)),
-    })
+    });
+
+    (deferred, color_space)
 }
 
 /// Encode an image with a suitable filter and return the data, filter and
