@@ -2355,6 +2355,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "thin-vec"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a38c90d48152c236a3ab59271da4f4ae63d678c5d7ad6b7714d7cb9760be5e4b"
+
+[[package]]
 name = "thiserror"
 version = "1.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2812,6 +2818,7 @@ dependencies = [
  "portable-atomic",
  "rayon",
  "siphasher 1.0.0",
+ "thin-vec",
 ]
 
 [[package]]

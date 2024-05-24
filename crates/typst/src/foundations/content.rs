@@ -24,7 +24,7 @@ use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::utils::{fat, BitSet, LazyHash};
+use crate::utils::{fat, LazyHash, SmallBitSet};
 
 /// A piece of document content.
 ///
@@ -90,7 +90,7 @@ struct Inner<T: ?Sized + 'static> {
     /// - If bit 0 is set, the element is prepared.
     /// - If bit n is set, the element is guarded against the n-th show rule
     ///   recipe from the top of the style chain (counting from 1).
-    lifecycle: BitSet,
+    lifecycle: SmallBitSet,
     /// The element's raw data.
     elem: LazyHash<T>,
 }
@@ -102,7 +102,7 @@ impl Content {
             inner: Arc::new(Inner {
                 label: None,
                 location: None,
-                lifecycle: BitSet::new(),
+                lifecycle: SmallBitSet::new(),
                 elem: elem.into(),
             }),
             span: Span::detached(),

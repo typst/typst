@@ -10,7 +10,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Locatable, TagElem};
 use crate::text::TextElem;
-use crate::utils::{hash128, BitSet};
+use crate::utils::{hash128, SmallBitSet};
 
 /// What to do with an element when encountering it during realization.
 struct Verdict<'a> {
@@ -83,7 +83,7 @@ fn verdict<'a>(
 ) -> Option<Verdict<'a>> {
     let mut target = target;
     let mut map = Styles::new();
-    let mut revoked = BitSet::new();
+    let mut revoked = SmallBitSet::new();
     let mut step = None;
     let mut slot;
 
