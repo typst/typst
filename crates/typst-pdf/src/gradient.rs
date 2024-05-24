@@ -40,8 +40,8 @@ pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, R
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
-        for pdf_gradient in resources.gradients.items().cloned().collect::<Vec<_>>() {
-            if out.contains_key(&pdf_gradient) {
+        for pdf_gradient in resources.gradients.items() {
+            if out.contains_key(pdf_gradient) {
                 continue;
             }
 
@@ -122,7 +122,7 @@ pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, R
                     shading_pattern
                 }
                 Gradient::Conic(_) => {
-                    let vertices = compute_vertex_stream(&gradient, aspect_ratio);
+                    let vertices = compute_vertex_stream(&gradient, *aspect_ratio);
 
                     let stream_shading_id = chunk.alloc();
                     let mut stream_shading =
@@ -155,7 +155,7 @@ pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, R
                 }
             };
 
-            shading_pattern.matrix(transform_to_array(transform));
+            shading_pattern.matrix(transform_to_array(*transform));
         }
     });
 

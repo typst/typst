@@ -263,7 +263,6 @@ impl PdfPageLabelStyle {
 }
 
 /// Data for an exported page.
-#[derive(Clone)]
 pub struct EncodedPage {
     pub content: content::Encoded,
     pub label: Option<PdfPageLabel>,

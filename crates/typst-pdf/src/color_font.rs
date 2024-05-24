@@ -182,7 +182,6 @@ pub struct ColorFont {
 }
 
 /// A single color glyph.
-#[derive(Clone)]
 pub struct ColorGlyph {
     /// The ID of the glyph.
     pub gid: u16,

@@ -549,7 +549,6 @@ fn hash_base64<T: Hash>(value: &T) -> String {
 }
 
 /// Assigns new, consecutive PDF-internal indices to items.
-#[derive(Clone)]
 struct Remapper<T> {
     /// Forwards from the items to the pdf indices.
     to_pdf: HashMap<T, usize>,

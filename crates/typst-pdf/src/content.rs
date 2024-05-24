@@ -55,7 +55,6 @@ pub fn build<'a, 'b>(
     }
 }
 
-#[derive(Clone)]
 pub struct Encoded {
     /// The dimensions of the content.
     pub size: Size,

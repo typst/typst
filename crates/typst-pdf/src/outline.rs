@@ -119,7 +119,7 @@ pub(crate) fn write_outline(
 }
 
 /// A heading in the outline panel.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct HeadingNode<'a> {
     element: &'a Packed<HeadingElem>,
     level: NonZeroUsize,
