@@ -445,7 +445,7 @@ pub(crate) fn decorate_frame(
         let rects = styled_rect(
             Size::new(2.0 * deco.extent + width, height),
             *radius,
-            Some(fill.clone()),
+            fill.clone(),
             stroke.clone(),
         );
         let origin = Point::new(pos.x - deco.extent, pos.y - shift);

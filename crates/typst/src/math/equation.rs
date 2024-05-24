@@ -19,7 +19,7 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    decorate_frame
+    decorate_frame,
     families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
@@ -302,18 +302,19 @@ impl Packed<EquationElem> {
                     last_frame = Some(frame);
                     last_frame_shift = Some(shift);
                 }
-                MathParItem::Space(width) => {
-                    if let Some(ref mut frame) = last_frame {
-                        let (size, shift) = (
-                            Size::new(*width, size.to_point().y),
-                            last_frame_shift.unwrap(),
-                        );
-                        let new_pos = pos + Point::new(frame.width(), Abs::zero());
-                        for deco in &decos {
-                            decorate_frame(frame, deco, new_pos, size, shift);
-                        }
-                    }
-                }
+                MathParItem::Space(_) => {}
+                // MathParItem::Space(width) => {
+                //     if let Some(ref mut frame) = last_frame {
+                //         let (size, shift) = (
+                //             Size::new(*width, size.to_point().y),
+                //             last_frame_shift.unwrap(),
+                //         );
+                //         let new_pos = pos + Point::new(frame.width(), Abs::zero());
+                //         for deco in &decos {
+                //             decorate_frame(frame, deco, new_pos, size, shift);
+                //         }
+                //     }
+                // }
             };
         }
 
