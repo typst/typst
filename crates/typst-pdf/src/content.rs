@@ -21,10 +21,11 @@ use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
 
-use crate::{
-    color::PaintEncode, color_font::ColorFontMap, deflate_deferred, extg::ExtGState,
-    image::deferred_image, AbsExt, BuildContent, EmExt, Resources,
-};
+use crate::color::PaintEncode;
+use crate::color_font::ColorFontMap;
+use crate::extg::ExtGState;
+use crate::image::deferred_image;
+use crate::{deflate_deferred, AbsExt, BuildContent, EmExt, Resources};
 
 pub fn build<'a, 'b>(
     state: &'a BuildContent<'b>,
