@@ -18,7 +18,7 @@ use crate::text::{
     decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
     TextElem, TextItem,
 };
-use crate::util::SliceExt;
+use crate::utils::SliceExt;
 use crate::World;
 
 /// The result of shaping text.
@@ -225,7 +225,6 @@ impl<'a> ShapedText<'a> {
         frame.set_baseline(top);
 
         let shift = TextElem::baseline_in(self.styles);
-        let lang = TextElem::lang_in(self.styles);
         let decos = TextElem::deco_in(self.styles);
         let fill = TextElem::fill_in(self.styles);
         let stroke = TextElem::stroke_in(self.styles);
@@ -306,7 +305,8 @@ impl<'a> ShapedText<'a> {
             let item = TextItem {
                 font,
                 size: self.size,
-                lang,
+                lang: self.lang,
+                region: self.region,
                 fill: fill.clone(),
                 stroke: stroke.clone().map(|s| s.unwrap_or_default()),
                 text: self.text[range.start - self.base..range.end - self.base].into(),
@@ -447,6 +447,15 @@ impl<'a> ShapedText<'a> {
 
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, engine: &Engine, fallback: bool) {
+        self.insert_hyphen(engine, fallback, Side::Right)
+    }
+
+    /// Prepend a hyphen to start of the text.
+    pub fn prepend_hyphen(&mut self, engine: &Engine, fallback: bool) {
+        self.insert_hyphen(engine, fallback, Side::Left)
+    }
+
+    fn insert_hyphen(&mut self, engine: &Engine, fallback: bool, side: Side) {
         let world = engine.world;
         let book = world.book();
         let fallback_func = if fallback {
@@ -464,17 +473,17 @@ impl<'a> ShapedText<'a> {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            let range = self
-                .glyphs
-                .last()
-                .map(|g| g.range.end..g.range.end)
-                // In the unlikely chance that we hyphenate after an empty line,
-                // ensure that the glyph range still falls after self.base so
-                // that subtracting either of the endpoints by self.base doesn't
-                // underflow. See <https://github.com/typst/typst/issues/2283>.
-                .unwrap_or_else(|| self.base..self.base);
+            let range = match side {
+                Side::Left => self.glyphs.first().map(|g| g.range.start..g.range.start),
+                Side::Right => self.glyphs.last().map(|g| g.range.end..g.range.end),
+            }
+            // In the unlikely chance that we hyphenate after an empty line,
+            // ensure that the glyph range still falls after self.base so
+            // that subtracting either of the endpoints by self.base doesn't
+            // underflow. See <https://github.com/typst/typst/issues/2283>.
+            .unwrap_or_else(|| self.base..self.base);
             self.width += x_advance.at(self.size);
-            self.glyphs.to_mut().push(ShapedGlyph {
+            let glyph = ShapedGlyph {
                 font,
                 glyph_id: glyph_id.0,
                 x_advance,
@@ -487,7 +496,11 @@ impl<'a> ShapedText<'a> {
                 span: (Span::detached(), 0),
                 is_justifiable: false,
                 script: Script::Common,
-            });
+            };
+            match side {
+                Side::Left => self.glyphs.to_mut().insert(0, glyph),
+                Side::Right => self.glyphs.to_mut().push(glyph),
+            }
             Some(())
         });
     }

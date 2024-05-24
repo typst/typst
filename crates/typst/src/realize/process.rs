@@ -1,7 +1,6 @@
 use std::cell::OnceCell;
 
 use comemo::{Track, Tracked};
-use smallvec::smallvec;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -9,13 +8,13 @@ use crate::foundations::{
     Content, Context, Packed, Recipe, RecipeIndex, Regex, Selector, Show, ShowSet, Style,
     StyleChain, Styles, Synthesize, Transformation,
 };
-use crate::introspection::{Locatable, Meta, MetaElem};
+use crate::introspection::{Locatable, TagElem};
 use crate::text::TextElem;
-use crate::util::{hash128, BitSet};
+use crate::utils::{hash128, BitSet};
 
 /// What to do with an element when encountering it during realization.
 struct Verdict<'a> {
-    /// Whether the element is already prepated (i.e. things that should only
+    /// Whether the element is already prepared (i.e. things that should only
     /// happen once have happened).
     prepared: bool,
     /// A map of styles to apply to the element.
@@ -30,15 +29,6 @@ enum ShowStep<'a> {
     Recipe(&'a Recipe, RecipeIndex),
     /// The built-in show rule.
     Builtin,
-}
-
-/// Whether the `target` element needs processing.
-pub fn processable<'a>(
-    engine: &mut Engine,
-    target: &'a Content,
-    styles: StyleChain<'a>,
-) -> bool {
-    verdict(engine, target, styles).is_some()
 }
 
 /// Processes the given `target` element when encountering it during realization.
@@ -57,9 +47,9 @@ pub fn process(
 
     // If the element isn't yet prepared (we're seeing it for the first time),
     // prepare it.
-    let mut meta = None;
+    let mut tag = None;
     if !prepared {
-        meta = prepare(engine, &mut target, &mut map, styles)?;
+        tag = prepare(engine, &mut target, &mut map, styles)?;
     }
 
     // Apply a step, if there is one.
@@ -76,9 +66,9 @@ pub fn process(
         None => target,
     };
 
-    // If necessary, apply metadata generated in the preparation.
-    if let Some(meta) = meta {
-        output += meta.pack();
+    // If necessary, add the tag generated in the preparation.
+    if let Some(tag) = tag {
+        output = tag + output;
     }
 
     Ok(Some(output.styled_with_map(map)))
@@ -194,13 +184,18 @@ fn prepare(
     target: &mut Content,
     map: &mut Styles,
     styles: StyleChain,
-) -> SourceResult<Option<Packed<MetaElem>>> {
+) -> SourceResult<Option<Content>> {
     // Generate a location for the element, which uniquely identifies it in
     // the document. This has some overhead, so we only do it for elements
     // that are explicitly marked as locatable and labelled elements.
-    if target.can::<dyn Locatable>() || target.label().is_some() {
+    //
+    // The element could already have a location even if it is not prepared
+    // when it stems from a query.
+    let mut located = target.location().is_some();
+    if !located && (target.can::<dyn Locatable>() || target.label().is_some()) {
         let location = engine.locator.locate(hash128(&target));
         target.set_location(location);
+        located = true;
     }
 
     // Apply built-in show-set rules. User-defined show-set rules are already
@@ -220,24 +215,18 @@ fn prepare(
     // available in rules.
     target.materialize(styles.chain(map));
 
+    // If the element is locatable, create a tag element to be able to find the
+    // element in the frames after layout. Do this after synthesis and
+    // materialization, so that it includes the synthesized fields. Do it before
+    // marking as prepared so that show-set rules will apply to this element
+    // when queried.
+    let tag = located.then(|| TagElem::packed(target.clone()));
+
     // Ensure that this preparation only runs once by marking the element as
     // prepared.
     target.mark_prepared();
 
-    // Apply metadata be able to find the element in the frames.
-    // Do this after synthesis, so that it includes the synthesized fields.
-    if target.location().is_some() {
-        // Add a style to the whole element's subtree identifying it as
-        // belonging to the element.
-        map.set(MetaElem::set_data(smallvec![Meta::Elem(target.clone())]));
-
-        // Return an extra meta elem that will be attached so that the metadata
-        // styles are not lost in case the element's show rule results in
-        // nothing.
-        return Ok(Some(Packed::new(MetaElem::new()).spanned(target.span())));
-    }
-
-    Ok(None)
+    Ok(tag)
 }
 
 /// Apply a step.

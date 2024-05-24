@@ -9,7 +9,7 @@ use crate::layout::{
     Axes, Em, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel,
 };
 use crate::syntax::Span;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 
 /// A closed polygon.

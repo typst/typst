@@ -5,7 +5,7 @@ use ecow::EcoVec;
 use crate::diag::SourceDiagnostic;
 use crate::foundations::{Styles, Value};
 use crate::syntax::{FileId, Span};
-use crate::util::hash128;
+use crate::utils::hash128;
 
 /// Traces warnings and which values existed for an expression at a span.
 #[derive(Default, Clone)]

@@ -152,6 +152,16 @@ $ a + b = c $
 // Error: 52-67 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center + bottom)
 
+--- math-equation-number-align-monoline ---
+#set math.equation(numbering: "(1)")
+$ p = sum_k k ln a $
+
+#set math.equation(numbering: "(1)", number-align: top)
+$ p = sum_k k ln a $
+
+#set math.equation(numbering: "(1)", number-align: bottom)
+$ p = sum_k k ln a $
+
 --- math-equation-number-align-multiline ---
 #set math.equation(numbering: "(1)")
 
@@ -163,13 +173,17 @@ $ p &= ln a b \
 
 $ p &= ln a b \
     &= ln a + ln b $
+$ q &= sum_k k ln a \
+    &= sum_k ln A $
 
 --- math-equation-number-align-multiline-bottom ---
 #show math.equation: set align(left)
 #set math.equation(numbering: "(1)", number-align: bottom)
 
-$ q &= ln sqrt(a b) \
-    &= 1/2 (ln a + ln b) $
+$ p &= ln a b \
+    &= ln a + ln b $
+$ q &= sum_k ln A \
+    &= sum_k k ln a $
 
 --- math-equation-number-align-multiline-expand ---
 // Tests that if the numbering's layout box vertically exceeds the box of
@@ -180,22 +194,67 @@ $ q &= ln sqrt(a b) \
 // numbering's layout box. Note we use pattern "1" here, not "(1)", since
 // the parenthesis exceeds the numbering's layout box, due to the default
 // settings of top-edge and bottom-edge of the TextElem that laid it out.
+#let equations = [
+  #box($ - - - $, fill: silver)
+  #box(
+  $ - - - \
+    a = b $,
+  fill: silver)
+  #box(
+  $ a = b \
+    - - - $,
+  fill: silver)
+]
+
 #set math.equation(numbering: "1", number-align: top)
-#box(
-$ - &- - \
-  a &= b $,
-fill: silver)
+#equations
 
 #set math.equation(numbering: "1", number-align: horizon)
-#box(
-$ - - - $,
-fill: silver)
+#equations
 
 #set math.equation(numbering: "1", number-align: bottom)
-#box(
-$ a &= b \
-  - &- - $,
-fill: silver)
+#equations
+
+--- math-equation-number-align-multiline-no-expand ---
+// Tests that if the numbering's layout box doesn't vertically exceed the
+// box of the equation frame's boundary, the latter's frame size remains.
+// So, in the grid below, frames in each row should have the same height.
+#set math.equation(numbering: "1")
+#grid(
+  columns: 4 * (1fr,),
+  column-gutter: 3 * (2pt,),
+  row-gutter: 2pt,
+  align: horizon,
+  [
+    #set math.equation(number-align: horizon)
+    #box($ - - \ a \ sum $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: bottom)
+    #box($ - - \ a \ sum $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: horizon)
+    #box($ sum \ a \ - - $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: top)
+    #box($ sum \ a \ - - $, fill: silver)
+  ],
+
+  [
+    #set math.equation(number-align: horizon)
+    #box($ - - $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: top)
+    #box($ - - $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: bottom)
+    #box($ - - $, fill: silver)
+  ],
+)
 
 --- issue-numbering-hint ---
 // In this bug, the hint and error messages for an equation
@@ -210,3 +269,8 @@ $ <quadratic>
 // Error: 14-24 cannot reference equation without numbering
 // Hint: 14-24 you can enable equation numbering with `#set math.equation(numbering: "1.")`
 Looks at the @quadratic formula.
+
+--- issue-3696-equation-rtl ---
+#set page(width: 150pt)
+#set text(lang: "he")
+תהא סדרה $a_n$: $[a_n: 1, 1/2, 1/3, dots]$

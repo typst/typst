@@ -4,7 +4,7 @@ use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
     Abs, AlignElem, Axes, Fragment, Frame, LayoutMultiple, Point, Regions, Size,
 };
-use crate::util::Numeric;
+use crate::utils::Numeric;
 
 /// Repeats content to the available space.
 ///

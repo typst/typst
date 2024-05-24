@@ -5,7 +5,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use comemo::Prehashed;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{bail, FileError, FileResult, StrResult};
@@ -13,6 +12,7 @@ use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
 use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook, TextElem, TextSize};
+use typst::utils::LazyHash;
 use typst::visualize::Color;
 use typst::{Library, World};
 
@@ -35,11 +35,11 @@ impl TestWorld {
 }
 
 impl World for TestWorld {
-    fn library(&self) -> &Prehashed<Library> {
+    fn library(&self) -> &LazyHash<Library> {
         &self.base.library
     }
 
-    fn book(&self) -> &Prehashed<FontBook> {
+    fn book(&self) -> &LazyHash<FontBook> {
         &self.base.book
     }
 
@@ -81,8 +81,8 @@ impl TestWorld {
 
 /// Shared foundation of all test worlds.
 struct TestBase {
-    library: Prehashed<Library>,
-    book: Prehashed<FontBook>,
+    library: LazyHash<Library>,
+    book: LazyHash<FontBook>,
     fonts: Vec<Font>,
     slots: Mutex<HashMap<FileId, FileSlot>>,
 }
@@ -95,8 +95,8 @@ impl Default for TestBase {
             .collect();
 
         Self {
-            library: Prehashed::new(library()),
-            book: Prehashed::new(FontBook::from_fonts(&fonts)),
+            library: LazyHash::new(library()),
+            book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
             slots: Mutex::new(HashMap::new()),
         }

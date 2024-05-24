@@ -1,7 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
-use comemo::Prehashed;
 use ecow::EcoString;
 use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
@@ -13,6 +12,7 @@ use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
+use typst::utils::LazyHash;
 use typst::{Library, World};
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
@@ -429,7 +429,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         document.pages.truncate(1);
     }
 
-    let hash = typst::util::hash128(text);
+    let hash = typst::utils::hash128(text);
     resolver.example(hash, highlighted, &document)
 }
 
@@ -457,11 +457,11 @@ fn nest_heading(level: &mut md::HeadingLevel, nesting: usize) {
 struct DocWorld(Source);
 
 impl World for DocWorld {
-    fn library(&self) -> &Prehashed<Library> {
+    fn library(&self) -> &LazyHash<Library> {
         &LIBRARY
     }
 
-    fn book(&self) -> &Prehashed<FontBook> {
+    fn book(&self) -> &LazyHash<FontBook> {
         &FONTS.0
     }
 

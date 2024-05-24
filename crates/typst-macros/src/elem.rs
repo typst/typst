@@ -799,7 +799,7 @@ fn create_capable_impl(element: &Elem) -> TokenStream {
                 // Safety: The vtable function doesn't require initialized
                 // data, so it's fine to use a dangling pointer.
                 return Some(unsafe {
-                    ::typst::util::fat::vtable(dangling as *const dyn #capability)
+                    ::typst::utils::fat::vtable(dangling as *const dyn #capability)
                 });
             }
         }

@@ -93,12 +93,12 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
-    use comemo::Prehashed;
     use once_cell::sync::Lazy;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime};
     use typst::syntax::{FileId, Source};
     use typst::text::{Font, FontBook};
+    use typst::utils::LazyHash;
     use typst::{Library, World};
 
     /// A world for IDE testing.
@@ -120,11 +120,11 @@ mod tests {
     }
 
     impl World for TestWorld {
-        fn library(&self) -> &Prehashed<Library> {
+        fn library(&self) -> &LazyHash<Library> {
             &self.base.library
         }
 
-        fn book(&self) -> &Prehashed<FontBook> {
+        fn book(&self) -> &LazyHash<FontBook> {
             &self.base.book
         }
 
@@ -155,8 +155,8 @@ mod tests {
 
     /// Shared foundation of all test worlds.
     struct TestBase {
-        library: Prehashed<Library>,
-        book: Prehashed<FontBook>,
+        library: LazyHash<Library>,
+        book: LazyHash<FontBook>,
         fonts: Vec<Font>,
     }
 
@@ -168,8 +168,8 @@ mod tests {
                 .collect();
 
             Self {
-                library: Prehashed::new(Library::default()),
-                book: Prehashed::new(FontBook::from_fonts(&fonts)),
+                library: LazyHash::new(Library::default()),
+                book: LazyHash::new(FontBook::from_fonts(&fonts)),
                 fonts,
             }
         }

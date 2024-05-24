@@ -48,9 +48,9 @@ $ lr(
 --- math-lr-mid ---
 // Test middle functions
 $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } \
-  { integral |x| dif x
+  { integral |dot|
       mid(bar.v.double)
-    floor(hat(A) mid(|) { x mid(|) y } mid(|) A) } $
+    floor(hat(I) mid(slash) { dot mid(|) dot } mid(|) I/n) } $
 
 --- math-lr-unbalanced ---
 // Test unbalanced delimiters.

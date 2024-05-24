@@ -7,7 +7,7 @@ use ecow::EcoString;
 use crate::foundations::{cast, repr, Repr, Resolve, StyleChain, Value};
 use crate::layout::Abs;
 use crate::text::TextElem;
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 
 /// A length that is relative to the font size.
 ///
@@ -105,7 +105,7 @@ impl Add for Em {
     }
 }
 
-sub_impl!(Em - Em -> Em);
+typst_utils::sub_impl!(Em - Em -> Em);
 
 impl Mul<f64> for Em {
     type Output = Self;
@@ -139,10 +139,10 @@ impl Div for Em {
     }
 }
 
-assign_impl!(Em += Em);
-assign_impl!(Em -= Em);
-assign_impl!(Em *= f64);
-assign_impl!(Em /= f64);
+typst_utils::assign_impl!(Em += Em);
+typst_utils::assign_impl!(Em -= Em);
+typst_utils::assign_impl!(Em *= f64);
+typst_utils::assign_impl!(Em /= f64);
 
 impl Sum for Em {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {

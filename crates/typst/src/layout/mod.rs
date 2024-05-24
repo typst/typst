@@ -77,7 +77,7 @@ use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
 use crate::introspection::{Introspector, Locator};
 use crate::model::Document;
-use crate::realize::{realize_block, realize_root, Arenas};
+use crate::realize::{realize_doc, realize_flow, Arenas};
 use crate::World;
 
 /// Arranging elements on the page in different ways.
@@ -119,6 +119,11 @@ pub fn define(global: &mut Scope) {
 }
 
 /// Root-level layout.
+///
+/// This produces a complete document and is implemented for
+/// [`DocumentElem`][crate::model::DocumentElem]. Any [`Content`]
+/// can also be laid out at root level, in which case it is
+/// wrapped inside a document element.
 pub trait LayoutRoot {
     /// Layout into a document with one frame per page.
     fn layout_root(
@@ -128,7 +133,10 @@ pub trait LayoutRoot {
     ) -> SourceResult<Document>;
 }
 
-/// Layout into multiple regions.
+/// Layout into multiple [regions][Regions].
+///
+/// This is more appropriate for elements that, for example, can be
+/// laid out across multiple pages or columns.
 pub trait LayoutMultiple {
     /// Layout into one frame per region.
     fn layout(
@@ -160,7 +168,10 @@ pub trait LayoutMultiple {
     }
 }
 
-/// Layout into a single region.
+/// Layout into a single [region][Regions].
+///
+/// This is more appropriate for elements that don't make sense to
+/// layout across multiple pages or columns, such as shapes.
 pub trait LayoutSingle {
     /// Layout into one frame per region.
     fn layout(
@@ -196,7 +207,7 @@ impl LayoutRoot for Content {
                 tracer,
             };
             let arenas = Arenas::default();
-            let (document, styles) = realize_root(&mut engine, &arenas, content, styles)?;
+            let (document, styles) = realize_doc(&mut engine, &arenas, content, styles)?;
             document.layout_root(&mut engine, styles)
         }
 
@@ -247,14 +258,16 @@ impl LayoutMultiple for Content {
                 );
             }
 
+            // If we are in a `PageElem`, this might already be a realized flow.
+            if let Some(flow) = content.to_packed::<FlowElem>() {
+                return flow.layout(&mut engine, styles, regions);
+            }
+
+            // Layout the content by first turning it into a `FlowElem` and then
+            // layouting that.
             let arenas = Arenas::default();
-            let (realized, styles) =
-                realize_block(&mut engine, &arenas, content, styles)?;
-            realized.with::<dyn LayoutMultiple>().unwrap().layout(
-                &mut engine,
-                styles,
-                regions,
-            )
+            let (flow, styles) = realize_flow(&mut engine, &arenas, content, styles)?;
+            flow.layout(&mut engine, styles, regions)
         }
 
         let fragment = cached(

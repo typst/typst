@@ -1,9 +1,6 @@
-use smallvec::smallvec;
-
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Show, StyleChain};
-use crate::introspection::{Meta, MetaElem};
 
 /// Hides content without affecting layout.
 ///
@@ -22,11 +19,16 @@ pub struct HideElem {
     /// The content to hide.
     #[required]
     pub body: Content,
+
+    /// This style is set on the content contained in the `hide` element.
+    #[internal]
+    #[ghost]
+    pub hidden: bool,
 }
 
 impl Show for Packed<HideElem> {
     #[typst_macros::time(name = "hide", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(MetaElem::set_data(smallvec![Meta::Hide])))
+        Ok(self.body().clone().styled(HideElem::set_hidden(true)))
     }
 }

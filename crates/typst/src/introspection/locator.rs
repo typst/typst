@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use comemo::{Track, Tracked, Validate};
 
-use crate::introspection::{Location, Meta};
+use crate::introspection::Location;
 use crate::layout::{Frame, FrameItem};
 
 /// Provides locations for elements in the document.
@@ -69,7 +69,7 @@ impl<'a> Locator<'a> {
         self.hashes.get_mut().insert(hash, disambiguator + 1);
 
         // Create the location in its default variant.
-        Location { hash, disambiguator, variant: 0 }
+        Location { hash, disambiguator }
     }
 
     /// Advance past a frame.
@@ -77,7 +77,7 @@ impl<'a> Locator<'a> {
         for (_, item) in frame.items() {
             match item {
                 FrameItem::Group(group) => self.visit_frame(&group.frame),
-                FrameItem::Meta(Meta::Elem(elem), _) => {
+                FrameItem::Tag(elem) => {
                     let hashes = self.hashes.get_mut();
                     let loc = elem.location().unwrap();
                     let entry = hashes.entry(loc.hash).or_default();

@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
 use crate::layout::{Abs, Axis, Size, Transform};
-use crate::util::{Get, Numeric};
+use crate::utils::{Get, Numeric};
 
 /// A point in 2D.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
@@ -135,7 +135,7 @@ impl Add for Point {
     }
 }
 
-sub_impl!(Point - Point -> Point);
+typst_utils::sub_impl!(Point - Point -> Point);
 
 impl Mul<f64> for Point {
     type Output = Self;
@@ -161,7 +161,7 @@ impl Div<f64> for Point {
     }
 }
 
-assign_impl!(Point += Point);
-assign_impl!(Point -= Point);
-assign_impl!(Point *= f64);
-assign_impl!(Point /= f64);
+typst_utils::assign_impl!(Point += Point);
+typst_utils::assign_impl!(Point -= Point);
+typst_utils::assign_impl!(Point *= f64);
+typst_utils::assign_impl!(Point /= f64);

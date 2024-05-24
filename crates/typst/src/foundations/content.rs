@@ -18,13 +18,13 @@ use crate::foundations::{
     NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
     Value,
 };
-use crate::introspection::{Location, Meta, MetaElem};
+use crate::introspection::{Location, TagElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, StrongElem};
+use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::util::{fat, BitSet, LazyHash};
+use crate::utils::{fat, BitSet, LazyHash};
 
 /// A piece of document content.
 ///
@@ -472,16 +472,16 @@ impl Content {
 
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
-        self.styled(MetaElem::set_data(smallvec![Meta::Link(dest)]))
+        self.styled(LinkElem::set_dests(smallvec![dest]))
     }
 
     /// Make the content linkable by `.linked(Destination::Location(loc))`.
     ///
     /// Should be used in combination with [`Location::variant`].
     pub fn backlinked(self, loc: Location) -> Self {
-        let mut backlink = Content::empty();
+        let mut backlink = Content::empty().spanned(self.span());
         backlink.set_location(loc);
-        self.styled(MetaElem::set_data(smallvec![Meta::Elem(backlink)]))
+        TagElem::packed(backlink) + self
     }
 
     /// Set alignments for this content.
@@ -711,7 +711,7 @@ impl<T: NativeElement> Bounds for T {
                 label: inner.label,
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
-                elem: LazyHash::with_hash(self.clone(), inner.elem.hash()),
+                elem: LazyHash::reuse(self.clone(), &inner.elem),
             }),
             span,
         }

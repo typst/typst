@@ -37,8 +37,6 @@
 
 extern crate self as typst;
 
-#[macro_use]
-pub mod util;
 pub mod diag;
 pub mod engine;
 pub mod eval;
@@ -55,11 +53,13 @@ pub mod visualize;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
+#[doc(inline)]
+pub use typst_utils as utils;
 
 use std::collections::HashSet;
 use std::ops::{Deref, Range};
 
-use comemo::{Prehashed, Track, Tracked, Validate};
+use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
 use typst_timing::{timed, TimingScope};
 
@@ -75,6 +75,7 @@ use crate::model::Document;
 use crate::syntax::package::PackageSpec;
 use crate::syntax::{FileId, Source, Span};
 use crate::text::{Font, FontBook};
+use crate::utils::LazyHash;
 use crate::visualize::Color;
 
 /// Compile a source file into a fully layouted document.
@@ -168,7 +169,7 @@ fn typeset(
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
     let mut unique = HashSet::new();
     diags.retain(|diag| {
-        let hash = crate::util::hash128(&(&diag.span, &diag.message));
+        let hash = crate::utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)
     });
     diags
@@ -190,14 +191,14 @@ fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> 
 /// [edit](Source::edit) them in-place to benefit from better incremental
 /// performance.
 #[comemo::track]
-pub trait World {
+pub trait World: Send + Sync {
     /// The standard library.
     ///
     /// Can be created through `Library::build()`.
-    fn library(&self) -> &Prehashed<Library>;
+    fn library(&self) -> &LazyHash<Library>;
 
     /// Metadata about all known fonts.
-    fn book(&self) -> &Prehashed<FontBook>;
+    fn book(&self) -> &LazyHash<FontBook>;
 
     /// Access the main source file.
     fn main(&self) -> Source;
@@ -234,11 +235,11 @@ pub trait World {
 macro_rules! delegate_for_ptr {
     ($W:ident for $ptr:ty) => {
         impl<$W: World> World for $ptr {
-            fn library(&self) -> &Prehashed<Library> {
+            fn library(&self) -> &LazyHash<Library> {
                 self.deref().library()
             }
 
-            fn book(&self) -> &Prehashed<FontBook> {
+            fn book(&self) -> &LazyHash<FontBook> {
                 self.deref().book()
             }
 

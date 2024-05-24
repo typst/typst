@@ -14,7 +14,7 @@ use crate::foundations::{
     Styles, Value,
 };
 use crate::text::{Lang, Region};
-use crate::util::Static;
+use crate::utils::Static;
 
 #[doc(inline)]
 pub use typst_macros::elem;
