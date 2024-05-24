@@ -25,15 +25,11 @@ use crate::color::PaintEncode;
 use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate_deferred, AbsExt, BuildContent, EmExt, Resources};
+use crate::{deflate_deferred, AbsExt, EmExt, Resources};
 
-pub fn build<'a, 'b>(
-    state: &'a BuildContent<'b>,
-    out: &'a mut Resources<'b, ()>,
-    frame: &Frame,
-) -> Encoded {
+pub fn build<'a>(out: &'a mut Resources<()>, frame: &Frame) -> Encoded {
     let size = frame.size();
-    let mut ctx = Builder::new(state, out, size);
+    let mut ctx = Builder::new(out, size);
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
@@ -73,9 +69,8 @@ pub struct Encoded {
 ///
 /// Content streams can be used for page contents, but also to describe color
 /// glyphs and patterns.
-pub struct Builder<'a, 'b, R = ()> {
-    pub(crate) global_state: &'a BuildContent<'b>,
-    pub(crate) resources: &'a mut Resources<'b, R>,
+pub struct Builder<'a, R = ()> {
+    pub(crate) resources: &'a mut Resources<R>,
     pub content: Content,
     state: State,
     saves: Vec<State>,
@@ -84,14 +79,9 @@ pub struct Builder<'a, 'b, R = ()> {
     links: Vec<(Destination, Rect)>,
 }
 
-impl<'a, 'b, R> Builder<'a, 'b, R> {
-    pub fn new(
-        state: &'a BuildContent<'b>,
-        resources: &'a mut Resources<'b, R>,
-        size: Size,
-    ) -> Self {
+impl<'a, R> Builder<'a, R> {
+    pub fn new(resources: &'a mut Resources<R>, size: Size) -> Self {
         Builder {
-            global_state: state,
             resources,
             uses_opacities: false,
             content: Content::new(),
@@ -163,7 +153,7 @@ pub(super) struct Transforms {
     pub size: Size,
 }
 
-impl Builder<'_, '_, ()> {
+impl Builder<'_, ()> {
     fn save_state(&mut self) {
         self.saves.push(self.state.clone());
         self.content.save_state();
@@ -514,9 +504,10 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.
-        let color_fonts = ctx.resources.color_fonts.get_or_insert_with(|| {
-            Box::new(ColorFontMap::new(ctx.global_state.document))
-        });
+        let color_fonts = ctx
+            .resources
+            .color_fonts
+            .get_or_insert_with(|| Box::new(ColorFontMap::new()));
         let (font, index) = color_fonts.get(&text.item.font, glyph.id);
 
         if last_font != Some(font) {

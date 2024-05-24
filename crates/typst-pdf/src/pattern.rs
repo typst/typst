@@ -6,14 +6,11 @@ use pdf_writer::{
     Filter, Name, Rect, Ref,
 };
 
+use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
-use typst::{
-    layout::{Abs, Ratio, Transform},
-    model::Document,
-};
 
-use crate::{color::PaintEncode, AllocRefs, BuildContent, Remapper, Resources};
+use crate::{color::PaintEncode, AllocRefs, Remapper, Resources};
 use crate::{content, resources::ResourcesRefs};
 use crate::{transform_to_array, PdfChunk, Renumber};
 
@@ -113,7 +110,7 @@ fn register_pattern(
     let patterns = ctx
         .resources
         .patterns
-        .get_or_insert_with(|| Box::new(PatternRemapper::new(ctx.global_state.document)));
+        .get_or_insert_with(|| Box::new(PatternRemapper::new()));
 
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
@@ -130,7 +127,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(&patterns.ctx, &mut patterns.resources, pattern.frame());
+    let content = content::build(&mut patterns.resources, pattern.frame());
 
     let pdf_pattern = PdfPattern {
         transform,
@@ -175,25 +172,22 @@ impl PaintEncode for Pattern {
     }
 }
 
-pub struct PatternRemapper<'a, R> {
+pub struct PatternRemapper<R> {
     pub remapper: Remapper<PdfPattern>,
-    pub ctx: BuildContent<'a>,
-    pub resources: Resources<'a, R>,
+    pub resources: Resources<R>,
 }
 
-impl<'a> PatternRemapper<'a, ()> {
-    pub fn new(document: &'a Document) -> Self {
+impl<'a> PatternRemapper<()> {
+    pub fn new() -> Self {
         Self {
             remapper: Remapper::new(),
-            ctx: BuildContent { document },
             resources: Resources::default(),
         }
     }
 
-    pub fn with_refs(self, refs: &ResourcesRefs) -> PatternRemapper<'a, Ref> {
+    pub fn with_refs(self, refs: &ResourcesRefs) -> PatternRemapper<Ref> {
         PatternRemapper {
             remapper: self.remapper,
-            ctx: self.ctx,
             resources: self.resources.with_refs(refs),
         }
     }

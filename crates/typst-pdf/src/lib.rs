@@ -150,7 +150,7 @@ struct BuildContent<'a> {
 /// dictionary will only be allocated in the next phase, once we know the shape
 /// of the tree, at which point `R` becomes `Ref`. No other value of `R` should
 /// ever exist.
-struct Resources<'a, R = Ref> {
+struct Resources<R = Ref> {
     /// The global reference to this resource dictionary, or `()` if it has not
     /// been allocated yet.
     reference: R,
@@ -181,14 +181,14 @@ struct Resources<'a, R = Ref> {
     /// Deduplicates gradients used across the document.
     gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
-    patterns: Option<Box<PatternRemapper<'a, R>>>,
+    patterns: Option<Box<PatternRemapper<R>>>,
     /// Deduplicates external graphics states used across the document.
     ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
-    color_fonts: Option<Box<ColorFontMap<'a, R>>>,
+    color_fonts: Option<Box<ColorFontMap<R>>>,
 }
 
-impl<'a, R: Renumber> Renumber for Resources<'a, R> {
+impl<R: Renumber> Renumber for Resources<R> {
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         self.reference.renumber(mapping);
 
@@ -202,7 +202,7 @@ impl<'a, R: Renumber> Renumber for Resources<'a, R> {
     }
 }
 
-impl<'a> Default for Resources<'a, ()> {
+impl Default for Resources<()> {
     fn default() -> Self {
         Resources {
             reference: (),
@@ -221,10 +221,10 @@ impl<'a> Default for Resources<'a, ()> {
     }
 }
 
-impl<'a> Resources<'a, ()> {
+impl Resources<()> {
     /// Associate a reference with this resource dictionary (and do so
     /// recursively for sub-resources).
-    fn with_refs(self, refs: &ResourcesRefs) -> Resources<'a, Ref> {
+    fn with_refs(self, refs: &ResourcesRefs) -> Resources<Ref> {
         Resources {
             reference: refs.reference,
             pages: self.pages,
@@ -248,7 +248,7 @@ impl<'a> Resources<'a, ()> {
     }
 }
 
-impl<'a, R> Resources<'a, R> {
+impl<R> Resources<R> {
     /// Run a function on this resource dictionary and all
     /// of its sub-resources.
     fn traverse<P>(&self, process: &mut P)
@@ -271,7 +271,7 @@ impl<'a, R> Resources<'a, R> {
 /// This phase allocates some global references.
 struct AllocGlobalRefs<'a> {
     document: &'a Document,
-    resources: Resources<'a, ()>,
+    resources: Resources<()>,
 }
 
 /// Global references
@@ -281,8 +281,8 @@ struct GlobalRefs {
     resources: ResourcesRefs,
 }
 
-impl<'a> From<(BuildContent<'a>, Resources<'a, ()>)> for AllocGlobalRefs<'a> {
-    fn from((previous, resources): (BuildContent<'a>, Resources<'a, ()>)) -> Self {
+impl<'a> From<(BuildContent<'a>, Resources<()>)> for AllocGlobalRefs<'a> {
+    fn from((previous, resources): (BuildContent<'a>, Resources<()>)) -> Self {
         Self { document: previous.document, resources }
     }
 }
@@ -295,7 +295,7 @@ impl<'a> From<(BuildContent<'a>, Resources<'a, ()>)> for AllocGlobalRefs<'a> {
 struct AllocRefs<'a> {
     document: &'a Document,
     globals: GlobalRefs,
-    resources: Resources<'a>,
+    resources: Resources,
 }
 
 impl<'a> From<(AllocGlobalRefs<'a>, GlobalRefs)> for AllocRefs<'a> {
@@ -331,7 +331,7 @@ struct References {
 struct WritePageTree<'a> {
     globals: GlobalRefs,
     document: &'a Document,
-    resources: Resources<'a>,
+    resources: Resources,
     references: References,
 }
 
@@ -352,7 +352,7 @@ impl<'a> From<(AllocRefs<'a>, References)> for WritePageTree<'a> {
 struct WriteResources<'a> {
     globals: GlobalRefs,
     document: &'a Document,
-    resources: Resources<'a>,
+    resources: Resources,
     references: References,
     page_tree_ref: Ref,
 }
