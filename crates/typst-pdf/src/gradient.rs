@@ -59,7 +59,7 @@ pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, R
             let mut shading_pattern = match &gradient {
                 Gradient::Linear(_) => {
                     let shading_function =
-                        shading_function(&gradient, &mut chunk, color_space);
+                        shading_function(gradient, &mut chunk, color_space);
                     let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Axial);
@@ -95,11 +95,8 @@ pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, R
                     shading_pattern
                 }
                 Gradient::Radial(radial) => {
-                    let shading_function = shading_function(
-                        &gradient,
-                        &mut chunk,
-                        color_space_of(&gradient),
-                    );
+                    let shading_function =
+                        shading_function(gradient, &mut chunk, color_space_of(gradient));
                     let mut shading_pattern = chunk.chunk.shading_pattern(shading);
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Radial);
@@ -122,7 +119,7 @@ pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, R
                     shading_pattern
                 }
                 Gradient::Conic(_) => {
-                    let vertices = compute_vertex_stream(&gradient, *aspect_ratio);
+                    let vertices = compute_vertex_stream(gradient, *aspect_ratio);
 
                     let stream_shading_id = chunk.alloc();
                     let mut stream_shading =
