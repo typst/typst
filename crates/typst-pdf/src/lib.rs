@@ -19,20 +19,9 @@ use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
-use catalog::write_catalog;
-use color::{alloc_color_functions_refs, ColorFunctionRefs};
-use color_font::{write_color_fonts, ColorFontSlice};
 use ecow::EcoString;
-use extg::write_graphic_states;
-use font::write_fonts;
-use gradient::write_gradients;
-use image::write_images;
-use named_destination::write_named_destinations;
-use page::{alloc_page_refs, traverse_pages, write_page_tree, PageTreeRef};
-use pattern::{write_patterns, PatternRemapper};
 use pdf_writer::{Chunk, Pdf, Ref};
 
-use resources::{alloc_resources_refs, write_resource_dictionaries, ResourcesRefs};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, Transform};
 use typst::model::Document;
@@ -40,14 +29,21 @@ use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
 
-use crate::color::ColorSpaces;
-use crate::color_font::ColorFontMap;
-use crate::extg::ExtGState;
-use crate::gradient::PdfGradient;
-use crate::image::EncodedImage;
-use crate::named_destination::NamedDestinations;
-use crate::page::EncodedPage;
-use crate::pattern::{PdfPattern, WrittenPattern};
+use crate::catalog::write_catalog;
+use crate::color::{alloc_color_functions_refs, ColorFunctionRefs, ColorSpaces};
+use crate::color_font::{write_color_fonts, ColorFontMap, ColorFontSlice};
+use crate::extg::{write_graphic_states, ExtGState};
+use crate::font::write_fonts;
+use crate::gradient::{write_gradients, PdfGradient};
+use crate::image::{write_images, EncodedImage};
+use crate::named_destination::{write_named_destinations, NamedDestinations};
+use crate::page::{
+    alloc_page_refs, traverse_pages, write_page_tree, EncodedPage, PageTreeRef,
+};
+use crate::pattern::{write_patterns, PatternRemapper, PdfPattern, WrittenPattern};
+use crate::resources::{
+    alloc_resources_refs, write_resource_dictionaries, ResourcesRefs,
+};
 
 /// Export a document into a PDF file.
 ///
