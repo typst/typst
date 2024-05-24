@@ -56,12 +56,6 @@ pub fn alloc_page_refs(context: &AllocGlobalRefs) -> (PdfChunk, Vec<Ref>) {
 
 pub struct PageTreeRef(pub Ref);
 
-impl Default for PageTreeRef {
-    fn default() -> Self {
-        PageTreeRef(Ref::new(1))
-    }
-}
-
 impl Renumber for PageTreeRef {
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         self.0.renumber(mapping)

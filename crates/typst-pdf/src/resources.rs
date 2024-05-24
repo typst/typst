@@ -17,16 +17,6 @@ pub struct ResourcesRefs {
     pub patterns: Option<Box<ResourcesRefs>>,
 }
 
-impl Default for ResourcesRefs {
-    fn default() -> Self {
-        Self {
-            reference: Ref::new(1),
-            color_fonts: None,
-            patterns: None,
-        }
-    }
-}
-
 impl Renumber for ResourcesRefs {
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         self.reference.renumber(mapping);

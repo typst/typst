@@ -175,16 +175,6 @@ pub struct ColorFunctionRefs {
     d65_gray: Ref,
 }
 
-impl Default for ColorFunctionRefs {
-    fn default() -> Self {
-        Self {
-            oklab: Ref::new(1),
-            srgb: Ref::new(1),
-            d65_gray: Ref::new(1),
-        }
-    }
-}
-
 impl Renumber for ColorFunctionRefs {
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         self.oklab.renumber(mapping);

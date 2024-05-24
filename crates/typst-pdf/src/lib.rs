@@ -71,23 +71,23 @@ pub fn pdf(
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     PdfBuilder::new(document)
-        .run(traverse_pages, |r| r)
-        .transition::<GlobalRefs, AllocGlobalRefs>()
-        .run(alloc_page_refs, |g| &mut g.pages)
-        .run(alloc_color_functions_refs, |g| &mut g.color_functions)
-        .run(alloc_resources_refs, |g| &mut g.resources)
-        .transition::<References, AllocRefs>()
-        .run(write_color_fonts, |r| &mut r.color_fonts)
-        .run(write_fonts, |r| &mut r.fonts)
-        .run(write_images, |r| &mut r.images)
-        .run(write_gradients, |r| &mut r.gradients)
-        .run(write_graphic_states, |r: &mut References| &mut r.ext_gs)
-        .run(write_patterns, |r| &mut r.patterns)
-        .run(write_named_destinations, |r| &mut r.named_destinations)
-        .transition::<PageTreeRef, WritePageTree>()
-        .run(write_page_tree, |r| r)
-        .transition::<(), WriteResources>()
-        .run(write_resource_dictionaries, |x| x)
+        .phase(|builder| builder.run(traverse_pages))
+        .phase(|builder| GlobalRefs {
+            color_functions: builder.run(alloc_color_functions_refs),
+            pages: builder.run(alloc_page_refs),
+            resources: builder.run(alloc_resources_refs),
+        })
+        .phase(|builder| References {
+            named_destinations: builder.run(write_named_destinations),
+            fonts: builder.run(write_fonts),
+            color_fonts: builder.run(write_color_fonts),
+            images: builder.run(write_images),
+            gradients: builder.run(write_gradients),
+            patterns: builder.run(write_patterns),
+            ext_gs: builder.run(write_graphic_states),
+        })
+        .phase(|builder| builder.run(write_page_tree))
+        .phase(|builder| builder.run(write_resource_dictionaries))
         .export_with(ident, timestamp, write_catalog)
 }
 
@@ -110,11 +110,9 @@ pub fn pdf(
 ///
 /// A final step, that has direct access to the global reference allocator and
 /// PDF document, can be run with [`PdfBuilder::export_with`].
-struct PdfBuilder<S, B> {
+struct PdfBuilder<S> {
     /// The context that has been accumulated so far.
     state: S,
-    /// A new part of the context that is currently being built.
-    building: B,
     /// A global bump allocator.
     alloc: Ref,
     /// The PDF document that is being written.
@@ -277,7 +275,6 @@ struct AllocGlobalRefs<'a> {
 }
 
 /// Global references
-#[derive(Default)]
 struct GlobalRefs {
     color_functions: ColorFunctionRefs,
     pages: Vec<Ref>,
@@ -312,7 +309,6 @@ impl<'a> From<(AllocGlobalRefs<'a>, GlobalRefs)> for AllocRefs<'a> {
 }
 
 /// The references that have been assigned to each object.
-#[derive(Default)]
 struct References {
     named_destinations: NamedDestinations,
     /// The IDs of written fonts.
@@ -361,6 +357,12 @@ struct WriteResources<'a> {
     page_tree_ref: Ref,
 }
 
+impl<'a> From<(WriteResources<'a>, ())> for WriteResources<'a> {
+    fn from((this, _): (WriteResources<'a>, ())) -> Self {
+        this
+    }
+}
+
 impl<'a> From<(WritePageTree<'a>, PageTreeRef)> for WriteResources<'a> {
     fn from((previous, page_tree_ref): (WritePageTree<'a>, PageTreeRef)) -> Self {
         Self {
@@ -373,28 +375,41 @@ impl<'a> From<(WritePageTree<'a>, PageTreeRef)> for WriteResources<'a> {
     }
 }
 
-impl<'a> PdfBuilder<BuildContent<'a>, Resources<'a, ()>> {
+impl<'a> PdfBuilder<BuildContent<'a>> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
             alloc: Ref::new(1),
             pdf: Pdf::new(),
             state: BuildContent { document },
-            building: Resources::default(),
         }
     }
 }
 
-impl<S, B> PdfBuilder<S, B> {
-    /// Runs a step with the current state.
-    fn run<P, O, F>(mut self, process: P, save: F) -> Self
+impl<S> PdfBuilder<S> {
+    fn phase<NS, B, O>(mut self, builder: B) -> PdfBuilder<NS>
+    where
+        // New state
+        NS: From<(S, O)>,
+        // Builder
+        B: Fn(&mut Self) -> O,
+    {
+        let output = builder(&mut self);
+        PdfBuilder {
+            state: NS::from((self.state, output)),
+            alloc: self.alloc,
+            pdf: self.pdf,
+        }
+    }
+
+    /// Runs a step with the current state, merge its output in the PDF file,
+    /// and renumber any references it returned.
+    fn run<P, O>(&mut self, process: P) -> O
     where
         // Process
         P: Fn(&S) -> (PdfChunk, O),
         // Output
         O: Renumber,
-        // Field access
-        F: for<'a> Fn(&'a mut B) -> &'a mut O,
     {
         let (chunk, mut output) = process(&self.state);
 
@@ -410,22 +425,7 @@ impl<S, B> PdfBuilder<S, B> {
         // Also update the references in the output
         output.renumber(&mapping);
 
-        *save(&mut self.building) = output;
-
-        self
-    }
-
-    /// Transitions to the next phase.
-    ///
-    /// The two type arguments are what is going to be built in this new phase,
-    /// and what state is available in this phase, respectively.
-    fn transition<NB: Default, NS: From<(S, B)>>(self) -> PdfBuilder<NS, NB> {
-        PdfBuilder {
-            state: NS::from((self.state, self.building)),
-            building: NB::default(),
-            alloc: self.alloc,
-            pdf: self.pdf,
-        }
+        output
     }
 
     /// Finalize the PDF export and returns the buffer representing the
