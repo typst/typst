@@ -233,10 +233,10 @@ pub struct RawElem {
     /// ````
     #[parse(
         let (theme_path, theme_data) = parse_theme(engine, args)?;
-        theme_path.map(Some)
+        theme_path
     )]
     #[borrowed]
-    pub theme: Option<EcoString>,
+    pub theme: Smart<EcoString>,
 
     /// The raw file buffer of syntax theme file.
     #[internal]
@@ -321,7 +321,7 @@ impl Packed<RawElem> {
                 .unwrap()
         });
 
-        let theme = theme.as_deref().unwrap_or(&RAW_THEME);
+        let theme = theme.as_ref().map(std::ops::Deref::deref).unwrap_or(&RAW_THEME);
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
@@ -784,10 +784,17 @@ fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
 fn parse_theme(
     engine: &mut Engine,
     args: &mut Args,
-) -> SourceResult<(Option<EcoString>, Option<Bytes>)> {
-    let Some(Spanned { v: path, span }) = args.named::<Spanned<EcoString>>("theme")?
+) -> SourceResult<(Option<Smart<EcoString>>, Option<Bytes>)> {
+    let Some(Spanned { v: path, span }) =
+        args.named::<Spanned<Smart<EcoString>>>("theme")?
     else {
+        // Argument `theme` not found.
         return Ok((None, None));
+    };
+
+    let Smart::Custom(path) = path else {
+        // Argument `theme` is `auto`.
+        return Ok((Some(Smart::Auto), None));
     };
 
     // Load theme file.
@@ -797,7 +804,7 @@ fn parse_theme(
     // Check that parsing works.
     let _ = load_theme(&path, &data).at(span)?;
 
-    Ok((Some(path), Some(data)))
+    Ok((Some(Smart::Custom(path)), Some(data)))
 }
 
 /// The syntect syntax definitions.
