@@ -59,12 +59,14 @@ pub fn alloc_resources_refs(context: &AllocGlobalRefs) -> (PdfChunk, ResourcesRe
     (chunk, refs)
 }
 
-/// Write the global resource dictionary that will be referenced by all pages.
+/// Write the resource dictionaries that will be referenced by all pages.
 ///
 /// We add a reference to this dictionary to each page individually instead of
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
-pub fn write_global_resources(ctx: &WriteResources) -> (PdfChunk, ()) {
+///
+/// Also write resource dictionaries for Type3 fonts and patterns.
+pub fn write_resource_dictionaries(ctx: &WriteResources) -> (PdfChunk, ()) {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
 

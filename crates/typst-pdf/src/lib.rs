@@ -32,7 +32,7 @@ use page::{alloc_page_refs, traverse_pages, write_page_tree, PageTreeRef};
 use pattern::{write_patterns, PatternRemapper};
 use pdf_writer::{Chunk, Pdf, Ref};
 
-use resources::{alloc_resources_refs, write_global_resources, ResourcesRefs};
+use resources::{alloc_resources_refs, write_resource_dictionaries, ResourcesRefs};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, Transform};
 use typst::model::Document;
@@ -91,7 +91,7 @@ pub fn pdf(
         .transition::<PageTreeRef, WritePageTree>()
         .run(write_page_tree, |r| r)
         .transition::<(), WriteResources>()
-        .run(write_global_resources, |x| x)
+        .run(write_resource_dictionaries, |x| x)
         .export_with(ident, timestamp, write_catalog)
 }
 
