@@ -32,6 +32,7 @@ ttf-parser = { workspace = true }
 unicode-properties = { workspace = true }
 unscanny = { workspace = true }
 xmp-writer = { workspace = true }
+rayon = { workspace = true }
 
 [lints]
 workspace = true
