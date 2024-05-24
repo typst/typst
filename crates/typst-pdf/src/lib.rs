@@ -141,20 +141,20 @@ struct BuildContent<'a> {
 /// streams, just like pages, they can refer to resources too, which are tracked
 /// by the respective sub-resources.
 ///
-/// Each instance of this structure will become a `/Resources` dictionnary in
-/// the final PDF. It is not possible to use a single shared dictionnary for all
+/// Each instance of this structure will become a `/Resources` dictionary in
+/// the final PDF. It is not possible to use a single shared dictionary for all
 /// pages, patterns and color fonts, because if a resource is listed in its own
-/// `/Resources` dictionnary, some PDF readers will fail to open the document.
+/// `/Resources` dictionary, some PDF readers will fail to open the document.
 ///
 /// Because we need to lazily initialize sub-resources (we don't know how deep
 /// the tree will be before reading the document), and that this is done in a
 /// context where no PDF reference allocator is available, `Resources` are
 /// originally created with the type parameter `R = ()`. The reference for each
-/// dictionnary will only be allocated in the next phase, once we know the shape
+/// dictionary will only be allocated in the next phase, once we know the shape
 /// of the tree, at which point `R` becomes `Ref`. No other value of `R` should
 /// ever exist.
 struct Resources<'a, R = Ref> {
-    /// The global reference to this resource dictionnary, or `()` if it has not
+    /// The global reference to this resource dictionary, or `()` if it has not
     /// been allocated yet.
     reference: R,
     /// Content of exported pages.
@@ -225,7 +225,7 @@ impl<'a> Default for Resources<'a, ()> {
 }
 
 impl<'a> Resources<'a, ()> {
-    /// Associate a reference with this resource dictionnary (and do so
+    /// Associate a reference with this resource dictionary (and do so
     /// recursively for sub-resources).
     fn with_refs(self, refs: &ResourcesRefs) -> Resources<'a, Ref> {
         Resources {
@@ -252,7 +252,7 @@ impl<'a> Resources<'a, ()> {
 }
 
 impl<'a, R> Resources<'a, R> {
-    /// Run a function on this resource dictionnary and all
+    /// Run a function on this resource dictionary and all
     /// of its sub-resources.
     fn traverse<P>(&self, process: &mut P)
     where
@@ -351,9 +351,9 @@ impl<'a> From<(AllocRefs<'a>, References)> for WritePageTree<'a> {
     }
 }
 
-/// In this phase, we write resource dictionnaries.
+/// In this phase, we write resource dictionaries.
 ///
-/// Each sub-resource gets its own isolated resource dictionnary.
+/// Each sub-resource gets its own isolated resource dictionary.
 struct WriteResources<'a> {
     globals: GlobalRefs,
     document: &'a Document,

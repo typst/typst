@@ -81,7 +81,7 @@ pub fn write_patterns(
 pub struct WrittenPattern {
     /// Reference to the pattern itself
     pub pattern_ref: Ref,
-    /// Reference to the resources dictionnary this pattern uses
+    /// Reference to the resources dictionary this pattern uses
     pub resources_ref: Ref,
 }
 

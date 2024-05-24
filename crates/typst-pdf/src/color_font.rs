@@ -166,7 +166,7 @@ pub struct ColorFontMap<'a, R> {
 /// A collection of Type3 font, belonging to the same TTF font.
 pub struct ColorFont {
     /// The IDs of each sub-slice of this font. They are the numbers after "Cf"
-    /// in the Resources dictionnaries.
+    /// in the Resources dictionaries.
     slice_ids: Vec<usize>,
     /// The list of all color glyphs in this family.
     ///
