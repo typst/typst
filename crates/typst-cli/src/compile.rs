@@ -332,19 +332,19 @@ fn export_image_page(
     match fmt {
         ImageExportFormat::Png => {
             let mut background_color = Color::WHITE;
-            match frame.items().next() {
-                Some((
+            if let Some((
+                _,
+                FrameItem::Shape(
+                    Shape {
+                        geometry: _,
+                        stroke: _,
+                        fill: Some(Paint::Solid(color)),
+                    },
                     _,
-                    FrameItem::Shape(
-                        Shape {
-                            geometry: _,
-                            stroke: _,
-                            fill: Some(Paint::Solid(color)),
-                        },
-                        _,
-                    ),
-                )) => background_color = *color,
-                _ => {}
+                ),
+            )) = frame.items().next()
+            {
+                background_color = *color;
             };
             let pixmap =
                 typst_render::render(frame, command.ppi / 72.0, background_color);
