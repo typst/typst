@@ -845,7 +845,7 @@ fn create_capable_impl(element: &Elem) -> TokenStream {
 
     quote! {
         unsafe impl #foundations::Capable for #ident {
-            fn vtable(capability: ::std::any::TypeId) -> ::std::option::Option<*const ()> {
+            fn vtable(capability: ::std::any::TypeId) -> ::std::option::Option<::std::ptr::NonNull<()>> {
                 let dangling = ::std::ptr::NonNull::<#foundations::Packed<#ident>>::dangling().as_ptr();
                 #(#checks)*
                 None

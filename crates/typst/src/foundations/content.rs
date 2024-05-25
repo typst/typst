@@ -299,7 +299,7 @@ impl Content {
         // use a `*const Content` pointer.
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
         let data = self as *const Content as *const ();
-        Some(unsafe { &*fat::from_raw_parts(data, vtable) })
+        Some(unsafe { &*fat::from_raw_parts(data, vtable.as_ptr()) })
     }
 
     /// Cast to a mutable trait object if the contained element has the given
@@ -319,7 +319,7 @@ impl Content {
         // mutable access is required.
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
         let data = self as *mut Content as *mut ();
-        Some(unsafe { &mut *fat::from_raw_parts_mut(data, vtable) })
+        Some(unsafe { &mut *fat::from_raw_parts_mut(data, vtable.as_ptr()) })
     }
 
     /// Whether the content is an empty sequence.
