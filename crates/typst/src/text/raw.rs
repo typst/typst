@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use once_cell::unsync::Lazy as UnsyncLazy;
-use syntect::highlighting as synt;
+use syntect::highlighting::{self as synt, Theme};
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -30,6 +30,7 @@ use crate::{syntax, World};
 type StyleFn<'a> =
     &'a mut dyn FnMut(usize, &LinkedNode, Range<usize>, synt::Style) -> Content;
 type LineFn<'a> = &'a mut dyn FnMut(usize, Range<usize>, &mut Vec<Content>);
+type ThemeArgType = Smart<Option<EcoString>>;
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -217,6 +218,8 @@ pub struct RawElem {
     /// the background with a [filled block]($block.fill). You could also use
     /// the [`xml`] function to extract these properties from the theme.
     ///
+    /// Additionally, you can set the theme to `none` to disable highlighting.
+    ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
     /// #show raw: it => block(
@@ -236,7 +239,7 @@ pub struct RawElem {
         theme_path
     )]
     #[borrowed]
-    pub theme: Smart<EcoString>,
+    pub theme: ThemeArgType,
 
     /// The raw file buffer of syntax theme file.
     #[internal]
@@ -315,13 +318,29 @@ impl Packed<RawElem> {
         let extra_syntaxes = UnsyncLazy::new(|| {
             load_syntaxes(&elem.syntaxes(styles), &elem.syntaxes_data(styles)).unwrap()
         });
+        let non_highlighted_result = |lines: EcoVec<(EcoString, Span)>| {
+            lines.into_iter().enumerate().map(|(i, (line, line_span))| {
+                Packed::new(RawLine::new(
+                    i as i64 + 1,
+                    count,
+                    line.clone(),
+                    TextElem::packed(line).spanned(line_span),
+                ))
+                .spanned(line_span)
+            })
+        };
 
         let theme = elem.theme(styles).as_ref().as_ref().map(|theme_path| {
-            load_theme(theme_path, elem.theme_data(styles).as_ref().as_ref().unwrap())
-                .unwrap()
+            theme_path.as_ref().map(|path| {
+                load_theme(path, elem.theme_data(styles).as_ref().as_ref().unwrap())
+                    .unwrap()
+            })
         });
-
-        let theme = theme.as_ref().map(std::ops::Deref::deref).unwrap_or(&RAW_THEME);
+        let theme: &Theme = match theme {
+            Smart::Auto => &RAW_THEME,
+            Smart::Custom(Some(ref theme)) => theme,
+            Smart::Custom(None) => return non_highlighted_result(lines).collect(),
+        };
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
@@ -400,15 +419,7 @@ impl Packed<RawElem> {
                 );
             }
         } else {
-            seq.extend(lines.into_iter().enumerate().map(|(i, (line, line_span))| {
-                Packed::new(RawLine::new(
-                    i as i64 + 1,
-                    count,
-                    line.clone(),
-                    TextElem::packed(line).spanned(line_span),
-                ))
-                .spanned(line_span)
-            }));
+            seq.extend(non_highlighted_result(lines));
         };
 
         seq
@@ -784,9 +795,8 @@ fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
 fn parse_theme(
     engine: &mut Engine,
     args: &mut Args,
-) -> SourceResult<(Option<Smart<EcoString>>, Option<Bytes>)> {
-    let Some(Spanned { v: path, span }) =
-        args.named::<Spanned<Smart<EcoString>>>("theme")?
+) -> SourceResult<(Option<ThemeArgType>, Option<Bytes>)> {
+    let Some(Spanned { v: path, span }) = args.named::<Spanned<ThemeArgType>>("theme")?
     else {
         // Argument `theme` not found.
         return Ok((None, None));
@@ -797,6 +807,11 @@ fn parse_theme(
         return Ok((Some(Smart::Auto), None));
     };
 
+    let Some(path) = path else {
+        // Argument `theme` is `none`.
+        return Ok((Some(Smart::Custom(None)), None));
+    };
+
     // Load theme file.
     let id = span.resolve_path(&path).at(span)?;
     let data = engine.world.file(id).at(span)?;
@@ -804,7 +819,7 @@ fn parse_theme(
     // Check that parsing works.
     let _ = load_theme(&path, &data).at(span)?;
 
-    Ok((Some(Smart::Custom(path)), Some(data)))
+    Ok((Some(Smart::Custom(Some(path))), Some(data)))
 }
 
 /// The syntect syntax definitions.
