@@ -18,14 +18,23 @@ pub fn elem(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
 
 /// Details about an element.
 struct Elem {
+    /// The element's name as exposed to Typst.
     name: String,
+    /// The element's title case name.
     title: String,
+    /// Whether this element has an associated scope defined by the `#[scope]` macro.
     scope: bool,
+    /// A list of alternate search terms for this element.
     keywords: Vec<String>,
+    /// The documentation for this element as a string.
     docs: String,
+    /// The element's visibility.
     vis: syn::Visibility,
+    /// The struct name for this element given in Rust.
     ident: Ident,
+    /// The list of capabilities for this element.
     capabilities: Vec<Ident>,
+    /// The fields of this element.
     fields: Vec<Field>,
 }
 
@@ -97,30 +106,59 @@ impl Elem {
     }
 }
 
+/// A field of an [element definition][`Elem`].
 struct Field {
+    /// The name of this field.
     ident: Ident,
+    /// The identifier `{ident}_in`.
     ident_in: Ident,
+    /// The identifier `with_{ident}`.
     with_ident: Ident,
+    /// The identifier `push_{ident}`.
     push_ident: Ident,
+    /// The identifier `set_{ident}`.
     set_ident: Ident,
+    /// The upper camel-case version of `ident`, used for the enum variant name.
     enum_ident: Ident,
+    /// The all-caps snake-case version of `ident`, used for the constant name.
     const_ident: Ident,
+    /// The visibility of this field.
     vis: syn::Visibility,
+    /// The type of this field.
     ty: syn::Type,
+    /// The type returned by accessor methods for this field.
+    ///
+    /// Usually, this is the same as `ty`, but this might be different
+    /// if this field has a `#[resolve]` attribute.
     output: syn::Type,
+    /// The field's identifier as exposed to Typst.
     name: String,
+    /// The documentation for this field as a string.
     docs: String,
+    /// Whether this field is positional (as opposed to named).
     positional: bool,
+    /// Whether this field is required.
     required: bool,
+    /// Whether this field is variadic; that is, has its values
+    /// taken from a variable number of arguments.
     variadic: bool,
+    /// Whether this field has a `#[resolve]` attribute.
     resolve: bool,
+    /// Whether this field has a `#[fold]` attribute.
     fold: bool,
+    /// Whether this field is excluded from documentation.
     internal: bool,
+    /// Whether this field exists only in documentation.
     external: bool,
+    /// Whether this field has a `#[borrowed]` attribute.
     borrowed: bool,
+    /// Whether this field has a `#[ghost]` attribute.
     ghost: bool,
+    /// Whether this field has a `#[synthesized]` attribute.
     synthesized: bool,
+    /// The contents of the `#[parse({..})]` attribute, if any.
     parse: Option<BlockWithReturn>,
+    /// The contents of the `#[default(..)]` attribute, if any.
     default: Option<syn::Expr>,
 }
 

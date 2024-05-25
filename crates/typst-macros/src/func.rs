@@ -18,41 +18,71 @@ pub fn func(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
 
 /// Details about a function.
 struct Func {
+    /// The function's name as exposed to Typst.
     name: String,
+    /// The function's title case name.
     title: String,
+    /// Whether this function has an associated scope defined by the `#[scope]` macro.
     scope: bool,
+    /// Whether this function is a constructor.
     constructor: bool,
+    /// A list of alternate search terms for this element.
     keywords: Vec<String>,
+    /// The parent type of this function.
+    ///
+    /// Used for functions in a scope.
     parent: Option<syn::Type>,
+    /// Whether this function is contextual.
     contextual: bool,
+    /// The documentation for this element as a string.
     docs: String,
+    /// The element's visibility.
     vis: syn::Visibility,
+    /// The name for this function given in Rust.
     ident: Ident,
+    /// Special parameters provided by the runtime.
     special: SpecialParams,
+    /// The list of parameters for this function.
     params: Vec<Param>,
+    /// The return type of this function.
     returns: syn::Type,
 }
 
 /// Special parameters provided by the runtime.
 #[derive(Default)]
 struct SpecialParams {
+    /// The receiver (`self`) parameter.
     self_: Option<Param>,
+    /// The parameter named `engine`, of type `&mut Engine`.
     engine: bool,
+    /// The parameter named `context`, of type `Tracked<Context>`.
     context: bool,
+    /// The parameter named `args`, of type `&mut Args`.
     args: bool,
+    /// The parameter named `span`, of type `Span`.
     span: bool,
 }
 
 /// Details about a function parameter.
 struct Param {
+    /// The binding for this parameter.
     binding: Binding,
+    /// The name of the parameter as defined in Rust.
     ident: Ident,
+    /// The type of the parameter.
     ty: syn::Type,
+    /// The name of the parameter as defined in Typst.
     name: String,
+    /// The documentation for this parameter as a string.
     docs: String,
+    /// Whether this parameter is named.
     named: bool,
+    /// Whether this parameter is variadic; that is, has its values
+    /// taken from a variable number of arguments.
     variadic: bool,
+    /// Whether this parameter exists only in documentation.
     external: bool,
+    /// The default value for this parameter.
     default: Option<syn::Expr>,
 }
 
@@ -68,12 +98,21 @@ enum Binding {
 
 /// The `..` in `#[func(..)]`.
 pub struct Meta {
+    /// Whether this function has an associated scope defined by the `#[scope]` macro.
     pub scope: bool,
+    /// Whether this function is contextual.
     pub contextual: bool,
+    /// The function's name as exposed to Typst.
     pub name: Option<String>,
+    /// The function's title case name.
     pub title: Option<String>,
+    /// Whether this function is a constructor.
     pub constructor: bool,
+    /// A list of alternate search terms for this element.
     pub keywords: Vec<String>,
+    /// The parent type of this function.
+    ///
+    /// Used for functions in a scope.
     pub parent: Option<syn::Type>,
 }
 
