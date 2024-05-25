@@ -11,10 +11,10 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Frame, PageRanges};
+use typst::layout::{Frame, FrameItem, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
-use typst::visualize::Color;
+use typst::visualize::{Color, Paint, Shape};
 use typst::{World, WorldExt};
 
 use crate::args::{
@@ -331,7 +331,23 @@ fn export_image_page(
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let pixmap = typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
+            let mut background_color = Color::WHITE;
+            match frame.items().next() {
+                Some((
+                    _,
+                    FrameItem::Shape(
+                        Shape {
+                            geometry: _,
+                            stroke: _,
+                            fill: Some(Paint::Solid(color)),
+                        },
+                        _,
+                    ),
+                )) => background_color = *color,
+                _ => {}
+            };
+            let pixmap =
+                typst_render::render(frame, command.ppi / 72.0, background_color);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
