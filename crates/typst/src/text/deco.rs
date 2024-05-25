@@ -407,8 +407,67 @@ enum DecoLine {
     },
 }
 
-/// Add line decorations to a single run of shaped text.
-pub(crate) fn decorate(
+/// Generate line decorations for a frame.
+pub(crate) fn decorate_frame(
+    frame: &mut Frame,
+    deco: &Decoration,
+    pos: Point,
+    size: Size,
+    shift: Abs,
+) {
+    let size = size.to_point();
+    let width = size.x;
+    let height = size.y;
+    if let DecoLine::Highlight { fill, stroke, top_edge: _, bottom_edge: _, radius } =
+        &deco.line
+    {
+        let rects = styled_rect(
+            Size::new(2.0 * deco.extent + width, height),
+            *radius,
+            fill.clone(),
+            stroke.clone(),
+        );
+        let origin = Point::new(pos.x - deco.extent, pos.y - shift);
+        frame.prepend_multiple(
+            rects
+                .into_iter()
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached()))),
+        );
+    }
+
+    // note that different from decorate_shaped_text, evade is not supported for frame (including
+    // math equations)
+    let (stroke, y_baseline, offset, background) = match &deco.line {
+        DecoLine::Strikethrough { stroke, offset, background } => {
+            (stroke, height / 2.0, offset, *background)
+        }
+        DecoLine::Overline { stroke, offset, evade: _, background } => {
+            (stroke, Abs::zero(), offset, *background)
+        }
+        DecoLine::Underline { stroke, offset, evade: _, background } => {
+            (stroke, height, offset, *background)
+        }
+        _ => return,
+    };
+
+    let offset = offset.unwrap_or(Abs::zero()) + y_baseline;
+
+    let stroke = stroke.clone().unwrap_or_default();
+
+    let start = pos.x - deco.extent;
+    let end = pos.x + width + deco.extent;
+    let origin = Point::new(start, pos.y + offset - shift);
+    let target = Point::new(end - start, Abs::zero());
+    let shape = Geometry::Line(target).stroked(stroke.clone());
+    if background {
+        frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
+    } else {
+        frame.push(origin, FrameItem::Shape(shape, Span::detached()));
+    }
+}
+
+/// Generate line decorations for a shaped text.
+pub(crate) fn decorate_shaped_text(
     frame: &mut Frame,
     deco: &Decoration,
     text: &TextItem,
