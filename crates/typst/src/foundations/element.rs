@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hash;
+use std::ptr::NonNull;
 
 use ecow::EcoString;
 use once_cell::sync::Lazy;
@@ -81,7 +82,7 @@ impl Element {
     }
 
     /// The VTable for capabilities dispatch.
-    pub fn vtable(self) -> fn(of: TypeId) -> Option<*const ()> {
+    pub fn vtable(self) -> fn(of: TypeId) -> Option<NonNull<()>> {
         self.0.vtable
     }
 
@@ -208,7 +209,7 @@ pub trait NativeElement:
 /// `TypeId::of::<dyn C>()`.
 pub unsafe trait Capable {
     /// Get the pointer to the vtable for the given capability / trait.
-    fn vtable(capability: TypeId) -> Option<*const ()>;
+    fn vtable(capability: TypeId) -> Option<NonNull<()>>;
 }
 
 /// Defines how fields of an element are accessed.
@@ -275,7 +276,7 @@ pub struct NativeElementData {
     pub set: fn(&mut Engine, &mut Args) -> SourceResult<Styles>,
     /// Gets the vtable for one of this element's capabilities
     /// (see [`Capable`]).
-    pub vtable: fn(capability: TypeId) -> Option<*const ()>,
+    pub vtable: fn(capability: TypeId) -> Option<NonNull<()>>,
     /// Gets the numeric index of this field by its name.
     pub field_id: fn(name: &str) -> Option<u8>,
     /// Gets the name of a field by its numeric index.
