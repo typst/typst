@@ -231,11 +231,11 @@ enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
-    Absolute(Abs, bool),
+    Absolute(Abs, bool, Option<StyleChain<'a>>),
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
-    Frame(Frame),
+    Frame(Frame, Option<StyleChain<'a>>),
     /// A tag.
     Tag(&'a Packed<TagElem>),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
@@ -264,8 +264,10 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
-            Self::Frame(_) => OBJ_REPLACE.len_utf8(),
+            Self::Absolute(_, _, _) | Self::Fractional(_, _) => {
+                SPACING_REPLACE.len_utf8()
+            }
+            Self::Frame(_, _) => OBJ_REPLACE.len_utf8(),
             Self::Tag(_) => 0,
             Self::Skip(c) => c.len_utf8(),
         }
@@ -275,8 +277,8 @@ impl<'a> Item<'a> {
     fn width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
-            Self::Absolute(v, _) => *v,
-            Self::Frame(frame) => frame.width(),
+            Self::Absolute(v, _, _) => *v,
+            Self::Frame(frame, _) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
@@ -621,7 +623,7 @@ fn prepare<'a>(
             Segment::Spacing(spacing, weak) => match spacing {
                 Spacing::Rel(v) => {
                     let resolved = v.resolve(styles).relative_to(region.x);
-                    items.push(Item::Absolute(resolved, weak));
+                    items.push(Item::Absolute(resolved, weak, Some(styles)));
                 }
                 Spacing::Fr(v) => {
                     items.push(Item::Fractional(v, None));
@@ -632,10 +634,12 @@ fn prepare<'a>(
                 for item in par_items {
                     match item {
                         // MathParItem space are assumed to be weak space
-                        MathParItem::Space(s) => items.push(Item::Absolute(s, true)),
+                        MathParItem::Space(s) => {
+                            items.push(Item::Absolute(s, true, Some(styles)))
+                        }
                         MathParItem::Frame(mut frame) => {
                             frame.translate(Point::with_y(TextElem::baseline_in(styles)));
-                            items.push(Item::Frame(frame));
+                            items.push(Item::Frame(frame, Some(styles)));
                         }
                     }
                 }
@@ -649,7 +653,7 @@ fn prepare<'a>(
                     let mut frame = elem.layout(engine, styles, pod)?;
                     frame.post_process(styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(styles)));
-                    items.push(Item::Frame(frame));
+                    items.push(Item::Frame(frame, Some(styles)));
                 }
             }
             Segment::Tag(tag) => {
@@ -1084,14 +1088,14 @@ fn line<'a>(
     let mut width = Abs::zero();
 
     // Weak space (Absolute(_, weak=true)) would be removed if at the end of the line
-    while let Some((Item::Absolute(_, true), before)) = inner.split_last() {
+    while let Some((Item::Absolute(_, true, _), before)) = inner.split_last() {
         // apply it recursively to ensure the last one is not weak space
         inner = before;
         range.end -= 1;
         expanded.end -= 1;
     }
     // Weak space (Absolute(_, weak=true)) would be removed if at the beginning of the line
-    while let Some((Item::Absolute(_, true), after)) = inner.split_first() {
+    while let Some((Item::Absolute(_, true, _), after)) = inner.split_first() {
         // apply it recursively to ensure the first one is not weak space
         inner = after;
         range.start += 1;
@@ -1418,7 +1422,7 @@ fn commit(
         };
 
         match item {
-            Item::Absolute(v, _) => {
+            Item::Absolute(v, _, s) => {
                 offset += *v;
             }
             Item::Fractional(v, elem) => {
@@ -1440,7 +1444,7 @@ fn commit(
                 frame.post_process(shaped.styles);
                 push(&mut offset, frame);
             }
-            Item::Frame(frame) => {
+            Item::Frame(frame, s) => {
                 push(&mut offset, frame.clone());
             }
             Item::Tag(tag) => {
