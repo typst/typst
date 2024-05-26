@@ -18,6 +18,7 @@ use crate::layout::{
     Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
+use crate::text::{decorate_frame, TextElem};
 use crate::utils::Numeric;
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
@@ -346,6 +347,16 @@ impl<'a> FlowLayouter<'a> {
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let mut frame = layoutable.layout(engine, styles, pod)?;
+
+        let decos = TextElem::deco_in(styles);
+        if !decos.is_empty() {
+            let pos = Point::new(Abs::zero(), Abs::zero());
+            let size = Size::new(frame.width().abs(), frame.height().abs());
+            let shift = Abs::zero();
+            for deco in &decos {
+                decorate_frame(&mut frame, deco, pos, size, shift);
+            }
+        }
         self.drain_tag(&mut frame);
         frame.post_process(styles);
         self.layout_item(
