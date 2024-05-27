@@ -195,8 +195,8 @@ enum Segment<'a> {
     /// One or multiple collapsed text or text-equivalent children. Stores how
     /// long the segment is (in bytes of the full text string).
     Text(usize),
-    /// Horizontal spacing between other segments.
-    Spacing(Spacing),
+    /// Horizontal spacing between other segments. Bool when true indicate weak space
+    Spacing(Spacing, bool),
     /// A mathematical equation.
     Equation(Vec<MathParItem>),
     /// A box with arbitrary content.
@@ -210,7 +210,7 @@ impl Segment<'_> {
     fn len(&self) -> usize {
         match *self {
             Self::Text(len) => len,
-            Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
+            Self::Spacing(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, frac) => {
                 (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
             }
@@ -231,7 +231,7 @@ enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
-    Absolute(Abs),
+    Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
@@ -264,7 +264,7 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
+            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) => OBJ_REPLACE.len_utf8(),
             Self::Tag(_) => 0,
             Self::Skip(c) => c.len_utf8(),
@@ -275,7 +275,7 @@ impl<'a> Item<'a> {
     fn width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
-            Self::Absolute(v) => *v,
+            Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
@@ -453,13 +453,13 @@ fn collect<'a>(
             == TextElem::dir_in(*styles).start().into()
     {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing(first_line_indent.into()), *styles));
+        segments.push((Segment::Spacing(first_line_indent.into(), false), *styles));
     }
 
     let hang = ParElem::hanging_indent_in(*styles);
     if !hang.is_zero() {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing((-hang).into()), *styles));
+        segments.push((Segment::Spacing((-hang).into(), false), *styles));
     }
 
     let outer_dir = TextElem::dir_in(*styles);
@@ -504,7 +504,7 @@ fn collect<'a>(
             }
 
             full.push(SPACING_REPLACE);
-            Segment::Spacing(*elem.amount())
+            Segment::Spacing(*elem.amount(), elem.weak(styles))
         } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
@@ -618,10 +618,10 @@ fn prepare<'a>(
             Segment::Text(_) => {
                 shape_range(&mut items, engine, &bidi, cursor..end, &spans, styles);
             }
-            Segment::Spacing(spacing) => match spacing {
+            Segment::Spacing(spacing, weak) => match spacing {
                 Spacing::Rel(v) => {
                     let resolved = v.resolve(styles).relative_to(region.x);
-                    items.push(Item::Absolute(resolved));
+                    items.push(Item::Absolute(resolved, weak));
                 }
                 Spacing::Fr(v) => {
                     items.push(Item::Fractional(v, None));
@@ -631,7 +631,8 @@ fn prepare<'a>(
                 items.push(Item::Skip(LTR_ISOLATE));
                 for item in par_items {
                     match item {
-                        MathParItem::Space(s) => items.push(Item::Absolute(s)),
+                        // MathParItem space are assumed to be weak space
+                        MathParItem::Space(s) => items.push(Item::Absolute(s, true)),
                         MathParItem::Frame(mut frame) => {
                             frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                             items.push(Item::Frame(frame));
@@ -1079,8 +1080,23 @@ fn line<'a>(
     }
 
     // Slice out the relevant items.
-    let (expanded, mut inner) = p.slice(range.clone());
+    let (mut expanded, mut inner) = p.slice(range.clone());
     let mut width = Abs::zero();
+
+    // Weak space (Absolute(_, weak=true)) would be removed if at the end of the line
+    while let Some((Item::Absolute(_, true), before)) = inner.split_last() {
+        // apply it recursively to ensure the last one is not weak space
+        inner = before;
+        range.end -= 1;
+        expanded.end -= 1;
+    }
+    // Weak space (Absolute(_, weak=true)) would be removed if at the beginning of the line
+    while let Some((Item::Absolute(_, true), after)) = inner.split_first() {
+        // apply it recursively to ensure the first one is not weak space
+        inner = after;
+        range.start += 1;
+        expanded.end += 1;
+    }
 
     // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
@@ -1402,7 +1418,7 @@ fn commit(
         };
 
         match item {
-            Item::Absolute(v) => {
+            Item::Absolute(v, _) => {
                 offset += *v;
             }
             Item::Fractional(v, elem) => {
