@@ -41,6 +41,9 @@ pub struct UnderlineElem {
     /// The position of the line relative to the baseline, read from the font
     /// tables if `{auto}`.
     ///
+    /// If the wrapped content is an equation, the baseline is the bottom of the math
+    /// equation's bounding box.
+    ///
     /// ```example
     /// #underline(offset: 5pt)[
     ///   The Tale Of A Faraway Line I
@@ -62,6 +65,9 @@ pub struct UnderlineElem {
 
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
+    ///
+    /// Note that evasion option is not supported if the wrapped content is
+    /// an math equation.
     ///
     /// ```example
     /// This #underline(evade: true)[is great].
@@ -128,6 +134,9 @@ pub struct OverlineElem {
     /// The position of the line relative to the baseline. Read from the font
     /// tables if `{auto}`.
     ///
+    /// If the wrapped content is an equation, the baseline is the top of the math
+    /// equation's bounding box.
+    ///
     /// ```example
     /// #overline(offset: -1.2em)[
     ///   The Tale Of A Faraway Line II
@@ -149,6 +158,9 @@ pub struct OverlineElem {
 
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
+    ///
+    /// Note that evade option is not supported if the wrapped content is
+    /// a math equation.
     ///
     /// ```example
     /// #overline(
@@ -220,6 +232,9 @@ pub struct StrikeElem {
     /// tables if `{auto}`.
     ///
     /// This is useful if you are unhappy with the offset your font provides.
+    ///
+    /// If the wrapped content is an equation, the baseline is 1/2 of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #set text(font: "Inria Serif")
@@ -301,6 +316,9 @@ pub struct HighlightElem {
 
     /// The top end of the background rectangle.
     ///
+    /// If the wrapped content is an equation, the baseline is the top of the math
+    /// equation's bounding box.
+    ///
     /// ```example
     /// #set highlight(top-edge: "ascender")
     /// #highlight[a] #highlight[aib]
@@ -312,6 +330,9 @@ pub struct HighlightElem {
     pub top_edge: TopEdge,
 
     /// The bottom end of the background rectangle.
+    ///
+    /// If the wrapped content is an equation, the baseline is the bottom of the math
+    /// equation's bounding box.
     ///
     /// ```example
     /// #set highlight(bottom-edge: "descender")
@@ -407,8 +428,67 @@ enum DecoLine {
     },
 }
 
-/// Add line decorations to a single run of shaped text.
-pub(crate) fn decorate(
+/// Generate line decorations for a frame.
+pub(crate) fn decorate_frame(
+    frame: &mut Frame,
+    deco: &Decoration,
+    pos: Point,
+    size: Size,
+    shift: Abs,
+) {
+    let size = size.to_point();
+    let width = size.x;
+    let height = size.y;
+    if let DecoLine::Highlight { fill, stroke, top_edge: _, bottom_edge: _, radius } =
+        &deco.line
+    {
+        let rects = styled_rect(
+            Size::new(2.0 * deco.extent + width, height),
+            *radius,
+            fill.clone(),
+            stroke.clone(),
+        );
+        let origin = Point::new(pos.x - deco.extent, pos.y - shift);
+        frame.prepend_multiple(
+            rects
+                .into_iter()
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached()))),
+        );
+    }
+
+    // note that different from decorate_shaped_text, evade is not supported for frame (including
+    // math equations)
+    let (stroke, y_baseline, offset, background) = match &deco.line {
+        DecoLine::Strikethrough { stroke, offset, background } => {
+            (stroke, height / 2.0, offset, *background)
+        }
+        DecoLine::Overline { stroke, offset, evade: _, background } => {
+            (stroke, Abs::zero(), offset, *background)
+        }
+        DecoLine::Underline { stroke, offset, evade: _, background } => {
+            (stroke, height, offset, *background)
+        }
+        _ => return,
+    };
+
+    let offset = offset.unwrap_or(Abs::zero()) + y_baseline;
+
+    let stroke = stroke.clone().unwrap_or_default();
+
+    let start = pos.x - deco.extent;
+    let end = pos.x + width + deco.extent;
+    let origin = Point::new(start, pos.y + offset - shift);
+    let target = Point::new(end - start, Abs::zero());
+    let shape = Geometry::Line(target).stroked(stroke.clone());
+    if background {
+        frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
+    } else {
+        frame.push(origin, FrameItem::Shape(shape, Span::detached()));
+    }
+}
+
+/// Generate line decorations for a shaped text.
+pub(crate) fn decorate_shaped_text(
     frame: &mut Frame,
     deco: &Decoration,
     text: &TextItem,
@@ -464,7 +544,6 @@ pub(crate) fn decorate(
 
         if target.x >= min_width || !evade {
             let shape = Geometry::Line(target).stroked(stroke.clone());
-
             if prepend {
                 frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
             } else {

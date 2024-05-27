@@ -86,9 +86,12 @@ Multiple trailing line breaks.
 
 --- math-linebreaking-between-consecutive-relations ---
 // A relation followed by a relation doesn't linebreak
+// so essentially `a < = b` can be broken to `a` and `< = b`, `a < =` and `b`
+// but never `a <` and `= b` because `< =` are consecutive relation that should
+// be grouped together and no break between them.
 #let hrule(x) = box(line(length: x))
 #hrule(70pt)$a < = b$\
-#hrule(74pt)$a < = b$
+#hrule(78pt)$a < = b$
 
 --- math-linebreaking-after-relation-without-space ---
 // Line breaks can happen after a relation even if there is no

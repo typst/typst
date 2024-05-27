@@ -15,8 +15,8 @@ use crate::foundations::StyleChain;
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
-    decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
-    TextElem, TextItem,
+    decorate_shaped_text, families, features, variant, Font, FontVariant, Glyph, Lang,
+    Region, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -320,7 +320,7 @@ impl<'a> ShapedText<'a> {
                 // Apply line decorations.
                 frame.push(pos, FrameItem::Text(item.clone()));
                 for deco in &decos {
-                    decorate(&mut frame, deco, &item, width, shift, pos);
+                    decorate_shaped_text(&mut frame, deco, &item, width, shift, pos);
                 }
             }
 

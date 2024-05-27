@@ -19,6 +19,7 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
+    decorate_frame,
     families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
@@ -222,11 +223,99 @@ impl Packed<EquationElem> {
         } else {
             vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
         };
+        let mut pos_and_sizes: Vec<(Point, Size)> = Vec::new();
+        let mut x = Abs::zero();
 
         // An empty equation should have a height, so we still create a frame
         // (which is then resized in the loop).
         if items.is_empty() {
             items.push(MathParItem::Frame(Frame::soft(Size::zero())));
+        }
+
+        // A list of the vetical shift for each MathPatItem(frame), except space.
+        let vertical_shift_list: Vec<Option<Abs>> = items
+            .iter()
+            .map(|item| match item {
+                MathParItem::Frame(frame) => {
+                    // determine the vertical shift for a frame from MathParItem
+                    let font_size = scaled_font_size(&ctx, styles);
+                    let slack = ParElem::leading_in(styles) * 0.7;
+                    let top_edge =
+                        TextElem::top_edge_in(styles).resolve(font_size, &font, None);
+                    let ascent = top_edge.max(frame.ascent() - slack);
+                    Some(ascent - frame.baseline())
+                }
+                _ => None,
+            })
+            .collect();
+
+        let mut first_non_space_idx: Option<usize> = None;
+        let mut last_non_space_idx: Option<usize> = None;
+        for (idx, item) in items.iter().enumerate() {
+            match item {
+                MathParItem::Frame(frame) => {
+                    // determine the coordinates of the frame in the MathParItem Array
+                    let y = vertical_shift_list[idx].unwrap();
+                    let pos = Point::new(x, y);
+                    let size = Size::new(frame.width().abs(), frame.height().abs());
+                    pos_and_sizes.push((pos, size));
+                    x += frame.width();
+                    if first_non_space_idx.is_none() {
+                        first_non_space_idx = Some(idx);
+                    }
+                    last_non_space_idx = Some(idx);
+                }
+                MathParItem::Space(space_width) => {
+                    // A MarhParItem can also be space (consumes a width), in the latter
+                    // case, we need to update the running x-coordinate
+                    // also note that we compute starting from the first non-space MathParItem
+                    if idx != 0 {
+                        x += *space_width;
+                    }
+                }
+            }
+        }
+        let first_non_space_idx = first_non_space_idx.unwrap_or(0);
+        let last_non_space_idx = last_non_space_idx.unwrap_or(0);
+        // computing the origin position and the size of the bounding box of the entire MathParItem
+        // Array.
+        let (pos, size) = compute_bounding_box(&pos_and_sizes);
+        let decos = TextElem::deco_in(styles);
+        let mut last_frame: Option<&mut Frame> = None;
+        let mut last_frame_shift: Option<Abs> = None;
+        for (idx, item) in items.iter_mut().enumerate() {
+            // Skip the spaces in the start and the end. But the space in between frames will be
+            // decorated as well. But space has no corresponding frame, so we will keep a reference
+            // to the previous non-space frame and add decorations to it.
+            if idx < first_non_space_idx || idx > last_non_space_idx {
+                continue;
+            }
+            match item {
+                MathParItem::Frame(ref mut frame) => {
+                    let (size, shift) = (
+                        Size::new(frame.width(), size.to_point().y),
+                        vertical_shift_list[idx].unwrap(),
+                    );
+                    for deco in &decos {
+                        decorate_frame(frame, deco, pos, size, shift);
+                    }
+                    last_frame = Some(frame);
+                    last_frame_shift = Some(shift);
+                }
+                MathParItem::Space(_) => {}
+                // MathParItem::Space(width) => {
+                //     if let Some(ref mut frame) = last_frame {
+                //         let (size, shift) = (
+                //             Size::new(*width, size.to_point().y),
+                //             last_frame_shift.unwrap(),
+                //         );
+                //         let new_pos = pos + Point::new(frame.width(), Abs::zero());
+                //         for deco in &decos {
+                //             decorate_frame(frame, deco, new_pos, size, shift);
+                //         }
+                //     }
+                // }
+            };
         }
 
         for item in &mut items {
@@ -248,6 +337,27 @@ impl Packed<EquationElem> {
     }
 }
 
+/// Computes the origin position and the size of the bounding box that covers
+/// a list of boxes from left to right
+fn compute_bounding_box(pos_and_sizes: &[(Point, Size)]) -> (Point, Size) {
+    let mut start_pos_x = Abs::inf();
+    let mut start_pos_y = Abs::inf();
+    let mut size_x = Abs::zero();
+    let mut size_y = Abs::zero();
+
+    for (p, s) in pos_and_sizes {
+        let s = s.to_point();
+
+        start_pos_x.set_min(p.x);
+        start_pos_y.set_min(p.y);
+
+        size_x.set_max(p.x + s.x);
+        size_y.set_max(s.y)
+    }
+
+    (Point::new(start_pos_x, start_pos_y), Size::new(size_x, size_y))
+}
+
 impl LayoutSingle for Packed<EquationElem> {
     #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout(
@@ -267,7 +377,7 @@ impl LayoutSingle for Packed<EquationElem> {
             .multiline_frame_builder(&ctx, styles);
 
         let Some(numbering) = (**self).numbering(styles) else {
-            return Ok(equation_builder.build());
+            return Ok(equation_builder.build(styles));
         };
 
         let pod = Regions::one(regions.base(), Axes::splat(false));
@@ -293,6 +403,7 @@ impl LayoutSingle for Packed<EquationElem> {
             AlignElem::alignment_in(styles).resolve(styles).x,
             regions.size.x,
             full_number_width,
+            styles,
         );
 
         Ok(frame)
@@ -394,6 +505,7 @@ fn add_equation_number(
     equation_align: FixedAlignment,
     region_size_x: Abs,
     full_number_width: Abs,
+    styles: StyleChain,
 ) -> Frame {
     let first =
         equation_builder.frames.first().map_or(
@@ -406,7 +518,7 @@ fn add_equation_number(
             |(frame, pos)| (frame.size(), *pos, frame.baseline()),
         );
     let line_count = equation_builder.frames.len();
-    let mut equation = equation_builder.build();
+    let mut equation = equation_builder.build(styles);
 
     let width = if region_size_x.is_finite() {
         region_size_x
