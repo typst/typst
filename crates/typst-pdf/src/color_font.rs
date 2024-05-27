@@ -9,16 +9,16 @@ use ttf_parser::name_id;
 use typst::layout::Em;
 use typst::text::{color::frame_for_glyph, Font};
 
-use crate::resources::ResourcesRefs;
+use crate::resources::{Resources, ResourcesRefs};
+use crate::WithGlobalRefs;
 use crate::{
     content,
     font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
     EmExt, PdfChunk,
 };
-use crate::{AllocRefs, Resources};
 
 pub fn write_color_fonts(
-    context: &AllocRefs,
+    context: &WithGlobalRefs,
 ) -> (PdfChunk, HashMap<ColorFontSlice, Ref>) {
     let mut out = HashMap::new();
     let mut chunk = PdfChunk::new();

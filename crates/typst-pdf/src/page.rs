@@ -13,27 +13,28 @@ use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-use crate::{
-    content, AbsExt, AllocGlobalRefs, BuildContent, PdfChunk, Renumber, WritePageTree,
-};
+use crate::{content, AbsExt, PdfChunk, Renumber, WithDocument, WithRefs, WithResources};
 use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
-pub fn traverse_pages(state: &BuildContent) -> (PdfChunk, Resources<()>) {
-    let mut out = Resources::default();
+pub fn traverse_pages(
+    state: &WithDocument,
+) -> (PdfChunk, (Vec<EncodedPage>, Resources<()>)) {
+    let mut resources = Resources::default();
+    let mut pages = Vec::with_capacity(state.document.pages.len());
     for page in &state.document.pages {
-        let mut encoded = construct_page(&mut out, &page.frame);
+        let mut encoded = construct_page(&mut resources, &page.frame);
         encoded.label = page
             .numbering
             .as_ref()
             .and_then(|num| PdfPageLabel::generate(num, page.number));
-        out.pages.push(encoded);
+        pages.push(encoded);
     }
 
-    improve_glyph_sets(&mut out.glyph_sets);
+    improve_glyph_sets(&mut resources.glyph_sets);
 
-    (PdfChunk::new(), out)
+    (PdfChunk::new(), (pages, resources))
 }
 
 /// Construct a page object.
@@ -44,7 +45,7 @@ fn construct_page(out: &mut Resources<()>, frame: &Frame) -> EncodedPage {
     EncodedPage { content, label: None }
 }
 
-pub fn alloc_page_refs(context: &AllocGlobalRefs) -> (PdfChunk, Vec<Ref>) {
+pub fn alloc_page_refs(context: &WithResources) -> (PdfChunk, Vec<Ref>) {
     let mut chunk = PdfChunk::new();
     let page_refs = context.document.pages.iter().map(|_| chunk.alloc()).collect();
     (chunk, page_refs)
@@ -59,11 +60,11 @@ impl Renumber for PageTreeRef {
 }
 
 /// Write the page tree.
-pub fn write_page_tree(ctx: &WritePageTree) -> (PdfChunk, PageTreeRef) {
+pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, PageTreeRef) {
     let mut chunk = PdfChunk::new();
     let page_tree_ref = chunk.alloc.bump();
 
-    for i in 0..ctx.resources.pages.len() {
+    for i in 0..ctx.pages.len() {
         let content_id = chunk.alloc.bump();
         write_page(
             &mut chunk,
@@ -77,7 +78,7 @@ pub fn write_page_tree(ctx: &WritePageTree) -> (PdfChunk, PageTreeRef) {
 
     chunk
         .pages(page_tree_ref)
-        .count(ctx.resources.pages.len() as i32)
+        .count(ctx.pages.len() as i32)
         .kids(ctx.globals.pages.iter().copied());
 
     (chunk, PageTreeRef(page_tree_ref))
@@ -86,13 +87,13 @@ pub fn write_page_tree(ctx: &WritePageTree) -> (PdfChunk, PageTreeRef) {
 /// Write a page tree node.
 fn write_page(
     chunk: &mut PdfChunk,
-    ctx: &WritePageTree,
+    ctx: &WithRefs,
     content_id: Ref,
     page_tree_ref: Ref,
     loc_to_dest: &HashMap<Location, Label>,
     i: usize,
 ) {
-    let page = &ctx.resources.pages[i];
+    let page = &ctx.pages[i];
 
     let global_resources_ref = ctx.resources.reference;
     let mut page_writer = chunk.page(ctx.globals.pages[i]);
@@ -146,7 +147,7 @@ fn write_page(
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.resources.pages.get(index) {
+        if let Some(page) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)

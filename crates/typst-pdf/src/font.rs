@@ -14,7 +14,7 @@ use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 use typst::text::Font;
 use typst::util::SliceExt;
 
-use crate::{deflate, AllocRefs, EmExt, PdfChunk};
+use crate::{deflate, WithGlobalRefs, EmExt, PdfChunk};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -27,7 +27,7 @@ pub(crate) const SYSTEM_INFO: SystemInfo = SystemInfo {
 
 /// Embed all used fonts into the PDF.
 #[typst_macros::time(name = "write fonts")]
-pub fn write_fonts(context: &AllocRefs) -> (PdfChunk, HashMap<Font, Ref>) {
+pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {

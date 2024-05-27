@@ -6,7 +6,7 @@ use typst::introspection::Location;
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, AllocRefs, PdfChunk, Renumber};
+use crate::{AbsExt, PdfChunk, Renumber, WithGlobalRefs};
 
 #[derive(Default)]
 pub struct NamedDestinations {
@@ -26,7 +26,9 @@ impl Renumber for NamedDestinations {
 
 /// Fills in the map and vector for named destinations and writes the indirect
 /// destination objects.
-pub fn write_named_destinations(context: &AllocRefs) -> (PdfChunk, NamedDestinations) {
+pub fn write_named_destinations(
+    context: &WithGlobalRefs,
+) -> (PdfChunk, NamedDestinations) {
     let mut chunk = PdfChunk::new();
     let mut out = NamedDestinations::default();
     let mut seen = HashSet::new();
@@ -50,7 +52,7 @@ pub fn write_named_destinations(context: &AllocRefs) -> (PdfChunk, NamedDestinat
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = context.resources.pages.get(index) {
+        if let Some(page) = context.pages.get(index) {
             let dest_ref = chunk.alloc();
             let x = pos.point.x.to_f32();
             let y = (page.content.size.y - y).to_f32();

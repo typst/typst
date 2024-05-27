@@ -16,7 +16,7 @@ use typst::visualize::{
 };
 
 use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::{content, AllocRefs};
+use crate::{content, WithGlobalRefs};
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -36,7 +36,7 @@ pub struct PdfGradient {
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_gradients(context: &AllocRefs) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
+pub fn write_gradients(context: &WithGlobalRefs) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {

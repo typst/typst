@@ -9,11 +9,11 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{color, deflate, AllocRefs, PdfChunk};
+use crate::{color, deflate, PdfChunk, WithGlobalRefs};
 
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
-pub fn write_images(context: &AllocRefs) -> (PdfChunk, HashMap<Image, Ref>) {
+pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>) {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {

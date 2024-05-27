@@ -14,35 +14,34 @@ mod page;
 mod pattern;
 mod resources;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
-use ecow::EcoString;
 use pdf_writer::{Chunk, Pdf, Ref};
 
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, Transform};
 use typst::model::Document;
-use typst::text::{Font, Lang};
+use typst::text::Font;
 use typst::util::Deferred;
 use typst::visualize::Image;
 
 use crate::catalog::write_catalog;
-use crate::color::{alloc_color_functions_refs, ColorFunctionRefs, ColorSpaces};
-use crate::color_font::{write_color_fonts, ColorFontMap, ColorFontSlice};
+use crate::color::{alloc_color_functions_refs, ColorFunctionRefs};
+use crate::color_font::{write_color_fonts, ColorFontSlice};
 use crate::extg::{write_graphic_states, ExtGState};
 use crate::font::write_fonts;
 use crate::gradient::{write_gradients, PdfGradient};
-use crate::image::{write_images, EncodedImage};
+use crate::image::write_images;
 use crate::named_destination::{write_named_destinations, NamedDestinations};
 use crate::page::{
     alloc_page_refs, traverse_pages, write_page_tree, EncodedPage, PageTreeRef,
 };
-use crate::pattern::{write_patterns, PatternRemapper, PdfPattern, WrittenPattern};
+use crate::pattern::{write_patterns, PdfPattern, WrittenPattern};
 use crate::resources::{
-    alloc_resources_refs, write_resource_dictionaries, ResourcesRefs,
+    alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
 };
 
 /// Export a document into a PDF file.
@@ -122,155 +121,17 @@ struct PdfBuilder<S> {
 /// The initial state: we are exploring the document, collecting all resources
 /// that will be necessary later. The content of the pages is also built during
 /// this phase.
-struct BuildContent<'a> {
+struct WithDocument<'a> {
     document: &'a Document,
-}
-
-/// All the resources that have been collected when traversing the document.
-///
-/// This does not allocate references to resources, only track what was used
-/// and deduplicate what can be deduplicated.
-///
-/// You may notice that this structure is a tree: [`PatternRemapper`] and
-/// [`ColorFontMap`] (that are present in the fields of [`Resources`]),
-/// themselves contain [`Resources`] (that will be called "sub-resources" from
-/// now on). Because color glyphs and patterns are defined using content
-/// streams, just like pages, they can refer to resources too, which are tracked
-/// by the respective sub-resources.
-///
-/// Each instance of this structure will become a `/Resources` dictionary in
-/// the final PDF. It is not possible to use a single shared dictionary for all
-/// pages, patterns and color fonts, because if a resource is listed in its own
-/// `/Resources` dictionary, some PDF readers will fail to open the document.
-///
-/// Because we need to lazily initialize sub-resources (we don't know how deep
-/// the tree will be before reading the document), and that this is done in a
-/// context where no PDF reference allocator is available, `Resources` are
-/// originally created with the type parameter `R = ()`. The reference for each
-/// dictionary will only be allocated in the next phase, once we know the shape
-/// of the tree, at which point `R` becomes `Ref`. No other value of `R` should
-/// ever exist.
-struct Resources<R = Ref> {
-    /// The global reference to this resource dictionary, or `()` if it has not
-    /// been allocated yet.
-    reference: R,
-    /// Content of exported pages.
-    pages: Vec<EncodedPage>,
-    /// The number of glyphs for all referenced languages in the document.
-    /// We keep track of this to determine the main document language.
-    /// BTreeMap is used to write sorted list of languages to metadata.
-    languages: BTreeMap<Lang, usize>,
-
-    /// For each font a mapping from used glyphs to their text representation.
-    /// May contain multiple chars in case of ligatures or similar things. The
-    /// same glyph can have a different text representation within one document,
-    /// then we just save the first one. The resulting strings are used for the
-    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
-    /// cmap. This is important for copy-paste and searching.
-    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
-
-    /// Handles color space writing.
-    colors: ColorSpaces,
-
-    /// Deduplicates fonts used across the document.
-    fonts: Remapper<Font>,
-    /// Deduplicates images used across the document.
-    images: Remapper<Image>,
-    /// Handles to deferred image conversions.
-    deferred_images: HashMap<usize, Deferred<EncodedImage>>,
-    /// Deduplicates gradients used across the document.
-    gradients: Remapper<PdfGradient>,
-    /// Deduplicates patterns used across the document.
-    patterns: Option<Box<PatternRemapper<R>>>,
-    /// Deduplicates external graphics states used across the document.
-    ext_gs: Remapper<ExtGState>,
-    /// Deduplicates color glyphs.
-    color_fonts: Option<Box<ColorFontMap<R>>>,
-}
-
-impl<R: Renumber> Renumber for Resources<R> {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.reference.renumber(mapping);
-
-        if let Some(color_fonts) = &mut self.color_fonts {
-            color_fonts.resources.renumber(mapping);
-        }
-
-        if let Some(patterns) = &mut self.patterns {
-            patterns.resources.renumber(mapping);
-        }
-    }
-}
-
-impl Default for Resources<()> {
-    fn default() -> Self {
-        Resources {
-            reference: (),
-            pages: Vec::new(),
-            glyph_sets: HashMap::new(),
-            languages: BTreeMap::new(),
-            colors: ColorSpaces::default(),
-            fonts: Remapper::new(),
-            images: Remapper::new(),
-            deferred_images: HashMap::new(),
-            gradients: Remapper::new(),
-            patterns: None,
-            ext_gs: Remapper::new(),
-            color_fonts: None,
-        }
-    }
-}
-
-impl Resources<()> {
-    /// Associate a reference with this resource dictionary (and do so
-    /// recursively for sub-resources).
-    fn with_refs(self, refs: &ResourcesRefs) -> Resources<Ref> {
-        Resources {
-            reference: refs.reference,
-            pages: self.pages,
-            languages: self.languages,
-            glyph_sets: self.glyph_sets,
-            colors: self.colors,
-            fonts: self.fonts,
-            images: self.images,
-            deferred_images: self.deferred_images,
-            gradients: self.gradients,
-            patterns: self
-                .patterns
-                .zip(refs.patterns.as_ref())
-                .map(|(p, r)| Box::new(p.with_refs(r))),
-            ext_gs: self.ext_gs,
-            color_fonts: self
-                .color_fonts
-                .zip(refs.color_fonts.as_ref())
-                .map(|(c, r)| Box::new(c.with_refs(r))),
-        }
-    }
-}
-
-impl<R> Resources<R> {
-    /// Run a function on this resource dictionary and all
-    /// of its sub-resources.
-    fn traverse<P>(&self, process: &mut P)
-    where
-        P: FnMut(&Self),
-    {
-        process(self);
-        if let Some(color_fonts) = &self.color_fonts {
-            color_fonts.resources.traverse(process)
-        }
-        if let Some(patterns) = &self.patterns {
-            patterns.resources.traverse(process)
-        }
-    }
 }
 
 /// At this point, resources were listed, but they don't have any reference
 /// associated with them.
 ///
 /// This phase allocates some global references.
-struct AllocGlobalRefs<'a> {
+struct WithResources<'a> {
     document: &'a Document,
+    pages: Vec<EncodedPage>,
     resources: Resources<()>,
 }
 
@@ -281,9 +142,16 @@ struct GlobalRefs {
     resources: ResourcesRefs,
 }
 
-impl<'a> From<(BuildContent<'a>, Resources<()>)> for AllocGlobalRefs<'a> {
-    fn from((previous, resources): (BuildContent<'a>, Resources<()>)) -> Self {
-        Self { document: previous.document, resources }
+impl<'a> From<(WithDocument<'a>, (Vec<EncodedPage>, Resources<()>))>
+    for WithResources<'a>
+{
+    fn from(
+        (previous, (pages, resources)): (
+            WithDocument<'a>,
+            (Vec<EncodedPage>, Resources<()>),
+        ),
+    ) -> Self {
+        Self { document: previous.document, pages, resources }
     }
 }
 
@@ -292,16 +160,18 @@ impl<'a> From<(BuildContent<'a>, Resources<()>)> for AllocGlobalRefs<'a> {
 ///
 /// We are now writing objects corresponding to resources, and giving them references,
 /// that will be collected in [`References`].
-struct AllocRefs<'a> {
+struct WithGlobalRefs<'a> {
     document: &'a Document,
     globals: GlobalRefs,
+    pages: Vec<EncodedPage>,
     resources: Resources,
 }
 
-impl<'a> From<(AllocGlobalRefs<'a>, GlobalRefs)> for AllocRefs<'a> {
-    fn from((previous, globals): (AllocGlobalRefs<'a>, GlobalRefs)) -> Self {
+impl<'a> From<(WithResources<'a>, GlobalRefs)> for WithGlobalRefs<'a> {
+    fn from((previous, globals): (WithResources<'a>, GlobalRefs)) -> Self {
         Self {
             document: previous.document,
+            pages: previous.pages,
             resources: previous.resources.with_refs(&globals.resources),
             globals,
         }
@@ -328,18 +198,20 @@ struct References {
 /// At this point, the references have been assigned to all resources. The page
 /// tree is going to be written, and given a reference. It is also at this point that
 /// the page contents is actually written.
-struct WritePageTree<'a> {
+struct WithRefs<'a> {
     globals: GlobalRefs,
     document: &'a Document,
+    pages: Vec<EncodedPage>,
     resources: Resources,
     references: References,
 }
 
-impl<'a> From<(AllocRefs<'a>, References)> for WritePageTree<'a> {
-    fn from((previous, references): (AllocRefs<'a>, References)) -> Self {
+impl<'a> From<(WithGlobalRefs<'a>, References)> for WithRefs<'a> {
+    fn from((previous, references): (WithGlobalRefs<'a>, References)) -> Self {
         Self {
             globals: previous.globals,
             document: previous.document,
+            pages: previous.pages,
             resources: previous.resources,
             references,
         }
@@ -349,39 +221,41 @@ impl<'a> From<(AllocRefs<'a>, References)> for WritePageTree<'a> {
 /// In this phase, we write resource dictionaries.
 ///
 /// Each sub-resource gets its own isolated resource dictionary.
-struct WriteResources<'a> {
+struct WithEverything<'a> {
     globals: GlobalRefs,
     document: &'a Document,
+    pages: Vec<EncodedPage>,
     resources: Resources,
     references: References,
     page_tree_ref: Ref,
 }
 
-impl<'a> From<(WriteResources<'a>, ())> for WriteResources<'a> {
-    fn from((this, _): (WriteResources<'a>, ())) -> Self {
+impl<'a> From<(WithEverything<'a>, ())> for WithEverything<'a> {
+    fn from((this, _): (WithEverything<'a>, ())) -> Self {
         this
     }
 }
 
-impl<'a> From<(WritePageTree<'a>, PageTreeRef)> for WriteResources<'a> {
-    fn from((previous, page_tree_ref): (WritePageTree<'a>, PageTreeRef)) -> Self {
+impl<'a> From<(WithRefs<'a>, PageTreeRef)> for WithEverything<'a> {
+    fn from((previous, page_tree_ref): (WithRefs<'a>, PageTreeRef)) -> Self {
         Self {
             globals: previous.globals,
             document: previous.document,
             resources: previous.resources,
             references: previous.references,
+            pages: previous.pages,
             page_tree_ref: page_tree_ref.0,
         }
     }
 }
 
-impl<'a> PdfBuilder<BuildContent<'a>> {
+impl<'a> PdfBuilder<WithDocument<'a>> {
     /// Start building a PDF for a Typst document.
     fn new(document: &'a Document) -> Self {
         Self {
             alloc: Ref::new(1),
             pdf: Pdf::new(),
-            state: BuildContent { document },
+            state: WithDocument { document },
         }
     }
 }
@@ -481,6 +355,12 @@ impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
         for v in self.values_mut() {
             v.renumber(mapping);
         }
+    }
+}
+
+impl<T, R: Renumber> Renumber for (T, R) {
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        self.1.renumber(mapping)
     }
 }
 

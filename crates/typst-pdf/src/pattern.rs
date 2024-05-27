@@ -10,14 +10,14 @@ use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
-use crate::{color::PaintEncode, AllocRefs, Remapper, Resources};
+use crate::{color::PaintEncode, WithGlobalRefs, Remapper, Resources};
 use crate::{content, resources::ResourcesRefs};
 use crate::{transform_to_array, PdfChunk, Renumber};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_patterns(
-    context: &AllocRefs,
+    context: &WithGlobalRefs,
 ) -> (PdfChunk, HashMap<PdfPattern, WrittenPattern>) {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();

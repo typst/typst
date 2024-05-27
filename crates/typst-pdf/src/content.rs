@@ -21,11 +21,11 @@ use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
 
-use crate::color::PaintEncode;
 use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate_deferred, AbsExt, EmExt, Resources};
+use crate::{color::PaintEncode, resources::Resources};
+use crate::{deflate_deferred, AbsExt, EmExt};
 
 pub fn build(out: &mut Resources<()>, frame: &Frame) -> Encoded {
     let size = frame.size();

@@ -5,7 +5,7 @@ use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref}
 
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, AllocGlobalRefs, PdfChunk, Renumber};
+use crate::{content, deflate, PdfChunk, Renumber, WithResources};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -190,7 +190,7 @@ impl Renumber for ColorFunctionRefs {
 }
 
 pub fn alloc_color_functions_refs(
-    context: &AllocGlobalRefs,
+    context: &WithResources,
 ) -> (PdfChunk, ColorFunctionRefs) {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
