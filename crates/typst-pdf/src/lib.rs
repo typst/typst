@@ -78,13 +78,13 @@ pub fn pdf(
             resources: builder.run(alloc_resources_refs),
         })
         .phase(|builder| References {
-            named_destinations: builder.par_run(write_named_destinations),
-            fonts: builder.par_run(write_fonts),
-            color_fonts: builder.par_run(write_color_fonts),
-            images: builder.par_run(write_images),
-            gradients: builder.par_run(write_gradients),
-            patterns: builder.par_run(write_patterns),
-            ext_gs: builder.par_run(write_graphic_states),
+            named_destinations: builder.run(write_named_destinations),
+            fonts: builder.run(write_fonts),
+            color_fonts: builder.run(write_color_fonts),
+            images: builder.run(write_images),
+            gradients: builder.run(write_gradients),
+            patterns: builder.run(write_patterns),
+            ext_gs: builder.run(write_graphic_states),
         })
         .phase(|builder| builder.run(write_page_tree))
         .phase(|builder| builder.run(write_resource_dictionaries))
@@ -383,23 +383,6 @@ impl<'a> PdfBuilder<BuildContent<'a>> {
             pdf: Pdf::new(),
             state: BuildContent { document },
         }
-    }
-}
-
-impl<S: Send + Sync> PdfBuilder<S> {
-    /// Same as [`PdfBuilder::run`], but in a new thread.
-    fn par_run<P, O>(&mut self, process: P) -> O
-    where
-        // Process
-        P: Fn(&S) -> (PdfChunk, O) + Send + Sync,
-        // Output
-        O: Renumber + Send,
-    {
-        let mut out = None;
-        rayon::scope(|s| s.spawn(|_| out = Some(process(&self.state))));
-        let (chunk, output) = out.unwrap();
-
-        self.renumber(chunk, output)
     }
 }
 
