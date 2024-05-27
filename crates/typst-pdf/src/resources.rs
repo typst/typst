@@ -238,10 +238,9 @@ pub fn write_resource_dictionaries(ctx: &WithEverything) -> (PdfChunk, ()) {
         resources
             .gradients
             .write(&ctx.references.gradients, &mut patterns_dict);
-        resources
-            .patterns
-            .as_ref()
-            .inspect(|p| p.remapper.write(&ctx.references.patterns, &mut patterns_dict));
+        if let Some(p) = &resources.patterns {
+            p.remapper.write(&ctx.references.patterns, &mut patterns_dict);
+        }
         patterns_dict.finish();
 
         resources
