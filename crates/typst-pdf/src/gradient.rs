@@ -36,7 +36,9 @@ pub struct PdfGradient {
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_gradients(context: &WithGlobalRefs) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
+pub fn write_gradients(
+    context: &WithGlobalRefs,
+) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
