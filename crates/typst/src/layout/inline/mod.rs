@@ -23,7 +23,8 @@ use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
 use crate::syntax::Span;
 use crate::text::{
-    Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    DecorationBuilder, Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
+    SpaceElem, TextElem,
 };
 use crate::utils::Numeric;
 use crate::World;
@@ -1410,6 +1411,8 @@ fn commit(
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
+    let mut deco_builder = DecorationBuilder::new();
+
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for item in reordered {
@@ -1422,8 +1425,9 @@ fn commit(
         };
 
         match item {
-            Item::Absolute(v, _, s) => {
+            Item::Absolute(v, weak, s) => {
                 offset += *v;
+                deco_builder.push_space(*weak, offset, Size::new(*v, Abs::zero()), *s);
             }
             Item::Fractional(v, elem) => {
                 let amount = v.share(fr, remaining);
@@ -1441,10 +1445,12 @@ fn commit(
             Item::Text(shaped) => {
                 let mut frame =
                     shaped.build(engine, justification_ratio, extra_justification);
+                deco_builder.push_frame(offset, &frame, None);
                 frame.post_process(shaped.styles);
                 push(&mut offset, frame);
             }
             Item::Frame(frame, s) => {
+                deco_builder.push_frame(offset, &frame, *s);
                 push(&mut offset, frame.clone());
             }
             Item::Tag(tag) => {
@@ -1465,6 +1471,7 @@ fn commit(
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 
+    deco_builder.finalize(&mut output);
     // Construct the line's frame.
     for (offset, frame) in frames {
         let x = offset + p.align.position(remaining);

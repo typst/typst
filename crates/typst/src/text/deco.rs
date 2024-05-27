@@ -13,6 +13,7 @@ use crate::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TextItem, TopEdge, TopEdgeMetric,
 };
 use crate::visualize::{styled_rect, Color, FixedStroke, Geometry, Paint, Stroke};
+use std::collections::HashMap;
 
 /// Underlines text.
 ///
@@ -368,6 +369,166 @@ impl Show for Packed<HighlightElem> {
     }
 }
 
+pub struct DecorationBuilder {
+    // frame id.
+    // offset x
+    // offset y
+    // size
+    // accept
+    deco_running: HashMap<Decoration, (usize, Abs, Abs, Size, Abs)>,
+    offset: Abs,
+    size: Size,
+    frame_cnt: usize,
+    // bool true: background, false, foreground
+    deco_frames: Vec<(usize, bool, Abs, Abs, Frame)>,
+}
+
+impl DecorationBuilder {
+    pub fn new() -> Self {
+        Self {
+            deco_running: HashMap::new(),
+            offset: Abs::zero(),
+            size: Size::zero(),
+            frame_cnt: 0,
+            deco_frames: Vec::new(),
+        }
+    }
+
+    fn make_deco(size: Size, deco: &Decoration) -> Frame {
+        let pos = Point::new(Abs::zero(), Abs::zero());
+        let shift = Abs::zero();
+
+        let mut new_frame = Frame::soft(size);
+        decorate_frame(&mut new_frame, deco, pos, size, shift);
+        new_frame
+    }
+
+    pub fn push_space(
+        &mut self,
+        weak_space: bool,
+        offset_x: Abs,
+        size: Size,
+        styles: Option<StyleChain>,
+    ) {
+        self.push(weak_space, !weak_space, offset_x, Abs::zero(), size, styles);
+    }
+
+    pub fn push_frame(
+        &mut self,
+        offset_x: Abs,
+        frame: &Frame,
+        styles: Option<StyleChain>,
+    ) {
+        self.push(
+            false,
+            false,
+            offset_x,
+            frame.ascent() - frame.baseline(),
+            frame.size(),
+            styles,
+        );
+        self.frame_cnt += 1;
+    }
+
+    fn push(
+        &mut self,
+        weak_space: bool,
+        strong_space: bool,
+        offset_x: Abs,
+        offset_y: Abs,
+        size: Size,
+        styles: Option<StyleChain>,
+    ) {
+        let new_decos =
+            if let Some(s) = styles { TextElem::deco_in(s) } else { vec![].into() };
+
+        let mut terminate_decoration = vec![];
+        for (deco_key, value) in self.deco_running.iter_mut() {
+            let mut found = false;
+            for new_deco in &new_decos {
+                if deco_key == new_deco {
+                    found = true;
+                    if weak_space {
+                        value.3.x += size.x;
+                    } else {
+                        let (staring_id, old_offset_x, old_offset_y, old_size, to_accept) =
+                            value;
+                        old_size.x += *to_accept;
+                        old_size.x += size.x;
+                        old_offset_y.set_min(offset_y);
+                        if offset_y + size.y > old_size.y {
+                            old_size.y = offset_y + size.y - *old_offset_y;
+                        }
+                        *value = (
+                            *staring_id,
+                            *old_offset_x,
+                            *old_offset_y,
+                            *old_size,
+                            Abs::zero(),
+                        );
+                    }
+                    break;
+                }
+            }
+            if !found {
+                let (starting_frame_count, offset_x, offset_y, size, _) = value;
+                let new_frame = Self::make_deco(*size, deco_key);
+                let target_frame_id = if deco_key.is_background() {
+                    *starting_frame_count
+                } else {
+                    self.frame_cnt
+                };
+                self.deco_frames.push((
+                    self.frame_cnt,
+                    deco_key.is_background(),
+                    *offset_x,
+                    *offset_y,
+                    new_frame,
+                ));
+                terminate_decoration.push(deco_key.clone());
+            }
+        }
+        if !weak_space && !strong_space {
+            for new_deco in new_decos {
+                if !self.deco_running.contains_key(&new_deco) {
+                    self.deco_running.insert(
+                        new_deco.clone(),
+                        (self.frame_cnt, offset_x, offset_y, size, Abs::zero()),
+                    );
+                }
+            }
+        }
+        for k in terminate_decoration {
+            self.deco_running.remove(&k);
+        }
+    }
+
+    pub fn finalize(mut self, output: &mut Frame) {
+        for (deco_key, value) in self.deco_running.iter() {
+            let (starting_frame_count, offset_x, offset_y, size, _) = value;
+            let new_frame = Self::make_deco(*size, deco_key);
+            let target_frame_id = if deco_key.is_background() {
+                *starting_frame_count
+            } else {
+                self.frame_cnt - 1
+            };
+            self.deco_frames.push((
+                target_frame_id,
+                deco_key.is_background(),
+                *offset_x,
+                *offset_y,
+                new_frame,
+            ));
+        }
+
+        for (cnt, background, offset_x, offset_y, frame) in self.deco_frames {
+            let x = offset_x;
+            let y = Abs::zero() + offset_y;
+            output.push_frame(Point::new(x, y), frame);
+        }
+    }
+}
+
 /// A text decoration.
 ///
 /// Can be positioned over, under, or on top of text, or highlight the text with
@@ -376,6 +537,17 @@ impl Show for Packed<HighlightElem> {
 pub struct Decoration {
     line: DecoLine,
     extent: Abs,
+}
+
+impl Decoration {
+    fn is_background(&self) -> bool {
+        match self.line {
+            DecoLine::Highlight { .. } => true,
+            DecoLine::Strikethrough { .. }
+            | DecoLine::Underline { .. }
+            | DecoLine::Overline { .. } => false,
+        }
+    }
 }
 
 /// A kind of decorative line.
