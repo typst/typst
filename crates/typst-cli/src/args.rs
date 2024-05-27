@@ -226,12 +226,8 @@ pub struct PackageStorageArgs {
     pub package_cache_path: Option<PathBuf>,
 
     /// Custom path to local packages, defaults to system-dependent location
-    #[clap(
-        long = "local-packages-path",
-        env = "TYPST_LOCAL_PACKAGES_PATH",
-        value_name = "DIR"
-    )]
-    pub local_packages_path: Option<PathBuf>,
+    #[clap(long = "packages-path", env = "TYPST_PACKAGES_PATH", value_name = "DIR")]
+    pub packages_path: Option<PathBuf>,
 }
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
