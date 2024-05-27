@@ -223,6 +223,12 @@ impl Packed<EquationElem> {
             vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
         };
 
+        // An empty equation should have a height, so we still create a frame
+        // (which is then resized in the loop).
+        if items.is_empty() {
+            items.push(MathParItem::Frame(Frame::soft(Size::zero())));
+        }
+
         for item in &mut items {
             let MathParItem::Frame(frame) = item else { continue };
 
@@ -460,25 +466,33 @@ fn resize_equation(
     if matches!(number_align.y, FixedAlignment::Center if is_multiline) {
         // In this case, the center lines (not baselines) of the number frame
         // and the equation frame shall be aligned.
-        let height = equation.height().max(number.height());
         return equation.resize(
-            Size::new(width, height),
+            Size::new(width, equation.height().max(number.height())),
             Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Center),
         );
     }
 
     let excess_above = Abs::zero().max({
-        let (.., baseline) = first;
-        number.baseline() - baseline
+        if !is_multiline || matches!(number_align.y, FixedAlignment::Start) {
+            let (.., baseline) = first;
+            number.baseline() - baseline
+        } else {
+            Abs::zero()
+        }
     });
     let excess_below = Abs::zero().max({
-        let (size, .., baseline) = last;
-        (number.height() - number.baseline()) - (size.y - baseline)
+        if !is_multiline || matches!(number_align.y, FixedAlignment::End) {
+            let (size, .., baseline) = last;
+            (number.height() - number.baseline()) - (size.y - baseline)
+        } else {
+            Abs::zero()
+        }
     });
-    let height = equation.height() + excess_above + excess_below;
 
+    // The vertical expansion is asymmetric on the top and bottom edges, so we
+    // first align at the top then translate the content downward later.
     let resizing_offset = equation.resize(
-        Size::new(width, height),
+        Size::new(width, equation.height() + excess_above + excess_below),
         Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Start),
     );
     equation.translate(Point::with_y(excess_above));

@@ -1,55 +1,43 @@
 use std::fmt::{self, Debug, Formatter};
 
-/// Efficiently stores a set of numbers which are expected to be very small
-/// (< 32/64 depending on the architecture).
-///
-/// Inserting a very small value is very cheap while inserting a large one may
-/// be very expensive.
-#[derive(Clone, PartialEq, Hash)]
-pub struct BitSet {
-    /// Used to store values < BITS.
-    low: usize,
-    /// Used to store values > BITS. We have the extra `Box` to keep the memory
-    /// size of the `BitSet` down.
-    #[allow(clippy::box_collection)]
-    hi: Option<Box<Vec<usize>>>,
-}
+use thin_vec::ThinVec;
 
 /// The number of bits per chunk.
 const BITS: usize = usize::BITS as usize;
 
+/// Stores a set of numbers which are expected to be rather small.
+///
+/// Inserting a very small value is cheap while inserting a large one may be
+/// very expensive.
+///
+/// Unless you're managing small numbers yourself, you should likely prefer
+/// `SmallBitSet`, which has a bit larger memory size, but does not allocate
+/// for small numbers.
+#[derive(Clone, PartialEq, Hash)]
+pub struct BitSet(ThinVec<usize>);
+
 impl BitSet {
     /// Creates a new empty bit set.
     pub fn new() -> Self {
-        Self { low: 0, hi: None }
+        Self(ThinVec::new())
     }
 
     /// Inserts a number into the set.
     pub fn insert(&mut self, value: usize) {
-        if value < BITS {
-            self.low |= 1 << value;
-        } else {
-            let chunk = value / BITS - 1;
-            let within = value % BITS;
-            let vec = self.hi.get_or_insert_with(Default::default);
-            if chunk >= vec.len() {
-                vec.resize(chunk + 1, 0);
-            }
-            vec[chunk] |= 1 << within;
+        let chunk = value / BITS;
+        let within = value % BITS;
+        if chunk >= self.0.len() {
+            self.0.resize(chunk + 1, 0);
         }
+        self.0[chunk] |= 1 << within;
     }
 
     /// Whether a number is present in the set.
     pub fn contains(&self, value: usize) -> bool {
-        if value < BITS {
-            (self.low & (1 << value)) != 0
-        } else {
-            let Some(hi) = &self.hi else { return false };
-            let chunk = value / BITS - 1;
-            let within = value % BITS;
-            let Some(bits) = hi.get(chunk) else { return false };
-            (bits & (1 << within)) != 0
-        }
+        let chunk = value / BITS;
+        let within = value % BITS;
+        let Some(bits) = self.0.get(chunk) else { return false };
+        (bits & (1 << within)) != 0
     }
 }
 
@@ -62,7 +50,62 @@ impl Default for BitSet {
 impl Debug for BitSet {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut list = f.debug_list();
-        let chunks = 1 + self.hi.as_ref().map_or(0, |v| v.len());
+        let chunks = self.0.len();
+        for v in 0..chunks * BITS {
+            if self.contains(v) {
+                list.entry(&v);
+            }
+        }
+        list.finish()
+    }
+}
+
+/// Efficiently stores a set of numbers which are expected to be very small.
+/// Values `< 32/64` (depending on the architecture) are stored inline, while
+/// values larger than that will lead to an allocation.
+#[derive(Clone, PartialEq, Hash)]
+pub struct SmallBitSet {
+    /// Used to store values < BITS.
+    low: usize,
+    /// Used to store values > BITS.
+    hi: BitSet,
+}
+
+impl SmallBitSet {
+    /// Creates a new empty bit set.
+    pub fn new() -> Self {
+        Self { low: 0, hi: BitSet::new() }
+    }
+
+    /// Inserts a number into the set.
+    pub fn insert(&mut self, value: usize) {
+        if value < BITS {
+            self.low |= 1 << value;
+        } else {
+            self.hi.insert(value - BITS);
+        }
+    }
+
+    /// Whether a number is present in the set.
+    pub fn contains(&self, value: usize) -> bool {
+        if value < BITS {
+            (self.low & (1 << value)) != 0
+        } else {
+            self.hi.contains(value - BITS)
+        }
+    }
+}
+
+impl Default for SmallBitSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Debug for SmallBitSet {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut list = f.debug_list();
+        let chunks = 1 + self.hi.0.len();
         for v in 0..chunks * BITS {
             if self.contains(v) {
                 list.entry(&v);
@@ -78,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_bitset() {
-        let mut set = BitSet::new();
+        let mut set = SmallBitSet::new();
         assert!(!set.contains(0));
         assert!(!set.contains(5));
         set.insert(0);

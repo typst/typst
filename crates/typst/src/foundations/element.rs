@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hash;
+use std::ptr::NonNull;
 
 use ecow::EcoString;
 use once_cell::sync::Lazy;
@@ -81,7 +82,7 @@ impl Element {
     }
 
     /// The VTable for capabilities dispatch.
-    pub fn vtable(self) -> fn(of: TypeId) -> Option<*const ()> {
+    pub fn vtable(self) -> fn(of: TypeId) -> Option<NonNull<()>> {
         self.0.vtable
     }
 
@@ -208,7 +209,7 @@ pub trait NativeElement:
 /// `TypeId::of::<dyn C>()`.
 pub unsafe trait Capable {
     /// Get the pointer to the vtable for the given capability / trait.
-    fn vtable(capability: TypeId) -> Option<*const ()>;
+    fn vtable(capability: TypeId) -> Option<NonNull<()>>;
 }
 
 /// Defines how fields of an element are accessed.
@@ -261,18 +262,31 @@ pub trait Set {
 /// Defines a native element.
 #[derive(Debug)]
 pub struct NativeElementData {
+    /// The element's normal name (e.g. `align`), as exposed to Typst.
     pub name: &'static str,
+    /// The element's title case name (e.g. `Align`).
     pub title: &'static str,
+    /// The documentation for this element as a string.
     pub docs: &'static str,
+    /// A list of alternate search terms for this element.
     pub keywords: &'static [&'static str],
+    /// The constructor for this element (see [`Construct`]).
     pub construct: fn(&mut Engine, &mut Args) -> SourceResult<Content>,
+    /// Executes this element's set rule (see [`Set`]).
     pub set: fn(&mut Engine, &mut Args) -> SourceResult<Styles>,
-    pub vtable: fn(capability: TypeId) -> Option<*const ()>,
+    /// Gets the vtable for one of this element's capabilities
+    /// (see [`Capable`]).
+    pub vtable: fn(capability: TypeId) -> Option<NonNull<()>>,
+    /// Gets the numeric index of this field by its name.
     pub field_id: fn(name: &str) -> Option<u8>,
+    /// Gets the name of a field by its numeric index.
     pub field_name: fn(u8) -> Option<&'static str>,
+    /// Get the field with the given ID in the presence of styles (see [`Fields`]).
     pub field_from_styles: fn(u8, StyleChain) -> Option<Value>,
+    /// Gets the localized name for this element (see [`LocalName`][crate::text::LocalName]).
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,
+    /// A list of parameter information for each field.
     pub params: Lazy<Vec<ParamInfo>>,
 }
 

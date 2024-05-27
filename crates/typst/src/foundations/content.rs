@@ -18,13 +18,13 @@ use crate::foundations::{
     NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
     Value,
 };
-use crate::introspection::{Location, Meta, MetaElem};
+use crate::introspection::{Location, TagElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, StrongElem};
+use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::utils::{fat, BitSet, LazyHash};
+use crate::utils::{fat, LazyHash, SmallBitSet};
 
 /// A piece of document content.
 ///
@@ -90,7 +90,7 @@ struct Inner<T: ?Sized + 'static> {
     /// - If bit 0 is set, the element is prepared.
     /// - If bit n is set, the element is guarded against the n-th show rule
     ///   recipe from the top of the style chain (counting from 1).
-    lifecycle: BitSet,
+    lifecycle: SmallBitSet,
     /// The element's raw data.
     elem: LazyHash<T>,
 }
@@ -102,7 +102,7 @@ impl Content {
             inner: Arc::new(Inner {
                 label: None,
                 location: None,
-                lifecycle: BitSet::new(),
+                lifecycle: SmallBitSet::new(),
                 elem: elem.into(),
             }),
             span: Span::detached(),
@@ -299,7 +299,7 @@ impl Content {
         // use a `*const Content` pointer.
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
         let data = self as *const Content as *const ();
-        Some(unsafe { &*fat::from_raw_parts(data, vtable) })
+        Some(unsafe { &*fat::from_raw_parts(data, vtable.as_ptr()) })
     }
 
     /// Cast to a mutable trait object if the contained element has the given
@@ -319,7 +319,7 @@ impl Content {
         // mutable access is required.
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
         let data = self as *mut Content as *mut ();
-        Some(unsafe { &mut *fat::from_raw_parts_mut(data, vtable) })
+        Some(unsafe { &mut *fat::from_raw_parts_mut(data, vtable.as_ptr()) })
     }
 
     /// Whether the content is an empty sequence.
@@ -472,16 +472,16 @@ impl Content {
 
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
-        self.styled(MetaElem::set_data(smallvec![Meta::Link(dest)]))
+        self.styled(LinkElem::set_dests(smallvec![dest]))
     }
 
     /// Make the content linkable by `.linked(Destination::Location(loc))`.
     ///
     /// Should be used in combination with [`Location::variant`].
     pub fn backlinked(self, loc: Location) -> Self {
-        let mut backlink = Content::empty();
+        let mut backlink = Content::empty().spanned(self.span());
         backlink.set_location(loc);
-        self.styled(MetaElem::set_data(smallvec![Meta::Elem(backlink)]))
+        TagElem::packed(backlink) + self
     }
 
     /// Set alignments for this content.

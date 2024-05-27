@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::introspection::{Location, Meta};
+use crate::introspection::Location;
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
 use crate::utils::NonZeroExt;
@@ -61,18 +61,18 @@ impl Introspector {
                         .pre_concat(group.transform);
                     self.extract(&group.frame, page, ts);
                 }
-                FrameItem::Meta(Meta::Elem(content), _)
-                    if !self.elems.contains_key(&content.location().unwrap()) =>
+                FrameItem::Tag(elem)
+                    if !self.elems.contains_key(&elem.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
                     let ret = self.elems.insert(
-                        content.location().unwrap(),
-                        (content.clone(), Position { page, point: pos }),
+                        elem.location().unwrap(),
+                        (elem.clone(), Position { page, point: pos }),
                     );
                     assert!(ret.is_none(), "duplicate locations");
 
                     // Build the label cache.
-                    if let Some(label) = content.label() {
+                    if let Some(label) = elem.label() {
                         self.labels.entry(label).or_default().push(self.elems.len() - 1);
                     }
                 }
@@ -121,7 +121,7 @@ impl Introspector {
                     indices.iter().map(|&index| self.elems[index].0.clone()).collect()
                 })
                 .unwrap_or_default(),
-            Selector::Elem(..) | Selector::Regex(_) | Selector::Can(_) => self
+            Selector::Elem(..) | Selector::Can(_) => self
                 .all()
                 .filter(|elem| selector.matches(elem, None))
                 .cloned()
@@ -188,6 +188,8 @@ impl Introspector {
                 .into_iter()
                 .map(|index| self.elems[index].0.clone())
                 .collect(),
+            // Not supported here.
+            Selector::Regex(_) => EcoVec::new(),
         };
 
         self.queries.insert(hash, output.clone());
@@ -198,6 +200,11 @@ impl Introspector {
     pub fn query_first(&self, selector: &Selector) -> Option<Content> {
         match selector {
             Selector::Location(location) => self.get(location).cloned(),
+            Selector::Label(label) => self
+                .labels
+                .get(label)
+                .and_then(|indices| indices.first())
+                .map(|&index| self.elems[index].0.clone()),
             _ => self.query(selector).first().cloned(),
         }
     }
@@ -234,6 +241,21 @@ impl Introspector {
         }
 
         Ok(&self.elems[indices[0]].0)
+    }
+
+    /// This is an optimized version of
+    /// `query(selector.before(end, true).len()` used by counters and state.
+    pub fn query_count_before(&self, selector: &Selector, end: Location) -> usize {
+        // See `query()` for details.
+        let list = self.query(selector);
+        if let Some(end) = self.get(&end) {
+            match self.binary_search(&list, end) {
+                Ok(i) => i + 1,
+                Err(i) => i,
+            }
+        } else {
+            list.len()
+        }
     }
 
     /// The total number pages.
