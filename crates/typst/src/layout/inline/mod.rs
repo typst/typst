@@ -1085,14 +1085,14 @@ fn line<'a>(
 
     // Weak space (Absolute(_, weak=true)) would be removed if at the end of the line
     while let Some((Item::Absolute(_, true), before)) = inner.split_last() {
-        // apply it recursively to ensure the last one is not space
+        // apply it recursively to ensure the last one is not weak space
         inner = before;
         range.end -= 1;
         expanded.end -= 1;
     }
     // Weak space (Absolute(_, weak=true)) would be removed if at the beginning of the line
     while let Some((Item::Absolute(_, true), after)) = inner.split_first() {
-        // apply it recursively to ensure the last one is not space
+        // apply it recursively to ensure the first one is not weak space
         inner = after;
         range.start += 1;
         expanded.end += 1;
