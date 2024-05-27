@@ -177,7 +177,7 @@ pub struct PatternRemapper<R> {
     pub resources: Resources<R>,
 }
 
-impl<'a> PatternRemapper<()> {
+impl PatternRemapper<()> {
     pub fn new() -> Self {
         Self {
             remapper: Remapper::new(),

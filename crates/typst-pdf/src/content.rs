@@ -27,7 +27,7 @@ use crate::extg::ExtGState;
 use crate::image::deferred_image;
 use crate::{deflate_deferred, AbsExt, EmExt, Resources};
 
-pub fn build<'a>(out: &'a mut Resources<()>, frame: &Frame) -> Encoded {
+pub fn build(out: &mut Resources<()>, frame: &Frame) -> Encoded {
     let size = frame.size();
     let mut ctx = Builder::new(out, size);
 

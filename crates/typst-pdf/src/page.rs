@@ -20,7 +20,7 @@ use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
-pub fn traverse_pages<'a>(state: &BuildContent<'a>) -> (PdfChunk, Resources<()>) {
+pub fn traverse_pages(state: &BuildContent) -> (PdfChunk, Resources<()>) {
     let mut out = Resources::default();
     for page in &state.document.pages {
         let mut encoded = construct_page(&mut out, &page.frame);
@@ -38,7 +38,7 @@ pub fn traverse_pages<'a>(state: &BuildContent<'a>) -> (PdfChunk, Resources<()>)
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-fn construct_page<'a, 'b>(out: &'a mut Resources<()>, frame: &Frame) -> EncodedPage {
+fn construct_page(out: &mut Resources<()>, frame: &Frame) -> EncodedPage {
     let content = content::build(out, frame);
 
     EncodedPage { content, label: None }
