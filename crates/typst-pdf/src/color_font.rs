@@ -243,7 +243,7 @@ impl ColorFontMap<()> {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct ColorFontSlice {
     pub font: Font,
     pub subfont: usize,

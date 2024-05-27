@@ -39,7 +39,7 @@ use crate::named_destination::{write_named_destinations, NamedDestinations};
 use crate::page::{
     alloc_page_refs, traverse_pages, write_page_tree, EncodedPage, PageTreeRef,
 };
-use crate::pattern::{write_patterns, PdfPattern, WrittenPattern};
+use crate::pattern::{write_patterns, PdfPattern};
 use crate::resources::{
     alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
 };
@@ -190,7 +190,7 @@ struct References {
     /// The IDs of written gradients.
     gradients: HashMap<PdfGradient, Ref>,
     /// The IDs of written patterns.
-    patterns: HashMap<PdfPattern, WrittenPattern>,
+    patterns: HashMap<PdfPattern, Ref>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
 }
@@ -425,36 +425,6 @@ fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
         .encode(typst::util::hash128(value).to_be_bytes())
-}
-
-/// Assigns new, consecutive PDF-internal indices to items.
-struct Remapper<T> {
-    /// Forwards from the items to the pdf indices.
-    to_pdf: HashMap<T, usize>,
-    /// Backwards from the pdf indices to the items.
-    to_items: Vec<T>,
-}
-
-impl<T> Remapper<T>
-where
-    T: Eq + Hash + Clone,
-{
-    fn new() -> Self {
-        Self { to_pdf: HashMap::new(), to_items: vec![] }
-    }
-
-    fn insert(&mut self, item: T) -> usize {
-        let to_layout = &mut self.to_items;
-        *self.to_pdf.entry(item.clone()).or_insert_with(|| {
-            let pdf_index = to_layout.len();
-            to_layout.push(item);
-            pdf_index
-        })
-    }
-
-    fn items(&self) -> impl Iterator<Item = &T> + '_ {
-        self.to_items.iter()
-    }
 }
 
 /// Additional methods for [`Abs`].

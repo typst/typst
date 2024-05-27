@@ -20,8 +20,8 @@ use crate::{
     extg::ExtGState,
     gradient::PdfGradient,
     image::EncodedImage,
-    pattern::{PatternRemapper, PdfPattern},
-    PdfChunk, Remapper, Renumber, WithEverything, WithResources,
+    pattern::PatternRemapper,
+    PdfChunk, Renumber, WithEverything, WithResources,
 };
 
 /// All the resources that have been collected when traversing the document.
@@ -107,12 +107,12 @@ impl Default for Resources<()> {
         Resources {
             reference: (),
             colors: ColorSpaces::default(),
-            fonts: Remapper::new(),
-            images: Remapper::new(),
+            fonts: Remapper::new("F"),
+            images: Remapper::new("Im"),
             deferred_images: HashMap::new(),
-            gradients: Remapper::new(),
+            gradients: Remapper::new("Gr"),
             patterns: None,
-            ext_gs: Remapper::new(),
+            ext_gs: Remapper::new("Gs"),
             color_fonts: None,
             languages: BTreeMap::new(),
             glyph_sets: HashMap::new(),
@@ -220,63 +220,56 @@ pub fn write_resource_dictionaries(ctx: &WithEverything) -> (PdfChunk, ()) {
         let ext_gs_states_ref = chunk.alloc.bump();
         let color_spaces_ref = chunk.alloc.bump();
 
-        let mut pattern_mapping = HashMap::new();
-        for (pattern, pattern_refs) in &ctx.references.patterns {
-            pattern_mapping.insert(pattern.clone(), pattern_refs.pattern_ref);
-        }
-
         let mut color_font_slices = Vec::new();
+        let mut color_font_numbers = HashMap::new();
         if let Some(color_fonts) = &resources.color_fonts {
             for (font, color_font) in &color_fonts.map {
                 for i in 0..(color_font.glyphs.len() / 256) + 1 {
-                    color_font_slices
-                        .push(ColorFontSlice { font: font.clone(), subfont: i })
+                    let slice = ColorFontSlice { font: font.clone(), subfont: i };
+                    color_font_numbers.insert(slice.clone(), color_font_slices.len());
+                    color_font_slices.push(slice);
                 }
             }
         }
+        let color_font_remapper = Remapper {
+            prefix: "Cf",
+            to_pdf: color_font_numbers,
+            to_items: color_font_slices,
+        };
 
-        resource_dict(
-            &mut chunk,
-            resources.reference,
-            images_ref,
-            ResourceList {
-                prefix: "Im",
-                items: &resources.images.to_items,
-                mapping: &ctx.references.images,
-            },
-            patterns_ref,
-            ResourceList {
-                prefix: "Gr",
-                items: &resources.gradients.to_items,
-                mapping: &ctx.references.gradients,
-            },
-            ResourceList {
-                prefix: "P",
-                items: resources
-                    .patterns
-                    .as_ref()
-                    .map(|p| &p.remapper.to_items[..])
-                    .unwrap_or_default(),
-                mapping: &pattern_mapping,
-            },
-            ext_gs_states_ref,
-            ResourceList {
-                prefix: "Gs",
-                items: &resources.ext_gs.to_items,
-                mapping: &ctx.references.ext_gs,
-            },
-            color_spaces_ref,
-            ResourceList {
-                prefix: "F",
-                items: &resources.fonts.to_items,
-                mapping: &ctx.references.fonts,
-            },
-            ResourceList {
-                prefix: "Cf",
-                items: &color_font_slices,
-                mapping: &ctx.references.color_fonts,
-            },
-        );
+        resources
+            .images
+            .write(&ctx.references.images, &mut chunk.indirect(images_ref).dict());
+
+        let mut patterns_dict = chunk.indirect(patterns_ref).dict();
+        resources
+            .gradients
+            .write(&ctx.references.gradients, &mut patterns_dict);
+        resources
+            .patterns
+            .as_ref()
+            .inspect(|p| p.remapper.write(&ctx.references.patterns, &mut patterns_dict));
+        patterns_dict.finish();
+
+        resources
+            .ext_gs
+            .write(&ctx.references.ext_gs, &mut chunk.indirect(ext_gs_states_ref).dict());
+
+        let mut res_dict = chunk
+            .indirect(resources.reference)
+            .start::<pdf_writer::writers::Resources>();
+        res_dict.pair(Name(b"XObject"), images_ref);
+        res_dict.pair(Name(b"Pattern"), patterns_ref);
+        res_dict.pair(Name(b"ExtGState"), ext_gs_states_ref);
+        res_dict.pair(Name(b"ColorSpace"), color_spaces_ref);
+
+        // TODO: can't this be an indirect reference too?
+        let mut fonts_dict = res_dict.fonts();
+        resources.fonts.write(&ctx.references.fonts, &mut fonts_dict);
+        color_font_remapper.write(&ctx.references.color_fonts, &mut fonts_dict);
+        fonts_dict.finish();
+
+        res_dict.finish();
 
         let color_spaces = chunk.indirect(color_spaces_ref).dict();
         resources
@@ -289,59 +282,42 @@ pub fn write_resource_dictionaries(ctx: &WithEverything) -> (PdfChunk, ()) {
     (chunk, ())
 }
 
-struct ResourceList<'a, T> {
+/// Assigns new, consecutive PDF-internal indices to items.
+pub struct Remapper<T> {
+    /// The prefix to use when naming these resources.
     prefix: &'static str,
-    items: &'a [T],
-    mapping: &'a HashMap<T, Ref>,
+    /// Forwards from the items to the pdf indices.
+    to_pdf: HashMap<T, usize>,
+    /// Backwards from the pdf indices to the items.
+    to_items: Vec<T>,
 }
 
-impl<'a, T: Eq + Hash> ResourceList<'a, T> {
-    fn write(&mut self, dict: &mut Dict) {
-        for (number, item) in self.items.iter().enumerate() {
+impl<T> Remapper<T>
+where
+    T: Eq + Hash + Clone,
+{
+    pub fn new(prefix: &'static str) -> Self {
+        Self { prefix, to_pdf: HashMap::new(), to_items: vec![] }
+    }
+
+    pub fn insert(&mut self, item: T) -> usize {
+        let to_layout = &mut self.to_items;
+        *self.to_pdf.entry(item.clone()).or_insert_with(|| {
+            let pdf_index = to_layout.len();
+            to_layout.push(item);
+            pdf_index
+        })
+    }
+
+    pub fn items(&self) -> impl Iterator<Item = &T> + '_ {
+        self.to_items.iter()
+    }
+
+    fn write(&self, mapping: &HashMap<T, Ref>, dict: &mut Dict) {
+        for (number, item) in self.items().enumerate() {
             let name = eco_format!("{}{}", self.prefix, number);
-            let reference = self.mapping[item];
+            let reference = mapping[item];
             dict.pair(Name(name.as_bytes()), reference);
         }
-        dict.finish();
     }
-}
-
-#[allow(clippy::too_many_arguments)] // TODO
-fn resource_dict(
-    pdf: &mut PdfChunk,
-    id: Ref,
-    images_ref: Ref,
-    mut images: ResourceList<Image>,
-    patterns_ref: Ref,
-    mut gradients: ResourceList<PdfGradient>,
-    mut patterns: ResourceList<PdfPattern>,
-    ext_gs_ref: Ref,
-    mut ext_gs: ResourceList<ExtGState>,
-    color_spaces_ref: Ref,
-    mut fonts: ResourceList<Font>,
-    mut color_fonts: ResourceList<ColorFontSlice>,
-) {
-    let mut dict = pdf.indirect(images_ref).dict();
-    images.write(&mut dict);
-    dict.finish();
-
-    let mut dict = pdf.indirect(patterns_ref).dict();
-    gradients.write(&mut dict);
-    patterns.write(&mut dict);
-    dict.finish();
-
-    let mut dict = pdf.indirect(ext_gs_ref).dict();
-    ext_gs.write(&mut dict);
-    dict.finish();
-
-    let mut resources = pdf.indirect(id).start::<pdf_writer::writers::Resources>();
-    resources.pair(Name(b"XObject"), images_ref);
-    resources.pair(Name(b"Pattern"), patterns_ref);
-    resources.pair(Name(b"ExtGState"), ext_gs_ref);
-    resources.pair(Name(b"ColorSpace"), color_spaces_ref);
-
-    let mut fonts_dict = resources.fonts();
-    fonts.write(&mut fonts_dict);
-    color_fonts.write(&mut fonts_dict);
-    fonts.finish();
 }

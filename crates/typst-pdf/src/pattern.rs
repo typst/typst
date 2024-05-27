@@ -10,37 +10,28 @@ use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
-use crate::{color::PaintEncode, WithGlobalRefs, Remapper, Resources};
+use crate::{color::PaintEncode, resources::Remapper, Resources, WithGlobalRefs};
 use crate::{content, resources::ResourcesRefs};
-use crate::{transform_to_array, PdfChunk, Renumber};
+use crate::{transform_to_array, PdfChunk};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_patterns(
-    context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<PdfPattern, WrittenPattern>) {
+pub fn write_patterns(context: &WithGlobalRefs) -> (PdfChunk, HashMap<PdfPattern, Ref>) {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         let Some(patterns) = &resources.patterns else {
             return;
         };
-        let pattern_map: &Vec<PdfPattern> = &patterns.remapper.to_items;
 
-        for pdf_pattern in pattern_map {
+        for pdf_pattern in patterns.remapper.items() {
             let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
             if out.contains_key(pdf_pattern) {
                 continue;
             }
 
             let tiling = chunk.alloc();
-            out.insert(
-                pdf_pattern.clone(),
-                WrittenPattern {
-                    pattern_ref: tiling,
-                    resources_ref: patterns.resources.reference,
-                },
-            );
+            out.insert(pdf_pattern.clone(), tiling);
 
             let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
             tiling_pattern
@@ -72,21 +63,6 @@ pub fn write_patterns(
     });
 
     (chunk, out)
-}
-
-#[derive(Debug)]
-pub struct WrittenPattern {
-    /// Reference to the pattern itself
-    pub pattern_ref: Ref,
-    /// Reference to the resources dictionary this pattern uses
-    pub resources_ref: Ref,
-}
-
-impl Renumber for WrittenPattern {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.pattern_ref.renumber(mapping);
-        self.resources_ref.renumber(mapping);
-    }
 }
 
 /// A pattern and its transform.
@@ -180,7 +156,7 @@ pub struct PatternRemapper<R> {
 impl PatternRemapper<()> {
     pub fn new() -> Self {
         Self {
-            remapper: Remapper::new(),
+            remapper: Remapper::new("P"),
             resources: Resources::default(),
         }
     }
