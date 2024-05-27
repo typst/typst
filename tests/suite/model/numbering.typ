@@ -24,6 +24,13 @@
   [ for #i \ ]
 }
 
+--- numbering-greek ---
+#for i in range(0, 4) {
+  numbering("ω", i)
+  [ for #i \ ]
+}
+#assert.eq(numbering("ω", 1), "α")
+
 --- numbering-hebrew ---
 #set text(lang: "he")
 #for i in range(9, 21, step: 2) {

@@ -42,7 +42,7 @@ pub fn numbering(
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
-    /// `ㄱ`, and `*`. They are replaced by the number in the sequence, in the
+    /// `ㄱ`, `*`, and `Ω`. They are replaced by the number in the sequence, in the
     /// given case.
     ///
     /// The `*` character means that symbols should be used to count, in the
@@ -248,6 +248,8 @@ pub enum NumberingKind {
     Arabic,
     /// Latin letters (A, B, C, etc.). Items beyond Z use multiple symbols. Uses both cases.
     Letter,
+    /// Greek Letter(Α, Β, Γ, or α, β, γ, etc.)
+    Greek,
     /// Roman numerals (I, II, III, etc.). Uses both cases.
     Roman,
     /// The symbols *, †, ‡, §, ¶, and ‖. Further items use multiple symbols.
@@ -292,6 +294,7 @@ impl NumberingKind {
         Some(match c {
             '1' => NumberingKind::Arabic,
             'a' => NumberingKind::Letter,
+            'ω' => NumberingKind::Greek,
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
@@ -315,6 +318,7 @@ impl NumberingKind {
         match self {
             Self::Arabic => '1',
             Self::Letter => 'a',
+            Self::Greek=> 'ω',
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
@@ -343,6 +347,13 @@ impl NumberingKind {
                 |x| match case {
                     Case::Lower => char::from(b'a' + x as u8),
                     Case::Upper => char::from(b'A' + x as u8),
+                },
+                n,
+            ),
+            Self::Greek => zeroless::<26>(
+                |x| match case {
+                    Case::Lower => char::from_u32(0x03b1 + x as u32).unwrap(),
+                    Case::Upper => char::from_u32(0x0391 + x as u32).unwrap(),
                 },
                 n,
             ),
