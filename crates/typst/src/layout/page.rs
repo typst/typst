@@ -22,7 +22,7 @@ use crate::layout::{
 use crate::model::Numbering;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric, Scalar};
-use crate::visualize::Paint;
+use crate::visualize::{Color, Paint};
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -518,11 +518,17 @@ impl Packed<PageElem> {
                 frame.fill(fill.clone());
             }
 
+            let fill = match fill {
+                Some(Paint::Solid(fill)) => Some(fill),
+                _ => None,
+            };
+
             page_counter.visit(engine, &frame)?;
             pages.push(Page {
                 frame,
                 numbering: numbering.clone(),
                 number: page_counter.logical(),
+                background: fill.copied(),
             });
 
             page_counter.step();
@@ -542,6 +548,8 @@ pub struct Page {
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
     pub number: usize,
+    /// The page's background color
+    pub background: Option<Color>,
 }
 
 /// Specification of the page's margins.
