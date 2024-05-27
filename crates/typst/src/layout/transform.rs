@@ -1,5 +1,6 @@
 use std::ops::Div;
 
+use once_cell::unsync;
 use typst_macros::cast;
 
 use crate::diag::{bail, SourceResult};
@@ -246,12 +247,12 @@ fn layout_scale(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let sx = self.x(styles);
-    let sy = self.y(styles);
     let align = self.origin(styles).resolve(styles);
-    let Some((scale, size)) = resolve_scale(sx, sy, regions.base(), styles) else {
-        bail!(self.span(), "x and y cannot both be auto")
-    };
+
+    let scale = self.resolve_scale(engine, regions.base(), styles)?;
+
+    // Compute the new region's approximate size.
+    let size = regions.base().zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
 
     measure_and_layout(
         engine,
@@ -272,40 +273,57 @@ enum ScaleAmount {
     Length(Length),
 }
 
-/// Resolves scale parameters, preserving aspect ratio if one of the scales is set to `auto`.
-fn resolve_scale(
-    x: Smart<ScaleAmount>,
-    y: Smart<ScaleAmount>,
-    container: Size,
-    styles: StyleChain,
-) -> Option<(Axes<Ratio>, Size)> {
-    fn resolve_axis(
-        axis: Smart<ScaleAmount>,
-        container: Abs,
+impl Packed<ScaleElem> {
+    /// Resolves scale parameters, preserving aspect ratio if one of the scales is set to `auto`.
+    fn resolve_scale(
+        &self,
+        engine: &mut Engine,
+        container: Size,
         styles: StyleChain,
-    ) -> Smart<(Ratio, Abs)> {
-        axis.map(|amt| match amt {
-            ScaleAmount::Ratio(ratio) => (ratio, ratio.of(container)),
-            ScaleAmount::Length(length) => {
-                let length = length.resolve(styles);
-                (Ratio::new(length.div(container)), length)
+    ) -> SourceResult<Axes<Ratio>> {
+        let size = unsync::Lazy::<SourceResult<Size>, _>::new(|| {
+            let pod = Regions::one(container, Axes::splat(false));
+            let frame = self.body().measure(engine, styles, pod)?.into_frame();
+            SourceResult::Ok(frame.size())
+        });
+        fn resolve_axis(
+            axis: Smart<ScaleAmount>,
+            body: impl Fn() -> SourceResult<Abs>,
+            styles: StyleChain,
+        ) -> SourceResult<Smart<Ratio>> {
+            Ok(match axis {
+                Smart::Auto => Smart::Auto,
+                Smart::Custom(amt) => Smart::Custom(match amt {
+                    ScaleAmount::Ratio(ratio) => ratio,
+                    ScaleAmount::Length(length) => {
+                        let length = length.resolve(styles);
+                        Ratio::new(length.div(body()?))
+                    }
+                }),
+            })
+        }
+        let x = resolve_axis(
+            self.x(styles),
+            || size.as_ref().map(|size| size.x).map_err(Clone::clone),
+            styles,
+        )?;
+        let y = resolve_axis(
+            self.y(styles),
+            || size.as_ref().map(|size| size.y).map_err(Clone::clone),
+            styles,
+        )?;
+        match (x, y) {
+            (Smart::Auto, Smart::Auto) => {
+                bail!(self.span(), "x and y cannot both be auto")
             }
-        })
+            (Smart::Custom(x_ratio), Smart::Custom(y_ratio)) => {
+                Ok(Axes::new(x_ratio, y_ratio))
+            }
+            (Smart::Auto, Smart::Custom(ratio)) | (Smart::Custom(ratio), Smart::Auto) => {
+                Ok(Axes::splat(ratio))
+            }
+        }
     }
-    let x = resolve_axis(x, container.x, styles);
-    let y = resolve_axis(y, container.y, styles);
-    Some(match (x, y) {
-        (Smart::Auto, Smart::Auto) => return None,
-        (Smart::Custom((x_ratio, x_size)), Smart::Custom((y_ratio, y_size))) => {
-            (Axes::new(x_ratio, y_ratio), Axes::new(x_size, y_size))
-        }
-        (Smart::Auto, Smart::Custom((ratio, y_size))) => {
-            (Axes::splat(ratio), Axes::new(ratio.of(container.x), y_size))
-        }
-        (Smart::Custom((ratio, x_size)), Smart::Auto) => {
-            (Axes::splat(ratio), Axes::new(x_size, ratio.of(container.y)))
-        }
-    })
 }
 
 cast! {
