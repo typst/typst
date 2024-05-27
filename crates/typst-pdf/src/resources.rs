@@ -15,13 +15,9 @@ use typst::text::Lang;
 use typst::{text::Font, util::Deferred, visualize::Image};
 
 use crate::{
-    color::ColorSpaces,
-    color_font::{ColorFontMap, ColorFontSlice},
-    extg::ExtGState,
-    gradient::PdfGradient,
-    image::EncodedImage,
-    pattern::PatternRemapper,
-    PdfChunk, Renumber, WithEverything, WithResources,
+    color::ColorSpaces, color_font::ColorFontMap, extg::ExtGState, gradient::PdfGradient,
+    image::EncodedImage, pattern::PatternRemapper, PdfChunk, Renumber, WithEverything,
+    WithResources,
 };
 
 /// All the resources that have been collected when traversing the document.
@@ -223,12 +219,9 @@ pub fn write_resource_dictionaries(ctx: &WithEverything) -> (PdfChunk, ()) {
         let mut color_font_slices = Vec::new();
         let mut color_font_numbers = HashMap::new();
         if let Some(color_fonts) = &resources.color_fonts {
-            for (font, color_font) in &color_fonts.map {
-                for i in 0..(color_font.glyphs.len() / 256) + 1 {
-                    let slice = ColorFontSlice { font: font.clone(), subfont: i };
-                    color_font_numbers.insert(slice.clone(), color_font_slices.len());
-                    color_font_slices.push(slice);
-                }
+            for (_, font_slice) in color_fonts.iter() {
+                color_font_numbers.insert(font_slice.clone(), color_font_slices.len());
+                color_font_slices.push(font_slice);
             }
         }
         let color_font_remapper = Remapper {
