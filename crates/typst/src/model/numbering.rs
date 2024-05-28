@@ -248,7 +248,7 @@ pub enum NumberingKind {
     Arabic,
     /// Latin letters (A, B, C, etc.). Items beyond Z use multiple symbols. Uses both cases.
     Letter,
-    /// Greek Letter(Α, Β, Γ, or α, β, γ, etc.)
+    /// Greek numerals (Α, Β, Γ, or α, β, γ, etc.). Uses both cases.
     Greek,
     /// Roman numerals (I, II, III, etc.). Uses both cases.
     Roman,
@@ -294,7 +294,7 @@ impl NumberingKind {
         Some(match c {
             '1' => NumberingKind::Arabic,
             'a' => NumberingKind::Letter,
-            'ω' => NumberingKind::Greek,
+            'α' => NumberingKind::Greek,
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
@@ -318,7 +318,7 @@ impl NumberingKind {
         match self {
             Self::Arabic => '1',
             Self::Letter => 'a',
-            Self::Greek=> 'ω',
+            Self::Greek => 'α',
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
