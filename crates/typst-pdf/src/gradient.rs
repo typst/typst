@@ -103,6 +103,12 @@ pub fn write_gradients(
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Radial);
 
+                    color::write(
+                        color_space,
+                        shading.color_space(),
+                        &context.globals.color_functions,
+                    );
+
                     shading
                         .anti_alias(gradient.anti_alias())
                         .function(shading_function)
