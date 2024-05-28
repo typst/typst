@@ -220,7 +220,8 @@ impl ColorFontMap<()> {
             }
 
             let frame = frame_for_glyph(font, gid);
-            let instructions = content::build(&mut self.resources, &frame);
+            let width = font.advance(gid).unwrap_or(Em::new(0.0)).to_font_units();
+            let instructions = content::build(&mut self.resources, &frame, Some(width));
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 

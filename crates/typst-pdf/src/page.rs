@@ -60,7 +60,7 @@ pub fn traverse_pages(
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
 fn construct_page(out: &mut Resources<()>, frame: &Frame) -> EncodedPage {
-    let content = content::build(out, frame);
+    let content = content::build(out, frame, None);
 
     EncodedPage { content, label: None }
 }

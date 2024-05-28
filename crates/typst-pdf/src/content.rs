@@ -25,9 +25,25 @@ use crate::image::deferred_image;
 use crate::{color::PaintEncode, resources::Resources};
 use crate::{deflate_deferred, AbsExt, EmExt};
 
-pub fn build(out: &mut Resources<()>, frame: &Frame) -> Encoded {
+/// Encode a [`Frame`] into a content stream.
+///
+/// The resources that were used in the stream will be added to `resources`.
+///
+/// `color_glyph_width` should be `None` unless the `Frame` represents a [color
+/// glyph].
+///
+/// [color glyph]: `crate::color_font`
+pub fn build(
+    resources: &mut Resources<()>,
+    frame: &Frame,
+    color_glyph_width: Option<f32>,
+) -> Encoded {
     let size = frame.size();
-    let mut ctx = Builder::new(out, size);
+    let mut ctx = Builder::new(resources, size);
+
+    if let Some(width) = color_glyph_width {
+        ctx.content.start_color_glyph(width);
+    }
 
     // Make the coordinate system start at the top-left.
     ctx.bottom = size.y.to_f32();
