@@ -25,11 +25,23 @@
 }
 
 --- numbering-greek ---
-#for i in range(0, 4) {
-  numbering("ω", i)
+0 is #numbering("α", 0)\
+#for i in range(1, 30) {
+  numbering("α", i)
+  [ and ]
+  numbering("Α", i)
   [ for #i \ ]
 }
-#assert.eq(numbering("ω", 1), "α")
+#for i in ( 2056839184, 5683, 9184, 2000000000 ) {
+  numbering("α", i)
+  [ for #i \ ]
+}
+
+#assert.eq(numbering("α", 1), "αʹ")
+#assert.eq(numbering("α", 2056839184), "βΜκʹ, αΜ͵εχπγ, ͵θρπδ")
+#assert.eq(numbering("α", 5683), "͵εχπγ")
+#assert.eq(numbering("α", 9184), "͵θρπδ")
+#assert.eq(numbering("α", 2000000000), "βΜκʹ")
 
 --- numbering-hebrew ---
 #set text(lang: "he")
