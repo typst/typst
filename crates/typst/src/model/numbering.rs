@@ -737,7 +737,7 @@ fn to_greek(n: usize, case: Case) -> EcoString {
             fmt.push_str("ʹ");
         }
         if M_power > 0 {
-            M_power -= 1;
+            M_power = M_power.saturating_sub(1);
         }
         previous_has_number = true;
     }
