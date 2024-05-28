@@ -14,8 +14,8 @@ use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    Alignment, BlockElem, Em, HAlignment, Length, OuterVAlignment, PlaceElem, VAlignment,
-    VElem,
+    AlignElem, Alignment, BlockElem, Em, HAlignment, Length, OuterVAlignment, PlaceElem,
+    VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
@@ -317,11 +317,7 @@ impl Show for Packed<FigureElem> {
         }
 
         // Wrap the contents in a block.
-        realized = BlockElem::new()
-            .with_body(Some(realized))
-            .pack()
-            .spanned(self.span())
-            .aligned(Alignment::CENTER);
+        realized = BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
 
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
@@ -340,7 +336,10 @@ impl ShowSet for Packed<FigureElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         // Still allows breakable figures with
         // `show figure: set block(breakable: true)`.
-        BlockElem::set_breakable(false).wrap().into()
+        let mut map = Styles::new();
+        map.set(BlockElem::set_breakable(false));
+        map.set(AlignElem::set_alignment(Alignment::CENTER));
+        map
     }
 }
 

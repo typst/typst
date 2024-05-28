@@ -37,6 +37,7 @@ We can clearly see that @fig-cylinder and
 --- figure-theorem ---
 // Testing show rules with figures with a simple theorem display
 #show figure.where(kind: "theorem"): it => {
+  set align(start)
   let name = none
   if not it.caption == none {
     name = [ #emph(it.caption.body)]
