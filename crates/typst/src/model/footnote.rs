@@ -11,7 +11,7 @@ use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, HElem, Length, Ratio};
 use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
 use crate::text::{SuperElem, TextElem, TextSize};
-use crate::util::NonZeroExt;
+use crate::utils::NonZeroExt;
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.

@@ -9,10 +9,9 @@ use pdf_writer::{
     Chunk, Filter, Finish, Name, Rect, Ref, Str,
 };
 use ttf_parser::{name_id, GlyphId, Tag};
-use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
-
 use typst::text::Font;
-use typst::util::SliceExt;
+use typst::utils::SliceExt;
+use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use crate::{deflate, EmExt, PdfChunk, WithGlobalRefs};
 
@@ -218,7 +217,7 @@ fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
 pub(crate) fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
     const LEN: usize = 6;
     const BASE: u128 = 26;
-    let mut hash = typst::util::hash128(&glyphs);
+    let mut hash = typst::utils::hash128(&glyphs);
     let mut letter = [b'A'; LEN];
     for l in letter.iter_mut() {
         *l = b'A' + (hash % BASE) as u8;

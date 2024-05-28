@@ -8,14 +8,14 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
     cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
     IntoValue, Reflect, Repr, Str, Value, Version,
 };
-use crate::syntax::Span;
+use crate::syntax::{Span, Spanned};
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -482,9 +482,14 @@ impl Array {
     #[func]
     pub fn zip(
         self,
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
+        /// The real arguments (the `others` arguments are just for the docs, this
+        /// function is a bit involved, so we parse the positional arguments manually).
         args: &mut Args,
+        /// Whether all arrays have to have the same length.
+        /// For example, `(1, 2).zip((1, 2, 3), exact: true)` produces an error.
+        #[named]
+        #[default(false)]
+        exact: bool,
         /// The arrays to zip with.
         #[external]
         #[variadic]
@@ -499,7 +504,16 @@ impl Array {
 
         // Fast path for just two arrays.
         if remaining == 1 {
-            let other = args.expect::<Array>("others")?;
+            let Spanned { v: other, span: other_span } =
+                args.expect::<Spanned<Array>>("others")?;
+            if exact && self.len() != other.len() {
+                bail!(
+                    other_span,
+                    "second array has different length ({}) from first array ({})",
+                    other.len(),
+                    self.len()
+                );
+            }
             return Ok(self
                 .into_iter()
                 .zip(other)
@@ -509,11 +523,29 @@ impl Array {
 
         // If there is more than one array, we use the manual method.
         let mut out = Self::with_capacity(self.len());
-        let mut iterators = args
-            .all::<Array>()?
-            .into_iter()
-            .map(|i| i.into_iter())
-            .collect::<Vec<_>>();
+        let arrays = args.all::<Spanned<Array>>()?;
+        if exact {
+            let errs = arrays
+                .iter()
+                .filter(|sp| sp.v.len() != self.len())
+                .map(|Spanned { v, span }| {
+                    SourceDiagnostic::error(
+                        *span,
+                        eco_format!(
+                            "array has different length ({}) from first array ({})",
+                            v.len(),
+                            self.len()
+                        ),
+                    )
+                })
+                .collect::<EcoVec<_>>();
+            if !errs.is_empty() {
+                return Err(errs);
+            }
+        }
+
+        let mut iterators =
+            arrays.into_iter().map(|i| i.v.into_iter()).collect::<Vec<_>>();
 
         for this in self {
             let mut row = Self::with_capacity(1 + iterators.len());
@@ -756,6 +788,26 @@ impl Array {
         } else {
             self.0.chunks(chunk_size.get()).map(to_array).collect()
         }
+    }
+
+    /// Returns sliding windows of `window-size` elements over an array.
+    ///
+    /// If the array length is less than `window-size`, this will return an empty array.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
+    /// #array.windows(5)
+    /// ```
+    #[func]
+    pub fn windows(
+        self,
+        /// How many elements each window will contain.
+        window_size: NonZeroUsize,
+    ) -> Array {
+        self.0
+            .windows(window_size.get())
+            .map(|window| Array::from(window).into_value())
+            .collect()
     }
 
     /// Return a sorted version of this array, optionally by a given key

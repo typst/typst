@@ -7,7 +7,7 @@ use pdf_writer::{
 };
 
 use typst::layout::{Abs, Ratio, Transform};
-use typst::util::Numeric;
+use typst::utils::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::{color::PaintEncode, resources::Remapper, Resources, WithGlobalRefs};

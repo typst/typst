@@ -6,7 +6,6 @@ use pdf_writer::{
     types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle},
     Filter, Finish, Name, Rect, Ref, Str,
 };
-
 use typst::foundations::Label;
 use typst::introspection::Location;
 use typst::layout::{Abs, Frame};
@@ -20,16 +19,37 @@ use crate::{font::improve_glyph_sets, Resources};
 #[typst_macros::time(name = "construct pages")]
 pub fn traverse_pages(
     state: &WithDocument,
-) -> (PdfChunk, (Vec<EncodedPage>, Resources<()>)) {
+) -> (PdfChunk, (Vec<Option<EncodedPage>>, Resources<()>)) {
     let mut resources = Resources::default();
     let mut pages = Vec::with_capacity(state.document.pages.len());
-    for page in &state.document.pages {
-        let mut encoded = construct_page(&mut resources, &page.frame);
-        encoded.label = page
-            .numbering
+    let mut skipped_pages = 0;
+    for (i, page) in state.document.pages.iter().enumerate() {
+        if state
+            .exported_pages
             .as_ref()
-            .and_then(|num| PdfPageLabel::generate(num, page.number));
-        pages.push(encoded);
+            .is_some_and(|ranges| !ranges.includes_page_index(i))
+        {
+            // Don't export this page.
+            pages.push(None);
+            skipped_pages += 1;
+        } else {
+            let mut encoded = construct_page(&mut resources, &page.frame);
+            encoded.label = page
+                .numbering
+                .as_ref()
+                .and_then(|num| PdfPageLabel::generate(num, page.number))
+                .or_else(|| {
+                    // When some pages were ignored from export, we show a page label with
+                    // the correct real (not logical) page number.
+                    // This is for consistency with normal output when pages have no numbering
+                    // and all are exported: the final PDF page numbers always correspond to
+                    // the real (not logical) page numbers. Here, the final PDF page number
+                    // will differ, but we can at least use labels to indicate what was
+                    // the corresponding real page number in the Typst document.
+                    (skipped_pages > 0).then(|| PdfPageLabel::arabic(i + 1))
+                });
+            pages.push(Some(encoded));
+        }
     }
 
     improve_glyph_sets(&mut resources.glyph_sets);
@@ -45,9 +65,13 @@ fn construct_page(out: &mut Resources<()>, frame: &Frame) -> EncodedPage {
     EncodedPage { content, label: None }
 }
 
-pub fn alloc_page_refs(context: &WithResources) -> (PdfChunk, Vec<Ref>) {
+pub fn alloc_page_refs(context: &WithResources) -> (PdfChunk, Vec<Option<Ref>>) {
     let mut chunk = PdfChunk::new();
-    let page_refs = context.document.pages.iter().map(|_| chunk.alloc()).collect();
+    let page_refs = context
+        .pages
+        .iter()
+        .map(|p| p.as_ref().map(|_| chunk.alloc()))
+        .collect();
     (chunk, page_refs)
 }
 
@@ -79,7 +103,7 @@ pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, PageTreeRef) {
     chunk
         .pages(page_tree_ref)
         .count(ctx.pages.len() as i32)
-        .kids(ctx.globals.pages.iter().copied());
+        .kids(ctx.globals.pages.iter().filter_map(Option::as_ref).copied());
 
     (chunk, PageTreeRef(page_tree_ref))
 }
@@ -93,10 +117,13 @@ fn write_page(
     loc_to_dest: &HashMap<Location, Label>,
     i: usize,
 ) {
-    let page = &ctx.pages[i];
+    let Some((page, page_ref)) = ctx.pages[i].as_ref().zip(ctx.globals.pages[i]) else {
+        // Page excluded from export.
+        return;
+    };
 
     let global_resources_ref = ctx.resources.reference;
-    let mut page_writer = chunk.page(ctx.globals.pages[i]);
+    let mut page_writer = chunk.page(page_ref);
     page_writer.parent(page_tree_ref);
 
     let w = page.content.size.x.to_f32();
@@ -147,12 +174,15 @@ fn write_page(
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = ctx.pages.get(index) {
+        // Don't add links to non-exported pages.
+        if let Some((Some(page), Some(page_ref))) =
+            ctx.pages.get(index).zip(ctx.globals.pages.get(index))
+        {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
                 .destination()
-                .page(ctx.globals.pages[index])
+                .page(*page_ref)
                 .xyz(pos.point.x.to_f32(), (page.content.size.y - y).to_f32(), None);
         }
     }
@@ -238,6 +268,17 @@ impl PdfPageLabel {
 
         let offset = style.and(NonZeroUsize::new(number));
         Some(PdfPageLabel { prefix, style, offset })
+    }
+
+    /// Creates an arabic page label with the specified page number.
+    /// For example, this will display page label `11` when given the page
+    /// number 11.
+    fn arabic(number: usize) -> PdfPageLabel {
+        PdfPageLabel {
+            prefix: None,
+            style: Some(PdfPageLabelStyle::Arabic),
+            offset: NonZeroUsize::new(number),
+        }
     }
 }
 

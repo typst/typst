@@ -1,4 +1,5 @@
 use ecow::{eco_format, EcoString};
+use smallvec::SmallVec;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
@@ -79,6 +80,11 @@ pub struct LinkElem {
         _ => args.expect("body")?,
     })]
     pub body: Content,
+
+    /// This style is set on the content contained in the `link` element.
+    #[internal]
+    #[ghost]
+    pub dests: SmallVec<[Destination; 1]>,
 }
 
 impl LinkElem {

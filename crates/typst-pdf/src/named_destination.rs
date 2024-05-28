@@ -52,7 +52,9 @@ pub fn write_named_destinations(
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
-        if let Some(page) = context.pages.get(index) {
+        if let Some((Some(page), Some(page_ref))) =
+            context.pages.get(index).zip(context.globals.pages.get(index))
+        {
             let dest_ref = chunk.alloc();
             let x = pos.point.x.to_f32();
             let y = (page.content.size.y - y).to_f32();
@@ -61,7 +63,7 @@ pub fn write_named_destinations(
             chunk
                 .indirect(dest_ref)
                 .start::<Destination>()
-                .page(context.globals.pages[index])
+                .page(*page_ref)
                 .xyz(x, y, None);
         }
     }

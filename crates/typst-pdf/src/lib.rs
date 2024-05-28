@@ -20,12 +20,11 @@ use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
 use pdf_writer::{Chunk, Pdf, Ref};
-
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Abs, Em, Transform};
+use typst::layout::{Abs, Em, PageRanges, Transform};
 use typst::model::Document;
 use typst::text::Font;
-use typst::util::Deferred;
+use typst::utils::Deferred;
 use typst::visualize::Image;
 
 use crate::catalog::write_catalog;
@@ -63,13 +62,17 @@ use crate::resources::{
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
 /// is `auto`.
+///
+/// The `page_ranges` option specifies which ranges of pages should be exported
+/// in the PDF. When `None`, all pages should be exported.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
+    page_ranges: Option<PageRanges>,
 ) -> Vec<u8> {
-    PdfBuilder::new(document)
+    PdfBuilder::new(document, page_ranges)
         .phase(|builder| builder.run(traverse_pages))
         .phase(|builder| GlobalRefs {
             color_functions: builder.run(alloc_color_functions_refs),
@@ -123,6 +126,9 @@ struct PdfBuilder<S> {
 /// this phase.
 struct WithDocument<'a> {
     document: &'a Document,
+    /// Page ranges to export.
+    /// When `None`, all pages are exported.
+    exported_pages: Option<PageRanges>,
 }
 
 /// At this point, resources were listed, but they don't have any reference
@@ -131,27 +137,33 @@ struct WithDocument<'a> {
 /// This phase allocates some global references.
 struct WithResources<'a> {
     document: &'a Document,
-    pages: Vec<EncodedPage>,
+    pages: Vec<Option<EncodedPage>>,
+    exported_pages: Option<PageRanges>,
     resources: Resources<()>,
 }
 
 /// Global references
 struct GlobalRefs {
     color_functions: ColorFunctionRefs,
-    pages: Vec<Ref>,
+    pages: Vec<Option<Ref>>,
     resources: ResourcesRefs,
 }
 
-impl<'a> From<(WithDocument<'a>, (Vec<EncodedPage>, Resources<()>))>
+impl<'a> From<(WithDocument<'a>, (Vec<Option<EncodedPage>>, Resources<()>))>
     for WithResources<'a>
 {
     fn from(
         (previous, (pages, resources)): (
             WithDocument<'a>,
-            (Vec<EncodedPage>, Resources<()>),
+            (Vec<Option<EncodedPage>>, Resources<()>),
         ),
     ) -> Self {
-        Self { document: previous.document, pages, resources }
+        Self {
+            document: previous.document,
+            exported_pages: previous.exported_pages,
+            pages,
+            resources,
+        }
     }
 }
 
@@ -163,7 +175,8 @@ impl<'a> From<(WithDocument<'a>, (Vec<EncodedPage>, Resources<()>))>
 struct WithGlobalRefs<'a> {
     document: &'a Document,
     globals: GlobalRefs,
-    pages: Vec<EncodedPage>,
+    pages: Vec<Option<EncodedPage>>,
+    exported_pages: Option<PageRanges>,
     resources: Resources,
 }
 
@@ -171,6 +184,7 @@ impl<'a> From<(WithResources<'a>, GlobalRefs)> for WithGlobalRefs<'a> {
     fn from((previous, globals): (WithResources<'a>, GlobalRefs)) -> Self {
         Self {
             document: previous.document,
+            exported_pages: previous.exported_pages,
             pages: previous.pages,
             resources: previous.resources.with_refs(&globals.resources),
             globals,
@@ -201,7 +215,8 @@ struct References {
 struct WithRefs<'a> {
     globals: GlobalRefs,
     document: &'a Document,
-    pages: Vec<EncodedPage>,
+    pages: Vec<Option<EncodedPage>>,
+    exported_pages: Option<PageRanges>,
     resources: Resources,
     references: References,
 }
@@ -210,6 +225,7 @@ impl<'a> From<(WithGlobalRefs<'a>, References)> for WithRefs<'a> {
     fn from((previous, references): (WithGlobalRefs<'a>, References)) -> Self {
         Self {
             globals: previous.globals,
+            exported_pages: previous.exported_pages,
             document: previous.document,
             pages: previous.pages,
             resources: previous.resources,
@@ -224,7 +240,8 @@ impl<'a> From<(WithGlobalRefs<'a>, References)> for WithRefs<'a> {
 struct WithEverything<'a> {
     globals: GlobalRefs,
     document: &'a Document,
-    pages: Vec<EncodedPage>,
+    pages: Vec<Option<EncodedPage>>,
+    exported_pages: Option<PageRanges>,
     resources: Resources,
     references: References,
     page_tree_ref: Ref,
@@ -239,6 +256,7 @@ impl<'a> From<(WithEverything<'a>, ())> for WithEverything<'a> {
 impl<'a> From<(WithRefs<'a>, PageTreeRef)> for WithEverything<'a> {
     fn from((previous, page_tree_ref): (WithRefs<'a>, PageTreeRef)) -> Self {
         Self {
+            exported_pages: previous.exported_pages,
             globals: previous.globals,
             document: previous.document,
             resources: previous.resources,
@@ -251,11 +269,11 @@ impl<'a> From<(WithRefs<'a>, PageTreeRef)> for WithEverything<'a> {
 
 impl<'a> PdfBuilder<WithDocument<'a>> {
     /// Start building a PDF for a Typst document.
-    fn new(document: &'a Document) -> Self {
+    fn new(document: &'a Document, exported_pages: Option<PageRanges>) -> Self {
         Self {
             alloc: Ref::new(1),
             pdf: Pdf::new(),
-            state: WithDocument { document },
+            state: WithDocument { document, exported_pages },
         }
     }
 }
@@ -358,6 +376,14 @@ impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
     }
 }
 
+impl<R: Renumber> Renumber for Option<R> {
+    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+        if let Some(r) = self {
+            r.renumber(mapping)
+        }
+    }
+}
+
 impl<T, R: Renumber> Renumber for (T, R) {
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
         self.1.renumber(mapping)
@@ -424,7 +450,7 @@ fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
-        .encode(typst::util::hash128(value).to_be_bytes())
+        .encode(typst::utils::hash128(value).to_be_bytes())
 }
 
 /// Additional methods for [`Abs`].

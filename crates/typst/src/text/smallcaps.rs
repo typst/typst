@@ -1,13 +1,9 @@
-use crate::foundations::{func, Content};
+use crate::diag::SourceResult;
+use crate::engine::Engine;
+use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 use crate::text::TextElem;
 
 /// Displays text in small capitals.
-///
-/// _Note:_ This enables the OpenType `smcp` feature for the font. Not all fonts
-/// support this feature. Sometimes smallcaps are part of a dedicated font and
-/// sometimes they are not available at all. In the future, this function will
-/// support selecting a dedicated smallcaps font as well as synthesizing
-/// smallcaps from normal letters, but this is not yet implemented.
 ///
 /// # Example
 /// ```example
@@ -23,10 +19,30 @@ use crate::text::TextElem;
 /// = Introduction
 /// #lorem(40)
 /// ```
-#[func(title = "Small Capitals")]
-pub fn smallcaps(
-    /// The text to display to small capitals.
-    body: Content,
-) -> Content {
-    body.styled(TextElem::set_smallcaps(true))
+///
+/// # Smallcaps fonts
+/// By default, this enables the OpenType `smcp` feature for the font. Not all
+/// fonts support this feature. Sometimes smallcaps are part of a dedicated
+/// font. This is, for example, the case for the _Latin Modern_ family of fonts.
+/// In those cases, you can use a show-set rule to customize the appearance of
+/// the text in smallcaps:
+///
+/// ```typ
+/// #show smallcaps: set text(font: "Latin Modern Roman Caps")
+/// ```
+///
+/// In the future, this function will support synthesizing smallcaps from normal
+/// letters, but this is not yet implemented.
+#[elem(title = "Small Capitals", Show)]
+pub struct SmallcapsElem {
+    /// The content to display in small capitals.
+    #[required]
+    pub body: Content,
+}
+
+impl Show for Packed<SmallcapsElem> {
+    #[typst_macros::time(name = "smallcaps", span = self.span())]
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.body().clone().styled(TextElem::set_smallcaps(true)))
+    }
 }

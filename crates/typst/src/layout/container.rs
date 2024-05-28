@@ -7,7 +7,7 @@ use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, LayoutMultiple, Length,
     Ratio, Regions, Rel, Sides, Size, Spacing, VElem,
 };
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
 
 /// An inline-level container that sizes content.

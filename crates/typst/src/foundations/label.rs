@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::foundations::{func, scope, ty, Repr};
-use crate::util::PicoStr;
+use crate::utils::PicoStr;
 
 /// A label for an element.
 ///

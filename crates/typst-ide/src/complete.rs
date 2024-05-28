@@ -1053,7 +1053,7 @@ impl<'a> CompletionContext<'a> {
 
     /// A small window of context before the cursor.
     fn before_window(&self, size: usize) -> &str {
-        &self.before[self.cursor.saturating_sub(size)..]
+        Scanner::new(self.before).from(self.cursor.saturating_sub(size))
     }
 
     /// Add a prefix and suffix to all applications.
@@ -1229,7 +1229,7 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for a castable.
     fn cast_completions(&mut self, cast: &'a CastInfo) {
         // Prevent duplicate completions from appearing.
-        if !self.seen_casts.insert(typst::util::hash128(cast)) {
+        if !self.seen_casts.insert(typst::utils::hash128(cast)) {
             return;
         }
 
@@ -1432,5 +1432,13 @@ mod tests {
     fn test_autocomplete() {
         test("#i", 2, &["int", "if conditional"], &["foo"]);
         test("#().", 4, &["insert", "remove", "len", "all"], &["foo"]);
+    }
+
+    #[test]
+    fn test_before_window_char_boundary() {
+        // Check that the `before_window` doesn't slice into invalid byte
+        // boundaries.
+        let s = "😀😀     #text(font: \"\")";
+        test(s, s.len() - 2, &[], &[]);
     }
 }

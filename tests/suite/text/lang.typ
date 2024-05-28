@@ -78,3 +78,8 @@
 #outline()
 #set text(lang: "qaa", region: "aa")
 #outline()
+
+--- text-lang-hint-region-parameter ---
+// Error: 17-24 expected two or three letter language code (ISO 639-1/2/3)
+// Hint: 17-24 you should leave only "en" in the `lang` parameter and specify "gb" in the `region` parameter
+#set text(lang: "en-gb")

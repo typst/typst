@@ -9,7 +9,7 @@ use crate::foundations::{
     Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
     NativeType, Type, Value,
 };
-use crate::util::Static;
+use crate::utils::Static;
 use crate::Library;
 
 #[doc(inline)]

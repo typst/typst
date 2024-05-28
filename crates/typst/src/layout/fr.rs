@@ -6,7 +6,7 @@ use ecow::EcoString;
 
 use crate::foundations::{repr, ty, Repr};
 use crate::layout::Abs;
-use crate::util::{Numeric, Scalar};
+use crate::utils::{Numeric, Scalar};
 
 /// Defines how the remaining space in a layout is distributed.
 ///
@@ -99,7 +99,7 @@ impl Add for Fr {
     }
 }
 
-sub_impl!(Fr - Fr -> Fr);
+typst_utils::sub_impl!(Fr - Fr -> Fr);
 
 impl Mul<f64> for Fr {
     type Output = Self;
@@ -133,10 +133,10 @@ impl Div<f64> for Fr {
     }
 }
 
-assign_impl!(Fr += Fr);
-assign_impl!(Fr -= Fr);
-assign_impl!(Fr *= f64);
-assign_impl!(Fr /= f64);
+typst_utils::assign_impl!(Fr += Fr);
+typst_utils::assign_impl!(Fr -= Fr);
+typst_utils::assign_impl!(Fr *= f64);
+typst_utils::assign_impl!(Fr /= f64);
 
 impl Sum for Fr {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {

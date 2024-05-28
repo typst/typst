@@ -175,8 +175,8 @@ pub(crate) fn write_page_labels(
     alloc: &mut Ref,
     ctx: &WithEverything,
 ) -> Vec<(NonZeroUsize, Ref)> {
-    // If there is no page labeled, we skip the writing
-    if !ctx.pages.iter().any(|p| {
+    // If there is no exported page labeled, we skip the writing
+    if !ctx.pages.iter().filter_map(Option::as_ref).any(|p| {
         p.label
             .as_ref()
             .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
@@ -188,7 +188,8 @@ pub(crate) fn write_page_labels(
     let empty_label = PdfPageLabel::default();
     let mut prev: Option<&PdfPageLabel> = None;
 
-    for (i, page) in ctx.pages.iter().enumerate() {
+    // Skip non-exported pages for numbering.
+    for (i, page) in ctx.pages.iter().filter_map(Option::as_ref).enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
         // If there are pages with empty labels between labeled pages, we must
         // write empty PageLabel entries.

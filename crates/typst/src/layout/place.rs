@@ -30,8 +30,8 @@ use crate::realize::{Behave, Behaviour};
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
-    /// Cannot be `{auto}` if `float` is `{false}` and must be either
-    /// `{auto}`, `{top}`, or `{bottom}` if `float` is `{true}`.
+    /// - If `float` is `{false}`, then this can be any alignment other than `{auto}`.
+    /// - If `float` is `{true}`, then this must be `{auto}`, `{top}`, or `{bottom}`.
     ///
     /// When an axis of the page is `{auto}` sized, all alignments relative to
     /// that axis will be ignored, instead, the item will be placed in the
@@ -77,9 +77,17 @@ pub struct PlaceElem {
     ///   place(center, dx: amount - 32pt, dy: amount)[A]
     /// }
     /// ```
+    ///
+    /// This does not affect the layout of in-flow content.
+    /// In other words, the placed content is treated as if it
+    /// were wrapped in a [`move`] element.
     pub dx: Rel<Length>,
 
     /// The vertical displacement of the placed content.
+    ///
+    /// This does not affect the layout of in-flow content.
+    /// In other words, the placed content is treated as if it
+    /// were wrapped in a [`move`] element.
     pub dy: Rel<Length>,
 
     /// The content to place.

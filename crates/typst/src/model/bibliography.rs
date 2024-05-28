@@ -40,7 +40,7 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{
     FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
 };
-use crate::util::{LazyHash, NonZeroExt, PicoStr};
+use crate::utils::{LazyHash, NonZeroExt, PicoStr};
 use crate::World;
 
 /// A bibliography / reference listing.
@@ -105,8 +105,7 @@ pub struct BibliographyElem {
     /// The bibliography's heading will not be numbered by default, but you can
     /// force it to be with a show-set rule:
     /// `{show bibliography: set heading(numbering: "1.")}`
-    #[default(Some(Smart::Auto))]
-    pub title: Option<Smart<Content>>,
+    pub title: Smart<Option<Content>>,
 
     /// Whether to include all works from the given bibliography files, even
     /// those that weren't cited in the document.
@@ -213,11 +212,9 @@ impl Show for Packed<BibliographyElem> {
         const INDENT: Em = Em::new(1.5);
 
         let mut seq = vec![];
-        if let Some(title) = self.title(styles) {
-            let title = title.unwrap_or_else(|| {
-                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
-            });
-
+        if let Some(title) = self.title(styles).unwrap_or_else(|| {
+            Some(TextElem::packed(Self::local_name_in(styles)).spanned(self.span()))
+        }) {
             seq.push(
                 HeadingElem::new(title)
                     .with_level(Smart::Custom(NonZeroUsize::ONE))
@@ -360,7 +357,7 @@ impl Bibliography {
 
         Ok(Bibliography {
             map: Arc::new(map),
-            hash: crate::util::hash128(data),
+            hash: crate::utils::hash128(data),
         })
     }
 

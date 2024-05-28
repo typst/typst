@@ -9,14 +9,12 @@ use pdf_writer::{
     types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
     Content, Finish, Name, Rect, Str,
 };
-
-use typst::introspection::Meta;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst::model::Destination;
 use typst::text::{color::is_color_glyph, Font, TextItem, TextItemView};
-use typst::util::{Deferred, Numeric, SliceExt};
+use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
@@ -323,11 +321,8 @@ pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) {
             FrameItem::Text(text) => write_text(ctx, pos, text),
             FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
-            FrameItem::Meta(meta, size) => match meta {
-                Meta::Link(dest) => write_link(ctx, pos, dest, *size),
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
-            },
+            FrameItem::Link(dest, size) => write_link(ctx, pos, dest, *size),
+            FrameItem::Tag(_) => {}
         }
     }
 }

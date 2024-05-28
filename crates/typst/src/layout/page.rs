@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
 use std::ptr;
 use std::str::FromStr;
 
@@ -20,7 +21,7 @@ use crate::layout::{
 
 use crate::model::Numbering;
 use crate::text::TextElem;
-use crate::util::{NonZeroExt, Numeric, Scalar};
+use crate::utils::{NonZeroExt, Numeric, Scalar};
 use crate::visualize::Paint;
 
 /// Layouts its child onto one or multiple pages.
@@ -228,6 +229,11 @@ pub struct PageElem {
 
     /// The page's header. Fills the top margin of each page.
     ///
+    /// - Content: Shows the content as the header.
+    /// - `{auto}`: Shows the page number if a `numbering` is set and
+    ///   `number-align` is `top`.
+    /// - `{none}`: Suppresses the header.
+    ///
     /// ```example
     /// #set par(justify: true)
     /// #set page(
@@ -242,7 +248,7 @@ pub struct PageElem {
     /// #lorem(19)
     /// ```
     #[borrowed]
-    pub header: Option<Content>,
+    pub header: Smart<Option<Content>>,
 
     /// The amount the header is raised into the top margin.
     #[resolve]
@@ -251,8 +257,13 @@ pub struct PageElem {
 
     /// The page's footer. Fills the bottom margin of each page.
     ///
-    /// For just a page number, the `numbering` property, typically suffices. If
-    /// you want to create a custom footer, but still display the page number,
+    /// - Content: Shows the content as the footer.
+    /// - `{auto}`: Shows the page number if a `numbering` is set and
+    ///   `number-align` is `bottom`.
+    /// - `{none}`: Suppresses the footer.
+    ///
+    /// For just a page number, the `numbering` property typically suffices. If
+    /// you want to create a custom footer but still display the page number,
     /// you can directly access the [page counter]($counter).
     ///
     /// ```example
@@ -273,7 +284,7 @@ pub struct PageElem {
     /// #lorem(48)
     /// ```
     #[borrowed]
-    pub footer: Option<Content>,
+    pub footer: Smart<Option<Content>>,
 
     /// The amount the footer is lowered into the bottom margin.
     #[resolve]
@@ -402,17 +413,15 @@ impl Packed<PageElem> {
         }
 
         let fill = self.fill(styles);
-        let foreground = Cow::Borrowed(self.foreground(styles));
-        let background = Cow::Borrowed(self.background(styles));
+        let foreground = self.foreground(styles);
+        let background = self.background(styles);
         let header_ascent = self.header_ascent(styles);
         let footer_descent = self.footer_descent(styles);
         let numbering = self.numbering(styles);
         let number_align = self.number_align(styles);
-        let mut header = Cow::Borrowed(self.header(styles));
-        let mut footer = Cow::Borrowed(self.footer(styles));
 
         // Construct the numbering (for header or footer).
-        let numbering_marginal = Cow::Owned(numbering.as_ref().map(|numbering| {
+        let numbering_marginal = numbering.as_ref().map(|numbering| {
             let both = match numbering {
                 Numbering::Pattern(pattern) => pattern.pieces() >= 2,
                 Numbering::Func(_) => true,
@@ -433,13 +442,21 @@ impl Packed<PageElem> {
             }
 
             counter
-        }));
+        });
 
-        if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
-            header = if header.is_some() { header } else { numbering_marginal };
+        let header = self.header(styles);
+        let footer = self.footer(styles);
+        let (header, footer) = if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
+            (
+                header.as_ref().unwrap_or(&numbering_marginal),
+                footer.as_ref().unwrap_or(&None),
+            )
         } else {
-            footer = if footer.is_some() { footer } else { numbering_marginal };
-        }
+            (
+                header.as_ref().unwrap_or(&None),
+                footer.as_ref().unwrap_or(&numbering_marginal),
+            )
+        };
 
         // Post-process pages.
         let mut pages = Vec::with_capacity(frames.len());
@@ -463,16 +480,16 @@ impl Packed<PageElem> {
             let size = frame.size();
 
             // Realize overlays.
-            for marginal in [&header, &footer, &background, &foreground] {
-                let Some(content) = &**marginal else { continue };
+            for marginal in [header, footer, background, foreground] {
+                let Some(content) = marginal.as_ref() else { continue };
 
                 let (pos, area, align);
-                if ptr::eq(marginal, &header) {
+                if ptr::eq(marginal, header) {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
                     align = Alignment::BOTTOM;
-                } else if ptr::eq(marginal, &footer) {
+                } else if ptr::eq(marginal, footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
@@ -490,7 +507,7 @@ impl Packed<PageElem> {
                     .layout(engine, styles, pod)?
                     .into_frame();
 
-                if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
+                if ptr::eq(marginal, header) || ptr::eq(marginal, background) {
                     frame.prepend_frame(pos, sub);
                 } else {
                     frame.push_frame(pos, sub);
@@ -708,6 +725,39 @@ cast! {
     },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
+}
+
+/// A list of page ranges to be exported. The ranges are one-indexed.
+/// For example, `1..=3` indicates the first, second and third pages should be
+/// exported.
+pub struct PageRanges(Vec<PageRange>);
+
+pub type PageRange = RangeInclusive<Option<NonZeroUsize>>;
+
+impl PageRanges {
+    pub fn new(ranges: Vec<PageRange>) -> Self {
+        Self(ranges)
+    }
+
+    /// Check if a page, given its number, should be included when exporting the
+    /// document while restricting the exported pages to these page ranges.
+    /// This is the one-indexed version of 'includes_page_index'.
+    pub fn includes_page(&self, page: NonZeroUsize) -> bool {
+        self.includes_page_index(page.get() - 1)
+    }
+
+    /// Check if a page, given its index, should be included when exporting the
+    /// document while restricting the exported pages to these page ranges.
+    /// This is the zero-indexed version of 'includes_page'.
+    pub fn includes_page_index(&self, page: usize) -> bool {
+        let page = NonZeroUsize::try_from(page + 1).unwrap();
+        self.0.iter().any(|range| match (range.start(), range.end()) {
+            (Some(start), Some(end)) => (start..=end).contains(&&page),
+            (Some(start), None) => (start..).contains(&&page),
+            (None, Some(end)) => (..=end).contains(&&page),
+            (None, None) => true,
+        })
+    }
 }
 
 /// A manual page break.

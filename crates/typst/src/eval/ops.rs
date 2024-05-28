@@ -10,7 +10,7 @@ use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
 use crate::layout::{Alignment, Length, Rel};
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::utils::Numeric;
 use crate::visualize::Stroke;
 
 impl Eval for ast::Unary<'_> {

@@ -12,7 +12,7 @@ use crate::foundations::{
     Selector, Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
-use crate::util::{LazyHash, Static};
+use crate::utils::{LazyHash, Static};
 
 #[doc(inline)]
 pub use typst_macros::func;
@@ -446,14 +446,22 @@ pub trait NativeFunc {
 /// Defines a native function.
 #[derive(Debug)]
 pub struct NativeFuncData {
+    /// Invokes the function from Typst.
     pub function: fn(&mut Engine, Tracked<Context>, &mut Args) -> SourceResult<Value>,
+    /// The function's normal name (e.g. `align`), as exposed to Typst.
     pub name: &'static str,
+    /// The function's title case name (e.g. `Align`).
     pub title: &'static str,
+    /// The documentation for this function as a string.
     pub docs: &'static str,
+    /// A list of alternate search terms for this function.
     pub keywords: &'static [&'static str],
+    /// Whether this function makes use of context.
     pub contextual: bool,
     pub scope: Lazy<Scope>,
+    /// A list of parameter information for each parameter.
     pub params: Lazy<Vec<ParamInfo>>,
+    /// Information about the return value of this function.
     pub returns: Lazy<CastInfo>,
 }
 

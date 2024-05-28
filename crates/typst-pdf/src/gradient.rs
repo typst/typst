@@ -10,7 +10,7 @@ use pdf_writer::{
 };
 
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
-use typst::util::Numeric;
+use typst::utils::Numeric;
 use typst::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };

@@ -8,7 +8,7 @@ use crate::layout::{
 
 /// Moves content without affecting layout.
 ///
-/// The `move` function allows you to move content while th layout still 'sees'
+/// The `move` function allows you to move content while the layout still 'sees'
 /// it at the original positions. Containers will still be sized as if the
 /// content was not moved.
 ///

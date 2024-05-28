@@ -20,8 +20,8 @@ use crate::introspection::Location;
 /// instance, have been reset after a preface.
 ///
 /// # Examples
-/// Determining the current position in the document in combination with
-/// [`locate`]:
+/// Determining the current position in the document in combination with the
+/// [`position`]($location.position) method:
 /// ```example
 /// #context [
 ///   I am located at

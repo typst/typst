@@ -122,10 +122,12 @@ impl LayoutMath for Packed<MidElem> {
                 MathFragment::Glyph(glyph) => {
                     let mut new = glyph.clone().into_variant();
                     new.mid_stretched = Some(false);
+                    new.class = MathClass::Fence;
                     *fragment = MathFragment::Variant(new);
                 }
                 MathFragment::Variant(variant) => {
                     variant.mid_stretched = Some(false);
+                    variant.class = MathClass::Fence;
                 }
                 _ => {}
             }

@@ -124,7 +124,7 @@ cast! {
 /// How to turn a number into text.
 ///
 /// A pattern consists of a prefix, followed by one of
-/// `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, or `*`,
+/// `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, or `⓵`,
 /// and then a suffix.
 ///
 /// Examples of valid patterns:
@@ -280,6 +280,10 @@ pub enum NumberingKind {
     EasternArabic,
     /// The variant of Eastern Arabic numerals used in Persian and Urdu.
     EasternArabicPersian,
+    /// Circled numbers (①, ②, ③, etc.), up to 50.
+    CircledNumber,
+    /// Double-circled numbers (⓵, ⓶, ⓷, etc.), up to 10.
+    DoubleCircledNumber,
 }
 
 impl NumberingKind {
@@ -300,6 +304,8 @@ impl NumberingKind {
             '가' => NumberingKind::KoreanSyllable,
             '\u{0661}' => NumberingKind::EasternArabic,
             '\u{06F1}' => NumberingKind::EasternArabicPersian,
+            '①' => NumberingKind::CircledNumber,
+            '⓵' => NumberingKind::DoubleCircledNumber,
             _ => return None,
         })
     }
@@ -322,6 +328,8 @@ impl NumberingKind {
             Self::KoreanSyllable => '가',
             Self::EasternArabic => '\u{0661}',
             Self::EasternArabicPersian => '\u{06F1}',
+            Self::CircledNumber => '①',
+            Self::DoubleCircledNumber => '⓵',
         }
     }
 
@@ -531,6 +539,22 @@ impl NumberingKind {
             ),
             Self::EasternArabic => decimal('\u{0660}', n),
             Self::EasternArabicPersian => decimal('\u{06F0}', n),
+            Self::CircledNumber => zeroless::<50>(
+                |x| {
+                    [
+                        '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬',
+                        '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕',
+                        '㉖', '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱',
+                        '㊲', '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼',
+                        '㊽', '㊾', '㊿',
+                    ][x]
+                },
+                n,
+            ),
+            Self::DoubleCircledNumber => zeroless::<10>(
+                |x| ['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'][x],
+                n,
+            ),
         }
     }
 }

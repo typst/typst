@@ -12,7 +12,7 @@ use std::hash::Hash;
 use ecow::{eco_format, EcoString};
 use pdf_writer::{Dict, Finish, Name, Ref};
 use typst::text::Lang;
-use typst::{text::Font, util::Deferred, visualize::Image};
+use typst::{text::Font, utils::Deferred, visualize::Image};
 
 use crate::{
     color::ColorSpaces, color_font::ColorFontMap, extg::ExtGState, gradient::PdfGradient,
