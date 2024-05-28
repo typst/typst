@@ -761,8 +761,8 @@ fn decimal(start: char, mut n: usize) -> EcoString {
 
 #[cfg(test)]
 mod tests {
-    use super::Case;
     use super::to_greek;
+    use super::Case;
 
     macro_rules! greek_number_tests {
         ($($test_name:ident: $value:expr,)*) => {
@@ -799,4 +799,3 @@ mod tests {
         trailing_high_digit_1: (90_000_001, "αΜ͵θ, αʹ", Case::Lower),
     }
 }
-
