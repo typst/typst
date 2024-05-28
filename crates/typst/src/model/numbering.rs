@@ -208,8 +208,11 @@ impl FromStr for NumberingPattern {
             };
 
             let prefix = pattern[handled..i].into();
-            let case =
-                if c.is_uppercase() || c == '壹' { Case::Upper } else { Case::Lower };
+            let case = if c.is_uppercase() || c == '壹' || c == 'Α' {
+                Case::Upper
+            } else {
+                Case::Lower
+            };
             pieces.push((prefix, kind, case));
             handled = c.len_utf8() + i;
         }
@@ -294,7 +297,7 @@ impl NumberingKind {
         Some(match c {
             '1' => NumberingKind::Arabic,
             'a' => NumberingKind::Letter,
-            'α' => NumberingKind::Greek,
+            'α' | 'Α' => NumberingKind::Greek,
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
