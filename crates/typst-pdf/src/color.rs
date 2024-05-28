@@ -38,50 +38,27 @@ pub struct ColorSpaces {
 }
 
 impl ColorSpaces {
-    /// Get a reference to the oklab color space.
-    ///
-    /// # Warning
-    /// The A and B components of the color must be offset by +0.4 before being
-    /// encoded into the PDF file.
-    pub fn oklab(&mut self) {
-        self.use_oklab = true;
-    }
-
-    /// Get a reference to the srgb color space.
-    pub fn srgb(&mut self) {
-        self.use_srgb = true;
-    }
-
-    /// Get a reference to the gray color space.
-    pub fn d65_gray(&mut self) {
-        self.use_d65_gray = true;
-    }
-
-    /// Mark linear RGB as used.
-    pub fn linear_rgb(&mut self) {
-        self.use_linear_rgb = true;
-    }
-
+    /// Mark a color space as used.
     pub fn mark_as_used(&mut self, color_space: ColorSpace) {
         match color_space {
             ColorSpace::Oklch | ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
-                self.oklab();
-                self.linear_rgb();
+                self.use_oklab = true;
+                self.use_linear_rgb = true;
             }
             ColorSpace::Srgb => {
-                self.srgb();
+                self.use_srgb = true;
             }
             ColorSpace::D65Gray => {
-                self.d65_gray();
+                self.use_d65_gray = true;
             }
             ColorSpace::LinearRgb => {
-                self.linear_rgb();
+                self.use_linear_rgb = true;
             }
             ColorSpace::Cmyk => {}
         }
     }
 
-    // Write the color spaces to the PDF file.
+    /// Write the color spaces to the PDF file.
     pub fn write_color_spaces(&self, mut spaces: Dict, refs: &ColorFunctionRefs) {
         if self.use_oklab {
             write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
@@ -131,6 +108,8 @@ impl ColorSpaces {
         }
     }
 
+    /// Merge two color space usage information together: a given color space is
+    /// considered to be used if it is used on either side.
     pub fn merge(&mut self, other: &Self) {
         self.use_d65_gray |= other.use_d65_gray;
         self.use_linear_rgb |= other.use_linear_rgb;
@@ -169,6 +148,11 @@ pub fn write(
     }
 }
 
+/// Global references for color conversion functions.
+///
+/// These functions are only written once (at most, they are not written if not
+/// needed) in the final document, and be shared by all color space
+/// dictionaries.
 pub struct ColorFunctionRefs {
     oklab: Option<Ref>,
     srgb: Option<Ref>,
@@ -189,6 +173,7 @@ impl Renumber for ColorFunctionRefs {
     }
 }
 
+/// Allocate all necessary [`ColorFunctionRefs`].
 pub fn alloc_color_functions_refs(
     context: &WithResources,
 ) -> (PdfChunk, ColorFunctionRefs) {
@@ -314,7 +299,7 @@ impl PaintEncode for Color {
     fn set_as_fill(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
         match self {
             Color::Luma(_) => {
-                ctx.resources.colors.d65_gray();
+                ctx.resources.colors.mark_as_used(ColorSpace::D65Gray);
                 ctx.set_fill_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -322,21 +307,21 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.resources.colors.oklab();
+                ctx.resources.colors.mark_as_used(ColorSpace::Oklab);
                 ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_fill_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
-                ctx.resources.colors.linear_rgb();
+                ctx.resources.colors.mark_as_used(ColorSpace::LinearRgb);
                 ctx.set_fill_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                ctx.resources.colors.srgb();
+                ctx.resources.colors.mark_as_used(ColorSpace::Srgb);
                 ctx.set_fill_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
@@ -354,7 +339,7 @@ impl PaintEncode for Color {
     fn set_as_stroke(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
         match self {
             Color::Luma(_) => {
-                ctx.resources.colors.d65_gray();
+                ctx.resources.colors.mark_as_used(ColorSpace::D65Gray);
                 ctx.set_stroke_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -362,21 +347,21 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.resources.colors.oklab();
+                ctx.resources.colors.mark_as_used(ColorSpace::Oklab);
                 ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_stroke_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
-                ctx.resources.colors.linear_rgb();
+                ctx.resources.colors.mark_as_used(ColorSpace::LinearRgb);
                 ctx.set_stroke_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                ctx.resources.colors.srgb();
+                ctx.resources.colors.mark_as_used(ColorSpace::Srgb);
                 ctx.set_stroke_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);

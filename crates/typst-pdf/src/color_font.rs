@@ -1,3 +1,10 @@
+//! OpenType fonts generally define monochrome glyphs, but they can also define
+//! glyphs with colors. This is how emojis are generally implemented for
+//! example.
+//!
+//! There are various standards to represent color glyphs, but PDF readers don't
+//! support any of them natively, so Typst has to handle them manually.
+
 use std::collections::HashMap;
 
 use ecow::eco_format;
@@ -17,6 +24,10 @@ use crate::{
     EmExt, PdfChunk,
 };
 
+/// Write color fonts in the PDF document.
+///
+/// They are written as Type3 fonts, which map glyph IDs to arbitrary PDF
+/// instructions.
 pub fn write_color_fonts(
     context: &WithGlobalRefs,
 ) -> (PdfChunk, HashMap<ColorFontSlice, Ref>) {
@@ -148,6 +159,9 @@ pub fn write_color_fonts(
 pub struct ColorFontMap<R> {
     /// The mapping itself.
     map: IndexMap<Font, ColorFont>,
+    /// The resources required to render the fonts in this map.
+    ///
+    /// For example, this can be the images for glyphs based on bitmaps or SVG.
     pub resources: Resources<R>,
     /// The number of font slices (groups of 256 color glyphs), across all color
     /// fonts.
@@ -190,6 +204,11 @@ impl ColorFontMap<()> {
         }
     }
 
+    /// For a given glyph in a TTF font, give the ID of the Type3 font and the
+    /// index of the glyph inside of this Type3 font.
+    ///
+    /// If this is the first occurrence of this glyph in this font, it will
+    /// start its encoding and add it to the list of known glyphs.
     pub fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
         let color_font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
@@ -229,6 +248,8 @@ impl ColorFontMap<()> {
         }
     }
 
+    /// Assign references to the resource dictionnary used by this set of color
+    /// fonts.
     pub fn with_refs(self, refs: &ResourcesRefs) -> ColorFontMap<Ref> {
         ColorFontMap {
             map: self.map,
@@ -239,14 +260,24 @@ impl ColorFontMap<()> {
 }
 
 impl<R> ColorFontMap<R> {
+    /// Iterate over all Type3 fonts.
+    ///
+    /// Each item of this iterator maps to a Type3 font: it contains
+    /// at most 256 glyphs. A same TTF font can yield multiple Type3 fonts.
     pub fn iter(&self) -> ColorFontMapIter<'_, R> {
         ColorFontMapIter { map: self, font_index: 0, slice_index: 0 }
     }
 }
 
+/// Iterator over a [`ColorFontMap`].
+///
+/// See [`ColorFontMap::iter`].
 pub struct ColorFontMapIter<'a, R> {
+    /// The map over which to iterate
     map: &'a ColorFontMap<R>,
+    /// The index of TTF font on which we currently iterate
     font_index: usize,
+    /// The sub-font (slice of at most 256 glyphs) at which we currently are.
     slice_index: usize,
 }
 
@@ -269,8 +300,13 @@ impl<'a, R> Iterator for ColorFontMapIter<'a, R> {
     }
 }
 
+/// A set of at most 256 glyphs (a limit imposed on Type3 fonts by the PDF
+/// specification) that represents a part of a TTF font.
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct ColorFontSlice {
+    /// The original TTF font.
     pub font: Font,
+    /// The index of the Type3 font, among all those that are necessary to
+    /// represent the subset of the TTF font we are interested in.
     pub subfont: usize,
 }

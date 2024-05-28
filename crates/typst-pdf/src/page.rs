@@ -12,7 +12,7 @@ use typst::layout::{Abs, Frame};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-use crate::{content, AbsExt, PdfChunk, Renumber, WithDocument, WithRefs, WithResources};
+use crate::{content, AbsExt, PdfChunk, WithDocument, WithRefs, WithResources};
 use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
@@ -65,6 +65,7 @@ fn construct_page(out: &mut Resources<()>, frame: &Frame) -> EncodedPage {
     EncodedPage { content, label: None }
 }
 
+/// Allocate a reference for each exported page.
 pub fn alloc_page_refs(context: &WithResources) -> (PdfChunk, Vec<Option<Ref>>) {
     let mut chunk = PdfChunk::new();
     let page_refs = context
@@ -75,16 +76,8 @@ pub fn alloc_page_refs(context: &WithResources) -> (PdfChunk, Vec<Option<Ref>>) 
     (chunk, page_refs)
 }
 
-pub struct PageTreeRef(pub Ref);
-
-impl Renumber for PageTreeRef {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.0.renumber(mapping)
-    }
-}
-
 /// Write the page tree.
-pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, PageTreeRef) {
+pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, Ref) {
     let mut chunk = PdfChunk::new();
     let page_tree_ref = chunk.alloc.bump();
 
@@ -105,7 +98,7 @@ pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, PageTreeRef) {
         .count(ctx.pages.len() as i32)
         .kids(ctx.globals.pages.iter().filter_map(Option::as_ref).copied());
 
-    (chunk, PageTreeRef(page_tree_ref))
+    (chunk, page_tree_ref)
 }
 
 /// Write a page tree node.

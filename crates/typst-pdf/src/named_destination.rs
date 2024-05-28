@@ -8,6 +8,12 @@ use typst::model::HeadingElem;
 
 use crate::{AbsExt, PdfChunk, Renumber, WithGlobalRefs};
 
+/// A list of destinations in the PDF document (a specific point on a specific
+/// page), that have a name associated with them.
+///
+/// Typst creates a named destination for each heading in the document, that
+/// will then be written in the document catalog. PDF readers can then display
+/// them to show a clickable outline of the document.
 #[derive(Default)]
 pub struct NamedDestinations {
     /// A map between elements and their associated labels

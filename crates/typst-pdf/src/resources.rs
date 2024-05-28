@@ -159,6 +159,10 @@ impl<R> Resources<R> {
     }
 }
 
+/// References for a resource tree.
+///
+/// This structure is a tree too, that should have the same structure as the
+/// corresponding `Resources`.
 pub struct ResourcesRefs {
     pub reference: Ref,
     pub color_fonts: Option<Box<ResourcesRefs>>,
@@ -177,8 +181,10 @@ impl Renumber for ResourcesRefs {
     }
 }
 
+/// Allocate references for all resource dictionaries.
 pub fn alloc_resources_refs(context: &WithResources) -> (PdfChunk, ResourcesRefs) {
     let mut chunk = PdfChunk::new();
+    /// Recursively explore resource dictionaries and assign them references.
     fn refs_for(resources: &Resources<()>, chunk: &mut PdfChunk) -> ResourcesRefs {
         ResourcesRefs {
             reference: chunk.alloc(),
@@ -288,10 +294,12 @@ impl<T> Remapper<T>
 where
     T: Eq + Hash + Clone,
 {
+    /// Create an empty mapping.
     pub fn new(prefix: &'static str) -> Self {
         Self { prefix, to_pdf: HashMap::new(), to_items: vec![] }
     }
 
+    /// Insert an item in the mapping if it was not already present.
     pub fn insert(&mut self, item: T) -> usize {
         let to_layout = &mut self.to_items;
         *self.to_pdf.entry(item.clone()).or_insert_with(|| {
@@ -301,10 +309,12 @@ where
         })
     }
 
+    /// All items in this
     pub fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
     }
 
+    /// Write this list of items in a Resource dictionary.
     fn write(&self, mapping: &HashMap<T, Ref>, dict: &mut Dict) {
         for (number, item) in self.items().enumerate() {
             let name = eco_format!("{}{}", self.prefix, number);

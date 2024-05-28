@@ -35,9 +35,7 @@ use crate::font::write_fonts;
 use crate::gradient::{write_gradients, PdfGradient};
 use crate::image::write_images;
 use crate::named_destination::{write_named_destinations, NamedDestinations};
-use crate::page::{
-    alloc_page_refs, traverse_pages, write_page_tree, EncodedPage, PageTreeRef,
-};
+use crate::page::{alloc_page_refs, traverse_pages, write_page_tree, EncodedPage};
 use crate::pattern::{write_patterns, PdfPattern};
 use crate::resources::{
     alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
@@ -97,18 +95,17 @@ pub fn pdf(
 ///
 /// This type uses generics to represent its current state. `S` (for "state") is
 /// all data that was produced by the previous phases, that is now read-only.
-/// `B` (for "building") is a new set of data, that is currently being produced
-/// and that should be considered write-only.
+///
+/// Phase after phase, this state will be transformed. Each phase corresponds to
+/// a call to the [eponymous function](`PdfBuilder::phase`) and produces a new
+/// part of the state, that will be aggregated with all other information, for
+/// consumption during the next phase.
 ///
 /// In other words: this struct follows the **typestate pattern**. This prevents
 /// you from using data that is not yet available, at the type level.
 ///
 /// Each phase consists of processes, that can read the state of the previous
-/// phases (`S`), and write to the new state (`B`). These processes are run
-/// in the order [`PdfBuilder::run`] is called on them.
-///
-/// To combine the last state and what was built by the previous phases in a new
-/// state, [`PdfBuilder::transition`] is used. A new phase is then entered.
+/// phases, and construct a part of the new state.
 ///
 /// A final step, that has direct access to the global reference allocator and
 /// PDF document, can be run with [`PdfBuilder::export_with`].
@@ -125,6 +122,7 @@ struct PdfBuilder<S> {
 /// that will be necessary later. The content of the pages is also built during
 /// this phase.
 struct WithDocument<'a> {
+    /// The Typst document that is exported.
     document: &'a Document,
     /// Page ranges to export.
     /// When `None`, all pages are exported.
@@ -137,15 +135,27 @@ struct WithDocument<'a> {
 /// This phase allocates some global references.
 struct WithResources<'a> {
     document: &'a Document,
-    pages: Vec<Option<EncodedPage>>,
     exported_pages: Option<PageRanges>,
+    /// The content of the pages encoded as PDF content streams.
+    ///
+    /// The pages are at the index corresponding to their page number, but they
+    /// may be `None` if they are not in the range specified by
+    /// `exported_pages`.
+    pages: Vec<Option<EncodedPage>>,
+    /// The PDF resources that are used in the content of the pages.
     resources: Resources<()>,
 }
 
-/// Global references
+/// Global references.
 struct GlobalRefs {
+    /// References for color conversion functions.
     color_functions: ColorFunctionRefs,
+    /// Reference for pages.
+    ///
+    /// Items of this vector are `None` if the corresponding page is not
+    /// exported.
     pages: Vec<Option<Ref>>,
+    /// References for the resource dictionnaries.
     resources: ResourcesRefs,
 }
 
@@ -174,10 +184,12 @@ impl<'a> From<(WithDocument<'a>, (Vec<Option<EncodedPage>>, Resources<()>))>
 /// that will be collected in [`References`].
 struct WithGlobalRefs<'a> {
     document: &'a Document,
-    globals: GlobalRefs,
-    pages: Vec<Option<EncodedPage>>,
     exported_pages: Option<PageRanges>,
+    pages: Vec<Option<EncodedPage>>,
+    /// Resources are the same as in previous phases, but each dictionary now has a reference.
     resources: Resources,
+    /// Global references that were just allocated.
+    globals: GlobalRefs,
 }
 
 impl<'a> From<(WithResources<'a>, GlobalRefs)> for WithGlobalRefs<'a> {
@@ -194,6 +206,7 @@ impl<'a> From<(WithResources<'a>, GlobalRefs)> for WithGlobalRefs<'a> {
 
 /// The references that have been assigned to each object.
 struct References {
+    /// List of named destinations, each with an ID.
     named_destinations: NamedDestinations,
     /// The IDs of written fonts.
     fonts: HashMap<Font, Ref>,
@@ -218,6 +231,7 @@ struct WithRefs<'a> {
     pages: Vec<Option<EncodedPage>>,
     exported_pages: Option<PageRanges>,
     resources: Resources,
+    /// References that were allocated for resources.
     references: References,
 }
 
@@ -244,6 +258,7 @@ struct WithEverything<'a> {
     exported_pages: Option<PageRanges>,
     resources: Resources,
     references: References,
+    /// Reference that was allocated for the page tree.
     page_tree_ref: Ref,
 }
 
@@ -253,8 +268,8 @@ impl<'a> From<(WithEverything<'a>, ())> for WithEverything<'a> {
     }
 }
 
-impl<'a> From<(WithRefs<'a>, PageTreeRef)> for WithEverything<'a> {
-    fn from((previous, page_tree_ref): (WithRefs<'a>, PageTreeRef)) -> Self {
+impl<'a> From<(WithRefs<'a>, Ref)> for WithEverything<'a> {
+    fn from((previous, page_tree_ref): (WithRefs<'a>, Ref)) -> Self {
         Self {
             exported_pages: previous.exported_pages,
             globals: previous.globals,
@@ -262,7 +277,7 @@ impl<'a> From<(WithRefs<'a>, PageTreeRef)> for WithEverything<'a> {
             resources: previous.resources,
             references: previous.references,
             pages: previous.pages,
-            page_tree_ref: page_tree_ref.0,
+            page_tree_ref,
         }
     }
 }
@@ -279,6 +294,7 @@ impl<'a> PdfBuilder<WithDocument<'a>> {
 }
 
 impl<S> PdfBuilder<S> {
+    /// Start a new phase, and save its output in the global state.
     fn phase<NS, B, O>(mut self, builder: B) -> PdfBuilder<NS>
     where
         // New state
@@ -303,8 +319,20 @@ impl<S> PdfBuilder<S> {
         // Output
         O: Renumber,
     {
-        let (chunk, output) = process(&self.state);
-        self.renumber(chunk, output)
+        let (chunk, mut output) = process(&self.state);
+        // Allocate a final reference for each temporary one
+        let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
+        let mapping: HashMap<_, _> = (0..allocated)
+            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
+            .collect();
+
+        // Merge the chunk into the PDF, using the new references
+        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
+
+        // Also update the references in the output
+        output.renumber(&mapping);
+
+        output
     }
 
     /// Finalize the PDF export and returns the buffer representing the
@@ -321,30 +349,12 @@ impl<S> PdfBuilder<S> {
         process(self.state, ident, timestamp, &mut self.pdf, &mut self.alloc);
         self.pdf.finish()
     }
-
-    fn renumber<O>(&mut self, chunk: PdfChunk, mut output: O) -> O
-    where
-        O: Renumber,
-    {
-        // Allocate a final reference for each temporary one
-        let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
-        let mapping: HashMap<_, _> = (0..allocated)
-            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
-            .collect();
-
-        // Merge the chunk into the PDF, using the new references
-        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
-
-        // Also update the references in the output
-        output.renumber(&mapping);
-
-        output
-    }
 }
 
 /// A reference or collection of references that can be re-numbered,
 /// to become valid in a global scope.
 trait Renumber {
+    /// Renumber this value according to the defined `mapping`.
     fn renumber(&mut self, mapping: &HashMap<Ref, Ref>);
 }
 
@@ -398,16 +408,18 @@ struct PdfChunk {
     alloc: Ref,
 }
 
-// Any reference below that value was already allocated before and
-// should not be rewritten. Anything above was allocated in the current
-// chunk, and should be remapped.
-//
-// This is a constant (large enough to avoid collisions) and not
-// dependant on self.alloc to allow for better memoization of steps, if
-// needed in the future.
+/// Any reference below that value was already allocated before and
+/// should not be rewritten. Anything above was allocated in the current
+/// chunk, and should be remapped.
+///
+/// This is a constant (large enough to avoid collisions) and not
+/// dependant on self.alloc to allow for better memoization of steps, if
+/// needed in the future.
 const TEMPORARY_REFS_START: i32 = 1_000_000_000;
 
+/// A part of a PDF document.
 impl PdfChunk {
+    /// Start writing a new part of the document.
     fn new() -> Self {
         PdfChunk {
             chunk: Chunk::new(),
@@ -415,6 +427,11 @@ impl PdfChunk {
         }
     }
 
+    /// Allocate a reference that is valid in the context of this chunk.
+    ///
+    /// References allocated with this function should be [renumbered](`Renumber::renumber`)
+    /// before being used in other chunks. This is done automatically if these
+    /// references are stored in the global `PdfBuilder` state.
     fn alloc(&mut self) -> Ref {
         self.alloc.bump()
     }

@@ -46,7 +46,6 @@ pub fn build(
     }
 
     // Make the coordinate system start at the top-left.
-    ctx.bottom = size.y.to_f32();
     ctx.transform(
         // Make the Y axis go upwards
         Transform::scale(Ratio::one(), -Ratio::one())
@@ -65,6 +64,7 @@ pub fn build(
     }
 }
 
+/// An encoded content stream.
 pub struct Encoded {
     /// The dimensions of the content.
     pub size: Size,
@@ -84,16 +84,22 @@ pub struct Encoded {
 /// Content streams can be used for page contents, but also to describe color
 /// glyphs and patterns.
 pub struct Builder<'a, R = ()> {
+    /// A list of all resources that are used in the content stream.
     pub(crate) resources: &'a mut Resources<R>,
+    /// The PDF content stream that is being built.
     pub content: Content,
+    /// Current graphic state.
     state: State,
+    /// Stack of saved graphic states.
     saves: Vec<State>,
-    bottom: f32,
+    /// Wheter any stroke or fill was not totally opaque.
     uses_opacities: bool,
+    /// All clickable links that are present in this content.
     links: Vec<(Destination, Rect)>,
 }
 
 impl<'a, R> Builder<'a, R> {
+    /// Create a new content builder.
     pub fn new(resources: &'a mut Resources<R>, size: Size) -> Self {
         Builder {
             resources,
@@ -101,7 +107,6 @@ impl<'a, R> Builder<'a, R> {
             content: Content::new(),
             state: State::new(size),
             saves: vec![],
-            bottom: 0.0,
             links: vec![],
         }
     }
@@ -117,12 +122,19 @@ struct State {
     container_transform: Transform,
     /// The size of the first hard frame in the hierarchy.
     size: Size,
+    /// The current font.
     font: Option<(Font, Abs)>,
+    /// The current fill paint.
     fill: Option<Paint>,
+    /// The color space of the current fill paint.
     fill_space: Option<Name<'static>>,
+    /// The current external graphic state.
     external_graphics_state: Option<ExtGState>,
+    /// The current stroke paint.
     stroke: Option<FixedStroke>,
+    /// The color space of the current stroke paint.
     stroke_space: Option<Name<'static>>,
+    /// The current text rendering mode.
     text_rendering_mode: TextRenderingMode,
 }
 
@@ -420,7 +432,7 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) {
     }
 }
 
-// Encodes a text run (without any color glyph) into the content stream.
+/// Encodes a text run (without any color glyph) into the content stream.
 fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
@@ -498,7 +510,7 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     ctx.content.end_text();
 }
 
-// Encodes a text run made only of color glyphs into the content stream
+/// Encodes a text run made only of color glyphs into the content stream
 fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();

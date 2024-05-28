@@ -13,6 +13,7 @@ use typst::text::Lang;
 use crate::WithEverything;
 use crate::{hash_base64, outline, page::PdfPageLabel};
 
+/// Write the document catalog.
 pub fn write_catalog(
     ctx: WithEverything,
     ident: Smart<&str>,

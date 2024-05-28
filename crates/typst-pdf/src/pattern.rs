@@ -148,8 +148,11 @@ impl PaintEncode for Pattern {
     }
 }
 
+/// De-duplicate patterns and the resources they require to be drawn.
 pub struct PatternRemapper<R> {
+    /// Pattern de-duplicator.
     pub remapper: Remapper<PdfPattern>,
+    /// PDF resources that are used by these patterns.
     pub resources: Resources<R>,
 }
 
@@ -161,6 +164,7 @@ impl PatternRemapper<()> {
         }
     }
 
+    /// Allocate a reference to the resource dictionary of these patterns.
     pub fn with_refs(self, refs: &ResourcesRefs) -> PatternRemapper<Ref> {
         PatternRemapper {
             remapper: self.remapper,

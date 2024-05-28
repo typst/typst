@@ -226,15 +226,18 @@ pub(crate) fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
     std::str::from_utf8(&letter).unwrap().into()
 }
 
+/// For glyphs that have codepoints mapping to them in the font's cmap table, we
+/// prefer them over pre-existing text mappings from the document. Only things
+/// that don't have a corresponding codepoint (or only a private-use one) like
+/// the "Th" in Linux Libertine get the text of their first occurrences in the
+/// document instead.
+///
+/// This function replaces as much copepoints from the document with ones from
+/// the cmap table as possible.
 pub fn improve_glyph_sets(glyph_sets: &mut HashMap<Font, BTreeMap<u16, EcoString>>) {
     for (font, glyph_set) in glyph_sets {
         let ttf = font.ttf();
 
-        // For glyphs that have codepoints mapping to them in the font's cmap table,
-        // we prefer them over pre-existing text mappings from the document. Only
-        // things that don't have a corresponding codepoint (or only a private-use
-        // one) like the "Th" in Linux Libertine get the text of their first
-        // occurrences in the document instead.
         for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
             if !subtable.is_unicode() {
                 continue;
