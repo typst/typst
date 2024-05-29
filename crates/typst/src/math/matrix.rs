@@ -22,7 +22,7 @@ use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
 
 use super::delimiter_alignment;
 
-const DEFAULT_ROW_GAP: Em = Em::new(0.5);
+const DEFAULT_ROW_GAP: Em = Em::new(0.2);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
