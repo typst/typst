@@ -142,7 +142,7 @@ Some conclusive text. // Should appear after all the floating figures
 
 Some introductory text: #lorem(15)
 
-#figure(placement: auto, caption: [A cylinder], image("/assets/images/cylinder.svg", height: 50%))
+#figure(placement: auto, caption: [A self-describing figure], rect(width: 100%, height: 64pt, [I float with a caption!]))
 
 #place.flush()
 
