@@ -276,7 +276,7 @@ impl LayoutMultiple for Packed<EquationElem> {
             for region in regions.iter() {
                 // Keep track of the position of the first row in this region,
                 // so that the offset can be reverted later.
-                let Some(first_pos) = rows.peek().map(|(_, pos)| *pos) else { break };
+                let Some(&(_, first_pos)) = rows.peek() else { break };
                 last_first_pos = first_pos;
 
                 let mut frames = vec![];
@@ -285,12 +285,14 @@ impl LayoutMultiple for Packed<EquationElem> {
                     let mut pos = *pos;
                     pos.y -= first_pos.y;
 
-                    if !region.y.fits(sub.height() + pos.y) {
-                        // Allow first row to overflow to prevent infinite
-                        // creation of new regions which may all be too small.
-                        if !(frames.is_empty() && regions.in_last()) {
-                            break;
-                        }
+                    // Finish this region if the line doesn't fit. Only do it if
+                    // we placed at least one line _or_ we still have non-last
+                    // regions. Crucially, we don't want to infinitely create
+                    // new regions which are too small.
+                    if !region.y.fits(sub.height() + pos.y)
+                        && (!frames.is_empty() || !regions.in_last())
+                    {
+                        break;
                     }
 
                     let (sub, _) = rows.next().unwrap();
