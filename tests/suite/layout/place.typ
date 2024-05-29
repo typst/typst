@@ -138,21 +138,15 @@ Some conclusive text. // Should appear after all the floating figures
 
 --- place-figure-flush ---
 
-#set page(height: 150pt, width: 150pt)
+#set page(height: 165pt, width: 150pt)
 
-#let fig = figure(placement: auto, caption: [A cylinder], image("/assets/images/cylinder.svg", height: 50%))
+Some introductory text: #lorem(15)
 
-Some introductory text.
-
-#fig #fig #fig #fig
-
-Some explanatory text.
-
-Some additional text.
+#figure(placement: auto, caption: [A cylinder], image("/assets/images/cylinder.svg", height: 50%))
 
 #place.flush()
 
-Some conclusive text. // Should appear after all the floating figures
+Some conclusive text that must occur after the figure.
 
 --- place-bottom-in-box ---
 #box(

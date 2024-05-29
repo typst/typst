@@ -145,26 +145,22 @@ impl Behave for Packed<PlaceElem> {
     }
 }
 
-/// Asks the layout algorithm to place pending figures before
+/// Asks the layout algorithm to place pending floating elements before
 /// continuing with the content.
 ///
 /// This is useful for preventing floating figures from spilling
 /// into the next section.
 ///
 /// ```example
-/// #set page(height: 150pt, width: 150pt)
+/// #set page(height: 165pt, width: 150pt)
 ///
-/// #let floater = place(auto, float: true, rect(width: 100%, height: 90pt, text(size: 24pt)[I float!]))
+/// Some introductory text: #lorem(15)
 ///
-/// Some introductory text.
-///
-/// #floater #floater #floater #floater
-///
-/// Some additional text.
+/// #figure(placement: auto, caption: [A cylinder], image("/assets/images/cylinder.svg", height: 50%))
 ///
 /// #place.flush()
 ///
-/// Some conclusive text.
+/// Some conclusive text that must occur after the figure.
 /// ```
 #[elem(Behave, Unlabellable)]
 pub struct FlushElem {}
