@@ -75,8 +75,8 @@ pub fn measure(
     };
 
     let available = Axes::new(
-        width.resolve(context.styles().at(span)?).unwrap_or(Abs::inf()),
-        height.resolve(context.styles().at(span)?).unwrap_or(Abs::inf()),
+        width.resolve(styles).unwrap_or(Abs::inf()),
+        height.resolve(styles).unwrap_or(Abs::inf()),
     );
 
     let pod = Regions::one(available, Axes::splat(false));
