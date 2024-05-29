@@ -68,7 +68,7 @@ pub struct Resources<R = Ref> {
     pub color_fonts: Option<Box<ColorFontMap<R>>>,
 
     // The fields below do not correspond to actual resources that will be
-    // written in a dictionnary, but are more meta-data about resources that
+    // written in a dictionary, but are more meta-data about resources that
     // can't really live somewhere else.
     /// The number of glyphs for all referenced languages in the content stream.
     /// We keep track of this to determine the main document language.

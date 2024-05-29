@@ -155,7 +155,7 @@ struct GlobalRefs {
     /// Items of this vector are `None` if the corresponding page is not
     /// exported.
     pages: Vec<Option<Ref>>,
-    /// References for the resource dictionnaries.
+    /// References for the resource dictionaries.
     resources: ResourcesRefs,
 }
 

@@ -248,7 +248,7 @@ impl ColorFontMap<()> {
         }
     }
 
-    /// Assign references to the resource dictionnary used by this set of color
+    /// Assign references to the resource dictionary used by this set of color
     /// fonts.
     pub fn with_refs(self, refs: &ResourcesRefs) -> ColorFontMap<Ref> {
         ColorFontMap {
