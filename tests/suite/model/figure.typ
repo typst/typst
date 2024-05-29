@@ -23,6 +23,13 @@ We can clearly see that @fig-cylinder and
   caption: [The complex table.],
 ) <tab-complex>
 
+--- figure-align ---
+#show figure: set align(start)
+#figure(
+  rect[This is \ left],
+  caption: [Start-aligned]
+)
+
 --- figure-table ---
 // Testing figures with tables.
 #figure(
