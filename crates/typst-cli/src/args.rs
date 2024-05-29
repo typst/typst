@@ -71,11 +71,12 @@ pub struct CompileCommand {
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Path to output file (PDF, PNG, or SVG).
-    /// Use `-` to write output to stdout; For output formats emitting one file per page,
-    /// a page number template must be present if the source document renders to multiple pages.
-    /// Use `{p}` for page numbers, `{0p}` for zero padded page numbers, `{t}` for page count.
-    /// For example, `doc-page-{0p}-of-{t}.png` creates `doc-page-01-of-10.png` and so on.
+    /// Path to output file (PDF, PNG or SVG). Use `-` to write output to stdout.
+    ///
+    /// For output formats emitting one file per page (PNG & SVG), a page number template
+    /// must be present if the source document renders to multiple pages. Use `{p}` for page
+    /// numbers, `{0p}` for zero padded page numbers and `{t}` for page count. For example,
+    /// `page-{0p}-of-{t}.png` creates `page-01-of-10.png`, `page-02-of-10.png` and so on.
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
 
@@ -169,7 +170,7 @@ pub enum SerializationFormat {
 /// Common arguments of compile, watch, and query.
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
-    /// Path to input Typst file, use `-` to read input from stdin
+    /// Path to input Typst file. Use `-` to read input from stdin
     #[clap(value_parser = input_value_parser)]
     pub input: Input,
 
