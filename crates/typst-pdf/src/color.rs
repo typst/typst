@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
-
 use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
@@ -160,15 +157,15 @@ pub struct ColorFunctionRefs {
 }
 
 impl Renumber for ColorFunctionRefs {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+    fn renumber(&mut self, offset: i32) {
         if let Some(r) = &mut self.oklab {
-            r.renumber(mapping);
+            r.renumber(offset);
         }
         if let Some(r) = &mut self.srgb {
-            r.renumber(mapping);
+            r.renumber(offset);
         }
         if let Some(r) = &mut self.d65_gray {
-            r.renumber(mapping);
+            r.renumber(offset);
         }
     }
 }

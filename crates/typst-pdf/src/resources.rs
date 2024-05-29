@@ -85,15 +85,15 @@ pub struct Resources<R = Ref> {
 }
 
 impl<R: Renumber> Renumber for Resources<R> {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.reference.renumber(mapping);
+    fn renumber(&mut self, offset: i32) {
+        self.reference.renumber(offset);
 
         if let Some(color_fonts) = &mut self.color_fonts {
-            color_fonts.resources.renumber(mapping);
+            color_fonts.resources.renumber(offset);
         }
 
         if let Some(patterns) = &mut self.patterns {
-            patterns.resources.renumber(mapping);
+            patterns.resources.renumber(offset);
         }
     }
 }
@@ -170,13 +170,13 @@ pub struct ResourcesRefs {
 }
 
 impl Renumber for ResourcesRefs {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.reference.renumber(mapping);
+    fn renumber(&mut self, offset: i32) {
+        self.reference.renumber(offset);
         if let Some(color_fonts) = &mut self.color_fonts {
-            color_fonts.renumber(mapping);
+            color_fonts.renumber(offset);
         }
         if let Some(patterns) = &mut self.patterns {
-            patterns.renumber(mapping);
+            patterns.renumber(offset);
         }
     }
 }

@@ -322,15 +322,20 @@ impl<S> PdfBuilder<S> {
         let (chunk, mut output) = process(&self.state);
         // Allocate a final reference for each temporary one
         let allocated = chunk.alloc.get() - TEMPORARY_REFS_START;
-        let mapping: HashMap<_, _> = (0..allocated)
-            .map(|i| (Ref::new(TEMPORARY_REFS_START + i), self.alloc.bump()))
-            .collect();
+        let offset = TEMPORARY_REFS_START - self.alloc.get();
 
         // Merge the chunk into the PDF, using the new references
-        chunk.renumber_into(&mut self.pdf, |r| *mapping.get(&r).unwrap_or(&r));
+        chunk.renumber_into(&mut self.pdf, |mut r| {
+            if r.get() >= TEMPORARY_REFS_START {
+                r.renumber(offset);
+            }
+            r
+        });
 
         // Also update the references in the output
-        output.renumber(&mapping);
+        output.renumber(offset);
+
+        self.alloc = Ref::new(self.alloc.get() + allocated);
 
         output
     }
@@ -354,49 +359,47 @@ impl<S> PdfBuilder<S> {
 /// A reference or collection of references that can be re-numbered,
 /// to become valid in a global scope.
 trait Renumber {
-    /// Renumber this value according to the defined `mapping`.
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>);
+    /// Renumber this value by shifting any references it contains by `offset`.
+    fn renumber(&mut self, offset: i32);
 }
 
 impl Renumber for () {
-    fn renumber(&mut self, _mapping: &HashMap<Ref, Ref>) {}
+    fn renumber(&mut self, _offset: i32) {}
 }
 
 impl Renumber for Ref {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        if let Some(new) = mapping.get(self) {
-            *self = *new
-        }
+    fn renumber(&mut self, offset: i32) {
+        *self = Ref::new(self.get() - offset);
     }
 }
 
 impl<R: Renumber> Renumber for Vec<R> {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+    fn renumber(&mut self, offset: i32) {
         for item in self {
-            item.renumber(mapping);
+            item.renumber(offset);
         }
     }
 }
 
 impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+    fn renumber(&mut self, offset: i32) {
         for v in self.values_mut() {
-            v.renumber(mapping);
+            v.renumber(offset);
         }
     }
 }
 
 impl<R: Renumber> Renumber for Option<R> {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+    fn renumber(&mut self, offset: i32) {
         if let Some(r) = self {
-            r.renumber(mapping)
+            r.renumber(offset)
         }
     }
 }
 
 impl<T, R: Renumber> Renumber for (T, R) {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
-        self.1.renumber(mapping)
+    fn renumber(&mut self, offset: i32) {
+        self.1.renumber(offset)
     }
 }
 

@@ -23,9 +23,9 @@ pub struct NamedDestinations {
 }
 
 impl Renumber for NamedDestinations {
-    fn renumber(&mut self, mapping: &HashMap<Ref, Ref>) {
+    fn renumber(&mut self, offset: i32) {
         for (_, reference) in &mut self.dests {
-            reference.renumber(mapping);
+            reference.renumber(offset);
         }
     }
 }
