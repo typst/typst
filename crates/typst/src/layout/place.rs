@@ -1,8 +1,6 @@
-use typst_macros::scope;
-
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Smart, StyleChain, Unlabellable};
+use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain, Unlabellable};
 use crate::layout::{
     Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, Size, VAlignment,
 };
