@@ -24,12 +24,6 @@ pub trait AstNode<'a>: Sized {
     }
 }
 
-/// A static syntax node used as a fallback value. This is returned instead of
-/// panicking when the syntactical structure isn't valid. In a normal
-/// compilation, evaluation isn't attempted on a broken file, but for IDE
-/// functionality, it is.
-static ARBITRARY: SyntaxNode = SyntaxNode::arbitrary();
-
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -56,7 +50,9 @@ macro_rules! node {
         impl Default for $name<'_> {
             #[inline]
             fn default() -> Self {
-                Self(&ARBITRARY)
+                static PLACEHOLDER: SyntaxNode
+                    = SyntaxNode::placeholder(SyntaxKind::$name);
+                Self(&PLACEHOLDER)
             }
         }
     };
@@ -392,7 +388,7 @@ impl Expr<'_> {
 
 impl Default for Expr<'_> {
     fn default() -> Self {
-        Expr::Space(Space::default())
+        Expr::None(None::default())
     }
 }
 
@@ -2133,5 +2129,15 @@ impl<'a> FuncReturn<'a> {
     /// The expression to return.
     pub fn body(self) -> Option<Expr<'a>> {
         self.0.cast_last_match()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_expr_default() {
+        assert!(Expr::default().to_untyped().cast::<Expr>().is_some());
     }
 }

@@ -39,6 +39,21 @@ impl SyntaxNode {
         Self(Repr::Error(Arc::new(ErrorNode::new(message, text))))
     }
 
+    /// Create a dummy node of the given kind.
+    ///
+    /// Panics if `kind` is `SyntaxKind::Error`.
+    #[track_caller]
+    pub const fn placeholder(kind: SyntaxKind) -> Self {
+        if matches!(kind, SyntaxKind::Error) {
+            panic!("cannot create error placeholder");
+        }
+        Self(Repr::Leaf(LeafNode {
+            kind,
+            text: EcoString::new(),
+            span: Span::detached(),
+        }))
+    }
+
     /// The type of the node.
     pub fn kind(&self) -> SyntaxKind {
         match &self.0 {
@@ -297,17 +312,6 @@ impl SyntaxNode {
             Repr::Error(node) => node.error.span.number() + 1,
         }
     }
-
-    /// An arbitrary node just for filling a slot in memory.
-    ///
-    /// In contrast to `default()`, this is a const fn.
-    pub(super) const fn arbitrary() -> Self {
-        Self(Repr::Leaf(LeafNode {
-            kind: SyntaxKind::End,
-            text: EcoString::new(),
-            span: Span::detached(),
-        }))
-    }
 }
 
 impl Debug for SyntaxNode {
@@ -322,7 +326,7 @@ impl Debug for SyntaxNode {
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::arbitrary()
+        Self::leaf(SyntaxKind::End, EcoString::new())
     }
 }
 
