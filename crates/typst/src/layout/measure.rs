@@ -13,7 +13,8 @@ use crate::syntax::Span;
 /// The `measure` function lets you determine the layouted size of content.
 /// By default an infinite space is assumed, so the measured dimensions may
 /// not necessarily match the final dimensions of the content.
-/// If you want to measure in the current layout dimensions, you can combine `measure` and [`layout`].
+/// If you want to measure in the current layout dimensions, you can combine
+/// `measure` and [`layout`].
 ///
 /// # Example
 /// The same content can have a different size depending on the [context] that
