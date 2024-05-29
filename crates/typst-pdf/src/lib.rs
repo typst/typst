@@ -326,9 +326,8 @@ impl<S> PdfBuilder<S> {
 
         // Merge the chunk into the PDF, using the new references
         chunk.renumber_into(&mut self.pdf, |mut r| {
-            if r.get() >= TEMPORARY_REFS_START {
-                r.renumber(offset);
-            }
+            r.renumber(offset);
+
             r
         });
 
@@ -369,7 +368,9 @@ impl Renumber for () {
 
 impl Renumber for Ref {
     fn renumber(&mut self, offset: i32) {
-        *self = Ref::new(self.get() - offset);
+        if self.get() >= TEMPORARY_REFS_START {
+            *self = Ref::new(self.get() - offset);
+        }
     }
 }
 
