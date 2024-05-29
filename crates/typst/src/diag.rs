@@ -349,6 +349,23 @@ impl<T> Hint<T> for HintedStrResult<T> {
     }
 }
 
+/// Enrich a [`SourceResult`] with a hint.
+/// All returned errors receive the hint.
+pub trait SourceHint<T> {
+    /// Add the hint to all returned errors.
+    fn hint(self, hint: impl Into<EcoString>) -> SourceResult<T>;
+}
+
+impl<T> SourceHint<T> for SourceResult<T> {
+    fn hint(self, hint: impl Into<EcoString>) -> SourceResult<T> {
+        self.map_err(|mut error| {
+            let hint = hint.into();
+            error.make_mut().iter_mut().for_each(|error| error.hint(hint.clone()));
+            error
+        })
+    }
+}
+
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 

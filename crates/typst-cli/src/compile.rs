@@ -8,7 +8,9 @@ use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, At, FileError, Severity, SourceDiagnostic, StrResult};
+use typst::diag::{
+    bail, At, FileError, Severity, SourceDiagnostic, SourceHint, StrResult,
+};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, PageRanges};
@@ -97,50 +99,9 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Check if main file can be read and opened.
-    let main_result = world.source(world.main());
-    if main_result.is_err() {
-        set_failed();
-        if watching {
-            Status::Error.print(command).unwrap();
-        }
-
-        let errors = match main_result {
-            Err(FileError::InvalidUtf8) => match &command.common.input {
-                Input::Path(path) => {
-                    let extension = path.extension();
-                    let mut errors = main_result.at(Span::detached()).unwrap_err();
-                    if let Some(extension) = extension {
-                        if extension != "typ" {
-                            errors
-                                .make_mut()
-                                .first_mut()
-                                .unwrap()
-                                .hint(eco_format!("a file with the `.{}` extension is not usually a Typst file. Check if you meant to use `.typ` instead.", extension.to_string_lossy()));
-                        }
-                    } else {
-                        errors
-                            .make_mut()
-                            .first_mut()
-                            .unwrap()
-                            .hint("a file without an extension (`.something`) is not usually a Typst file. Check if you meant to add `.typ` to its name.");
-                    }
-
-                    errors
-                }
-                _ => {
-                    // We are only interested in providing helpful errors
-                    // when users try to load an invalid path.
-                    main_result.at(Span::detached()).unwrap_err()
-                }
-            },
-
-            main_result => main_result.at(Span::detached()).unwrap_err(),
-        };
-
-        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
-            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
-
+    if !check_main_file_is_valid(world, command, watching)? {
+        // No unexpected errors occurred, but the main file was invalid.
+        // We have already alerted the user about it, so we don't proceed.
         return Ok(());
     }
 
@@ -515,6 +476,76 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
     }
 
     Ok(())
+}
+
+/// Checks if the main file can be read and opened.
+/// Returns a boolean indicating whether that is the case.
+/// If an unexpected error occurred, returns it.
+fn check_main_file_is_valid(
+    world: &SystemWorld,
+    command: &CompileCommand,
+    watching: bool,
+) -> StrResult<bool> {
+    let main_result = world.source(world.main());
+    let Err(file_error) = &main_result else {
+        return Ok(true);
+    };
+
+    set_failed();
+    if watching {
+        Status::Error.print(command).unwrap();
+    }
+
+    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
+    let mut main_result = main_result.at(Span::detached());
+
+    // Attempt to provide helpful hints for UTF-8 errors.
+    // Perhaps the user mistyped the filename.
+    // For example, they could have written "file.pdf" instead of
+    // "file.typ".
+    if is_utf8_error {
+        if let Input::Path(path) = &command.common.input {
+            let extension = path.extension();
+            let exists_typ_file = path.with_extension("typ").exists();
+
+            let hint_given = match extension {
+                Some(extension) if extension != "typ" => {
+                    main_result = main_result.hint(eco_format!(
+                        "a file with the `.{}` extension is not usually a Typst file",
+                        extension.to_string_lossy()
+                    ));
+
+                    true
+                }
+
+                Some(_) => {
+                    // No hints if the file is already a .typ file.
+                    // The file is indeed just invalid.
+                    false
+                }
+
+                None => {
+                    main_result = main_result
+                        .hint("a file without an extension is not usually a Typst file");
+
+                    true
+                }
+            };
+
+            if hint_given && exists_typ_file {
+                main_result = main_result
+                    .hint("check if you meant to use the `.typ` extension instead");
+            }
+        }
+    }
+
+    // We already checked for an error earlier.
+    let errors = main_result.unwrap_err();
+
+    print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+    Ok(false)
 }
 
 /// Print diagnostic messages to the terminal.
