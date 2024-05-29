@@ -63,6 +63,6 @@ $ 1/(2 y (x) (2(3)) $
 // and immediately before the closing.
 $ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $
 
---- math-lr-corner-brackets ---
+--- issue-4188-lr-corner-brackets ---
 // Test positioning of U+231C to U+231F
-$⌜a⌟⌞b⌝$ vs $⌜$$a$$⌟$$⌞$$b$$⌝$
+$⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$
