@@ -291,8 +291,14 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame =
-        stack(rows, FixedAlignment::Center, gap, baseline, LeftRightAlternator::Right);
+    let frame = stack(
+        rows,
+        FixedAlignment::Center,
+        gap,
+        baseline,
+        LeftRightAlternator::Right,
+        None,
+    );
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
 
     Ok(())
@@ -309,6 +315,7 @@ pub(super) fn stack(
     gap: Abs,
     baseline: usize,
     alternator: LeftRightAlternator,
+    minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(&rows);
@@ -317,20 +324,27 @@ pub(super) fn stack(
         .map(|row| row.into_line_frame(&points, alternator))
         .collect();
 
+    let padded_height = |height: Abs| {
+        height.max(minimum_ascent_descent.map_or(Abs::zero(), |(a, d)| a + d))
+    };
+
     let mut frame = Frame::soft(Size::new(
         width,
-        rows.iter().map(|row| row.height()).sum::<Abs>()
+        rows.iter().map(|row| padded_height(row.height())).sum::<Abs>()
             + rows.len().saturating_sub(1) as f64 * gap,
     ));
 
     let mut y = Abs::zero();
     for (i, row) in rows.into_iter().enumerate() {
         let x = align.position(width - row.width());
-        let pos = Point::new(x, y);
+        let ascent_padded_part = minimum_ascent_descent
+            .map_or(Abs::zero(), |(a, _)| (a - row.ascent()))
+            .max(Abs::zero());
+        let pos = Point::new(x, y + ascent_padded_part);
         if i == baseline {
-            frame.set_baseline(y + row.baseline());
+            frame.set_baseline(y + row.baseline() + ascent_padded_part);
         }
-        y += row.height() + gap;
+        y += padded_height(row.height()) + gap;
         frame.push_frame(pos, row);
     }
 
