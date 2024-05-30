@@ -187,8 +187,6 @@ pub fn module() -> Module {
     math.define_elem::<PrimesElem>();
     math.define_func::<abs>();
     math.define_func::<norm>();
-    math.define_func::<floor>();
-    math.define_func::<ceil>();
     math.define_func::<round>();
     math.define_func::<sqrt>();
     math.define_func::<upright>();

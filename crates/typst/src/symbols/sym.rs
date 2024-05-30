@@ -64,6 +64,14 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         spheric.rev: '⦠',
         spheric.top: '⦡',
     ],
+    ceil: [
+        #[call(crate::math::ceil)] l: '⌈',
+        r: '⌉',
+    ],
+    floor: [
+        #[call(crate::math::floor)] l: '⌊',
+        r: '⌋',
+    ],
 
     // Punctuation.
     amp: ['&', inv: '⅋'],
