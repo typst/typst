@@ -450,7 +450,7 @@ fn collect<'a>(
 
     let hang = ParElem::hanging_indent_in(*styles);
     if !hang.is_zero() {
-        collector.push_item(Item::Absolute((-hang).into(), false));
+        collector.push_item(Item::Absolute(-hang, false));
         collector.spans.push(1, Span::detached());
     }
 
