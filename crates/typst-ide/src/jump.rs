@@ -191,10 +191,6 @@ mod tests {
         })
     }
 
-    fn round(abs: Abs) -> Abs {
-        Abs::raw(abs.to_raw().round())
-    }
-
     #[track_caller]
     fn test_click(text: &str, click: Point, expected: Option<Jump>) {
         let world = TestWorld::new(text);
@@ -202,17 +198,23 @@ mod tests {
         assert_eq!(jump_from_click(&world, &doc, &doc.pages[0].frame, click), expected);
     }
 
+    macro_rules! assert_approx_eq {
+        ($l:expr, $r:expr) => {
+            assert!(($l.to_raw() - $r.to_raw()).abs() < 0.1, "{:?} ≉ {:?}", $l, $r);
+        };
+    }
+
     #[track_caller]
     fn test_cursor(text: &str, cursor: usize, expected: Option<Position>) {
         let world = TestWorld::new(text);
         let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
         let pos = jump_from_cursor(&doc, &world.main, cursor);
-        let rounded = pos.map(|mut p| {
-            p.point.x = round(p.point.x);
-            p.point.y = round(p.point.y);
-            p
-        });
-        assert_eq!(rounded, expected);
+        assert_eq!(pos.is_some(), expected.is_some());
+        if let (Some(pos), Some(expected)) = (pos, expected) {
+            assert_eq!(pos.page, expected.page);
+            assert_approx_eq!(pos.point.x, expected.point.x);
+            assert_approx_eq!(pos.point.y, expected.point.y);
+        }
     }
 
     #[test]
@@ -222,13 +224,13 @@ mod tests {
         test_click(s, point(70.0, 5.0), None);
         test_click(s, point(45.0, 15.0), cursor(14));
         test_click(s, point(48.0, 15.0), cursor(15));
-        test_click(s, point(70.0, 10.0), cursor(20));
+        test_click(s, point(72.0, 10.0), cursor(20));
     }
 
     #[test]
     fn test_jump_from_cursor() {
         let s = "*Hello* #box[ABC] World";
         test_cursor(s, 12, None);
-        test_cursor(s, 14, pos(1, 36.0, 18.0));
+        test_cursor(s, 14, pos(1, 35.74, 18.0));
     }
 }
