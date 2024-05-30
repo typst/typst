@@ -75,27 +75,31 @@ impl Eval for ast::ModuleImport<'_> {
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.
                             // This must be a submodule.
-                            if matches!(value, Value::Func(function) if function.scope().is_none())
-                            {
-                                errors.push(error!(
-                                    component.span(),
-                                    "cannot import from user-defined functions"
-                                ));
+                            let Some(submodule) = value.scope() else {
+                                let error = if matches!(value, Value::Func(function) if function.scope().is_none())
+                                {
+                                    error!(
+                                        component.span(),
+                                        "cannot import from user-defined functions"
+                                    )
+                                } else if !matches!(
+                                    value,
+                                    Value::Func(_) | Value::Module(_) | Value::Type(_)
+                                ) {
+                                    error!(
+                                        component.span(),
+                                        "expected module, function, or type, found {}",
+                                        value.ty()
+                                    )
+                                } else {
+                                    panic!("unexpected nested import failure")
+                                };
+                                errors.push(error);
                                 break;
-                            } else if !matches!(
-                                value,
-                                Value::Func(_) | Value::Module(_) | Value::Type(_)
-                            ) {
-                                errors.push(error!(
-                                    component.span(),
-                                    "expected module, function, or type, found {}",
-                                    value.ty()
-                                ));
-                                break;
-                            }
+                            };
 
                             // Walk into the submodule.
-                            scope = value.scope().unwrap();
+                            scope = submodule;
                         } else {
                             // Now that we have the scope of the innermost submodule
                             // in the import path, we may extract the desired item from
