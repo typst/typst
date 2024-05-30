@@ -228,6 +228,14 @@ mod tests {
     }
 
     #[test]
+    fn test_jump_from_click_par_indents() {
+        // There was a bug with span mapping due to indents generating
+        // extra spacing.
+        let s = "#set par(first-line-indent: 1cm, hanging-indent: 1cm);Hello";
+        test_click(s, point(21.0, 12.0), cursor(56));
+    }
+
+    #[test]
     fn test_jump_from_cursor() {
         let s = "*Hello* #box[ABC] World";
         test_cursor(s, 12, None);
