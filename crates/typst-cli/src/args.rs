@@ -412,7 +412,12 @@ pub struct UpdateCommand {
 
     /// Reverts to the version from before the last update (only possible if
     /// `typst update` has previously ran)
-    #[clap(long, default_value_t = false, exclusive = true)]
+    #[clap(
+        long,
+        default_value_t = false,
+        conflicts_with = "version",
+        conflicts_with = "force"
+    )]
     pub revert: bool,
 
     /// Custom path to store backup used by `--revert`, defaults to
