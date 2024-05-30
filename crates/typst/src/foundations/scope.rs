@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use ecow::{eco_format, eco_vec, EcoString};
+use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 
 use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
@@ -97,14 +97,14 @@ fn cannot_mutate_constant(var: &str) -> HintedString {
 /// The error message when a variable is not found.
 #[cold]
 fn unknown_variable(var: &str) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var), eco_vec![]);
+    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
 
     if matches!(var, "none" | "auto" | "false" | "true") {
-        res.add_hint(eco_format!(
+        res.hint(eco_format!(
             "if you meant to use a literal, try adding a hash before it"
         ));
     } else if var.contains('-') {
-        res.add_hint(eco_format!(
+        res.hint(eco_format!(
             "if you meant to use subtraction, try adding spaces around the minus sign",
         ));
     }

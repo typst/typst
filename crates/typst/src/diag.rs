@@ -163,7 +163,7 @@ impl SourceDiagnostic {
 
     /// Create a new error with hints.
     pub fn hinted_error(span: Span, hinted_message: HintedString) -> Self {
-        let mut components = hinted_message.components.into_iter();
+        let mut components = hinted_message.0.into_iter();
         Self {
             severity: Severity::Error,
             span,
@@ -308,38 +308,47 @@ where
 pub type HintedStrResult<T> = Result<T, HintedString>;
 
 /// A string message with hints.
+///
+/// This is internally represented by a vector of strings.
+/// The first element of the vector contains the message.
+/// The remaining elements are the hints.
+/// This is done to reduce the size of a HintedString.
+/// The vector is guaranteed to not be empty.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct HintedString {
-    /// The string's components as a single vector of strings.
-    /// The first element of the vector contains the message.
-    /// The remaining elements are the hints.
-    /// This is done to reduce the size of a HintedString.
-    /// The vector is guaranteed to not be empty.
-    components: EcoVec<EcoString>,
-}
+pub struct HintedString(EcoVec<EcoString>);
 
 impl HintedString {
-    /// Creates a new hinted string with the given message and hints.
-    pub fn new(message: EcoString, hints: impl IntoIterator<Item = EcoString>) -> Self {
-        Self {
-            components: std::iter::once(message).chain(hints).collect(),
-        }
+    /// Creates a new hinted string with the given message.
+    pub fn new(message: EcoString) -> Self {
+        Self(eco_vec![message])
     }
 
     /// A diagnostic message describing the problem.
     pub fn message(&self) -> &EcoString {
-        self.components.first().unwrap()
+        self.0.first().unwrap()
     }
 
     /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub fn hints(&self) -> &[EcoString] {
-        self.components.get(1..).unwrap_or(&[])
+        self.0.get(1..).unwrap_or(&[])
     }
 
-    /// Add another hint to this hinted string.
-    pub fn add_hint(&mut self, hint: EcoString) {
-        self.components.push(hint);
+    /// Adds a single hint to the hinted string.
+    pub fn hint(&mut self, hint: impl Into<EcoString>) {
+        self.0.push(hint.into());
+    }
+
+    /// Adds a single hint to the hinted string.
+    pub fn with_hint(mut self, hint: impl Into<EcoString>) -> Self {
+        self.hint(hint);
+        self
+    }
+
+    /// Adds user-facing hints to the hinted string.
+    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        self.0.extend(hints);
+        self
     }
 }
 
@@ -348,7 +357,7 @@ where
     S: Into<EcoString>,
 {
     fn from(value: S) -> Self {
-        Self::new(value.into(), [])
+        Self::new(value.into())
     }
 }
 
@@ -369,14 +378,14 @@ where
     S: Into<EcoString>,
 {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
-        self.map_err(|message| HintedString::new(message.into(), [hint.into()]))
+        self.map_err(|message| HintedString::new(message.into()).with_hint(hint))
     }
 }
 
 impl<T> Hint<T> for HintedStrResult<T> {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
         self.map_err(|mut error| {
-            error.add_hint(hint.into());
+            error.hint(hint.into());
             error
         })
     }
