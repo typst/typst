@@ -161,18 +161,6 @@ impl SourceDiagnostic {
         }
     }
 
-    /// Create a new error with hints.
-    pub fn hinted_error(span: Span, hinted_message: HintedString) -> Self {
-        let mut components = hinted_message.0.into_iter();
-        Self {
-            severity: Severity::Error,
-            span,
-            trace: eco_vec![],
-            message: components.next().unwrap(),
-            hints: components.collect(),
-        }
-    }
-
     /// Create a new, bare warning.
     pub fn warning(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
@@ -363,7 +351,13 @@ where
 
 impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|diags| eco_vec![SourceDiagnostic::hinted_error(span, diags)])
+        self.map_err(|err| {
+            let mut components = err.0.into_iter();
+            let message = components.next().unwrap();
+            let diag = SourceDiagnostic::error(span, message).with_hints(components);
+
+            eco_vec![diag]
+        })
     }
 }
 
