@@ -169,7 +169,7 @@ impl<'lib> Scope<'lib> {
             Some(variable.register.clone().into())
         } else {
             let mut next = self.parent.clone();
-            while let Some(parent) = next {
+            while let Some(parent) = next.take() {
                 let ref_ = parent.borrow();
                 if let Some(variable) = ref_.variables.get(&var) {
                     return Some(variable.register.clone().into());
@@ -214,7 +214,7 @@ impl<'lib> Scope<'lib> {
         } else {
             // If we are not capturing, we can try and capture from the parent scope.
             let mut next = self.parent.clone();
-            while let Some(ancestor) = next {
+            while let Some(ancestor) = next.take() {
                 let ref_ = (&*ancestor).borrow_mut();
                 if let Some(mut capturing) =
                     ref_.capturing.as_deref().map(RefCell::borrow_mut)
