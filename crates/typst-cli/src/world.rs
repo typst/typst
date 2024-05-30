@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
@@ -43,7 +43,7 @@ pub struct SystemWorld {
     /// Maps file ids to source files and buffers.
     slots: Mutex<HashMap<FileId, FileSlot>>,
     /// Holds information about where packages are stored.
-    package_storage: Arc<PackageStorage>,
+    package_storage: PackageStorage,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
     /// Reset between compilations if not [`Now::Fixed`].
@@ -124,7 +124,7 @@ impl SystemWorld {
             book: LazyHash::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
-            package_storage: Arc::new(package_storage),
+            package_storage,
             now,
             export_cache: ExportCache::new(),
         })
@@ -192,11 +192,11 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        self.slot(id, |slot| slot.source(&self.root))
+        self.slot(id, |slot| slot.source(&self.root, &self.package_storage))
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, |slot| slot.file(&self.root))
+        self.slot(id, |slot| slot.file(&self.root, &self.package_storage))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -233,9 +233,7 @@ impl SystemWorld {
         F: FnOnce(&mut FileSlot) -> T,
     {
         let mut map = self.slots.lock();
-        f(map
-            .entry(id)
-            .or_insert_with(|| FileSlot::new(id, Arc::clone(&self.package_storage))))
+        f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
     }
 }
 
@@ -245,8 +243,6 @@ impl SystemWorld {
 struct FileSlot {
     /// The slot's file id.
     id: FileId,
-    /// Package storage information, defining where packages are located.
-    package_storage: Arc<PackageStorage>,
     /// The lazily loaded and incrementally updated source file.
     source: SlotCell<Source>,
     /// The lazily loaded raw byte buffer.
@@ -255,13 +251,8 @@ struct FileSlot {
 
 impl FileSlot {
     /// Create a new file slot.
-    fn new(id: FileId, package_storage: Arc<PackageStorage>) -> Self {
-        Self {
-            id,
-            file: SlotCell::new(),
-            package_storage,
-            source: SlotCell::new(),
-        }
+    fn new(id: FileId) -> Self {
+        Self { id, file: SlotCell::new(), source: SlotCell::new() }
     }
 
     /// Whether the file was accessed in the ongoing compilation.
@@ -277,9 +268,13 @@ impl FileSlot {
     }
 
     /// Retrieve the source for this file.
-    fn source(&mut self, project_root: &Path) -> FileResult<Source> {
+    fn source(
+        &mut self,
+        project_root: &Path,
+        package_storage: &PackageStorage,
+    ) -> FileResult<Source> {
         self.source.get_or_init(
-            || read(self.id, project_root, &self.package_storage),
+            || read(self.id, project_root, package_storage),
             |data, prev| {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
@@ -295,9 +290,13 @@ impl FileSlot {
     }
 
     /// Retrieve the file's bytes.
-    fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
+    fn file(
+        &mut self,
+        project_root: &Path,
+        package_storage: &PackageStorage,
+    ) -> FileResult<Bytes> {
         self.file.get_or_init(
-            || read(self.id, project_root, &self.package_storage),
+            || read(self.id, project_root, package_storage),
             |data, _| Ok(data.into()),
         )
     }
