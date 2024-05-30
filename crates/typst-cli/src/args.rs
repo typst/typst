@@ -222,8 +222,8 @@ pub struct SharedArgs {
 #[derive(Debug, Clone, Args)]
 pub struct PackageStorageArgs {
     /// Custom path to local packages, defaults to system-dependent location
-    #[clap(long = "packages-path", env = "TYPST_PACKAGES_PATH", value_name = "DIR")]
-    pub packages_path: Option<PathBuf>,
+    #[clap(long = "package-path", env = "TYPST_PACKAGE_PATH", value_name = "DIR")]
+    pub package_path: Option<PathBuf>,
 
     /// Custom path to package cache, defaults to system-dependent location
     #[clap(

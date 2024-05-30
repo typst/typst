@@ -20,7 +20,7 @@ const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 /// Holds information about where packages should be stored.
 pub struct PackageStorage {
     pub package_cache_path: Option<PathBuf>,
-    pub packages_path: Option<PathBuf>,
+    pub package_path: Option<PathBuf>,
 }
 
 impl PackageStorage {
@@ -28,17 +28,17 @@ impl PackageStorage {
         let package_cache_path = args.package_cache_path.clone().or_else(|| {
             dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
         });
-        let packages_path = args.packages_path.clone().or_else(|| {
+        let package_path = args.package_path.clone().or_else(|| {
             dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
         });
-        Self { package_cache_path, packages_path }
+        Self { package_cache_path, package_path }
     }
 
     /// Make a package available in the on-disk cache.
     pub fn prepare_package(&self, spec: &PackageSpec) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-        if let Some(packages_dir) = &self.packages_path {
+        if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);
             if dir.exists() {
                 return Ok(dir);
@@ -82,7 +82,7 @@ impl PackageStorage {
             // directory and not the cache directory, because the latter is not
             // intended for storage of local packages.
             let subdir = format!("{}/{}", spec.namespace, spec.name);
-            self.packages_path
+            self.package_path
                 .iter()
                 .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
                 .flatten()
