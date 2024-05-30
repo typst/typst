@@ -204,10 +204,7 @@ impl FromStr for NumberingPattern {
 
         for (i, c) in pattern.char_indices() {
             // unicode to_lowercase may corresponds to multiple ones
-            let Some(kind) = c
-                .to_lowercase()
-                .filter_map(|lower_case| NumberingKind::from_char(lower_case))
-                .next()
+            let Some(kind) = c.to_lowercase().filter_map(NumberingKind::from_char).next()
             else {
                 continue;
             };
