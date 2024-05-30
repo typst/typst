@@ -11,3 +11,7 @@ $ f(x, y) := cases(
 --- math-cases-gap ---
 #set math.cases(gap: 1em)
 $ x = cases(1, 2) $
+
+--- math-cases-delim ---
+#set math.cases(delim: sym.angle.l)
+$ cases(a, b, c) $

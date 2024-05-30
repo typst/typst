@@ -14,10 +14,10 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
-use crate::introspection::{Introspector, Locator, MetaElem};
+use crate::introspection::{Introspector, Locator, TagElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
-    Point, Regions, Size, Sizing, Spacing,
+    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame,
+    FrameItem, HElem, Point, Regions, Size, Sizing, Spacing,
 };
 use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
@@ -195,14 +195,14 @@ enum Segment<'a> {
     /// One or multiple collapsed text or text-equivalent children. Stores how
     /// long the segment is (in bytes of the full text string).
     Text(usize),
-    /// Horizontal spacing between other segments.
-    Spacing(Spacing),
+    /// Horizontal spacing between other segments. Bool when true indicate weak space
+    Spacing(Spacing, bool),
     /// A mathematical equation.
     Equation(Vec<MathParItem>),
     /// A box with arbitrary content.
     Box(&'a Packed<BoxElem>, bool),
-    /// Metadata.
-    Meta,
+    /// A tag.
+    Tag(&'a Packed<TagElem>),
 }
 
 impl Segment<'_> {
@@ -210,7 +210,7 @@ impl Segment<'_> {
     fn len(&self) -> usize {
         match *self {
             Self::Text(len) => len,
-            Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
+            Self::Spacing(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, frac) => {
                 (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
             }
@@ -220,7 +220,7 @@ impl Segment<'_> {
                 .chain([LTR_ISOLATE, POP_ISOLATE])
                 .map(char::len_utf8)
                 .sum(),
-            Self::Meta => 0,
+            Self::Tag(_) => 0,
         }
     }
 }
@@ -231,13 +231,13 @@ enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
-    Absolute(Abs),
+    Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame),
-    /// Metadata.
-    Meta(Frame),
+    /// A tag.
+    Tag(&'a Packed<TagElem>),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(char),
@@ -264,9 +264,9 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
+            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) => OBJ_REPLACE.len_utf8(),
-            Self::Meta(_) => 0,
+            Self::Tag(_) => 0,
             Self::Skip(c) => c.len_utf8(),
         }
     }
@@ -275,9 +275,9 @@ impl<'a> Item<'a> {
     fn width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
-            Self::Absolute(v) => *v,
+            Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) | Self::Meta(_) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
     }
@@ -453,13 +453,13 @@ fn collect<'a>(
             == TextElem::dir_in(*styles).start().into()
     {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing(first_line_indent.into()), *styles));
+        segments.push((Segment::Spacing(first_line_indent.into(), false), *styles));
     }
 
     let hang = ParElem::hanging_indent_in(*styles);
     if !hang.is_zero() {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing((-hang).into()), *styles));
+        segments.push((Segment::Spacing((-hang).into(), false), *styles));
     }
 
     let outer_dir = TextElem::dir_in(*styles);
@@ -504,7 +504,7 @@ fn collect<'a>(
             }
 
             full.push(SPACING_REPLACE);
-            Segment::Spacing(*elem.amount())
+            Segment::Spacing(*elem.amount(), elem.weak(styles))
         } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
@@ -531,6 +531,9 @@ fn collect<'a>(
                     } else if child.is::<SpaceElem>()
                         || child.is::<HElem>()
                         || child.is::<LinebreakElem>()
+                        // This is a temporary hack. We should rather skip these
+                        // and peek at the next child.
+                        || child.is::<TagElem>()
                     {
                         Some(SPACING_REPLACE)
                     } else {
@@ -548,7 +551,7 @@ fn collect<'a>(
             let mut items = elem.layout_inline(engine, styles, pod)?;
             for item in &mut items {
                 let MathParItem::Frame(frame) = item else { continue };
-                frame.meta(styles, false);
+                frame.post_process(styles);
             }
             full.push(LTR_ISOLATE);
             full.extend(items.iter().map(MathParItem::text));
@@ -558,8 +561,8 @@ fn collect<'a>(
             let frac = elem.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
             Segment::Box(elem, frac)
-        } else if child.is::<MetaElem>() {
-            Segment::Meta
+        } else if let Some(elem) = child.to_packed::<TagElem>() {
+            Segment::Tag(elem)
         } else {
             bail!(child.span(), "unexpected paragraph child");
         };
@@ -615,10 +618,10 @@ fn prepare<'a>(
             Segment::Text(_) => {
                 shape_range(&mut items, engine, &bidi, cursor..end, &spans, styles);
             }
-            Segment::Spacing(spacing) => match spacing {
+            Segment::Spacing(spacing, weak) => match spacing {
                 Spacing::Rel(v) => {
                     let resolved = v.resolve(styles).relative_to(region.x);
-                    items.push(Item::Absolute(resolved));
+                    items.push(Item::Absolute(resolved, weak));
                 }
                 Spacing::Fr(v) => {
                     items.push(Item::Fractional(v, None));
@@ -628,7 +631,8 @@ fn prepare<'a>(
                 items.push(Item::Skip(LTR_ISOLATE));
                 for item in par_items {
                     match item {
-                        MathParItem::Space(s) => items.push(Item::Absolute(s)),
+                        // MathParItem space are assumed to be weak space
+                        MathParItem::Space(s) => items.push(Item::Absolute(s, true)),
                         MathParItem::Frame(mut frame) => {
                             frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                             items.push(Item::Frame(frame));
@@ -643,15 +647,13 @@ fn prepare<'a>(
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
                     let mut frame = elem.layout(engine, styles, pod)?;
-                    frame.meta(styles, false);
+                    frame.post_process(styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                     items.push(Item::Frame(frame));
                 }
             }
-            Segment::Meta => {
-                let mut frame = Frame::soft(Size::zero());
-                frame.meta(styles, true);
-                items.push(Item::Meta(frame));
+            Segment::Tag(tag) => {
+                items.push(Item::Tag(tag));
             }
         }
 
@@ -687,7 +689,7 @@ fn prepare<'a>(
 /// See Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition in Horizontal
 /// Written Mode
 fn add_cjk_latin_spacing(items: &mut [Item]) {
-    let mut items = items.iter_mut().filter(|x| !matches!(x, Item::Meta(_))).peekable();
+    let mut items = items.iter_mut().filter(|x| !matches!(x, Item::Tag(_))).peekable();
     let mut prev: Option<&ShapedGlyph> = None;
     while let Some(item) = items.next() {
         let Some(text) = item.text_mut() else {
@@ -1078,8 +1080,23 @@ fn line<'a>(
     }
 
     // Slice out the relevant items.
-    let (expanded, mut inner) = p.slice(range.clone());
+    let (mut expanded, mut inner) = p.slice(range.clone());
     let mut width = Abs::zero();
+
+    // Weak space (Absolute(_, weak=true)) would be removed if at the end of the line
+    while let Some((Item::Absolute(_, true), before)) = inner.split_last() {
+        // apply it recursively to ensure the last one is not weak space
+        inner = before;
+        range.end -= 1;
+        expanded.end -= 1;
+    }
+    // Weak space (Absolute(_, weak=true)) would be removed if at the beginning of the line
+    while let Some((Item::Absolute(_, true), after)) = inner.split_first() {
+        // apply it recursively to ensure the first one is not weak space
+        inner = after;
+        range.start += 1;
+        expanded.end += 1;
+    }
 
     // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
@@ -1401,7 +1418,7 @@ fn commit(
         };
 
         match item {
-            Item::Absolute(v) => {
+            Item::Absolute(v, _) => {
                 offset += *v;
             }
             Item::Fractional(v, elem) => {
@@ -1410,7 +1427,7 @@ fn commit(
                     let region = Size::new(amount, full);
                     let pod = Regions::one(region, Axes::new(true, false));
                     let mut frame = elem.layout(engine, *styles, pod)?;
-                    frame.meta(*styles, false);
+                    frame.post_process(*styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
                     push(&mut offset, frame);
                 } else {
@@ -1420,11 +1437,16 @@ fn commit(
             Item::Text(shaped) => {
                 let mut frame =
                     shaped.build(engine, justification_ratio, extra_justification);
-                frame.meta(shaped.styles, false);
+                frame.post_process(shaped.styles);
                 push(&mut offset, frame);
             }
-            Item::Frame(frame) | Item::Meta(frame) => {
+            Item::Frame(frame) => {
                 push(&mut offset, frame.clone());
+            }
+            Item::Tag(tag) => {
+                let mut frame = Frame::soft(Size::zero());
+                frame.push(Point::zero(), FrameItem::Tag(tag.elem.clone()));
+                frames.push((offset, frame));
             }
             Item::Skip(_) => {}
         }

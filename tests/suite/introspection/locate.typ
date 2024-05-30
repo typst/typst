@@ -4,6 +4,13 @@
 = Introduction <intro>
 #context test(locate(<intro>).position().y, 20pt)
 
+--- locate-position-trailing-tag ---
+// Test locating the position of a tag with no following content.
+#context test(here().position().y, 10pt)
+#box[]
+#v(10pt)
+#context test(here().position().y, 20pt)
+
 --- locate-missing-label ---
 // Error: 10-25 label `<intro>` does not exist in the document
 #context locate(<intro>)

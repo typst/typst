@@ -1,9 +1,10 @@
 use smallvec::{smallvec, SmallVec};
+use unicode_math_class::MathClass;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, Packed, Resolve, Smart,
-    StyleChain, Value,
+    array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Packed, Resolve,
+    Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
@@ -13,6 +14,7 @@ use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, Scaled,
     DELIM_SHORT_FALL,
 };
+use crate::symbols::Symbol;
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::utils::Numeric;
@@ -40,8 +42,8 @@ pub struct VecElem {
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
     /// ```
-    #[default(Some(Delimiter::Paren))]
-    pub delim: Option<Delimiter>,
+    #[default(DelimiterPair::PAREN)]
+    pub delim: DelimiterPair,
 
     /// The gap between elements.
     ///
@@ -71,14 +73,7 @@ impl LayoutMath for Packed<VecElem> {
             LeftRightAlternator::Right,
         )?;
 
-        layout_delimiters(
-            ctx,
-            styles,
-            frame,
-            delim.map(Delimiter::open),
-            delim.map(Delimiter::close),
-            self.span(),
-        )
+        layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), self.span())
     }
 }
 
@@ -109,8 +104,8 @@ pub struct MatElem {
     /// #set math.mat(delim: "[")
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[default(Some(Delimiter::Paren))]
-    pub delim: Option<Delimiter>,
+    #[default(DelimiterPair::PAREN)]
+    pub delim: DelimiterPair,
 
     /// Draws augmentation lines in a matrix.
     ///
@@ -257,14 +252,7 @@ impl LayoutMath for Packed<MatElem> {
             self.span(),
         )?;
 
-        layout_delimiters(
-            ctx,
-            styles,
-            frame,
-            delim.map(Delimiter::open),
-            delim.map(Delimiter::close),
-            self.span(),
-        )
+        layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), self.span())
     }
 }
 
@@ -289,8 +277,8 @@ pub struct CasesElem {
     /// #set math.cases(delim: "[")
     /// $ x = cases(1, 2) $
     /// ```
-    #[default(Delimiter::Brace)]
-    pub delim: Delimiter,
+    #[default(DelimiterPair::BRACE)]
+    pub delim: DelimiterPair,
 
     /// Whether the direction of cases should be reversed.
     ///
@@ -330,56 +318,108 @@ impl LayoutMath for Packed<CasesElem> {
         )?;
 
         let (open, close) = if self.reverse(styles) {
-            (None, Some(delim.close()))
+            (None, delim.close())
         } else {
-            (Some(delim.open()), None)
+            (delim.open(), None)
         };
 
         layout_delimiters(ctx, styles, frame, open, close, self.span())
     }
 }
 
-/// A vector / matrix delimiter.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum Delimiter {
-    /// Delimit with parentheses.
-    #[string("(")]
-    Paren,
-    /// Delimit with brackets.
-    #[string("[")]
-    Bracket,
-    /// Delimit with curly braces.
-    #[string("{")]
-    Brace,
-    /// Delimit with vertical bars.
-    #[string("|")]
-    Bar,
-    /// Delimit with double vertical bars.
-    #[string("||")]
-    DoubleBar,
+/// A delimiter is a single character that is used to delimit a matrix, vector
+/// or cases. The character has to be a Unicode codepoint tagged as a math
+/// "opening", "closing" or "fence".
+///
+/// Typically, the delimiter is stretched to fit the height of whatever it
+/// delimits.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+struct Delimiter(Option<char>);
+
+cast! {
+    Delimiter,
+    self => self.0.into_value(),
+    _: NoneValue => Self::none(),
+    v: Symbol => Self::char(v.get())?,
+    v: char => Self::char(v)?,
 }
 
 impl Delimiter {
-    /// The delimiter's opening character.
-    fn open(self) -> char {
-        match self {
-            Self::Paren => '(',
-            Self::Bracket => '[',
-            Self::Brace => '{',
-            Self::Bar => '|',
-            Self::DoubleBar => '‖',
+    fn none() -> Self {
+        Self(None)
+    }
+
+    fn char(c: char) -> StrResult<Self> {
+        if !matches!(
+            unicode_math_class::class(c),
+            Some(MathClass::Opening | MathClass::Closing | MathClass::Fence),
+        ) {
+            bail!("invalid delimiter: \"{}\"", c)
         }
+        Ok(Self(Some(c)))
+    }
+
+    fn get(self) -> Option<char> {
+        self.0
+    }
+
+    fn find_matching(self) -> Self {
+        match self.0 {
+            None => Self::none(),
+            Some('[') => Self(Some(']')),
+            Some(']') => Self(Some('[')),
+            Some('{') => Self(Some('}')),
+            Some('}') => Self(Some('{')),
+            Some(c) => match unicode_math_class::class(c) {
+                Some(MathClass::Opening) => Self(char::from_u32(c as u32 + 1)),
+                Some(MathClass::Closing) => Self(char::from_u32(c as u32 - 1)),
+                _ => Self(Some(c)),
+            },
+        }
+    }
+}
+
+/// A pair of delimiters (one closing, one opening) used for matrices, vectors
+/// and cases.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct DelimiterPair {
+    open: Delimiter,
+    close: Delimiter,
+}
+
+cast! {
+    DelimiterPair,
+
+    self => array![self.open, self.close].into_value(),
+
+    v: Array => match v.as_slice() {
+        [open, close] => Self {
+            open: open.clone().cast()?,
+            close: close.clone().cast()?,
+        },
+        _ => bail!("expected 2 delimiters, found {}", v.len())
+    },
+    v: Delimiter => Self { open: v, close: v.find_matching() }
+}
+
+impl DelimiterPair {
+    const PAREN: Self = Self {
+        open: Delimiter(Some('(')),
+        close: Delimiter(Some(')')),
+    };
+    const BRACE: Self = Self {
+        open: Delimiter(Some('{')),
+        close: Delimiter(Some('}')),
+    };
+
+    /// The delimiter's opening character.
+    fn open(self) -> Option<char> {
+        self.open.get()
     }
 
     /// The delimiter's closing character.
-    fn close(self) -> char {
-        match self {
-            Self::Paren => ')',
-            Self::Bracket => ']',
-            Self::Brace => '}',
-            Self::Bar => '|',
-            Self::DoubleBar => '‖',
-        }
+    fn close(self) -> Option<char> {
+        self.close.get()
     }
 }
 

@@ -10,7 +10,7 @@ mod hash;
 mod pico;
 mod scalar;
 
-pub use self::bitset::BitSet;
+pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
 pub use self::hash::LazyHash;
 pub use self::pico::PicoStr;

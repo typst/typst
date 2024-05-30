@@ -23,15 +23,12 @@ pub use self::metadata::*;
 pub use self::query_::*;
 pub use self::state::*;
 
-use std::fmt::{self, Debug, Formatter};
-
-use ecow::{eco_format, EcoString};
-use smallvec::SmallVec;
-
+use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
+use crate::foundations::NativeElement;
 use crate::foundations::{
-    category, elem, ty, Category, Content, Packed, Repr, Scope, Unlabellable,
+    category, elem, Args, Category, Construct, Content, Packed, Scope, Unlabellable,
 };
-use crate::model::Destination;
 use crate::realize::{Behave, Behaviour};
 
 /// Interactions between document parts.
@@ -59,59 +56,39 @@ pub fn define(global: &mut Scope) {
     global.define_func::<locate>();
 }
 
-/// Hosts metadata and ensures metadata is produced even for empty elements.
-#[elem(Behave, Unlabellable)]
-pub struct MetaElem {
-    /// Metadata that should be attached to all elements affected by this style
-    /// property.
-    ///
-    /// This must be accessed and applied to all frames produced by elements
-    /// that manually handle styles (because their children can have varying
-    /// styles). This currently includes flow, par, and equation.
-    ///
-    /// Other elements don't manually need to handle it because their parents
-    /// that result from realization will take care of it and the metadata can
-    /// only apply to them as a whole, not part of it (because they don't manage
-    /// styles).
-    #[fold]
-    pub data: SmallVec<[Meta; 1]>,
+/// Holds a locatable element that was realized.
+///
+/// The `TagElem` is handled by all layouters. The held element becomes
+/// available for introspection in the next compiler iteration.
+#[elem(Behave, Unlabellable, Construct)]
+pub struct TagElem {
+    /// The introspectible element.
+    #[required]
+    #[internal]
+    pub elem: Content,
 }
 
-impl Unlabellable for Packed<MetaElem> {}
+impl TagElem {
+    /// Create a packed tag element.
+    pub fn packed(elem: Content) -> Content {
+        let span = elem.span();
+        let mut content = Self::new(elem).pack().spanned(span);
+        // We can skip preparation for the `TagElem`.
+        content.mark_prepared();
+        content
+    }
+}
 
-impl Behave for Packed<MetaElem> {
+impl Construct for TagElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually")
+    }
+}
+
+impl Unlabellable for Packed<TagElem> {}
+
+impl Behave for Packed<TagElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Invisible
-    }
-}
-
-/// Meta information that isn't visible or renderable.
-#[ty]
-#[derive(Clone, PartialEq, Hash)]
-pub enum Meta {
-    /// An internal or external link to a destination.
-    Link(Destination),
-    /// An identifiable element that produces something within the area this
-    /// metadata is attached to.
-    Elem(Content),
-    /// Indicates that content should be hidden. This variant doesn't appear
-    /// in the final frames as it is removed alongside the content that should
-    /// be hidden.
-    Hide,
-}
-
-impl Debug for Meta {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Link(dest) => write!(f, "Link({dest:?})"),
-            Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
-            Self::Hide => f.pad("Hide"),
-        }
-    }
-}
-
-impl Repr for Meta {
-    fn repr(&self) -> EcoString {
-        eco_format!("{self:?}")
     }
 }

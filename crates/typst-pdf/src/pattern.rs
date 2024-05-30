@@ -1,88 +1,72 @@
+use std::collections::HashMap;
+
 use ecow::eco_format;
-use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
-use pdf_writer::{Filter, Finish, Name, Rect};
+use pdf_writer::{
+    types::{ColorSpaceOperand, PaintType, TilingType},
+    Filter, Name, Rect, Ref,
+};
+
 use typst::layout::{Abs, Ratio, Transform};
 use typst::utils::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
-use crate::color::PaintEncode;
-use crate::page::{construct_page, PageContext, PageResource, ResourceKind, Transforms};
-use crate::{transform_to_array, PdfContext};
+use crate::{color::PaintEncode, resources::Remapper, Resources, WithGlobalRefs};
+use crate::{content, resources::ResourcesRefs};
+use crate::{transform_to_array, PdfChunk};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub(crate) fn write_patterns(ctx: &mut PdfContext) {
-    for PdfPattern { transform, pattern, content, resources } in ctx.pattern_map.items() {
-        let tiling = ctx.alloc.bump();
-        ctx.pattern_refs.push(tiling);
+pub fn write_patterns(context: &WithGlobalRefs) -> (PdfChunk, HashMap<PdfPattern, Ref>) {
+    let mut chunk = PdfChunk::new();
+    let mut out = HashMap::new();
+    context.resources.traverse(&mut |resources| {
+        let Some(patterns) = &resources.patterns else {
+            return;
+        };
 
-        let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, content);
-        tiling_pattern
-            .tiling_type(TilingType::ConstantSpacing)
-            .paint_type(PaintType::Colored)
-            .bbox(Rect::new(
-                0.0,
-                0.0,
-                pattern.size().x.to_pt() as _,
-                pattern.size().y.to_pt() as _,
-            ))
-            .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
-            .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
+        for pdf_pattern in patterns.remapper.items() {
+            let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
+            if out.contains_key(pdf_pattern) {
+                continue;
+            }
 
-        let mut resources_map = tiling_pattern.resources();
+            let tiling = chunk.alloc();
+            out.insert(pdf_pattern.clone(), tiling);
 
-        resources_map.x_objects().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_x_object())
-                .map(|(res, ref_)| (res.name(), ctx.image_refs[*ref_])),
-        );
+            let mut tiling_pattern = chunk.tiling_pattern(tiling, content);
+            tiling_pattern
+                .tiling_type(TilingType::ConstantSpacing)
+                .paint_type(PaintType::Colored)
+                .bbox(Rect::new(
+                    0.0,
+                    0.0,
+                    pattern.size().x.to_pt() as _,
+                    pattern.size().y.to_pt() as _,
+                ))
+                .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
+                .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
 
-        resources_map.fonts().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_font())
-                .map(|(res, ref_)| (res.name(), ctx.font_refs[*ref_])),
-        );
+            // The actual resource dict will be written in a later step
+            tiling_pattern.pair(Name(b"Resources"), patterns.resources.reference);
 
-        ctx.colors
-            .write_color_spaces(resources_map.color_spaces(), &mut ctx.alloc);
+            tiling_pattern
+                .matrix(transform_to_array(
+                    transform
+                        .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
+                        .post_concat(Transform::translate(
+                            Abs::zero(),
+                            pattern.spacing().y,
+                        )),
+                ))
+                .filter(Filter::FlateDecode);
+        }
+    });
 
-        resources_map
-            .patterns()
-            .pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_pattern())
-                    .map(|(res, ref_)| (res.name(), ctx.pattern_refs[*ref_])),
-            )
-            .pairs(
-                resources
-                    .iter()
-                    .filter(|(res, _)| res.is_gradient())
-                    .map(|(res, ref_)| (res.name(), ctx.gradient_refs[*ref_])),
-            );
-
-        resources_map.ext_g_states().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_ext_g_state())
-                .map(|(res, ref_)| (res.name(), ctx.ext_gs_refs[*ref_])),
-        );
-
-        resources_map.finish();
-        tiling_pattern
-            .matrix(transform_to_array(
-                transform
-                    .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
-                    .post_concat(Transform::translate(Abs::zero(), pattern.spacing().y)),
-            ))
-            .filter(Filter::FlateDecode);
-    }
+    (chunk, out)
 }
 
 /// A pattern and its transform.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PdfPattern {
     /// The transform to apply to the pattern.
     pub transform: Transform,
@@ -90,17 +74,20 @@ pub struct PdfPattern {
     pub pattern: Pattern,
     /// The rendered pattern.
     pub content: Vec<u8>,
-    /// The resources used by the pattern.
-    pub resources: Vec<(PageResource, usize)>,
 }
 
 /// Registers a pattern with the PDF.
 fn register_pattern(
-    ctx: &mut PageContext,
+    ctx: &mut content::Builder,
     pattern: &Pattern,
     on_text: bool,
-    mut transforms: Transforms,
+    mut transforms: content::Transforms,
 ) -> usize {
+    let patterns = ctx
+        .resources
+        .patterns
+        .get_or_insert_with(|| Box::new(PatternRemapper::new()));
+
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
         transforms.size.x = Abs::pt(1.0);
@@ -116,22 +103,24 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = construct_page(ctx.parent, pattern.frame());
+    let content = content::build(&mut patterns.resources, pattern.frame(), None);
 
-    let mut pdf_pattern = PdfPattern {
+    let pdf_pattern = PdfPattern {
         transform,
         pattern: pattern.clone(),
         content: content.content.wait().clone(),
-        resources: content.resources.into_iter().collect(),
     };
 
-    pdf_pattern.resources.sort();
-
-    ctx.parent.pattern_map.insert(pdf_pattern)
+    patterns.remapper.insert(pdf_pattern)
 }
 
 impl PaintEncode for Pattern {
-    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
+    fn set_as_fill(
+        &self,
+        ctx: &mut content::Builder,
+        on_text: bool,
+        transforms: content::Transforms,
+    ) {
         ctx.reset_fill_color_space();
 
         let index = register_pattern(ctx, self, on_text, transforms);
@@ -140,15 +129,13 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources
-            .insert(PageResource::new(ResourceKind::Pattern, id), index);
     }
 
     fn set_as_stroke(
         &self,
-        ctx: &mut PageContext,
+        ctx: &mut content::Builder,
         on_text: bool,
-        transforms: Transforms,
+        transforms: content::Transforms,
     ) {
         ctx.reset_stroke_color_space();
 
@@ -158,7 +145,30 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
-        ctx.resources
-            .insert(PageResource::new(ResourceKind::Pattern, id), index);
+    }
+}
+
+/// De-duplicate patterns and the resources they require to be drawn.
+pub struct PatternRemapper<R> {
+    /// Pattern de-duplicator.
+    pub remapper: Remapper<PdfPattern>,
+    /// PDF resources that are used by these patterns.
+    pub resources: Resources<R>,
+}
+
+impl PatternRemapper<()> {
+    pub fn new() -> Self {
+        Self {
+            remapper: Remapper::new("P"),
+            resources: Resources::default(),
+        }
+    }
+
+    /// Allocate a reference to the resource dictionary of these patterns.
+    pub fn with_refs(self, refs: &ResourcesRefs) -> PatternRemapper<Ref> {
+        PatternRemapper {
+            remapper: self.remapper,
+            resources: self.resources.with_refs(refs),
+        }
     }
 }

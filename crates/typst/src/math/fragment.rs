@@ -6,11 +6,11 @@ use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
 use crate::foundations::StyleChain;
-use crate::introspection::{Meta, MetaElem};
-use crate::layout::{Abs, Corner, Em, Frame, FrameItem, Point, Size};
+use crate::layout::{Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size};
 use crate::math::{
     scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled,
 };
+use crate::model::{Destination, LinkElem};
 use crate::syntax::Span;
 use crate::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
 use crate::visualize::Paint;
@@ -218,7 +218,8 @@ pub struct GlyphFragment {
     pub class: MathClass,
     pub math_size: MathSize,
     pub span: Span,
-    pub meta: SmallVec<[Meta; 1]>,
+    pub dests: SmallVec<[Destination; 1]>,
+    pub hidden: bool,
     pub limits: Limits,
 }
 
@@ -273,7 +274,8 @@ impl GlyphFragment {
             accent_attach: Abs::zero(),
             class,
             span,
-            meta: MetaElem::data_in(styles),
+            dests: LinkElem::dests_in(styles),
+            hidden: HideElem::hidden_in(styles),
         };
         fragment.set_id(ctx, id);
         fragment
@@ -357,7 +359,7 @@ impl GlyphFragment {
         let mut frame = Frame::soft(size);
         frame.set_baseline(self.ascent);
         frame.push(Point::with_y(self.ascent + self.shift), FrameItem::Text(item));
-        frame.meta_iter(self.meta);
+        frame.post_process_raw(self.dests, self.hidden);
         frame
     }
 
@@ -436,7 +438,7 @@ impl FrameFragment {
     pub fn new(ctx: &MathContext, styles: StyleChain, mut frame: Frame) -> Self {
         let base_ascent = frame.ascent();
         let accent_attach = frame.width() / 2.0;
-        frame.meta(styles, false);
+        frame.post_process(styles);
         Self {
             frame,
             font_size: scaled_font_size(ctx, styles),

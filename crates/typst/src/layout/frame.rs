@@ -4,11 +4,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use crate::foundations::{cast, dict, Dict, StyleChain, Value};
-use crate::introspection::{Meta, MetaElem};
+use smallvec::SmallVec;
+
+use crate::foundations::{cast, dict, Content, Dict, StyleChain, Value};
 use crate::layout::{
-    Abs, Axes, Corners, FixedAlignment, Length, Point, Rel, Sides, Size, Transform,
+    Abs, Axes, Corners, FixedAlignment, HideElem, Length, Point, Rel, Sides, Size,
+    Transform,
 };
+use crate::model::{Destination, LinkElem};
 use crate::syntax::Span;
 use crate::text::TextItem;
 use crate::utils::{LazyHash, Numeric};
@@ -150,6 +153,17 @@ impl Frame {
         Arc::make_mut(&mut self.items).push((pos, item));
     }
 
+    /// Add multiple items at a position in the foreground.
+    ///
+    /// The first item in the iterator will be the one that is most in the
+    /// background.
+    pub fn push_multiple<I>(&mut self, items: I)
+    where
+        I: IntoIterator<Item = (Point, FrameItem)>,
+    {
+        Arc::make_mut(&mut self.items).extend(items);
+    }
+
     /// Add a frame at a position in the foreground.
     ///
     /// Automatically decides whether to inline the frame or to include it as a
@@ -160,11 +174,6 @@ impl Frame {
         } else {
             self.push(pos, FrameItem::Group(GroupItem::new(frame)));
         }
-    }
-
-    /// Add zero-sized metadata at the origin.
-    pub fn push_positionless_meta(&mut self, meta: Meta) {
-        self.push(Point::zero(), FrameItem::Meta(meta, Size::zero()));
     }
 
     /// Insert an item at the given layer in the frame.
@@ -284,31 +293,40 @@ impl Frame {
         }
     }
 
-    /// Attach the metadata from this style chain to the frame.
+    /// Apply late-stage properties from the style chain to this frame. This
+    /// includes:
+    /// - `HideElem::hidden`
+    /// - `LinkElem::dests`
     ///
-    /// If `force` is true, then the metadata is attached even when
-    /// the frame is empty.
-    // TODO: when would you want to pass true to `force` as opposed to false?
-    pub fn meta(&mut self, styles: StyleChain, force: bool) {
-        if force || !self.is_empty() {
-            self.meta_iter(MetaElem::data_in(styles));
+    /// This must be called on all frames produced by elements
+    /// that manually handle styles (because their children can have varying
+    /// styles). This currently includes flow, par, and equation.
+    ///
+    /// Other elements don't manually need to handle it because their parents
+    /// that result from realization will take care of it and the styles can
+    /// only apply to them as a whole, not part of it (because they don't manage
+    /// styles).
+    pub fn post_process(&mut self, styles: StyleChain) {
+        if !self.is_empty() {
+            self.post_process_raw(
+                LinkElem::dests_in(styles),
+                HideElem::hidden_in(styles),
+            );
         }
     }
 
-    /// Attach metadata from an iterator.
-    pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
-        let mut hide = false;
-        let size = self.size;
-        self.prepend_multiple(iter.into_iter().filter_map(|meta| {
-            if matches!(meta, Meta::Hide) {
-                hide = true;
-                None
-            } else {
-                Some((Point::zero(), FrameItem::Meta(meta, size)))
+    /// Apply raw late-stage properties from the raw data.
+    pub fn post_process_raw(&mut self, dests: SmallVec<[Destination; 1]>, hide: bool) {
+        if !self.is_empty() {
+            let size = self.size;
+            self.push_multiple(
+                dests
+                    .into_iter()
+                    .map(|dest| (Point::zero(), FrameItem::Link(dest, size))),
+            );
+            if hide {
+                self.hide();
             }
-        }));
-        if hide {
-            self.hide();
         }
     }
 
@@ -319,7 +337,7 @@ impl Frame {
                 group.frame.hide();
                 !group.frame.is_empty()
             }
-            FrameItem::Meta(Meta::Elem(_), _) => true,
+            FrameItem::Tag(_) => true,
             _ => false,
         });
     }
@@ -488,8 +506,10 @@ pub enum FrameItem {
     Shape(Shape, Span),
     /// An image and its size.
     Image(Image, Size, Span),
-    /// Meta information and the region it applies to.
-    Meta(Meta, Size),
+    /// An internal or external link to a destination.
+    Link(Destination, Size),
+    /// An introspectable element that produced something within this frame.
+    Tag(Content),
 }
 
 impl Debug for FrameItem {
@@ -499,7 +519,8 @@ impl Debug for FrameItem {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
-            Self::Meta(meta, _) => write!(f, "{meta:?}"),
+            Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::Tag(elem) => write!(f, "Tag({elem:?})"),
         }
     }
 }

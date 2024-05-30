@@ -1,7 +1,6 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-use typst::introspection::Meta;
 use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Document};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
@@ -37,7 +36,7 @@ pub fn jump_from_click(
 ) -> Option<Jump> {
     // Try to find a link first.
     for (pos, item) in frame.items() {
-        if let FrameItem::Meta(Meta::Link(dest), size) = item {
+        if let FrameItem::Link(dest, size) = item {
             if is_in_rect(*pos, *size, click) {
                 return Some(match dest {
                     Destination::Url(url) => Jump::Url(url.clone()),
