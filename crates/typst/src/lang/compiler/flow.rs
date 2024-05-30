@@ -11,9 +11,9 @@ use super::{
 };
 
 impl Compile for ast::Conditional<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -49,9 +49,9 @@ impl Compile for ast::Conditional<'_> {
 }
 
 impl Compile for ast::WhileLoop<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -107,9 +107,9 @@ impl Compile for ast::WhileLoop<'_> {
 }
 
 impl Compile for ast::ForLoop<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -171,9 +171,9 @@ impl Compile for ast::ForLoop<'_> {
 }
 
 impl Compile for ast::LoopBreak<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -186,9 +186,9 @@ impl Compile for ast::LoopBreak<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<super::ReadableGuard> {
         self.compile(compiler, engine, WritableGuard::Joined)?;
@@ -198,9 +198,9 @@ impl Compile for ast::LoopBreak<'_> {
 }
 
 impl Compile for ast::LoopContinue<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -213,9 +213,9 @@ impl Compile for ast::LoopContinue<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<super::ReadableGuard> {
         self.compile(compiler, engine, WritableGuard::Joined)?;
@@ -225,9 +225,9 @@ impl Compile for ast::LoopContinue<'_> {
 }
 
 impl Compile for ast::FuncReturn<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -242,9 +242,9 @@ impl Compile for ast::FuncReturn<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<super::ReadableGuard> {
         self.compile(compiler, engine, WritableGuard::Joined)?;

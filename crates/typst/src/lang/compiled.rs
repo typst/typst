@@ -103,7 +103,7 @@ impl CompiledClosure {
         if has_defaults || has_captures {
             Self::Closure(Arc::new(LazyHash::new(resource)))
         } else {
-            Self::Instanciated(Closure::no_instance(resource, &compiler))
+            Self::Instanciated(Closure::no_instance(resource, compiler))
         }
     }
 }

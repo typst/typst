@@ -59,9 +59,9 @@ struct DynamicImport {
 }
 
 impl Compile for ast::ModuleImport<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -69,9 +69,9 @@ impl Compile for ast::ModuleImport<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         // Load the actual module.
@@ -313,7 +313,7 @@ fn import(engine: &mut Engine, path: &str, span: Span) -> SourceResult<ImportedM
         let spec = path.parse::<PackageSpec>().at(span)?;
         import_package(engine, spec, span).map(ImportedModule::Static)
     } else {
-        import_file(engine, &path, span).map(ImportedModule::Static)
+        import_file(engine, path, span).map(ImportedModule::Static)
     }
 }
 

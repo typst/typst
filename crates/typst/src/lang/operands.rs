@@ -169,7 +169,7 @@ impl fmt::Debug for Readable {
             Self::Str(string) => string.fmt(f),
             Self::Global(global) => global.fmt(f),
             Self::Math(math) => math.fmt(f),
-            Self::Bool(value) => write!(f, "{}", value),
+            Self::Bool(value) => write!(f, "{value}"),
             Self::Label(label) => label.fmt(f),
             Self::Module(module) => module.fmt(f),
             Self::Access(access) => access.fmt(f),

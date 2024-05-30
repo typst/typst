@@ -12,9 +12,9 @@ use super::{
 };
 
 impl CompileTopLevel for ast::Math<'_> {
-    fn compile_top_level<'lib>(
+    fn compile_top_level(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         for expr in self.exprs() {
@@ -27,9 +27,9 @@ impl CompileTopLevel for ast::Math<'_> {
 }
 
 impl Compile for ast::Math<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -45,9 +45,9 @@ impl Compile for ast::Math<'_> {
 }
 
 impl Compile for ast::MathIdent<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -58,9 +58,9 @@ impl Compile for ast::MathIdent<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let Some(value) = compiler.read_math(self.span(), self.get().as_str()) else {
@@ -72,9 +72,9 @@ impl Compile for ast::MathIdent<'_> {
 }
 
 impl Compile for ast::MathAlignPoint<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -82,9 +82,9 @@ impl Compile for ast::MathAlignPoint<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let value = AlignPointElem::new().pack();
@@ -93,9 +93,9 @@ impl Compile for ast::MathAlignPoint<'_> {
 }
 
 impl Compile for ast::MathDelimited<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -110,9 +110,9 @@ impl Compile for ast::MathDelimited<'_> {
 }
 
 impl Compile for ast::MathAttach<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -124,15 +124,10 @@ impl Compile for ast::MathAttach<'_> {
             .transpose()?
         {
             Some(top)
-        } else if let Some(primes) = self
+        } else { self
             .primes()
             .map(|value| value.compile_to_readable(compiler, engine))
-            .transpose()?
-        {
-            Some(primes)
-        } else {
-            None
-        };
+            .transpose()? };
 
         let bottom = self.bottom().map_or(Ok(None), |value| {
             value.compile_to_readable(compiler, engine).map(Some)
@@ -151,9 +146,9 @@ impl Compile for ast::MathAttach<'_> {
 }
 
 impl Compile for ast::MathPrimes<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -161,9 +156,9 @@ impl Compile for ast::MathPrimes<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let primes = PrimesElem::new(self.count()).pack().spanned(self.span());
@@ -172,9 +167,9 @@ impl Compile for ast::MathPrimes<'_> {
 }
 
 impl Compile for ast::MathFrac<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -188,9 +183,9 @@ impl Compile for ast::MathFrac<'_> {
 }
 
 impl Compile for ast::MathRoot<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {

@@ -16,9 +16,9 @@ use super::{
 };
 
 impl CompileTopLevel for ast::Markup<'_> {
-    fn compile_top_level<'lib>(
+    fn compile_top_level(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         for expr in self.exprs() {
@@ -46,9 +46,9 @@ impl CompileTopLevel for ast::Markup<'_> {
 }
 
 impl Compile for ast::Markup<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -59,9 +59,9 @@ impl Compile for ast::Markup<'_> {
 }
 
 impl Compile for ast::Text<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -70,9 +70,9 @@ impl Compile for ast::Text<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let text_elem = TextElem::new(self.get().clone()).pack().spanned(self.span());
@@ -82,9 +82,9 @@ impl Compile for ast::Text<'_> {
 }
 
 impl Compile for ast::Space<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -93,9 +93,9 @@ impl Compile for ast::Space<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let space_elem = SpaceElem::new().pack();
@@ -105,9 +105,9 @@ impl Compile for ast::Space<'_> {
 }
 
 impl Compile for ast::Linebreak<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -116,9 +116,9 @@ impl Compile for ast::Linebreak<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let parbreak_elem = LinebreakElem::new().pack();
@@ -128,9 +128,9 @@ impl Compile for ast::Linebreak<'_> {
 }
 
 impl Compile for ast::Parbreak<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -139,9 +139,9 @@ impl Compile for ast::Parbreak<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let parbreak_elem = ParbreakElem::new().pack();
@@ -151,9 +151,9 @@ impl Compile for ast::Parbreak<'_> {
 }
 
 impl Compile for ast::Escape<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -162,9 +162,9 @@ impl Compile for ast::Escape<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let symbol = Value::Symbol(Symbol::single(self.get()));
@@ -174,9 +174,9 @@ impl Compile for ast::Escape<'_> {
 }
 
 impl Compile for ast::Shorthand<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -185,9 +185,9 @@ impl Compile for ast::Shorthand<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let symbol = Value::Symbol(Symbol::single(self.get()));
@@ -197,9 +197,9 @@ impl Compile for ast::Shorthand<'_> {
 }
 
 impl Compile for ast::SmartQuote<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -208,9 +208,9 @@ impl Compile for ast::SmartQuote<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let smart_quote_elem = SmartQuoteElem::new()
@@ -223,9 +223,9 @@ impl Compile for ast::SmartQuote<'_> {
 }
 
 impl Compile for ast::Strong<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -237,9 +237,9 @@ impl Compile for ast::Strong<'_> {
 }
 
 impl Compile for ast::Emph<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -251,9 +251,9 @@ impl Compile for ast::Emph<'_> {
 }
 
 impl Compile for ast::Raw<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -262,9 +262,9 @@ impl Compile for ast::Raw<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let lines = self.lines().map(|line| (line.get().clone(), line.span())).collect();
@@ -278,9 +278,9 @@ impl Compile for ast::Raw<'_> {
 }
 
 impl Compile for ast::Link<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -289,9 +289,9 @@ impl Compile for ast::Link<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let link_elem = LinkElem::from_url(self.get().clone());
@@ -301,9 +301,9 @@ impl Compile for ast::Link<'_> {
 }
 
 impl Compile for ast::Label<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -312,9 +312,9 @@ impl Compile for ast::Label<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let label = Label::new(self.get());
@@ -323,9 +323,9 @@ impl Compile for ast::Label<'_> {
 }
 
 impl Compile for ast::Ref<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -351,9 +351,9 @@ impl Compile for ast::Ref<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         // We can turn the reference into a constant if it has no supplement.
@@ -379,9 +379,9 @@ impl Compile for ast::Ref<'_> {
 }
 
 impl Compile for ast::Heading<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -400,9 +400,9 @@ impl Compile for ast::Heading<'_> {
 }
 
 impl Compile for ast::ListItem<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -415,9 +415,9 @@ impl Compile for ast::ListItem<'_> {
 }
 
 impl Compile for ast::EnumItem<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -431,9 +431,9 @@ impl Compile for ast::EnumItem<'_> {
 }
 
 impl Compile for ast::TermItem<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -447,9 +447,9 @@ impl Compile for ast::TermItem<'_> {
 }
 
 impl Compile for ast::Equation<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {

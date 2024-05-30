@@ -8,9 +8,9 @@ use crate::{diag::SourceResult, lang::operands::Readable};
 use super::{Access, Compile, CompileAccess, Compiler, WritableGuard};
 
 impl Compile for ast::FuncCall<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -46,9 +46,9 @@ impl Compile for ast::FuncCall<'_> {
 }
 
 impl Compile for ast::Args<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -76,9 +76,9 @@ impl Compile for ast::Args<'_> {
 }
 
 impl Compile for ast::Arg<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -104,9 +104,9 @@ impl Compile for ast::Arg<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        _: &mut Compiler<'lib>,
+        _: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<super::ReadableGuard> {
         unreachable!("`Arg` should be compiled through `Compile::compile")

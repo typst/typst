@@ -15,6 +15,12 @@ pub struct RegisterAllocator {
     table: Rc<RefCell<RegisterTable>>,
 }
 
+impl Default for RegisterAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RegisterAllocator {
     /// Creates a new register allocator.
     pub fn new() -> Self {
@@ -40,6 +46,12 @@ impl RegisterAllocator {
 
 /// The table of occupied registers.
 pub struct RegisterTable(Vec<bool>);
+
+impl Default for RegisterTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RegisterTable {
     /// Creates a new empty register table.
@@ -86,15 +98,15 @@ impl RegisterTable {
 #[derive(Clone, Debug)]
 pub struct PristineRegisterGuard(RegisterGuard);
 
-impl Into<RegisterGuard> for PristineRegisterGuard {
-    fn into(self) -> RegisterGuard {
-        self.0
+impl From<PristineRegisterGuard> for RegisterGuard {
+    fn from(val: PristineRegisterGuard) -> Self {
+        val.0
     }
 }
 
-impl Into<Register> for PristineRegisterGuard {
-    fn into(self) -> Register {
-        self.0.into()
+impl From<PristineRegisterGuard> for Register {
+    fn from(val: PristineRegisterGuard) -> Self {
+        val.0.into()
     }
 }
 
@@ -159,21 +171,21 @@ impl fmt::Debug for RegisterGuard {
     }
 }
 
-impl Into<Readable> for RegisterGuard {
-    fn into(self) -> Readable {
-        self.as_readable()
+impl From<RegisterGuard> for Readable {
+    fn from(val: RegisterGuard) -> Self {
+        val.as_readable()
     }
 }
 
-impl Into<Writable> for RegisterGuard {
-    fn into(self) -> Writable {
-        self.as_writable()
+impl From<RegisterGuard> for Writable {
+    fn from(val: RegisterGuard) -> Self {
+        val.as_writable()
     }
 }
 
-impl Into<Register> for RegisterGuard {
-    fn into(self) -> Register {
-        self.as_register()
+impl From<RegisterGuard> for Register {
+    fn from(val: RegisterGuard) -> Self {
+        val.as_register()
     }
 }
 
@@ -198,9 +210,9 @@ pub enum ReadableGuard {
     Auto,
 }
 
-impl Into<Readable> for ReadableGuard {
-    fn into(self) -> Readable {
-        match self {
+impl From<ReadableGuard> for Readable {
+    fn from(val: ReadableGuard) -> Self {
+        match val {
             ReadableGuard::Register(register) => register.as_readable(),
             ReadableGuard::Captured(captured) => (*captured).into(),
             ReadableGuard::Constant(constant) => constant.into(),
@@ -286,18 +298,18 @@ impl From<RegisterGuard> for WritableGuard {
     }
 }
 
-impl Into<Readable> for WritableGuard {
-    fn into(self) -> Readable {
-        match self {
+impl From<WritableGuard> for Readable {
+    fn from(val: WritableGuard) -> Self {
+        match val {
             WritableGuard::Register(register) => register.as_readable(),
             WritableGuard::Joined => unreachable!(),
         }
     }
 }
 
-impl Into<Writable> for WritableGuard {
-    fn into(self) -> Writable {
-        match self {
+impl From<WritableGuard> for Writable {
+    fn from(val: WritableGuard) -> Self {
+        match val {
             WritableGuard::Register(register) => register.as_writable(),
             WritableGuard::Joined => Writable::joiner(),
         }

@@ -7,9 +7,9 @@ use crate::lang::operands::Readable;
 use super::{Compile, CompileAccess, Compiler, WritableGuard};
 
 impl Compile for ast::Binary<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -62,9 +62,9 @@ impl Compile for ast::Binary<'_> {
 }
 
 impl Compile for ast::Unary<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {

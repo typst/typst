@@ -10,9 +10,9 @@ use super::{
 };
 
 impl Compile for ast::LetBinding<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -21,9 +21,9 @@ impl Compile for ast::LetBinding<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         match self.kind() {
@@ -40,9 +40,9 @@ impl Compile for ast::LetBinding<'_> {
 }
 
 impl Compile for ast::DestructAssignment<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -51,9 +51,9 @@ impl Compile for ast::DestructAssignment<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         // We compile the pattern and add it to the local scope.

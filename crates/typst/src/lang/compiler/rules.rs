@@ -7,9 +7,9 @@ use crate::lang::operands::Pointer;
 use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::SetRule<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -18,9 +18,9 @@ impl Compile for ast::SetRule<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let (target, args, else_) = compile_set(self, compiler, engine)?;
@@ -34,9 +34,9 @@ impl Compile for ast::SetRule<'_> {
 }
 
 impl Compile for ast::ShowRule<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
@@ -45,9 +45,9 @@ impl Compile for ast::ShowRule<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let selector = self

@@ -68,7 +68,7 @@ impl Access {
                     .at(*span)
             }
             Access::Global(global) => Ok(Some(Value::Module(global.clone()))),
-            Access::Type(ty) => Ok(Some(Value::Type(ty.clone()))),
+            Access::Type(ty) => Ok(Some(Value::Type(*ty))),
             Access::Value(value) => Ok(Some(value.clone())),
             Access::Func(func) => Ok(Some(Value::Func(func.clone()))),
             Access::AccessorMethod(_, _, _) => Ok(None),
@@ -118,18 +118,18 @@ impl IntoCompiledValue for Access {
 
 pub trait CompileAccess {
     /// Generate an access to the value.
-    fn access<'a>(
+    fn access(
         self,
-        compiler: &'a mut Compiler,
+        compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access>;
 }
 
 impl CompileAccess for ast::Expr<'_> {
-    fn access<'a>(
+    fn access(
         self,
-        compiler: &'a mut Compiler,
+        compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access> {
@@ -150,9 +150,9 @@ impl CompileAccess for ast::Expr<'_> {
 }
 
 impl CompileAccess for ast::Ident<'_> {
-    fn access<'a>(
+    fn access(
         self,
-        compiler: &'a mut Compiler,
+        compiler: &mut Compiler,
         _: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access> {
@@ -185,7 +185,7 @@ impl CompileAccess for ast::Ident<'_> {
                         .at(self.span())?
                     {
                         Value::Module(module) => Ok(Access::Global(module.clone())),
-                        Value::Type(ty_) => Ok(Access::Type(ty_.clone())),
+                        Value::Type(ty_) => Ok(Access::Type(*ty_)),
                         Value::Func(func_) => Ok(Access::Func(func_.clone())),
                         value => Ok(Access::Value(value.clone())),
                     }
@@ -198,9 +198,9 @@ impl CompileAccess for ast::Ident<'_> {
 }
 
 impl CompileAccess for ast::Parenthesized<'_> {
-    fn access<'a>(
+    fn access(
         self,
-        compiler: &'a mut Compiler,
+        compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access> {
@@ -209,9 +209,9 @@ impl CompileAccess for ast::Parenthesized<'_> {
 }
 
 impl CompileAccess for ast::FieldAccess<'_> {
-    fn access<'a>(
+    fn access(
         self,
-        compiler: &'a mut Compiler,
+        compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access> {
@@ -220,7 +220,7 @@ impl CompileAccess for ast::FieldAccess<'_> {
             Access::Global(global) => {
                 match global.field(self.field().get()).at(self.span())? {
                     Value::Module(module) => Ok(Access::Global(module.clone())),
-                    Value::Type(ty_) => Ok(Access::Type(ty_.clone())),
+                    Value::Type(ty_) => Ok(Access::Type(*ty_)),
                     Value::Func(func_) => Ok(Access::Func(func_.clone())),
                     value => Ok(Access::Value(value.clone())),
                 }
@@ -228,7 +228,7 @@ impl CompileAccess for ast::FieldAccess<'_> {
             Access::Type(ty) => {
                 match ty.field(self.field().get()).at(self.field().span())? {
                     Value::Module(module) => Ok(Access::Global(module.clone())),
-                    Value::Type(ty_) => Ok(Access::Type(ty_.clone())),
+                    Value::Type(ty_) => Ok(Access::Type(*ty_)),
                     Value::Func(func_) => Ok(Access::Func(func_.clone())),
                     value => Ok(Access::Value(value.clone())),
                 }
@@ -236,7 +236,7 @@ impl CompileAccess for ast::FieldAccess<'_> {
             Access::Func(func) => {
                 match func.field(self.field().get()).at(self.field().span())? {
                     Value::Module(module) => Ok(Access::Global(module.clone())),
-                    Value::Type(ty_) => Ok(Access::Type(ty_.clone())),
+                    Value::Type(ty_) => Ok(Access::Type(*ty_)),
                     Value::Func(func_) => Ok(Access::Func(func_.clone())),
                     value => Ok(Access::Value(value.clone())),
                 }
@@ -244,7 +244,7 @@ impl CompileAccess for ast::FieldAccess<'_> {
             Access::Value(value) => {
                 match value.field(self.field().get()).at(self.field().span())? {
                     Value::Module(module) => Ok(Access::Global(module.clone())),
-                    Value::Type(ty_) => Ok(Access::Type(ty_.clone())),
+                    Value::Type(ty_) => Ok(Access::Type(ty_)),
                     Value::Func(func_) => Ok(Access::Func(func_.clone())),
                     value => Ok(Access::Value(value.clone())),
                 }
@@ -258,9 +258,9 @@ impl CompileAccess for ast::FieldAccess<'_> {
 }
 
 impl CompileAccess for ast::FuncCall<'_> {
-    fn access<'a>(
+    fn access(
         self,
-        compiler: &'a mut Compiler,
+        compiler: &mut Compiler,
         engine: &mut Engine,
         mutable: bool,
     ) -> SourceResult<Access> {

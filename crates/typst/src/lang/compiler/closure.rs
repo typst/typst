@@ -12,9 +12,9 @@ use crate::lang::compiler::{
 use super::{Compile, Compiler, WritableGuard};
 
 impl Compile for ast::Closure<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -31,15 +31,11 @@ impl Compile for ast::Closure<'_> {
         let name = compiler.name;
         let mut closure_compiler = Compiler::new_closure(
             compiler,
-            name.clone().unwrap_or_else(|| PicoStr::from("anonymous")),
+            name.unwrap_or_else(|| PicoStr::from("anonymous")),
         );
 
         // Create the local such that the closure can use itself.
-        let closure_local = if let Some(name) = name {
-            Some(closure_compiler.declare(self.span(), name))
-        } else {
-            None
-        };
+        let closure_local = name.map(|name| closure_compiler.declare(self.span(), name));
 
         // Build the parameter list of the closure.
         let mut params = Vec::with_capacity(self.params().children().count());

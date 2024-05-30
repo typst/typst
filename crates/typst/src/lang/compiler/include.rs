@@ -9,9 +9,9 @@ use crate::lang::compiler::CompileAccess;
 use super::{import_file, Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::ModuleInclude<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {

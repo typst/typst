@@ -11,9 +11,9 @@ use crate::lang::operands::Readable;
 use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
 
 impl CompileTopLevel for ast::Code<'_> {
-    fn compile_top_level<'lib>(
+    fn compile_top_level(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         for expr in self.exprs() {
@@ -41,9 +41,9 @@ impl CompileTopLevel for ast::Code<'_> {
 }
 
 impl Compile for ast::Code<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -78,9 +78,9 @@ impl Compile for ast::Code<'_> {
 }
 
 impl Compile for ast::Expr<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -184,9 +184,9 @@ impl Compile for ast::Expr<'_> {
         }
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let span = self.span();
@@ -293,9 +293,9 @@ impl Compile for ast::Expr<'_> {
 }
 
 impl Compile for ast::Ident<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -306,9 +306,9 @@ impl Compile for ast::Ident<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let Some(value) = compiler.read(self.span(), self.get(), false) else {
@@ -320,9 +320,9 @@ impl Compile for ast::Ident<'_> {
 }
 
 impl Compile for ast::None<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -330,9 +330,9 @@ impl Compile for ast::None<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        _: &mut Compiler<'lib>,
+        _: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         Ok(ReadableGuard::None)
@@ -340,9 +340,9 @@ impl Compile for ast::None<'_> {
 }
 
 impl Compile for ast::Auto<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -350,9 +350,9 @@ impl Compile for ast::Auto<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        _: &mut Compiler<'lib>,
+        _: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         Ok(ReadableGuard::Auto)
@@ -360,9 +360,9 @@ impl Compile for ast::Auto<'_> {
 }
 
 impl Compile for ast::Bool<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -370,9 +370,9 @@ impl Compile for ast::Bool<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        _: &mut Compiler<'lib>,
+        _: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         Ok(ReadableGuard::Bool(self.get()))
@@ -380,9 +380,9 @@ impl Compile for ast::Bool<'_> {
 }
 
 impl Compile for ast::Int<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -391,9 +391,9 @@ impl Compile for ast::Int<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let cst = compiler.const_(self.get());
@@ -402,9 +402,9 @@ impl Compile for ast::Int<'_> {
 }
 
 impl Compile for ast::Float<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -413,9 +413,9 @@ impl Compile for ast::Float<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let cst = compiler.const_(self.get());
@@ -424,9 +424,9 @@ impl Compile for ast::Float<'_> {
 }
 
 impl Compile for ast::Numeric<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -435,9 +435,9 @@ impl Compile for ast::Numeric<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let cst = compiler.const_(Value::numeric(self.get()));
@@ -446,9 +446,9 @@ impl Compile for ast::Numeric<'_> {
 }
 
 impl Compile for ast::Str<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -457,9 +457,9 @@ impl Compile for ast::Str<'_> {
         Ok(())
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let str = compiler.string(self.get());
@@ -468,9 +468,9 @@ impl Compile for ast::Str<'_> {
 }
 
 impl Compile for ast::Array<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -502,9 +502,9 @@ impl Compile for ast::Array<'_> {
 }
 
 impl Compile for ast::Dict<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -542,36 +542,36 @@ impl Compile for ast::Dict<'_> {
 }
 
 impl Compile for ast::CodeBlock<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
         self.body().compile(compiler, engine, output)
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         self.body().compile_to_readable(compiler, engine)
     }
 }
 impl Compile for ast::ContentBlock<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
         self.body().compile(compiler, engine, output)
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         self.body().compile_to_readable(compiler, engine)
@@ -579,18 +579,18 @@ impl Compile for ast::ContentBlock<'_> {
 }
 
 impl Compile for ast::Parenthesized<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
         self.expr().compile(compiler, engine, output)
     }
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         self.expr().compile_to_readable(compiler, engine)
@@ -598,9 +598,9 @@ impl Compile for ast::Parenthesized<'_> {
 }
 
 impl Compile for ast::FieldAccess<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
@@ -627,9 +627,9 @@ impl Compile for ast::FieldAccess<'_> {
 }
 
 impl Compile for ast::Contextual<'_> {
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {

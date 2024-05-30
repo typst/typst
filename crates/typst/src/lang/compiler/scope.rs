@@ -118,7 +118,7 @@ impl<'lib> Scope<'lib> {
 
         // Find the variable in the parent scope.
         if let Some(parent) = &self.parent {
-            return (&**parent).borrow_mut().write(name);
+            return (**parent).borrow_mut().write(name);
         }
 
         bail!("cannot write to undeclared variable `{}`", name.resolve())
@@ -132,7 +132,7 @@ impl<'lib> Scope<'lib> {
         register: RegisterGuard,
     ) {
         self.variables.insert(
-            name.clone(),
+            name,
             Variable {
                 register: register.clone(),
                 default: None,
@@ -151,7 +151,7 @@ impl<'lib> Scope<'lib> {
     ) -> RegisterGuard {
         let register = self.allocate();
         self.variables.insert(
-            name.clone(),
+            name,
             Variable {
                 register: register.clone(),
                 constant: default.is_some(),
@@ -175,7 +175,7 @@ impl<'lib> Scope<'lib> {
                     return Some(variable.register.clone().into());
                 }
 
-                next = ref_.parent.clone();
+                next.clone_from(&ref_.parent);
             }
             None
         }
@@ -215,7 +215,7 @@ impl<'lib> Scope<'lib> {
             // If we are not capturing, we can try and capture from the parent scope.
             let mut next = self.parent.clone();
             while let Some(ancestor) = next.take() {
-                let ref_ = (&*ancestor).borrow_mut();
+                let ref_ = (*ancestor).borrow_mut();
                 if let Some(mut capturing) =
                     ref_.capturing.as_deref().map(RefCell::borrow_mut)
                 {
@@ -243,7 +243,7 @@ impl<'lib> Scope<'lib> {
                     }
                 }
 
-                next = ref_.parent.clone();
+                next.clone_from(&ref_.parent);
             }
         }
 
@@ -256,11 +256,7 @@ impl<'lib> Scope<'lib> {
             Some(guard)
         } else if let Some(captured) = self.read_captured(span, var) {
             Some(captured)
-        } else if let Some(id) = self.global().and_then(|g| g.global.field_index(var)) {
-            Some(Global::new(id as u16).into())
-        } else {
-            None
-        }
+        } else { self.global().and_then(|g| g.global.field_index(var)).map(|id| Global::new(id as u16).into()) }
     }
 
     /// Read a variable from this scope, including the global scope.
@@ -272,22 +268,14 @@ impl<'lib> Scope<'lib> {
         let var = var.into();
         if let Some(guard) = self.read_local(var) {
             Some(guard)
-        } else if let Some(captured) = self.read_captured(span, var) {
-            Some(captured)
-        } else {
-            None
-        }
+        } else { self.read_captured(span, var) }
     }
 
     /// Read a variable from this scope, including the math scope.
     pub fn read_math(&mut self, span: Span, var: &str) -> Option<ReadableGuard> {
         if let Some(variable) = self.read(span, var) {
             Some(variable)
-        } else if let Some(id) = self.global().and_then(|g| g.math.field_index(var)) {
-            Some(Math::new(id as u16).into())
-        } else {
-            None
-        }
+        } else { self.global().and_then(|g| g.math.field_index(var)).map(|id| Math::new(id as u16).into()) }
     }
 
     /// Tries to resolve a variable from this scope.

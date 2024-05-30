@@ -52,26 +52,26 @@ impl PatternCompile for ast::Pattern<'_> {
                 ast::Expr::Ident(ident) => {
                     let access = if declare {
                         let id = compiler.declare(ident.span(), ident.get().as_str());
-                        Access::Writable(id.into())
+                        Access::Writable(id)
                     } else {
                         ident.access(compiler, engine, false)?
                     };
 
                     let access_id = compiler.access(access);
                     let name_id = compiler.string(ident.as_str());
-                    return Ok(Pattern {
+                    Ok(Pattern {
                         span: ident.span(),
                         kind: PatternKind::Single(PatternItem::Simple(
                             normal.span(),
                             access_id,
                             name_id,
                         )),
-                    });
+                    })
                 }
                 _ => bail!(self.span(), "nested patterns are currently not supported"),
             },
             ast::Pattern::Placeholder(placeholder) => {
-                return Ok(Pattern {
+                Ok(Pattern {
                     span: placeholder.span(),
                     kind: PatternKind::Single(PatternItem::Placeholder(
                         placeholder.span(),
@@ -90,7 +90,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             let access = if declare {
                                 let id =
                                     compiler.declare(ident.span(), ident.get().as_str());
-                                Access::Writable(id.into())
+                                Access::Writable(id)
                             } else {
                                 ident.access(compiler, engine, false)?
                             };
@@ -115,7 +115,7 @@ impl PatternCompile for ast::Pattern<'_> {
                                 let access = if declare {
                                     let id = compiler
                                         .declare(ident.span(), ident.get().as_str());
-                                    Access::Writable(id.into())
+                                    Access::Writable(id)
                                 } else {
                                     ident.access(compiler, engine, false)?
                                 };
@@ -130,7 +130,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             let access = if let ast::Expr::Ident(ident) = named.expr() {
                                 let id =
                                     compiler.declare(ident.span(), ident.get().as_str());
-                                Access::Writable(id.into())
+                                Access::Writable(id)
                             } else if declare {
                                 bail!(
                                     named.expr().span(),
@@ -214,11 +214,11 @@ impl IntoCompiledValue for PatternItem {
         match self {
             PatternItem::Placeholder(span) => CompiledPatternItem::Placeholder(span),
             PatternItem::Simple(span, access, name) => {
-                CompiledPatternItem::Simple(span, access.into(), name)
+                CompiledPatternItem::Simple(span, access, name)
             }
             PatternItem::Nested(span, id) => CompiledPatternItem::Nested(span, id),
             PatternItem::Spread(span, access) => {
-                CompiledPatternItem::Spread(span, access.into())
+                CompiledPatternItem::Spread(span, access)
             }
             PatternItem::SpreadDiscard(span) => CompiledPatternItem::SpreadDiscard(span),
             PatternItem::Named(span, access, name) => {

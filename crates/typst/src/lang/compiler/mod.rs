@@ -287,7 +287,7 @@ impl<'lib> Compiler<'lib> {
             }
             Readable::Label(label) => {
                 let label = self.labels.get(&label)?;
-                Some(Cow::Owned(Value::Label(label.clone())))
+                Some(Cow::Owned(Value::Label(*label)))
             }
             Readable::Module(_) => None,
             Readable::Access(access) => {
@@ -322,8 +322,8 @@ impl<'lib> Compiler<'lib> {
     }
 
     /// Enter any other kind of scope (i.e loop bodies).
-    pub fn enter_generic<'a, O>(
-        &'a mut self,
+    pub fn enter_generic<O>(
+        &mut self,
         engine: &mut Engine,
         looping: bool,
         f: impl FnOnce(&mut Self, &mut Engine) -> SourceResult<O>,
@@ -376,7 +376,7 @@ impl<'lib> Compiler<'lib> {
             .captures
             .values()
             .map(|capture| CodeCapture {
-                name: capture.name.clone(),
+                name: capture.name,
                 span: capture.span,
                 readable: capture.readable.clone().into(),
                 register: capture.register.clone().into(),
@@ -391,7 +391,7 @@ impl<'lib> Compiler<'lib> {
         self.instructions.shrink_to_fit();
         self.isr_spans.shrink_to_fit();
 
-        let registers = scopes.registers.as_ref().map_or(0, |r| r.len() as usize);
+        let registers = scopes.registers.as_ref().map_or(0, |r| r.len());
 
         Ok(CompiledCode {
             defaults: self.get_default_scope().into(),
@@ -422,8 +422,8 @@ impl<'lib> Compiler<'lib> {
         let mut iter = self.instructions.iter();
         let mut jumps = vec![usize::MAX; self.jumps as usize];
 
-        fn remap<'a>(
-            iter: &mut dyn Iterator<Item = &'a Opcode>,
+        fn remap(
+            iter: &mut dyn Iterator<Item = &Opcode>,
             jumps: &mut Vec<usize>,
             count: &mut usize,
         ) {
@@ -482,25 +482,25 @@ impl<'lib> Compiler<'lib> {
 trait CompileTopLevel {
     /// Compile the current AST node as the top-level node.
     /// This assumes that the output is always the joiner.
-    fn compile_top_level<'lib>(
+    fn compile_top_level(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()>;
 }
 
 trait Compile {
     /// Compile the current AST node.
-    fn compile<'lib>(
+    fn compile(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()>;
 
-    fn compile_to_readable<'lib>(
+    fn compile_to_readable(
         &self,
-        compiler: &mut Compiler<'lib>,
+        compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let output = compiler.allocate();
