@@ -126,11 +126,8 @@ pub fn jump_from_cursor(
 
     let span = node.span();
     for (i, page) in document.pages.iter().enumerate() {
-        if let Some(pos) = find_in_frame(&page.frame, span) {
-            return Some(Position {
-                page: NonZeroUsize::new(i + 1).unwrap(),
-                point: pos,
-            });
+        if let Some(point) = find_in_frame(&page.frame, span) {
+            return Some(Position { page: NonZeroUsize::new(i + 1).unwrap(), point });
         }
     }
 
@@ -167,4 +164,73 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
         && pos.x + size.x >= click.x
         && pos.y <= click.y
         && pos.y + size.y >= click.y
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroUsize;
+
+    use typst::eval::Tracer;
+    use typst::layout::{Abs, Point, Position};
+
+    use super::{jump_from_click, jump_from_cursor, Jump};
+    use crate::tests::TestWorld;
+
+    fn point(x: f64, y: f64) -> Point {
+        Point::new(Abs::pt(x), Abs::pt(y))
+    }
+
+    fn cursor(cursor: usize) -> Option<Jump> {
+        Some(Jump::Source(TestWorld::main_id(), cursor))
+    }
+
+    fn pos(page: usize, x: f64, y: f64) -> Option<Position> {
+        Some(Position {
+            page: NonZeroUsize::new(page).unwrap(),
+            point: point(x, y),
+        })
+    }
+
+    macro_rules! assert_approx_eq {
+        ($l:expr, $r:expr) => {
+            assert!(($l.to_raw() - $r.to_raw()).abs() < 0.1, "{:?} ≉ {:?}", $l, $r);
+        };
+    }
+
+    #[track_caller]
+    fn test_click(text: &str, click: Point, expected: Option<Jump>) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
+        assert_eq!(jump_from_click(&world, &doc, &doc.pages[0].frame, click), expected);
+    }
+
+    #[track_caller]
+    fn test_cursor(text: &str, cursor: usize, expected: Option<Position>) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
+        let pos = jump_from_cursor(&doc, &world.main, cursor);
+        assert_eq!(pos.is_some(), expected.is_some());
+        if let (Some(pos), Some(expected)) = (pos, expected) {
+            assert_eq!(pos.page, expected.page);
+            assert_approx_eq!(pos.point.x, expected.point.x);
+            assert_approx_eq!(pos.point.y, expected.point.y);
+        }
+    }
+
+    #[test]
+    fn test_jump_from_click() {
+        let s = "*Hello* #box[ABC] World";
+        test_click(s, point(0.0, 0.0), None);
+        test_click(s, point(70.0, 5.0), None);
+        test_click(s, point(45.0, 15.0), cursor(14));
+        test_click(s, point(48.0, 15.0), cursor(15));
+        test_click(s, point(72.0, 10.0), cursor(20));
+    }
+
+    #[test]
+    fn test_jump_from_cursor() {
+        let s = "*Hello* #box[ABC] World";
+        test_cursor(s, 12, None);
+        test_cursor(s, 14, pos(1, 37.55, 16.58));
+    }
 }
