@@ -40,7 +40,13 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let backup_path = backup_path(command.backup_path.clone())?;
+    let backup_dir = command.backup_path.clone().map(Ok).unwrap_or_else(backup_path)?;
+
+    fs::create_dir_all(&backup_dir)
+        .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
+
+    let backup_path = backup_dir.join("typst_backup.part");
+
     if command.revert {
         if !backup_path.exists() {
             bail!(
@@ -213,7 +219,7 @@ fn update_needed(release: &Release) -> StrResult<bool> {
     Ok(new_tag > current_tag)
 }
 
-/// Path to a potential backup file.
+/// Path to a potential backup file in the system.
 ///
 /// The backup will be placed in one of the following directories, depending on
 /// the platform:
@@ -224,25 +230,17 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 ///
 /// If a custom backup path is provided via the environment variable
 /// `TYPST_UPDATE_BACKUP_PATH`, it will be used instead of the default
-/// directories determined by the platform.
-fn backup_path(backup_path: Option<PathBuf>) -> StrResult<PathBuf> {
-    let backup_dir = if let Some(backup_path) = backup_path {
-        backup_path
-    } else {
-        #[cfg(target_os = "linux")]
-        let root_backup_dir = dirs::state_dir()
-            .or_else(dirs::data_dir)
-            .ok_or("unable to locate local data or state directory")?;
+/// directories determined by the platform. In that case, this function
+/// shouldn't be called.
+fn backup_path() -> StrResult<PathBuf> {
+    #[cfg(target_os = "linux")]
+    let root_backup_dir = dirs::state_dir()
+        .or_else(dirs::data_dir)
+        .ok_or("unable to locate local data or state directory")?;
 
-        #[cfg(not(target_os = "linux"))]
-        let root_backup_dir =
-            dirs::data_dir().ok_or("unable to locate local data directory")?;
+    #[cfg(not(target_os = "linux"))]
+    let root_backup_dir =
+        dirs::data_dir().ok_or("unable to locate local data directory")?;
 
-        root_backup_dir.join("typst")
-    };
-
-    fs::create_dir_all(&backup_dir)
-        .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
-
-    Ok(backup_dir.join("typst_backup.part"))
+    Ok(root_backup_dir.join("typst"))
 }
