@@ -87,8 +87,14 @@ impl RegisterTable {
         self.0[index.as_raw() as usize] = false;
     }
 
+    /// Gives the number of registers that have been allocated.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Checks if the table is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
