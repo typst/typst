@@ -221,6 +221,10 @@ pub struct SharedArgs {
 /// Arguments related to where packages are stored in the system.
 #[derive(Debug, Clone, Args)]
 pub struct PackageStorageArgs {
+    /// Custom path to local packages, defaults to system-dependent location
+    #[clap(long = "packages-path", env = "TYPST_PACKAGES_PATH", value_name = "DIR")]
+    pub packages_path: Option<PathBuf>,
+
     /// Custom path to package cache, defaults to system-dependent location
     #[clap(
         long = "package-cache-path",
@@ -228,10 +232,6 @@ pub struct PackageStorageArgs {
         value_name = "DIR"
     )]
     pub package_cache_path: Option<PathBuf>,
-
-    /// Custom path to local packages, defaults to system-dependent location
-    #[clap(long = "packages-path", env = "TYPST_PACKAGES_PATH", value_name = "DIR")]
-    pub packages_path: Option<PathBuf>,
 }
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
