@@ -23,12 +23,12 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         // Try to parse without version, but prefer the error message of the
         // normal package spec parsing if it fails.
         let spec: VersionlessPackageSpec = command.template.parse().map_err(|_| err)?;
-        let version = crate::package::determine_latest_version(&spec, &package_storage)?;
+        let version = package_storage.determine_latest_version(&spec)?;
         StrResult::Ok(spec.at(version))
     })?;
 
     // Find or download the package.
-    let package_path = crate::package::prepare_package(&spec, &package_storage)?;
+    let package_path = package_storage.prepare_package(&spec)?;
 
     // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;

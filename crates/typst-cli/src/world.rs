@@ -373,7 +373,7 @@ fn system_path(
     let buf;
     let mut root = project_root;
     if let Some(spec) = id.package() {
-        buf = crate::package::prepare_package(spec, package_storage)?;
+        buf = package_storage.prepare_package(spec)?;
         root = &buf;
     }
 

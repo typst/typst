@@ -33,69 +33,65 @@ impl PackageStorage {
         });
         Self { package_cache_path, packages_path }
     }
-}
 
-/// Make a package available in the on-disk cache.
-pub fn prepare_package(
-    spec: &PackageSpec,
-    package_storage: &PackageStorage,
-) -> PackageResult<PathBuf> {
-    let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
+    /// Make a package available in the on-disk cache.
+    pub fn prepare_package(&self, spec: &PackageSpec) -> PackageResult<PathBuf> {
+        let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-    if let Some(data_dir) = &package_storage.packages_path {
-        let dir = data_dir.join(&subdir);
-        if dir.exists() {
-            return Ok(dir);
-        }
-    }
-
-    if let Some(cache_dir) = &package_storage.package_cache_path {
-        let dir = cache_dir.join(&subdir);
-        if dir.exists() {
-            return Ok(dir);
-        }
-
-        // Download from network if it doesn't exist yet.
-        if spec.namespace == "preview" {
-            download_package(spec, &dir)?;
+        if let Some(packages_dir) = &self.packages_path {
+            let dir = packages_dir.join(&subdir);
             if dir.exists() {
                 return Ok(dir);
             }
         }
+
+        if let Some(cache_dir) = &self.package_cache_path {
+            let dir = cache_dir.join(&subdir);
+            if dir.exists() {
+                return Ok(dir);
+            }
+
+            // Download from network if it doesn't exist yet.
+            if spec.namespace == "preview" {
+                download_package(spec, &dir)?;
+                if dir.exists() {
+                    return Ok(dir);
+                }
+            }
+        }
+
+        Err(PackageError::NotFound(spec.clone()))
     }
 
-    Err(PackageError::NotFound(spec.clone()))
-}
-
-/// Try to determine the latest version of a package.
-pub fn determine_latest_version(
-    spec: &VersionlessPackageSpec,
-    package_storage: &PackageStorage,
-) -> StrResult<PackageVersion> {
-    if spec.namespace == "preview" {
-        // For `@preview`, download the package index and find the latest
-        // version.
-        download_index()?
-            .iter()
-            .filter(|package| package.name == spec.name)
-            .map(|package| package.version)
-            .max()
-            .ok_or_else(|| eco_format!("failed to find package {spec}"))
-    } else {
-        // For other namespaces, search locally. We only search in the data
-        // directory and not the cache directory, because the latter is not
-        // intended for storage of local packages.
-        let subdir = format!("{}/{}", spec.namespace, spec.name);
-        package_storage
-            .packages_path
-            .iter()
-            .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
-            .flatten()
-            .filter_map(|entry| entry.ok())
-            .map(|entry| entry.path())
-            .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
-            .max()
-            .ok_or_else(|| eco_format!("please specify the desired version"))
+    /// Try to determine the latest version of a package.
+    pub fn determine_latest_version(
+        &self,
+        spec: &VersionlessPackageSpec,
+    ) -> StrResult<PackageVersion> {
+        if spec.namespace == "preview" {
+            // For `@preview`, download the package index and find the latest
+            // version.
+            download_index()?
+                .iter()
+                .filter(|package| package.name == spec.name)
+                .map(|package| package.version)
+                .max()
+                .ok_or_else(|| eco_format!("failed to find package {spec}"))
+        } else {
+            // For other namespaces, search locally. We only search in the data
+            // directory and not the cache directory, because the latter is not
+            // intended for storage of local packages.
+            let subdir = format!("{}/{}", spec.namespace, spec.name);
+            self.packages_path
+                .iter()
+                .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
+                .flatten()
+                .filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+                .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
+                .max()
+                .ok_or_else(|| eco_format!("please specify the desired version"))
+        }
     }
 }
 
