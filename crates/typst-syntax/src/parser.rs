@@ -1003,6 +1003,13 @@ fn import_items(p: &mut Parser) {
             p.unexpected();
         }
 
+        // Nested import path: `a.b.c`
+        while p.eat_if(SyntaxKind::Dot) {
+            p.expect(SyntaxKind::Ident);
+        }
+
+        p.wrap(item_marker, SyntaxKind::ImportItemPath);
+
         // Rename imported item.
         if p.eat_if(SyntaxKind::As) {
             p.expect(SyntaxKind::Ident);
