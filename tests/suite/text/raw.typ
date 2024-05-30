@@ -648,6 +648,12 @@ fn main() {
 #let hi = "Hello World"
 ```
 
+--- raw-theme-set-to-none ---
+#set raw(theme: none)
+```typ
+#let foo = "bar"
+```
+
 --- raw-unclosed ---
 // Test unterminated raw text.
 //
