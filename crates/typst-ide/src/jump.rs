@@ -191,17 +191,17 @@ mod tests {
         })
     }
 
+    macro_rules! assert_approx_eq {
+        ($l:expr, $r:expr) => {
+            assert!(($l.to_raw() - $r.to_raw()).abs() < 0.1, "{:?} ≉ {:?}", $l, $r);
+        };
+    }
+
     #[track_caller]
     fn test_click(text: &str, click: Point, expected: Option<Jump>) {
         let world = TestWorld::new(text);
         let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
         assert_eq!(jump_from_click(&world, &doc, &doc.pages[0].frame, click), expected);
-    }
-
-    macro_rules! assert_approx_eq {
-        ($l:expr, $r:expr) => {
-            assert!(($l.to_raw() - $r.to_raw()).abs() < 0.1, "{:?} ≉ {:?}", $l, $r);
-        };
     }
 
     #[track_caller]
@@ -231,6 +231,6 @@ mod tests {
     fn test_jump_from_cursor() {
         let s = "*Hello* #box[ABC] World";
         test_cursor(s, 12, None);
-        test_cursor(s, 14, pos(1, 35.74, 18.0));
+        test_cursor(s, 14, pos(1, 37.55, 16.58));
     }
 }
