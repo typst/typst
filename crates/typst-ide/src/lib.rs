@@ -119,7 +119,7 @@ mod tests {
             Self { main, base: &*BASE }
         }
 
-        /// The ID of the main file in a `TextWorld`.
+        /// The ID of the main file in a `TestWorld`.
         pub fn main_id() -> FileId {
             static ID: Lazy<FileId> = Lazy::new(|| Source::detached("").id());
             *ID
