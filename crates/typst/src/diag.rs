@@ -45,7 +45,7 @@ macro_rules! __bail {
     ) => {
         return Err($crate::diag::error!(
             $fmt $(, $arg)*
-            $(; hint: $hint $(, $hint_arg:expr)*)*
+            $(; hint: $hint $(, $hint_arg)*)*
         ))
     };
 
