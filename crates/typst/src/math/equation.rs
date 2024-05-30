@@ -194,16 +194,6 @@ pub enum MathParItem {
     Frame(Frame),
 }
 
-impl MathParItem {
-    /// The text representation of this item.
-    pub fn text(&self) -> char {
-        match self {
-            MathParItem::Space(_) => ' ',        // Space
-            MathParItem::Frame(_) => '\u{FFFC}', // Object Replacement Character
-        }
-    }
-}
-
 impl Packed<EquationElem> {
     pub fn layout_inline(
         &self,

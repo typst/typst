@@ -1235,36 +1235,34 @@ impl Fold for WeightDelta {
     }
 }
 
-/// Costs that are updated (prioritizing the later value) when folded.
+/// Costs for various layout decisions.
+///
+/// Costs are updated (prioritizing the later value) when folded.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-#[non_exhaustive] // We may add more costs in the future.
+#[non_exhaustive]
 pub struct Costs {
-    pub hyphenation: Option<Ratio>,
-    pub runt: Option<Ratio>,
-    pub widow: Option<Ratio>,
-    pub orphan: Option<Ratio>,
+    hyphenation: Option<Ratio>,
+    runt: Option<Ratio>,
+    widow: Option<Ratio>,
+    orphan: Option<Ratio>,
 }
 
 impl Costs {
-    #[inline]
     #[must_use]
     pub fn hyphenation(&self) -> Ratio {
         self.hyphenation.unwrap_or(Ratio::one())
     }
 
-    #[inline]
     #[must_use]
     pub fn runt(&self) -> Ratio {
         self.runt.unwrap_or(Ratio::one())
     }
 
-    #[inline]
     #[must_use]
     pub fn widow(&self) -> Ratio {
         self.widow.unwrap_or(Ratio::one())
     }
 
-    #[inline]
     #[must_use]
     pub fn orphan(&self) -> Ratio {
         self.orphan.unwrap_or(Ratio::one())

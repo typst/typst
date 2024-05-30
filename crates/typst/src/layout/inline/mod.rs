@@ -23,7 +23,8 @@ use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
 use crate::syntax::Span;
 use crate::text::{
-    Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    Costs, Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem,
+    TextElem,
 };
 use crate::utils::Numeric;
 use crate::World;
@@ -67,7 +68,7 @@ pub(crate) fn layout_inline(
         // Perform BiDi analysis and then prepare paragraph layout by building a
         // representation on which we can do line breaking without layouting
         // each and every line from scratch.
-        let p = prepare(&mut engine, children, &text, segments, spans, styles, region)?;
+        let p = prepare(&mut engine, children, &text, segments, spans, styles)?;
 
         // Break the paragraph into lines.
         let lines = linebreak(&engine, &p, region.x - p.hang);
@@ -99,15 +100,17 @@ type Range = std::ops::Range<usize>;
 
 // The characters by which spacing, inline content and pins are replaced in the
 // paragraph's full text.
-const SPACING_REPLACE: char = ' '; // Space
-const OBJ_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
+const SPACING_REPLACE: &str = " "; // Space
+const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
+const SPACING_REPLACE_CHAR: char = ' ';
+const OBJ_REPLACE_CHAR: char = '\u{FFFC}';
 
 // Unicode BiDi control characters.
-const LTR_EMBEDDING: char = '\u{202A}';
-const RTL_EMBEDDING: char = '\u{202B}';
-const POP_EMBEDDING: char = '\u{202C}';
-const LTR_ISOLATE: char = '\u{2066}';
-const POP_ISOLATE: char = '\u{2069}';
+const LTR_EMBEDDING: &str = "\u{202A}";
+const RTL_EMBEDDING: &str = "\u{202B}";
+const POP_EMBEDDING: &str = "\u{202C}";
+const LTR_ISOLATE: &str = "\u{2066}";
+const POP_ISOLATE: &str = "\u{2069}";
 
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
@@ -124,7 +127,8 @@ struct Preparation<'a> {
     spans: SpanMapper,
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
-    costs: crate::text::Costs,
+    /// Costs for various layout decisions.
+    costs: Costs,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
@@ -150,7 +154,7 @@ impl<'a> Preparation<'a> {
     fn find(&self, text_offset: usize) -> Option<&Item<'a>> {
         let mut cursor = 0;
         for item in &self.items {
-            let end = cursor + item.len();
+            let end = cursor + item.textual_len();
             if (cursor..end).contains(&text_offset) {
                 return Some(item);
             }
@@ -174,7 +178,7 @@ impl<'a> Preparation<'a> {
                 expanded.start = cursor;
             }
 
-            let len = item.len();
+            let len = item.textual_len();
             if cursor < text_range.end || cursor + len <= text_range.end {
                 end = i + 1;
                 expanded.end = cursor + len;
@@ -189,38 +193,24 @@ impl<'a> Preparation<'a> {
     }
 }
 
-/// A segment of one or multiple collapsed children.
-#[derive(Debug, Clone)]
+/// An item or not-yet shaped text. We can't shape text until we have collected
+/// all items because only then we can compute BiDi, and we need to split shape
+/// runs at level boundaries.
+#[derive(Debug)]
 enum Segment<'a> {
-    /// One or multiple collapsed text or text-equivalent children. Stores how
-    /// long the segment is (in bytes of the full text string).
-    Text(usize),
-    /// Horizontal spacing between other segments. Bool when true indicate weak space
-    Spacing(Spacing, bool),
-    /// A mathematical equation.
-    Equation(Vec<MathParItem>),
-    /// A box with arbitrary content.
-    Box(&'a Packed<BoxElem>, bool),
-    /// A tag.
-    Tag(&'a Packed<TagElem>),
+    /// One or multiple collapsed text children. Stores how long the segment is
+    /// (in bytes of the full text string).
+    Text(usize, StyleChain<'a>),
+    /// An already prepared item.
+    Item(Item<'a>),
 }
 
 impl Segment<'_> {
     /// The text length of the item.
-    fn len(&self) -> usize {
-        match *self {
-            Self::Text(len) => len,
-            Self::Spacing(_, _) => SPACING_REPLACE.len_utf8(),
-            Self::Box(_, frac) => {
-                (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
-            }
-            Self::Equation(ref par_items) => par_items
-                .iter()
-                .map(MathParItem::text)
-                .chain([LTR_ISOLATE, POP_ISOLATE])
-                .map(char::len_utf8)
-                .sum(),
-            Self::Tag(_) => 0,
+    fn textual_len(&self) -> usize {
+        match self {
+            Self::Text(len, _) => *len,
+            Self::Item(item) => item.textual_len(),
         }
     }
 }
@@ -235,12 +225,12 @@ enum Item<'a> {
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
-    Frame(Frame),
+    Frame(Frame, StyleChain<'a>),
     /// A tag.
     Tag(&'a Packed<TagElem>),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
-    Skip(char),
+    Skip(&'static str),
 }
 
 impl<'a> Item<'a> {
@@ -252,6 +242,7 @@ impl<'a> Item<'a> {
         }
     }
 
+    /// If this a text item, return it mutably.
     fn text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         match self {
             Self::Text(shaped) => Some(shaped),
@@ -259,16 +250,21 @@ impl<'a> Item<'a> {
         }
     }
 
-    /// The text length of the item.
-    #[allow(clippy::len_without_is_empty)]
-    fn len(&self) -> usize {
+    /// Return the textual representation of this item: Either just itself (for
+    /// a text item) or a replacement string (for any other item).
+    fn textual(&self) -> &str {
         match self {
-            Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
-            Self::Frame(_) => OBJ_REPLACE.len_utf8(),
-            Self::Tag(_) => 0,
-            Self::Skip(c) => c.len_utf8(),
+            Self::Text(shaped) => shaped.text,
+            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
+            Self::Frame(_, _) => OBJ_REPLACE,
+            Self::Tag(_) => "",
+            Self::Skip(s) => s,
         }
+    }
+
+    /// The text length of the item.
+    fn textual_len(&self) -> usize {
+        self.textual().len()
     }
 
     /// The natural layouted width of the item.
@@ -276,7 +272,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v, _) => *v,
-            Self::Frame(frame) => frame.width(),
+            Self::Frame(frame, _) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
@@ -375,7 +371,7 @@ impl<'a> Line<'a> {
                 start = i;
             }
 
-            let len = item.len();
+            let len = item.textual_len();
             if cursor < text_range.end || cursor + len <= text_range.end {
                 end = i + 1;
             } else {
@@ -432,18 +428,14 @@ impl<'a> Line<'a> {
 
 /// Collect all text of the paragraph into one string and layout equations. This
 /// also performs string-level preprocessing like case transformations.
-#[allow(clippy::type_complexity)]
 fn collect<'a>(
     children: &'a [Content],
     engine: &mut Engine<'_>,
     styles: &'a StyleChain<'a>,
     region: Size,
     consecutive: bool,
-) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
-    let mut full = String::new();
-    let mut quoter = SmartQuoter::new();
-    let mut segments = Vec::with_capacity(2 + children.len());
-    let mut spans = SpanMapper::new();
+) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
+    let mut collector = Collector::new(2 + children.len());
     let mut iter = children.iter().peekable();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
@@ -452,14 +444,14 @@ fn collect<'a>(
         && AlignElem::alignment_in(*styles).resolve(*styles).x
             == TextElem::dir_in(*styles).start().into()
     {
-        full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing(first_line_indent.into(), false), *styles));
+        collector.push_item(Item::Absolute(first_line_indent.resolve(*styles), false));
+        collector.spans.push(1, Span::detached());
     }
 
     let hang = ParElem::hanging_indent_in(*styles);
     if !hang.is_zero() {
-        full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing((-hang).into(), false), *styles));
+        collector.push_item(Item::Absolute(-hang, false));
+        collector.spans.push(1, Span::detached());
     }
 
     let outer_dir = TextElem::dir_in(*styles);
@@ -472,45 +464,51 @@ fn collect<'a>(
             styles = outer.chain(&styled.styles);
         }
 
-        let segment = if child.is::<SpaceElem>() {
-            full.push(' ');
-            Segment::Text(1)
+        let prev_len = collector.full.len();
+
+        if child.is::<SpaceElem>() {
+            collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
-            let prev = full.len();
-            let dir = TextElem::dir_in(styles);
-            if dir != outer_dir {
-                // Insert "Explicit Directional Embedding".
-                match dir {
-                    Dir::LTR => full.push(LTR_EMBEDDING),
-                    Dir::RTL => full.push(RTL_EMBEDDING),
-                    _ => {}
+            collector.build_text(styles, |full| {
+                let dir = TextElem::dir_in(styles);
+                if dir != outer_dir {
+                    // Insert "Explicit Directional Embedding".
+                    match dir {
+                        Dir::LTR => full.push_str(LTR_EMBEDDING),
+                        Dir::RTL => full.push_str(RTL_EMBEDDING),
+                        _ => {}
+                    }
                 }
-            }
 
-            if let Some(case) = TextElem::case_in(styles) {
-                full.push_str(&case.apply(elem.text()));
-            } else {
-                full.push_str(elem.text());
-            }
+                if let Some(case) = TextElem::case_in(styles) {
+                    full.push_str(&case.apply(elem.text()));
+                } else {
+                    full.push_str(elem.text());
+                }
 
-            if dir != outer_dir {
-                // Insert "Pop Directional Formatting".
-                full.push(POP_EMBEDDING);
-            }
-            Segment::Text(full.len() - prev)
+                if dir != outer_dir {
+                    // Insert "Pop Directional Formatting".
+                    full.push_str(POP_EMBEDDING);
+                }
+            });
         } else if let Some(elem) = child.to_packed::<HElem>() {
-            if elem.amount().is_zero() {
+            let amount = elem.amount();
+            if amount.is_zero() {
                 continue;
             }
 
-            full.push(SPACING_REPLACE);
-            Segment::Spacing(*elem.amount(), elem.weak(styles))
+            collector.push_item(match amount {
+                Spacing::Fr(fr) => Item::Fractional(*fr, None),
+                Spacing::Rel(rel) => Item::Absolute(
+                    rel.resolve(styles).relative_to(region.x),
+                    elem.weak(styles),
+                ),
+            });
         } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
-            let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
-            full.push(c);
-            Segment::Text(c.len_utf8())
+            collector
+                .push_text(if elem.justify(styles) { "\u{2028}" } else { "\n" }, styles);
         } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
-            let prev = full.len();
+            let double = elem.double(styles);
             if elem.enabled(styles) {
                 let quotes = SmartQuotes::new(
                     elem.quotes(styles),
@@ -535,57 +533,114 @@ fn collect<'a>(
                         // and peek at the next child.
                         || child.is::<TagElem>()
                     {
-                        Some(SPACING_REPLACE)
+                        Some(SPACING_REPLACE_CHAR)
                     } else {
-                        Some(OBJ_REPLACE)
+                        Some(OBJ_REPLACE_CHAR)
                     }
                 });
 
-                full.push_str(quoter.quote(&quotes, elem.double(styles), peeked));
+                let quote = collector.quoter.quote(&quotes, double, peeked);
+                collector.push_quote(quote, styles);
             } else {
-                full.push(if elem.double(styles) { '"' } else { '\'' });
+                collector.push_text(if double { "\"" } else { "'" }, styles);
             }
-            Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<EquationElem>() {
+            collector.push_item(Item::Skip(LTR_ISOLATE));
+
             let pod = Regions::one(region, Axes::splat(false));
-            let mut items = elem.layout_inline(engine, styles, pod)?;
-            for item in &mut items {
-                let MathParItem::Frame(frame) = item else { continue };
-                frame.post_process(styles);
+            for item in elem.layout_inline(engine, styles, pod)? {
+                match item {
+                    MathParItem::Space(space) => {
+                        // Spaces generated by math layout are weak.
+                        collector.push_item(Item::Absolute(space, true));
+                    }
+                    MathParItem::Frame(frame) => {
+                        collector.push_item(Item::Frame(frame, styles));
+                    }
+                }
             }
-            full.push(LTR_ISOLATE);
-            full.extend(items.iter().map(MathParItem::text));
-            full.push(POP_ISOLATE);
-            Segment::Equation(items)
+
+            collector.push_item(Item::Skip(POP_ISOLATE));
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
-            let frac = elem.width(styles).is_fractional();
-            full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
-            Segment::Box(elem, frac)
+            if let Sizing::Fr(v) = elem.width(styles) {
+                collector.push_item(Item::Fractional(v, Some((elem, styles))));
+            } else {
+                let pod = Regions::one(region, Axes::splat(false));
+                let frame = elem.layout(engine, styles, pod)?;
+                collector.push_item(Item::Frame(frame, styles));
+            }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
-            Segment::Tag(elem)
+            collector.push_item(Item::Tag(elem));
         } else {
             bail!(child.span(), "unexpected paragraph child");
         };
 
-        if let Some(last) = full.chars().last() {
-            quoter.last(last, child.is::<SmartQuoteElem>());
+        let len = collector.full.len() - prev_len;
+        collector.spans.push(len, child.span());
+    }
+
+    Ok((collector.full, collector.segments, collector.spans))
+}
+
+/// Collects segments.
+struct Collector<'a> {
+    full: String,
+    segments: Vec<Segment<'a>>,
+    spans: SpanMapper,
+    quoter: SmartQuoter,
+}
+
+impl<'a> Collector<'a> {
+    fn new(capacity: usize) -> Self {
+        Self {
+            full: String::new(),
+            segments: Vec::with_capacity(capacity),
+            spans: SpanMapper::new(),
+            quoter: SmartQuoter::new(),
+        }
+    }
+
+    fn push_text(&mut self, text: &str, styles: StyleChain<'a>) {
+        self.full.push_str(text);
+        self.push_segment(Segment::Text(text.len(), styles), false);
+    }
+
+    fn build_text<F>(&mut self, styles: StyleChain<'a>, f: F)
+    where
+        F: FnOnce(&mut String),
+    {
+        let prev = self.full.len();
+        f(&mut self.full);
+        let len = self.full.len() - prev;
+        self.push_segment(Segment::Text(len, styles), false);
+    }
+
+    fn push_quote(&mut self, quote: &str, styles: StyleChain<'a>) {
+        self.full.push_str(quote);
+        self.push_segment(Segment::Text(quote.len(), styles), true);
+    }
+
+    fn push_item(&mut self, item: Item<'a>) {
+        self.full.push_str(item.textual());
+        self.push_segment(Segment::Item(item), false);
+    }
+
+    fn push_segment(&mut self, segment: Segment<'a>, is_quote: bool) {
+        if let Some(last) = self.full.chars().last() {
+            self.quoter.last(last, is_quote);
         }
 
-        spans.push(segment.len(), child.span());
-
-        if let (Some((Segment::Text(last_len), last_styles)), Segment::Text(len)) =
-            (segments.last_mut(), &segment)
+        if let (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles)) =
+            (self.segments.last_mut(), &segment)
         {
-            if *last_styles == styles {
-                *last_len += len;
-                continue;
+            if *last_styles == *styles {
+                *last_len += *len;
+                return;
             }
         }
 
-        segments.push((segment, styles));
+        self.segments.push(segment);
     }
-
-    Ok((full, segments, spans))
 }
 
 /// Prepare paragraph layout by shaping the whole paragraph.
@@ -593,15 +648,13 @@ fn prepare<'a>(
     engine: &mut Engine,
     children: &'a [Content],
     text: &'a str,
-    segments: Vec<(Segment<'a>, StyleChain<'a>)>,
+    segments: Vec<Segment<'a>>,
     spans: SpanMapper,
     styles: StyleChain<'a>,
-    region: Size,
 ) -> SourceResult<Preparation<'a>> {
-    let dir = TextElem::dir_in(styles);
     let bidi = BidiInfo::new(
         text,
-        match dir {
+        match TextElem::dir_in(styles) {
             Dir::LTR => Some(BidiLevel::ltr()),
             Dir::RTL => Some(BidiLevel::rtl()),
             _ => None,
@@ -611,50 +664,14 @@ fn prepare<'a>(
     let mut cursor = 0;
     let mut items = Vec::with_capacity(segments.len());
 
-    // Shape / layout the children and collect them into items.
-    for (segment, styles) in segments {
-        let end = cursor + segment.len();
+    // Shape the text to finalize the items.
+    for segment in segments {
+        let end = cursor + segment.textual_len();
         match segment {
-            Segment::Text(_) => {
+            Segment::Text(_, styles) => {
                 shape_range(&mut items, engine, &bidi, cursor..end, &spans, styles);
             }
-            Segment::Spacing(spacing, weak) => match spacing {
-                Spacing::Rel(v) => {
-                    let resolved = v.resolve(styles).relative_to(region.x);
-                    items.push(Item::Absolute(resolved, weak));
-                }
-                Spacing::Fr(v) => {
-                    items.push(Item::Fractional(v, None));
-                }
-            },
-            Segment::Equation(par_items) => {
-                items.push(Item::Skip(LTR_ISOLATE));
-                for item in par_items {
-                    match item {
-                        // MathParItem space are assumed to be weak space
-                        MathParItem::Space(s) => items.push(Item::Absolute(s, true)),
-                        MathParItem::Frame(mut frame) => {
-                            frame.translate(Point::with_y(TextElem::baseline_in(styles)));
-                            items.push(Item::Frame(frame));
-                        }
-                    }
-                }
-                items.push(Item::Skip(POP_ISOLATE));
-            }
-            Segment::Box(elem, _) => {
-                if let Sizing::Fr(v) = elem.width(styles) {
-                    items.push(Item::Fractional(v, Some((elem, styles))));
-                } else {
-                    let pod = Regions::one(region, Axes::splat(false));
-                    let mut frame = elem.layout(engine, styles, pod)?;
-                    frame.post_process(styles);
-                    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
-                    items.push(Item::Frame(frame));
-                }
-            }
-            Segment::Tag(tag) => {
-                items.push(Item::Tag(tag));
-            }
+            Segment::Item(item) => items.push(item),
         }
 
         cursor = end;
@@ -665,14 +682,12 @@ fn prepare<'a>(
         add_cjk_latin_spacing(&mut items);
     }
 
-    let costs = TextElem::costs_in(styles);
-
     Ok(Preparation {
         bidi,
         items,
         spans,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
-        costs,
+        costs: TextElem::costs_in(styles),
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
@@ -1440,8 +1455,11 @@ fn commit(
                 frame.post_process(shaped.styles);
                 push(&mut offset, frame);
             }
-            Item::Frame(frame) => {
-                push(&mut offset, frame.clone());
+            Item::Frame(frame, styles) => {
+                let mut frame = frame.clone();
+                frame.post_process(*styles);
+                frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
+                push(&mut offset, frame);
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
