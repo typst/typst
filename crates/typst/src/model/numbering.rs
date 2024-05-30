@@ -203,7 +203,12 @@ impl FromStr for NumberingPattern {
         let mut handled = 0;
 
         for (i, c) in pattern.char_indices() {
-            let Some(kind) = NumberingKind::from_char(c.to_ascii_lowercase()) else {
+            // unicode to_lowercase may corresponds to multiple ones
+            let Some(kind) = c
+                .to_lowercase()
+                .filter_map(|lower_case| NumberingKind::from_char(lower_case))
+                .next()
+            else {
                 continue;
             };
 
