@@ -224,6 +224,11 @@ impl Value {
             v => v,
         }
     }
+
+    /// Returns `true` if the value is `None`.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
 }
 
 impl Debug for Value {

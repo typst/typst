@@ -9,29 +9,9 @@ use crate::utils::PicoStr;
 use crate::Library;
 
 use super::closure::Closure;
-use super::compiler::Compiler;
+use super::compiler::{Compiler, DynamicModule};
 use super::opcodes::{AccessId, Opcode, PatternId, Readable, Writable};
 use super::operands::{Register, StringId};
-
-pub enum CompiledModule {
-    /// A module that needs to be resolved dynamically but for which we
-    /// know the exports the user is interested in.
-    Dynamic(Arc<LazyHash<CompiledCode>>),
-    /// A module that has been instantiated statically.
-    Instanciated(Module),
-}
-
-impl CompiledModule {
-    /// Checks whether the module is dynamic.
-    pub fn is_dynamic(&self) -> bool {
-        matches!(self, Self::Dynamic(_))
-    }
-
-    /// Returns the name of the module.
-    pub fn name(&self) -> &str {
-        "unknown"
-    }
-}
 
 #[derive(Clone, Hash)]
 pub struct CompiledCode {
@@ -51,6 +31,8 @@ pub struct CompiledCode {
     pub constants: Box<[Value]>,
     /// The list of strings.
     pub strings: Box<[Value]>,
+    /// The list of modules.
+    pub modules: Box<[DynamicModule]>,
     /// The list of closures.
     pub closures: Box<[CompiledClosure]>,
     /// The accesses.

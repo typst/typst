@@ -4,3 +4,5 @@ pub mod compiler;
 pub mod module;
 pub mod opcodes;
 pub mod operands;
+pub mod interpreter;
+pub mod ops;

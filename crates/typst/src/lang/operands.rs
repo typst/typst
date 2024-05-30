@@ -10,7 +10,6 @@ pub enum Readable {
     Math(Math),
     Bool(bool),
     Label(LabelId),
-    Module(ModuleId),
     Access(AccessId),
     None,
     Auto,
@@ -55,11 +54,6 @@ impl Readable {
     /// Creates a new math readable.
     pub const fn math(math: Math) -> Self {
         Self::Math(math)
-    }
-
-    /// Creates a new module readable.
-    pub const fn module(module: ModuleId) -> Self {
-        Self::Module(module)
     }
 
     /// Creates a new access readable.
@@ -144,17 +138,6 @@ impl Readable {
         }
     }
 
-    /// Returns this readable as a module.
-    ///
-    /// # Panics
-    /// Panics if the readable is not a module.
-    pub fn as_module(self) -> ModuleId {
-        match self {
-            Self::Module(module) => module,
-            _ => unreachable!(),
-        }
-    }
-
     /// Returns true if the operand is a register.
     pub fn is_reg(self) -> bool {
         matches!(self, Self::Reg(_))
@@ -171,7 +154,6 @@ impl fmt::Debug for Readable {
             Self::Math(math) => math.fmt(f),
             Self::Bool(value) => write!(f, "{value}"),
             Self::Label(label) => label.fmt(f),
-            Self::Module(module) => module.fmt(f),
             Self::Access(access) => access.fmt(f),
             Self::None => write!(f, "none"),
             Self::Auto => write!(f, "auto"),
@@ -218,12 +200,6 @@ impl From<bool> for Readable {
 impl From<LabelId> for Readable {
     fn from(label: LabelId) -> Self {
         Self::Label(label)
-    }
-}
-
-impl From<ModuleId> for Readable {
-    fn from(module: ModuleId) -> Self {
-        Self::Module(module)
     }
 }
 

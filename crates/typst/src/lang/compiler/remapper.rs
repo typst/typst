@@ -12,6 +12,8 @@ use crate::lang::operands::{
 };
 use crate::utils::hash128;
 
+use super::DynamicModule;
+
 pub struct Remapper<K, V> {
     values: IndexMap<u128, (K, V)>,
     map: HashMap<K, u128>,
@@ -199,6 +201,14 @@ impl IntoCompiledValue for Span {
 
 impl IntoCompiledValue for CompiledClosure {
     type CompiledValue = CompiledClosure;
+
+    fn into_compiled_value(self) -> Self::CompiledValue {
+        self
+    }
+}
+
+impl IntoCompiledValue for DynamicModule {
+    type CompiledValue = DynamicModule;
 
     fn into_compiled_value(self) -> Self::CompiledValue {
         self

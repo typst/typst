@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::{self, Sum};
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Deref, DerefMut};
+use std::slice;
 use std::sync::Arc;
 
 use comemo::Tracked;
@@ -135,6 +136,11 @@ impl Content {
     /// Get the label of the content.
     pub fn label(&self) -> Option<Label> {
         self.inner.label
+    }
+
+    /// Set the label of the content.
+    pub fn set_label(&mut self, label: Label) {
+        self.make_mut().label = Some(label);
     }
 
     /// Set the label of the content.
@@ -879,6 +885,33 @@ impl Debug for SequenceElem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Sequence ")?;
         f.debug_list().entries(&self.children).finish()
+    }
+}
+
+impl SequenceElem {
+    /// Get a mutable reference to the children of the sequence.
+    pub fn children_mut(&mut self) -> slice::IterMut<'_, Content> {
+        self.children.iter_mut()
+    }
+
+    /// Pushes a new child to the sequence.
+    pub fn push(&mut self, child: impl Into<Content>) {
+        self.children.push(child.into());
+    }
+
+    /// Whether the sequence is empty.
+    pub fn is_empty(&self) -> bool {
+        self.children.is_empty()
+    }
+
+    /// The number of children in the sequence.
+    pub fn len(&self) -> usize {
+        self.children.len()
+    }
+
+    /// Removes the last child from the sequence and returns it.
+    pub fn pop(&mut self) -> Option<Content> {
+        self.children.pop()
     }
 }
 

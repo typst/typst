@@ -116,6 +116,15 @@ impl Styles {
         self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
+    /// Apply an iterator of outer styles.
+    pub fn apply_iter<I: Into<LazyHash<Style>>>(
+        &mut self,
+        styles: impl IntoIterator<Item = I>,
+    ) {
+        self.0.extend(styles.into_iter().map(Into::into));
+    }
+
+
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
@@ -145,6 +154,15 @@ impl Styles {
                 .chain(TextElem::font_in(existing).into_iter().cloned())
                 .collect(),
         )));
+    }
+}
+
+impl IntoIterator for Styles {
+    type Item = LazyHash<Style>;
+    type IntoIter = ecow::vec::IntoIter<LazyHash<Style>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

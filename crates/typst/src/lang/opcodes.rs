@@ -1,11 +1,16 @@
 use std::num::NonZeroU32;
 
+use comemo::Tracked;
+
 use typst_syntax::Span;
 use typst_utils::PicoStr;
 
-use super::operands::ModuleId;
+use crate::engine::Engine;
+use crate::diag::SourceResult;
+use crate::foundations::{Context, Value};
+
 pub use super::operands::{
-    AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
+    ModuleId, AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
 };
 
 macro_rules! opcode_filter {
@@ -124,6 +129,38 @@ macro_rules! opcodes {
                     })?
                 }
             )*
+        }
+
+        impl crate::lang::interpreter::Run for Opcode {
+            fn run(
+                &self,
+                instructions: &[Opcode],
+                spans: &[Span],
+                span: Span,
+                vm: &mut crate::lang::interpreter::Vm,
+                engine: &mut Engine,
+                context: Tracked<Context>,
+                iterator: Option<&mut dyn Iterator<Item = Value>>
+            ) -> SourceResult<()> {
+                vm.next();
+
+                let isr = vm.instruction_pointer();
+                match self {
+                    Self::Flow => Ok(()),
+                    $(Self::$name($snek) => {
+                        $snek.run(
+                            &instructions[isr..],
+                            &spans[isr..],
+                            span,
+                            vm,
+                            engine,
+                            context,
+                            iterator
+                        )
+                    })*
+                }
+            }
+
         }
     }
 }

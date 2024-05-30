@@ -29,6 +29,12 @@ use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::lang::compiled::CodeCapture;
 use crate::Library;
 
+use super::compiled::{CompiledClosure, CompiledCode, CompiledParam, DefaultValue};
+use super::opcodes::{ClosureId, Opcode, Readable};
+use super::operands::{
+    AccessId, Constant, LabelId, ModuleId, PatternId, Pointer, SpanId, StringId, Writable,
+};
+
 pub use self::access::*;
 pub use self::import::*;
 pub use self::pattern::*;
@@ -37,12 +43,6 @@ pub use self::remapper::*;
 pub use self::scope::*;
 
 pub use crate::__copy_constant as copy_constant;
-
-use super::compiled::{CompiledClosure, CompiledCode, CompiledParam, DefaultValue};
-use super::opcodes::{ClosureId, Opcode, Readable};
-use super::operands::{
-    AccessId, Constant, LabelId, ModuleId, PatternId, Pointer, SpanId, StringId, Writable,
-};
 
 const DEFAULT_CAPACITY: usize = 8 << 10;
 
@@ -289,7 +289,6 @@ impl<'lib> Compiler<'lib> {
                 let label = self.labels.get(&label)?;
                 Some(Cow::Owned(Value::Label(*label)))
             }
-            Readable::Module(_) => None,
             Readable::Access(access) => {
                 let access = self.get_access(&access)?;
                 access.resolve(self).ok().flatten().map(Cow::Owned)
@@ -408,6 +407,7 @@ impl<'lib> Compiler<'lib> {
             labels: self.labels.into_values().into(),
             patterns: self.patterns.into_values().into(),
             isr_spans: self.spans.into_values().into(),
+            modules: self.modules.into_values().into(),
             jumps: jumps.into(),
             exports: None,
             captures: Some(captures.into()),
