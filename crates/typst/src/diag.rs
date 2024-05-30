@@ -38,9 +38,14 @@ use crate::{World, WorldExt};
 #[doc(hidden)]
 macro_rules! __bail {
     // For bail!("just a {}", "string")
-    ($fmt:literal $(, $arg:expr)* $(,)?) => {
+    (
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         return Err($crate::diag::error!(
-            $fmt, $($arg),*
+            $fmt $(, $arg)*
+            $(; hint: $hint $(, $hint_arg:expr)*)*
         ))
     };
 
@@ -55,13 +60,25 @@ macro_rules! __bail {
     };
 }
 
-/// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
+/// Construct an [`EcoString`], [`HintedString`] or [`SourceDiagnostic`] with
+/// severity `Error`.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
     // For bail!("just a {}", "string").
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
         $crate::diag::eco_format!($fmt, $($arg),*).into()
+    };
+
+    // For bail!("a hinted {}", "string"; hint: "some hint"; hint: "...")
+    (
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
+        $crate::diag::HintedString::new(
+            $crate::diag::eco_format!($fmt, $($arg),*)
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 
     // For bail!(span, ...)
