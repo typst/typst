@@ -1,4 +1,5 @@
 // SKIP
+#import "chap1.typ"
 #let name = "Klaus"
 
 == Chapter 2

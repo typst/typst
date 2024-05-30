@@ -99,20 +99,28 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         let Some(value) = mapped.first() else {
             bail!("no such field found for element");
         };
-        serialize(value, command.format)
+        serialize(value, command.format, command.pretty)
     } else {
-        serialize(&mapped, command.format)
+        serialize(&mapped, command.format, command.pretty)
     }
 }
 
 /// Serialize data to the output format.
-fn serialize(data: &impl Serialize, format: SerializationFormat) -> StrResult<String> {
+fn serialize(
+    data: &impl Serialize,
+    format: SerializationFormat,
+    pretty: bool,
+) -> StrResult<String> {
     match format {
         SerializationFormat::Json => {
-            serde_json::to_string_pretty(data).map_err(|e| eco_format!("{e}"))
+            if pretty {
+                serde_json::to_string_pretty(data).map_err(|e| eco_format!("{e}"))
+            } else {
+                serde_json::to_string(data).map_err(|e| eco_format!("{e}"))
+            }
         }
         SerializationFormat::Yaml => {
-            serde_yaml::to_string(&data).map_err(|e| eco_format!("{e}"))
+            serde_yaml::to_string(data).map_err(|e| eco_format!("{e}"))
         }
     }
 }

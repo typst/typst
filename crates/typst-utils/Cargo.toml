@@ -14,9 +14,10 @@ readme = { workspace = true }
 
 [dependencies]
 once_cell = { workspace = true }
-siphasher = { workspace = true }
 portable-atomic = { workspace = true }
 rayon = { workspace = true }
+siphasher = { workspace = true }
+thin-vec = { workspace = true }
 
 [lints]
 workspace = true

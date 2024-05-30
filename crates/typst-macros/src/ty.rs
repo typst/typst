@@ -29,16 +29,22 @@ pub fn ty(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
 /// Holds all relevant parsed data about a type.
 struct Type {
     meta: Meta,
+    /// The name for this type given in Rust.
     ident: Ident,
+    /// The type's identifier as exposed to Typst.
     name: String,
     long: String,
+    /// The type's title case name.
     title: String,
+    /// The documentation for this type as a string.
     docs: String,
 }
 
 /// The `..` in `#[ty(..)]`.
 struct Meta {
+    /// Whether this element has an associated scope defined by the `#[scope]` macro.
     scope: bool,
+    /// Whether a custom cast implementation will be defined for this type.
     cast: bool,
     name: Option<String>,
     title: Option<String>,

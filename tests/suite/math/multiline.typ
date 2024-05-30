@@ -86,9 +86,12 @@ Multiple trailing line breaks.
 
 --- math-linebreaking-between-consecutive-relations ---
 // A relation followed by a relation doesn't linebreak
+// so essentially `a < = b` can be broken to `a` and `< = b`, `a < =` and `b`
+// but never `a <` and `= b` because `< =` are consecutive relation that should
+// be grouped together and no break between them.
 #let hrule(x) = box(line(length: x))
 #hrule(70pt)$a < = b$\
-#hrule(74pt)$a < = b$
+#hrule(78pt)$a < = b$
 
 --- math-linebreaking-after-relation-without-space ---
 // Line breaks can happen after a relation even if there is no
@@ -103,6 +106,29 @@ Multiple trailing line breaks.
 // Verify empty rows are handled ok.
 $ $\
 Nothing: $ $, just empty.
+
+--- math-pagebreaking ---
+// Test breaking of equations at page boundaries.
+#set page(height: 5em)
+#show math.equation: set block(breakable: true)
+
+$ a &+ b + & c \
+  a &+ b   &   && + d \
+  a &+ b + & c && + d \
+    &      & c && + d \
+    &= 0 $
+
+--- math-pagebreaking-numbered ---
+// Test breaking of equations with numbering.
+#set page(height: 5em)
+#set math.equation(numbering: "1")
+#show math.equation: set block(breakable: true)
+
+$ a &+ b + & c \
+  a &+ b   &   && + d \
+  a &+ b + & c && + d \
+    &      & c && + d \
+    &= 0 $
 
 --- issue-1948-math-text-break ---
 // Test text with linebreaks in math.

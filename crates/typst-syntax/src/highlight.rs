@@ -277,6 +277,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::ForLoop => None,
         SyntaxKind::ModuleImport => None,
         SyntaxKind::ImportItems => None,
+        SyntaxKind::ImportItemPath => None,
         SyntaxKind::RenamedImportItem => None,
         SyntaxKind::ModuleInclude => None,
         SyntaxKind::LoopBreak => None,

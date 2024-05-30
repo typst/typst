@@ -63,23 +63,62 @@ impl Eval for ast::ModuleImport<'_> {
             Some(ast::Imports::Items(items)) => {
                 let mut errors = eco_vec![];
                 for item in items.iter() {
-                    let original_ident = item.original_name();
-                    if let Some(value) = scope.get(&original_ident) {
-                        // Warn on `import ...: x as x`
-                        if let ast::ImportItem::Renamed(renamed_item) = &item {
-                            if renamed_item.original_name().as_str()
-                                == renamed_item.new_name().as_str()
-                            {
-                                vm.engine.tracer.warn(warning!(
-                                    renamed_item.new_name().span(),
-                                    "unnecessary import rename to same name",
-                                ));
-                            }
-                        }
+                    let mut path = item.path().iter().peekable();
+                    let mut scope = scope;
 
-                        vm.define(item.bound_name(), value.clone());
-                    } else {
-                        errors.push(error!(original_ident.span(), "unresolved import"));
+                    while let Some(component) = &path.next() {
+                        let Some(value) = scope.get(component) else {
+                            errors.push(error!(component.span(), "unresolved import"));
+                            break;
+                        };
+
+                        if path.peek().is_some() {
+                            // Nested import, as this is not the last component.
+                            // This must be a submodule.
+                            let Some(submodule) = value.scope() else {
+                                let error = if matches!(value, Value::Func(function) if function.scope().is_none())
+                                {
+                                    error!(
+                                        component.span(),
+                                        "cannot import from user-defined functions"
+                                    )
+                                } else if !matches!(
+                                    value,
+                                    Value::Func(_) | Value::Module(_) | Value::Type(_)
+                                ) {
+                                    error!(
+                                        component.span(),
+                                        "expected module, function, or type, found {}",
+                                        value.ty()
+                                    )
+                                } else {
+                                    panic!("unexpected nested import failure")
+                                };
+                                errors.push(error);
+                                break;
+                            };
+
+                            // Walk into the submodule.
+                            scope = submodule;
+                        } else {
+                            // Now that we have the scope of the innermost submodule
+                            // in the import path, we may extract the desired item from
+                            // it.
+
+                            // Warn on `import ...: x as x`
+                            if let ast::ImportItem::Renamed(renamed_item) = &item {
+                                if renamed_item.original_name().as_str()
+                                    == renamed_item.new_name().as_str()
+                                {
+                                    vm.engine.tracer.warn(warning!(
+                                        renamed_item.new_name().span(),
+                                        "unnecessary import rename to same name",
+                                    ));
+                                }
+                            }
+
+                            vm.define(item.bound_name(), value.clone());
+                        }
                     }
                 }
                 if !errors.is_empty() {

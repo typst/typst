@@ -27,15 +27,19 @@ pub struct PicoStr(u32);
 impl PicoStr {
     /// Creates a new interned string.
     pub fn new(string: &str) -> Self {
-        if let Some(&id) = INTERNER.read().unwrap().to_id.get(string) {
+        // Try to find an existing entry that we can reuse.
+        //
+        // We could check with just a read lock, but if the string is not yet
+        // present, we would then need to recheck after acquiring a write lock,
+        // which is probably not worth it.
+        let mut interner = INTERNER.write().unwrap();
+        if let Some(&id) = interner.to_id.get(string) {
             return id;
         }
 
-        let mut interner = INTERNER.write().unwrap();
-        let num = interner.from_id.len().try_into().expect("out of string ids");
-
         // Create a new entry forever by leaking the string. PicoStr is only
         // used for strings that aren't created en masse, so it is okay.
+        let num = interner.from_id.len().try_into().expect("out of string ids");
         let id = Self(num);
         let string = Box::leak(string.to_string().into_boxed_str());
         interner.to_id.insert(string, id);

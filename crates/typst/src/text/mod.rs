@@ -29,13 +29,14 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
+use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
 use rustybuzz::{Feature, Tag};
 use smallvec::SmallVec;
 use ttf_parser::Rect;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult};
+use crate::diag::{bail, warning, At, Hint, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
@@ -393,6 +394,7 @@ pub struct TextElem {
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
+    #[parse(parse_lang(args)?)]
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,
@@ -1233,36 +1235,34 @@ impl Fold for WeightDelta {
     }
 }
 
-/// Costs that are updated (prioritizing the later value) when folded.
+/// Costs for various layout decisions.
+///
+/// Costs are updated (prioritizing the later value) when folded.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-#[non_exhaustive] // We may add more costs in the future.
+#[non_exhaustive]
 pub struct Costs {
-    pub hyphenation: Option<Ratio>,
-    pub runt: Option<Ratio>,
-    pub widow: Option<Ratio>,
-    pub orphan: Option<Ratio>,
+    hyphenation: Option<Ratio>,
+    runt: Option<Ratio>,
+    widow: Option<Ratio>,
+    orphan: Option<Ratio>,
 }
 
 impl Costs {
-    #[inline]
     #[must_use]
     pub fn hyphenation(&self) -> Ratio {
         self.hyphenation.unwrap_or(Ratio::one())
     }
 
-    #[inline]
     #[must_use]
     pub fn runt(&self) -> Ratio {
         self.runt.unwrap_or(Ratio::one())
     }
 
-    #[inline]
     #[must_use]
     pub fn widow(&self) -> Ratio {
         self.widow.unwrap_or(Ratio::one())
     }
 
-    #[inline]
     #[must_use]
     pub fn orphan(&self) -> Ratio {
         self.orphan.unwrap_or(Ratio::one())
@@ -1299,4 +1299,28 @@ cast! {
         v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
         ret
     },
+}
+
+/// Function to parse the language argument.
+/// Provides a hint if a region is used in the language parameter.
+fn parse_lang(args: &mut Args) -> SourceResult<Option<Lang>> {
+    let Some(Spanned { v: iso, span }) = args.named::<Spanned<EcoString>>("lang")? else {
+        return Ok(None);
+    };
+
+    let result = Lang::from_str(&iso);
+    if result.is_err() {
+        if let Some((lang, region)) = iso.split_once('-') {
+            if Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
+                return result
+                    .hint(eco_format!(
+                        "you should leave only \"{}\" in the `lang` parameter and specify \"{}\" in the `region` parameter",
+                        lang, region,
+                    ))
+                    .at(span)
+                    .map(Some);
+            }
+        }
+    }
+    result.at(span).map(Some)
 }

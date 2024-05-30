@@ -38,7 +38,7 @@ pub fn tooltip(
 }
 
 /// A hover tooltip.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Tooltip {
     /// A string of text.
     Text(EcoString),
@@ -249,4 +249,40 @@ fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     };
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use typst::eval::Tracer;
+    use typst::syntax::Side;
+
+    use super::{tooltip, Tooltip};
+    use crate::tests::TestWorld;
+
+    fn text(text: &str) -> Option<Tooltip> {
+        Some(Tooltip::Text(text.into()))
+    }
+
+    fn code(code: &str) -> Option<Tooltip> {
+        Some(Tooltip::Code(code.into()))
+    }
+
+    #[track_caller]
+    fn test(text: &str, cursor: usize, side: Side, expected: Option<Tooltip>) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world, &mut Tracer::new()).ok();
+        assert_eq!(tooltip(&world, doc.as_ref(), &world.main, cursor, side), expected);
+    }
+
+    #[test]
+    fn test_tooltip() {
+        test("#let x = 1 + 2", 5, Side::After, code("3"));
+        test("#let x = 1 + 2", 6, Side::Before, code("3"));
+        test("#let f(x) = x + y", 11, Side::Before, text("This closure captures `y`."));
+    }
+
+    #[test]
+    fn test_empty_contextual() {
+        test("#{context}", 10, Side::Before, code("context()"));
+    }
 }

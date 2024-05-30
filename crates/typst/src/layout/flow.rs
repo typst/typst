@@ -13,9 +13,9 @@ use crate::foundations::{
 };
 use crate::introspection::TagElem;
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
-    Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
-    Rel, Size, Spacing, VElem,
+    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment,
+    FlushElem, Fr, Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem,
+    Point, Regions, Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::utils::Numeric;
@@ -46,7 +46,23 @@ impl LayoutMultiple for Packed<FlowElem> {
             bail!(self.span(), "cannot expand into infinite height");
         }
 
-        let mut layouter = FlowLayouter::new(regions, styles);
+        // Check whether we have just a single multiple-layoutable element. In
+        // that case, we do not set `expand.y` to `false`, but rather keep it at
+        // its original value (since that element can take the full space).
+        //
+        // Consider the following code: `block(height: 5cm, pad(10pt, align(bottom, ..)))`
+        // Thanks to the code below, the expansion will be passed all the way
+        // through the block & pad and reach the innermost flow, so that things
+        // are properly bottom-aligned.
+        let mut alone = false;
+        if let [child] = self.children().as_slice() {
+            alone = child
+                .to_packed::<StyledElem>()
+                .map_or(child, |styled| &styled.child)
+                .can::<dyn LayoutMultiple>();
+        }
+
+        let mut layouter = FlowLayouter::new(regions, styles, alone);
         for mut child in self.children().iter() {
             let outer = styles;
             let mut styles = styles;
@@ -57,6 +73,8 @@ impl LayoutMultiple for Packed<FlowElem> {
 
             if let Some(elem) = child.to_packed::<TagElem>() {
                 layouter.layout_tag(elem);
+            } else if child.is::<FlushElem>() {
+                layouter.flush(engine)?;
             } else if let Some(elem) = child.to_packed::<VElem>() {
                 layouter.layout_spacing(engine, elem, styles)?;
             } else if let Some(placed) = child.to_packed::<PlaceElem>() {
@@ -70,8 +88,8 @@ impl LayoutMultiple for Packed<FlowElem> {
                 layouter.layout_par(engine, elem, styles)?;
             } else if let Some(layoutable) = child.with::<dyn LayoutSingle>() {
                 layouter.layout_single(engine, layoutable, styles)?;
-            } else if child.can::<dyn LayoutMultiple>() {
-                layouter.layout_multiple(engine, child, styles)?;
+            } else if let Some(layoutable) = child.with::<dyn LayoutMultiple>() {
+                layouter.layout_multiple(engine, child, layoutable, styles)?;
             } else {
                 bail!(child.span(), "unexpected flow child");
             }
@@ -179,11 +197,16 @@ impl FlowItem {
 
 impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(mut regions: Regions<'a>, styles: StyleChain<'a>) -> Self {
+    fn new(mut regions: Regions<'a>, styles: StyleChain<'a>, alone: bool) -> Self {
         let expand = regions.expand;
 
-        // Disable vertical expansion & root for children.
-        regions.expand.y = false;
+        // Disable vertical expansion when there are multiple or not directly
+        // layoutable children.
+        if !alone {
+            regions.expand.y = false;
+        }
+
+        // Disable root.
         let root = std::mem::replace(&mut regions.root, false);
 
         Self {
@@ -340,6 +363,7 @@ impl<'a> FlowLayouter<'a> {
         &mut self,
         engine: &mut Engine,
         child: &Content,
+        layoutable: &dyn LayoutMultiple,
         styles: StyleChain,
     ) -> SourceResult<()> {
         // Temporarily delegerate rootness to the columns.
@@ -368,7 +392,7 @@ impl<'a> FlowLayouter<'a> {
 
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
-        let fragment = child.layout(engine, styles, self.regions)?;
+        let fragment = layoutable.layout(engine, styles, self.regions)?;
 
         for (i, mut frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.
@@ -656,6 +680,18 @@ impl<'a> FlowLayouter<'a> {
         // Try to place floats into the next region.
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
+        }
+
+        Ok(())
+    }
+
+    /// Lays out all floating elements before continuing with other content.
+    fn flush(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        for item in std::mem::take(&mut self.pending_floats) {
+            self.layout_item(engine, item)?;
+        }
+        while !self.pending_floats.is_empty() {
+            self.finish_region(engine, false)?;
         }
 
         Ok(())
