@@ -385,19 +385,23 @@
 )
 
 --- table-hline-in-grid ---
-// Error: 7-20 cannot use `table.hline` as a grid line; use `grid.hline` instead
+// Error: 7-20 cannot use `table.hline` as a grid line
+// Hint: 7-20 use `grid.hline` instead
 #grid(table.hline())
 
 --- table-vline-in-grid ---
-// Error: 7-20 cannot use `table.vline` as a grid line; use `grid.vline` instead
+// Error: 7-20 cannot use `table.vline` as a grid line
+// Hint: 7-20 use `grid.vline` instead
 #grid(table.vline())
 
 --- grid-hline-in-table ---
-// Error: 8-20 cannot use `grid.hline` as a table line; use `table.hline` instead
+// Error: 8-20 cannot use `grid.hline` as a table line
+// Hint: 8-20 use `table.hline` instead
 #table(grid.hline())
 
 --- grid-vline-in-table ---
-// Error: 8-20 cannot use `grid.vline` as a table line; use `table.vline` instead
+// Error: 8-20 cannot use `grid.vline` as a table line
+// Hint: 8-20 use `table.vline` instead
 #table(grid.vline())
 
 --- grid-hline-end-before-start-1 ---
