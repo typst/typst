@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use crate::diag::{Hint, HintedString};
+use crate::diag::Hint;
 use ecow::{eco_format, EcoString};
 
 use crate::foundations::{cast, StyleChain};
@@ -123,11 +123,11 @@ cast! {
     Lang,
     self => self.as_str().into_value(),
     string: EcoString => {
-        let mut result = Self::from_str(&string).map_err(HintedString::from);
+        let result = Self::from_str(&string);
         if result.is_err() {
             if let Some((lang, region)) = string.split_once('-') {
                 if Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
-                    result = result
+                    return result
                         .hint(eco_format!(
                             "you should leave only \"{}\" in the `lang` parameter and specify \"{}\" in the `region` parameter",
                             lang, region,
