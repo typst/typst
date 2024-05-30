@@ -121,6 +121,33 @@ Second
   image("/assets/images/diagram.svg", width: 80%),
 )
 
+--- place-float-flush ---
+#set page(height: 150pt, width: 150pt)
+
+#let floater = place(auto, float: true, rect(width: 100%, height: 90pt, text(size: 24pt)[I float!]))
+
+Some introductory text.
+
+#floater #floater #floater #floater
+
+Some additional text.
+
+#place.flush()
+
+Some conclusive text. // Should appear after all the floating figures
+
+--- place-figure-flush ---
+
+#set page(height: 165pt, width: 150pt)
+
+Some introductory text: #lorem(15)
+
+#figure(placement: auto, caption: [A self-describing figure], rect(width: 100%, height: 64pt, [I float with a caption!]))
+
+#place.flush()
+
+Some conclusive text that must occur after the figure.
+
 --- place-bottom-in-box ---
 #box(
   fill: aqua,

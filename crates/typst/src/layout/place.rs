@@ -1,6 +1,6 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain, Unlabellable};
 use crate::layout::{
     Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, Size, VAlignment,
 };
@@ -26,7 +26,7 @@ use crate::realize::{Behave, Behaviour};
 ///   ),
 /// )
 /// ```
-#[elem(Behave)]
+#[elem(scope, Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -43,7 +43,9 @@ pub struct PlaceElem {
     /// Whether the placed element has floating layout.
     ///
     /// Floating elements are positioned at the top or bottom of the page,
-    /// displacing in-flow content.
+    /// displacing in-flow content. They are always placed in the in-flow
+    /// order relative to each other, as well as before any content following
+    /// a later [`flush`] element.
     ///
     /// ```example
     /// #set page(height: 150pt)
@@ -95,6 +97,12 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
+#[scope]
+impl PlaceElem {
+    #[elem]
+    type FlushElem;
+}
+
 impl Packed<PlaceElem> {
     #[typst_macros::time(name = "place", span = self.span())]
     pub fn layout(
@@ -136,3 +144,40 @@ impl Behave for Packed<PlaceElem> {
         Behaviour::Ignorant
     }
 }
+
+/// Asks the layout algorithm to place pending floating elements before
+/// continuing with the content.
+///
+/// This is useful for preventing floating figures from spilling
+/// into the next section.
+///
+/// ```example
+/// #set page(height: 165pt, width: 150pt)
+///
+/// Some introductory text: #lorem(15)
+///
+/// #figure(
+///   rect(
+///     width: 100%,
+///     height: 64pt,
+///     [I float with a caption!],
+///   ),
+///   placement: auto,
+///   caption: [A self-describing figure],
+/// )
+///
+/// #place.flush()
+///
+/// Some conclusive text that must occur
+/// after the figure.
+/// ```
+#[elem(Behave, Unlabellable)]
+pub struct FlushElem {}
+
+impl Behave for Packed<FlushElem> {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Invisible
+    }
+}
+
+impl Unlabellable for Packed<FlushElem> {}

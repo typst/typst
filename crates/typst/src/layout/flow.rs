@@ -13,9 +13,9 @@ use crate::foundations::{
 };
 use crate::introspection::TagElem;
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
-    Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
-    Rel, Size, Spacing, VElem,
+    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment,
+    FlushElem, Fr, Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem,
+    Point, Regions, Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::utils::Numeric;
@@ -73,6 +73,8 @@ impl LayoutMultiple for Packed<FlowElem> {
 
             if let Some(elem) = child.to_packed::<TagElem>() {
                 layouter.layout_tag(elem);
+            } else if child.is::<FlushElem>() {
+                layouter.flush(engine)?;
             } else if let Some(elem) = child.to_packed::<VElem>() {
                 layouter.layout_spacing(engine, elem, styles)?;
             } else if let Some(placed) = child.to_packed::<PlaceElem>() {
@@ -678,6 +680,18 @@ impl<'a> FlowLayouter<'a> {
         // Try to place floats into the next region.
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
+        }
+
+        Ok(())
+    }
+
+    /// Lays out all floating elements before continuing with other content.
+    fn flush(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        for item in std::mem::take(&mut self.pending_floats) {
+            self.layout_item(engine, item)?;
+        }
+        while !self.pending_floats.is_empty() {
+            self.finish_region(engine, false)?;
         }
 
         Ok(())

@@ -23,8 +23,8 @@ use crate::foundations::{
 };
 use crate::introspection::TagElem;
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, LayoutMultiple,
-    LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem,
+    LayoutMultiple, LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -381,6 +381,7 @@ impl<'a> FlowBuilder<'a> {
             || content.is::<ColbreakElem>()
             || content.is::<TagElem>()
             || content.is::<PlaceElem>()
+            || content.is::<FlushElem>()
         {
             self.0.push(content, styles);
             return true;
