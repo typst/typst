@@ -7,6 +7,7 @@
 
 use std::alloc::Layout;
 use std::mem;
+use std::ptr::NonNull;
 
 /// Create a fat pointer from a data address and a vtable address.
 ///
@@ -39,9 +40,11 @@ pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) ->
 /// # Safety
 /// Must only be called when `T` is a `dyn Trait`.
 #[track_caller]
-pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> *const () {
+pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> NonNull<()> {
     debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
-    mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable
+    NonNull::new_unchecked(
+        mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable as *mut (),
+    )
 }
 
 /// The memory representation of a trait object pointer.

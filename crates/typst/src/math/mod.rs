@@ -41,12 +41,12 @@ use self::row::*;
 use self::spacing::*;
 
 use crate::diag::SourceResult;
-use crate::foundations::SequenceElem;
-use crate::foundations::StyledElem;
 use crate::foundations::{
-    category, Category, Content, Module, Resolve, Scope, StyleChain,
+    category, Category, Content, Module, Resolve, Scope, SequenceElem, StyleChain,
+    StyledElem,
 };
-use crate::layout::{BoxElem, HElem, Spacing};
+use crate::introspection::TagElem;
+use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing};
 use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -293,6 +293,13 @@ impl LayoutMath for Content {
         if let Some(boxed) = self.to_packed::<BoxElem>() {
             let frame = ctx.layout_box(boxed, styles)?;
             ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
+            return Ok(());
+        }
+
+        if let Some(tag) = self.to_packed::<TagElem>() {
+            let mut frame = Frame::soft(Size::zero());
+            frame.push(Point::zero(), FrameItem::Tag(tag.elem.clone()));
+            ctx.push(FrameFragment::new(ctx, styles, frame));
             return Ok(());
         }
 

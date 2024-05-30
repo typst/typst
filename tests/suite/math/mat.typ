@@ -161,3 +161,54 @@ $ mat(#1, #(foo: "bar")) $
 )
 
 $mat(augment: #1, M, v) arrow.r.squiggly mat(augment: #1, R, b)$
+
+--- math-mat-delims ---
+$ mat(delim: #none, 1, 2; 3, 4) $
+
+$ mat(delim: "(", 1, 2; 3, 4) $
+$ mat(delim: \(, 1, 2; 3, 4) $
+$ mat(delim: paren.l, 1, 2; 3, 4) $
+
+$ mat(delim: "[", 1, 2; 3, 4) $
+$ mat(delim: \[, 1, 2; 3, 4) $
+$ mat(delim: bracket.l, 1, 2; 3, 4) $
+
+$ mat(delim: "⟦", 1, 2; 3, 4) $
+$ mat(delim: bracket.double.l, 1, 2; 3, 4) $
+
+$ mat(delim: "{", 1, 2; 3, 4) $
+$ mat(delim: \{, 1, 2; 3, 4) $
+$ mat(delim: brace.l, 1, 2; 3, 4) $
+
+$ mat(delim: "|", 1, 2; 3, 4) $
+$ mat(delim: \|, 1, 2; 3, 4) $
+$ mat(delim: bar.v, 1, 2; 3, 4) $
+
+$ mat(delim: "‖", 1, 2; 3, 4) $
+$ mat(delim: bar.v.double, 1, 2; 3, 4) $
+
+$ mat(delim: "⟨", 1, 2; 3, 4) $
+$ mat(delim: angle.l, 1, 2; 3, 4) $
+
+--- math-mat-delims-inverted ---
+$ mat(delim: ")", 1, 2; 3, 4) $
+$ mat(delim: \), 1, 2; 3, 4) $
+$ mat(delim: paren.r, 1, 2; 3, 4) $
+
+$ mat(delim: "]", 1, 2; 3, 4) $
+$ mat(delim: \], 1, 2; 3, 4) $
+$ mat(delim: bracket.r, 1, 2; 3, 4) $
+
+$ mat(delim: "⟧", 1, 2; 3, 4) $
+$ mat(delim: bracket.double.r, 1, 2; 3, 4) $
+
+$ mat(delim: "}", 1, 2; 3, 4) $
+$ mat(delim: \}, 1, 2; 3, 4) $
+$ mat(delim: brace.r, 1, 2; 3, 4) $
+
+$ mat(delim: "⟩", 1, 2; 3, 4) $
+$ mat(delim: angle.r, 1, 2; 3, 4) $
+
+--- math-mat-delims-pair ---
+$ mat(delim: #(none, "["), 1, 2; 3, 4) $
+$ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $

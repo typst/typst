@@ -118,13 +118,16 @@ Typst's CLI is available from different sources:
   - macOS: `brew install typst`
   - Windows: `winget install --id Typst.Typst`
 
-- If you have a [Rust][rust] toolchain installed, you can also install the
-  latest development version with
-  `cargo install --git https://github.com/typst/typst --locked typst-cli`. Note that this
-  will be a "nightly" version that may be broken or not yet properly documented.
+- If you have a [Rust][rust] toolchain installed, you can install
+  - the latest released Typst version with
+    `cargo install --locked typst-cli`
+  - a development version with
+    `cargo install --git https://github.com/typst/typst --locked typst-cli`
 
-- Nix users can use the `typst` package with `nix-shell -p typst` or build and
-  run the bleeding edge version with `nix run github:typst/typst -- --version`.
+- Nix users can
+  - use the `typst` package with `nix-shell -p typst`
+  - build and run a development version with
+    `nix run github:typst/typst -- --version`.
 
 - Docker users can run a prebuilt image with
   `docker run -it ghcr.io/typst/typst:latest`.

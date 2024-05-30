@@ -12,9 +12,7 @@ mod process;
 
 pub use self::arenas::Arenas;
 pub use self::behaviour::{Behave, BehavedBuilder, Behaviour};
-pub use self::process::{process, processable};
-
-use std::borrow::Cow;
+pub use self::process::process;
 
 use std::mem;
 
@@ -23,7 +21,7 @@ use crate::engine::{Engine, Route};
 use crate::foundations::{
     Content, NativeElement, Packed, SequenceElem, StyleChain, StyledElem, Styles,
 };
-use crate::introspection::MetaElem;
+use crate::introspection::TagElem;
 use crate::layout::{
     AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, LayoutMultiple,
     LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
@@ -36,9 +34,10 @@ use crate::model::{
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
-/// Realize into an element that is capable of root-level layout.
-#[typst_macros::time(name = "realize root")]
-pub fn realize_root<'a>(
+/// Realize into a `DocumentElem`, an element that is capable of root-level
+/// layout.
+#[typst_macros::time(name = "realize doc")]
+pub fn realize_doc<'a>(
     engine: &mut Engine,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
@@ -47,30 +46,21 @@ pub fn realize_root<'a>(
     let mut builder = Builder::new(engine, arenas, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
-    let (doc, trunk) = builder.doc.unwrap().finish();
-    Ok((doc, trunk))
+    Ok(builder.doc.unwrap().finish())
 }
 
-/// Realize into an element that is capable of block-level layout.
-#[typst_macros::time(name = "realize block")]
-pub fn realize_block<'a>(
+/// Realize into a `FlowElem`, an element that is capable of block-level layout.
+#[typst_macros::time(name = "realize flow")]
+pub fn realize_flow<'a>(
     engine: &mut Engine,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
-    // These elements implement `Layout` but still require a flow for
-    // proper layout.
-    if content.can::<dyn LayoutMultiple>() && !processable(engine, content, styles) {
-        return Ok((Cow::Borrowed(content), styles));
-    }
-
+) -> SourceResult<(Packed<FlowElem>, StyleChain<'a>)> {
     let mut builder = Builder::new(engine, arenas, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
-
-    let (flow, trunk) = builder.flow.finish();
-    Ok((Cow::Owned(flow.pack()), trunk))
+    Ok(builder.flow.finish())
 }
 
 /// Builds a document or a flow element from content.
@@ -389,7 +379,7 @@ impl<'a> FlowBuilder<'a> {
 
         if content.is::<VElem>()
             || content.is::<ColbreakElem>()
-            || content.is::<MetaElem>()
+            || content.is::<TagElem>()
             || content.is::<PlaceElem>()
         {
             self.0.push(content, styles);
@@ -451,7 +441,7 @@ impl<'a> ParBuilder<'a> {
     /// content could not be merged, and paragraph building should be
     /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if content.is::<MetaElem>() {
+        if content.is::<TagElem>() {
             if !self.0.is_empty() {
                 self.0.push(content, styles);
                 return true;
@@ -612,7 +602,7 @@ impl<'a> CiteGroupBuilder<'a> {
     /// interrupted so that the content can be added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if !self.items.is_empty()
-            && (content.is::<SpaceElem>() || content.is::<MetaElem>())
+            && (content.is::<SpaceElem>() || content.is::<TagElem>())
         {
             self.staged.push((content, styles));
             return true;

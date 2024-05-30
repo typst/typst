@@ -9,11 +9,14 @@ use crate::introspection::Locatable;
 use crate::layout::{Fragment, LayoutMultiple, Regions, Size};
 use crate::syntax::Span;
 
-/// Provides access to the current outer container's (or page's, if none) size
-/// (width and height).
+/// Provides access to the current outer container's (or page's, if none)
+/// dimensions (width and height).
 ///
-/// The given function must accept a single parameter, `size`, which is a
-/// dictionary with keys `width` and `height`, both of type [`length`].
+/// Accepts a function that receives a single parameter, which is a dictionary
+/// with keys `width` and `height`, both of type [`length`]. The function is
+/// provided [context], meaning you don't need to use it in combination with the
+/// `context` keyword. This is why [`measure`] can be called in the example
+/// below.
 ///
 /// ```example
 /// #let text = lorem(30)
@@ -27,11 +30,11 @@ use crate::syntax::Span;
 /// ])
 /// ```
 ///
-/// If the `layout` call is placed inside of a box width a width of `{800pt}`
-/// and a height of `{400pt}`, then the specified function will be given the
-/// parameter `{(width: 800pt, height: 400pt)}`. If it placed directly into the
-/// page it receives the page's dimensions minus its margins. This is mostly
-/// useful in combination with [measurement]($measure).
+/// If the `layout` call is placed inside a box with a width of `{800pt}` and a
+/// height of `{400pt}`, then the specified function will be given the argument
+/// `{(width: 800pt, height: 400pt)}`. If it is placed directly into the page, it
+/// receives the page's dimensions minus its margins. This is mostly useful in
+/// combination with [measurement]($measure).
 ///
 /// You can also use this function to resolve [`ratio`] to fixed lengths. This
 /// might come in handy if you're building your own layout abstractions.
@@ -43,8 +46,8 @@ use crate::syntax::Span;
 /// })
 /// ```
 ///
-/// Note that this function will provide an infinite width or height if one of
-/// the page width or height is `auto`, respectively.
+/// Note that the width or height provided by `layout` will be infinite if the
+/// corresponding page dimension is set to `{auto}`.
 #[func]
 pub fn layout(
     /// The call span of this function.
@@ -56,8 +59,8 @@ pub fn layout(
     /// and `height`.
     ///
     /// This function is called once for each time the content returned by
-    /// `layout` appears in the document. That makes it possible to generate
-    /// content that depends on the size of the container it is inside of.
+    /// `layout` appears in the document. This makes it possible to generate
+    /// content that depends on the dimensions of its container.
     func: Func,
 ) -> Content {
     LayoutElem::new(func).pack().spanned(span)

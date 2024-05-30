@@ -194,22 +194,67 @@ $ q &= sum_k ln A \
 // numbering's layout box. Note we use pattern "1" here, not "(1)", since
 // the parenthesis exceeds the numbering's layout box, due to the default
 // settings of top-edge and bottom-edge of the TextElem that laid it out.
+#let equations = [
+  #box($ - - - $, fill: silver)
+  #box(
+  $ - - - \
+    a = b $,
+  fill: silver)
+  #box(
+  $ a = b \
+    - - - $,
+  fill: silver)
+]
+
 #set math.equation(numbering: "1", number-align: top)
-#box(
-$ - &- - \
-  a &= b $,
-fill: silver)
+#equations
 
 #set math.equation(numbering: "1", number-align: horizon)
-#box(
-$ - - - $,
-fill: silver)
+#equations
 
 #set math.equation(numbering: "1", number-align: bottom)
-#box(
-$ a &= b \
-  - &- - $,
-fill: silver)
+#equations
+
+--- math-equation-number-align-multiline-no-expand ---
+// Tests that if the numbering's layout box doesn't vertically exceed the
+// box of the equation frame's boundary, the latter's frame size remains.
+// So, in the grid below, frames in each row should have the same height.
+#set math.equation(numbering: "1")
+#grid(
+  columns: 4 * (1fr,),
+  column-gutter: 3 * (2pt,),
+  row-gutter: 2pt,
+  align: horizon,
+  [
+    #set math.equation(number-align: horizon)
+    #box($ - - \ a \ sum $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: bottom)
+    #box($ - - \ a \ sum $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: horizon)
+    #box($ sum \ a \ - - $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: top)
+    #box($ sum \ a \ - - $, fill: silver)
+  ],
+
+  [
+    #set math.equation(number-align: horizon)
+    #box($ - - $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: top)
+    #box($ - - $, fill: silver)
+  ],
+  [
+    #set math.equation(number-align: bottom)
+    #box($ - - $, fill: silver)
+  ],
+)
 
 --- issue-numbering-hint ---
 // In this bug, the hint and error messages for an equation

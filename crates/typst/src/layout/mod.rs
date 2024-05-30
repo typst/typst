@@ -77,7 +77,7 @@ use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
 use crate::introspection::{Introspector, Locator};
 use crate::model::Document;
-use crate::realize::{realize_block, realize_root, Arenas};
+use crate::realize::{realize_doc, realize_flow, Arenas};
 use crate::World;
 
 /// Arranging elements on the page in different ways.
@@ -207,7 +207,7 @@ impl LayoutRoot for Content {
                 tracer,
             };
             let arenas = Arenas::default();
-            let (document, styles) = realize_root(&mut engine, &arenas, content, styles)?;
+            let (document, styles) = realize_doc(&mut engine, &arenas, content, styles)?;
             document.layout_root(&mut engine, styles)
         }
 
@@ -258,14 +258,16 @@ impl LayoutMultiple for Content {
                 );
             }
 
+            // If we are in a `PageElem`, this might already be a realized flow.
+            if let Some(flow) = content.to_packed::<FlowElem>() {
+                return flow.layout(&mut engine, styles, regions);
+            }
+
+            // Layout the content by first turning it into a `FlowElem` and then
+            // layouting that.
             let arenas = Arenas::default();
-            let (realized, styles) =
-                realize_block(&mut engine, &arenas, content, styles)?;
-            realized.with::<dyn LayoutMultiple>().unwrap().layout(
-                &mut engine,
-                styles,
-                regions,
-            )
+            let (flow, styles) = realize_flow(&mut engine, &arenas, content, styles)?;
+            flow.layout(&mut engine, styles, regions)
         }
 
         let fragment = cached(

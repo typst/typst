@@ -8,14 +8,119 @@ use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
 
-use crate::{deflate, PdfContext};
+use crate::{color, deflate, PdfChunk, WithGlobalRefs};
+
+/// Embed all used images into the PDF.
+#[typst_macros::time(name = "write images")]
+pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>) {
+    let mut chunk = PdfChunk::new();
+    let mut out = HashMap::new();
+    context.resources.traverse(&mut |resources| {
+        for (i, image) in resources.images.items().enumerate() {
+            if out.contains_key(image) {
+                continue;
+            }
+
+            let handle = resources.deferred_images.get(&i).unwrap();
+            match handle.wait() {
+                EncodedImage::Raster {
+                    data,
+                    filter,
+                    has_color,
+                    width,
+                    height,
+                    icc,
+                    alpha,
+                } => {
+                    let image_ref = chunk.alloc();
+                    out.insert(image.clone(), image_ref);
+
+                    let mut image = chunk.chunk.image_xobject(image_ref, data);
+                    image.filter(*filter);
+                    image.width(*width as i32);
+                    image.height(*height as i32);
+                    image.bits_per_component(8);
+
+                    let mut icc_ref = None;
+                    let space = image.color_space();
+                    if icc.is_some() {
+                        let id = chunk.alloc.bump();
+                        space.icc_based(id);
+                        icc_ref = Some(id);
+                    } else if *has_color {
+                        color::write(
+                            ColorSpace::Srgb,
+                            space,
+                            &context.globals.color_functions,
+                        );
+                    } else {
+                        color::write(
+                            ColorSpace::D65Gray,
+                            space,
+                            &context.globals.color_functions,
+                        );
+                    }
+
+                    // Add a second gray-scale image containing the alpha values if
+                    // this image has an alpha channel.
+                    if let Some((alpha_data, alpha_filter)) = alpha {
+                        let mask_ref = chunk.alloc.bump();
+                        image.s_mask(mask_ref);
+                        image.finish();
+
+                        let mut mask = chunk.image_xobject(mask_ref, alpha_data);
+                        mask.filter(*alpha_filter);
+                        mask.width(*width as i32);
+                        mask.height(*height as i32);
+                        mask.color_space().device_gray();
+                        mask.bits_per_component(8);
+                    } else {
+                        image.finish();
+                    }
+
+                    if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
+                        let mut stream = chunk.icc_profile(icc_ref, icc);
+                        stream.filter(Filter::FlateDecode);
+                        if *has_color {
+                            stream.n(3);
+                            stream.alternate().srgb();
+                        } else {
+                            stream.n(1);
+                            stream.alternate().d65_gray();
+                        }
+                    }
+                }
+                EncodedImage::Svg(svg_chunk) => {
+                    let mut map = HashMap::new();
+                    svg_chunk.renumber_into(&mut chunk.chunk, |old| {
+                        *map.entry(old).or_insert_with(|| chunk.alloc.bump())
+                    });
+                    out.insert(image.clone(), map[&Ref::new(1)]);
+                }
+            }
+        }
+    });
+
+    (chunk, out)
+}
 
 /// Creates a new PDF image from the given image.
 ///
 /// Also starts the deferred encoding of the image.
 #[comemo::memoize]
-pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
-    Deferred::new(move || match image.kind() {
+pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpace>) {
+    let color_space = match image.kind() {
+        ImageKind::Raster(raster) if raster.icc().is_none() => {
+            if raster.dynamic().color().channel_count() > 2 {
+                Some(ColorSpace::Srgb)
+            } else {
+                Some(ColorSpace::D65Gray)
+            }
+        }
+        _ => None,
+    };
+
+    let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
             let raster = raster.clone();
             let (width, height) = (raster.width(), raster.height());
@@ -28,83 +133,9 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
             EncodedImage::Raster { data, filter, has_color, width, height, icc, alpha }
         }
         ImageKind::Svg(svg) => EncodedImage::Svg(encode_svg(svg)),
-    })
-}
+    });
 
-/// Embed all used images into the PDF.
-#[typst_macros::time(name = "write images")]
-pub(crate) fn write_images(ctx: &mut PdfContext) {
-    for (i, _) in ctx.image_map.items().enumerate() {
-        let handle = ctx.image_deferred_map.get(&i).unwrap();
-        match handle.wait() {
-            EncodedImage::Raster {
-                data,
-                filter,
-                has_color,
-                width,
-                height,
-                icc,
-                alpha,
-            } => {
-                let image_ref = ctx.alloc.bump();
-                ctx.image_refs.push(image_ref);
-
-                let mut image = ctx.pdf.image_xobject(image_ref, data);
-                image.filter(*filter);
-                image.width(*width as i32);
-                image.height(*height as i32);
-                image.bits_per_component(8);
-
-                let mut icc_ref = None;
-                let space = image.color_space();
-                if icc.is_some() {
-                    let id = ctx.alloc.bump();
-                    space.icc_based(id);
-                    icc_ref = Some(id);
-                } else if *has_color {
-                    ctx.colors.write(ColorSpace::Srgb, space, &mut ctx.alloc);
-                } else {
-                    ctx.colors.write(ColorSpace::D65Gray, space, &mut ctx.alloc);
-                }
-
-                // Add a second gray-scale image containing the alpha values if
-                // this image has an alpha channel.
-                if let Some((alpha_data, alpha_filter)) = alpha {
-                    let mask_ref = ctx.alloc.bump();
-                    image.s_mask(mask_ref);
-                    image.finish();
-
-                    let mut mask = ctx.pdf.image_xobject(mask_ref, alpha_data);
-                    mask.filter(*alpha_filter);
-                    mask.width(*width as i32);
-                    mask.height(*height as i32);
-                    mask.color_space().device_gray();
-                    mask.bits_per_component(8);
-                } else {
-                    image.finish();
-                }
-
-                if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
-                    let mut stream = ctx.pdf.icc_profile(icc_ref, icc);
-                    stream.filter(Filter::FlateDecode);
-                    if *has_color {
-                        stream.n(3);
-                        stream.alternate().srgb();
-                    } else {
-                        stream.n(1);
-                        stream.alternate().d65_gray();
-                    }
-                }
-            }
-            EncodedImage::Svg(chunk) => {
-                let mut map = HashMap::new();
-                chunk.renumber_into(&mut ctx.pdf, |old| {
-                    *map.entry(old).or_insert_with(|| ctx.alloc.bump())
-                });
-                ctx.image_refs.push(map[&Ref::new(1)]);
-            }
-        }
-    }
+    (deferred, color_space)
 }
 
 /// Encode an image with a suitable filter and return the data, filter and

@@ -23,6 +23,13 @@ We can clearly see that @fig-cylinder and
   caption: [The complex table.],
 ) <tab-complex>
 
+--- figure-align ---
+#show figure: set align(start)
+#figure(
+  rect[This is \ left],
+  caption: [Start-aligned]
+)
+
 --- figure-table ---
 // Testing figures with tables.
 #figure(
@@ -37,6 +44,7 @@ We can clearly see that @fig-cylinder and
 --- figure-theorem ---
 // Testing show rules with figures with a simple theorem display
 #show figure.where(kind: "theorem"): it => {
+  set align(start)
   let name = none
   if not it.caption == none {
     name = [ #emph(it.caption.body)]
