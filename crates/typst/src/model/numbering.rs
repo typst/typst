@@ -208,11 +208,8 @@ impl FromStr for NumberingPattern {
             };
 
             let prefix = pattern[handled..i].into();
-            let case = if c.is_uppercase() || c == '壹' || c == 'Α' {
-                Case::Upper
-            } else {
-                Case::Lower
-            };
+            let case =
+                if c.is_uppercase() || c == '壹' { Case::Upper } else { Case::Lower };
             pieces.push((prefix, kind, case));
             handled = c.len_utf8() + i;
         }
