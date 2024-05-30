@@ -116,7 +116,7 @@ fn unknown_variable(var: &str) -> HintedString {
 }
 
 /// A map from binding names to values.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Scope {
     map: IndexMap<EcoString, Slot>,
     deduplicate: bool,
@@ -204,6 +204,15 @@ impl Scope {
         self.map.get(var).map(Slot::read)
     }
 
+    /// Get the index of a definition.
+    pub fn index(&self, var: &str) -> Option<usize> {
+        self.map.get_full(var).map(|(index, _, _)| index)
+    }
+
+    pub fn by_index(&self, index: usize) -> Option<&Value> {
+        self.map.get_index(index).map(|(_, slot)| slot.read())
+    }
+
     /// Try to access a variable mutably.
     pub fn get_mut(&mut self, var: &str) -> Option<HintedStrResult<&mut Value>> {
         self.map
@@ -253,7 +262,7 @@ pub trait NativeScope {
 }
 
 /// A slot where a value is stored.
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq)]
 struct Slot {
     /// The stored value.
     value: Value,

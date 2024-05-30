@@ -101,6 +101,15 @@ impl Module {
             Err(arc) => arc.content.clone(),
         }
     }
+
+    /// Get the index of a definition in the module.
+    pub fn field_index(&self, name: &str) -> Option<usize> {
+        self.scope().index(name)
+    }
+
+    pub fn field_by_index(&self, index: usize) -> Option<&Value> {
+        self.scope().by_index(index)
+    }
 }
 
 impl Debug for Module {

@@ -42,6 +42,7 @@ pub mod engine;
 pub mod eval;
 pub mod foundations;
 pub mod introspection;
+pub mod lang;
 pub mod layout;
 pub mod loading;
 pub mod math;

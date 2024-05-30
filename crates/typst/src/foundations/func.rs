@@ -503,7 +503,7 @@ pub struct ParamInfo {
 }
 
 /// A user-defined closure.
-#[derive(Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct Closure {
     /// The closure's syntax node. Must be either castable to `ast::Closure` or
     /// `ast::Expr`. In the latter case, this is a synthesized closure without
@@ -518,6 +518,16 @@ pub struct Closure {
 }
 
 impl Closure {
+    pub fn new(
+        &self,
+        node: SyntaxNode,
+        defaults: Vec<Value>,
+        captured: Scope,
+        num_pos_params: usize,
+    ) -> Self {
+        Self { node, defaults, captured, num_pos_params }
+    }
+
     /// The name of the closure.
     pub fn name(&self) -> Option<&str> {
         self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
