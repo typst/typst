@@ -2,13 +2,17 @@
 
 mod analyze;
 mod complete;
+mod definition;
 mod jump;
+mod matchers;
 mod tooltip;
 
 pub use self::analyze::analyze_labels;
 pub use self::complete::{autocomplete, Completion, CompletionKind};
+pub use self::definition::{definition, Definition};
 pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
 pub use self::tooltip::{tooltip, Tooltip};
+use matchers::*;
 
 use std::fmt::Write;
 
