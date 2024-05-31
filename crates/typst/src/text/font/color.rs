@@ -168,8 +168,7 @@ fn draw_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let tree =
-        usvg::Tree::from_xmltree(&document, &opts, &fontdb::Database::new()).ok()?;
+    let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
 
     let bbox = tree.root().bounding_box();
     let width = bbox.width() as f64;

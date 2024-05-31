@@ -706,8 +706,7 @@ dependencies = [
 
 [[package]]
 name = "fontdb"
-version = "0.16.2"
-source = "git+https://github.com/laurmaedje/fontdb?branch=push-face-info#e2c2a4376a2628c6ed2c64bb01406980a8f916b9"
+version = "0.17.0"
 dependencies = [
  "fontconfig-parser",
  "log",
@@ -1910,7 +1909,6 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 [[package]]
 name = "resvg"
 version = "0.41.0"
-source = "git+https://github.com/laurmaedje/resvg?branch=font-provider#c11f38e116dacf2cc7972b52e65c368fdb14313d"
 dependencies = [
  "gif",
  "jpeg-decoder",
@@ -1987,6 +1985,22 @@ dependencies = [
  "bytemuck",
  "smallvec",
  "ttf-parser 0.20.0",
+ "unicode-bidi-mirroring",
+ "unicode-ccc",
+ "unicode-properties",
+ "unicode-script",
+]
+
+[[package]]
+name = "rustybuzz"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7730060ad401b0d1807c904ea56735288af101430aa0d2ab8358b789f5f37002"
+dependencies = [
+ "bitflags 2.4.2",
+ "bytemuck",
+ "smallvec",
+ "ttf-parser 0.21.1",
  "unicode-bidi-mirroring",
  "unicode-ccc",
  "unicode-properties",
@@ -2253,7 +2267,6 @@ checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
 [[package]]
 name = "svg2pdf"
 version = "0.9.1"
-source = "git+https://github.com/typst/svg2pdf?branch=font-provider#89c02097a46f3facb35ec3e8ac35a6e66f198fa4"
 dependencies = [
  "fontdb",
  "image 0.25.1",
@@ -2570,7 +2583,7 @@ dependencies = [
  "rayon",
  "regex",
  "roxmltree",
- "rustybuzz",
+ "rustybuzz 0.13.0",
  "serde",
  "serde_json",
  "serde_yaml 0.9.32",
@@ -2975,7 +2988,6 @@ dependencies = [
 [[package]]
 name = "usvg"
 version = "0.41.0"
-source = "git+https://github.com/laurmaedje/resvg?branch=font-provider#c11f38e116dacf2cc7972b52e65c368fdb14313d"
 dependencies = [
  "base64 0.22.0",
  "data-url",
@@ -2986,7 +2998,7 @@ dependencies = [
  "log",
  "pico-args",
  "roxmltree",
- "rustybuzz",
+ "rustybuzz 0.14.0",
  "simplecss",
  "siphasher 1.0.1",
  "strict-num",

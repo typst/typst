@@ -46,7 +46,7 @@ dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
-fontdb = { version = "0.16.2", default-features = false }
+fontdb = { version = "0.17", default-features = false }
 fs_extra = "1.3"
 hayagriva = "0.5.3"
 heck = "0.4"
@@ -145,7 +145,7 @@ blocks_in_conditions = "allow"
 
 [patch.crates-io]
 pixglyph = { git = "https://github.com/typst/pixglyph", branch = "bump-ttf-parser-to-0.21" }
-svg2pdf = { git = "https://github.com/typst/svg2pdf", branch = "font-provider" }
-usvg = { git = "https://github.com/laurmaedje/resvg", branch = "font-provider" }
-resvg = { git = "https://github.com/laurmaedje/resvg", branch = "font-provider" }
-fontdb = { git = "https://github.com/laurmaedje/fontdb", branch = "push-face-info" }
+svg2pdf = { path = "../svg2pdf" }
+usvg = { path = "../resvg/crates/usvg" }
+resvg = { path = "../resvg/crates/resvg" }
+fontdb = { path = "../fontdb" }

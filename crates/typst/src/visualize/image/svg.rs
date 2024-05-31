@@ -1,10 +1,10 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
 use ecow::EcoString;
+use usvg::{FontResolver, ImageHrefResolver};
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
@@ -23,7 +23,6 @@ pub struct SvgImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     size: Axes<f64>,
-    fontdb: fontdb::Database,
     font_hash: u128,
     tree: usvg::Tree,
 }
@@ -32,16 +31,9 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let fontdb = fontdb::Database::new();
-        let tree = usvg::Tree::from_data(&data, &options(), &fontdb)
-            .map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash: 0,
-            tree,
-            fontdb,
-        })))
+        let options = base_options();
+        let tree = usvg::Tree::from_data(&data, &options).map_err(format_usvg_error)?;
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
     /// Decode an SVG image with access to fonts.
@@ -52,17 +44,21 @@ impl SvgImage {
         families: &[String],
     ) -> StrResult<SvgImage> {
         let book = world.book();
-        let provider = TypstFontProvider::new(world, book, families);
-        let tree = usvg::Tree::from_data(&data, &options(), &provider)
-            .map_err(format_usvg_error)?;
+        let resolver = Mutex::new(TypstFontResolver::new(world, book, families));
+        let options = usvg::Options {
+            font_resolver: FontResolver {
+                select_font: Box::new(|font, db| {
+                    resolver.lock().unwrap().select_font(font, db)
+                }),
+                select_fallback: Box::new(|c, exclude_fonts, db| {
+                    resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
+                }),
+            },
+            ..base_options()
+        };
+        let tree = usvg::Tree::from_data(&data, &options).map_err(format_usvg_error)?;
         let font_hash = 0;
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash,
-            tree,
-            fontdb: provider.db.into_inner(),
-        })))
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -84,11 +80,6 @@ impl SvgImage {
     pub fn tree(&self) -> &usvg::Tree {
         &self.0.tree
     }
-
-    /// Access the font database.
-    pub fn fontdb(&self) -> &fontdb::Database {
-        &self.0.fontdb
-    }
 }
 
 impl Hash for Repr {
@@ -101,17 +92,59 @@ impl Hash for Repr {
     }
 }
 
+/// The conversion options.
+fn base_options() -> usvg::Options<'static> {
+    usvg::Options {
+        // Disable usvg's default to "Times New Roman". Instead, we default to
+        // the empty family and later, when we traverse the SVG, we check for
+        // empty and non-existing family names and replace them with the true
+        // fallback family. This way, we can memoize SVG decoding with and
+        // without fonts if the SVG does not contain text.
+        font_family: String::new(),
+
+        // We override the DPI here so that we get the correct the size when
+        // scaling the image to its natural size.
+        dpi: Image::DEFAULT_DPI as f32,
+
+        // Override usvg's resource loading defaults.
+        resources_dir: None,
+        image_href_resolver: ImageHrefResolver {
+            resolve_data: ImageHrefResolver::default_data_resolver(),
+            resolve_string: Box::new(|_, _| None),
+        },
+
+        ..Default::default()
+    }
+}
+
+/// The pixel size of an SVG.
+fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
+    Axes::new(tree.size().width() as f64, tree.size().height() as f64)
+}
+
+/// Format the user-facing SVG decoding error message.
+fn format_usvg_error(error: usvg::Error) -> EcoString {
+    match error {
+        usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
+        usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
+        usvg::Error::ElementsLimitReached => "file is too large".into(),
+        usvg::Error::InvalidSize => {
+            "failed to parse SVG (width, height, or viewbox is invalid)".into()
+        }
+        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
+    }
+}
+
 /// Provides Typst's fonts to usvg.
-struct TypstFontProvider<'a> {
+struct TypstFontResolver<'a> {
     book: &'a FontBook,
     world: Tracked<'a, dyn World + 'a>,
     families: &'a [String],
-    db: RefCell<fontdb::Database>,
-    to_id: RefCell<HashMap<usize, Option<fontdb::ID>>>,
-    from_id: RefCell<HashMap<fontdb::ID, Font>>,
+    to_id: HashMap<usize, Option<fontdb::ID>>,
+    from_id: HashMap<fontdb::ID, Font>,
 }
 
-impl<'a> TypstFontProvider<'a> {
+impl<'a> TypstFontResolver<'a> {
     /// Create a new font provider.
     fn new(
         world: Tracked<'a, dyn World + 'a>,
@@ -122,15 +155,18 @@ impl<'a> TypstFontProvider<'a> {
             book,
             world,
             families,
-            db: RefCell::new(fontdb::Database::new()),
-            to_id: RefCell::new(HashMap::new()),
-            from_id: RefCell::new(HashMap::new()),
+            to_id: HashMap::new(),
+            from_id: HashMap::new(),
         }
     }
 }
 
-impl usvg::FontProvider for TypstFontProvider<'_> {
-    fn find_font(&self, font: &usvg::Font) -> Option<fontdb::ID> {
+impl TypstFontResolver<'_> {
+    fn select_font(
+        &mut self,
+        font: &usvg::Font,
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
         let variant = FontVariant {
             style: font.style().into(),
             weight: FontWeight::from_number(font.weight()),
@@ -146,51 +182,50 @@ impl usvg::FontProvider for TypstFontProvider<'_> {
             })
             .chain(self.families)
             .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
-            .find_map(|index| self.get_or_load(index))
+            .find_map(|index| self.get_or_load(index, db))
     }
 
-    fn find_fallback_font(
-        &self,
+    fn select_fallback(
+        &mut self,
         c: char,
-        base_font_id: fontdb::ID,
-        _used_fonts: &[fontdb::ID],
+        exclude_fonts: &[fontdb::ID],
+        db: &mut Arc<fontdb::Database>,
     ) -> Option<fontdb::ID> {
-        let index = {
-            let from_id = self.from_id.borrow();
-            let font = from_id.get(&base_font_id)?;
-            let info = font.info();
-            self.book.select_fallback(
-                Some(info),
-                info.variant,
-                c.encode_utf8(&mut [0; 4]),
-            )?
-        };
-        self.get_or_load(index)
+        let base_font_id = exclude_fonts[0];
+        let font = self.from_id.get(&base_font_id)?;
+        let info = font.info();
+        let index = self.book.select_fallback(
+            Some(info),
+            info.variant,
+            c.encode_utf8(&mut [0; 4]),
+        )?;
+        self.get_or_load(index, db)
     }
 
-    fn with_database(&self, f: &mut dyn FnMut(&fontdb::Database)) {
-        f(&self.db.borrow());
-    }
-}
-
-impl TypstFontProvider<'_> {
     /// Tries to retrieve the ID for the index or loads the font, allocating
     /// a new ID.
-    fn get_or_load(&self, index: usize) -> Option<fontdb::ID> {
-        *self
-            .to_id
-            .borrow_mut()
-            .entry(index)
-            .or_insert_with(|| self.load(index))
+    fn get_or_load(
+        &mut self,
+        index: usize,
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
+        self.to_id
+            .get(&index)
+            .copied()
+            .unwrap_or_else(|| self.load(index, db))
     }
 
     /// Tries to load the font with the given index in the font book into the
     /// database and returns its ID.
-    fn load(&self, index: usize) -> Option<fontdb::ID> {
+    fn load(
+        &mut self,
+        index: usize,
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
         let font = self.world.font(index)?;
         let info = font.info();
         let variant = info.variant;
-        let id = self.db.borrow_mut().push_face_info(fontdb::FaceInfo {
+        let id = Arc::make_mut(db).push_face_info(fontdb::FaceInfo {
             id: fontdb::ID::dummy(),
             source: fontdb::Source::Binary(Arc::new(font.data().clone())),
             index: font.index(),
@@ -219,48 +254,8 @@ impl TypstFontProvider<'_> {
             },
             monospaced: info.flags.contains(FontFlags::MONOSPACE),
         });
-        self.from_id.borrow_mut().insert(id, font);
+        self.to_id.insert(index, Some(id));
+        self.from_id.insert(id, font);
         Some(id)
-    }
-}
-
-/// The conversion options.
-static OPTIONS: Lazy<usvg::Options> = Lazy::new(|| usvg::Options {
-    // Disable usvg's default to "Times New Roman". Instead, we default to
-    // the empty family and later, when we traverse the SVG, we check for
-    // empty and non-existing family names and replace them with the true
-    // fallback family. This way, we can memoize SVG decoding with and
-    // without fonts if the SVG does not contain text.
-    font_family: String::new(),
-
-    // We override the DPI here so that we get the correct the size when
-    // scaling the image to its natural size.
-    dpi: Image::DEFAULT_DPI as f32,
-
-    // Override usvg's resource loading defaults.
-    resources_dir: None,
-    image_href_resolver: ImageHrefResolver {
-        resolve_data: ImageHrefResolver::default_data_resolver(),
-        resolve_string: Box::new(|_, _| None),
-    },
-
-    ..Default::default()
-});
-
-/// The pixel size of an SVG.
-fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
-    Axes::new(tree.size().width() as f64, tree.size().height() as f64)
-}
-
-/// Format the user-facing SVG decoding error message.
-fn format_usvg_error(error: usvg::Error) -> EcoString {
-    match error {
-        usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
-        usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
-        usvg::Error::ElementsLimitReached => "file is too large".into(),
-        usvg::Error::InvalidSize => {
-            "failed to parse SVG (width, height, or viewbox is invalid)".into()
-        }
-        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
     }
 }

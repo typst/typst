@@ -90,12 +90,12 @@ pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>)
                         }
                     }
                 }
-                EncodedImage::Svg(svg_chunk) => {
+                EncodedImage::Svg(svg_chunk, id) => {
                     let mut map = HashMap::new();
                     svg_chunk.renumber_into(&mut chunk.chunk, |old| {
                         *map.entry(old).or_insert_with(|| chunk.alloc.bump())
                     });
-                    out.insert(image.clone(), map[&Ref::new(1)]);
+                    out.insert(image.clone(), map[&id]);
                 }
             }
         }
@@ -179,10 +179,8 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 }
 
 /// Encode an SVG into a chunk of PDF objects.
-///
-/// The main XObject will have ID 1.
 fn encode_svg(svg: &SvgImage) -> (Chunk, Ref) {
-    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default(), svg.fontdb())
+    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default())
 }
 
 /// A pre-encoded image.
