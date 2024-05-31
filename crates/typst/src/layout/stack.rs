@@ -3,10 +3,12 @@ use typst_syntax::Span;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain, StyledElem};
+use crate::foundations::{
+    cast, elem, Content, NativeElement, Packed, Resolve, Show, StyleChain, StyledElem,
+};
 use crate::layout::{
-    Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, HElem,
-    LayoutMultiple, Point, Regions, Size, Spacing, VElem,
+    Abs, AlignElem, Axes, Axis, BlockElem, Dir, FixedAlignment, Fr, Fragment, Frame,
+    HElem, Point, Regions, Size, Spacing, VElem,
 };
 use crate::utils::{Get, Numeric};
 
@@ -24,7 +26,7 @@ use crate::utils::{Get, Numeric};
 ///   rect(width: 90pt),
 /// )
 /// ```
-#[elem(LayoutMultiple)]
+#[elem(Show)]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
@@ -52,54 +54,9 @@ pub struct StackElem {
     pub children: Vec<StackChild>,
 }
 
-impl LayoutMultiple for Packed<StackElem> {
-    #[typst_macros::time(name = "stack", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let mut layouter =
-            StackLayouter::new(self.span(), self.dir(styles), regions, styles);
-        let axis = layouter.dir.axis();
-
-        // Spacing to insert before the next block.
-        let spacing = self.spacing(styles);
-        let mut deferred = None;
-
-        for child in self.children() {
-            match child {
-                StackChild::Spacing(kind) => {
-                    layouter.layout_spacing(*kind);
-                    deferred = None;
-                }
-                StackChild::Block(block) => {
-                    // Transparently handle `h`.
-                    if let (Axis::X, Some(h)) = (axis, block.to_packed::<HElem>()) {
-                        layouter.layout_spacing(*h.amount());
-                        deferred = None;
-                        continue;
-                    }
-
-                    // Transparently handle `v`.
-                    if let (Axis::Y, Some(v)) = (axis, block.to_packed::<VElem>()) {
-                        layouter.layout_spacing(*v.amount());
-                        deferred = None;
-                        continue;
-                    }
-
-                    if let Some(kind) = deferred {
-                        layouter.layout_spacing(kind);
-                    }
-
-                    layouter.layout_block(engine, block, styles)?;
-                    deferred = spacing;
-                }
-            }
-        }
-
-        layouter.finish()
+impl Show for Packed<StackElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::multi_layouter(self.clone(), layout_stack).pack())
     }
 }
 
@@ -129,6 +86,55 @@ cast! {
     },
     v: Spacing => Self::Spacing(v),
     v: Content => Self::Block(v),
+}
+
+/// Layout the stack.
+#[typst_macros::time(span = elem.span())]
+fn layout_stack(
+    elem: &Packed<StackElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let mut layouter = StackLayouter::new(elem.span(), elem.dir(styles), regions, styles);
+    let axis = layouter.dir.axis();
+
+    // Spacing to insert before the next block.
+    let spacing = elem.spacing(styles);
+    let mut deferred = None;
+
+    for child in elem.children() {
+        match child {
+            StackChild::Spacing(kind) => {
+                layouter.layout_spacing(*kind);
+                deferred = None;
+            }
+            StackChild::Block(block) => {
+                // Transparently handle `h`.
+                if let (Axis::X, Some(h)) = (axis, block.to_packed::<HElem>()) {
+                    layouter.layout_spacing(*h.amount());
+                    deferred = None;
+                    continue;
+                }
+
+                // Transparently handle `v`.
+                if let (Axis::Y, Some(v)) = (axis, block.to_packed::<VElem>()) {
+                    layouter.layout_spacing(*v.amount());
+                    deferred = None;
+                    continue;
+                }
+
+                if let Some(kind) = deferred {
+                    layouter.layout_spacing(kind);
+                }
+
+                layouter.layout_block(engine, block, styles)?;
+                deferred = spacing;
+            }
+        }
+    }
+
+    layouter.finish()
 }
 
 /// Performs stack layout.
@@ -231,7 +237,7 @@ impl<'a> StackLayouter<'a> {
             self.finish_region()?;
         }
 
-        // Block-axis alignment of the `AlignElement` is respected by stacks.
+        // Block-axis alignment of the `AlignElem` is respected by stacks.
         let align = if let Some(align) = block.to_packed::<AlignElem>() {
             align.alignment(styles)
         } else if let Some(styled) = block.to_packed::<StyledElem>() {

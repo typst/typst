@@ -29,8 +29,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem, Sizing,
-    TrackSizings, VElem,
+    BlockChild, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
+    Sizing, TrackSizings, VElem,
 };
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
@@ -926,8 +926,10 @@ impl ElemRenderer<'_> {
 
         match elem.display {
             Some(Display::Block) => {
-                content =
-                    BlockElem::new().with_body(Some(content)).pack().spanned(self.span);
+                content = BlockElem::new()
+                    .with_body(Some(BlockChild::Content(content)))
+                    .pack()
+                    .spanned(self.span);
             }
             Some(Display::Indent) => {
                 content = PadElem::new(content).pack().spanned(self.span);

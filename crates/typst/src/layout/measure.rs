@@ -5,7 +5,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     dict, func, Content, Context, Dict, Resolve, Smart, StyleChain, Styles,
 };
-use crate::layout::{Abs, Axes, LayoutMultiple, Length, Regions, Size};
+use crate::layout::{Abs, Axes, Length, Regions, Size};
 use crate::syntax::Span;
 
 /// Measures the layouted size of content.

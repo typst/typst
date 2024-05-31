@@ -14,8 +14,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Counter, CounterDisplayElem, CounterKey, ManualPageCounter};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
-    Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
+    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, Length,
+    OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
     VAlignment,
 };
 

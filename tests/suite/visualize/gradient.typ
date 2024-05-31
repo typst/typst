@@ -45,11 +45,10 @@
   fill: gradient.linear(red, purple, space: color.hsl)
 )
 
-
 --- gradient-linear-relative-parent ---
 // The image should look as if there is a single gradient that is being used for
 // both the page and the rectangles.
-#let grad = gradient.linear(red, blue, green, purple, relative: "parent");
+#let grad = gradient.linear(red, blue, green, purple, relative: "parent")
 #let my-rect = rect(width: 50%, height: 50%, fill: grad)
 #set page(
   height: 50pt,
@@ -64,7 +63,7 @@
 --- gradient-linear-relative-self ---
 // The image should look as if there are multiple gradients, one for each
 // rectangle.
-#let grad = gradient.linear(red, blue, green, purple, relative: "self");
+#let grad = gradient.linear(red, blue, green, purple, relative: "self")
 #let my-rect = rect(width: 50%, height: 50%, fill: grad)
 #set page(
   height: 50pt,
@@ -75,6 +74,29 @@
 )
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
+
+--- gradient-linear-relative-parent-block ---
+// The image should look as if there are two nested gradients, one for the page
+// and one for a nested block. The rotated rectangles are not visible because
+// they are relative to the block.
+#let grad = gradient.linear(red, blue, green, purple, relative: "parent")
+#let my-rect = rect(width: 50%, height: 50%, fill: grad)
+#set page(
+  height: 50pt,
+  width: 50pt,
+  margin: 5pt,
+  fill: grad,
+  background: place(top + left, my-rect),
+)
+#block(
+  width: 40pt,
+  height: 40pt,
+  inset: 2.5pt,
+  fill: grad,
+)[
+  #place(top + right, my-rect)
+  #place(bottom + center, rotate(45deg, my-rect))
+]
 
 --- gradient-linear-repeat-and-mirror-1 ---
 // Test repeated gradients.

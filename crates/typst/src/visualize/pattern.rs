@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
-use crate::layout::{Abs, Axes, Frame, LayoutMultiple, Length, Regions, Size};
+use crate::layout::{Abs, Axes, Frame, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
 use crate::utils::{LazyHash, Numeric};
 use crate::visualize::RelativeTo;

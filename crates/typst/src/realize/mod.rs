@@ -23,8 +23,8 @@ use crate::foundations::{
 };
 use crate::introspection::TagElem;
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem,
-    LayoutMultiple, LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem, InlineElem,
+    PageElem, PagebreakElem, Parity, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -377,8 +377,14 @@ impl<'a> FlowBuilder<'a> {
         let last_was_parbreak = self.1;
         self.1 = false;
 
-        if content.is::<VElem>()
-            || content.is::<ColbreakElem>()
+        if let Some(elem) = content.to_packed::<VElem>() {
+            if !elem.attach(styles) || !last_was_parbreak {
+                self.0.push(content, styles);
+            }
+            return true;
+        }
+
+        if content.is::<ColbreakElem>()
             || content.is::<TagElem>()
             || content.is::<PlaceElem>()
             || content.is::<FlushElem>()
@@ -387,35 +393,17 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.can::<dyn LayoutSingle>()
-            || content.can::<dyn LayoutMultiple>()
-            || content.is::<ParElem>()
-        {
-            let is_tight_list = if let Some(elem) = content.to_packed::<ListElem>() {
-                elem.tight(styles)
-            } else if let Some(elem) = content.to_packed::<EnumElem>() {
-                elem.tight(styles)
-            } else if let Some(elem) = content.to_packed::<TermsElem>() {
-                elem.tight(styles)
-            } else {
-                false
-            };
-
-            if !last_was_parbreak && is_tight_list {
-                let leading = ParElem::leading_in(styles);
-                let spacing = VElem::list_attach(leading.into());
-                self.0.push(arenas.store(spacing.pack()), styles);
-            }
-
-            let (above, below) = if let Some(block) = content.to_packed::<BlockElem>() {
-                (block.above(styles), block.below(styles))
-            } else {
-                (BlockElem::above_in(styles), BlockElem::below_in(styles))
-            };
-
-            self.0.push(arenas.store(above.pack()), styles);
+        if let Some(elem) = content.to_packed::<BlockElem>() {
+            self.0.push(arenas.store(elem.above(styles).pack()), styles);
             self.0.push(content, styles);
-            self.0.push(arenas.store(below.pack()), styles);
+            self.0.push(arenas.store(elem.below(styles).pack()), styles);
+            return true;
+        }
+
+        if content.is::<ParElem>() {
+            self.0.push(arenas.store(BlockElem::above_in(styles).pack()), styles);
+            self.0.push(content, styles);
+            self.0.push(arenas.store(BlockElem::below_in(styles).pack()), styles);
             return true;
         }
 
@@ -452,9 +440,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HElem>()
             || content.is::<LinebreakElem>()
             || content.is::<SmartQuoteElem>()
-            || content
-                .to_packed::<EquationElem>()
-                .is_some_and(|elem| !elem.block(styles))
+            || content.is::<InlineElem>()
             || content.is::<BoxElem>()
         {
             self.0.push(content, styles);

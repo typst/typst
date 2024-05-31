@@ -30,6 +30,8 @@ pub struct Frame {
     /// The items composing this layout.
     items: Arc<LazyHash<Vec<(Point, FrameItem)>>>,
     /// The hardness of this frame.
+    ///
+    /// Determines whether it is a boundary for gradient drawing.
     kind: FrameKind,
 }
 
@@ -68,6 +70,12 @@ impl Frame {
     /// Sets the frame's hardness.
     pub fn set_kind(&mut self, kind: FrameKind) {
         self.kind = kind;
+    }
+
+    /// Sets the frame's hardness builder-style.
+    pub fn with_kind(mut self, kind: FrameKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Whether the frame is hard or soft.
@@ -217,6 +225,11 @@ impl Frame {
 
     /// Inline a frame at the given layer.
     fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
+        // Skip work if there's nothing to do.
+        if frame.items.is_empty() {
+            return;
+        }
+
         // Try to just reuse the items.
         if pos.is_zero() && self.items.is_empty() {
             self.items = frame.items;
@@ -354,9 +367,9 @@ impl Frame {
     pub fn fill_and_stroke(
         &mut self,
         fill: Option<Paint>,
-        stroke: Sides<Option<FixedStroke>>,
-        outset: Sides<Rel<Abs>>,
-        radius: Corners<Rel<Abs>>,
+        stroke: &Sides<Option<FixedStroke>>,
+        outset: &Sides<Rel<Abs>>,
+        radius: &Corners<Rel<Abs>>,
         span: Span,
     ) {
         let outset = outset.relative_to(self.size());
@@ -479,7 +492,7 @@ pub enum FrameKind {
     Soft,
     /// A container which uses its own size.
     ///
-    /// This is used for page, block, box, column, grid, and stack elements.
+    /// This is used for pages, blocks, and boxes.
     Hard,
 }
 

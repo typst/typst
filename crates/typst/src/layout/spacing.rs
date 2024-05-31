@@ -130,6 +130,11 @@ pub struct VElem {
     #[internal]
     #[parse(args.named("weak")?.map(|v: bool| v as usize))]
     pub weakness: usize,
+
+    /// Whether the element collapses if there is a parbreak in front.
+    #[internal]
+    #[parse(Some(false))]
+    pub attach: bool,
 }
 
 impl VElem {
@@ -145,7 +150,7 @@ impl VElem {
 
     /// Weak spacing with list attach weakness.
     pub fn list_attach(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(2)
+        Self::new(amount).with_weakness(2).with_attach(true)
     }
 
     /// Weak spacing with BlockElem::ABOVE/BELOW weakness.

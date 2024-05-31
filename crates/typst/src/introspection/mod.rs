@@ -25,9 +25,9 @@ pub use self::state::*;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::NativeElement;
 use crate::foundations::{
-    category, elem, Args, Category, Construct, Content, Packed, Scope, Unlabellable,
+    category, elem, Args, Category, Construct, Content, NativeElement, Packed, Scope,
+    Unlabellable,
 };
 use crate::realize::{Behave, Behaviour};
 

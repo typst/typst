@@ -1,8 +1,10 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
+};
 use crate::layout::{
-    Abs, AlignElem, Axes, Fragment, Frame, LayoutMultiple, Point, Regions, Size,
+    Abs, AlignElem, Axes, BlockElem, Fragment, Frame, Point, Regions, Size,
 };
 use crate::utils::Numeric;
 
@@ -27,54 +29,59 @@ use crate::utils::Numeric;
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-#[elem(LayoutMultiple)]
+#[elem(Show)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]
     pub body: Content,
 }
 
-impl LayoutMultiple for Packed<RepeatElem> {
-    #[typst_macros::time(name = "repeat", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let pod = Regions::one(regions.size, Axes::new(false, false));
-        let piece = self.body().layout(engine, styles, pod)?.into_frame();
-        let align = AlignElem::alignment_in(styles).resolve(styles);
-
-        let fill = regions.size.x;
-        let width = piece.width();
-        let count = (fill / width).floor();
-        let remaining = fill % width;
-        let apart = remaining / (count - 1.0);
-
-        let size = Size::new(regions.size.x, piece.height());
-
-        if !size.is_finite() {
-            bail!(self.span(), "repeat with no size restrictions");
-        }
-
-        let mut frame = Frame::soft(size);
-        if piece.has_baseline() {
-            frame.set_baseline(piece.baseline());
-        }
-
-        let mut offset = Abs::zero();
-        if count == 1.0 {
-            offset += align.x.position(remaining);
-        }
-
-        if width > Abs::zero() {
-            for _ in 0..(count as usize).min(1000) {
-                frame.push_frame(Point::with_x(offset), piece.clone());
-                offset += piece.width() + apart;
-            }
-        }
-
-        Ok(Fragment::frame(frame))
+impl Show for Packed<RepeatElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::multi_layouter(self.clone(), layout_repeat).pack())
     }
+}
+
+/// Layout the repeated content.
+#[typst_macros::time(span = elem.span())]
+fn layout_repeat(
+    elem: &Packed<RepeatElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let pod = Regions::one(regions.size, Axes::new(false, false));
+    let piece = elem.body().layout(engine, styles, pod)?.into_frame();
+    let align = AlignElem::alignment_in(styles).resolve(styles);
+
+    let fill = regions.size.x;
+    let width = piece.width();
+    let count = (fill / width).floor();
+    let remaining = fill % width;
+    let apart = remaining / (count - 1.0);
+
+    let size = Size::new(regions.size.x, piece.height());
+
+    if !size.is_finite() {
+        bail!(elem.span(), "repeat with no size restrictions");
+    }
+
+    let mut frame = Frame::soft(size);
+    if piece.has_baseline() {
+        frame.set_baseline(piece.baseline());
+    }
+
+    let mut offset = Abs::zero();
+    if count == 1.0 {
+        offset += align.x.position(remaining);
+    }
+
+    if width > Abs::zero() {
+        for _ in 0..(count as usize).min(1000) {
+            frame.push_frame(Point::with_x(offset), piece.clone());
+            offset += piece.width() + apart;
+        }
+    }
+
+    Ok(Fragment::frame(frame))
 }

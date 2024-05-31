@@ -107,13 +107,21 @@ impl<T> Sides<Option<T>> {
 
 impl Sides<Rel<Abs>> {
     /// Evaluate the sides relative to the given `size`.
-    pub fn relative_to(self, size: Size) -> Sides<Abs> {
+    pub fn relative_to(&self, size: Size) -> Sides<Abs> {
         Sides {
             left: self.left.relative_to(size.x),
             top: self.top.relative_to(size.y),
             right: self.right.relative_to(size.x),
             bottom: self.bottom.relative_to(size.y),
         }
+    }
+
+    /// Whether all sides are zero.
+    pub fn is_zero(&self) -> bool {
+        self.left.is_zero()
+            && self.top.is_zero()
+            && self.right.is_zero()
+            && self.bottom.is_zero()
     }
 }
 

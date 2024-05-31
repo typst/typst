@@ -14,19 +14,15 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
-use typst::foundations::AutoValue;
-use typst::foundations::Bytes;
-use typst::foundations::NoneValue;
 use typst::foundations::{
-    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
-    FOUNDATIONS,
+    AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
+    Scope, Smart, Type, Value, FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
 use typst::layout::{Abs, Margin, PageElem, LAYOUT};
 use typst::loading::DATA_LOADING;
 use typst::math::MATH;
-use typst::model::Document;
-use typst::model::MODEL;
+use typst::model::{Document, MODEL};
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
 use typst::utils::LazyHash;

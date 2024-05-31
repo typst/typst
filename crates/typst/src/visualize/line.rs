@@ -1,8 +1,8 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Packed, StyleChain};
+use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
 use crate::layout::{
-    Abs, Angle, Axes, Frame, FrameItem, LayoutSingle, Length, Regions, Rel, Size,
+    Abs, Angle, Axes, BlockElem, Frame, FrameItem, Length, Region, Rel, Size,
 };
 use crate::utils::Numeric;
 use crate::visualize::{Geometry, Stroke};
@@ -20,7 +20,7 @@ use crate::visualize::{Geometry, Stroke};
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-#[elem(LayoutSingle)]
+#[elem(Show)]
 pub struct LineElem {
     /// The start point of the line.
     ///
@@ -58,37 +58,39 @@ pub struct LineElem {
     pub stroke: Stroke,
 }
 
-impl LayoutSingle for Packed<LineElem> {
-    #[typst_macros::time(name = "line", span = self.span())]
-    fn layout(
-        &self,
-        _: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Frame> {
-        let resolve =
-            |axes: Axes<Rel<Abs>>| axes.zip_map(regions.base(), Rel::relative_to);
-        let start = resolve(self.start(styles));
-        let delta =
-            self.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
-                let length = self.length(styles);
-                let angle = self.angle(styles);
-                let x = angle.cos() * length;
-                let y = angle.sin() * length;
-                resolve(Axes::new(x, y))
-            });
-
-        let stroke = self.stroke(styles).unwrap_or_default();
-        let size = start.max(start + delta).max(Size::zero());
-        let target = regions.expand.select(regions.size, size);
-
-        if !target.is_finite() {
-            bail!(self.span(), "cannot create line with infinite length");
-        }
-
-        let mut frame = Frame::soft(target);
-        let shape = Geometry::Line(delta.to_point()).stroked(stroke);
-        frame.push(start.to_point(), FrameItem::Shape(shape, self.span()));
-        Ok(frame)
+impl Show for Packed<LineElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::single_layouter(self.clone(), layout_line).pack())
     }
+}
+
+/// Layout the line.
+#[typst_macros::time(span = elem.span())]
+fn layout_line(
+    elem: &Packed<LineElem>,
+    _: &mut Engine,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let resolve = |axes: Axes<Rel<Abs>>| axes.zip_map(region.size, Rel::relative_to);
+    let start = resolve(elem.start(styles));
+    let delta = elem.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
+        let length = elem.length(styles);
+        let angle = elem.angle(styles);
+        let x = angle.cos() * length;
+        let y = angle.sin() * length;
+        resolve(Axes::new(x, y))
+    });
+
+    let stroke = elem.stroke(styles).unwrap_or_default();
+    let size = start.max(start + delta).max(Size::zero());
+
+    if !size.is_finite() {
+        bail!(elem.span(), "cannot create line with infinite length");
+    }
+
+    let mut frame = Frame::soft(size);
+    let shape = Geometry::Line(delta.to_point()).stroked(stroke);
+    frame.push(start.to_point(), FrameItem::Shape(shape, elem.span()));
+    Ok(frame)
 }

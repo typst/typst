@@ -2,10 +2,9 @@ use std::num::NonZeroUsize;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, StyleChain};
+use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
 use crate::layout::{
-    Abs, Axes, Dir, Fragment, Frame, LayoutMultiple, Length, Point, Ratio, Regions, Rel,
-    Size,
+    Abs, Axes, BlockElem, Dir, Fragment, Frame, Length, Point, Ratio, Regions, Rel, Size,
 };
 use crate::realize::{Behave, Behaviour};
 use crate::text::TextElem;
@@ -42,7 +41,7 @@ use crate::utils::Numeric;
 /// increasingly been used to solve a
 /// variety of problems.
 /// ```
-#[elem(LayoutMultiple)]
+#[elem(Show)]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -59,82 +58,86 @@ pub struct ColumnsElem {
     pub body: Content,
 }
 
-impl LayoutMultiple for Packed<ColumnsElem> {
-    #[typst_macros::time(name = "columns", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let body = self.body();
+impl Show for Packed<ColumnsElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::multi_layouter(self.clone(), layout_columns)
+            .with_rootable(true)
+            .pack())
+    }
+}
 
-        // Separating the infinite space into infinite columns does not make
-        // much sense.
-        if !regions.size.x.is_finite() {
-            return body.layout(engine, styles, regions);
-        }
+/// Layout the columns.
+#[typst_macros::time(span = elem.span())]
+fn layout_columns(
+    elem: &Packed<ColumnsElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let body = elem.body();
 
-        // Determine the width of the gutter and each column.
-        let columns = self.count(styles).get();
-        let gutter = self.gutter(styles).relative_to(regions.base().x);
-        let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
+    // Separating the infinite space into infinite columns does not make
+    // much sense.
+    if !regions.size.x.is_finite() {
+        return body.layout(engine, styles, regions);
+    }
 
-        let backlog: Vec<_> = std::iter::once(&regions.size.y)
-            .chain(regions.backlog)
-            .flat_map(|&height| std::iter::repeat(height).take(columns))
-            .skip(1)
-            .collect();
+    // Determine the width of the gutter and each column.
+    let columns = elem.count(styles).get();
+    let gutter = elem.gutter(styles).relative_to(regions.base().x);
+    let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
 
-        // Create the pod regions.
-        let pod = Regions {
-            size: Size::new(width, regions.size.y),
-            full: regions.full,
-            backlog: &backlog,
-            last: regions.last,
-            expand: Axes::new(true, regions.expand.y),
-            root: regions.root,
-        };
+    let backlog: Vec<_> = std::iter::once(&regions.size.y)
+        .chain(regions.backlog)
+        .flat_map(|&height| std::iter::repeat(height).take(columns))
+        .skip(1)
+        .collect();
 
-        // Layout the children.
-        let mut frames = body.layout(engine, styles, pod)?.into_iter();
-        let mut finished = vec![];
+    // Create the pod regions.
+    let pod = Regions {
+        size: Size::new(width, regions.size.y),
+        full: regions.full,
+        backlog: &backlog,
+        last: regions.last,
+        expand: Axes::new(true, regions.expand.y),
+        root: regions.root,
+    };
 
-        let dir = TextElem::dir_in(styles);
-        let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
+    // Layout the children.
+    let mut frames = body.layout(engine, styles, pod)?.into_iter();
+    let mut finished = vec![];
 
-        // Stitch together the columns for each region.
-        for region in regions.iter().take(total_regions) {
-            // The height should be the parent height if we should expand.
-            // Otherwise its the maximum column height for the frame. In that
-            // case, the frame is first created with zero height and then
-            // resized.
-            let height = if regions.expand.y { region.y } else { Abs::zero() };
-            let mut output = Frame::hard(Size::new(regions.size.x, height));
-            let mut cursor = Abs::zero();
+    let dir = TextElem::dir_in(styles);
+    let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
-            for _ in 0..columns {
-                let Some(frame) = frames.next() else { break };
-                if !regions.expand.y {
-                    output.size_mut().y.set_max(frame.height());
-                }
+    // Stitch together the columns for each region.
+    for region in regions.iter().take(total_regions) {
+        // The height should be the parent height if we should expand.
+        // Otherwise its the maximum column height for the frame. In that
+        // case, the frame is first created with zero height and then
+        // resized.
+        let height = if regions.expand.y { region.y } else { Abs::zero() };
+        let mut output = Frame::hard(Size::new(regions.size.x, height));
+        let mut cursor = Abs::zero();
 
-                let width = frame.width();
-                let x = if dir == Dir::LTR {
-                    cursor
-                } else {
-                    regions.size.x - cursor - width
-                };
-
-                output.push_frame(Point::with_x(x), frame);
-                cursor += width + gutter;
+        for _ in 0..columns {
+            let Some(frame) = frames.next() else { break };
+            if !regions.expand.y {
+                output.size_mut().y.set_max(frame.height());
             }
 
-            finished.push(output);
+            let width = frame.width();
+            let x =
+                if dir == Dir::LTR { cursor } else { regions.size.x - cursor - width };
+
+            output.push_frame(Point::with_x(x), frame);
+            cursor += width + gutter;
         }
 
-        Ok(Fragment::frames(finished))
+        finished.push(output);
     }
+
+    Ok(Fragment::frames(finished))
 }
 
 /// Forces a column break.

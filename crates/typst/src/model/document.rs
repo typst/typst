@@ -7,7 +7,7 @@ use crate::foundations::{
     StyledElem, Value,
 };
 use crate::introspection::{Introspector, ManualPageCounter};
-use crate::layout::{LayoutRoot, Page, PageElem};
+use crate::layout::{Page, PageElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -25,7 +25,7 @@ use crate::layout::{LayoutRoot, Page, PageElem};
 ///
 /// Note that metadata set with this function is not rendered within the
 /// document. Instead, it is embedded in the compiled PDF file.
-#[elem(Construct, LayoutRoot)]
+#[elem(Construct)]
 pub struct DocumentElem {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
@@ -69,9 +69,10 @@ impl Construct for DocumentElem {
     }
 }
 
-impl LayoutRoot for Packed<DocumentElem> {
+impl Packed<DocumentElem> {
+    /// Layout this document.
     #[typst_macros::time(name = "document", span = self.span())]
-    fn layout_root(
+    pub fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,

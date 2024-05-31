@@ -4,7 +4,9 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles,
 };
-use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
+use crate::layout::{
+    Alignment, BlockChild, BlockElem, Em, HElem, PadElem, Spacing, VElem,
+};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
@@ -181,8 +183,10 @@ impl Show for Packed<QuoteElem> {
         }
 
         if block {
-            realized =
-                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
+            realized = BlockElem::new()
+                .with_body(Some(BlockChild::Content(realized)))
+                .pack()
+                .spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];

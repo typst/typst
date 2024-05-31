@@ -5,13 +5,14 @@ use unicode_math_class::MathClass;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
+    Styles, Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame,
-    LayoutMultiple, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
+    InlineElem, InlineItem, OuterHAlignment, Point, Regions, Size, SpecificAlignment,
+    VAlignment,
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -48,14 +49,7 @@ use crate::World;
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
 #[elem(
-    Locatable,
-    Synthesize,
-    ShowSet,
-    LayoutMultiple,
-    LayoutMath,
-    Count,
-    LocalName,
-    Refable,
+    Locatable, Synthesize, Show, ShowSet, LayoutMath, Count, LocalName, Refable,
     Outlinable
 )]
 pub struct EquationElem {
@@ -169,6 +163,16 @@ impl Synthesize for Packed<EquationElem> {
     }
 }
 
+impl Show for Packed<EquationElem> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if self.block(styles) {
+            Ok(BlockElem::multi_layouter(self.clone(), layout_equation_block).pack())
+        } else {
+            Ok(InlineElem::layouter(self.clone(), layout_equation_inline).pack())
+        }
+    }
+}
+
 impl ShowSet for Packed<EquationElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
@@ -184,178 +188,6 @@ impl ShowSet for Packed<EquationElem> {
             "New Computer Modern Math",
         )])));
         out
-    }
-}
-
-/// Layouted items suitable for placing in a paragraph.
-#[derive(Debug, Clone)]
-pub enum MathParItem {
-    Space(Abs),
-    Frame(Frame),
-}
-
-impl Packed<EquationElem> {
-    pub fn layout_inline(
-        &self,
-        engine: &mut Engine<'_>,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Vec<MathParItem>> {
-        assert!(!self.block(styles));
-
-        let font = find_math_font(engine, styles, self.span())?;
-
-        let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let run = ctx.layout_into_run(self, styles)?;
-
-        let mut items = if run.row_count() == 1 {
-            run.into_par_items()
-        } else {
-            vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
-        };
-
-        // An empty equation should have a height, so we still create a frame
-        // (which is then resized in the loop).
-        if items.is_empty() {
-            items.push(MathParItem::Frame(Frame::soft(Size::zero())));
-        }
-
-        for item in &mut items {
-            let MathParItem::Frame(frame) = item else { continue };
-
-            let font_size = scaled_font_size(&ctx, styles);
-            let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
-            let bottom_edge =
-                -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
-
-            let ascent = top_edge.max(frame.ascent() - slack);
-            let descent = bottom_edge.max(frame.descent() - slack);
-            frame.translate(Point::with_y(ascent - frame.baseline()));
-            frame.size_mut().y = ascent + descent;
-        }
-
-        Ok(items)
-    }
-}
-
-impl LayoutMultiple for Packed<EquationElem> {
-    #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        assert!(self.block(styles));
-
-        let span = self.span();
-        let font = find_math_font(engine, styles, span)?;
-
-        let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let full_equation_builder = ctx
-            .layout_into_run(self, styles)?
-            .multiline_frame_builder(&ctx, styles);
-        let width = full_equation_builder.size.x;
-
-        let equation_builders = if BlockElem::breakable_in(styles) {
-            let mut rows = full_equation_builder.frames.into_iter().peekable();
-            let mut equation_builders = vec![];
-            let mut last_first_pos = Point::zero();
-
-            for region in regions.iter() {
-                // Keep track of the position of the first row in this region,
-                // so that the offset can be reverted later.
-                let Some(&(_, first_pos)) = rows.peek() else { break };
-                last_first_pos = first_pos;
-
-                let mut frames = vec![];
-                let mut height = Abs::zero();
-                while let Some((sub, pos)) = rows.peek() {
-                    let mut pos = *pos;
-                    pos.y -= first_pos.y;
-
-                    // Finish this region if the line doesn't fit. Only do it if
-                    // we placed at least one line _or_ we still have non-last
-                    // regions. Crucially, we don't want to infinitely create
-                    // new regions which are too small.
-                    if !region.y.fits(sub.height() + pos.y)
-                        && (!frames.is_empty() || !regions.in_last())
-                    {
-                        break;
-                    }
-
-                    let (sub, _) = rows.next().unwrap();
-                    height = height.max(pos.y + sub.height());
-                    frames.push((sub, pos));
-                }
-
-                equation_builders
-                    .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
-            }
-
-            // Append remaining rows to the equation builder of the last region.
-            if let Some(equation_builder) = equation_builders.last_mut() {
-                equation_builder.frames.extend(rows.map(|(frame, mut pos)| {
-                    pos.y -= last_first_pos.y;
-                    (frame, pos)
-                }));
-
-                let height = equation_builder
-                    .frames
-                    .iter()
-                    .map(|(frame, pos)| frame.height() + pos.y)
-                    .max()
-                    .unwrap_or(equation_builder.size.y);
-
-                equation_builder.size.y = height;
-            }
-
-            equation_builders
-        } else {
-            vec![full_equation_builder]
-        };
-
-        let Some(numbering) = (**self).numbering(styles) else {
-            let frames = equation_builders
-                .into_iter()
-                .map(MathRunFrameBuilder::build)
-                .collect();
-            return Ok(Fragment::frames(frames));
-        };
-
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let number = Counter::of(EquationElem::elem())
-            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
-            .spanned(span)
-            .layout(engine, styles, pod)?
-            .into_frame();
-
-        static NUMBER_GUTTER: Em = Em::new(0.5);
-        let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
-
-        let number_align = match self.number_align(styles) {
-            SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
-            SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
-            SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
-        };
-
-        // Add equation numbers to each equation region.
-        let frames = equation_builders
-            .into_iter()
-            .map(|builder| {
-                add_equation_number(
-                    builder,
-                    number.clone(),
-                    number_align.resolve(styles),
-                    AlignElem::alignment_in(styles).resolve(styles).x,
-                    regions.size.x,
-                    full_number_width,
-                )
-            })
-            .collect();
-
-        Ok(Fragment::frames(frames))
     }
 }
 
@@ -427,6 +259,170 @@ impl LayoutMath for Packed<EquationElem> {
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         self.body().layout_math(ctx, styles)
     }
+}
+
+/// Layout an inline equation (in a paragraph).
+#[typst_macros::time(span = elem.span())]
+fn layout_equation_inline(
+    elem: &Packed<EquationElem>,
+    engine: &mut Engine<'_>,
+    styles: StyleChain,
+    region: Size,
+) -> SourceResult<Vec<InlineItem>> {
+    assert!(!elem.block(styles));
+
+    let font = find_math_font(engine, styles, elem.span())?;
+
+    let mut ctx = MathContext::new(engine, styles, region, &font);
+    let run = ctx.layout_into_run(elem, styles)?;
+
+    let mut items = if run.row_count() == 1 {
+        run.into_par_items()
+    } else {
+        vec![InlineItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
+    };
+
+    // An empty equation should have a height, so we still create a frame
+    // (which is then resized in the loop).
+    if items.is_empty() {
+        items.push(InlineItem::Frame(Frame::soft(Size::zero())));
+    }
+
+    for item in &mut items {
+        let InlineItem::Frame(frame) = item else { continue };
+
+        let font_size = scaled_font_size(&ctx, styles);
+        let slack = ParElem::leading_in(styles) * 0.7;
+        let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
+        let bottom_edge =
+            -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
+
+        let ascent = top_edge.max(frame.ascent() - slack);
+        let descent = bottom_edge.max(frame.descent() - slack);
+        frame.translate(Point::with_y(ascent - frame.baseline()));
+        frame.size_mut().y = ascent + descent;
+    }
+
+    Ok(items)
+}
+
+/// Layout a block-level equation (in a flow).
+#[typst_macros::time(span = elem.span())]
+fn layout_equation_block(
+    elem: &Packed<EquationElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    assert!(elem.block(styles));
+
+    let span = elem.span();
+    let font = find_math_font(engine, styles, span)?;
+
+    let mut ctx = MathContext::new(engine, styles, regions.base(), &font);
+    let full_equation_builder = ctx
+        .layout_into_run(elem, styles)?
+        .multiline_frame_builder(&ctx, styles);
+    let width = full_equation_builder.size.x;
+
+    let equation_builders = if BlockElem::breakable_in(styles) {
+        let mut rows = full_equation_builder.frames.into_iter().peekable();
+        let mut equation_builders = vec![];
+        let mut last_first_pos = Point::zero();
+
+        for region in regions.iter() {
+            // Keep track of the position of the first row in this region,
+            // so that the offset can be reverted later.
+            let Some(&(_, first_pos)) = rows.peek() else { break };
+            last_first_pos = first_pos;
+
+            let mut frames = vec![];
+            let mut height = Abs::zero();
+            while let Some((sub, pos)) = rows.peek() {
+                let mut pos = *pos;
+                pos.y -= first_pos.y;
+
+                // Finish this region if the line doesn't fit. Only do it if
+                // we placed at least one line _or_ we still have non-last
+                // regions. Crucially, we don't want to infinitely create
+                // new regions which are too small.
+                if !region.y.fits(sub.height() + pos.y)
+                    && (!frames.is_empty() || !regions.in_last())
+                {
+                    break;
+                }
+
+                let (sub, _) = rows.next().unwrap();
+                height = height.max(pos.y + sub.height());
+                frames.push((sub, pos));
+            }
+
+            equation_builders
+                .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
+        }
+
+        // Append remaining rows to the equation builder of the last region.
+        if let Some(equation_builder) = equation_builders.last_mut() {
+            equation_builder.frames.extend(rows.map(|(frame, mut pos)| {
+                pos.y -= last_first_pos.y;
+                (frame, pos)
+            }));
+
+            let height = equation_builder
+                .frames
+                .iter()
+                .map(|(frame, pos)| frame.height() + pos.y)
+                .max()
+                .unwrap_or(equation_builder.size.y);
+
+            equation_builder.size.y = height;
+        }
+
+        equation_builders
+    } else {
+        vec![full_equation_builder]
+    };
+
+    let Some(numbering) = (**elem).numbering(styles) else {
+        let frames = equation_builders
+            .into_iter()
+            .map(MathRunFrameBuilder::build)
+            .collect();
+        return Ok(Fragment::frames(frames));
+    };
+
+    let pod = Regions::one(regions.base(), Axes::splat(false));
+    let number = Counter::of(EquationElem::elem())
+        .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
+        .spanned(span)
+        .layout(engine, styles, pod)?
+        .into_frame();
+
+    static NUMBER_GUTTER: Em = Em::new(0.5);
+    let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+
+    let number_align = match elem.number_align(styles) {
+        SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
+        SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
+        SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
+    };
+
+    // Add equation numbers to each equation region.
+    let frames = equation_builders
+        .into_iter()
+        .map(|builder| {
+            add_equation_number(
+                builder,
+                number.clone(),
+                number_align.resolve(styles),
+                AlignElem::alignment_in(styles).resolve(styles).x,
+                regions.size.x,
+                full_number_width,
+            )
+        })
+        .collect();
+
+    Ok(Fragment::frames(frames))
 }
 
 fn find_math_font(

@@ -19,11 +19,12 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
-    OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
+    Abs, Alignment, Axes, BlockElem, Dir, Fragment, Length, OuterHAlignment,
+    OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::syntax::Span;
@@ -148,7 +149,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope, LayoutMultiple)]
+#[elem(scope, Show)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -335,62 +336,65 @@ impl GridElem {
     type GridFooter;
 }
 
-impl LayoutMultiple for Packed<GridElem> {
-    #[typst_macros::time(name = "grid", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let inset = self.inset(styles);
-        let align = self.align(styles);
-        let columns = self.columns(styles);
-        let rows = self.rows(styles);
-        let column_gutter = self.column_gutter(styles);
-        let row_gutter = self.row_gutter(styles);
-        let fill = self.fill(styles);
-        let stroke = self.stroke(styles);
-
-        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
-        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        // Use trace to link back to the grid when a specific cell errors
-        let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
-        let resolve_item = |item: &GridItem| item.to_resolvable(styles);
-        let children = self.children().iter().map(|child| match child {
-            GridChild::Header(header) => ResolvableGridChild::Header {
-                repeat: header.repeat(styles),
-                span: header.span(),
-                items: header.children().iter().map(resolve_item),
-            },
-            GridChild::Footer(footer) => ResolvableGridChild::Footer {
-                repeat: footer.repeat(styles),
-                span: footer.span(),
-                items: footer.children().iter().map(resolve_item),
-            },
-            GridChild::Item(item) => {
-                ResolvableGridChild::Item(item.to_resolvable(styles))
-            }
-        });
-        let grid = CellGrid::resolve(
-            tracks,
-            gutter,
-            children,
-            fill,
-            align,
-            &inset,
-            &stroke,
-            engine,
-            styles,
-            self.span(),
-        )
-        .trace(engine.world, tracepoint, self.span())?;
-
-        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
-
-        // Measure the columns and layout the grid row-by-row.
-        layouter.layout(engine)
+impl Show for Packed<GridElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::multi_layouter(self.clone(), layout_grid).pack())
     }
+}
+
+/// Layout the grid.
+#[typst_macros::time(span = elem.span())]
+fn layout_grid(
+    elem: &Packed<GridElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let inset = elem.inset(styles);
+    let align = elem.align(styles);
+    let columns = elem.columns(styles);
+    let rows = elem.rows(styles);
+    let column_gutter = elem.column_gutter(styles);
+    let row_gutter = elem.row_gutter(styles);
+    let fill = elem.fill(styles);
+    let stroke = elem.stroke(styles);
+
+    let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
+    let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+    // Use trace to link back to the grid when a specific cell errors
+    let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
+    let resolve_item = |item: &GridItem| item.to_resolvable(styles);
+    let children = elem.children().iter().map(|child| match child {
+        GridChild::Header(header) => ResolvableGridChild::Header {
+            repeat: header.repeat(styles),
+            span: header.span(),
+            items: header.children().iter().map(resolve_item),
+        },
+        GridChild::Footer(footer) => ResolvableGridChild::Footer {
+            repeat: footer.repeat(styles),
+            span: footer.span(),
+            items: footer.children().iter().map(resolve_item),
+        },
+        GridChild::Item(item) => ResolvableGridChild::Item(item.to_resolvable(styles)),
+    });
+    let grid = CellGrid::resolve(
+        tracks,
+        gutter,
+        children,
+        fill,
+        align,
+        &inset,
+        &stroke,
+        engine,
+        styles,
+        elem.span(),
+    )
+    .trace(engine.world, tracepoint, elem.span())?;
+
+    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+
+    // Measure the columns and layout the grid row-by-row.
+    layouter.layout(engine)
 }
 
 /// Track sizing definitions.
@@ -956,7 +960,7 @@ pub fn show_grid_cell(
     }
 
     if let Smart::Custom(alignment) = align {
-        body = body.styled(AlignElem::set_alignment(alignment));
+        body = body.aligned(alignment);
     }
 
     Ok(body)

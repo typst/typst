@@ -26,7 +26,7 @@
 //! [evaluate]: eval::eval
 //! [module]: foundations::Module
 //! [content]: foundations::Content
-//! [layouted]: layout::LayoutRoot
+//! [layouted]: foundations::Content::layout_document
 //! [document]: model::Document
 //! [frame]: layout::Frame
 
@@ -70,7 +70,7 @@ use crate::foundations::{
     Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::layout::{Alignment, Dir, LayoutRoot};
+use crate::layout::{Alignment, Dir};
 use crate::model::Document;
 use crate::syntax::package::PackageSpec;
 use crate::syntax::{FileId, Source, Span};
@@ -139,7 +139,7 @@ fn typeset(
         };
 
         // Layout!
-        document = content.layout_root(&mut engine, styles)?;
+        document = content.layout_document(&mut engine, styles)?;
         document.introspector.rebuild(&document.pages);
         iter += 1;
 
