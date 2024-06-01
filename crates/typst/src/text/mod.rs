@@ -32,9 +32,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
-use rustybuzz::{Feature, Tag};
+use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::Rect;
+use ttf_parser::{Rect, Tag};
 
 use crate::diag::{bail, warning, At, Hint, SourceResult, StrResult};
 use crate::engine::Engine;
