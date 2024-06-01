@@ -46,16 +46,16 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Apply the unary plus operator to a value.
-pub fn pos(value: Value) -> StrResult<Value> {
+pub fn pos(value: &Value) -> StrResult<Value> {
     use Value::*;
     Ok(match value {
-        Int(v) => Int(v),
-        Float(v) => Float(v),
-        Length(v) => Length(v),
-        Angle(v) => Angle(v),
-        Ratio(v) => Ratio(v),
-        Relative(v) => Relative(v),
-        Fraction(v) => Fraction(v),
+        Int(v) => Int(*v),
+        Float(v) => Float(*v),
+        Length(v) => Length(*v),
+        Angle(v) => Angle(*v),
+        Ratio(v) => Ratio(*v),
+        Relative(v) => Relative(*v),
+        Fraction(v) => Fraction(*v),
         Symbol(_) | Str(_) | Bytes(_) | Content(_) | Array(_) | Dict(_) | Datetime(_) => {
             mismatch!("cannot apply unary '+' to {}", value)
         }
@@ -71,78 +71,78 @@ pub fn pos(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the negation of a value.
-pub fn neg(value: Value) -> StrResult<Value> {
+pub fn neg(value: &Value) -> StrResult<Value> {
     use Value::*;
     Ok(match value {
         Int(v) => Int(v.checked_neg().ok_or_else(too_large)?),
-        Float(v) => Float(-v),
-        Length(v) => Length(-v),
-        Angle(v) => Angle(-v),
-        Ratio(v) => Ratio(-v),
-        Relative(v) => Relative(-v),
-        Fraction(v) => Fraction(-v),
-        Duration(v) => Duration(-v),
+        Float(v) => Float(-*v),
+        Length(v) => Length(-*v),
+        Angle(v) => Angle(-*v),
+        Ratio(v) => Ratio(-*v),
+        Relative(v) => Relative(-*v),
+        Fraction(v) => Fraction(-*v),
+        Duration(v) => Duration(-*v),
         Datetime(_) => mismatch!("cannot apply unary '-' to {}", value),
         v => mismatch!("cannot apply '-' to {}", v),
     })
 }
 
 /// Compute the sum of two values.
-pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn add(lhs: &Value, rhs: &Value) -> StrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
-        (a, None) => a,
-        (None, b) => b,
+        (a, None) => a.clone(),
+        (None, b) => b.clone(),
 
-        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or_else(too_large)?),
-        (Int(a), Float(b)) => Float(a as f64 + b),
-        (Float(a), Int(b)) => Float(a + b as f64),
+        (Int(a), Int(b)) => Int(a.checked_add(*b).ok_or_else(too_large)?),
+        (Int(a), Float(b)) => Float(*a as f64 + b),
+        (Float(a), Int(b)) => Float(*a + *b as f64),
         (Float(a), Float(b)) => Float(a + b),
 
-        (Angle(a), Angle(b)) => Angle(a + b),
+        (Angle(a), Angle(b)) => Angle(*a + *b),
 
-        (Length(a), Length(b)) => Length(a + b),
-        (Length(a), Ratio(b)) => Relative(b + a),
-        (Length(a), Relative(b)) => Relative(b + a),
+        (Length(a), Length(b)) => Length(*a + *b),
+        (Length(a), Ratio(b)) => Relative(*b + *a),
+        (Length(a), Relative(b)) => Relative(*b + *a),
 
-        (Ratio(a), Length(b)) => Relative(a + b),
-        (Ratio(a), Ratio(b)) => Ratio(a + b),
-        (Ratio(a), Relative(b)) => Relative(b + a),
+        (Ratio(a), Length(b)) => Relative(*a + *b),
+        (Ratio(a), Ratio(b)) => Ratio(*a + *b),
+        (Ratio(a), Relative(b)) => Relative(*b + *a),
 
-        (Relative(a), Length(b)) => Relative(a + b),
-        (Relative(a), Ratio(b)) => Relative(a + b),
-        (Relative(a), Relative(b)) => Relative(a + b),
+        (Relative(a), Length(b)) => Relative(*a + *b),
+        (Relative(a), Ratio(b)) => Relative(*a + *b),
+        (Relative(a), Relative(b)) => Relative(*a + *b),
 
-        (Fraction(a), Fraction(b)) => Fraction(a + b),
+        (Fraction(a), Fraction(b)) => Fraction(*a + *b),
 
         (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
-        (Str(a), Str(b)) => Str(a + b),
+        (Str(a), Str(b)) => Str(a.clone() + b.clone()),
         (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
-        (Bytes(a), Bytes(b)) => Bytes(a + b),
-        (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + TextElem::packed(b.get())),
-        (Content(a), Str(b)) => Content(a + TextElem::packed(b)),
-        (Str(a), Content(b)) => Content(TextElem::packed(a) + b),
+        (Bytes(a), Bytes(b)) => Bytes(a.clone() + b.clone()),
+        (Content(a), Content(b)) => Content(a.clone() + b.clone()),
+        (Content(a), Symbol(b)) => Content(a.clone() + TextElem::packed(b.get())),
+        (Content(a), Str(b)) => Content(a.clone() + TextElem::packed(b.clone())),
+        (Str(a), Content(b)) => Content(TextElem::packed(a.clone()) + b),
         (Symbol(a), Content(b)) => Content(TextElem::packed(a.get()) + b),
 
-        (Array(a), Array(b)) => Array(a + b),
-        (Dict(a), Dict(b)) => Dict(a + b),
+        (Array(a), Array(b)) => Array(a.clone() + b.clone()),
+        (Dict(a), Dict(b)) => Dict(a.clone() + b.clone()),
 
         (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
-            Stroke::from_pair(color, thickness).into_value()
+            Stroke::from_pair(*color, *thickness).into_value()
         }
         (Gradient(gradient), Length(thickness))
         | (Length(thickness), Gradient(gradient)) => {
-            Stroke::from_pair(gradient, thickness).into_value()
+            Stroke::from_pair(gradient.clone(), *thickness).into_value()
         }
         (Pattern(pattern), Length(thickness)) | (Length(thickness), Pattern(pattern)) => {
-            Stroke::from_pair(pattern, thickness).into_value()
+            Stroke::from_pair(pattern.clone(), *thickness).into_value()
         }
 
-        (Duration(a), Duration(b)) => Duration(a + b),
-        (Datetime(a), Duration(b)) => Datetime(a + b),
-        (Duration(a), Datetime(b)) => Datetime(b + a),
+        (Duration(a), Duration(b)) => Duration(*a + *b),
+        (Datetime(a), Duration(b)) => Datetime(*a + *b),
+        (Duration(a), Datetime(b)) => Datetime(*b + *a),
 
         // Type compatibility.
         (Type(a), Str(b)) => Str(format_str!("{a}{b}")),
@@ -164,137 +164,137 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the difference of two values.
-pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn sub(lhs: &Value, rhs: &Value) -> StrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or_else(too_large)?),
-        (Int(a), Float(b)) => Float(a as f64 - b),
-        (Float(a), Int(b)) => Float(a - b as f64),
-        (Float(a), Float(b)) => Float(a - b),
+        (Int(a), Int(b)) => Int(a.checked_sub(*b).ok_or_else(too_large)?),
+        (Int(a), Float(b)) => Float(*a as f64 - *b),
+        (Float(a), Int(b)) => Float(*a - *b as f64),
+        (Float(a), Float(b)) => Float(*a - *b),
 
-        (Angle(a), Angle(b)) => Angle(a - b),
+        (Angle(a), Angle(b)) => Angle(*a - *b),
 
-        (Length(a), Length(b)) => Length(a - b),
-        (Length(a), Ratio(b)) => Relative(-b + a),
-        (Length(a), Relative(b)) => Relative(-b + a),
+        (Length(a), Length(b)) => Length(*a - *b),
+        (Length(a), Ratio(b)) => Relative(-*b + *a),
+        (Length(a), Relative(b)) => Relative(-*b + *a),
 
-        (Ratio(a), Length(b)) => Relative(a + -b),
-        (Ratio(a), Ratio(b)) => Ratio(a - b),
-        (Ratio(a), Relative(b)) => Relative(-b + a),
+        (Ratio(a), Length(b)) => Relative(*a + -*b),
+        (Ratio(a), Ratio(b)) => Ratio(*a - *b),
+        (Ratio(a), Relative(b)) => Relative(-*b + *a),
 
-        (Relative(a), Length(b)) => Relative(a + -b),
-        (Relative(a), Ratio(b)) => Relative(a + -b),
-        (Relative(a), Relative(b)) => Relative(a - b),
+        (Relative(a), Length(b)) => Relative(*a + -*b),
+        (Relative(a), Ratio(b)) => Relative(*a + -*b),
+        (Relative(a), Relative(b)) => Relative(*a - *b),
 
-        (Fraction(a), Fraction(b)) => Fraction(a - b),
+        (Fraction(a), Fraction(b)) => Fraction(*a - *b),
 
-        (Duration(a), Duration(b)) => Duration(a - b),
-        (Datetime(a), Duration(b)) => Datetime(a - b),
-        (Datetime(a), Datetime(b)) => Duration((a - b)?),
+        (Duration(a), Duration(b)) => Duration(*a - *b),
+        (Datetime(a), Duration(b)) => Datetime(*a - *b),
+        (Datetime(a), Datetime(b)) => Duration((*a - *b)?),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     })
 }
 
 /// Compute the product of two values.
-pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn mul(lhs: &Value, rhs: &Value) -> StrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or_else(too_large)?),
-        (Int(a), Float(b)) => Float(a as f64 * b),
-        (Float(a), Int(b)) => Float(a * b as f64),
-        (Float(a), Float(b)) => Float(a * b),
+        (Int(a), Int(b)) => Int(a.checked_mul(*b).ok_or_else(too_large)?),
+        (Int(a), Float(b)) => Float(*a as f64 * *b),
+        (Float(a), Int(b)) => Float(*a * *b as f64),
+        (Float(a), Float(b)) => Float(*a * *b),
 
-        (Length(a), Int(b)) => Length(a * b as f64),
-        (Length(a), Float(b)) => Length(a * b),
-        (Length(a), Ratio(b)) => Length(a * b.get()),
-        (Int(a), Length(b)) => Length(b * a as f64),
-        (Float(a), Length(b)) => Length(b * a),
-        (Ratio(a), Length(b)) => Length(b * a.get()),
+        (Length(a), Int(b)) => Length(*a * *b as f64),
+        (Length(a), Float(b)) => Length(*a * *b),
+        (Length(a), Ratio(b)) => Length(*a * b.get()),
+        (Int(a), Length(b)) => Length(*b * *a as f64),
+        (Float(a), Length(b)) => Length(*b * *a),
+        (Ratio(a), Length(b)) => Length(*b * a.get()),
 
-        (Angle(a), Int(b)) => Angle(a * b as f64),
-        (Angle(a), Float(b)) => Angle(a * b),
-        (Angle(a), Ratio(b)) => Angle(a * b.get()),
-        (Int(a), Angle(b)) => Angle(a as f64 * b),
-        (Float(a), Angle(b)) => Angle(a * b),
-        (Ratio(a), Angle(b)) => Angle(a.get() * b),
+        (Angle(a), Int(b)) => Angle(*a * *b as f64),
+        (Angle(a), Float(b)) => Angle(*a * *b),
+        (Angle(a), Ratio(b)) => Angle(*a * b.get()),
+        (Int(a), Angle(b)) => Angle(*a as f64 * *b),
+        (Float(a), Angle(b)) => Angle(*a * *b),
+        (Ratio(a), Angle(b)) => Angle(a.get() * *b),
 
-        (Ratio(a), Ratio(b)) => Ratio(a * b),
-        (Ratio(a), Int(b)) => Ratio(a * b as f64),
-        (Ratio(a), Float(b)) => Ratio(a * b),
-        (Int(a), Ratio(b)) => Ratio(a as f64 * b),
-        (Float(a), Ratio(b)) => Ratio(a * b),
+        (Ratio(a), Ratio(b)) => Ratio(*a * *b),
+        (Ratio(a), Int(b)) => Ratio(*a * *b as f64),
+        (Ratio(a), Float(b)) => Ratio(*a * *b),
+        (Int(a), Ratio(b)) => Ratio(*a as f64 * *b),
+        (Float(a), Ratio(b)) => Ratio(*a * *b),
 
-        (Relative(a), Int(b)) => Relative(a * b as f64),
-        (Relative(a), Float(b)) => Relative(a * b),
-        (Relative(a), Ratio(b)) => Relative(a * b.get()),
-        (Int(a), Relative(b)) => Relative(a as f64 * b),
-        (Float(a), Relative(b)) => Relative(a * b),
-        (Ratio(a), Relative(b)) => Relative(a.get() * b),
+        (Relative(a), Int(b)) => Relative(*a * *b as f64),
+        (Relative(a), Float(b)) => Relative(*a * *b),
+        (Relative(a), Ratio(b)) => Relative(*a * b.get()),
+        (Int(a), Relative(b)) => Relative(*a as f64 * *b),
+        (Float(a), Relative(b)) => Relative(*a * *b),
+        (Ratio(a), Relative(b)) => Relative(a.get() * *b),
 
-        (Fraction(a), Int(b)) => Fraction(a * b as f64),
-        (Fraction(a), Float(b)) => Fraction(a * b),
-        (Fraction(a), Ratio(b)) => Fraction(a * b.get()),
-        (Int(a), Fraction(b)) => Fraction(a as f64 * b),
-        (Float(a), Fraction(b)) => Fraction(a * b),
-        (Ratio(a), Fraction(b)) => Fraction(a.get() * b),
+        (Fraction(a), Int(b)) => Fraction(*a * *b as f64),
+        (Fraction(a), Float(b)) => Fraction(*a * *b),
+        (Fraction(a), Ratio(b)) => Fraction(*a * b.get()),
+        (Int(a), Fraction(b)) => Fraction(*a as f64 * *b),
+        (Float(a), Fraction(b)) => Fraction(*a * *b),
+        (Ratio(a), Fraction(b)) => Fraction(a.get() * *b),
 
-        (Str(a), Int(b)) => Str(a.repeat(Value::Int(b).cast()?)?),
-        (Int(a), Str(b)) => Str(b.repeat(Value::Int(a).cast()?)?),
-        (Array(a), Int(b)) => Array(a.repeat(Value::Int(b).cast()?)?),
-        (Int(a), Array(b)) => Array(b.repeat(Value::Int(a).cast()?)?),
-        (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
-        (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
+        (Str(a), Int(b)) => Str(a.repeat(Value::Int(*b).cast()?)?),
+        (Int(a), Str(b)) => Str(b.repeat(Value::Int(*a).cast()?)?),
+        (Array(a), Int(b)) => Array(a.repeat(Value::Int(*b).cast()?)?),
+        (Int(a), Array(b)) => Array(b.repeat(Value::Int(*a).cast()?)?),
+        (Content(a), b @ Int(_)) => Content(a.repeat(b.clone().cast()?)),
+        (a @ Int(_), Content(b)) => Content(b.repeat(a.clone().cast()?)),
 
-        (Int(a), Duration(b)) => Duration(b * (a as f64)),
-        (Float(a), Duration(b)) => Duration(b * a),
-        (Duration(a), Int(b)) => Duration(a * (b as f64)),
-        (Duration(a), Float(b)) => Duration(a * b),
+        (Int(a), Duration(b)) => Duration(*b * (*a as f64)),
+        (Float(a), Duration(b)) => Duration(*b * *a),
+        (Duration(a), Int(b)) => Duration(*a * (*b as f64)),
+        (Duration(a), Float(b)) => Duration(*a * *b),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
 }
 
 /// Compute the quotient of two values.
-pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn div(lhs: &Value, rhs: &Value) -> StrResult<Value> {
     use Value::*;
     if is_zero(&rhs) {
         bail!("cannot divide by zero");
     }
 
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Float(a as f64 / b as f64),
-        (Int(a), Float(b)) => Float(a as f64 / b),
-        (Float(a), Int(b)) => Float(a / b as f64),
-        (Float(a), Float(b)) => Float(a / b),
+        (Int(a), Int(b)) => Float(*a as f64 / *b as f64),
+        (Int(a), Float(b)) => Float(*a as f64 / *b),
+        (Float(a), Int(b)) => Float(*a / *b as f64),
+        (Float(a), Float(b)) => Float(*a / *b),
 
-        (Length(a), Int(b)) => Length(a / b as f64),
-        (Length(a), Float(b)) => Length(a / b),
-        (Length(a), Length(b)) => Float(try_div_length(a, b)?),
-        (Length(a), Relative(b)) if b.rel.is_zero() => Float(try_div_length(a, b.abs)?),
+        (Length(a), Int(b)) => Length(*a / *b as f64),
+        (Length(a), Float(b)) => Length(*a / *b),
+        (Length(a), Length(b)) => Float(try_div_length(*a, *b)?),
+        (Length(a), Relative(b)) if b.rel.is_zero() => Float(try_div_length(*a, b.abs)?),
 
-        (Angle(a), Int(b)) => Angle(a / b as f64),
-        (Angle(a), Float(b)) => Angle(a / b),
-        (Angle(a), Angle(b)) => Float(a / b),
+        (Angle(a), Int(b)) => Angle(*a / *b as f64),
+        (Angle(a), Float(b)) => Angle(*a / *b),
+        (Angle(a), Angle(b)) => Float(*a / *b),
 
-        (Ratio(a), Int(b)) => Ratio(a / b as f64),
-        (Ratio(a), Float(b)) => Ratio(a / b),
-        (Ratio(a), Ratio(b)) => Float(a / b),
-        (Ratio(a), Relative(b)) if b.abs.is_zero() => Float(a / b.rel),
+        (Ratio(a), Int(b)) => Ratio(*a / *b as f64),
+        (Ratio(a), Float(b)) => Ratio(*a / *b),
+        (Ratio(a), Ratio(b)) => Float(*a / *b),
+        (Ratio(a), Relative(b)) if b.abs.is_zero() => Float(*a / b.rel),
 
-        (Relative(a), Int(b)) => Relative(a / b as f64),
-        (Relative(a), Float(b)) => Relative(a / b),
-        (Relative(a), Length(b)) if a.rel.is_zero() => Float(try_div_length(a.abs, b)?),
-        (Relative(a), Ratio(b)) if a.abs.is_zero() => Float(a.rel / b),
-        (Relative(a), Relative(b)) => Float(try_div_relative(a, b)?),
+        (Relative(a), Int(b)) => Relative(*a / *b as f64),
+        (Relative(a), Float(b)) => Relative(*a / *b),
+        (Relative(a), Length(b)) if a.rel.is_zero() => Float(try_div_length(a.abs, *b)?),
+        (Relative(a), Ratio(b)) if a.abs.is_zero() => Float(a.rel / *b),
+        (Relative(a), Relative(b)) => Float(try_div_relative(*a, *b)?),
 
-        (Fraction(a), Int(b)) => Fraction(a / b as f64),
-        (Fraction(a), Float(b)) => Fraction(a / b),
-        (Fraction(a), Fraction(b)) => Float(a / b),
+        (Fraction(a), Int(b)) => Fraction(*a / *b as f64),
+        (Fraction(a), Float(b)) => Fraction(*a / *b),
+        (Fraction(a), Fraction(b)) => Float(*a / *b),
 
-        (Duration(a), Int(b)) => Duration(a / (b as f64)),
-        (Duration(a), Float(b)) => Duration(a / b),
-        (Duration(a), Duration(b)) => Float(a / b),
+        (Duration(a), Int(b)) => Duration(*a / (*b as f64)),
+        (Duration(a), Float(b)) => Duration(*a / *b),
+        (Duration(a), Duration(b)) => Float(*a / *b),
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
@@ -328,44 +328,44 @@ fn try_div_relative(a: Rel<Length>, b: Rel<Length>) -> StrResult<f64> {
 }
 
 /// Compute the logical "not" of a value.
-pub fn not(value: Value) -> StrResult<Value> {
+pub fn not(value: &Value) -> StrResult<Value> {
     match value {
-        Value::Bool(b) => Ok(Value::Bool(!b)),
+        Value::Bool(b) => Ok(Value::Bool(!*b)),
         v => mismatch!("cannot apply 'not' to {}", v),
     }
 }
 
 /// Compute the logical "and" of two values.
-pub fn and(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn and(lhs: &Value, rhs: &Value) -> StrResult<Value> {
     match (lhs, rhs) {
-        (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(a && b)),
+        (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(*a && *b)),
         (a, b) => mismatch!("cannot apply 'and' to {} and {}", a, b),
     }
 }
 
 /// Compute the logical "or" of two values.
-pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn or(lhs: &Value, rhs: &Value) -> StrResult<Value> {
     match (lhs, rhs) {
-        (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(a || b)),
+        (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(*a || *b)),
         (a, b) => mismatch!("cannot apply 'or' to {} and {}", a, b),
     }
 }
 
 /// Compute whether two values are equal.
-pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(Value::Bool(equal(&lhs, &rhs)))
+pub fn eq(lhs: &Value, rhs: &Value) -> StrResult<Value> {
+    Ok(Value::Bool(equal(lhs, rhs)))
 }
 
 /// Compute whether two values are unequal.
-pub fn neq(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(Value::Bool(!equal(&lhs, &rhs)))
+pub fn neq(lhs: &Value, rhs: &Value) -> StrResult<Value> {
+    Ok(Value::Bool(!equal(lhs, rhs)))
 }
 
 macro_rules! comparison {
     ($name:ident, $op:tt, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
-        pub fn $name(lhs: Value, rhs: Value) -> StrResult<Value> {
-            let ordering = compare(&lhs, &rhs)?;
+        pub fn $name(lhs: &Value, rhs: &Value) -> StrResult<Value> {
+            let ordering = compare(lhs, rhs)?;
             Ok(Value::Bool(matches!(ordering, $($pat)*)))
         }
     };
@@ -489,8 +489,8 @@ fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
 }
 
 /// Test whether one value is "in" another one.
-pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
-    if let Some(b) = contains(&lhs, &rhs) {
+pub fn in_(lhs: &Value, rhs: &Value) -> StrResult<Value> {
+    if let Some(b) = contains(lhs, rhs) {
         Ok(Value::Bool(b))
     } else {
         mismatch!("cannot apply 'in' to {} and {}", lhs, rhs)
@@ -498,8 +498,8 @@ pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Test whether one value is "not in" another one.
-pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
-    if let Some(b) = contains(&lhs, &rhs) {
+pub fn not_in(lhs: &Value, rhs: &Value) -> StrResult<Value> {
+    if let Some(b) = contains(lhs, rhs) {
         Ok(Value::Bool(!b))
     } else {
         mismatch!("cannot apply 'not in' to {} and {}", lhs, rhs)

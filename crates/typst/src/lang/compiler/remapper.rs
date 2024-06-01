@@ -5,14 +5,16 @@ use indexmap::IndexMap;
 use typst_syntax::Span;
 
 use crate::foundations::{Label, Value};
-use crate::lang::compiled::CompiledClosure;
+use crate::lang::compiled::{
+    CompiledClosure, CompiledDynamicImport, CompiledDynamicModule,
+};
 use crate::lang::operands::{
-    AccessId, ClosureId, Constant, LabelId, ModuleId, PatternId, Pointer, SpanId,
-    StringId,
+    AccessId, ClosureId, Constant, LabelId, ModuleId, PatternId, Pointer, Register,
+    SpanId, StringId,
 };
 use crate::utils::hash128;
 
-use super::DynamicModule;
+use super::{DynamicImport, DynamicModule, RegisterGuard};
 
 pub struct Remapper<K, V> {
     values: IndexMap<u128, (K, V)>,
@@ -175,6 +177,14 @@ pub trait IntoCompiledValue {
     fn into_compiled_value(self) -> Self::CompiledValue;
 }
 
+impl<T: IntoCompiledValue> IntoCompiledValue for Option<T> {
+    type CompiledValue = Option<T::CompiledValue>;
+
+    fn into_compiled_value(self) -> Self::CompiledValue {
+        self.map(IntoCompiledValue::into_compiled_value)
+    }
+}
+
 impl IntoCompiledValue for Value {
     type CompiledValue = Self;
 
@@ -184,10 +194,10 @@ impl IntoCompiledValue for Value {
 }
 
 impl IntoCompiledValue for Label {
-    type CompiledValue = Label;
+    type CompiledValue = Value;
 
     fn into_compiled_value(self) -> Self::CompiledValue {
-        self
+        Value::Label(self)
     }
 }
 
@@ -207,10 +217,36 @@ impl IntoCompiledValue for CompiledClosure {
     }
 }
 
-impl IntoCompiledValue for DynamicModule {
-    type CompiledValue = DynamicModule;
+impl IntoCompiledValue for RegisterGuard {
+    type CompiledValue = Register;
 
     fn into_compiled_value(self) -> Self::CompiledValue {
-        self
+        self.into()
+    }
+}
+
+impl IntoCompiledValue for DynamicModule {
+    type CompiledValue = CompiledDynamicModule;
+
+    fn into_compiled_value(self) -> Self::CompiledValue {
+        CompiledDynamicModule {
+            imports: self
+                .imports
+                .into_iter()
+                .map(|(_, v)| v.into_compiled_value())
+                .collect(),
+        }
+    }
+}
+
+impl IntoCompiledValue for DynamicImport {
+    type CompiledValue = CompiledDynamicImport;
+
+    fn into_compiled_value(self) -> Self::CompiledValue {
+        CompiledDynamicImport {
+            name: self.name.resolve(),
+            location: self.location.into_compiled_value(),
+            span: self.span,
+        }
     }
 }

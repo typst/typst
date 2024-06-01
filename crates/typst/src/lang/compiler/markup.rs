@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::num::{NonZeroU16, NonZeroU32};
 
 use typst_syntax::ast::{self, AstNode};
 
@@ -389,7 +389,7 @@ impl Compile for ast::Heading<'_> {
         let body = self.body().compile_to_readable(compiler, engine)?;
 
         // This error is highly unlikely to happen.
-        let level = NonZeroU32::try_from(level).map_err(|_| {
+        let level = NonZeroU16::try_from(level).map_err(|_| {
             vec![error!(self.span(), "level is too big: {level} > {}", u32::MAX)]
         })?;
 

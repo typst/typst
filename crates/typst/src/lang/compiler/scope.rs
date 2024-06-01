@@ -256,7 +256,11 @@ impl<'lib> Scope<'lib> {
             Some(guard)
         } else if let Some(captured) = self.read_captured(span, var) {
             Some(captured)
-        } else { self.global().and_then(|g| g.global.field_index(var)).map(|id| Global::new(id as u16).into()) }
+        } else {
+            self.global()
+                .and_then(|g| g.global.field_index(var))
+                .map(|id| Global::new(id as u16).into())
+        }
     }
 
     /// Read a variable from this scope, including the global scope.
@@ -268,14 +272,20 @@ impl<'lib> Scope<'lib> {
         let var = var.into();
         if let Some(guard) = self.read_local(var) {
             Some(guard)
-        } else { self.read_captured(span, var) }
+        } else {
+            self.read_captured(span, var)
+        }
     }
 
     /// Read a variable from this scope, including the math scope.
     pub fn read_math(&mut self, span: Span, var: &str) -> Option<ReadableGuard> {
         if let Some(variable) = self.read(span, var) {
             Some(variable)
-        } else { self.global().and_then(|g| g.math.field_index(var)).map(|id| Math::new(id as u16).into()) }
+        } else {
+            self.global()
+                .and_then(|g| g.math.field_index(var))
+                .map(|id| Math::new(id as u16).into())
+        }
     }
 
     /// Tries to resolve a variable from this scope.

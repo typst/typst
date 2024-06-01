@@ -4,12 +4,12 @@ use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
 
-use crate::foundations::{Label, Module, Value};
+use crate::foundations::Value;
 use crate::utils::PicoStr;
 use crate::Library;
 
 use super::closure::Closure;
-use super::compiler::{Compiler, DynamicModule};
+use super::compiler::Compiler;
 use super::opcodes::{AccessId, Opcode, PatternId, Readable, Writable};
 use super::operands::{Register, StringId};
 
@@ -20,7 +20,7 @@ pub struct CompiledCode {
     /// The span where the code was defined.
     pub span: Span,
     /// The instructions as byte code.
-    pub instructions: Box<[Opcode]>,
+    pub instructions: Arc<[Opcode]>,
     /// The spans of the instructions.
     pub spans: Box<[Span]>,
     /// The global library.
@@ -31,14 +31,14 @@ pub struct CompiledCode {
     pub constants: Box<[Value]>,
     /// The list of strings.
     pub strings: Box<[Value]>,
+    /// The list of labels.
+    pub labels: Box<[Value]>,
     /// The list of modules.
-    pub modules: Box<[DynamicModule]>,
+    pub modules: Box<[CompiledDynamicModule]>,
     /// The list of closures.
     pub closures: Box<[CompiledClosure]>,
     /// The accesses.
     pub accesses: Box<[CompiledAccess]>,
-    /// The list of labels.
-    pub labels: Box<[Label]>,
     /// The list of patterns.
     pub patterns: Box<[CompiledPattern]>,
     /// The default values of variables.
@@ -86,6 +86,14 @@ impl CompiledClosure {
             Self::Closure(Arc::new(LazyHash::new(resource)))
         } else {
             Self::Instanciated(Closure::no_instance(resource, compiler))
+        }
+    }
+
+    /// Returns the span of the closure.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Closure(resource) => resource.span,
+            Self::Instanciated(closure) => closure.inner.compiled.span,
         }
     }
 }
@@ -215,4 +223,29 @@ pub enum CompiledAccess {
     /// This uses IDs in order to: avoid allocating, allow all of the accesses
     /// to be contiguous in memory.
     AccessorMethod(AccessId, PicoStr, Readable),
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct CompiledDynamicModule {
+    pub imports: Vec<CompiledDynamicImport>,
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct CompiledDynamicImport {
+    pub name: &'static str,
+    pub location: Register,
+    pub span: Span,
+}
+
+/// A module that has been compiled but is not yet executed.
+#[derive(Clone, Hash)]
+pub struct CompiledModule {
+    /// The common data.
+    pub inner: Arc<LazyHash<CompiledCode>>,
+}
+
+impl CompiledModule {
+    pub fn new(resource: CompiledCode) -> Self {
+        Self { inner: Arc::new(LazyHash::new(resource)) }
+    }
 }

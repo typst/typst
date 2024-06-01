@@ -21,13 +21,13 @@ use typed_arena::Arena;
 
 use crate::diag::{bail, error, At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
     cast, elem, ty, Args, Array, Bytes, CastInfo, Content, FromValue, IntoValue, Label,
     NativeElement, Packed, Reflect, Repr, Scope, Show, ShowSet, Smart, Str, StyleChain,
     Styles, Synthesize, Type, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location};
+use crate::lang::{eval_string, EvalMode};
 use crate::layout::{
     BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem, Sizing,
     TrackSizings, VElem,

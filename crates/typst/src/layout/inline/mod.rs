@@ -12,9 +12,9 @@ use self::shaping::{
 };
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
 use crate::introspection::{Introspector, Locator, TagElem};
+use crate::lang::Tracer;
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame,
     FrameItem, HElem, Point, Regions, Size, Sizing, Spacing,

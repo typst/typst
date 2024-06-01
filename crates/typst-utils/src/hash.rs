@@ -50,6 +50,16 @@ impl<T> LazyHash<T> {
         Self { hash: AtomicU128::new(0), value }
     }
 
+    /// Wraps an item with a pre-computed hash.
+    #[inline]
+    pub fn pre_hashed(value: T) -> Self
+    where
+        T: Hash + Sized + 'static,
+    {
+        let hash = hash_item(&value);
+        Self { hash: AtomicU128::new(hash), value }
+    }
+
     /// Wrap an item with a pre-computed hash.
     ///
     /// **Important:** The hash must be correct for the value. This cannot be

@@ -28,11 +28,6 @@ pub(crate) fn is_mutating_method(method: &str) -> bool {
     matches!(method, "push" | "pop" | "insert" | "remove")
 }
 
-/// Whether a specific method is an accessor.
-pub(crate) fn is_accessor_method(method: &str) -> bool {
-    matches!(method, "first" | "last" | "at")
-}
-
 /// Call a mutating method on a value.
 pub(crate) fn call_method_mut(
     value: &mut Value,

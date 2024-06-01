@@ -5,7 +5,6 @@ use std::{cell::RefCell, fmt, rc::Rc};
 use ecow::EcoString;
 
 use crate::diag::bail;
-use crate::lang::opcodes::AccessId;
 use crate::lang::operands::{
     Constant, Global, LabelId, Math, Readable, Register, StringId, Writable,
 };
@@ -211,7 +210,6 @@ pub enum ReadableGuard {
     Math(Math),
     Bool(bool),
     Label(LabelId),
-    Access(AccessId),
     None,
     Auto,
 }
@@ -228,7 +226,6 @@ impl From<ReadableGuard> for Readable {
             ReadableGuard::None => Readable::none(),
             ReadableGuard::Auto => Readable::auto(),
             ReadableGuard::Bool(value) => Readable::bool(value),
-            ReadableGuard::Access(access) => Readable::access(access),
             ReadableGuard::Label(label) => label.into(),
         }
     }
@@ -273,12 +270,6 @@ impl From<bool> for ReadableGuard {
 impl From<LabelId> for ReadableGuard {
     fn from(label: LabelId) -> Self {
         Self::Label(label)
-    }
-}
-
-impl From<AccessId> for ReadableGuard {
-    fn from(access: AccessId) -> Self {
-        Self::Access(access)
     }
 }
 

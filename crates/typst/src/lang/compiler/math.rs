@@ -124,10 +124,11 @@ impl Compile for ast::MathAttach<'_> {
             .transpose()?
         {
             Some(top)
-        } else { self
-            .primes()
-            .map(|value| value.compile_to_readable(compiler, engine))
-            .transpose()? };
+        } else {
+            self.primes()
+                .map(|value| value.compile_to_readable(compiler, engine))
+                .transpose()?
+        };
 
         let bottom = self.bottom().map_or(Ok(None), |value| {
             value.compile_to_readable(compiler, engine).map(Some)

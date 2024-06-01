@@ -7,13 +7,13 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
     Selector, Show, Smart, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::lang::Tracer;
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};

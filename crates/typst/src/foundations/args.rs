@@ -63,6 +63,10 @@ impl Args {
         Self { span, items }
     }
 
+    pub fn with_capacity(span: Span, capacity: usize) -> Self {
+        Self { span, items: EcoVec::with_capacity(capacity) }
+    }
+
     /// Attach a span to these arguments if they don't already have one.
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span.is_detached() {
@@ -83,6 +87,20 @@ impl Args {
             name: None,
             value: Spanned::new(value, span),
         })
+    }
+
+    /// Insert a named argument.
+    pub fn insert(&mut self, span: Span, name: Str, value: Value) {
+        self.items.push(Arg {
+            span: self.span,
+            name: Some(name),
+            value: Spanned::new(value, span),
+        })
+    }
+
+    /// Extend the arguments with another set of arguments.
+    pub fn chain(&mut self, other: Args) {
+        self.items.extend(other.items);
     }
 
     /// Consume and cast the first positional argument if there is one.
@@ -303,6 +321,12 @@ impl Repr for Args {
 impl PartialEq for Args {
     fn eq(&self, other: &Self) -> bool {
         self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
+    }
+}
+
+impl Extend<Arg> for Args {
+    fn extend<T: IntoIterator<Item = Arg>>(&mut self, iter: T) {
+        self.items.extend(iter)
     }
 }
 

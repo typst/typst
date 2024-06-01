@@ -1,8 +1,11 @@
 use comemo::Tracked;
 
-use crate::engine::Engine;
-use crate::foundations::{Content, Context, IntoValue, NativeElement, Recipe, SequenceElem, Styles, Unlabellable, Value};
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::engine::Engine;
+use crate::foundations::{
+    Content, Context, IntoValue, NativeElement, Recipe, SequenceElem, Styles,
+    Unlabellable, Value,
+};
 use crate::lang::ops;
 
 /// A value joiner.
@@ -118,7 +121,11 @@ impl Joiner {
         }
     }
 
-    pub fn collect(self, engine: &mut Engine, context: Tracked<Context>) -> SourceResult<Value> {
+    pub fn collect(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+    ) -> SourceResult<Value> {
         fn collect_inner(
             joiner: Joiner,
             engine: &mut Engine,
@@ -161,7 +168,8 @@ impl Joiner {
                         content.push(rest);
                     }
 
-                    let rest = content.pack().styled_with_recipe(engine, context, *recipe)?;
+                    let rest =
+                        content.pack().styled_with_recipe(engine, context, *recipe)?;
                     if let Some(parent) = parent {
                         collect_inner(*parent, engine, context, Some(rest))?
                     } else {

@@ -43,6 +43,23 @@ impl PicoStr {
         id
     }
 
+    /// Creates a new interned static string.
+    pub fn static_(string: &'static str) -> Self {
+        if let Some(&id) = INTERNER.read().unwrap().to_id.get(string) {
+            return id;
+        }
+
+        let mut interner = INTERNER.write().unwrap();
+        let num = interner.from_id.len().try_into().expect("out of string ids");
+
+        // Create a new entry forever by leaking the string. PicoStr is only
+        // used for strings that aren't created en masse, so it is okay.
+        let id = Self(num);
+        interner.to_id.insert(string, id);
+        interner.from_id.push(string);
+        id
+    }
+
     /// Resolves the interned string.
     pub fn resolve(&self) -> &'static str {
         INTERNER.read().unwrap().from_id[self.0 as usize]
@@ -77,4 +94,20 @@ impl From<&str> for PicoStr {
     fn from(value: &str) -> Self {
         Self::new(value)
     }
+}
+
+/// Creates a static interned string.
+///
+/// # Examples
+/// ```rust
+/// let pico = pico!("hello");
+/// ```
+#[macro_export]
+macro_rules! pico {
+    ($name:literal) => {{
+        static PICO_STR: ::once_cell::sync::Lazy<$crate::PicoStr> =
+            ::once_cell::sync::Lazy::new(|| $crate::PicoStr::static_($name));
+
+        *PICO_STR
+    }};
 }

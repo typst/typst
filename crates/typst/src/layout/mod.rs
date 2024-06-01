@@ -73,9 +73,9 @@ use comemo::{Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
 use crate::introspection::{Introspector, Locator};
+use crate::lang::Tracer;
 use crate::model::Document;
 use crate::realize::{realize_doc, realize_flow, Arenas};
 use crate::World;

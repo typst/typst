@@ -68,16 +68,12 @@ impl PatternCompile for ast::Pattern<'_> {
                         )),
                     })
                 }
-                _ => bail!(self.span(), "nested patterns are currently not supported"),
+                expr => bail!(expr.span(), "cannot assign to this expression"),
             },
-            ast::Pattern::Placeholder(placeholder) => {
-                Ok(Pattern {
-                    span: placeholder.span(),
-                    kind: PatternKind::Single(PatternItem::Placeholder(
-                        placeholder.span(),
-                    )),
-                })
-            }
+            ast::Pattern::Placeholder(placeholder) => Ok(Pattern {
+                span: placeholder.span(),
+                kind: PatternKind::Single(PatternItem::Placeholder(placeholder.span())),
+            }),
             ast::Pattern::Destructuring(destructure) => {
                 let mut items = SmallVec::new();
                 let mut has_sink = false;

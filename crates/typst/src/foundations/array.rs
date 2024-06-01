@@ -10,11 +10,11 @@ use smallvec::SmallVec;
 
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::ops;
 use crate::foundations::{
     cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue, Func,
     IntoValue, Reflect, Repr, Str, Value, Version,
 };
+use crate::lang::ops;
 use crate::syntax::{Span, Spanned};
 
 /// Create a new [`Array`] from values.
@@ -595,13 +595,14 @@ impl Array {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let mut iter = self.into_iter();
+        let mut iter = self.iter();
         let mut acc = iter
             .next()
+            .cloned()
             .or(default)
             .ok_or("cannot calculate sum of empty array with no default")?;
         for item in iter {
-            acc = ops::add(acc, item)?;
+            acc = ops::add(&acc, item)?;
         }
         Ok(acc)
     }
@@ -616,13 +617,14 @@ impl Array {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let mut iter = self.into_iter();
+        let mut iter = self.iter();
         let mut acc = iter
             .next()
+            .cloned()
             .or(default)
             .ok_or("cannot calculate product of empty array with no default")?;
         for item in iter {
-            acc = ops::mul(acc, item)?;
+            acc = ops::mul(&acc, item)?;
         }
         Ok(acc)
     }

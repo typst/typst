@@ -124,7 +124,6 @@ impl Styles {
         self.0.extend(styles.into_iter().map(Into::into));
     }
 
-
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {

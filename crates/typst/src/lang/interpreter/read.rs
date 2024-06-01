@@ -1,10 +1,13 @@
 use typst_syntax::Span;
 
 use crate::diag::StrResult;
-use crate::foundations::{IntoValue, Label, Value};
-use crate::lang::compiled::{CompiledAccess, CompiledClosure, CompiledPattern};
-use crate::lang::compiler::DynamicModule;
-use crate::lang::opcodes::{AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable};
+use crate::foundations::{IntoValue, Value};
+use crate::lang::compiled::{
+    CompiledAccess, CompiledClosure, CompiledDynamicModule, CompiledPattern,
+};
+use crate::lang::opcodes::{
+    AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
+};
 use crate::lang::operands::{Constant, Global, Math, ModuleId, Register, StringId};
 
 use super::Vm;
@@ -53,15 +56,27 @@ impl Read for Readable {
             Readable::Str(str_) => str_.read(vm),
             Readable::Global(global) => global.read(vm),
             Readable::Math(math) => math.read(vm),
-            Readable::Bool(bool_) => if *bool_ {
-                &Value::Bool(true)
-            } else {
-                &Value::Bool(false)
-            },
+            Readable::Bool(bool_) => {
+                if *bool_ {
+                    &Value::Bool(true)
+                } else {
+                    &Value::Bool(false)
+                }
+            }
             Readable::Label(label) => label.read(vm),
-            Readable::Access(access) => access.read(vm),
             Readable::None => &Value::None,
             Readable::Auto => &Value::Auto,
+        }
+    }
+}
+
+impl Read for Writable {
+    type Output<'a, 'b> = &'b Value where 'a: 'b;
+
+    fn read<'a, 'b>(&self, vm: &'b Vm<'a, '_>) -> Self::Output<'a, 'b> {
+        match self {
+            Self::Reg(register) => register.read(vm),
+            Self::Joiner => unreachable!("cannot read joined value"),
         }
     }
 }
@@ -140,7 +155,7 @@ impl Read for Math {
 }
 
 impl Read for ModuleId {
-    type Output<'a, 'b> = &'a DynamicModule where 'a: 'b;
+    type Output<'a, 'b> = &'a CompiledDynamicModule where 'a: 'b;
 
     fn read<'a, 'b>(&self, vm: &'b Vm<'a, '_>) -> Self::Output<'a, 'b> {
         &vm.code.modules[self.0 as usize]
@@ -148,10 +163,10 @@ impl Read for ModuleId {
 }
 
 impl Read for LabelId {
-    type Output<'a, 'b> = Label where 'a: 'b;
+    type Output<'a, 'b> = &'a Value where 'a: 'b;
 
     fn read<'a, 'b>(&self, vm: &'b Vm<'a, '_>) -> Self::Output<'a, 'b> {
-        vm.code.labels[self.0 as usize]
+        &vm.code.labels[self.0 as usize]
     }
 }
 

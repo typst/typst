@@ -29,7 +29,9 @@ use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::lang::compiled::CodeCapture;
 use crate::Library;
 
-use super::compiled::{CompiledClosure, CompiledCode, CompiledParam, DefaultValue};
+use super::compiled::{
+    CompiledClosure, CompiledCode, CompiledParam, DefaultValue, Export,
+};
 use super::opcodes::{ClosureId, Opcode, Readable};
 use super::operands::{
     AccessId, Constant, LabelId, ModuleId, PatternId, Pointer, SpanId, StringId, Writable,
@@ -65,7 +67,7 @@ pub struct Compiler<'lib> {
     /// The list of spans for each instruction.
     isr_spans: Vec<Span>,
     /// The current scope.
-    scope: Rc<RefCell<Scope<'lib>>>,
+    pub(super) scope: Rc<RefCell<Scope<'lib>>>,
     /// The constant remapper.
     constants: Remapper<Constant, Value>,
     /// The string remapper.
@@ -101,6 +103,33 @@ impl<'lib> Compiler<'lib> {
                 Some(parent.library()),
                 None,
                 Some(parent.scope.clone()),
+                Some(RegisterAllocator::new()),
+            ))),
+            constants: Remapper::default(),
+            strings: Remapper::default(),
+            labels: Remapper::default(),
+            spans: Remapper::default(),
+            accesses: Remapper::default(),
+            patterns: Remapper::default(),
+            modules: Remapper::default(),
+            closures: Remapper::default(),
+            scopes: 0,
+            jumps: 0,
+        }
+    }
+
+    /// Creates a new compiler for a module.
+    pub fn new_module(library: &'lib Library) -> Self {
+        Self {
+            name: None,
+            instructions: Vec::with_capacity(DEFAULT_CAPACITY),
+            isr_spans: Vec::with_capacity(DEFAULT_CAPACITY),
+            scope: Rc::new(RefCell::new(Scope::new(
+                false,
+                false,
+                Some(library),
+                None,
+                None,
                 Some(RegisterAllocator::new()),
             ))),
             constants: Remapper::default(),
@@ -289,10 +318,6 @@ impl<'lib> Compiler<'lib> {
                 let label = self.labels.get(&label)?;
                 Some(Cow::Owned(Value::Label(*label)))
             }
-            Readable::Access(access) => {
-                let access = self.get_access(&access)?;
-                access.resolve(self).ok().flatten().map(Cow::Owned)
-            }
             Readable::Reg(_) => None,
             Readable::Bool(val) => {
                 if val {
@@ -391,7 +416,6 @@ impl<'lib> Compiler<'lib> {
         self.isr_spans.shrink_to_fit();
 
         let registers = scopes.registers.as_ref().map_or(0, |r| r.len());
-
         Ok(CompiledCode {
             defaults: self.get_default_scope().into(),
             name: self.name,
@@ -416,9 +440,55 @@ impl<'lib> Compiler<'lib> {
         })
     }
 
+    pub fn finish_module(
+        mut self,
+        span: Span,
+        name: impl Into<PicoStr>,
+        mut exports: Vec<Export>,
+    ) -> CompiledCode {
+        // Get the global library.
+        let global = self.library().clone();
+
+        let scopes = self.scope.borrow();
+        debug_assert!(scopes.captures.is_empty());
+
+        // Remap jump instructions.
+        let mut jumps = self.remap_jumps();
+        jumps.shrink_to_fit();
+
+        // Shrink instructions.
+        self.instructions.shrink_to_fit();
+        self.isr_spans.shrink_to_fit();
+        exports.shrink_to_fit();
+
+        let registers = scopes.registers.as_ref().map_or(0, |r| r.len());
+        CompiledCode {
+            defaults: self.get_default_scope().into(),
+            span,
+            registers,
+            name: Some(name.into()),
+            instructions: self.instructions.into(),
+            spans: self.isr_spans.into(),
+            global,
+            constants: self.constants.into_values().into(),
+            strings: self.strings.into_values().into(),
+            closures: self.closures.into_values().into(),
+            accesses: self.accesses.into_values().into(),
+            labels: self.labels.into_values().into(),
+            patterns: self.patterns.into_values().into(),
+            isr_spans: self.spans.into_values().into(),
+            modules: self.modules.into_values().into(),
+            jumps: jumps.into(),
+            captures: None,
+            params: None,
+            self_storage: None,
+            exports: Some(exports.into()),
+        }
+    }
+
     /// Remaps jump instructions such that they're relative to the scope (if needed).
     /// This creates a table for each jump instruction to the instruction it jumps to.
-    pub fn remap_jumps(&self) -> Vec<usize> {
+    fn remap_jumps(&self) -> Vec<usize> {
         let mut iter = self.instructions.iter();
         let mut jumps = vec![usize::MAX; self.jumps as usize];
 
@@ -479,7 +549,7 @@ impl<'lib> Compiler<'lib> {
     }
 }
 
-trait CompileTopLevel {
+pub trait CompileTopLevel {
     /// Compile the current AST node as the top-level node.
     /// This assumes that the output is always the joiner.
     fn compile_top_level(

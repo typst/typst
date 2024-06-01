@@ -11,23 +11,23 @@ use typst_utils::PicoStr;
 
 use crate::diag::{bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
-use crate::eval::eval;
 use crate::foundations::{Module, Value};
 use crate::lang::compiler::CompileAccess;
+use crate::lang::eval;
 use crate::World;
 
 use super::{Compile, Compiler, ReadableGuard, RegisterGuard, WritableGuard};
 
-enum ImportedModule {
+pub enum ImportedModule {
     Dynamic(DynamicModule),
     Static(Module),
 }
 
 #[derive(Clone)]
 pub struct DynamicModule {
-    path: ReadableGuard,
-    imports: IndexMap<PicoStr, DynamicImport>,
-    glob: Option<RegisterGuard>,
+    pub path: ReadableGuard,
+    pub imports: IndexMap<PicoStr, DynamicImport>,
+    pub glob: Option<RegisterGuard>,
 }
 
 impl Hash for DynamicModule {
@@ -53,9 +53,10 @@ impl DynamicModule {
 }
 
 #[derive(Debug, Clone, Hash)]
-struct DynamicImport {
-    name: PicoStr,
-    location: RegisterGuard,
+pub struct DynamicImport {
+    pub span: Span,
+    pub name: PicoStr,
+    pub location: RegisterGuard,
 }
 
 impl Compile for ast::ModuleImport<'_> {
@@ -141,11 +142,6 @@ impl Compile for ast::ModuleImport<'_> {
                 module_id,
                 target.clone(),
             );
-
-            // Import all the items
-            for (name, import) in dyn_.imports.into_iter() {
-                compiler.import(self.span(), target.clone(), name, import.location);
-            }
         }
 
         Ok(ReadableGuard::None)
@@ -203,7 +199,7 @@ impl ModuleLoad for ast::Ident<'_> {
                     if variable.constant {
                         return import_value(
                             engine,
-                            variable.default.unwrap(),
+                            &variable.default.unwrap(),
                             self.span(),
                         );
                     }
@@ -213,7 +209,7 @@ impl ModuleLoad for ast::Ident<'_> {
                 // If we are a constant, we can try and import it.
                 let value = compiler.get_constant(&constant).unwrap();
 
-                return import_value(engine, value.clone(), self.span());
+                return import_value(engine, value, self.span());
             }
             ReadableGuard::Captured(_) => {}
             ReadableGuard::String(string) => {
@@ -241,13 +237,7 @@ impl ModuleLoad for ast::Ident<'_> {
                     );
                 };
 
-                return import_value(engine, lib.clone(), self.span());
-            }
-            ReadableGuard::Access(access) => {
-                let access = compiler.get_access(&access).unwrap();
-                if let Some(value) = access.resolve(compiler)? {
-                    return import_value(engine, value, self.span());
-                };
+                return import_value(engine, lib, self.span());
             }
             ReadableGuard::Math(_) => bail!(forbidden("a math expression")),
             ReadableGuard::Bool(_) => bail!(forbidden("a boolean")),
@@ -286,22 +276,22 @@ impl ModuleLoad for ast::FieldAccess<'_> {
 
             // Copy the value to a register.
             let reg = compiler.allocate();
-            compiler.copy(self.span(), id, reg.clone());
+            compiler.access_isr(self.span(), id, reg.clone());
 
             return Ok(ImportedModule::Dynamic(DynamicModule::new(reg)));
         };
 
-        import_value(engine, resolved, self.span())
+        import_value(engine, &resolved, self.span())
     }
 }
 
-fn import_value(
+pub fn import_value(
     engine: &mut Engine,
-    value: Value,
+    value: &Value,
     span: Span,
 ) -> SourceResult<ImportedModule> {
     match value {
-        Value::Module(module) => Ok(ImportedModule::Static(module)),
+        Value::Module(module) => Ok(ImportedModule::Static(module.clone())),
         Value::Str(path) => import(engine, path.as_str(), span),
         o => bail!(span, "expected string or module, found {}", o.ty().short_name()),
     }
@@ -381,6 +371,7 @@ impl Import for DynamicModule {
                                 .or_insert_with(|| {
                                     let alloc = compiler.declare(span, name);
                                     DynamicImport {
+                                        span: simple.span(),
                                         name,
                                         location: alloc,
                                     }
@@ -403,6 +394,7 @@ impl Import for DynamicModule {
                                 .or_insert_with(|| {
                                     let alloc = compiler.declare(span, new_name);
                                     DynamicImport {
+                                        span: renamed.span(),
                                         name: old_name,
                                         location: alloc,
                                     }

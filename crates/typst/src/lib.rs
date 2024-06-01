@@ -39,7 +39,6 @@ extern crate self as typst;
 
 pub mod diag;
 pub mod engine;
-pub mod eval;
 pub mod foundations;
 pub mod introspection;
 pub mod lang;
@@ -66,11 +65,11 @@ use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator};
+use crate::lang::Tracer;
 use crate::layout::{Alignment, Dir, LayoutRoot};
 use crate::model::Document;
 use crate::syntax::package::PackageSpec;
@@ -93,7 +92,7 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     let world = world.track();
 
     // Try to evaluate the source file into a module.
-    let module = crate::eval::eval(
+    let module = crate::lang::eval(
         world,
         Route::default().track(),
         tracer.track_mut(),

@@ -1,16 +1,17 @@
-use std::num::NonZeroU32;
+use std::num::{NonZeroU16, NonZeroU32};
 
 use comemo::Tracked;
 
 use typst_syntax::Span;
-use typst_utils::PicoStr;
 
-use crate::engine::Engine;
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{Context, Value};
 
+use super::operands::StringId;
 pub use super::operands::{
-    ModuleId, AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
+    AccessId, ClosureId, LabelId, ModuleId, PatternId, Pointer, Readable, SpanId,
+    Writable,
 };
 
 macro_rules! opcode_filter {
@@ -306,6 +307,12 @@ opcodes! {
         value: Readable,
     },
 
+    /// Accesses a value.
+    ReadAccess: access_isr -> Writable => {
+        /// The access to read.
+        access: AccessId,
+    },
+
     /// Creates a new [`Value::None`].
     None: none -> Writable => { },
 
@@ -404,14 +411,6 @@ opcodes! {
         module: ModuleId,
     },
 
-    /// Import a value from a module.
-    Import: import -> Writable => {
-        /// The module to import from.
-        module: Readable,
-        /// The value to import.
-        access: PicoStr,
-    },
-
     /// Include a file's content.
     Include: include -> Writable => {
         /// The path to the file to include.
@@ -490,7 +489,7 @@ opcodes! {
     // -----------------------------------------------------------------------------
 
     /// Allocates a new array.
-    Array: array -> Writable => {
+    AllocArray: array -> Writable => {
         /// The capacity of the array.
         capacity: u32,
     },
@@ -502,7 +501,7 @@ opcodes! {
     },
 
     /// Allocates a new dictionary.
-    Dict: dict -> Writable => {
+    AllocDict: dict -> Writable => {
         /// The capacity of the dictionary.
         capacity: u32,
     },
@@ -516,7 +515,7 @@ opcodes! {
     },
 
     /// Allocates a new argument set.
-    Args: args -> Writable => {
+    AllocArgs: args -> Writable => {
         /// The capacity of the argument set.
         capacity: u32,
     },
@@ -532,7 +531,7 @@ opcodes! {
     /// Inserts a named value into an argument set.
     InsertArg: insert_arg -> Writable => {
         /// The key to insert.
-        key: PicoStr,
+        key: StringId,
         /// The value to insert.
         value: Readable,
         /// The span of the value.
@@ -550,7 +549,6 @@ opcodes! {
     /// Spreads this value into either:
     /// - An array.
     /// - A dictionary.
-    /// - An argument set.
     Spread: spread -> Writable => {
         /// The value to spread.
         value: Readable,
@@ -678,7 +676,7 @@ opcodes! {
         /// The value to make into a heading.
         value: Readable,
         /// The level of the heading.
-        level: NonZeroU32,
+        level: NonZeroU16,
     },
 
     /// Makes a list item.

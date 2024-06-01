@@ -125,12 +125,6 @@ impl ModuleInclude for ast::Ident<'_> {
 
                 return include_value(compiler, engine, lib.clone(), output, self.span());
             }
-            ReadableGuard::Access(access) => {
-                let access = compiler.get_access(&access).unwrap();
-                if let Some(value) = access.resolve(compiler)? {
-                    return include_value(compiler, engine, value, output, self.span());
-                };
-            }
             ReadableGuard::Captured(_) => {}
             ReadableGuard::Math(_) => {
                 bail!(self.span(), "expected a path or a module, found an equation")
@@ -182,10 +176,11 @@ impl ModuleInclude for ast::FieldAccess<'_> {
         // If we can resolve it as a constant, we can try and import it.
         let Some(resolved) = access.resolve(compiler)? else {
             // Otherwise we default to the dynamic case.
-            let path = compiler.access(access);
+            let access_id = compiler.access(access);
+            compiler.access_isr(self.span(), access_id, output.clone());
 
             // We include the value.
-            compiler.include(self.span(), path, output);
+            compiler.include(self.span(), output.clone(), output);
 
             return Ok(());
         };

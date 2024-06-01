@@ -74,6 +74,10 @@ impl Dict {
         Self::default()
     }
 
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(Arc::new(IndexMap::with_capacity(capacity)))
+    }
+
     /// Whether the dictionary is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()

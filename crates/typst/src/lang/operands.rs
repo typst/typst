@@ -10,7 +10,6 @@ pub enum Readable {
     Math(Math),
     Bool(bool),
     Label(LabelId),
-    Access(AccessId),
     None,
     Auto,
 }
@@ -54,11 +53,6 @@ impl Readable {
     /// Creates a new math readable.
     pub const fn math(math: Math) -> Self {
         Self::Math(math)
-    }
-
-    /// Creates a new access readable.
-    pub const fn access(access: AccessId) -> Self {
-        Self::Access(access)
     }
 
     /// Returns this readable as a constant.
@@ -154,7 +148,6 @@ impl fmt::Debug for Readable {
             Self::Math(math) => math.fmt(f),
             Self::Bool(value) => write!(f, "{value}"),
             Self::Label(label) => label.fmt(f),
-            Self::Access(access) => access.fmt(f),
             Self::None => write!(f, "none"),
             Self::Auto => write!(f, "auto"),
         }
@@ -200,12 +193,6 @@ impl From<bool> for Readable {
 impl From<LabelId> for Readable {
     fn from(label: LabelId) -> Self {
         Self::Label(label)
-    }
-}
-
-impl From<AccessId> for Readable {
-    fn from(access: AccessId) -> Self {
-        Self::Access(access)
     }
 }
 

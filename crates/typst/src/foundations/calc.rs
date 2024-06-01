@@ -5,8 +5,8 @@ use std::cmp::Ordering;
 use std::ops::{Div, Rem};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::eval::ops;
 use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
+use crate::lang::ops;
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
 

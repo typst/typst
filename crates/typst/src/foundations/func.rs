@@ -11,7 +11,8 @@ use crate::foundations::{
     cast, repr, scope, ty, Args, CastInfo, Content, Context, Element, IntoArgs, Scope,
     Selector, Type, Value,
 };
-use crate::syntax::{ast, Span, SyntaxNode};
+use crate::lang::closure::Closure;
+use crate::syntax::Span;
 use crate::utils::{LazyHash, Static};
 
 #[doc(inline)]
@@ -292,7 +293,7 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            Repr::Closure(closure) => crate::eval::call_closure(
+            Repr::Closure(closure) => crate::lang::call_closure(
                 self,
                 closure,
                 engine.world,
@@ -321,6 +322,12 @@ impl Func {
             self.span = span;
         }
         self
+    }
+}
+
+impl From<Closure> for Func {
+    fn from(closure: Closure) -> Self {
+        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
     }
 }
 
@@ -500,47 +507,4 @@ pub struct ParamInfo {
     pub required: bool,
     /// Is the parameter settable with a set rule?
     pub settable: bool,
-}
-
-/// A user-defined closure.
-#[derive(Clone, Debug, Hash, PartialEq)]
-pub struct Closure {
-    /// The closure's syntax node. Must be either castable to `ast::Closure` or
-    /// `ast::Expr`. In the latter case, this is a synthesized closure without
-    /// any parameters (used by `context` expressions).
-    pub node: SyntaxNode,
-    /// Default values of named parameters.
-    pub defaults: Vec<Value>,
-    /// Captured values from outer scopes.
-    pub captured: Scope,
-    /// The number of positional parameters in the closure.
-    pub num_pos_params: usize,
-}
-
-impl Closure {
-    pub fn new(
-        &self,
-        node: SyntaxNode,
-        defaults: Vec<Value>,
-        captured: Scope,
-        num_pos_params: usize,
-    ) -> Self {
-        Self { node, defaults, captured, num_pos_params }
-    }
-
-    /// The name of the closure.
-    pub fn name(&self) -> Option<&str> {
-        self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
-    }
-}
-
-impl From<Closure> for Func {
-    fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
-    }
-}
-
-cast! {
-    Closure,
-    self => Value::Func(self.into()),
 }
