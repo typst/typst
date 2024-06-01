@@ -28,7 +28,7 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
     match result {
         // Retrieve and print query results.
         Ok(document) => {
-            let data = retrieve(&world, command, &document)?;
+            let data = retrieve(&world, &command.selector, &document)?;
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
@@ -52,14 +52,14 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
 }
 
 /// Retrieve the matches for the selector.
-fn retrieve(
+pub fn retrieve(
     world: &dyn World,
-    command: &QueryCommand,
+    selector: &str,
     document: &Document,
 ) -> StrResult<Vec<Content>> {
     let selector = eval_string(
         world.track(),
-        &command.selector,
+        selector,
         Span::detached(),
         EvalMode::Code,
         Scope::default(),

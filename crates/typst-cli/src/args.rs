@@ -80,6 +80,14 @@ pub struct CompileCommand {
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
 
+    /// Defines which element to retrieve.
+    #[arg(long = "selector", default_value = None)]
+    pub selector: Option<String>,
+
+    /// Specify which element to render after selection.
+    #[arg(long = "element_number", short = 'n', default_value_t = 0)]
+    pub element_number: usize,
+
     /// Which pages to export. When unspecified, all document pages are exported.
     ///
     /// Pages to export are separated by commas, and can be either simple page

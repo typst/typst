@@ -5,13 +5,16 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
+use comemo::{Track, Validate};
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
+use typst::engine::{Engine, Route};
 use typst::eval::Tracer;
-use typst::foundations::{Datetime, Smart};
-use typst::layout::{Frame, PageRanges};
+use typst::foundations::{Datetime, Smart, StyleChain};
+use typst::introspection::{Introspector, Locator};
+use typst::layout::{Frame, LayoutRoot, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
@@ -20,6 +23,7 @@ use typst::{World, WorldExt};
 use crate::args::{
     CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
 };
+use crate::query::retrieve;
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
@@ -116,8 +120,39 @@ pub fn compile_once(
 
     match result {
         // Export the PDF / PNG.
-        Ok(document) => {
+        Ok(mut document) => {
+            if let Some(selector) = &command.selector {
+                let found_content = retrieve(world, selector, &document)?;
+                if found_content.is_empty() {
+                    return Err("No content found".into());
+                }
+                let Some(target_content) = found_content.get(command.element_number)
+                else {
+                    return Err(format!(
+                        "Wrong element number, expected nonnegative integer below {}",
+                        found_content.len()
+                    )
+                    .into());
+                };
+
+                let mut tracer = Tracer::new();
+                let constraint = <Introspector as Validate>::Constraint::new();
+                let mut locator = Locator::new();
+                let mut engine = Engine {
+                    world: (world as &dyn World).track(),
+                    route: Route::default(),
+                    tracer: tracer.track_mut(),
+                    locator: &mut locator,
+                    introspector: document.introspector.track_with(&constraint),
+                };
+
+                // Unwrapping should be safe as we already compiled this document.
+                document = target_content
+                    .layout_root(&mut engine, StyleChain::default())
+                    .unwrap();
+            }
             export(world, &document, command, watching)?;
+
             let duration = start.elapsed();
 
             if watching {
