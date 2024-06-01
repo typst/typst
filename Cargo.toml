@@ -46,7 +46,7 @@ dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
-fontdb = { version = "0.17", default-features = false }
+fontdb = { version = "0.18", default-features = false }
 fs_extra = "1.3"
 hayagriva = "0.5.3"
 heck = "0.4"
@@ -74,9 +74,9 @@ oxipng = { version = "9.0", default-features = false, features = ["filetime", "p
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
-pdf-writer = "0.9.3"
+pdf-writer = "0.10.0"
 phf = { version = "0.11", features = ["macros"] }
-pixglyph = "0.3"
+pixglyph = "0.4"
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
@@ -85,8 +85,8 @@ quote = "1"
 qcms = "0.3.0"
 rayon = "1.7.0"
 regex = "1"
-resvg = { version = "0.41", default-features = false, features = ["raster-images"] }
-roxmltree = "0.19"
+resvg = { version = "0.42", default-features = false, features = ["raster-images"] }
+roxmltree = "0.20"
 rustybuzz = "0.13"
 same-file = "1"
 self-replace = "1.3.7"
@@ -99,7 +99,7 @@ siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
 subsetter = "0.1.1"
-svg2pdf = "0.9.1"
+svg2pdf = { git = "https://github.com/typst/svg2pdf" }
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
@@ -119,7 +119,7 @@ unicode-script = "0.5"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
-usvg = { version = "0.41", default-features = false, features = ["text"] }
+usvg = { version = "0.42", default-features = false, features = ["text"] }
 walkdir = "2"
 wasmi = "0.31.0"
 xmlparser = "0.13.5"
@@ -142,10 +142,3 @@ strip = true
 [workspace.lints.clippy]
 uninlined_format_args = "warn"
 blocks_in_conditions = "allow"
-
-[patch.crates-io]
-pixglyph = { git = "https://github.com/typst/pixglyph", branch = "bump-ttf-parser-to-0.21" }
-svg2pdf = { path = "../svg2pdf" }
-usvg = { path = "../resvg/crates/usvg" }
-resvg = { path = "../resvg/crates/resvg" }
-fontdb = { path = "../fontdb" }

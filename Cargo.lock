@@ -701,12 +701,14 @@ version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a595cb550439a117696039dfc69830492058211b771a2a165379f2a1a53d84d"
 dependencies = [
- "roxmltree",
+ "roxmltree 0.19.0",
 ]
 
 [[package]]
 name = "fontdb"
-version = "0.17.0"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e32eac81c1135c1df01d4e6d4233c47ba11f6a6d07f33e0bba09d18797077770"
 dependencies = [
  "fontconfig-parser",
  "log",
@@ -1617,11 +1619,11 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pdf-writer"
-version = "0.9.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24e9127455063c816e661caac9ecd9043ad2871f55be93014e6838a8ced2332b"
+checksum = "af6a7882fda7808481d43c51cadfc3ec934c6af72612a1fe6985ce329a2f0469"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.4.2",
  "itoa",
  "memchr",
  "ryu",
@@ -1683,8 +1685,9 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pixglyph"
-version = "0.3.0"
-source = "git+https://github.com/typst/pixglyph?branch=bump-ttf-parser-to-0.21#36207637d8f31bfb028863d5b09cd2969dac7ba9"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a64dec9fae2e0f75bb2a7d910b4e8b0d15ecd706fb0d61394774b3223c50a97"
 dependencies = [
  "ttf-parser 0.21.1",
 ]
@@ -1908,7 +1911,9 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "resvg"
-version = "0.41.0"
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "944d052815156ac8fa77eaac055220e95ba0b01fa8887108ca710c03805d9051"
 dependencies = [
  "gif",
  "jpeg-decoder",
@@ -1940,6 +1945,12 @@ name = "roxmltree"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cd14fd5e3b777a7422cca79358c57a8f6e3a703d9ac187448d0daf220c2407f"
+
+[[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "rustc-hash"
@@ -2267,6 +2278,7 @@ checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
 [[package]]
 name = "svg2pdf"
 version = "0.9.1"
+source = "git+https://github.com/typst/svg2pdf#e969b054d2c2c44e88906efa41821d47622c086a"
 dependencies = [
  "fontdb",
  "image 0.25.1",
@@ -2278,7 +2290,7 @@ dependencies = [
  "siphasher 1.0.1",
  "subsetter",
  "tiny-skia",
- "ttf-parser 0.20.0",
+ "ttf-parser 0.21.1",
  "unicode-properties",
  "usvg",
 ]
@@ -2582,7 +2594,7 @@ dependencies = [
  "qcms",
  "rayon",
  "regex",
- "roxmltree",
+ "roxmltree 0.20.0",
  "rustybuzz 0.13.0",
  "serde",
  "serde_json",
@@ -2763,7 +2775,7 @@ dependencies = [
  "image 0.24.9",
  "pixglyph",
  "resvg",
- "roxmltree",
+ "roxmltree 0.20.0",
  "tiny-skia",
  "ttf-parser 0.21.1",
  "typst",
@@ -2987,7 +2999,9 @@ dependencies = [
 
 [[package]]
 name = "usvg"
-version = "0.41.0"
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b84ea542ae85c715f07b082438a4231c3760539d902e11d093847a0b22963032"
 dependencies = [
  "base64 0.22.0",
  "data-url",
@@ -2997,7 +3011,7 @@ dependencies = [
  "kurbo",
  "log",
  "pico-args",
- "roxmltree",
+ "roxmltree 0.20.0",
  "rustybuzz 0.14.0",
  "simplecss",
  "siphasher 1.0.1",
