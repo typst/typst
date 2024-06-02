@@ -438,7 +438,8 @@ impl Frame {
         self
     }
 
-    /// Debug in place. Add a full size aqua background and a red baseline for debugging.
+    /// Debug in place. Add a full size aqua background, a red baseline, a yellow
+    /// ascent and a blue descent (if nonzero) for debugging.
     pub fn mark_box_in_place(&mut self) {
         self.insert(
             0,
@@ -457,6 +458,26 @@ impl Frame {
                 Span::detached(),
             ),
         );
+        self.insert(
+            1,
+            Point::with_y(self.baseline() - self.ascent()),
+            FrameItem::Shape(
+                Geometry::Line(Point::with_x(self.size.x))
+                    .stroked(FixedStroke::from_pair(Color::YELLOW, Abs::pt(1.0))),
+                Span::detached(),
+            ),
+        );
+        if self.descent() != Abs::zero() {
+            self.insert(
+                1,
+                Point::with_y(self.baseline() + self.descent()),
+                FrameItem::Shape(
+                    Geometry::Line(Point::with_x(self.size.x))
+                        .stroked(FixedStroke::from_pair(Color::BLUE, Abs::pt(1.0))),
+                    Span::detached(),
+                ),
+            );
+        }
     }
 
     /// Add a green marker at a position for debugging.
