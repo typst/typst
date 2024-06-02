@@ -104,6 +104,30 @@ We can also specify a customized value
 // Test partial highlight in a block math equation.
 $ sum_(k=1)^n k = #highlight[(n(n+1))] / 3 $
 
+--- highlight-only-hspace ---
+// highlight hspace
+A#highlight[#h(1cm, weak: false)]B
+
+--- highlight-hspace-mixed-with-math ---
+// highlight with hspace and math
+#highlight[$a#h(0.5cm)a_n#h(0.5cm)a_n b$]
+
+--- overline-only-hspace ---
+// overline with hspaced issues 1716
+A#overline[#h(1cm)]B
+
+--- overline-hspace-mixed-with-math ---
+// overline with hspace and math
+#overline[$a#h(0.5cm)a_n#h(0.5cm)a_n b$]
+
+--- underline-only-hspace ---
+// underline with hspaced issues 1716
+A#underline[#h(1cm)]B
+
+--- underline-hspace-mixed-with-math ---
+// underline with hspaced and math
+#underline[$a#h(0.5cm)a_n#h(0.5cm)a_n b$]
+
 --- strike-inline-math ---
 // Test strike for inline math equation.
 #strike[$a$], #strike[$a_n$], #strike[$a_n b$]
