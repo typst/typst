@@ -633,6 +633,10 @@ fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
             code_expr(p);
             if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
                 p.expected("semicolon or line break");
+                if p.at(SyntaxKind::Label) {
+                    p.hint("labels can only be applied in markup mode");
+                    p.hint("try wrapping your code in a markup block (`[ ]`)");
+                }
             }
         }
 
@@ -1836,6 +1840,14 @@ impl<'s> Parser<'s> {
     fn expected_at(&mut self, m: Marker, thing: &str) {
         let error = SyntaxNode::error(eco_format!("expected {thing}"), "");
         self.nodes.insert(m.0, error);
+    }
+
+    /// Produce a hint.
+    fn hint(&mut self, hint: &str) {
+        let m = self.before_trivia();
+        if let Some(error) = self.nodes.get_mut(m.0 - 1) {
+            error.hint(hint);
+        }
     }
 
     /// Consume the next token (if any) and produce an error stating that it was
