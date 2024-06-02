@@ -240,8 +240,8 @@ impl Packed<EquationElem> {
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);
-            frame.translate(Point::with_y(ascent - frame.baseline()));
-            frame.size_mut().y = ascent + descent;
+            frame.set_ascent(ascent);
+            frame.set_descent(descent);
         }
 
         Ok(items)

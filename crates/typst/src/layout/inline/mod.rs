@@ -1411,8 +1411,8 @@ fn commit(
     for item in reordered {
         let mut push = |offset: &mut Abs, frame: Frame| {
             let width = frame.width();
-            top.set_max(frame.baseline());
-            bottom.set_max(frame.size().y - frame.baseline());
+            top.set_max(frame.ascent());
+            bottom.set_max(frame.descent());
             frames.push((*offset, frame));
             *offset += width;
         };

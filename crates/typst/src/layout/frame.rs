@@ -31,6 +31,12 @@ pub struct Frame {
     items: Arc<LazyHash<Vec<(Point, FrameItem)>>>,
     /// The hardness of this frame.
     kind: FrameKind,
+    /// The ascent of the frame. If this is `None`, the
+    /// frame's implicit ascent is the baseline.
+    ascent: Option<Abs>,
+    /// The descent of the frame. If this is `None`, the
+    /// frame's implicit descent is size minus baseline.
+    descent: Option<Abs>,
 }
 
 /// Constructor, accessors and setters.
@@ -46,6 +52,8 @@ impl Frame {
             baseline: None,
             items: Arc::new(LazyHash::new(vec![])),
             kind,
+            ascent: None,
+            descent: None,
         }
     }
 
@@ -120,17 +128,38 @@ impl Frame {
         self.baseline = Some(baseline);
     }
 
-    /// The distance from the baseline to the top of the frame.
+    /// The ascent of the frame.
     ///
-    /// This is the same as `baseline()`, but more in line with the terminology
-    /// used in math layout.
+    /// When it is not explicitly set, it is the same as `baseline()`.
+    /// When it is explicitly set, the frame might reach higher than the ascent.
     pub fn ascent(&self) -> Abs {
-        self.baseline()
+        if let Some(ascent) = self.ascent {
+            ascent
+        } else {
+            self.baseline()
+        }
     }
 
-    /// The distance from the baseline to the bottom of the frame.
+    /// Set the descent of the frame.
+    pub fn set_ascent(&mut self, ascent: Abs) {
+        self.ascent = Some(ascent);
+    }
+
+    /// The ascent of the frame.
+    ///
+    /// When it is not explicitly set, it is the same as `baseline()`
+    /// When it is explicitly set, the frame might reach lower than the descent.
     pub fn descent(&self) -> Abs {
-        self.size.y - self.baseline()
+        if let Some(descent) = self.descent {
+            descent
+        } else {
+            self.size.y - self.baseline()
+        }
+    }
+
+    /// Set the descent of the frame.
+    pub fn set_descent(&mut self, descent: Abs) {
+        self.descent = Some(descent);
     }
 
     /// An iterator over the items inside this frame alongside their positions
