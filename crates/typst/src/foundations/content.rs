@@ -385,6 +385,19 @@ impl Content {
         }
     }
 
+    /// Style this content with a full style map in-place.
+    pub fn style_in_place(&mut self, styles: Styles) {
+        if styles.is_empty() {
+            return;
+        }
+
+        if let Some(style_elem) = self.to_packed_mut::<StyledElem>() {
+            style_elem.styles.apply(styles);
+        } else {
+            *self = StyledElem::new(std::mem::take(self), styles).into();
+        }
+    }
+
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.

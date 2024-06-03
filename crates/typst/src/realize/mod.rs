@@ -508,50 +508,26 @@ impl<'a> ListBuilder<'a> {
         let mut items = items.into_iter().peekable();
         let (first, _) = items.peek().unwrap();
         let output = if first.is::<ListItem>() {
-            ListElem::new(
-                items
-                    .map(|(item, local)| {
-                        let mut item = item.to_packed::<ListItem>().unwrap().clone();
-                        let body = item.body().clone().styled_with_map(local);
-                        item.push_body(body);
-                        item
-                    })
-                    .collect(),
-            )
-            .with_tight(self.tight)
-            .pack()
-            .spanned(span)
+            let children = items
+                .map(|(item, local)| {
+                    item.into_packed::<ListItem>().unwrap().styled(local)
+                })
+                .collect();
+            ListElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else if first.is::<EnumItem>() {
-            EnumElem::new(
-                items
-                    .map(|(item, local)| {
-                        let mut item = item.to_packed::<EnumItem>().unwrap().clone();
-                        let body = item.body().clone().styled_with_map(local);
-                        item.push_body(body);
-                        item
-                    })
-                    .collect(),
-            )
-            .with_tight(self.tight)
-            .pack()
-            .spanned(span)
+            let children = items
+                .map(|(item, local)| {
+                    item.into_packed::<EnumItem>().unwrap().styled(local)
+                })
+                .collect();
+            EnumElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else if first.is::<TermItem>() {
-            TermsElem::new(
-                items
-                    .map(|(item, local)| {
-                        let mut item = item.to_packed::<TermItem>().unwrap().clone();
-                        let term = item.term().clone().styled_with_map(local.clone());
-                        let description =
-                            item.description().clone().styled_with_map(local);
-                        item.push_term(term);
-                        item.push_description(description);
-                        item
-                    })
-                    .collect(),
-            )
-            .with_tight(self.tight)
-            .pack()
-            .spanned(span)
+            let children = items
+                .map(|(item, local)| {
+                    item.into_packed::<TermItem>().unwrap().styled(local)
+                })
+                .collect();
+            TermsElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else {
             unreachable!()
         };

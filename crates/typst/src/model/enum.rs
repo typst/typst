@@ -7,7 +7,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Context, NativeElement, Packed, Show, Smart,
-    StyleChain,
+    StyleChain, Styles,
 };
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
@@ -314,6 +314,14 @@ pub struct EnumItem {
     /// The item's body.
     #[required]
     pub body: Content,
+}
+
+impl Packed<EnumItem> {
+    /// Apply styles to this enum item.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        self.body.style_in_place(styles);
+        self
+    }
 }
 
 cast! {
