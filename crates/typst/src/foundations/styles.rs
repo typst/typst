@@ -72,8 +72,8 @@ pub struct Styles(EcoVec<LazyHash<Style>>);
 
 impl Styles {
     /// Create a new, empty style list.
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self(EcoVec::new())
     }
 
     /// Whether this contains no styles.

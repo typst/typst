@@ -9,7 +9,7 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain, StyledElem,
+    elem, Args, Construct, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
 use crate::introspection::TagElem;
 use crate::layout::{
@@ -17,17 +17,25 @@ use crate::layout::{
     Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
+use crate::realize::StyleVec;
 use crate::utils::Numeric;
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
 /// This element is responsible for layouting both the top-level content flow
 /// and the contents of boxes.
-#[elem(Debug)]
+#[elem(Debug, Construct)]
 pub struct FlowElem {
     /// The children that will be arranged into a flow.
+    #[internal]
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: StyleVec,
+}
+
+impl Construct for FlowElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
 }
 
 impl Packed<FlowElem> {
@@ -54,23 +62,12 @@ impl Packed<FlowElem> {
         // through the block & pad and reach the innermost flow, so that things
         // are properly bottom-aligned.
         let mut alone = false;
-        if let [child] = self.children().as_slice() {
-            alone = child
-                .to_packed::<StyledElem>()
-                .map_or(child, |styled| &styled.child)
-                .is::<BlockElem>();
+        if let [child] = self.children().elements() {
+            alone = child.is::<BlockElem>();
         }
 
-        let outer = styles;
-
         let mut layouter = FlowLayouter::new(regions, styles, alone);
-        for mut child in self.children().iter() {
-            let mut styles = styles;
-            if let Some(styled) = child.to_packed::<StyledElem>() {
-                child = &styled.child;
-                styles = outer.chain(&styled.styles);
-            }
-
+        for (child, styles) in self.children().chain(&styles) {
             if let Some(elem) = child.to_packed::<TagElem>() {
                 layouter.layout_tag(elem);
             } else if child.is::<FlushElem>() {
@@ -100,7 +97,7 @@ impl Packed<FlowElem> {
 impl Debug for FlowElem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Flow ")?;
-        f.debug_list().entries(&self.children).finish()
+        self.children.fmt(f)
     }
 }
 

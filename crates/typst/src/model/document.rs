@@ -4,10 +4,11 @@ use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
-    StyledElem, Value,
+    Value,
 };
 use crate::introspection::{Introspector, ManualPageCounter};
 use crate::layout::{Page, PageElem};
+use crate::realize::StyleVec;
 
 /// The root element of a document and its metadata.
 ///
@@ -60,7 +61,7 @@ pub struct DocumentElem {
     /// The page runs.
     #[internal]
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: StyleVec,
 }
 
 impl Construct for DocumentElem {
@@ -81,24 +82,13 @@ impl Packed<DocumentElem> {
         let mut page_counter = ManualPageCounter::new();
 
         let children = self.children();
-        let mut iter = children.iter().peekable();
+        let mut iter = children.chain(&styles).peekable();
 
-        while let Some(mut child) = iter.next() {
-            let outer = styles;
-            let mut styles = styles;
-            if let Some(styled) = child.to_packed::<StyledElem>() {
-                child = &styled.child;
-                styles = outer.chain(&styled.styles);
-            }
-
+        while let Some((child, styles)) = iter.next() {
             if let Some(page) = child.to_packed::<PageElem>() {
-                let extend_to = iter.peek().and_then(|&next| {
-                    *next
-                        .to_packed::<StyledElem>()
-                        .map_or(next, |styled| &styled.child)
-                        .to_packed::<PageElem>()?
-                        .clear_to()?
-                });
+                let extend_to = iter
+                    .peek()
+                    .and_then(|(next, _)| *next.to_packed::<PageElem>()?.clear_to()?);
                 let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
                 pages.extend(run);
             } else {
