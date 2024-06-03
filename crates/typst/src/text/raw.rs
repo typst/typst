@@ -16,7 +16,7 @@ use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
     PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
-use crate::layout::{BlockElem, Em, HAlignment};
+use crate::layout::{BlockChild, BlockElem, Em, HAlignment};
 use crate::model::{Figurable, ParElem};
 use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
@@ -444,8 +444,10 @@ impl Show for Packed<RawElem> {
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
-            realized =
-                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
+            realized = BlockElem::new()
+                .with_body(Some(BlockChild::Content(realized)))
+                .pack()
+                .spanned(self.span());
         }
 
         Ok(realized)

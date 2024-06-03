@@ -14,8 +14,8 @@ use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    AlignElem, Alignment, BlockElem, Em, HAlignment, Length, OuterVAlignment, PlaceElem,
-    VAlignment, VElem,
+    AlignElem, Alignment, BlockChild, BlockElem, Em, HAlignment, Length, OuterVAlignment,
+    PlaceElem, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
@@ -317,7 +317,10 @@ impl Show for Packed<FigureElem> {
         }
 
         // Wrap the contents in a block.
-        realized = BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
+        realized = BlockElem::new()
+            .with_body(Some(BlockChild::Content(realized)))
+            .pack()
+            .spanned(self.span());
 
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {

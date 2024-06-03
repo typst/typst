@@ -3,12 +3,12 @@ use comemo::Track;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Context, Depth, Func, Packed, Smart, StyleChain,
-    Value,
+    cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
+    Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
+    Regions, Sizing, Spacing, VAlignment, VElem,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -44,7 +44,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", LayoutMultiple)]
+#[elem(scope, title = "Bullet List", Show)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [list spacing]($list.spacing). If it is `{true}`, they use normal
@@ -137,54 +137,65 @@ impl ListElem {
     type ListItem;
 }
 
-impl LayoutMultiple for Packed<ListElem> {
-    #[typst_macros::time(name = "list", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let indent = self.indent(styles);
-        let body_indent = self.body_indent(styles);
-        let gutter = if self.tight(styles) {
-            ParElem::leading_in(styles).into()
-        } else {
-            self.spacing(styles)
-                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-        };
+impl Show for Packed<ListElem> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_list).pack();
 
-        let Depth(depth) = ListElem::depth_in(styles);
-        let marker = self
-            .marker(styles)
-            .resolve(engine, styles, depth)?
-            // avoid '#set align' interference with the list
-            .aligned(HAlignment::Start + VAlignment::Top);
-
-        let mut cells = vec![];
-        for item in self.children() {
-            cells.push(Cell::from(Content::empty()));
-            cells.push(Cell::from(marker.clone()));
-            cells.push(Cell::from(Content::empty()));
-            cells.push(Cell::from(
-                item.body().clone().styled(ListElem::set_depth(Depth(1))),
-            ));
+        if self.tight(styles) {
+            let leading = ParElem::leading_in(styles);
+            let spacing = VElem::list_attach(leading.into()).pack();
+            realized = spacing + realized;
         }
 
-        let grid = CellGrid::new(
-            Axes::with_x(&[
-                Sizing::Rel(indent.into()),
-                Sizing::Auto,
-                Sizing::Rel(body_indent.into()),
-                Sizing::Auto,
-            ]),
-            Axes::with_y(&[gutter.into()]),
-            cells,
-        );
-        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
-
-        layouter.layout(engine)
+        Ok(realized)
     }
+}
+
+/// Layout the list.
+#[typst_macros::time(span = elem.span())]
+fn layout_list(
+    elem: &Packed<ListElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let indent = elem.indent(styles);
+    let body_indent = elem.body_indent(styles);
+    let gutter = if elem.tight(styles) {
+        ParElem::leading_in(styles).into()
+    } else {
+        elem.spacing(styles)
+            .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
+    };
+
+    let Depth(depth) = ListElem::depth_in(styles);
+    let marker = elem
+        .marker(styles)
+        .resolve(engine, styles, depth)?
+        // avoid '#set align' interference with the list
+        .aligned(HAlignment::Start + VAlignment::Top);
+
+    let mut cells = vec![];
+    for item in elem.children() {
+        cells.push(Cell::from(Content::empty()));
+        cells.push(Cell::from(marker.clone()));
+        cells.push(Cell::from(Content::empty()));
+        cells.push(Cell::from(item.body().clone().styled(ListElem::set_depth(Depth(1)))));
+    }
+
+    let grid = CellGrid::new(
+        Axes::with_x(&[
+            Sizing::Rel(indent.into()),
+            Sizing::Auto,
+            Sizing::Rel(body_indent.into()),
+            Sizing::Auto,
+        ]),
+        Axes::with_y(&[gutter.into()]),
+        cells,
+    );
+    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+
+    layouter.layout(engine)
 }
 
 /// A bullet list item.

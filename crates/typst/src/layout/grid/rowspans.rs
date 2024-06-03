@@ -3,9 +3,7 @@ use super::repeated::Repeatable;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::Resolve;
-use crate::layout::{
-    Abs, Axes, Cell, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
-};
+use crate::layout::{Abs, Axes, Cell, Frame, GridLayouter, Point, Regions, Size, Sizing};
 use crate::utils::MaybeReverseIter;
 
 /// All information needed to layout a single rowspan.
@@ -138,7 +136,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Push the layouted frames directly into the finished frames.
-        let fragment = cell.layout(engine, self.styles, pod)?;
+        let fragment = cell.body.layout(engine, self.styles, pod)?;
         let (current_region, current_rrows) = current_region_data.unzip();
         for ((i, finished), frame) in self
             .finished

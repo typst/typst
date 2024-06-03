@@ -8,7 +8,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, Axes, BlockElem, Em, HElem, LayoutMultiple, Length, Regions, VElem,
+    Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Regions, VElem,
 };
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
@@ -248,7 +248,10 @@ impl Show for Packed<HeadingElem> {
             realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
         }
 
-        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
+        Ok(BlockElem::new()
+            .with_body(Some(BlockChild::Content(realized)))
+            .pack()
+            .spanned(span))
     }
 }
 

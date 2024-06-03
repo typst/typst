@@ -31,7 +31,7 @@ Placed item in the first region.
 // In-flow item with size zero in the first region.
 #set page(height: 5cm, margin: 1cm)
 In-flow, zero-sized item.
-#block(breakable: true, stroke: 1pt, inset: 0.5cm)[
+#block(breakable: true, stroke: 1pt, inset: 0.4cm)[
   #set block(spacing: 0pt)
   #line(length: 0pt)
   #rect(height: 2cm, fill: gray)

@@ -14,10 +14,7 @@ use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Reflect,
     Resolve, Smart, StyleChain, Value,
 };
-use crate::layout::{
-    Abs, Alignment, Axes, Fragment, LayoutMultiple, Length, LinePosition, Regions, Rel,
-    Sides, Sizing,
-};
+use crate::layout::{Abs, Alignment, Axes, Length, LinePosition, Rel, Sides, Sizing};
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
@@ -201,17 +198,6 @@ impl From<Content> for Cell {
             stroke_overridden: Sides::splat(false),
             breakable: true,
         }
-    }
-}
-
-impl LayoutMultiple for Cell {
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        self.body.layout(engine, styles, regions)
     }
 }
 

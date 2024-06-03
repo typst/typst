@@ -10,8 +10,8 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Resolve, StyleChain};
 use crate::layout::{
-    Abs, Axes, Cell, CellGrid, Dir, Fr, Fragment, Frame, FrameItem, LayoutMultiple,
-    Length, Point, Regions, Rel, Size, Sizing,
+    Abs, Axes, Cell, CellGrid, Dir, Fr, Fragment, Frame, FrameItem, Length, Point,
+    Regions, Rel, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -841,7 +841,7 @@ impl<'a> GridLayouter<'a> {
 
                 let size = Size::new(available, height);
                 let pod = Regions::one(size, Axes::splat(false));
-                let frame = cell.measure(engine, self.styles, pod)?.into_frame();
+                let frame = cell.body.measure(engine, self.styles, pod)?.into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -1069,7 +1069,7 @@ impl<'a> GridLayouter<'a> {
                 pod
             };
 
-            let frames = cell.measure(engine, self.styles, pod)?.into_frames();
+            let frames = cell.body.measure(engine, self.styles, pod)?.into_frames();
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
@@ -1232,7 +1232,7 @@ impl<'a> GridLayouter<'a> {
                         // rows.
                         pod.full = self.regions.full;
                     }
-                    let frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                    let frame = cell.body.layout(engine, self.styles, pod)?.into_frame();
                     let mut pos = pos;
                     if self.is_rtl {
                         // In the grid, cell colspans expand to the right,
@@ -1286,7 +1286,7 @@ impl<'a> GridLayouter<'a> {
                     pod.size.x = width;
 
                     // Push the layouted frames into the individual output frames.
-                    let fragment = cell.layout(engine, self.styles, pod)?;
+                    let fragment = cell.body.layout(engine, self.styles, pod)?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = pos;
                         if self.is_rtl {

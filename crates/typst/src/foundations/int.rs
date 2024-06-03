@@ -2,10 +2,8 @@ use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError
 
 use ecow::{eco_format, EcoString};
 
-use crate::{
-    diag::StrResult,
-    foundations::{cast, func, repr, scope, ty, Repr, Str, Value},
-};
+use crate::diag::StrResult;
+use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
 
 /// A whole number.
 ///

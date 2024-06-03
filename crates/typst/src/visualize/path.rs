@@ -3,10 +3,11 @@ use kurbo::{CubicBez, ParamCurveExtrema};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, elem, Array, Packed, Reflect, Resolve, Smart, StyleChain,
+    array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Resolve, Show,
+    Smart, StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel, Size,
+    Abs, Axes, BlockElem, Frame, FrameItem, Length, Point, Region, Rel, Size,
 };
 use crate::visualize::{FixedStroke, Geometry, Paint, Shape, Stroke};
 
@@ -25,7 +26,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-#[elem(LayoutSingle)]
+#[elem(Show)]
 pub struct PathElem {
     /// How to fill the path.
     ///
@@ -69,86 +70,89 @@ pub struct PathElem {
     pub vertices: Vec<PathVertex>,
 }
 
-impl LayoutSingle for Packed<PathElem> {
-    #[typst_macros::time(name = "path", span = self.span())]
-    fn layout(
-        &self,
-        _: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Frame> {
-        let resolve = |axes: Axes<Rel<Length>>| {
-            axes.resolve(styles)
-                .zip_map(regions.base(), Rel::relative_to)
-                .to_point()
-        };
-
-        let vertices = self.vertices();
-        let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
-
-        let mut size = Size::zero();
-        if points.is_empty() {
-            return Ok(Frame::soft(size));
-        }
-
-        // Only create a path if there are more than zero points.
-        // Construct a closed path given all points.
-        let mut path = Path::new();
-        path.move_to(points[0]);
-
-        let mut add_cubic =
-            |from_point: Point, to_point: Point, from: PathVertex, to: PathVertex| {
-                let from_control_point = resolve(from.control_point_from()) + from_point;
-                let to_control_point = resolve(to.control_point_to()) + to_point;
-                path.cubic_to(from_control_point, to_control_point, to_point);
-
-                let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
-                let p1 = kurbo::Point::new(
-                    from_control_point.x.to_raw(),
-                    from_control_point.y.to_raw(),
-                );
-                let p2 = kurbo::Point::new(
-                    to_control_point.x.to_raw(),
-                    to_control_point.y.to_raw(),
-                );
-                let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
-                let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
-                size.x.set_max(Abs::raw(extrema.x1));
-                size.y.set_max(Abs::raw(extrema.y1));
-            };
-
-        for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
-            let from = vertex_window[0];
-            let to = vertex_window[1];
-            let from_point = point_window[0];
-            let to_point = point_window[1];
-
-            add_cubic(from_point, to_point, from, to);
-        }
-
-        if self.closed(styles) {
-            let from = *vertices.last().unwrap(); // We checked that we have at least one element.
-            let to = vertices[0];
-            let from_point = *points.last().unwrap();
-            let to_point = points[0];
-
-            add_cubic(from_point, to_point, from, to);
-            path.close_path();
-        }
-
-        // Prepare fill and stroke.
-        let fill = self.fill(styles);
-        let stroke = match self.stroke(styles) {
-            Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
-            Smart::Auto => None,
-            Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
-        };
-
-        let mut frame = Frame::soft(size);
-        let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
-        frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-        Ok(frame)
+impl Show for Packed<PathElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::single_layouter(self.clone(), layout_path).pack())
     }
+}
+
+/// Layout the path.
+#[typst_macros::time(span = elem.span())]
+fn layout_path(
+    elem: &Packed<PathElem>,
+    _: &mut Engine,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let resolve = |axes: Axes<Rel<Length>>| {
+        axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
+    };
+
+    let vertices = elem.vertices();
+    let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
+
+    let mut size = Size::zero();
+    if points.is_empty() {
+        return Ok(Frame::soft(size));
+    }
+
+    // Only create a path if there are more than zero points.
+    // Construct a closed path given all points.
+    let mut path = Path::new();
+    path.move_to(points[0]);
+
+    let mut add_cubic = |from_point: Point,
+                         to_point: Point,
+                         from: PathVertex,
+                         to: PathVertex| {
+        let from_control_point = resolve(from.control_point_from()) + from_point;
+        let to_control_point = resolve(to.control_point_to()) + to_point;
+        path.cubic_to(from_control_point, to_control_point, to_point);
+
+        let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
+        let p1 = kurbo::Point::new(
+            from_control_point.x.to_raw(),
+            from_control_point.y.to_raw(),
+        );
+        let p2 =
+            kurbo::Point::new(to_control_point.x.to_raw(), to_control_point.y.to_raw());
+        let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
+        let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
+        size.x.set_max(Abs::raw(extrema.x1));
+        size.y.set_max(Abs::raw(extrema.y1));
+    };
+
+    for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
+        let from = vertex_window[0];
+        let to = vertex_window[1];
+        let from_point = point_window[0];
+        let to_point = point_window[1];
+
+        add_cubic(from_point, to_point, from, to);
+    }
+
+    if elem.closed(styles) {
+        let from = *vertices.last().unwrap(); // We checked that we have at least one element.
+        let to = vertices[0];
+        let from_point = *points.last().unwrap();
+        let to_point = points[0];
+
+        add_cubic(from_point, to_point, from, to);
+        path.close_path();
+    }
+
+    // Prepare fill and stroke.
+    let fill = elem.fill(styles);
+    let stroke = match elem.stroke(styles) {
+        Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
+        Smart::Auto => None,
+        Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
+    };
+
+    let mut frame = Frame::soft(size);
+    let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
+    frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
+    Ok(frame)
 }
 
 /// A component used for path creation.
