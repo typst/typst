@@ -5,13 +5,9 @@ use typst_macros::cast;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-<<<<<<< HEAD
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
 };
-=======
-use crate::foundations::{elem, Content, Packed, Resolve, Smart, StyleChain};
->>>>>>> 7a9c0985 (First attempt at allowing absolute lengths for scaling)
 use crate::layout::{
     Abs, Alignment, Angle, Axes, BlockElem, FixedAlignment, Frame, HAlignment, Length,
     Point, Ratio, Region, Regions, Rel, Size, VAlignment,
@@ -240,22 +236,22 @@ fn layout_scale(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let align = self.origin(styles).resolve(styles);
+    let align = elem.origin(styles).resolve(styles);
 
-    let scale = self.resolve_scale(engine, regions.base(), styles)?;
+    let scale = elem.resolve_scale(engine, region.size, styles)?;
 
     // Compute the new region's approximate size.
-    let size = regions.base().zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
+    let size = region.size.zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
 
     measure_and_layout(
         engine,
-        regions.base(),
+        region,
         size,
         styles,
-        self.body(),
+        elem.body(),
         Transform::scale(scale.x, scale.y),
         align,
-        self.reflow(styles),
+        elem.reflow(styles),
     )
 }
 
