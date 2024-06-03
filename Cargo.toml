@@ -17,8 +17,6 @@ readme = "README.md"
 
 [workspace.dependencies]
 typst = { path = "crates/typst", version = "0.11.0" }
-typst-cli = { path = "crates/typst-cli", version = "0.11.0" }
-typst-ide = { path = "crates/typst-ide", version = "0.11.0" }
 typst-macros = { path = "crates/typst-macros", version = "0.11.0" }
 typst-pdf = { path = "crates/typst-pdf", version = "0.11.0" }
 typst-render = { path = "crates/typst-render", version = "0.11.0" }
@@ -38,7 +36,6 @@ ciborium = "0.2.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
-ctrlc = "3.4.1"
 codespan-reporting = "0.11"
 comemo = "0.4"
 csv = "1"
@@ -76,7 +73,7 @@ parking_lot = "0.12.1"
 pathdiff = "0.2"
 pdf-writer = "0.9.3"
 phf = { version = "0.11", features = ["macros"] }
-pixglyph = "0.3"
+pixglyph = "0.4"
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
@@ -108,7 +105,7 @@ thin-vec = "0.2.13"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
-ttf-parser = "0.20.0"
+ttf-parser = "0.21.1"
 two-face = { version = "0.3.0", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
 unicode-bidi = "0.3.13"
@@ -135,9 +132,6 @@ opt-level = 2
 [profile.release]
 lto = "thin"
 codegen-units = 1
-
-[profile.release.package."typst-cli"]
-strip = true
 
 [workspace.lints.clippy]
 uninlined_format_args = "warn"

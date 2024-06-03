@@ -715,7 +715,7 @@ dependencies = [
  "memmap2",
  "slotmap",
  "tinyvec",
- "ttf-parser",
+ "ttf-parser 0.20.0",
 ]
 
 [[package]]
@@ -1678,11 +1678,11 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pixglyph"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e0f8ad4c197db38125b880c3c44544788665c7d5f4c42f5a35da44bca1a712"
+checksum = "4a64dec9fae2e0f75bb2a7d910b4e8b0d15ecd706fb0d61394774b3223c50a97"
 dependencies = [
- "ttf-parser",
+ "ttf-parser 0.21.1",
 ]
 
 [[package]]
@@ -1983,7 +1983,7 @@ dependencies = [
  "bitflags 2.4.2",
  "bytemuck",
  "smallvec",
- "ttf-parser",
+ "ttf-parser 0.20.0",
  "unicode-bidi-mirroring",
  "unicode-ccc",
  "unicode-properties",
@@ -2504,6 +2504,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17f77d76d837a7830fe1d4f12b7b4ba4192c1888001c7164257e4bc6d21d96b4"
 
 [[package]]
+name = "ttf-parser"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c591d83f69777866b9126b24c6dd9a18351f177e49d625920d19f989fd31cf8"
+
+[[package]]
 name = "two-face"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2566,7 +2572,7 @@ dependencies = [
  "syntect",
  "time",
  "toml",
- "ttf-parser",
+ "ttf-parser 0.21.1",
  "two-face",
  "typed-arena",
  "typst-assets",
@@ -2582,6 +2588,7 @@ dependencies = [
  "unscanny",
  "usvg",
  "wasmi",
+ "xmlwriter",
 ]
 
 [[package]]
@@ -2632,6 +2639,7 @@ dependencies = [
  "typst-svg",
  "typst-timing",
  "ureq",
+ "xmlwriter",
  "xz2",
  "zip",
 ]
@@ -2717,7 +2725,7 @@ dependencies = [
  "pdf-writer",
  "subsetter",
  "svg2pdf",
- "ttf-parser",
+ "ttf-parser 0.21.1",
  "typst",
  "typst-assets",
  "typst-macros",
@@ -2738,7 +2746,7 @@ dependencies = [
  "resvg",
  "roxmltree",
  "tiny-skia",
- "ttf-parser",
+ "ttf-parser 0.21.1",
  "typst",
  "typst-macros",
  "typst-timing",
@@ -2753,7 +2761,7 @@ dependencies = [
  "comemo",
  "ecow",
  "flate2",
- "ttf-parser",
+ "ttf-parser 0.21.1",
  "typst",
  "typst-macros",
  "typst-timing",
@@ -2789,7 +2797,7 @@ dependencies = [
  "rayon",
  "regex",
  "tiny-skia",
- "ttf-parser",
+ "ttf-parser 0.21.1",
  "typst",
  "typst-assets",
  "typst-dev-assets",
