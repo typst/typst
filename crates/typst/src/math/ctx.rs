@@ -1,6 +1,6 @@
 use std::f64::consts::SQRT_2;
 
-use ecow::EcoString;
+use ecow::{eco_vec, EcoString};
 use rustybuzz::Feature;
 use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::math::MathValue;
@@ -18,6 +18,7 @@ use crate::math::{
     LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
 use crate::model::ParElem;
+use crate::realize::StyleVec;
 use crate::syntax::{is_newline, Span};
 use crate::text::{
     features, BottomEdge, BottomEdgeMetric, Font, TextElem, TextSize, TopEdge,
@@ -286,7 +287,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // to extend as far as needed.
         let spaced = text.graphemes(true).nth(1).is_some();
         let text = TextElem::packed(text).spanned(span);
-        let par = ParElem::new(vec![text]);
+        let par = ParElem::new(StyleVec::wrap(eco_vec![text]));
         let frame = Packed::new(par)
             .spanned(span)
             .layout(self.engine, styles, false, Size::splat(Abs::inf()), false)?

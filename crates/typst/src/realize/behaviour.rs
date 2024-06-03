@@ -1,5 +1,9 @@
 //! Element interaction.
 
+use std::fmt::{Debug, Formatter};
+
+use ecow::EcoVec;
+
 use crate::foundations::{Content, StyleChain, Styles};
 use crate::syntax::Span;
 
@@ -125,44 +129,39 @@ impl<'a> BehavedBuilder<'a> {
 
     /// Return the built content (possibly styled with local styles) plus a
     /// trunk style chain and a span for the collection.
-    pub fn finish<F: From<Content>>(self) -> (Vec<F>, StyleChain<'a>, Span) {
-        let (output, trunk, span) = self.finish_iter();
-        let output = output.map(|(c, s)| c.clone().styled_with_map(s).into()).collect();
-        (output, trunk, span)
-    }
-
-    /// Return an iterator over the built content and its local styles plus a
-    /// trunk style chain and a span for the collection.
-    pub fn finish_iter(
-        mut self,
-    ) -> (impl Iterator<Item = (&'a Content, Styles)>, StyleChain<'a>, Span) {
+    pub fn finish(mut self) -> (StyleVec, StyleChain<'a>, Span) {
         self.trim_weak();
 
         let span = self.determine_span();
         let (trunk, depth) = self.determine_style_trunk();
 
-        let mut iter = self.buf.into_iter().peekable();
-        let mut reuse = None;
+        let mut elements = EcoVec::with_capacity(self.buf.len());
+        let mut styles = EcoVec::<(Styles, usize)>::new();
+        let mut last: Option<(StyleChain<'a>, usize)> = None;
 
-        // Map the content + style chains to content + suffix maps, reusing
-        // equivalent adjacent suffix maps, if possible.
-        let output = std::iter::from_fn(move || {
-            let (c, s) = iter.next()?;
+        for (element, chain) in self.buf.into_iter() {
+            elements.push(element.clone());
 
-            // Try to reuse a suffix map that the previous element has
-            // stored for us.
-            let suffix = reuse.take().unwrap_or_else(|| s.suffix(depth));
-
-            // Store a suffix map for the next element if it has the same style
-            // chain.
-            if iter.peek().is_some_and(|&(_, s2)| s == s2) {
-                reuse = Some(suffix.clone());
+            if let Some((prev, run)) = &mut last {
+                if chain == *prev {
+                    *run += 1;
+                } else {
+                    styles.push((prev.suffix(depth), *run));
+                    last = Some((chain, 1));
+                }
+            } else {
+                last = Some((chain, 1));
             }
+        }
 
-            Some((c, suffix))
-        });
+        if let Some((last, run)) = last {
+            let skippable = styles.is_empty() && last == trunk;
+            if !skippable {
+                styles.push((last.suffix(depth), run));
+            }
+        }
 
-        (output, trunk, span)
+        (StyleVec { elements, styles }, trunk, span)
     }
 
     /// Trim a possibly remaining weak item.
@@ -226,5 +225,93 @@ impl<'a> BehavedBuilder<'a> {
 impl<'a> Default for BehavedBuilder<'a> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// A sequence of elements with associated styles.
+#[derive(Clone, PartialEq, Hash)]
+pub struct StyleVec {
+    elements: EcoVec<Content>,
+    styles: EcoVec<(Styles, usize)>,
+}
+
+impl StyleVec {
+    /// Create a style vector from an unstyled vector content.
+    pub fn wrap(elements: EcoVec<Content>) -> Self {
+        Self { elements, styles: EcoVec::new() }
+    }
+
+    /// Whether there are no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
+    /// The number of elements.
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// The raw, unstyled elements.
+    pub fn elements(&self) -> &[Content] {
+        &self.elements
+    }
+
+    /// Get a style property, but only if it is the same for all children of the
+    /// style vector.
+    pub fn shared_get<T: PartialEq>(
+        &self,
+        styles: StyleChain<'_>,
+        getter: fn(StyleChain) -> T,
+    ) -> Option<T> {
+        let value = getter(styles);
+        self.styles
+            .iter()
+            .all(|(local, _)| getter(styles.chain(local)) == value)
+            .then_some(value)
+    }
+
+    /// Iterate over the contained content and style chains.
+    pub fn chain<'a>(
+        &'a self,
+        outer: &'a StyleChain<'_>,
+    ) -> impl Iterator<Item = (&'a Content, StyleChain<'a>)> {
+        self.iter().map(|(element, local)| (element, outer.chain(local)))
+    }
+
+    /// Iterate over pairs of content and styles.
+    pub fn iter(&self) -> impl Iterator<Item = (&Content, &Styles)> {
+        static EMPTY: Styles = Styles::new();
+        self.elements.iter().zip(
+            self.styles
+                .iter()
+                .flat_map(|(local, count)| std::iter::repeat(local).take(*count))
+                .chain(std::iter::repeat(&EMPTY)),
+        )
+    }
+
+    /// Iterate over pairs of content and styles.
+    #[allow(clippy::should_implement_trait)]
+    pub fn into_iter(self) -> impl Iterator<Item = (Content, Styles)> {
+        self.elements.into_iter().zip(
+            self.styles
+                .into_iter()
+                .flat_map(|(local, count)| std::iter::repeat(local).take(count))
+                .chain(std::iter::repeat(Styles::new())),
+        )
+    }
+}
+
+impl Debug for StyleVec {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_list()
+            .entries(self.iter().map(|(element, local)| {
+                typst_utils::debug(|f| {
+                    for style in local.iter() {
+                        writeln!(f, "#{style:?}")?;
+                    }
+                    element.fmt(f)
+                })
+            }))
+            .finish()
     }
 }

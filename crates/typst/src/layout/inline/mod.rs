@@ -13,13 +13,14 @@ use self::shaping::{
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
-use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
+use crate::foundations::{Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, TagElem};
 use crate::layout::{
     Abs, AlignElem, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, FrameItem,
     HElem, InlineElem, InlineItem, Point, Size, Sizing, Spacing,
 };
 use crate::model::{Linebreaks, ParElem};
+use crate::realize::StyleVec;
 use crate::syntax::Span;
 use crate::text::{
     Costs, Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem,
@@ -30,7 +31,7 @@ use crate::World;
 
 /// Layouts content inline.
 pub(crate) fn layout_inline(
-    children: &[Content],
+    children: &StyleVec,
     engine: &mut Engine,
     styles: StyleChain,
     consecutive: bool,
@@ -40,7 +41,7 @@ pub(crate) fn layout_inline(
     #[comemo::memoize]
     #[allow(clippy::too_many_arguments)]
     fn cached(
-        children: &[Content],
+        children: &StyleVec,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         route: Tracked<Route>,
@@ -428,14 +429,14 @@ impl<'a> Line<'a> {
 /// Collect all text of the paragraph into one string and layout equations. This
 /// also performs string-level preprocessing like case transformations.
 fn collect<'a>(
-    children: &'a [Content],
+    children: &'a StyleVec,
     engine: &mut Engine<'_>,
     styles: &'a StyleChain<'a>,
     region: Size,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
-    let mut iter = children.iter().peekable();
+    let mut iter = children.chain(styles).peekable();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
@@ -455,14 +456,7 @@ fn collect<'a>(
 
     let outer_dir = TextElem::dir_in(*styles);
 
-    while let Some(mut child) = iter.next() {
-        let outer = styles;
-        let mut styles = *styles;
-        if let Some(styled) = child.to_packed::<StyledElem>() {
-            child = &styled.child;
-            styles = outer.chain(&styled.styles);
-        }
-
+    while let Some((child, styles)) = iter.next() {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
@@ -515,12 +509,7 @@ fn collect<'a>(
                     TextElem::region_in(styles),
                     elem.alternative(styles),
                 );
-                let peeked = iter.peek().and_then(|&child| {
-                    let child = if let Some(styled) = child.to_packed::<StyledElem>() {
-                        &styled.child
-                    } else {
-                        child
-                    };
+                let peeked = iter.peek().and_then(|(child, _)| {
                     if let Some(elem) = child.to_packed::<TextElem>() {
                         elem.text().chars().next()
                     } else if child.is::<SmartQuoteElem>() {
@@ -642,7 +631,7 @@ impl<'a> Collector<'a> {
 /// Prepare paragraph layout by shaping the whole paragraph.
 fn prepare<'a>(
     engine: &mut Engine,
-    children: &'a [Content],
+    children: &'a StyleVec,
     text: &'a str,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
@@ -682,9 +671,9 @@ fn prepare<'a>(
         bidi,
         items,
         spans,
-        hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
+        hyphenate: children.shared_get(styles, TextElem::hyphenate_in),
         costs: TextElem::costs_in(styles),
-        lang: shared_get(styles, children, TextElem::lang_in),
+        lang: children.shared_get(styles, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
@@ -813,21 +802,6 @@ fn is_generic_script(script: Script) -> bool {
 /// Whether these script can be part of the same shape run.
 fn is_compatible(a: Script, b: Script) -> bool {
     is_generic_script(a) || is_generic_script(b) || a == b
-}
-
-/// Get a style property, but only if it is the same for all children of the
-/// paragraph.
-fn shared_get<T: PartialEq>(
-    styles: StyleChain<'_>,
-    children: &[Content],
-    getter: fn(StyleChain) -> T,
-) -> Option<T> {
-    let value = getter(styles);
-    children
-        .iter()
-        .filter_map(|child| child.to_packed::<StyledElem>())
-        .all(|styled| getter(styles.chain(&styled.styles)) == value)
-        .then_some(value)
 }
 
 /// Find suitable linebreaks.
