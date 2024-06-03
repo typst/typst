@@ -141,8 +141,8 @@ struct Preparation<'a> {
     cjk_latin_spacing: bool,
     /// Whether font fallback is enabled for this paragraph.
     fallback: bool,
-    /// The leading of the paragraph.
-    leading: Abs,
+    /// The line height of the paragraph.
+    line_height: Abs,
     /// How to determine line breaks.
     linebreaks: Smart<Linebreaks>,
     /// The text size.
@@ -682,7 +682,7 @@ fn prepare<'a>(
         hang: ParElem::hanging_indent_in(styles),
         cjk_latin_spacing,
         fallback: TextElem::fallback_in(styles),
-        leading: ParElem::leading_in(styles),
+        line_height: ParElem::line_height_in(styles),
         linebreaks: ParElem::linebreaks_in(styles),
         size: TextElem::size_in(styles),
     })
@@ -1292,7 +1292,7 @@ fn finalize(
         if frames.len() >= 2 && !frames[1].is_empty() {
             let second = frames.remove(1);
             let first = &mut frames[0];
-            merge(first, second, p.leading);
+            merge(first, second, p.line_height, true);
         }
     }
     if p.costs.widow().get() > 0.0 {
@@ -1301,7 +1301,7 @@ fn finalize(
         if len >= 2 && !frames[len - 2].is_empty() {
             let second = frames.pop().unwrap();
             let first = frames.last_mut().unwrap();
-            merge(first, second, p.leading);
+            merge(first, second, p.line_height, false);
         }
     }
 
@@ -1309,11 +1309,20 @@ fn finalize(
 }
 
 /// Merge two line frames
-fn merge(first: &mut Frame, second: Frame, leading: Abs) {
+fn merge(first: &mut Frame, second: Frame, line_height: Abs, based_on_second: bool) {
+    let leading = if first.descent().abs() + second.ascent().abs() > line_height {
+        Abs::pt(1.0)
+    } else {
+        line_height - first.descent().abs() - second.ascent().abs()
+    };
     let offset = first.height() + leading;
     let total = offset + second.height();
+    let second_baseline = offset + second.baseline();
     first.push_frame(Point::with_y(offset), second);
     first.size_mut().y = total;
+    if based_on_second {
+        first.set_baseline(second_baseline);
+    }
 }
 
 /// Commit to a line and build its frame.

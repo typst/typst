@@ -263,7 +263,7 @@ impl<'a> FlowLayouter<'a> {
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
-        let leading = ParElem::leading_in(styles);
+        let line_height = ParElem::line_height_in(styles);
         let consecutive = self.last_was_par;
         let lines = par
             .layout(
@@ -303,8 +303,14 @@ impl<'a> FlowLayouter<'a> {
             }
         }
 
-        for (i, mut frame) in lines.into_iter().enumerate() {
+        for (i, mut frame) in lines.clone().into_iter().enumerate() {
             if i > 0 {
+                let leading =
+                    if lines[i - 1].descent().abs() + frame.ascent() > line_height {
+                        Abs::pt(1.0)
+                    } else {
+                        line_height - lines[i - 1].descent().abs() - frame.ascent()
+                    };
                 self.layout_item(engine, FlowItem::Absolute(leading, true))?;
             }
 
