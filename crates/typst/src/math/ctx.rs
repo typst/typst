@@ -22,8 +22,8 @@ use crate::model::ParElem;
 use crate::realize::StyleVec;
 use crate::syntax::{is_newline, Span};
 use crate::text::{
-    features, BottomEdge, BottomEdgeMetric, Font, TextElem, TextSize, TopEdge,
-    TopEdgeMetric,
+    features, BottomEdge, BottomEdgeMetric, Font, FontListEntry, TextElem, TextSize,
+    TopEdge, TopEdgeMetric,
 };
 
 macro_rules! scaled {
@@ -71,6 +71,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         styles: StyleChain<'a>,
         base: Size,
         font: &'a Font,
+        fle: &FontListEntry,
     ) -> Self {
         let math_table = font.ttf().tables().math.unwrap();
         let gsub_table = font.ttf().tables().gsub;
@@ -89,7 +90,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 _ => None,
             });
 
-        let features = features(styles);
+        let base_features = features(styles);
+        let mut features = fle.features();
+        features.extend_from_slice(&base_features);
         let glyphwise_tables = gsub_table.map(|gsub| {
             features
                 .into_iter()

@@ -20,8 +20,8 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontListEntry, FontWeight, LocalName,
-    TextElem,
+    font_list_entries, variant, Font, FontFamily, FontList, FontListEntry, FontWeight,
+    LocalName, TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
@@ -277,9 +277,9 @@ fn layout_equation_inline(
 ) -> SourceResult<Vec<InlineItem>> {
     assert!(!elem.block(styles));
 
-    let font = find_math_font(engine, styles, elem.span())?;
+    let (font, fle) = find_math_font(engine, styles, elem.span())?;
 
-    let mut ctx = MathContext::new(engine, locator, styles, region, &font);
+    let mut ctx = MathContext::new(engine, locator, styles, region, &font, fle);
     let run = ctx.layout_into_run(elem, styles)?;
 
     let mut items = if run.row_count() == 1 {
@@ -324,11 +324,11 @@ fn layout_equation_block(
     assert!(elem.block(styles));
 
     let span = elem.span();
-    let font = find_math_font(engine, styles, span)?;
+    let (font, fle) = find_math_font(engine, styles, span)?;
 
     let mut locator = locator.split();
     let mut ctx =
-        MathContext::new(engine, locator.next(&()), styles, regions.base(), &font);
+        MathContext::new(engine, locator.next(&()), styles, regions.base(), &font, fle);
     let full_equation_builder = ctx
         .layout_into_run(elem, styles)?
         .multiline_frame_builder(&ctx, styles);
@@ -434,18 +434,18 @@ fn layout_equation_block(
     Ok(Fragment::frames(frames))
 }
 
-fn find_math_font(
+fn find_math_font<'a>(
     engine: &mut Engine<'_>,
-    styles: StyleChain,
+    styles: StyleChain<'a>,
     span: Span,
-) -> SourceResult<Font> {
+) -> SourceResult<(Font, &'a FontListEntry)> {
     let variant = variant(styles);
     let world = engine.world;
-    let Some(font) = families(styles).find_map(|family| {
-        let id = world.book().select(family, variant)?;
+    let Some(font) = font_list_entries(styles).find_map(|family| {
+        let id = world.book().select(family.family.as_str(), variant)?;
         let font = world.font(id)?;
         let _ = font.ttf().tables().math?.constants?;
-        Some(font)
+        Some((font, family))
     }) else {
         bail!(span, "current font does not support math");
     };
