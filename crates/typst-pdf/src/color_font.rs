@@ -69,7 +69,8 @@ pub fn write_color_fonts(
                     .font
                     .advance(color_glyph.gid)
                     .unwrap_or(Em::new(0.0))
-                    .to_font_units();
+                    .get() as f32
+                    * scale_factor;
                 widths.push(width);
                 chunk
                     .stream(
@@ -239,8 +240,10 @@ impl ColorFontMap<()> {
             }
 
             let frame = frame_for_glyph(font, gid);
-            let width = font.advance(gid).unwrap_or(Em::new(0.0)).to_font_units();
-            let instructions = content::build(&mut self.resources, &frame, Some(width));
+            let width =
+                font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
+            let instructions =
+                content::build(&mut self.resources, &frame, Some(width as f32));
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
