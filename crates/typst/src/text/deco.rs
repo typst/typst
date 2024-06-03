@@ -369,15 +369,29 @@ impl Show for Packed<HighlightElem> {
     }
 }
 
+/// a decoration might span multiple consecutive frames.
+/// we need to the size to properly consecutive frames.
+///
+/// note that we
+pub struct DecorationInstance {
+    first_frame_id: usize,
+    orginal_offset_x: Abs,
+    top: Abs,
+    bottom: Abs,
+    width: Abs,
+    potential_space_width: Abs,
+}
+
+impl DecorationInstance {
+    fn size(&self) -> Size {
+        Size::new(self.width, self.bottom - self.top)
+    }
+}
+
 pub struct DecorationBuilder {
-    // frame id.
-    // offset x
-    // offset y
-    // size
-    // accept
-    deco_running: HashMap<Decoration, (usize, Abs, Abs, Size, Abs)>,
     offset: Abs,
     size: Size,
+    deco_running: HashMap<Decoration, DecorationInstance>,
     frame_cnt: usize,
     // bool true: background, false, foreground
     deco_frames: Vec<(usize, bool, Abs, Abs, Frame)>,
@@ -397,7 +411,6 @@ impl DecorationBuilder {
     fn make_deco(size: Size, deco: &Decoration) -> Frame {
         let pos = Point::new(Abs::zero(), Abs::zero());
         let shift = Abs::zero();
-
         let mut new_frame = Frame::soft(size);
         decorate_frame(&mut new_frame, deco, pos, size, shift);
         new_frame
@@ -449,40 +462,30 @@ impl DecorationBuilder {
                 if deco_key == new_deco {
                     found = true;
                     if weak_space {
-                        value.3.x += size.x;
+                        value.width += size.x;
                     } else {
-                        let (staring_id, old_offset_x, old_offset_y, old_size, to_accept) =
-                            value;
-                        old_size.x += *to_accept;
-                        old_size.x += size.x;
-                        old_offset_y.set_min(offset_y);
-                        if offset_y + size.y > old_size.y {
-                            old_size.y = offset_y + size.y - *old_offset_y;
-                        }
-                        *value = (
-                            *staring_id,
-                            *old_offset_x,
-                            *old_offset_y,
-                            *old_size,
-                            Abs::zero(),
-                        );
+                        value.width += value.potential_space_width;
+                        value.potential_space_width = Abs::zero();
+                        value.width += size.x;
+                        value.top.set_min(offset_y);
+                        value.bottom.set_max(offset_y + size.y);
                     }
                     break;
                 }
             }
             if !found {
-                let (starting_frame_count, offset_x, offset_y, size, _) = value;
-                let new_frame = Self::make_deco(*size, deco_key);
+                // let (starting_frame_count, offset_x, offset_y, size, _) = value;
+                let new_frame = Self::make_deco(value.size(), deco_key);
                 let target_frame_id = if deco_key.is_background() {
-                    *starting_frame_count
+                    value.first_frame_id
                 } else {
                     self.frame_cnt
                 };
                 self.deco_frames.push((
-                    self.frame_cnt,
+                    target_frame_id,
                     deco_key.is_background(),
-                    *offset_x,
-                    *offset_y,
+                    value.orginal_offset_x,
+                    value.top,
                     new_frame,
                 ));
                 terminate_decoration.push(deco_key.clone());
@@ -493,7 +496,14 @@ impl DecorationBuilder {
                 if !self.deco_running.contains_key(&new_deco) {
                     self.deco_running.insert(
                         new_deco.clone(),
-                        (self.frame_cnt, offset_x, offset_y, size, Abs::zero()),
+                        DecorationInstance {
+                            first_frame_id: self.frame_cnt,
+                            orginal_offset_x: offset_x,
+                            top: offset_y,
+                            bottom: offset_y + size.y,
+                            width: size.x,
+                            potential_space_width: Abs::zero(),
+                        },
                     );
                 }
             }
@@ -505,25 +515,25 @@ impl DecorationBuilder {
 
     pub fn finalize(mut self, output: &mut Frame) {
         for (deco_key, value) in self.deco_running.iter() {
-            let (starting_frame_count, offset_x, offset_y, size, _) = value;
-            let new_frame = Self::make_deco(*size, deco_key);
+            // let (starting_frame_count, offset_x, offset_y, size, _) = value;
+            let new_frame = Self::make_deco(value.size(), deco_key);
             let target_frame_id = if deco_key.is_background() {
-                *starting_frame_count
+                value.first_frame_id
             } else {
                 self.frame_cnt - 1
             };
             self.deco_frames.push((
                 target_frame_id,
                 deco_key.is_background(),
-                *offset_x,
-                *offset_y,
+                value.orginal_offset_x,
+                value.top,
                 new_frame,
             ));
         }
 
-        for (cnt, background, offset_x, offset_y, frame) in self.deco_frames {
+        for (cnt, _background, offset_x, offset_y, frame) in self.deco_frames {
             let x = offset_x;
-            let y = Abs::zero() + offset_y;
+            let y = offset_y;
             output.push_frame(Point::new(x, y), frame);
         }
     }
