@@ -5,12 +5,10 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
-use ecow::{eco_format, EcoString};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{
-    bail, At, FileError, Severity, SourceDiagnostic, SourceHint, StrResult,
-};
+use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, PageRanges};
@@ -99,9 +97,18 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    if !check_main_file_is_valid(world, command, watching)? {
-        // No unexpected errors occurred, but the main file was invalid.
-        // We have already alerted the user about it, so we don't proceed.
+    if let Err(errors) = world
+        .source(world.main())
+        .map_err(|err| hint_invalid_main_file(err, &command.common.input))
+    {
+        set_failed();
+        if watching {
+            Status::Error.print(command).unwrap();
+        }
+
+        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
         return Ok(());
     }
 
@@ -478,74 +485,50 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
     Ok(())
 }
 
-/// Checks if the main file can be read and opened.
-/// Returns a boolean indicating whether that is the case.
-/// If an unexpected error occurred, returns it.
-fn check_main_file_is_valid(
-    world: &SystemWorld,
-    command: &CompileCommand,
-    watching: bool,
-) -> StrResult<bool> {
-    let main_result = world.source(world.main());
-    let Err(file_error) = &main_result else {
-        return Ok(true);
-    };
-
-    set_failed();
-    if watching {
-        Status::Error.print(command).unwrap();
-    }
-
+/// Adds useful hints when the main source file couldn't be read
+/// and returns the final diagnostic.
+fn hint_invalid_main_file(
+    file_error: FileError,
+    input: &Input,
+) -> EcoVec<SourceDiagnostic> {
     let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
-    let mut main_result = main_result.at(Span::detached());
+    let mut diagnostic =
+        SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
 
     // Attempt to provide helpful hints for UTF-8 errors.
     // Perhaps the user mistyped the filename.
     // For example, they could have written "file.pdf" instead of
     // "file.typ".
     if is_utf8_error {
-        if let Input::Path(path) = &command.common.input {
+        if let Input::Path(path) = input {
             let extension = path.extension();
-            let exists_typ_file = path.with_extension("typ").exists();
+            if extension.is_some_and(|extension| extension == "typ") {
+                // No hints if the file is already a .typ file.
+                // The file is indeed just invalid.
+                return eco_vec![diagnostic];
+            }
 
-            let hint_given = match extension {
-                Some(extension) if extension != "typ" => {
-                    main_result = main_result.hint(eco_format!(
+            match extension {
+                Some(extension) => {
+                    diagnostic.hint(eco_format!(
                         "a file with the `.{}` extension is not usually a Typst file",
                         extension.to_string_lossy()
                     ));
-
-                    true
-                }
-
-                Some(_) => {
-                    // No hints if the file is already a .typ file.
-                    // The file is indeed just invalid.
-                    false
                 }
 
                 None => {
-                    main_result = main_result
+                    diagnostic
                         .hint("a file without an extension is not usually a Typst file");
-
-                    true
                 }
             };
 
-            if hint_given && exists_typ_file {
-                main_result = main_result
-                    .hint("check if you meant to use the `.typ` extension instead");
+            if path.with_extension("typ").exists() {
+                diagnostic.hint("check if you meant to use the `.typ` extension instead");
             }
         }
     }
 
-    // We already checked for an error earlier.
-    let errors = main_result.unwrap_err();
-
-    print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
-        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
-
-    Ok(false)
+    eco_vec![diagnostic]
 }
 
 /// Print diagnostic messages to the terminal.
