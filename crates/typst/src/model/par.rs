@@ -7,6 +7,7 @@ use crate::foundations::{
     Unlabellable,
 };
 use crate::layout::{Em, Fragment, Length, Size};
+use crate::realize::StyleVec;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
 ///
@@ -113,7 +114,7 @@ pub struct ParElem {
     /// The paragraph's children.
     #[internal]
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: StyleVec,
 }
 
 impl Construct for ParElem {
@@ -143,7 +144,7 @@ impl Packed<ParElem> {
         expand: bool,
     ) -> SourceResult<Fragment> {
         crate::layout::layout_inline(
-            self.children(),
+            &self.children,
             engine,
             styles,
             consecutive,
@@ -156,7 +157,7 @@ impl Packed<ParElem> {
 impl Debug for ParElem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Par ")?;
-        f.debug_list().entries(&self.children).finish()
+        self.children.fmt(f)
     }
 }
 

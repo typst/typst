@@ -11,7 +11,7 @@ mod behaviour;
 mod process;
 
 pub use self::arenas::Arenas;
-pub use self::behaviour::{Behave, BehavedBuilder, Behaviour};
+pub use self::behaviour::{Behave, BehavedBuilder, Behaviour, StyleVec};
 pub use self::process::process;
 
 use std::mem;
@@ -504,8 +504,8 @@ impl<'a> ListBuilder<'a> {
     /// Turns this builder into the resulting list, along with
     /// its [style chain][StyleChain].
     fn finish(self) -> (Content, StyleChain<'a>) {
-        let (items, trunk, span) = self.items.finish_iter();
-        let mut items = items.peekable();
+        let (items, trunk, span) = self.items.finish();
+        let mut items = items.into_iter().peekable();
         let (first, _) = items.peek().unwrap();
         let output = if first.is::<ListItem>() {
             ListElem::new(
