@@ -247,23 +247,23 @@ fn layout_scale(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let align = self.origin(styles).resolve(styles);
+    let align = elem.origin(styles).resolve(styles);
 
-    let scale = self.resolve_scale(engine, regions.base(), styles)?;
+    let scale = elem.resolve_scale(engine, locator.relayout(), region.size, styles)?;
 
     // Compute the new region's approximate size.
-    let size = regions.base().zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
+    let size = region.size.zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
 
     measure_and_layout(
         engine,
         locator,
-        regions.base(),
+        region,
         size,
         styles,
-        self.body(),
+        elem.body(),
         Transform::scale(scale.x, scale.y),
         align,
-        self.reflow(styles),
+        elem.reflow(styles),
     )
 }
 
@@ -278,12 +278,13 @@ impl Packed<ScaleElem> {
     fn resolve_scale(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         container: Size,
         styles: StyleChain,
     ) -> SourceResult<Axes<Ratio>> {
         let size = unsync::Lazy::<SourceResult<Size>, _>::new(|| {
             let pod = Regions::one(container, Axes::splat(false));
-            let frame = self.body().measure(engine, styles, pod)?.into_frame();
+            let frame = self.body().layout(engine, locator, styles, pod)?.into_frame();
             SourceResult::Ok(frame.size())
         });
         fn resolve_axis(
