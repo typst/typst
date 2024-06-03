@@ -2,6 +2,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Styles,
 };
 use crate::layout::{
     BlockElem, Dir, Em, HElem, Length, Sides, Spacing, StackChild, StackElem, VElem,
@@ -166,6 +167,15 @@ pub struct TermItem {
     /// The description of the term.
     #[required]
     pub description: Content,
+}
+
+impl Packed<TermItem> {
+    /// Apply styles to this term item.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        self.term.style_in_place(styles.clone());
+        self.description.style_in_place(styles);
+        self
+    }
 }
 
 cast! {

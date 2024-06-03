@@ -4,7 +4,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
-    Smart, StyleChain, Value,
+    Smart, StyleChain, Styles, Value,
 };
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
@@ -204,6 +204,14 @@ pub struct ListItem {
     /// The item's body.
     #[required]
     pub body: Content,
+}
+
+impl Packed<ListItem> {
+    /// Apply styles to this list item.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        self.body.style_in_place(styles);
+        self
+    }
 }
 
 cast! {
