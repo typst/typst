@@ -212,3 +212,18 @@ $ mat(delim: angle.r, 1, 2; 3, 4) $
 --- math-mat-delims-pair ---
 $ mat(delim: #(none, "["), 1, 2; 3, 4) $
 $ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $
+
+--- issue-1617-mat-align ---
+#set page(width: auto)
+$ mat(a, b; c, d) mat(x; y) $
+
+$ x mat(a; c) + y mat(b; d)
+  = mat(a x+b y; c x+d y) $
+
+$ mat(
+    -d_0, lambda_0, 0, 0, dots;
+    mu_1, -d_1, lambda_1, 0, dots;
+    0, mu_2, -d_2, lambda_2, dots;
+    dots.v, dots.v, dots.v, dots.v, dots.down;
+  )
+  mat(p_0; p_1; p_2; dots.v) $

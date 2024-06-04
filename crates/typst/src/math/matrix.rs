@@ -22,7 +22,7 @@ use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
 
 use super::delimiter_alignment;
 
-const DEFAULT_ROW_GAP: Em = Em::new(0.5);
+const DEFAULT_ROW_GAP: Em = Em::new(0.2);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
@@ -441,8 +441,12 @@ fn layout_vec_body(
     for child in column {
         flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
     }
-
-    Ok(stack(flat, align, gap, 0, alternator))
+    // We pad ascent and descent with the ascent and descent of the paren
+    // to ensure that normal vectors are aligned with others unless they are
+    // way too big.
+    let paren =
+        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+    Ok(stack(flat, align, gap, 0, alternator, Some((paren.ascent, paren.descent))))
 }
 
 /// Layout the inner contents of a matrix.
@@ -499,12 +503,18 @@ fn layout_mat_body(
     let mut cols = vec![vec![]; ncols];
 
     let denom_style = style_for_denominator(styles);
+    // We pad ascent and descent with the ascent and descent of the paren
+    // to ensure that normal matrices are aligned with others unless they are
+    // way too big.
+    let paren =
+        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+
     for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
         for (cell, col) in row.iter().zip(&mut cols) {
             let cell = ctx.layout_into_run(cell, styles.chain(&denom_style))?;
 
-            ascent.set_max(cell.ascent());
-            descent.set_max(cell.descent());
+            ascent.set_max(cell.ascent().max(paren.ascent));
+            descent.set_max(cell.descent().max(paren.descent));
 
             col.push(cell);
         }
