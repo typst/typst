@@ -117,11 +117,19 @@ impl MathRun {
     }
 
     pub fn ascent(&self) -> Abs {
-        self.iter().map(MathFragment::ascent).max().unwrap_or_default()
+        self.iter()
+            .filter(|e| affects_row_height(e))
+            .map(|e| e.ascent())
+            .max()
+            .unwrap_or_default()
     }
 
     pub fn descent(&self) -> Abs {
-        self.iter().map(MathFragment::descent).max().unwrap_or_default()
+        self.iter()
+            .filter(|e| affects_row_height(e))
+            .map(|e| e.descent())
+            .max()
+            .unwrap_or_default()
     }
 
     pub fn class(&self) -> MathClass {
@@ -385,4 +393,8 @@ impl MathRunFrameBuilder {
         }
         frame
     }
+}
+
+fn affects_row_height(fragment: &MathFragment) -> bool {
+    !matches!(fragment, MathFragment::Align | MathFragment::Linebreak)
 }
