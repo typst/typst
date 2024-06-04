@@ -118,6 +118,13 @@ B #cite(<netwok>) #cite(<arrgh>).
 --- cite-type-error-hint ---
 // Test hint for cast error from str to label
 // Error: 7-15 expected label, found string
-// Hint: 7-15 use the <label> syntax to create a label or the label function to convert a string to a label
+// Hint: 7-15 use `<netwok>` to create a label or the label function to convert a string to a label
 #cite("netwok")
+#bibliography("/assets/bib/works.bib")
+
+--- cite-type-error-hint-invalid-literal ---
+// Test hint for cast error from str to label
+// Error: 7-15 expected label, found string
+// Hint: 7-15 use the label function to convert a string to a label
+#cite("%@&#*!")
 #bibliography("/assets/bib/works.bib")
