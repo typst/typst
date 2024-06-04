@@ -40,12 +40,13 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let backup_dir = command.backup_path.clone().map(Ok).unwrap_or_else(backup_path)?;
+    // Full path to the backup file.
+    let backup_path = command.backup_path.clone().map(Ok).unwrap_or_else(backup_path)?;
 
-    fs::create_dir_all(&backup_dir)
-        .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
-
-    let backup_path = backup_dir.join("typst_backup.part");
+    if let Some(backup_dir) = backup_path.parent() {
+        fs::create_dir_all(backup_dir)
+            .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
+    }
 
     if command.revert {
         if !backup_path.exists() {
@@ -221,8 +222,8 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 
 /// Path to a potential backup file in the system.
 ///
-/// The backup will be placed in one of the following directories, depending on
-/// the platform:
+/// The backup will be placed as `typst_backup.part` in one of the following
+/// directories, depending on the platform:
 ///  - `$XDG_STATE_HOME` or `~/.local/state` on Linux
 ///    - `$XDG_DATA_HOME` or `~/.local/share` if the above path isn't available
 ///  - `~/Library/Application Support` on macOS
@@ -242,5 +243,5 @@ fn backup_path() -> StrResult<PathBuf> {
     let root_backup_dir =
         dirs::data_dir().ok_or("unable to locate local data directory")?;
 
-    Ok(root_backup_dir.join("typst"))
+    Ok(root_backup_dir.join("typst").join("typst_backup.part"))
 }
