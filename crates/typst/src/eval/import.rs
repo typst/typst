@@ -37,6 +37,7 @@ impl Eval for ast::ModuleImport<'_> {
                     // Warn on `import x as x`
                     vm.engine.sink.warn(warning!(
                         new_name.span(),
+                        UnnecessaryImportRenaming,
                         "unnecessary import rename to same name",
                     ));
                 }
@@ -112,6 +113,7 @@ impl Eval for ast::ModuleImport<'_> {
                                 {
                                     vm.engine.sink.warn(warning!(
                                         renamed_item.new_name().span(),
+                                        UnnecessaryImportRenaming,
                                         "unnecessary import rename to same name",
                                     ));
                                 }

@@ -115,12 +115,14 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr,
+        $id:ident,
         $fmt:literal $(, $arg:expr)*
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
         $(,)?
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
+            std::option::Option::Some($crate::diag::WarnIdentifier::$id),
             $crate::diag::eco_format!($fmt, $($arg),*),
         ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
@@ -157,6 +159,8 @@ pub struct SourceDiagnostic {
     pub severity: Severity,
     /// The span of the relevant node in the source code.
     pub span: Span,
+    /// The identifier for this diagnostic.
+    pub identifier: Option<Identifier>,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
@@ -181,6 +185,7 @@ impl SourceDiagnostic {
         Self {
             severity: Severity::Error,
             span,
+            identifier: None,
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -188,10 +193,15 @@ impl SourceDiagnostic {
     }
 
     /// Create a new, bare warning.
-    pub fn warning(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn warning(
+        span: Span,
+        identifier: Option<WarnIdentifier>,
+        message: impl Into<EcoString>,
+    ) -> Self {
         Self {
             severity: Severity::Warning,
             span,
+            identifier: identifier.map(Identifier::Warn),
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -220,12 +230,36 @@ impl From<SyntaxError> for SourceDiagnostic {
     fn from(error: SyntaxError) -> Self {
         Self {
             severity: Severity::Error,
+            identifier: None,
             span: error.span,
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
         }
     }
+}
+
+/// Any possible identifier for a diagnostic.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Identifier {
+    /// Identifier for a built-in compiler error.
+    Error(ErrorIdentifier),
+    /// Identifier for a built-in compiler warning.
+    Warn(WarnIdentifier),
+    /// Identifier for a warning raised by a package.
+    User(EcoString),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum ErrorIdentifier {}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum WarnIdentifier {
+    UnnecessaryImportRenaming,
+    UnnecessaryStars,
+    UnnecessaryUnderscores,
+    NonConvergingLayout,
+    UnknownFontFamilies,
 }
 
 /// A part of a diagnostic's [trace](SourceDiagnostic::trace).
