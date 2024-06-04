@@ -114,3 +114,10 @@ B #cite(<netwok>) #cite(<arrgh>).
 @mcintosh_anxiety
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-author-date")
+
+--- cite-type-error-hint ---
+// Test hint for cast error from str to label
+// Error: 7-15 expected label, found string
+// Hint: 7-15 use the <label> syntax to create a label or the label function to convert a string to a label
+#cite("netwok")
+#bibliography("/assets/bib/works.bib")
