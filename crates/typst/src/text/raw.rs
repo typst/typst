@@ -10,7 +10,7 @@ use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{At, FileError, SourceResult, StrResult};
+use crate::diag::{At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
@@ -728,7 +728,7 @@ cast! {
     SyntaxPaths,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 impl Fold for SyntaxPaths {

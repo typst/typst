@@ -6,9 +6,7 @@ use ecow::eco_format;
 
 use super::lines::Line;
 use super::repeated::{Footer, Header, Repeatable};
-use crate::diag::{
-    bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
-};
+use crate::diag::{bail, At, Hint, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Reflect,
@@ -85,11 +83,11 @@ impl<T: IntoValue> IntoValue for Celled<T> {
 }
 
 impl<T: FromValue> FromValue for Celled<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             Value::Func(v) => Ok(Self::Func(v)),
             Value::Array(array) => Ok(Self::Array(
-                array.into_iter().map(T::from_value).collect::<StrResult<_>>()?,
+                array.into_iter().map(T::from_value).collect::<HintedStrResult<_>>()?,
             )),
             v if T::castable(&v) => Ok(Self::Value(T::from_value(v)?)),
             v => Err(Self::error(&v)),

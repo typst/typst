@@ -1,7 +1,7 @@
 use smallvec::{smallvec, SmallVec};
 use unicode_math_class::MathClass;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Packed, Resolve,
     Smart, StyleChain, Value,
@@ -712,5 +712,5 @@ cast! {
     AugmentOffsets,
     self => self.0.into_value(),
     v: isize => Self(smallvec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }

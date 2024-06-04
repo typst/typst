@@ -8,7 +8,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, At, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
@@ -594,7 +594,7 @@ impl Array {
         /// be empty.
         #[named]
         default: Option<Value>,
-    ) -> StrResult<Value> {
+    ) -> HintedStrResult<Value> {
         let mut iter = self.into_iter();
         let mut acc = iter
             .next()
@@ -615,7 +615,7 @@ impl Array {
         /// be empty.
         #[named]
         default: Option<Value>,
-    ) -> StrResult<Value> {
+    ) -> HintedStrResult<Value> {
         let mut iter = self.into_iter();
         let mut acc = iter
             .next()
@@ -1095,13 +1095,13 @@ impl<T: IntoValue, const N: usize> IntoValue for SmallVec<[T; N]> {
 }
 
 impl<T: FromValue> FromValue for Vec<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         value.cast::<Array>()?.into_iter().map(Value::cast).collect()
     }
 }
 
 impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         value.cast::<Array>()?.into_iter().map(Value::cast).collect()
     }
 }

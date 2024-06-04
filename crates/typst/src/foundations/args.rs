@@ -178,9 +178,9 @@ impl Args {
             };
             let span = item.value.span;
             let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
-            match T::from_value(spanned) {
+            match T::from_value(spanned).at(span) {
                 Ok(val) => list.push(val),
-                Err(err) => errors.push(SourceDiagnostic::error(span, err)),
+                Err(diags) => errors.extend(diags),
             }
             false
         });

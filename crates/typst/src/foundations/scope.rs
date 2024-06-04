@@ -97,17 +97,14 @@ fn cannot_mutate_constant(var: &str) -> HintedString {
 /// The error message when a variable is not found.
 #[cold]
 fn unknown_variable(var: &str) -> HintedString {
-    let mut res = HintedString {
-        message: eco_format!("unknown variable: {}", var),
-        hints: vec![],
-    };
+    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
 
     if matches!(var, "none" | "auto" | "false" | "true") {
-        res.hints.push(eco_format!(
+        res.hint(eco_format!(
             "if you meant to use a literal, try adding a hash before it"
         ));
     } else if var.contains('-') {
-        res.hints.push(eco_format!(
+        res.hint(eco_format!(
             "if you meant to use subtraction, try adding spaces around the minus sign",
         ));
     }

@@ -1,9 +1,9 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 
-use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Fold, NativeElement, Packed, Show, Smart, StyleChain,
@@ -346,17 +346,19 @@ cast! {
 }
 
 impl TryFrom<Content> for TableChild {
-    type Error = EcoString;
+    type Error = HintedString;
 
-    fn try_from(value: Content) -> StrResult<Self> {
+    fn try_from(value: Content) -> HintedStrResult<Self> {
         if value.is::<GridHeader>() {
             bail!(
-                "cannot use `grid.header` as a table header; use `table.header` instead"
+                "cannot use `grid.header` as a table header";
+                hint: "use `table.header` instead"
             )
         }
         if value.is::<GridFooter>() {
             bail!(
-                "cannot use `grid.footer` as a table footer; use `table.footer` instead"
+                "cannot use `grid.footer` as a table footer";
+                hint: "use `table.footer` instead"
             )
         }
 
@@ -427,9 +429,9 @@ cast! {
 }
 
 impl TryFrom<Content> for TableItem {
-    type Error = EcoString;
+    type Error = HintedString;
 
-    fn try_from(value: Content) -> StrResult<Self> {
+    fn try_from(value: Content) -> HintedStrResult<Self> {
         if value.is::<GridHeader>() {
             bail!("cannot place a grid header within another header or footer");
         }
@@ -443,13 +445,22 @@ impl TryFrom<Content> for TableItem {
             bail!("cannot place a table footer within another footer or header");
         }
         if value.is::<GridCell>() {
-            bail!("cannot use `grid.cell` as a table cell; use `table.cell` instead");
+            bail!(
+                "cannot use `grid.cell` as a table cell";
+                hint: "use `table.cell` instead"
+            );
         }
         if value.is::<GridHLine>() {
-            bail!("cannot use `grid.hline` as a table line; use `table.hline` instead");
+            bail!(
+                "cannot use `grid.hline` as a table line";
+                hint: "use `table.hline` instead"
+            );
         }
         if value.is::<GridVLine>() {
-            bail!("cannot use `grid.vline` as a table line; use `table.vline` instead");
+            bail!(
+                "cannot use `grid.vline` as a table line";
+                hint: "use `table.vline` instead"
+            );
         }
 
         Ok(value

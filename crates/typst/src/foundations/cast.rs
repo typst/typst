@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
 use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
 use crate::syntax::{Span, Spanned};
 
@@ -50,8 +50,8 @@ pub trait Reflect {
     ///   "expected integer, found none",
     /// );
     /// ```
-    fn error(found: &Value) -> EcoString {
-        Self::input().error(found)
+    fn error(found: &Value) -> HintedString {
+        Self::input().error(found).into()
     }
 }
 
@@ -249,17 +249,17 @@ impl<T: IntoValue> IntoValue for fn() -> T {
 /// See also: [`Reflect`].
 pub trait FromValue<V = Value>: Sized + Reflect {
     /// Try to cast the value into an instance of `Self`.
-    fn from_value(value: V) -> StrResult<Self>;
+    fn from_value(value: V) -> HintedStrResult<Self>;
 }
 
 impl FromValue for Value {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         Ok(value)
     }
 }
 
 impl<T: NativeElement + FromValue> FromValue for Packed<T> {
-    fn from_value(mut value: Value) -> StrResult<Self> {
+    fn from_value(mut value: Value) -> HintedStrResult<Self> {
         if let Value::Content(content) = value {
             match content.into_packed::<T>() {
                 Ok(packed) => return Ok(packed),
@@ -272,13 +272,13 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
 }
 
 impl<T: FromValue> FromValue<Spanned<Value>> for T {
-    fn from_value(value: Spanned<Value>) -> StrResult<Self> {
+    fn from_value(value: Spanned<Value>) -> HintedStrResult<Self> {
         T::from_value(value.v)
     }
 }
 
 impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
-    fn from_value(value: Spanned<Value>) -> StrResult<Self> {
+    fn from_value(value: Spanned<Value>) -> HintedStrResult<Self> {
         let span = value.span;
         T::from_value(value.v).map(|t| Spanned::new(t, span))
     }
@@ -432,7 +432,7 @@ impl IntoValue for Never {
 }
 
 impl FromValue for Never {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         Err(Self::error(&value))
     }
 }

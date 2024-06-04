@@ -262,7 +262,8 @@
 }
 
 --- grid-cell-in-table ---
-// Error: 8-19 cannot use `grid.cell` as a table cell; use `table.cell` instead
+// Error: 8-19 cannot use `grid.cell` as a table cell
+// Hint: 8-19 use `table.cell` instead
 #table(grid.cell[])
 
 --- issue-183-table-lines ---

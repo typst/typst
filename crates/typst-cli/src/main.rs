@@ -20,6 +20,7 @@ use clap::Parser;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use once_cell::sync::Lazy;
+use typst::diag::HintedStrResult;
 
 use crate::args::{CliArguments, Command};
 use crate::timings::Timer;
@@ -34,23 +35,30 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    let timer = Timer::new(&ARGS);
-
-    let res = match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(timer, command.clone()),
-        Command::Watch(command) => crate::watch::watch(timer, command.clone()),
-        Command::Init(command) => crate::init::init(command),
-        Command::Query(command) => crate::query::query(command),
-        Command::Fonts(command) => crate::fonts::fonts(command),
-        Command::Update(command) => crate::update::update(command),
-    };
+    let res = dispatch();
 
     if let Err(msg) = res {
         set_failed();
-        print_error(&msg).expect("failed to print error");
+        print_error(msg.message()).expect("failed to print error");
     }
 
     EXIT.with(|cell| cell.get())
+}
+
+/// Execute the requested command.
+fn dispatch() -> HintedStrResult<()> {
+    let timer = Timer::new(&ARGS);
+
+    match &ARGS.command {
+        Command::Compile(command) => crate::compile::compile(timer, command.clone())?,
+        Command::Watch(command) => crate::watch::watch(timer, command.clone())?,
+        Command::Init(command) => crate::init::init(command)?,
+        Command::Query(command) => crate::query::query(command)?,
+        Command::Fonts(command) => crate::fonts::fonts(command)?,
+        Command::Update(command) => crate::update::update(command)?,
+    }
+
+    Ok(())
 }
 
 /// Ensure a failure exit code.
