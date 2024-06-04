@@ -68,3 +68,9 @@ _Visible_
 #test(str(<hey>), "hey")
 #test(str(label("hey")), "hey")
 #test(str([Hmm<hey>].label), "hey")
+
+--- label-in-code-mode-hint ---
+// Error: 7-7 expected semicolon or line break
+// Hint: 7-7 labels can only be applied in markup mode
+// Hint: 7-7 try wrapping your code in a markup block (`[ ]`)
+#{ [A] <a> }
