@@ -416,6 +416,16 @@ impl VAlignment {
             Self::Bottom => Self::Top,
         }
     }
+
+    /// Returns the position of this alignment in a container with the given
+    /// extent.
+    pub fn position(self, extent: Abs) -> Abs {
+        match self {
+            Self::Top => Abs::zero(),
+            Self::Horizon => extent / 2.0,
+            Self::Bottom => extent,
+        }
+    }
 }
 
 impl FixAlignment for VAlignment {

@@ -20,6 +20,8 @@ use crate::text::TextElem;
 use crate::utils::Numeric;
 use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
 
+use super::delimiter_alignment;
+
 const DEFAULT_ROW_GAP: Em = Em::new(0.5);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -610,7 +612,7 @@ fn layout_delimiters(
     if let Some(left) = left {
         let mut left = GlyphFragment::new(ctx, styles, left, span)
             .stretch_vertical(ctx, target, short_fall);
-        left.center_on_axis(ctx);
+        left.align_on_axis(ctx, delimiter_alignment(left.c));
         ctx.push(left);
     }
 
@@ -619,7 +621,7 @@ fn layout_delimiters(
     if let Some(right) = right {
         let mut right = GlyphFragment::new(ctx, styles, right, span)
             .stretch_vertical(ctx, target, short_fall);
-        right.center_on_axis(ctx);
+        right.align_on_axis(ctx, delimiter_alignment(right.c));
         ctx.push(right);
     }
 

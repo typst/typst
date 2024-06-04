@@ -6,7 +6,9 @@ use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
 use crate::foundations::StyleChain;
-use crate::layout::{Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size};
+use crate::layout::{
+    Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size, VAlignment,
+};
 use crate::math::{
     scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled,
 };
@@ -408,9 +410,15 @@ impl VariantFragment {
     /// Vertically adjust the fragment's frame so that it is centered
     /// on the axis.
     pub fn center_on_axis(&mut self, ctx: &MathContext) {
+        self.align_on_axis(ctx, VAlignment::Horizon)
+    }
+
+    /// Vertically adjust the fragment's frame so that it is aligned
+    /// to the given alignment on the axis.
+    pub fn align_on_axis(&mut self, ctx: &MathContext, align: VAlignment) {
         let h = self.frame.height();
         let axis = ctx.constants.axis_height().scaled(ctx, self.font_size);
-        self.frame.set_baseline(h / 2.0 + axis);
+        self.frame.set_baseline(align.inv().position(h + axis * 2.0));
     }
 }
 
