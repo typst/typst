@@ -426,7 +426,7 @@ pub struct UpdateCommand {
 
     /// Custom path to the backup file created on update and used by `--revert`,
     /// defaults to system-dependent location
-    #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "DIR")]
+    #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "FILE")]
     pub backup_path: Option<PathBuf>,
 }
 
