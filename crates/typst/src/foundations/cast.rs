@@ -330,19 +330,21 @@ impl CastInfo {
             write!(msg, "{}", found.ty()).unwrap();
         }
 
-        let mut msg = HintedString::new(msg.into());
+        let mut msg: HintedString = msg.into();
 
         if let Value::Int(i) = found {
             if !matching_type && parts.iter().any(|p| p == "length") {
                 msg.hint(eco_format!("a length needs a unit - did you mean {i}pt?"));
             }
-        }
-        if let Value::Str(s) = found {
+        } else if let Value::Str(s) = found {
             if !matching_type && parts.iter().any(|p| p == "label") {
                 if is_valid_in_label_literal(s) {
-                    msg.hint(eco_format!("use `<{s}>` to create a label or the label function to convert a string to a label"));
+                    msg.hint(eco_format!(
+                        "use `<{s}>` or `label({})` to create a label",
+                        s.repr()
+                    ));
                 } else {
-                    msg.hint("use the label function to convert a string to a label");
+                    msg.hint(eco_format!("use `label({})` to create a label", s.repr()));
                 }
             }
         }
