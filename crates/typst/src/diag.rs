@@ -262,6 +262,28 @@ pub enum WarnIdentifier {
     UnknownFontFamilies,
 }
 
+impl WarnIdentifier {
+    pub const fn name(&self) -> &'static str {
+        match self {
+            WarnIdentifier::UnnecessaryImportRenaming => "unnecessary-import-renaming",
+            WarnIdentifier::UnnecessaryStars => "unnecessary-stars",
+            WarnIdentifier::UnnecessaryUnderscores => "unnecessary-underscores",
+            WarnIdentifier::NonConvergingLayout => "non-converging-layout",
+            WarnIdentifier::UnknownFontFamilies => "unknown-font-families",
+        }
+    }
+
+    pub const fn categories(&self) -> &'_ [&'static str] {
+        match self {
+            WarnIdentifier::UnnecessaryImportRenaming => &["unnecessary", "syntax"],
+            WarnIdentifier::UnnecessaryStars => &["unnecessary", "markup"],
+            WarnIdentifier::UnnecessaryUnderscores => &["unnecessary", "markup"],
+            WarnIdentifier::NonConvergingLayout => &["layout"],
+            WarnIdentifier::UnknownFontFamilies => &["fonts"],
+        }
+    }
+}
+
 /// A part of a diagnostic's [trace](SourceDiagnostic::trace).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {
