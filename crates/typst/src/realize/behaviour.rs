@@ -231,7 +231,13 @@ impl<'a> Default for BehavedBuilder<'a> {
 /// A sequence of elements with associated styles.
 #[derive(Clone, PartialEq, Hash)]
 pub struct StyleVec {
+    /// The elements themselves.
     elements: EcoVec<Content>,
+    /// A run-length encoded list of style lists.
+    ///
+    /// Each element is a (styles, count) pair. Any elements whose
+    /// style falls after the end of this list is considered to
+    /// have an empty style list.
     styles: EcoVec<(Styles, usize)>,
 }
 
