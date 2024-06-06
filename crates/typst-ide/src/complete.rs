@@ -1406,7 +1406,7 @@ impl<'a> CompletionContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use typst::eval::Tracer;
+    use typst::lang::Tracer;
 
     use super::autocomplete;
     use crate::tests::TestWorld;

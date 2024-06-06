@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use typst_macros::cast;
 use typst_syntax::Span;
-use typst_utils::{LazyHash, PicoStr};
+use typst_utils::LazyHash;
 
 use crate::foundations::Value;
 
@@ -46,7 +46,7 @@ impl Closure {
 
     /// Get the name of the closure.
     pub fn name(&self) -> Option<&str> {
-        self.inner.compiled.name.as_ref().map(PicoStr::resolve)
+        self.inner.compiled.name.as_deref()
     }
 
     pub fn no_instance(compiled: CompiledCode, compiler: &Compiler) -> Self {

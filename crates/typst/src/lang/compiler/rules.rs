@@ -1,10 +1,13 @@
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::{
+    ast::{self, AstNode},
+    Span,
+};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::lang::operands::Pointer;
 
-use super::{Compile, Compiler, ReadableGuard, WritableGuard};
+use super::{call::ArgsCompile, Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::SetRule<'_> {
     fn compile(
@@ -55,18 +58,33 @@ impl Compile for ast::ShowRule<'_> {
             .map(|sel| sel.compile_to_readable(compiler, engine))
             .transpose()?;
 
-        match self.transform() {
+        let selector_span =
+            compiler.span(self.selector().map_or_else(Span::detached, ast::Expr::span));
+
+        let transform = self.transform();
+        match transform {
             ast::Expr::Set(set) => {
                 let (target, args, else_) = compile_set(&set, compiler, engine)?;
-                compiler.show_set(self.span(), selector.map(|s| s.into()), target, args);
+                compiler.show_set(
+                    transform.span(),
+                    selector.map(|s| s.into()),
+                    target,
+                    args,
+                    selector_span,
+                );
 
                 if let Some(else_) = else_ {
-                    compiler.mark(self.span(), else_);
+                    compiler.mark(transform.span(), else_);
                 }
             }
             other => {
-                let transform = other.compile_to_readable(compiler, engine)?;
-                compiler.show(self.span(), selector.map(|s| s.into()), transform);
+                let other = other.compile_to_readable(compiler, engine)?;
+                compiler.show(
+                    transform.span(),
+                    selector.map(|s| s.into()),
+                    other,
+                    selector_span,
+                );
             }
         }
 
@@ -91,12 +109,12 @@ fn compile_set(
 
         // Compile the set.
         let target = set.target().compile_to_readable(compiler, engine)?;
-        let args = set.args().compile_to_readable(compiler, engine)?;
+        let args = set.args().compile_args(compiler, engine, set.span())?;
 
         Ok((target, args, Some(else_)))
     } else {
         let target = set.target().compile_to_readable(compiler, engine)?;
-        let args = set.args().compile_to_readable(compiler, engine)?;
+        let args = set.args().compile_args(compiler, engine, set.span())?;
 
         Ok((target, args, None))
     }

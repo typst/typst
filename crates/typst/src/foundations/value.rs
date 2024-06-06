@@ -229,6 +229,11 @@ impl Value {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
+
+    /// Returns `true` if the value is a plugin.
+    pub fn is_plugin(&self) -> bool {
+        matches!(self, Self::Plugin(_))
+    }
 }
 
 impl Debug for Value {

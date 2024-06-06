@@ -1,10 +1,11 @@
 use typst_syntax::ast::{self, AstNode};
+use typst_syntax::Span;
 
 use crate::engine::Engine;
 use crate::foundations::is_mutating_method;
 use crate::{diag::SourceResult, lang::operands::Readable};
 
-use super::{Access, Compile, CompileAccess, Compiler, WritableGuard};
+use super::{Compile, CompileAccess, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::FuncCall<'_> {
     fn compile(
@@ -18,59 +19,71 @@ impl Compile for ast::FuncCall<'_> {
         let args = self.args();
         let trailing_comma = args.trailing_comma();
 
-        let args = args.compile_to_readable(compiler, engine)?;
+        let args = args.compile_args(compiler, engine, self.span())?;
 
-        // Try to compile an associated function.
-        let callee = if let ast::Expr::FieldAccess(access) = callee {
+        // Special handling for mutable methods.
+        let callee_access = if let ast::Expr::FieldAccess(access) = callee {
             let field = access.field();
 
-            // If this is a mutating method, we need to access the target instead
-            // of the usual copy.
-            if is_mutating_method(&field) {
-                access.access(compiler, engine, true)?
-            } else {
-                let c = self.callee().compile_to_readable(compiler, engine)?;
-                Access::Readable(c)
-            }
+            access.access(compiler, engine, is_mutating_method(&field))?
         } else {
-            let c = self.callee().compile_to_readable(compiler, engine)?;
-            Access::Readable(c)
+            callee.access(compiler, engine, false)?
         };
 
-        let closure = compiler.access(callee);
-        compiler.call(self.span(), closure, args, in_math, trailing_comma, output);
+        let closure = compiler.access(callee_access);
+        let callee_span = compiler.span(callee.span());
+        compiler.call(
+            self.span(),
+            closure,
+            args,
+            in_math,
+            trailing_comma,
+            callee_span,
+            output,
+        );
 
         Ok(())
     }
 }
 
-impl Compile for ast::Args<'_> {
-    fn compile(
+pub trait ArgsCompile {
+    fn compile_args(
         &self,
         compiler: &mut Compiler<'_>,
         engine: &mut Engine,
-        output: WritableGuard,
-    ) -> SourceResult<()> {
+        func_call: Span,
+    ) -> SourceResult<ReadableGuard>;
+}
+
+impl ArgsCompile for ast::Args<'_> {
+    fn compile_args(
+        &self,
+        compiler: &mut Compiler<'_>,
+        engine: &mut Engine,
+        func_call: Span,
+    ) -> SourceResult<ReadableGuard> {
+        let output = compiler.allocate();
+
         let mut args = self.items();
         let Some(first) = args.next() else {
-            compiler.copy(self.span(), Readable::none(), output);
+            compiler.copy(self.span(), Readable::none(), output.clone());
 
-            return Ok(());
+            return Ok(output.into());
         };
 
         // Allocate the arguments
         let capacity = self.items().count();
-        compiler.args(self.span(), capacity as u32, output.clone());
+        compiler.args(func_call, capacity as u32, output.clone());
 
         // Compile the first argument
-        first.compile(compiler, engine, output.clone())?;
+        first.compile(compiler, engine, output.clone().into())?;
 
         // Compile the rest of the arguments
         for arg in args {
-            arg.compile(compiler, engine, output.clone())?;
+            arg.compile(compiler, engine, output.clone().into())?;
         }
 
-        Ok(())
+        Ok(output.into())
     }
 }
 
@@ -82,9 +95,9 @@ impl Compile for ast::Arg<'_> {
         output: WritableGuard,
     ) -> SourceResult<()> {
         match self {
-            ast::Arg::Pos(pos) => {
-                let guard = pos.compile_to_readable(compiler, engine)?;
-                let span_id = compiler.span(pos.span());
+            ast::Arg::Pos(expr) => {
+                let guard = expr.compile_to_readable(compiler, engine)?;
+                let span_id = compiler.span(expr.span());
                 compiler.push_arg(self.span(), guard, span_id, output);
             }
             ast::Arg::Named(named) => {
@@ -95,7 +108,7 @@ impl Compile for ast::Arg<'_> {
             }
             ast::Arg::Spread(spread) => {
                 let guard = spread.expr().compile_to_readable(compiler, engine)?;
-                let span_id = compiler.span(spread.span());
+                let span_id = compiler.span(self.span());
                 compiler.spread_arg(self.span(), guard, span_id, output);
             }
         }

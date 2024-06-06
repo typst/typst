@@ -146,8 +146,8 @@
 #test(true or true, true)
 
 // Short-circuiting.
-#test(false and dont-care, false)
-#test(true or dont-care, true)
+#test(false and panic("failed"), false)
+#test(true or panic("failed"), true)
 
 --- ops-equality ---
 // Test equality operators.
@@ -442,12 +442,18 @@
 #(1 + 2 += 3)
 
 --- ops-assign-to-invalid-unary-op ---
-// Error: 2:3-2:8 cannot apply 'not' to string
+// Error: 2:3-2:8 cannot mutate a temporary value
 #let x = "Hey"
 #(not x = "a")
 
+--- ops-invalid-unary-op ---
+// Error: 2:3-2:8 cannot apply 'not' to string
+#let x = "Hey"
+#(not x)
+
 --- ops-assign-to-invalid-binary-op ---
-// Error: 7-8 unknown variable: x
+#let x = 0
+// Error: 3-8 cannot mutate a temporary value
 #(1 + x += 3)
 
 --- ops-assign-unknown-variable ---

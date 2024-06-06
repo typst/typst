@@ -14,6 +14,7 @@ use closure::Param;
 use comemo::{Track, Tracked, TrackedMut};
 use compiled::{CompiledModule, Export};
 use compiler::{CompileTopLevel, Compiler};
+use ecow::EcoString;
 use interpreter::{run, ControlFlow, Vm};
 use typst_macros::Cast;
 use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span};
@@ -72,7 +73,7 @@ pub fn eval(
 
     // Evaluate the module
     let context = Context::none();
-    run_module(source, &compiled, &mut engine, context.track())
+    run_module(source, &compiled, &mut engine, context.track(), true)
 }
 
 /// Evaluate a string as code and return the resulting value.
@@ -138,7 +139,7 @@ pub fn eval_string(
     let module = CompiledModule::new(compiler.finish_module(root.span(), "eval", vec![]));
 
     let context = Context::none();
-    let output = run_module_as_eval(&module, &mut engine, context.track(), root.span())?;
+    let output = run_module_as_eval(&module, &mut engine, context.track(), root.span(), matches!(mode, EvalMode::Markup | EvalMode::Math))?;
 
     Ok(match mode {
         EvalMode::Code => output,
@@ -181,26 +182,27 @@ pub fn run_module(
     module: &CompiledModule,
     engine: &mut Engine,
     context: Tracked<Context>,
+    display: bool,
 ) -> SourceResult<Module> {
     const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
     let (output, scope) = if module.inner.registers <= 4 {
         let mut storage = [NONE; 4];
-        run_module_internal(module, engine, context, &mut storage, true)?
+        run_module_internal(module, engine, context, &mut storage, true, display)?
     } else if module.inner.registers <= 8 {
         let mut storage = [NONE; 8];
-        run_module_internal(module, engine, context, &mut storage, true)?
+        run_module_internal(module, engine, context, &mut storage, true, display)?
     } else if module.inner.registers <= 16 {
         let mut storage = [NONE; 16];
-        run_module_internal(module, engine, context, &mut storage, true)?
+        run_module_internal(module, engine, context, &mut storage, true, display)?
     } else if module.inner.registers <= 32 {
         let mut storage = [NONE; 32];
-        run_module_internal(module, engine, context, &mut storage, true)?
+        run_module_internal(module, engine, context, &mut storage, true, display)?
     } else {
         let mut storage = vec![NONE; module.inner.registers as usize];
-        run_module_internal(module, engine, context, &mut storage, true)?
+        run_module_internal(module, engine, context, &mut storage, true, display)?
     };
 
-    let name = module.inner.name.map_or("anonymous", |n| n.resolve());
+    let name = module.inner.name.clone().unwrap_or(EcoString::inline("anonymous"));
     Ok(Module::new(name, scope.unwrap()).with_content(output.display()))
 }
 
@@ -210,23 +212,24 @@ pub fn run_module_as_eval(
     engine: &mut Engine,
     context: Tracked<Context>,
     span: Span,
+    display: bool,
 ) -> SourceResult<Value> {
     const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
     let (output, _) = if module.inner.registers <= 4 {
         let mut storage = [NONE; 4];
-        run_module_internal(module, engine, context, &mut storage, false)?
+        run_module_internal(module, engine, context, &mut storage, false, display)?
     } else if module.inner.registers <= 8 {
         let mut storage = [NONE; 8];
-        run_module_internal(module, engine, context, &mut storage, false)?
+        run_module_internal(module, engine, context, &mut storage, false, display)?
     } else if module.inner.registers <= 16 {
         let mut storage = [NONE; 16];
-        run_module_internal(module, engine, context, &mut storage, false)?
+        run_module_internal(module, engine, context, &mut storage, false, display)?
     } else if module.inner.registers <= 32 {
         let mut storage = [NONE; 32];
-        run_module_internal(module, engine, context, &mut storage, false)?
+        run_module_internal(module, engine, context, &mut storage, false, display)?
     } else {
         let mut storage = vec![NONE; module.inner.registers as usize];
-        run_module_internal(module, engine, context, &mut storage, false)?
+        run_module_internal(module, engine, context, &mut storage, false, display)?
     };
 
     Ok(output)
@@ -235,19 +238,19 @@ pub fn run_module_as_eval(
 fn run_module_internal<'a, 'b>(
     module: &'a CompiledModule,
     engine: &mut Engine,
-    context: Tracked<Context>,
+    context: Tracked<'a, Context<'a>>,
     registers: &'a mut [Cow<'b, Value>],
     scope: bool,
+    display: bool,
 ) -> SourceResult<(Value, Option<Scope>)>
 where
     'a: 'b,
 {
-    let mut vm = Vm::display(registers, &**module.inner);
+    let mut vm = Vm::new(registers, &**module.inner, context).with_display(display);
 
     // Write all default values.
     for default in &*module.inner.defaults {
-        vm.write_one(default.target, default.value.clone())
-            .at(module.inner.span)?;
+        vm.write_borrowed(default.target, &default.value);
     }
 
     let output = match run(
@@ -255,7 +258,6 @@ where
         &mut vm,
         &module.inner.instructions,
         &module.inner.spans,
-        context,
         None,
     )? {
         ControlFlow::Done(value) => value,
@@ -311,7 +313,7 @@ pub fn compile_module(
         .variables
         .iter()
         .map(|(name, var)| Export {
-            name: *name,
+            name: name.as_str().into(),
             value: var.register.as_readable(),
             span: var.span,
         })
@@ -351,7 +353,7 @@ fn run_closure_internal<'a, 'b>(
     func: &Func,
     closure: &'b Closure,
     engine: &mut Engine,
-    context: Tracked<Context>,
+    context: Tracked<'a, Context<'a>>,
     mut args: Args,
     registers: &'b mut [Cow<'a, Value>],
 ) -> SourceResult<Value>
@@ -370,7 +372,7 @@ where
     let num_pos_args = args.to_pos().len();
     let sink_size = num_pos_args.checked_sub(num_pos_params);
 
-    let mut vm = Vm::new(registers, compiled);
+    let mut vm = Vm::new(registers, compiled, context);
 
     // Write all default values.
     for default in compiled.defaults.iter() {
@@ -430,7 +432,7 @@ where
 
     if let Some(sink) = sink {
         if let Some(sink) = sink {
-            let Value::Args(sink) = vm.write(sink) else {
+            let Some(Value::Args(sink)) = vm.write(sink) else {
                 unreachable!("sink should always be an args");
             };
 
@@ -443,7 +445,7 @@ where
     // Ensure all arguments have been used.
     args.finish()?;
 
-    match run(engine, &mut vm, &compiled.instructions, &compiled.spans, context, None)? {
+    match run(engine, &mut vm, &compiled.instructions, &compiled.spans, None)? {
         ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
         _ => bail!(compiled.span, "closure did not return a value"),
     }

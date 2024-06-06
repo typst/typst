@@ -10,6 +10,7 @@ pub enum Readable {
     Math(Math),
     Bool(bool),
     Label(LabelId),
+    GlobalModule,
     None,
     Auto,
 }
@@ -48,6 +49,11 @@ impl Readable {
     /// Creates a new global readable.
     pub const fn global(global: Global) -> Self {
         Self::Global(global)
+    }
+
+    /// Creates a new global module readable.
+    pub const fn global_module() -> Self {
+        Self::GlobalModule
     }
 
     /// Creates a new math readable.
@@ -148,6 +154,7 @@ impl fmt::Debug for Readable {
             Self::Math(math) => math.fmt(f),
             Self::Bool(value) => write!(f, "{value}"),
             Self::Label(label) => label.fmt(f),
+            Self::GlobalModule => write!(f, "std"),
             Self::None => write!(f, "none"),
             Self::Auto => write!(f, "auto"),
         }

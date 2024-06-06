@@ -89,14 +89,15 @@ impl<'a> Scopes<'a> {
     }
 }
 
+/// The error message when a constant is mutated.
 #[cold]
-fn cannot_mutate_constant(var: &str) -> HintedString {
+pub fn cannot_mutate_constant(var: &str) -> HintedString {
     eco_format!("cannot mutate a constant: {}", var).into()
 }
 
 /// The error message when a variable is not found.
 #[cold]
-fn unknown_variable(var: &str) -> HintedString {
+pub fn unknown_variable(var: &str) -> HintedString {
     let mut res = HintedString {
         message: eco_format!("unknown variable: {}", var),
         hints: vec![],
@@ -202,6 +203,11 @@ impl Scope {
     /// Try to access a variable immutably.
     pub fn get(&self, var: &str) -> Option<&Value> {
         self.map.get(var).map(Slot::read)
+    }
+
+    /// Check if a variable is defined.
+    pub fn contains(&self, var: &str) -> bool {
+        self.map.contains_key(var)
     }
 
     /// Get the index of a definition.

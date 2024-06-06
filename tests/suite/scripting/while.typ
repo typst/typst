@@ -16,7 +16,7 @@
 }
 
 #while false {
-  dont-care
+  panic("This should not be executed.")
 }
 
 --- while-loop-expr ---
@@ -33,7 +33,7 @@
 #while [nope] [nope]
 
 --- while-loop-condition-always-true ---
-// Error: 8-25 condition is always true
+// Error: 2-28 loop seems to be infinite
 #while 2 < "hello".len() {}
 
 --- while-loop-limit ---

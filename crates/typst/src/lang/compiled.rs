@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ecow::EcoString;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -10,13 +11,13 @@ use crate::Library;
 
 use super::closure::Closure;
 use super::compiler::Compiler;
-use super::opcodes::{AccessId, Opcode, PatternId, Readable, Writable};
+use super::opcodes::{AccessId, Opcode, PatternId, Readable};
 use super::operands::{Register, StringId};
 
 #[derive(Clone, Hash)]
 pub struct CompiledCode {
     /// The name of the code.
-    pub name: Option<PicoStr>,
+    pub name: Option<EcoString>,
     /// The span where the code was defined.
     pub span: Span,
     /// The instructions as byte code.
@@ -144,7 +145,7 @@ pub struct Export {
     pub span: Span,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct DefaultValue {
     /// The value of the default.
     pub value: Value,
@@ -195,10 +196,7 @@ pub struct CodeCapture {
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum CompiledAccess {
     /// Access this value through a readable.
-    Readable(Readable),
-
-    /// Access this value through a writeable.
-    Writable(Writable),
+    Register(Register),
 
     /// Access this value through the global scope.
     Module(Value),
@@ -216,13 +214,13 @@ pub enum CompiledAccess {
     ///
     /// This uses IDs in order to: avoid allocating, allow all of the accesses
     /// to be contiguous in memory.
-    Chained(AccessId, PicoStr),
+    Chained(Span, AccessId, &'static str, Span),
 
     /// Access this value through an accessor method.
     ///
     /// This uses IDs in order to: avoid allocating, allow all of the accesses
     /// to be contiguous in memory.
-    AccessorMethod(AccessId, PicoStr, Readable),
+    AccessorMethod(AccessId, &'static str, Readable),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -238,6 +236,7 @@ pub struct CompiledDynamicImport {
 }
 
 /// A module that has been compiled but is not yet executed.
+#[repr(transparent)]
 #[derive(Clone, Hash)]
 pub struct CompiledModule {
     /// The common data.

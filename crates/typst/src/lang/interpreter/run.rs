@@ -1,12 +1,13 @@
-use comemo::Tracked;
+use std::borrow::Cow;
+
 use typst_syntax::{Span, Spanned};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, Trace, Tracepoint};
-use crate::engine::Engine;
+use crate::engine::{Engine, Route};
 use crate::foundations::{
-    call_method_mut, is_mutating_method, Arg, Args, Array, Content, Context, ContextElem,
-    Dict, Func, IntoValue, NativeElement, Recipe, SequenceElem, ShowableSelector, Smart,
+    call_method_mut, Arg, Args, Array, Bytes, Content, ContextElem, Dict, Func,
+    IntoValue, NativeElement, Recipe, SequenceElem, ShowableSelector, Smart,
     Transformation, Value,
 };
 use crate::lang::compiled::CompiledAccess;
@@ -14,10 +15,14 @@ use crate::lang::compiler::{import_value, ImportedModule};
 use crate::lang::interpreter::ControlFlow;
 use crate::lang::operands::Register;
 use crate::lang::{opcodes::*, ops};
-use crate::math::{AttachElem, EquationElem, FracElem, LrElem, RootElem};
+use crate::math::{
+    Accent, AccentElem, AttachElem, EquationElem, FracElem, LrElem, RootElem,
+};
 use crate::model::{EmphElem, HeadingElem, RefElem, StrongElem, Supplement};
+use crate::symbols::Symbol;
+use crate::text::TextElem;
 
-use super::Vm;
+use super::{ValueAccessor, Vm};
 
 pub trait Run {
     /// Runs an opcode.
@@ -28,7 +33,6 @@ pub trait Run {
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        context: Tracked<Context>,
         iterator: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()>;
 }
@@ -46,7 +50,6 @@ impl<T: SimpleRun> Run for T {
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        _: Tracked<Context>,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         <T as SimpleRun>::run(self, span, vm, engine)
@@ -339,7 +342,8 @@ impl SimpleRun for Assign {
 
 impl SimpleRun for AddAssign {
     fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
-        assign_op(span, vm, engine, self.value, self.out, |old, value| {
+        let lhs_span = vm.read(self.lhs_span);
+        assign_op(lhs_span, vm, engine, self.value, self.out, |old, value| {
             ops::add(&old, &value).at(span)
         })
     }
@@ -347,7 +351,8 @@ impl SimpleRun for AddAssign {
 
 impl SimpleRun for SubAssign {
     fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
-        assign_op(span, vm, engine, self.value, self.out, |old, value| {
+        let lhs_span = vm.read(self.lhs_span);
+        assign_op(lhs_span, vm, engine, self.value, self.out, |old, value| {
             ops::sub(&old, &value).at(span)
         })
     }
@@ -355,7 +360,8 @@ impl SimpleRun for SubAssign {
 
 impl SimpleRun for MulAssign {
     fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
-        assign_op(span, vm, engine, self.value, self.out, |old, value| {
+        let lhs_span = vm.read(self.lhs_span);
+        assign_op(lhs_span, vm, engine, self.value, self.out, |old, value| {
             ops::mul(&old, &value).at(span)
         })
     }
@@ -363,7 +369,8 @@ impl SimpleRun for MulAssign {
 
 impl SimpleRun for DivAssign {
     fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
-        assign_op(span, vm, engine, self.value, self.out, |old, value| {
+        let lhs_span = vm.read(self.lhs_span);
+        assign_op(lhs_span, vm, engine, self.value, self.out, |old, value| {
             ops::div(&old, &value).at(span)
         })
     }
@@ -437,7 +444,7 @@ impl SimpleRun for Show {
             .selector
             .map(|selector| vm.read(selector).clone().cast::<ShowableSelector>())
             .transpose()
-            .at(span)?;
+            .at_with(|| vm.read(self.selector_span))?;
 
         // Load the transform.
         let transform =
@@ -464,7 +471,8 @@ impl SimpleRun for ShowSet {
             .selector
             .map(|selector| vm.read(selector).clone().cast::<ShowableSelector>())
             .transpose()
-            .at(span)?;
+            .at_with(|| vm.read(self.selector_span))?;
+
         // Load the arguments.
         let args = match self.args {
             Readable::Reg(reg) => vm.take(reg).into_owned(),
@@ -499,7 +507,9 @@ impl SimpleRun for ShowSet {
                     bail!(span, "only element functions can be used in set rules")
                 }
             }
-            other => bail!(span, "expected function, found {}", other.ty()),
+            other => {
+                bail!(span, "expected function, found {}", other.ty())
+            }
         };
 
         // Create the show rule.
@@ -544,7 +554,7 @@ impl SimpleRun for InstantiateModule {
         let module = vm.read(self.module);
 
         // Load the module, we know it's static.
-        let ImportedModule::Static(loaded) = import_value(engine, path, span)? else {
+        let ImportedModule::Static(loaded) = import_value(engine, path, span, true)? else {
             bail!(span, "expected static module, found dynamic module");
         };
 
@@ -569,7 +579,7 @@ impl SimpleRun for Include {
         let path = vm.read(self.path);
 
         // Load the module, we know it's static.
-        let ImportedModule::Static(loaded) = import_value(engine, path, span)? else {
+        let ImportedModule::Static(loaded) = import_value(engine, path, span, false)? else {
             bail!(span, "expected static module, found dynamic module");
         };
 
@@ -599,17 +609,18 @@ impl SimpleRun for Instantiate {
     }
 }
 
-impl Run for Call {
+impl SimpleRun for Call {
     fn run(
         &self,
-        _: &[Opcode],
-        _: &[Span],
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        context: Tracked<Context>,
-        _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
+        // Check that we're not exceeding the call depth limit.
+        if !engine.route.within(Route::MAX_CALL_DEPTH) {
+            bail!(span, "maximum function call depth exceeded");
+        }
+
         // Get the function.
         let accessor = vm.read(self.closure);
 
@@ -619,7 +630,7 @@ impl Run for Call {
             other => vm.read(other).clone(),
         };
 
-        let args = match args {
+        let mut args = match args {
             Value::None => Args::new::<Value>(span, []),
             Value::Args(args) => args,
             _ => {
@@ -631,51 +642,123 @@ impl Run for Call {
             }
         };
 
-        match accessor {
-            CompiledAccess::Chained(rest, last) if is_mutating_method(last.resolve()) => {
-                // Obtain the value.
-                let access = vm.read(*rest);
-                let mut value = access.write(span, vm, engine)?;
+        let callee_span = vm.read(self.callee_span);
 
-                // Call the method.
-                let point = || Tracepoint::Call(Some(last.resolve().into()));
-                let value = call_method_mut(&mut value, last.resolve(), args, span)
-                    .trace(engine.world, point, span)?;
+        // First we read the value and we check whether this is a mutable call.
+        if let CompiledAccess::Chained(_, rest, method, _) = accessor {
+            // Obtain the value.
+            let access = vm.read(*rest);
+            let value = access.read(callee_span, vm)?;
 
-                // Write the value to the output.
-                vm.write_one(self.out, value).at(span)?;
-            }
-            other => {
-                // Obtain the value.
-                let func = other.read(span, vm)?;
+            // Check whether the method is mutable or not.
+            // If it is mut:
+            //  - Redo the access as mutable
+            //  - Call the function.
+            if value.is_mut(method) {
+                let mut value = access.write(callee_span, vm, engine)?;
 
-                // Call the method.
-                let value = match &*func {
-                    Value::Func(func) => {
-                        let point = || Tracepoint::Call(func.name().map(Into::into));
-                        func.call(engine, context, args).trace(
-                            engine.world,
-                            point,
-                            span,
-                        )?
-                    }
-                    Value::Type(type_) => {
-                        let point = || Tracepoint::Call(func.name().map(Into::into));
-                        type_.constructor().at(span)?.call(engine, context, args).trace(
-                            engine.world,
-                            point,
-                            span,
-                        )?
-                    }
-                    _ => {
-                        bail!(span, "expected function, found {}", func.ty().long_name())
-                    }
-                };
+                let point = || Tracepoint::Call(Some((*method).into()));
+                let value = call_method_mut(&mut value, *method, args, span)
+                    .trace(engine.world, point, span)?
+                    .spanned(span);
 
                 // Write the value to the output.
                 vm.write_one(self.out, value).at(span)?;
+
+                return Ok(());
             }
         }
+
+        // If it is not a mutable call, we proceed as usual:
+        // - We check for methods.
+        // - We read the accessor
+        // - We check for math-specific cases
+        // - We call the method
+        let callee =
+            if let CompiledAccess::Chained(_, rest, method, field_span) = accessor {
+                // Obtain the value.
+                let access = vm.read(*rest);
+                let value = access.read(callee_span, vm)?;
+
+                // Check if we are calling a method.
+                if let Some(callee) = value.ty().scope().get(*method) {
+                    let this = Arg {
+                        span,
+                        name: None,
+                        value: Spanned::new(value.into_owned(), *field_span),
+                    };
+                    args.items.insert(0, this);
+
+                    Cow::Borrowed(callee)
+                } else if let Value::Plugin(plugin) = &*value {
+                    let bytes = args.all::<Bytes>()?;
+                    args.finish()?;
+
+                    let out = plugin.call(*method, bytes).at(span)?.into_value();
+
+                    // Write the value to the output.
+                    vm.write_one(self.out, out).at(span)?;
+
+                    return Ok(());
+                } else {
+                    accessor.read(callee_span, vm)?
+                }
+            } else {
+                accessor.read(callee_span, vm)?
+            };
+
+        // Special case handling for equations.
+        if self.math && !matches!(&*callee, Value::Func(_)) {
+            if let Value::Symbol(sym) = &*callee {
+                let c = sym.get();
+                if let Some(accent) = Symbol::combining_accent(c) {
+                    let base = args.expect("base")?;
+                    let size = args.named("size")?;
+                    args.finish()?;
+                    let mut accent = AccentElem::new(base, Accent::new(accent));
+                    if let Some(size) = size {
+                        accent = accent.with_size(size);
+                    }
+
+                    // Write the value to the output.
+                    vm.write_one(self.out, accent.pack().spanned(span)).at(span)?;
+
+                    return Ok(());
+                }
+            }
+
+            let mut body = Content::empty();
+            for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+                if i > 0 {
+                    body += TextElem::packed(',');
+                }
+                body += arg;
+            }
+
+            if self.trailing_comma {
+                body += TextElem::packed(',');
+            }
+
+            let out = callee.into_owned().display().spanned(span)
+                + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+                    .pack()
+                    .spanned(span);
+
+            // Write the value to the output.
+            vm.write_one(self.out, out).at(span)?;
+
+            return Ok(());
+        }
+
+        // Call the function
+        let point = || Tracepoint::Call(callee.name().map(Into::into));
+        let value = callee
+            .call(engine, vm.context, span, args)
+            .trace(engine.world, point, span)?
+            .spanned(span);
+
+        // Write the value to the output.
+        vm.write_one(self.out, value).at(span)?;
 
         Ok(())
     }
@@ -703,7 +786,6 @@ impl Run for While {
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        context: Tracked<Context>,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         let instructions = &instructions[..self.len as usize];
@@ -714,7 +796,6 @@ impl Run for While {
             engine,
             instructions,
             spans,
-            context,
             None,
             None,
             self.content,
@@ -745,7 +826,7 @@ impl Run for While {
 
         vm.bump(self.len as usize);
 
-        todo!()
+        Ok(())
     }
 }
 
@@ -758,7 +839,6 @@ impl Run for Iter {
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        context: Tracked<Context>,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the iterable.
@@ -772,7 +852,6 @@ impl Run for Iter {
                     engine,
                     instructions,
                     spans,
-                    context,
                     Some(&mut iter),
                     None,
                     self.content,
@@ -828,7 +907,7 @@ impl Run for Iter {
 
         vm.bump(self.len as usize);
 
-        todo!()
+        Ok(())
     }
 }
 
@@ -840,7 +919,6 @@ impl Run for Next {
         span: Span,
         vm: &mut Vm,
         _: &mut Engine,
-        _: Tracked<Context>,
         iterator: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         let Some(iter) = iterator else {
@@ -883,11 +961,7 @@ impl SimpleRun for Break {
 impl SimpleRun for Return {
     fn run(&self, _: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
         if !vm.state.is_breaking() && !vm.state.is_continuing() {
-            if vm.output.is_some() {
-                vm.state.set_returning(true);
-            } else {
-                vm.state.set_returning(false);
-            }
+            vm.state.set_returning(vm.output.is_some());
         }
 
         Ok(())
@@ -898,11 +972,7 @@ impl SimpleRun for ReturnVal {
     fn run(&self, _: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
         vm.output = Some(self.value.into());
         if !vm.state.is_breaking() && !vm.state.is_continuing() {
-            if vm.output.is_some() {
-                vm.state.set_returning(true);
-            } else {
-                vm.state.set_returning(false);
-            }
+            vm.state.set_returning(vm.output.is_some());
         }
 
         Ok(())
@@ -927,7 +997,7 @@ impl SimpleRun for Push {
         let value = vm.read(self.value).clone();
 
         // Get a mutable reference to the array.
-        let Value::Array(array) = vm.write(self.out) else {
+        let Some(Value::Array(array)) = vm.write(self.out) else {
             bail!(span, "expected array, found {}", value.ty().long_name());
         };
 
@@ -960,7 +1030,7 @@ impl SimpleRun for Insert {
         };
 
         // Get a mutable reference to the dictionary.
-        let Value::Dict(dict) = vm.write(self.out) else {
+        let Some(Value::Dict(dict)) = vm.write(self.out) else {
             bail!(span, "expected dictionary, found {}", value.ty().long_name());
         };
 
@@ -991,11 +1061,11 @@ impl SimpleRun for PushArg {
         let value = vm.read(self.value).clone();
 
         // Get a mutable reference to the argument set.
-        let Value::Args(args) = vm.write(self.out) else {
+        let Some(Value::Args(args)) = vm.write(self.out) else {
             bail!(span, "expected argument set, found {}", value.ty().long_name());
         };
 
-        args.push(value_span, value);
+        args.push(span, value_span, value);
 
         Ok(())
     }
@@ -1010,16 +1080,16 @@ impl SimpleRun for InsertArg {
         let value = vm.read(self.value).clone();
 
         // Get the argument name.
-        let Value::Str(key) = vm.read(self.key).clone() else {
+        let Value::Str(name) = vm.read(self.key).clone() else {
             bail!(span, "expected string, found {}", value.ty());
         };
 
         // Get a mutable reference to the argument set.
-        let Value::Args(args) = vm.write(self.out) else {
+        let Some(Value::Args(args)) = vm.write(self.out) else {
             bail!(span, "expected argument set, found {}", value.ty());
         };
 
-        args.insert(value_span, key, value);
+        args.insert(span, value_span, name, value);
 
         Ok(())
     }
@@ -1034,7 +1104,7 @@ impl SimpleRun for SpreadArg {
         let value = vm.read(self.value).clone();
 
         // Get a mutable reference to the argument set.
-        let Value::Args(into) = vm.write(self.out) else {
+        let Some(Value::Args(into)) = vm.write(self.out) else {
             bail!(span, "expected argument set, found {}", value.ty().long_name());
         };
 
@@ -1072,7 +1142,7 @@ impl SimpleRun for Spread {
         let value = vm.read(self.value).clone();
 
         match vm.write(self.out) {
-            Value::Array(into) => match value {
+            Some(Value::Array(into)) => match value {
                 Value::Array(array) => {
                     into.extend(array.into_iter());
                 }
@@ -1081,13 +1151,36 @@ impl SimpleRun for Spread {
                     bail!(span, "cannot spread {} into array", value.ty());
                 }
             },
-            Value::Dict(into) => match value {
+            Some(Value::Dict(into)) => match value {
                 Value::Dict(dict) => {
                     into.extend(dict.into_iter());
                 }
                 Value::None => {}
                 _ => {
                     bail!(span, "cannot spread {} into dictionary", value.ty());
+                }
+            },
+            Some(Value::Args(into)) => match value {
+                Value::Args(args_) => {
+                    into.chain(args_);
+                }
+                Value::Dict(dict) => {
+                    into.extend(dict.into_iter().map(|(name, value)| Arg {
+                        span,
+                        name: Some(name),
+                        value: Spanned::new(value, span),
+                    }));
+                }
+                Value::Array(array) => {
+                    into.extend(array.into_iter().map(|value| Arg {
+                        span,
+                        name: None,
+                        value: Spanned::new(value, span),
+                    }));
+                }
+                Value::None => {}
+                _ => {
+                    bail!(span, "cannot spread {} into arguments", value.ty());
                 }
             },
             _ => {
@@ -1111,8 +1204,7 @@ impl Run for Enter {
         span: Span,
         vm: &mut Vm,
         engine: &mut Engine,
-        context: Tracked<Context>,
-        iterator: Option<&mut dyn Iterator<Item = Value>>,
+        _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         let instructions = &instructions[..self.len as usize];
         let spans = &spans[..self.len as usize];
@@ -1122,11 +1214,10 @@ impl Run for Enter {
             engine,
             instructions,
             spans,
-            context,
             None,
             None,
             self.content,
-            iterator.is_some(),
+            false,
         )?;
 
         let mut forced_return = false;
@@ -1216,6 +1307,16 @@ impl SimpleRun for JumpIfNot {
         // Jump to the instruction if the condition is true.
         if !*condition {
             vm.jump(vm.read(self.instruction));
+        }
+
+        Ok(())
+    }
+}
+
+impl SimpleRun for BeginIter {
+    fn run(&self, span: Span, vm: &mut Vm, _: &mut Engine) -> SourceResult<()> {
+        if vm.iter() > 100_000 {
+            bail!(span, "loop seems to be infinite");
         }
 
         Ok(())
@@ -1458,7 +1559,8 @@ impl SimpleRun for Equation {
         let value = vm.read(self.value);
 
         // Make the value into an equation.
-        let value = EquationElem::new(value.clone().cast().at(span)?);
+        let value =
+            EquationElem::new(value.clone().cast().at(span)?).with_block(self.block);
 
         // Write the value to the output.
         vm.write_one(self.out, value.pack().spanned(span)).at(span)?;
@@ -1481,11 +1583,11 @@ fn assign(
     let access = vm.read(out);
 
     // Get the mutable reference to the target.
-    if let CompiledAccess::Chained(dict, field) = access {
+    if let CompiledAccess::Chained(_, dict, field, _) = access {
         let dict = vm.read(*dict);
-        if let CompiledAccess::Writable(dict) = dict {
-            if let Value::Dict(dict) = vm.write(*dict) {
-                dict.insert(field.resolve().into(), value);
+        if let CompiledAccess::Register(dict) = dict {
+            if let Some(Value::Dict(dict)) = vm.write(*dict) {
+                dict.insert((*field).into(), value);
                 return Ok(());
             }
         }
@@ -1514,12 +1616,11 @@ fn assign_op(
     let access = vm.read(out);
 
     // Get the mutable reference to the target.
-    if let CompiledAccess::Chained(dict, field) = access {
+    if let CompiledAccess::Chained(_, dict, field, field_span) = access {
         let dict = vm.read(*dict);
-        if let CompiledAccess::Writable(dict) = dict {
-            if let Value::Dict(dict) = vm.write(*dict) {
-                let field = field.resolve();
-                let item = dict.at_mut(field).at(span)?;
+        if let CompiledAccess::Register(dict) = dict {
+            if let Some(Value::Dict(dict)) = vm.write(*dict) {
+                let item = dict.at_mut(*field).at(*field_span)?;
 
                 let old = std::mem::take(item);
                 *item = transformer(old, value)?;

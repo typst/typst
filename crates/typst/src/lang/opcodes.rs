@@ -1,12 +1,10 @@
 use std::num::{NonZeroU16, NonZeroU32};
 
-use comemo::Tracked;
-
 use typst_syntax::Span;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Context, Value};
+use crate::foundations::Value;
 
 use super::operands::StringId;
 pub use super::operands::{
@@ -140,7 +138,6 @@ macro_rules! opcodes {
                 span: Span,
                 vm: &mut crate::lang::interpreter::Vm,
                 engine: &mut Engine,
-                context: Tracked<Context>,
                 iterator: Option<&mut dyn Iterator<Item = Value>>
             ) -> SourceResult<()> {
                 vm.next();
@@ -155,7 +152,6 @@ macro_rules! opcodes {
                             span,
                             vm,
                             engine,
-                            context,
                             iterator
                         )
                     })*
@@ -333,24 +329,32 @@ opcodes! {
     AddAssign: add_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
+        /// The span of the left-hand side.
+        lhs_span: SpanId,
     },
 
     /// Assign and subtract from a value.
     SubAssign: sub_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
+        /// The span of the left-hand side.
+        lhs_span: SpanId,
     },
 
     /// Assign and multiply a value.
     MulAssign: mul_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
+        /// The span of the left-hand side.
+        lhs_span: SpanId,
     },
 
     /// Assign and divide a value.
     DivAssign: div_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
+        /// The span of the left-hand side.
+        lhs_span: SpanId,
     },
 
     /// Destructures a value into a pattern.
@@ -377,6 +381,8 @@ opcodes! {
         selector: Option<Readable>,
         /// The transform to apply.
         transform: Readable,
+        /// The selector's span.
+        selector_span: SpanId,
     },
 
     ShowSet: show_set => {
@@ -386,6 +392,8 @@ opcodes! {
         target: Readable,
         /// The arguments to supply to the set rule.
         args: Readable,
+        /// The selector's span.
+        selector_span: SpanId,
     },
 
     // -----------------------------------------------------------------------------
@@ -439,6 +447,8 @@ opcodes! {
         math: bool,
         /// Whether the call contains a trailing comma.
         trailing_comma: bool,
+        /// The span of the callee.
+        callee_span: SpanId,
     },
 
     /// Accesses a field.
@@ -606,6 +616,11 @@ opcodes! {
         false_: Readable,
     },
 
+    /// Informs the compiler that we're starting a new iteration.
+    ///
+    /// This is used to allow the VM to detect infinite loops.
+    BeginIter: begin_iter => {},
+
     // -----------------------------------------------------------------------------
     // ----------------------------------- MATH ------------------------------------
     // -----------------------------------------------------------------------------
@@ -705,5 +720,7 @@ opcodes! {
     Equation: equation -> Writable => {
         /// The value to make into an equation.
         value: Readable,
+        /// Whether the equation is inline or block.
+        block: bool,
     },
 }

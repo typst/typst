@@ -2,8 +2,8 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::eval::{CapturesVisitor, Tracer};
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
+use typst::lang::{CapturesVisitor, Tracer};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};

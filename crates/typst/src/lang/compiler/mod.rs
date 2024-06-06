@@ -21,7 +21,6 @@ use std::rc::Rc;
 
 use ecow::EcoString;
 use typst_syntax::Span;
-use typst_utils::PicoStr;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -61,7 +60,7 @@ macro_rules! __copy_constant {
 
 pub struct Compiler<'lib> {
     /// The name of the current function (if any).
-    pub name: Option<PicoStr>,
+    pub name: Option<EcoString>,
     /// The list of instructions.
     instructions: Vec<Opcode>,
     /// The list of spans for each instruction.
@@ -92,9 +91,9 @@ pub struct Compiler<'lib> {
 
 impl<'lib> Compiler<'lib> {
     /// Creates a new compiler for a closure from a parent compiler.
-    pub fn new_closure(parent: &Self, name: impl Into<PicoStr>) -> Self {
+    pub fn new_closure(parent: &Self, name: Option<EcoString>) -> Self {
         Self {
-            name: Some(name.into()),
+            name,
             instructions: Vec::with_capacity(DEFAULT_CAPACITY),
             isr_spans: Vec::with_capacity(DEFAULT_CAPACITY),
             scope: Rc::new(RefCell::new(Scope::new(
@@ -179,32 +178,30 @@ impl<'lib> Compiler<'lib> {
     }
 
     /// Declares a new variable.
-    pub fn declare(&self, span: Span, name: impl Into<PicoStr>) -> RegisterGuard {
-        self.scope.borrow_mut().declare(span, name.into(), None)
+    pub fn declare(&self, span: Span, name: &str) -> RegisterGuard {
+        self.scope.borrow_mut().declare(span, name, None)
     }
 
     /// Declares a new variable in a specific register.
     pub fn declare_to_register(
         &self,
         span: Span,
-        name: impl Into<PicoStr>,
+        name: &str,
         output: impl Into<RegisterGuard>,
     ) {
-        self.scope
-            .borrow_mut()
-            .declare_to_register(span, name.into(), output.into())
+        self.scope.borrow_mut().declare_to_register(span, name, output.into())
     }
 
     /// Declares a new variable.
     pub fn declare_default(
         &self,
         span: Span,
-        name: impl Into<PicoStr>,
+        name: &str,
         default: impl IntoValue,
     ) -> RegisterGuard {
         self.scope
             .borrow_mut()
-            .declare(span, name.into(), Some(default.into_value()))
+            .declare(span, name, Some(default.into_value()))
     }
 
     /// Creates a new jump marker.
@@ -300,6 +297,16 @@ impl<'lib> Compiler<'lib> {
         self.scope.borrow().resolve_var(register)
     }
 
+    /// Copy a value into a variable.
+    pub fn mutate_variable(&self, variable: &str) {
+        self.scope.borrow_mut().write(variable).ok();
+    }
+
+    /// Tries to resolve a register to a default value (if any)
+    pub fn resolve_default(&self, register: &RegisterGuard) -> Option<Value> {
+        self.scope.borrow().resolve_default(register)
+    }
+
     /// Tries and resolve any readable
     pub fn resolve(&self, readable: impl Into<Readable>) -> Option<Cow<'_, Value>> {
         let readable = readable.into();
@@ -326,6 +333,7 @@ impl<'lib> Compiler<'lib> {
                     Some(Cow::Borrowed(&Value::Bool(false)))
                 }
             }
+            Readable::GlobalModule => Some(Cow::Borrowed(&self.library().std)),
             Readable::None => Some(Cow::Borrowed(&Value::None)),
             Readable::Auto => Some(Cow::Borrowed(&Value::Auto)),
         }
@@ -443,7 +451,7 @@ impl<'lib> Compiler<'lib> {
     pub fn finish_module(
         mut self,
         span: Span,
-        name: impl Into<PicoStr>,
+        name: impl Into<EcoString>,
         mut exports: Vec<Export>,
     ) -> CompiledCode {
         // Get the global library.
@@ -541,11 +549,14 @@ impl<'lib> Compiler<'lib> {
     fn get_default_scope(&self) -> Vec<DefaultValue> {
         self.scope
             .borrow()
-            .variables
-            .values()
-            .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))
-            .map(|(value, target)| DefaultValue { target, value })
-            .collect::<Vec<_>>()
+            .defaults
+            .iter()
+            .flatten()
+            .map(|(target, value)| DefaultValue {
+                target: target.as_register(),
+                value: value.clone(),
+            })
+            .collect()
     }
 }
 

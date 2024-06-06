@@ -61,12 +61,8 @@ impl Compile for ast::WhileLoop<'_> {
             |compiler, engine| {
                 let mut is_content = false;
 
-                // Create the jump labels
-                let top = compiler.marker();
+                // Create the jump label
                 let end = compiler.marker();
-
-                // Mark the top
-                compiler.mark(self.span(), top);
 
                 // Compile the condition
                 let condition = self.condition().compile_to_readable(compiler, engine)?;
@@ -74,16 +70,19 @@ impl Compile for ast::WhileLoop<'_> {
                 // Create the conditonal jump
                 compiler.jump_if_not(self.span(), condition, end);
 
+                // Mark the beginning of the iteration
+                compiler.begin_iter(self.span());
+
                 // Compile the while body
                 match self.body() {
                     ast::Expr::Code(code) => {
-                        // using `compile_to_readable` to avoid double `enter` ops
-                        code.body().compile_to_readable(compiler, engine)?;
+                        // using `compile_top_level` to avoid double `enter` ops
+                        code.body().compile_top_level(compiler, engine)?;
                     }
                     ast::Expr::Content(content) => {
                         is_content = true;
 
-                        // using `compile_to_readable` to avoid double `enter` ops
+                        // using `compile_top_level` to avoid double `enter` ops
                         content.body().compile_top_level(compiler, engine)?;
                     }
                     other => other.compile(compiler, engine, WritableGuard::Joined)?,
@@ -91,7 +90,7 @@ impl Compile for ast::WhileLoop<'_> {
                 compiler.flow();
 
                 // Jump to the top
-                compiler.jump(self.span(), top);
+                compiler.jump_top(self.span());
 
                 // Mark the end
                 compiler.mark(self.span(), end);
@@ -122,7 +121,7 @@ impl Compile for ast::ForLoop<'_> {
                 if let PatternKind::Single(PatternItem::Simple(span, access, _)) =
                     &pattern.kind
                 {
-                    let Access::Writable(writable) = compiler.get_access(access).unwrap()
+                    let Access::Register(writable) = compiler.get_access(access).unwrap()
                     else {
                         bail!(*span, "cannot destructure into a non-writable access");
                     };
@@ -136,15 +135,18 @@ impl Compile for ast::ForLoop<'_> {
                     compiler.destructure(self.pattern().span(), i, pattern_id);
                 }
 
+                // Mark the beginning of the iteration
+                compiler.begin_iter(self.iterable().span());
+
                 match self.body() {
                     ast::Expr::Code(code) => {
-                        // using `compile_to_readable` to avoid double `enter` ops
+                        // using `compile_top_level` to avoid double `enter` ops
                         code.body().compile_top_level(compiler, engine)?;
                     }
                     ast::Expr::Content(content) => {
                         is_content = true;
 
-                        // using `compile_to_readable` to avoid double `enter` ops
+                        // using `compile_top_level` to avoid double `enter` ops
                         content.body().compile_top_level(compiler, engine)?;
                     }
                     other => other.compile(compiler, engine, WritableGuard::Joined)?,
@@ -231,6 +233,10 @@ impl Compile for ast::FuncReturn<'_> {
         engine: &mut Engine,
         _: WritableGuard,
     ) -> SourceResult<()> {
+        if !compiler.in_function() {
+            bail!(self.span(), "cannot return outside of function");
+        }
+
         let Some(body) = self.body() else {
             compiler.return_(self.span());
             return Ok(());

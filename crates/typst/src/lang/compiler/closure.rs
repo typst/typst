@@ -28,14 +28,12 @@ impl Compile for ast::Closure<'_> {
         }
 
         // Create a new compiler for the closure.
-        let name = compiler.name;
-        let mut closure_compiler = Compiler::new_closure(
-            compiler,
-            name.unwrap_or_else(|| PicoStr::from("anonymous")),
-        );
+        let name = compiler.name.as_ref();
+        let mut closure_compiler = Compiler::new_closure(compiler, name.cloned());
 
         // Create the local such that the closure can use itself.
-        let closure_local = name.map(|name| closure_compiler.declare(self.span(), name));
+        let closure_local =
+            name.map(|name| closure_compiler.declare(self.span(), name.as_str()));
 
         // Build the parameter list of the closure.
         let mut params = Vec::with_capacity(self.params().children().count());
@@ -50,13 +48,23 @@ impl Compile for ast::Closure<'_> {
                     if let PatternKind::Single(PatternItem::Simple(_, access, name)) =
                         &pattern.kind
                     {
-                        let Some(Access::Writable(reg)) = compiler.get_access(access)
+                        let Some(Access::Register(reg)) =
+                            closure_compiler.get_access(access)
                         else {
-                            bail!(pat.span(), "expected a writable location for param");
+                            bail!(
+                                pat.span(),
+                                "expected a writable location for param";
+                                hint: "this is a compiler bug"
+                            );
                         };
 
-                        let Some(Value::Str(name)) = compiler.get_string(name) else {
-                            bail!(pat.span(), "expected a string for parameter name");
+                        let Some(Value::Str(name)) = closure_compiler.get_string(name)
+                        else {
+                            bail!(
+                                pat.span(),
+                                "expected a string for parameter name";
+                                hint: "this is a compiler bug"
+                            );
                         };
 
                         params.push(CompiledParam::Pos(
@@ -72,7 +80,7 @@ impl Compile for ast::Closure<'_> {
 
                     params.push(CompiledParam::Pos(
                         reg.clone().into(),
-                        PicoStr::from("anonymous"),
+                        PicoStr::from("pattern parameter"),
                     ));
 
                     closure_compiler.destructure(pat.span(), reg, pattern_id);
@@ -130,8 +138,11 @@ impl Compile for ast::Closure<'_> {
         closure_compiler.flow();
 
         // Collect the compiled closure.
-        let closure =
-            closure_compiler.finish_closure(self.span(), params, closure_local)?;
+        let closure = closure_compiler.finish_closure(
+            self.params().span(),
+            params,
+            closure_local,
+        )?;
 
         // Get the closure ID.
         let compiled = CompiledClosure::new(closure, &*compiler);

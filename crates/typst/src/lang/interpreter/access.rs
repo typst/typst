@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
+use ecow::eco_vec;
 use typst_syntax::Span;
-use typst_utils::pico;
 
-use crate::diag::{bail, At, SourceResult, Trace, Tracepoint};
+use crate::diag::{bail, error, At, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{call_method_access, Args, IntoValue, Type, Value};
 use crate::lang::compiled::CompiledAccess;
@@ -19,16 +19,15 @@ impl CompiledAccess {
         vm: &'b Vm<'a, '_>,
     ) -> SourceResult<Cow<'b, Value>> {
         match self {
-            CompiledAccess::Readable(readable) => Ok(Cow::Borrowed(readable.read(vm))),
-            CompiledAccess::Writable(writeable) => Ok(Cow::Borrowed(writeable.read(vm))),
+            CompiledAccess::Register(reg) => Ok(Cow::Borrowed(reg.read(vm))),
             CompiledAccess::Module(module) => Ok(Cow::Borrowed(module)),
             CompiledAccess::Func(func) => Ok(Cow::Borrowed(func)),
             CompiledAccess::Value(value) => Ok(Cow::Borrowed(value)),
             CompiledAccess::Type(ty) => Ok(Cow::Borrowed(ty)),
-            CompiledAccess::Chained(value, field) => {
+            CompiledAccess::Chained(_, value, field, field_span) => {
                 let access = vm.read(*value);
                 let value = access.read(span, vm)?;
-                if let Some(assoc) = value.ty().scope().get(field.resolve()) {
+                if let Some(assoc) = value.ty().scope().get(field) {
                     let Value::Func(method) = assoc else {
                         bail!(
                             span,
@@ -37,12 +36,36 @@ impl CompiledAccess {
                         );
                     };
 
-                    let mut args =
-                        Args::new(Span::detached(), std::iter::once(value.into_owned()));
+                    let mut args = Args::new(span, std::iter::once(value.into_owned()));
 
-                    Ok(Cow::Owned(method.clone().with(&mut args).into_value()))
+                    Ok(Cow::Owned(
+                        method.clone().with(&mut args).into_value().spanned(span),
+                    ))
                 } else {
-                    value.field(field.resolve()).map(Cow::Owned).at(span)
+                    let err = match value.field(&field).at(*field_span) {
+                        Ok(value) => return Ok(Cow::Owned(value)),
+                        Err(err) => err,
+                    };
+
+                    // Check whether this is a get rule field access.
+                    if_chain::if_chain! {
+                        if let Value::Func(func) = &*value;
+                        if let Some(element) = func.element();
+                        if let Some(id) = element.field_id(&field);
+                        let styles = vm.context.styles().at(*field_span);
+                        if let Some(value) = element.field_from_styles(
+                            id,
+                            styles.as_ref().map(|&s| s).unwrap_or_default(),
+                        );
+                        then {
+                            // Only validate the context once we know that this is indeed
+                            // a field from the style chain.
+                            let _ = styles?;
+                            return Ok(Cow::Owned(value));
+                        }
+                    }
+
+                    Err(err)
                 }
             }
             CompiledAccess::AccessorMethod(value, method, args) => {
@@ -64,26 +87,22 @@ impl CompiledAccess {
 
                 // Call the method.
                 let ty = value.ty();
-                let missing = || Err(missing_method(ty, method.resolve())).at(span);
-
-                let first = pico!("first");
-                let last = pico!("last");
-                let at = pico!("at");
+                let missing = || Err(missing_method(ty, method)).at(span);
 
                 let accessed = match &*value {
                     Value::Array(array) => {
-                        if *method == first {
+                        if *method == "first" {
                             array.first().at(span)?
-                        } else if *method == last {
+                        } else if *method == "last" {
                             array.last().at(span)?
-                        } else if *method == at {
+                        } else if *method == "at" {
                             array.at(args.expect("index")?, None).at(span)?
                         } else {
                             return missing();
                         }
                     }
                     Value::Dict(dict) => {
-                        if *method == at {
+                        if *method == "at" {
                             dict.at(args.expect("key")?, None).at(span)?
                         } else {
                             return missing();
@@ -105,10 +124,9 @@ impl CompiledAccess {
         engine: &mut Engine,
     ) -> SourceResult<&'b mut Value> {
         match self {
-            CompiledAccess::Readable(_) => {
-                bail!(span, "cannot write to a readable, malformed access")
-            }
-            CompiledAccess::Writable(writable) => Ok(vm.write(*writable)),
+            CompiledAccess::Register(reg) => vm.write(*reg).ok_or_else(|| {
+                eco_vec![error!(span, "cannot write to a temporary value")]
+            }),
             CompiledAccess::Module(_) => {
                 bail!(span, "cannot write to a global, malformed access")
             }
@@ -121,11 +139,11 @@ impl CompiledAccess {
             CompiledAccess::Type(_) => {
                 bail!(span, "cannot write to a type, malformed access")
             }
-            CompiledAccess::Chained(value, field) => {
+            CompiledAccess::Chained(parent_span, value, field, field_span) => {
                 let access = vm.read(*value);
                 let value = access.write(span, vm, engine)?;
                 match value {
-                    Value::Dict(dict) => dict.at_mut(field.resolve()).at(span),
+                    Value::Dict(dict) => dict.at_mut(field).at(*field_span),
                     value => {
                         let ty = value.ty();
                         if matches!(
@@ -135,14 +153,14 @@ impl CompiledAccess {
                                 | Value::Module(_)
                                 | Value::Func(_)
                         ) {
-                            bail!(span, "cannot mutate fields on {ty}");
+                            bail!(*parent_span, "cannot mutate fields on {ty}");
                         } else if crate::foundations::fields_on(ty).is_empty() {
-                            bail!(span, "{ty} does not have accessible fields");
+                            bail!(*parent_span, "{ty} does not have accessible fields");
                         } else {
                             // type supports static fields, which don't yet have
                             // setters
                             bail!(
-                                span,
+                                *parent_span,
                                 "fields on {ty} are not yet mutable";
                                 hint: "try creating a new {ty} with the updated field value instead"
                             )
@@ -171,8 +189,8 @@ impl CompiledAccess {
                 let access = vm.read(*value);
                 let value = access.write(span, vm, engine)?;
 
-                let point = || Tracepoint::Call(Some(method.resolve().into()));
-                call_method_access(value, method.resolve(), args, span).trace(
+                let point = || Tracepoint::Call(Some((*method).into()));
+                call_method_access(value, method, args, span).trace(
                     engine.world,
                     point,
                     span,

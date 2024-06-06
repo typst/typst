@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 use comemo::TrackedMut;
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::package::{PackageManifest, PackageSpec};
@@ -11,7 +11,7 @@ use typst_utils::PicoStr;
 
 use crate::diag::{bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
-use crate::foundations::{Module, Value};
+use crate::foundations::{unknown_variable, Module, Value};
 use crate::lang::compiler::CompileAccess;
 use crate::lang::eval;
 use crate::World;
@@ -26,7 +26,7 @@ pub enum ImportedModule {
 #[derive(Clone)]
 pub struct DynamicModule {
     pub path: ReadableGuard,
-    pub imports: IndexMap<PicoStr, DynamicImport>,
+    pub imports: IndexMap<EcoString, DynamicImport>,
     pub glob: Option<RegisterGuard>,
 }
 
@@ -169,11 +169,7 @@ impl ModuleLoad for ast::Expr<'_> {
             other => {
                 // For all other value (even invalid one), we defer to the dynamic implementation
                 let value = other.compile_to_readable(compiler, engine)?;
-                let ReadableGuard::Register(reg) = value else {
-                    bail!(other.span(), "this expression is not a valid import path");
-                };
-
-                Ok(ImportedModule::Dynamic(DynamicModule::new(reg)))
+                Ok(ImportedModule::Dynamic(DynamicModule::new(value)))
             }
         }
     }
@@ -186,7 +182,7 @@ impl ModuleLoad for ast::Ident<'_> {
         engine: &mut Engine,
     ) -> SourceResult<ImportedModule> {
         let Some(readable) = compiler.read(self.span(), self.as_str(), false) else {
-            bail!(self.span(), "unknown variable: {}", self.as_str());
+            return Err(unknown_variable(self.as_str())).at(self.span());
         };
 
         let forbidden =
@@ -197,10 +193,12 @@ impl ModuleLoad for ast::Ident<'_> {
                 // If we are a constant alias, we can try and import it.
                 if let Some(variable) = compiler.resolve_var(&register) {
                     if variable.constant {
+                        let default = compiler.resolve_default(&register);
                         return import_value(
                             engine,
-                            &variable.default.unwrap(),
+                            &default.unwrap(),
                             self.span(),
+                            true,
                         );
                     }
                 }
@@ -209,7 +207,7 @@ impl ModuleLoad for ast::Ident<'_> {
                 // If we are a constant, we can try and import it.
                 let value = compiler.get_constant(&constant).unwrap();
 
-                return import_value(engine, value, self.span());
+                return import_value(engine, value, self.span(), true);
             }
             ReadableGuard::Captured(_) => {}
             ReadableGuard::String(string) => {
@@ -237,7 +235,10 @@ impl ModuleLoad for ast::Ident<'_> {
                     );
                 };
 
-                return import_value(engine, lib, self.span());
+                return import_value(engine, lib, self.span(), true);
+            }
+            ReadableGuard::GlobalModule => {
+                return Ok(ImportedModule::Static(compiler.library().global.clone()))
             }
             ReadableGuard::Math(_) => bail!(forbidden("a math expression")),
             ReadableGuard::Bool(_) => bail!(forbidden("a boolean")),
@@ -281,7 +282,7 @@ impl ModuleLoad for ast::FieldAccess<'_> {
             return Ok(ImportedModule::Dynamic(DynamicModule::new(reg)));
         };
 
-        import_value(engine, &resolved, self.span())
+        import_value(engine, &resolved, self.span(), true)
     }
 }
 
@@ -289,11 +290,22 @@ pub fn import_value(
     engine: &mut Engine,
     value: &Value,
     span: Span,
+    allow_scopes: bool,
 ) -> SourceResult<ImportedModule> {
     match value {
         Value::Module(module) => Ok(ImportedModule::Static(module.clone())),
         Value::Str(path) => import(engine, path.as_str(), span),
-        o => bail!(span, "expected string or module, found {}", o.ty().short_name()),
+        Value::Func(func) => {
+            let Some(scope) =  func.scope() else {
+                bail!(span, "cannot import from user-defined functions");
+            };
+
+            Ok(ImportedModule::Static(Module::new(func.name().unwrap(), scope.clone())))
+        }
+        v if allow_scopes => {
+            bail!(span, "expected path, module, function, or type, found {}", v.ty())
+        }
+        v => bail!(span, "expected path or module, found {}", v.ty()),
     }
 }
 
@@ -357,8 +369,8 @@ impl Import for DynamicModule {
                 for item in items.iter() {
                     match item {
                         ast::ImportItem::Simple(simple) => {
-                            let name = PicoStr::from(simple.as_str());
-                            self.imports.entry(name)
+                            let name = simple.as_str();
+                            self.imports.entry(name.into())
                                 .and_modify(|_| {
                                     // If it already exists, warn the user.
                                     engine
@@ -372,16 +384,22 @@ impl Import for DynamicModule {
                                     let alloc = compiler.declare(span, name);
                                     DynamicImport {
                                         span: simple.span(),
-                                        name,
+                                        name: name.into(),
                                         location: alloc,
                                     }
                                 });
                         }
                         ast::ImportItem::Renamed(renamed) => {
-                            let new_name = PicoStr::from(renamed.new_name().as_str());
-                            let old_name =
-                                PicoStr::from(renamed.original_name().as_str());
-                            self.imports.entry(old_name)
+                            let new_name = renamed.new_name().as_str();
+                            let old_name = renamed.original_name().as_str();
+                            if new_name == old_name {
+                                engine.tracer.warn(warning!(
+                                    renamed.span(),
+                                    "unnecessary import rename to same name",
+                                ));
+                            }
+
+                            self.imports.entry(old_name.into())
                                 .and_modify(|_| {
                                     // If it already exists, warn the user.
                                     engine
@@ -395,7 +413,7 @@ impl Import for DynamicModule {
                                     let alloc = compiler.declare(span, new_name);
                                     DynamicImport {
                                         span: renamed.span(),
-                                        name: old_name,
+                                        name: old_name.into(),
                                         location: alloc,
                                     }
                                 });
@@ -442,7 +460,7 @@ impl Import for Module {
                             else {
                                 bail!(
                                     name.span(),
-                                    "cannot find {} in module {}",
+                                    "cannot find `{}` in module `{}`",
                                     name.get(),
                                     self.name().as_str()
                                 );
@@ -466,10 +484,17 @@ impl Import for Module {
                                 ));
                             }
 
+                            if renamed.original_name().as_str() == renamed.new_name().as_str() {
+                                engine.tracer.warn(warning!(
+                                    renamed.span(),
+                                    "unnecessary import rename to same name",
+                                ));
+                            }
+
                             let Some(value) = self.scope().get(original.get()) else {
                                 bail!(
                                     original.span(),
-                                    "cannot find {} in module {}",
+                                    "cannot find `{}` in module `{}`",
                                     original.get(),
                                     self.name(),
                                 )
@@ -525,6 +550,11 @@ pub fn import_file(engine: &mut Engine, path: &str, span: Span) -> SourceResult<
     let world = engine.world;
     let id = span.resolve_path(path).at(span)?;
     let source = world.source(id).at(span)?;
+
+    // Prevent cyclic importing.
+    if engine.route.contains(source.id()) {
+        bail!(span, "cyclic import");
+    }
 
     // Evaluate the file.
     let point = || Tracepoint::Import;

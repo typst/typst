@@ -4,7 +4,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{error, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{Label, NativeElement, Value};
+use crate::foundations::{Content, Label, NativeElement, Value};
 use crate::model::{LinkElem, ParbreakElem, RefElem};
 use crate::symbols::Symbol;
 use crate::text::{
@@ -21,7 +21,20 @@ impl CompileTopLevel for ast::Markup<'_> {
         compiler: &mut Compiler<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
-        for expr in self.exprs() {
+        let mut iter = self.exprs();
+
+        // Special case to avoid creating empty scope.
+        let Some(first) = iter.next() else {
+            let const_id = compiler.const_(Content::empty());
+
+            // Copy an empty content to the output.
+            compiler.copy(self.span(), const_id, WritableGuard::Joined);
+            compiler.flow();
+
+            return Ok(());
+        };
+
+        for expr in std::iter::once(first).chain(iter) {
             // Handle set rules specially.
             if let ast::Expr::Set(set) = expr {
                 set.compile(compiler, engine, WritableGuard::Joined)?;
@@ -52,6 +65,17 @@ impl Compile for ast::Markup<'_> {
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
+        // Special case to avoid creating empty scope.
+        if self.exprs().next().is_none() {
+            let const_id = compiler.const_(Content::empty());
+
+            // Copy an empty content to the output.
+            compiler.copy(self.span(), const_id, output);
+            compiler.flow();
+
+            return Ok(());
+        }
+
         compiler.enter(engine, self.span(), output, |compiler, engine| {
             self.compile_top_level(compiler, engine).map(|_| true)
         })
@@ -454,7 +478,7 @@ impl Compile for ast::Equation<'_> {
         output: WritableGuard,
     ) -> SourceResult<()> {
         let body = self.body().compile_to_readable(compiler, engine)?;
-        compiler.equation(self.span(), body, output);
+        compiler.equation(self.span(), body, self.block(), output);
 
         Ok(())
     }

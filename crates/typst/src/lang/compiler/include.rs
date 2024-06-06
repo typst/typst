@@ -1,9 +1,9 @@
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::Value;
+use crate::foundations::{unknown_variable, Value};
 use crate::lang::compiler::CompileAccess;
 
 use super::{import_file, Compile, Compiler, ReadableGuard, WritableGuard};
@@ -62,7 +62,7 @@ impl ModuleInclude for ast::Ident<'_> {
         output: WritableGuard,
     ) -> SourceResult<()> {
         let Some(readable) = compiler.read(self.span(), self.as_str(), false) else {
-            bail!(self.span(), "unknown variable: {}", self.as_str());
+            return Err(unknown_variable(self.as_str())).at(self.span());
         };
 
         match readable {
@@ -70,10 +70,11 @@ impl ModuleInclude for ast::Ident<'_> {
                 // If we are a constant alias, we can try and import it.
                 if let Some(variable) = compiler.resolve_var(&register) {
                     if variable.constant {
+                        let default = compiler.resolve_default(&register);
                         return include_value(
                             compiler,
                             engine,
-                            variable.default.unwrap(),
+                            default.unwrap(),
                             output,
                             self.span(),
                         );
@@ -124,6 +125,17 @@ impl ModuleInclude for ast::Ident<'_> {
                 };
 
                 return include_value(compiler, engine, lib.clone(), output, self.span());
+            }
+            ReadableGuard::GlobalModule => {
+                let value = &compiler.library().std;
+
+                return include_value(
+                    compiler,
+                    engine,
+                    value.clone(),
+                    output,
+                    self.span(),
+                );
             }
             ReadableGuard::Captured(_) => {}
             ReadableGuard::Math(_) => {

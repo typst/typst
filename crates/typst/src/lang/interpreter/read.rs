@@ -1,6 +1,6 @@
 use typst_syntax::Span;
 
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::foundations::{IntoValue, Value};
 use crate::lang::compiled::{
     CompiledAccess, CompiledClosure, CompiledDynamicModule, CompiledPattern,
@@ -23,13 +23,18 @@ pub trait Read {
 
 /// Defines a value that can be written to the VM.
 pub trait Write {
-    fn write<'a>(&self, vm: &'a mut Vm) -> &'a mut Value;
+    fn write<'a>(&self, vm: &'a mut Vm) -> Option<&'a mut Value>;
 
     fn write_one(self, vm: &mut Vm, value: impl IntoValue) -> StrResult<()>
     where
         Self: Sized,
     {
-        *self.write(vm) = value.into_value();
+        let Some(target) = self.write(vm) else {
+            bail!("cannot write to a temporary value")
+        };
+
+        *target = value.into_value();
+
         Ok(())
     }
 }
@@ -66,6 +71,7 @@ impl Read for Readable {
             Readable::Label(label) => label.read(vm),
             Readable::None => &Value::None,
             Readable::Auto => &Value::Auto,
+            Readable::GlobalModule => &vm.code.global.std,
         }
     }
 }
@@ -82,7 +88,7 @@ impl Read for Writable {
 }
 
 impl Write for Writable {
-    fn write<'a, 'b>(&self, vm: &'b mut Vm<'a, '_>) -> &'b mut Value {
+    fn write<'a, 'b>(&self, vm: &'b mut Vm<'a, '_>) -> Option<&'b mut Value> {
         match self {
             Self::Reg(register) => register.write(vm),
             Self::Joiner => unreachable!("cannot get mutable reference to joined value"),
@@ -117,8 +123,8 @@ impl Read for Register {
 }
 
 impl Write for Register {
-    fn write<'a, 'b>(&self, vm: &'b mut Vm<'a, '_>) -> &'b mut Value {
-        vm.registers[self.0 as usize].to_mut()
+    fn write<'a, 'b>(&self, vm: &'b mut Vm<'a, '_>) -> Option<&'b mut Value> {
+        Some(vm.registers[self.0 as usize].to_mut())
     }
 }
 

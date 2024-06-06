@@ -43,8 +43,7 @@
 
 --- recursion-via-include-in-layout ---
 // Test cyclic imports during layout.
-// Error: 2-38 maximum show rule depth exceeded
-// Hint: 2-38 check whether the show rule matches its own output
+// Error: 22-37 cyclic import
 #layout(_ => include "recursion.typ")
 
 --- recursion-show-math ---

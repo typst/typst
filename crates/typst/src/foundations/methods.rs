@@ -1,6 +1,6 @@
 //! Handles special built-in methods on values.
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::foundations::{Args, Array, Dict, Str, Type, Value};
 use crate::syntax::Span;
 
@@ -85,10 +85,16 @@ pub(crate) fn call_method_access<'a>(
             "first" => array.first_mut().at(span)?,
             "last" => array.last_mut().at(span)?,
             "at" => array.at_mut(args.expect("index")?).at(span)?,
+            other if Type::of::<Array>().scope().contains(other) => {
+                bail!(span, "cannot mutate a temporary value");
+            }
             _ => return missing(),
         },
         Value::Dict(dict) => match method {
             "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
+            other if Type::of::<Array>().scope().contains(other) => {
+                bail!(span, "cannot mutate a temporary value");
+            }
             _ => return missing(),
         },
         _ => return missing(),

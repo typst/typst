@@ -1,5 +1,4 @@
 use typst_syntax::ast::{self, AstNode};
-use typst_utils::PicoStr;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -62,7 +61,7 @@ impl Compile for ast::DestructAssignment<'_> {
         // We destructure the initializer using the pattern.
         // Simple patterns can be directly stored.
         if let PatternKind::Single(PatternItem::Simple(span, access, _)) = &pattern.kind {
-            let Access::Writable(guard) = compiler.get_access(access).unwrap() else {
+            let Access::Register(guard) = compiler.get_access(access).unwrap() else {
                 bail!(*span, "cannot destructure into a non-writable access");
             };
 
@@ -118,7 +117,7 @@ fn compile_closure(
     closure_name: &ast::Ident<'_>,
 ) -> SourceResult<()> {
     let closure_span = closure_name.span();
-    let closure_name = PicoStr::from(closure_name.as_str());
+    let closure_name = closure_name.as_str();
 
     // If there's no initializer, we can't create the closure.
     let Some(init) = binding.init() else {
@@ -129,7 +128,7 @@ fn compile_closure(
     let local = compiler.declare(closure_span, closure_name);
 
     // We swap the names
-    let mut name = Some(closure_name);
+    let mut name = Some(closure_name.into());
     std::mem::swap(&mut name, &mut compiler.name);
 
     // We compile the initializer.

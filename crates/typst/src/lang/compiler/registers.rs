@@ -34,7 +34,8 @@ impl RegisterAllocator {
 
     /// Allocates a pristine register.
     pub fn allocate_pristine(&self) -> PristineRegisterGuard {
-        PristineRegisterGuard(self.allocate())
+        let reg = self.table.borrow_mut().allocate_pristine();
+        PristineRegisterGuard(RegisterGuard::new(reg, self.table.clone()))
     }
 
     /// The number of allocated registers.
@@ -203,9 +204,10 @@ impl Drop for RegisterInner {
 #[derive(Clone, Debug, Hash)]
 pub enum ReadableGuard {
     Register(RegisterGuard),
-    Captured(Box<ReadableGuard>),
+    Captured(RegisterGuard),
     Constant(Constant),
     String(StringId),
+    GlobalModule,
     Global(Global),
     Math(Math),
     Bool(bool),
@@ -218,7 +220,7 @@ impl From<ReadableGuard> for Readable {
     fn from(val: ReadableGuard) -> Self {
         match val {
             ReadableGuard::Register(register) => register.as_readable(),
-            ReadableGuard::Captured(captured) => (*captured).into(),
+            ReadableGuard::Captured(captured) => captured.into(),
             ReadableGuard::Constant(constant) => constant.into(),
             ReadableGuard::String(string) => string.into(),
             ReadableGuard::Global(global) => global.into(),
@@ -227,6 +229,7 @@ impl From<ReadableGuard> for Readable {
             ReadableGuard::Auto => Readable::auto(),
             ReadableGuard::Bool(value) => Readable::bool(value),
             ReadableGuard::Label(label) => label.into(),
+            ReadableGuard::GlobalModule => Readable::global_module(),
         }
     }
 }

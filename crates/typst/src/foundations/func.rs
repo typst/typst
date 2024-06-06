@@ -271,7 +271,14 @@ impl Func {
         context: Tracked<Context>,
         args: A,
     ) -> SourceResult<Value> {
-        self.call_impl(engine, context, args.into_args(self.span))
+        let f = move || self.call_impl(engine, context, args.into_args(self.span));
+
+        // Stacker is broken on WASM.
+        #[cfg(target_arch = "wasm32")]
+        return f();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        stacker::maybe_grow(128 * 1024, 2 * 1024 * 1024, f)
     }
 
     /// Non-generic implementation of `call`.

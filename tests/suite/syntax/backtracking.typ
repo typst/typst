@@ -21,7 +21,7 @@
     s = pat.replace("_", s)
   }
   // Error: 8-9 cannot destructure integer
-  eval(s)
+  eval(s, scope: (x: none))
 }
 
 --- parser-backtracking-destructuring-whitespace ---

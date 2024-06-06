@@ -1,9 +1,9 @@
 use typst_syntax::ast::{self, AstNode};
 use typst_utils::PicoStr;
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::Value;
+use crate::foundations::{unknown_variable, Value};
 use crate::lang::compiled::CompiledClosure;
 use crate::lang::compiler::{Access, CompileAccess};
 use crate::lang::operands::Readable;
@@ -47,6 +47,15 @@ impl Compile for ast::Code<'_> {
         engine: &mut Engine,
         output: WritableGuard,
     ) -> SourceResult<()> {
+        // Special case to avoid creating empty scope.
+        if self.exprs().next().is_none() {
+            // Copy a none to the output.
+            compiler.copy(self.span(), Readable::none(), output);
+            compiler.flow();
+
+            return Ok(());
+        }
+
         compiler.enter(engine, self.span(), output, |compiler, engine| {
             let mut is_content = false;
             for expr in self.exprs() {
@@ -312,7 +321,7 @@ impl Compile for ast::Ident<'_> {
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let Some(value) = compiler.read(self.span(), self.get(), false) else {
-            bail!(self.span(), "unknown variable: {}", self.get())
+            return Err(unknown_variable(self.get())).at(self.span());
         };
 
         Ok(value)
@@ -607,8 +616,12 @@ impl Compile for ast::FieldAccess<'_> {
         let pattern = self.target().access(compiler, engine, false)?;
         let index = compiler.access(pattern);
 
-        let access =
-            Access::Chained(self.span(), index, PicoStr::new(self.field().get()));
+        let access = Access::Chained(
+            self.target().span(),
+            self.field().span(),
+            index,
+            PicoStr::new(self.field().get()),
+        );
 
         // If we can resolve the access to a constant, we can copy it directly.
         if let Some(value) = access.resolve(compiler)? {
@@ -636,8 +649,7 @@ impl Compile for ast::Contextual<'_> {
         // Compile the contextual as if it was a closure.
         // Since it doesn't have any arguments, we don't need to do any
         // processing of arguments and default values.
-        let mut closure_compiler =
-            Compiler::new_closure(compiler, PicoStr::from("contextual"));
+        let mut closure_compiler = Compiler::new_closure(compiler, None);
 
         // Compile the body of the contextual.
         match self.body() {
@@ -662,11 +674,14 @@ impl Compile for ast::Contextual<'_> {
         let compiled = CompiledClosure::new(closure, &*compiler);
         let closure_id = compiler.closure(compiled);
 
+        // Get a register to write the temporary values to.
+        let reg = compiler.allocate();
+
         // Instantiate the closure.
-        compiler.instantiate(self.span(), closure_id, output.clone());
+        compiler.instantiate(self.span(), closure_id, reg.clone());
 
         // Create the contextual element
-        compiler.contextual(self.span(), output.clone(), output);
+        compiler.contextual(self.span(), reg.clone(), output);
 
         Ok(())
     }

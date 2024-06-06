@@ -45,8 +45,19 @@ impl CompiledPattern {
                 Value::Dict(dict) => {
                     destructure_dict(vm, engine, dict, *has_sink, tuple)?
                 }
+                other @ (Value::Str(_) | Value::Bytes(_)) => {
+                    bail!(
+                        self.span,
+                        "cannot destructure values of {}",
+                        other.ty().long_name()
+                    )
+                }
                 other => {
-                    bail!(self.span, "cannot destructure {}", other.ty().long_name())
+                    bail!(
+                        self.span,
+                        "cannot destructure {}",
+                        other.ty().long_name()
+                    )
                 }
             },
         }
@@ -67,9 +78,10 @@ fn destructure_array(
 
     let check_len = |i: usize, span: Span| {
         if i < len {
+            Ok(())
+        } else {
             bail!(span, "not enough elements to destructure")
         }
-        Ok(())
     };
 
     for p in tuple {
@@ -177,11 +189,11 @@ fn destructure_dict(
     }
 
     if let Some((span, local)) = sink {
-        let used = used.unwrap();
+        let used = used.unwrap_or_else(|| HashSet::with_capacity(0));
         if let Some(local) = local {
             let mut sink = Dict::new();
             for (key, value) in dict {
-                if !used.contains(key.as_str()) {
+                if !used.is_empty() && !used.contains(key.as_str()) {
                     sink.insert(key, value);
                 }
             }

@@ -84,9 +84,7 @@
 --- for-loop-over-string ---
 // Keys and values of strings.
 // Error: 6-12 cannot destructure values of string
-#for (k, v) in "hi" {
-  dont-care
-}
+#for (k, v) in "hi" {}
 
 --- for-loop-destructuring-without-parentheses ---
 // Destructuring without parentheses.

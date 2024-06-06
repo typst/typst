@@ -1,9 +1,9 @@
 use ecow::eco_format;
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::NativeElement;
+use crate::foundations::{unknown_variable, NativeElement};
 use crate::math::{AlignPointElem, PrimesElem};
 use crate::text::TextElem;
 
@@ -64,7 +64,7 @@ impl Compile for ast::MathIdent<'_> {
         _: &mut Engine,
     ) -> SourceResult<ReadableGuard> {
         let Some(value) = compiler.read_math(self.span(), self.get().as_str()) else {
-            bail!(self.span(), "unknown variable: {}", self.get())
+            return Err(unknown_variable(self.as_str())).at(self.span());
         };
 
         Ok(value)

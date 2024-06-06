@@ -1,5 +1,6 @@
 mod access;
 mod joiner;
+mod methods;
 mod pattern;
 mod read;
 mod run;
@@ -11,26 +12,19 @@ use std::sync::Arc;
 use comemo::Tracked;
 use typst_syntax::Span;
 
-use crate::diag::SourceResult;
-use crate::diag::StrResult;
+use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::Context;
-use crate::foundations::IntoValue;
-use crate::foundations::Recipe;
-use crate::foundations::SequenceElem;
-use crate::foundations::Styles;
-use crate::foundations::Value;
+use crate::foundations::{Content, Context, IntoValue, Recipe, SequenceElem, Styles, Value};
 use crate::lang::closure::Param;
 use crate::lang::compiled::CompiledParam;
 
 use super::closure::Closure;
-use super::compiled::CompiledClosure;
-use super::compiled::CompiledCode;
-use super::opcodes::Opcode;
-use super::opcodes::Readable;
+use super::compiled::{CompiledClosure, CompiledCode};
+use super::opcodes::{Opcode, Readable};
 use super::operands::Register;
 
 pub use self::joiner::*;
+pub use self::methods::*;
 pub use self::read::*;
 pub use self::run::*;
 pub use self::state::*;
@@ -48,23 +42,15 @@ pub struct Vm<'a, 'b> {
     registers: &'b mut [Cow<'a, Value>],
     /// The code being executed.
     code: &'a CompiledCode,
+    /// The number of iterations in the current loop.
+    iterations: usize,
+    /// The current context.
+    context: Tracked<'a, Context<'a>>,
 }
 
 impl<'a, 'b> Vm<'a, 'b> {
-    /// Creates a new VM that displays the output.
-    pub fn display(registers: &'a mut [Cow<'b, Value>], code: &'a CompiledCode) -> Self {
-        Self {
-            state: State::empty().display(true),
-            output: None,
-            instruction_pointer: 0,
-            joined: None,
-            registers,
-            code,
-        }
-    }
-
     /// Creates a new VM that does not display the output.
-    pub fn new(registers: &'a mut [Cow<'b, Value>], code: &'a CompiledCode) -> Self {
+    pub fn new(registers: &'a mut [Cow<'b, Value>], code: &'a CompiledCode, context: Tracked<'a, Context<'a>>) -> Self {
         Self {
             state: State::empty(),
             output: None,
@@ -72,11 +58,19 @@ impl<'a, 'b> Vm<'a, 'b> {
             joined: None,
             registers,
             code,
+            iterations: 0,
+            context,
         }
     }
 }
 
 impl<'a> Vm<'a, '_> {
+    /// Enable or disable displaying the output.
+    pub fn with_display(mut self, display: bool) -> Self {
+        self.state.set_display(display);
+        self
+    }
+
     /// Read a value from the VM.
     pub fn read<'b, T: Read>(&'b self, readable: T) -> T::Output<'a, 'b> {
         readable.read(self)
@@ -93,7 +87,7 @@ impl<'a> Vm<'a, '_> {
     }
 
     /// Write a value to the VM, returning a mutable reference to the value.
-    pub fn write(&mut self, writable: impl Write) -> &mut Value {
+    pub fn write(&mut self, writable: impl Write) -> Option<&mut Value> {
         writable.write(self)
     }
 
@@ -130,9 +124,14 @@ impl<'a> Vm<'a, '_> {
         self.instruction_pointer
     }
 
+    /// Increment the number of iterations.
+    pub fn iter(&mut self) -> usize {
+        self.iterations += 1;
+        self.iterations
+    }
+
     /// Join a value to the current joining state.
     pub fn join(&mut self, value: impl IntoValue) -> StrResult<()> {
-        // Convert the value to a display value if we are in display mode.
         let value = value.into_value();
 
         // We don't join `None`.
@@ -229,20 +228,22 @@ impl<'a> Vm<'a, '_> {
     }
 
     /// Enter a new scope.
-    #[typst_macros::time(name = "enter scope", span = spans[0])]
+    #[typst_macros::time(name = "enter scope", span = spans.get(0).cloned().unwrap_or_else(Span::detached))]
     pub fn enter_scope<'b>(
         &'b mut self,
         engine: &mut Engine,
         instructions: &'b [Opcode],
         spans: &'b [Span],
-        context: Tracked<Context>,
         iterator: Option<&mut dyn Iterator<Item = Value>>,
         mut output: Option<Readable>,
         content: bool,
         looping: bool,
     ) -> SourceResult<ControlFlow> {
-        let mut state =
-            State::empty().loop_(looping || iterator.is_some()).display(content);
+        // The state is built for the current scope, this means that we need to swap the state
+        // with the current state.
+        // Regarding looping, we do not care if a higher scope is looping, we only care if the
+        // current scope is looping for control flow purposes.
+        let mut state = State::empty().loop_(looping).display(content);
 
         let mut joiner = None;
         let mut instruction_pointer = 0;
@@ -252,7 +253,7 @@ impl<'a> Vm<'a, '_> {
         std::mem::swap(&mut self.joined, &mut joiner);
         std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
-        let out = run(engine, self, instructions, spans, context, iterator)?;
+        let out = run(engine, self, instructions, spans, iterator)?;
 
         std::mem::swap(&mut self.state, &mut state);
         std::mem::swap(&mut self.output, &mut output);
@@ -268,7 +269,6 @@ pub fn run<'a: 'b, 'b, 'c>(
     vm: &mut Vm<'a, 'c>,
     instructions: &'b [Opcode],
     spans: &'b [Span],
-    context: Tracked<Context>,
     mut iterator: Option<&mut dyn Iterator<Item = Value>>,
 ) -> SourceResult<ControlFlow> {
     fn next<'a: 'b, 'b, 'c>(
@@ -298,7 +298,6 @@ pub fn run<'a: 'b, 'b, 'c>(
             spans[idx],
             vm,
             engine,
-            context,
             iterator.as_mut().map_or(None, |p| Some(&mut **p)),
         )?;
 
@@ -335,7 +334,9 @@ pub fn run<'a: 'b, 'b, 'c>(
             _ => Some(vm.read(readable).clone()),
         }
     } else if let Some(joined) = vm.joined.take() {
-        Some(joined.collect(engine, context)?)
+        Some(joined.collect(engine, vm.context)?)
+    } else if vm.state.is_display() {
+        Some(Content::empty().into_value())
     } else {
         None
     };

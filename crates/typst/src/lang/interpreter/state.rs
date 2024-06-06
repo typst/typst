@@ -48,6 +48,11 @@ impl State {
         self
     }
 
+    /// Set the current flow as displaying.
+    pub fn set_display(&mut self, display: bool) {
+        self.display = display;
+    }
+
     /// Checks if we are currently displaying
     pub fn is_display(&self) -> bool {
         self.display

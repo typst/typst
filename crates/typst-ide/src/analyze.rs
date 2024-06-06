@@ -1,9 +1,9 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::engine::{Engine, Route};
-use typst::eval::{Tracer, Vm};
 use typst::foundations::{Context, Label, Scopes, Styles, Value};
 use typst::introspection::{Introspector, Locator};
+use typst::lang::{Tracer, Vm};
 use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;

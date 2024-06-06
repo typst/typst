@@ -52,7 +52,7 @@ impl PatternCompile for ast::Pattern<'_> {
                 ast::Expr::Ident(ident) => {
                     let access = if declare {
                         let id = compiler.declare(ident.span(), ident.get().as_str());
-                        Access::Writable(id)
+                        Access::Register(id)
                     } else {
                         ident.access(compiler, engine, false)?
                     };
@@ -86,7 +86,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             let access = if declare {
                                 let id =
                                     compiler.declare(ident.span(), ident.get().as_str());
-                                Access::Writable(id)
+                                Access::Register(id)
                             } else {
                                 ident.access(compiler, engine, false)?
                             };
@@ -111,7 +111,7 @@ impl PatternCompile for ast::Pattern<'_> {
                                 let access = if declare {
                                     let id = compiler
                                         .declare(ident.span(), ident.get().as_str());
-                                    Access::Writable(id)
+                                    Access::Register(id)
                                 } else {
                                     ident.access(compiler, engine, false)?
                                 };
@@ -126,7 +126,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             let access = if let ast::Expr::Ident(ident) = named.expr() {
                                 let id =
                                     compiler.declare(ident.span(), ident.get().as_str());
-                                Access::Writable(id)
+                                Access::Register(id)
                             } else if declare {
                                 bail!(
                                     named.expr().span(),

@@ -81,20 +81,20 @@ impl Args {
     }
 
     /// Push a positional argument.
-    pub fn push(&mut self, span: Span, value: Value) {
+    pub fn push(&mut self, span: Span, value_span: Span, value: Value) {
         self.items.push(Arg {
-            span: self.span,
+            span,
             name: None,
-            value: Spanned::new(value, span),
+            value: Spanned::new(value, value_span),
         })
     }
 
     /// Insert a named argument.
-    pub fn insert(&mut self, span: Span, name: Str, value: Value) {
+    pub fn insert(&mut self, span: Span, value_span: Span, name: Str, value: Value) {
         self.items.push(Arg {
-            span: self.span,
+            span,
             name: Some(name),
-            value: Spanned::new(value, span),
+            value: Spanned::new(value, value_span),
         })
     }
 

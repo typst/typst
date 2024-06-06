@@ -49,7 +49,7 @@
 // Test importing from function scopes.
 
 #import enum: item
-#import assert.with(true): *
+#import assert: *
 
 #enum(
    item(1)[First],
@@ -118,13 +118,18 @@
 --- import-source-field-access ---
 // Usual importing syntax also works for function scopes
 #let d = (e: enum)
-#import d.e
 #import d.e as renamed
 #import d.e: item
 #item(2)[a]
 
+--- import-source-field-access-wildcard ---
+#let d = (e: enum)
+// Error: 2-12 cannot import all items from a dynamic module
+// Hint: 2-12 use `import "..." as x` to give a name to the module
+#import d.e
+
 --- import-item-rename-unnecessary ---
-// Warning: 23-27 unnecessary import rename to same name
+// Warning: 15-27 unnecessary import rename to same name
 #import enum: item as item
 
 --- import-rename-unnecessary ---
@@ -136,7 +141,7 @@
 #import enum as enum: item
 
 // Warning: 17-21 unnecessary import rename to same name
-// Warning: 31-35 unnecessary import rename to same name
+// Warning: 23-35 unnecessary import rename to same name
 #import enum as enum: item as item
 
 --- import-item-rename-unnecessary-but-ok ---
@@ -146,31 +151,31 @@
 --- import-from-closure-invalid ---
 // Can't import from closures.
 #let f(x) = x
-// Error: 9-10 cannot import from user-defined functions
+// Error: 2-13 cannot import from user-defined functions
 #import f: x
 
 --- import-from-closure-renamed-invalid ---
 // Can't import from closures, despite renaming.
 #let f(x) = x
-// Error: 9-10 cannot import from user-defined functions
+// Error: 2-15 cannot import from user-defined functions
 #import f as g
 
 --- import-from-with-closure-invalid ---
 // Can't import from closures, despite modifiers.
 #let f(x) = x
-// Error: 9-18 cannot import from user-defined functions
+// Error: 2-21 cannot import from user-defined functions
 #import f.with(5): x
 
 --- import-from-with-closure-literal-invalid ---
-// Error: 9-18 cannot import from user-defined functions
+// Error: 2-21 cannot import from user-defined functions
 #import () => {5}: x
 
 --- import-from-int-invalid ---
-// Error: 9-10 expected path, module, function, or type, found integer
+// Error:2-21 expected path, module, function, or type, found integer
 #import 5: something
 
 --- import-from-int-renamed-invalid ---
-// Error: 9-10 expected path, module, function, or type, found integer
+// Error: 2-15 expected path, module, function, or type, found integer
 #import 5 as x
 
 --- import-from-string-invalid ---
@@ -196,7 +201,7 @@
 
 --- import-item-not-found ---
 // Unresolved import.
-// Error: 23-35 unresolved import
+// Error: 23-35 cannot find `non_existing` in module `module`
 #import "module.typ": non_existing
 
 --- import-cyclic ---
