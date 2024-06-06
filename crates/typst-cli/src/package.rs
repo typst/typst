@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use crate::args::PackageStorageArgs;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use termcolor::WriteColor;
@@ -14,64 +15,83 @@ use crate::download::{download, download_with_progress};
 use crate::terminal;
 
 const HOST: &str = "https://packages.typst.org";
+const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
-/// Make a package available in the on-disk cache.
-pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
-    let subdir =
-        format!("typst/packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
+/// Holds information about where packages should be stored.
+pub struct PackageStorage {
+    pub package_cache_path: Option<PathBuf>,
+    pub package_path: Option<PathBuf>,
+}
 
-    if let Some(data_dir) = dirs::data_dir() {
-        let dir = data_dir.join(&subdir);
-        if dir.exists() {
-            return Ok(dir);
-        }
+impl PackageStorage {
+    pub fn from_args(args: &PackageStorageArgs) -> Self {
+        let package_cache_path = args.package_cache_path.clone().or_else(|| {
+            dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
+        });
+        let package_path = args.package_path.clone().or_else(|| {
+            dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+        });
+        Self { package_cache_path, package_path }
     }
 
-    if let Some(cache_dir) = dirs::cache_dir() {
-        let dir = cache_dir.join(&subdir);
-        if dir.exists() {
-            return Ok(dir);
-        }
+    /// Make a package available in the on-disk cache.
+    pub fn prepare_package(&self, spec: &PackageSpec) -> PackageResult<PathBuf> {
+        let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-        // Download from network if it doesn't exist yet.
-        if spec.namespace == "preview" {
-            download_package(spec, &dir)?;
+        if let Some(packages_dir) = &self.package_path {
+            let dir = packages_dir.join(&subdir);
             if dir.exists() {
                 return Ok(dir);
             }
         }
+
+        if let Some(cache_dir) = &self.package_cache_path {
+            let dir = cache_dir.join(&subdir);
+            if dir.exists() {
+                return Ok(dir);
+            }
+
+            // Download from network if it doesn't exist yet.
+            if spec.namespace == "preview" {
+                download_package(spec, &dir)?;
+                if dir.exists() {
+                    return Ok(dir);
+                }
+            }
+        }
+
+        Err(PackageError::NotFound(spec.clone()))
     }
 
-    Err(PackageError::NotFound(spec.clone()))
-}
-
-/// Try to determine the latest version of a package.
-pub fn determine_latest_version(
-    spec: &VersionlessPackageSpec,
-) -> StrResult<PackageVersion> {
-    if spec.namespace == "preview" {
-        // For `@preview`, download the package index and find the latest
-        // version.
-        download_index()?
-            .iter()
-            .filter(|package| package.name == spec.name)
-            .map(|package| package.version)
-            .max()
-            .ok_or_else(|| eco_format!("failed to find package {spec}"))
-    } else {
-        // For other namespaces, search locally. We only search in the data
-        // directory and not the cache directory, because the latter is not
-        // intended for storage of local packages.
-        let subdir = format!("typst/packages/{}/{}", spec.namespace, spec.name);
-        dirs::data_dir()
-            .into_iter()
-            .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
-            .flatten()
-            .filter_map(|entry| entry.ok())
-            .map(|entry| entry.path())
-            .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
-            .max()
-            .ok_or_else(|| eco_format!("please specify the desired version"))
+    /// Try to determine the latest version of a package.
+    pub fn determine_latest_version(
+        &self,
+        spec: &VersionlessPackageSpec,
+    ) -> StrResult<PackageVersion> {
+        if spec.namespace == "preview" {
+            // For `@preview`, download the package index and find the latest
+            // version.
+            download_index()?
+                .iter()
+                .filter(|package| package.name == spec.name)
+                .map(|package| package.version)
+                .max()
+                .ok_or_else(|| eco_format!("failed to find package {spec}"))
+        } else {
+            // For other namespaces, search locally. We only search in the data
+            // directory and not the cache directory, because the latter is not
+            // intended for storage of local packages.
+            let subdir = format!("{}/{}", spec.namespace, spec.name);
+            self.package_path
+                .iter()
+                .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
+                .flatten()
+                .filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+                .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
+                .max()
+                .ok_or_else(|| eco_format!("please specify the desired version"))
+        }
     }
 }
 

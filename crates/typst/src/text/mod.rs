@@ -111,7 +111,8 @@ pub struct TextElem {
     ///   variable to add directories that should be scanned for fonts. The
     ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
     ///   `typst fonts` to see the fonts that Typst has discovered on your
-    ///   system.
+    ///   system. Note that you can pass the `--ignore-system-fonts` parameter
+    ///   to the CLI to ensure Typst won't search for system fonts.
     ///
     /// ```example
     /// #set text(font: "PT Sans")
