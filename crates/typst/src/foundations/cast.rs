@@ -15,8 +15,6 @@ use crate::syntax::{Span, Spanned};
 #[doc(inline)]
 pub use typst_macros::{cast, Cast};
 
-use super::is_valid_in_label_literal;
-
 /// Determine details of a type.
 ///
 /// Type casting works as follows:
@@ -338,7 +336,7 @@ impl CastInfo {
             }
         } else if let Value::Str(s) = found {
             if !matching_type && parts.iter().any(|p| p == "label") {
-                if is_valid_in_label_literal(s) {
+                if typst_syntax::is_valid_label_literal_id(s) {
                     msg.hint(eco_format!(
                         "use `<{s}>` or `label({})` to create a label",
                         s.repr()

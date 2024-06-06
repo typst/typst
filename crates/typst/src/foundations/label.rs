@@ -78,7 +78,3 @@ impl From<Label> for PicoStr {
 
 /// Indicates that an element cannot be labelled.
 pub trait Unlabellable {}
-
-pub(crate) fn is_valid_in_label_literal(id: &str) -> bool {
-    !id.is_empty() && id.chars().all(typst_syntax::is_valid_in_label)
-}
