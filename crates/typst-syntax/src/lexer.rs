@@ -920,10 +920,11 @@ fn is_math_id_continue(c: char) -> bool {
 }
 
 #[inline]
-pub fn is_valid_in_label_literal(c: char) -> bool {
+fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
 }
 
+/// Returns true if this string is valid in a label literal.
 pub fn is_valid_label_literal_id(id: &str) -> bool {
     !id.is_empty() && id.chars().all(is_valid_in_label_literal)
 }
