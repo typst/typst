@@ -247,14 +247,14 @@ impl FontStretch {
     pub fn round(self) -> Self {
         match self.0 {
             ..=562 => Self::ULTRA_CONDENSED,
-            ..=687 => Self::EXTRA_CONDENSED,
-            ..=812 => Self::CONDENSED,
-            ..=937 => Self::SEMI_CONDENSED,
-            ..=1062 => Self::NORMAL,
-            ..=1187 => Self::SEMI_EXPANDED,
-            ..=1374 => Self::EXPANDED,
-            ..=1749 => Self::EXTRA_EXPANDED,
-            _ => Self::ULTRA_EXPANDED,
+            563..=687 => Self::EXTRA_CONDENSED,
+            688..=812 => Self::CONDENSED,
+            813..=937 => Self::SEMI_CONDENSED,
+            938..=1062 => Self::NORMAL,
+            1063..=1187 => Self::SEMI_EXPANDED,
+            1188..=1374 => Self::EXPANDED,
+            1375..=1749 => Self::EXTRA_EXPANDED,
+            1750.. => Self::ULTRA_EXPANDED,
         }
     }
 
