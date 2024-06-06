@@ -243,6 +243,21 @@ impl FontStretch {
         Ratio::new(self.0 as f64 / 1000.0)
     }
 
+    /// Round to one of the pre-defined variants.
+    pub fn round(self) -> Self {
+        match self.0 {
+            ..=562 => Self::ULTRA_CONDENSED,
+            ..=687 => Self::EXTRA_CONDENSED,
+            ..=812 => Self::CONDENSED,
+            ..=937 => Self::SEMI_CONDENSED,
+            ..=1062 => Self::NORMAL,
+            ..=1187 => Self::SEMI_EXPANDED,
+            ..=1374 => Self::EXPANDED,
+            ..=1749 => Self::EXTRA_EXPANDED,
+            _ => Self::ULTRA_EXPANDED,
+        }
+    }
+
     /// The absolute ratio distance between this and another font stretch.
     pub fn distance(self, other: Self) -> Ratio {
         (self.to_ratio() - other.to_ratio()).abs()

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
 use ecow::EcoString;
-use usvg::{FontResolver, ImageHrefResolver};
+use siphasher::sip128::{Hasher128, SipHasher13};
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
@@ -31,8 +31,8 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let options = base_options();
-        let tree = usvg::Tree::from_data(&data, &options).map_err(format_usvg_error)?;
+        let tree =
+            usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
         Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
@@ -44,20 +44,23 @@ impl SvgImage {
         families: &[String],
     ) -> StrResult<SvgImage> {
         let book = world.book();
-        let resolver = Mutex::new(TypstFontResolver::new(world, book, families));
-        let options = usvg::Options {
-            font_resolver: FontResolver {
-                select_font: Box::new(|font, db| {
-                    resolver.lock().unwrap().select_font(font, db)
-                }),
-                select_fallback: Box::new(|c, exclude_fonts, db| {
-                    resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
-                }),
+        let resolver = Mutex::new(FontResolver::new(world, book, families));
+        let tree = usvg::Tree::from_data(
+            &data,
+            &usvg::Options {
+                font_resolver: usvg::FontResolver {
+                    select_font: Box::new(|font, db| {
+                        resolver.lock().unwrap().select_font(font, db)
+                    }),
+                    select_fallback: Box::new(|c, exclude_fonts, db| {
+                        resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
+                    }),
+                },
+                ..base_options()
             },
-            ..base_options()
-        };
-        let tree = usvg::Tree::from_data(&data, &options).map_err(format_usvg_error)?;
-        let font_hash = 0;
+        )
+        .map_err(format_usvg_error)?;
+        let font_hash = resolver.into_inner().unwrap().finish();
         Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
@@ -76,7 +79,7 @@ impl SvgImage {
         self.0.size.y
     }
 
-    /// Access the usvg tree.
+    /// Accesses the usvg tree.
     pub fn tree(&self) -> &usvg::Tree {
         &self.0.tree
     }
@@ -92,14 +95,11 @@ impl Hash for Repr {
     }
 }
 
-/// The conversion options.
+/// The base conversion options, to be extended with font-related options
+/// because those can change across the document.
 fn base_options() -> usvg::Options<'static> {
     usvg::Options {
-        // Disable usvg's default to "Times New Roman". Instead, we default to
-        // the empty family and later, when we traverse the SVG, we check for
-        // empty and non-existing family names and replace them with the true
-        // fallback family. This way, we can memoize SVG decoding with and
-        // without fonts if the SVG does not contain text.
+        // Disable usvg's default to "Times New Roman".
         font_family: String::new(),
 
         // We override the DPI here so that we get the correct the size when
@@ -108,8 +108,8 @@ fn base_options() -> usvg::Options<'static> {
 
         // Override usvg's resource loading defaults.
         resources_dir: None,
-        image_href_resolver: ImageHrefResolver {
-            resolve_data: ImageHrefResolver::default_data_resolver(),
+        image_href_resolver: usvg::ImageHrefResolver {
+            resolve_data: usvg::ImageHrefResolver::default_data_resolver(),
             resolve_string: Box::new(|_, _| None),
         },
 
@@ -136,15 +136,22 @@ fn format_usvg_error(error: usvg::Error) -> EcoString {
 }
 
 /// Provides Typst's fonts to usvg.
-struct TypstFontResolver<'a> {
+struct FontResolver<'a> {
+    /// Typst's font book.
     book: &'a FontBook,
+    /// The world we use to load fonts.
     world: Tracked<'a, dyn World + 'a>,
+    /// The active list of font families at the location of the SVG.
     families: &'a [String],
+    /// A mapping from Typst font indices to fontdb IDs.
     to_id: HashMap<usize, Option<fontdb::ID>>,
+    /// The reverse mapping.
     from_id: HashMap<fontdb::ID, Font>,
+    /// Accumulates a hash of all used fonts.
+    hasher: SipHasher13,
 }
 
-impl<'a> TypstFontResolver<'a> {
+impl<'a> FontResolver<'a> {
     /// Create a new font provider.
     fn new(
         world: Tracked<'a, dyn World + 'a>,
@@ -157,11 +164,18 @@ impl<'a> TypstFontResolver<'a> {
             families,
             to_id: HashMap::new(),
             from_id: HashMap::new(),
+            hasher: SipHasher13::new(),
         }
+    }
+
+    /// Returns a hash of all used fonts.
+    fn finish(self) -> u128 {
+        self.hasher.finish128().as_u128()
     }
 }
 
-impl TypstFontResolver<'_> {
+impl FontResolver<'_> {
+    /// Select a font.
     fn select_font(
         &mut self,
         font: &usvg::Font,
@@ -178,6 +192,7 @@ impl TypstFontResolver<'_> {
             .iter()
             .filter_map(|family| match family {
                 usvg::FontFamily::Named(named) => Some(named),
+                // We don't support generic families at the moment.
                 _ => None,
             })
             .chain(self.families)
@@ -185,20 +200,29 @@ impl TypstFontResolver<'_> {
             .find_map(|index| self.get_or_load(index, db))
     }
 
+    /// Select a fallback font.
     fn select_fallback(
         &mut self,
         c: char,
         exclude_fonts: &[fontdb::ID],
         db: &mut Arc<fontdb::Database>,
     ) -> Option<fontdb::ID> {
-        let base_font_id = exclude_fonts[0];
-        let font = self.from_id.get(&base_font_id)?;
-        let info = font.info();
-        let index = self.book.select_fallback(
-            Some(info),
-            info.variant,
-            c.encode_utf8(&mut [0; 4]),
-        )?;
+        // Get the font info of the originally selected font.
+        let like = exclude_fonts
+            .first()
+            .and_then(|first| self.from_id.get(first))
+            .map(|font| font.info());
+
+        // usvg doesn't provide a variant in the fallback handler, but
+        // `exclude_fonts` is actually never empty in practice. Still, we
+        // prefer to fall back to the default variant rather than panicking
+        // in case that changes in the future.
+        let variant = like.map(|info| info.variant).unwrap_or_default();
+
+        // Select the font.
+        let index =
+            self.book.select_fallback(like, variant, c.encode_utf8(&mut [0; 4]))?;
+
         self.get_or_load(index, db)
     }
 
@@ -240,22 +264,26 @@ impl TypstFontResolver<'_> {
                 FontStyle::Oblique => fontdb::Style::Oblique,
             },
             weight: fontdb::Weight(variant.weight.to_number()),
-            // TODO: Round to closest.
-            stretch: match variant.stretch {
+            stretch: match variant.stretch.round() {
                 FontStretch::ULTRA_CONDENSED => ttf_parser::Width::UltraCondensed,
                 FontStretch::EXTRA_CONDENSED => ttf_parser::Width::ExtraCondensed,
                 FontStretch::CONDENSED => ttf_parser::Width::Condensed,
                 FontStretch::SEMI_CONDENSED => ttf_parser::Width::SemiCondensed,
+                FontStretch::NORMAL => ttf_parser::Width::Normal,
                 FontStretch::SEMI_EXPANDED => ttf_parser::Width::SemiExpanded,
                 FontStretch::EXPANDED => ttf_parser::Width::Expanded,
                 FontStretch::EXTRA_EXPANDED => ttf_parser::Width::ExtraExpanded,
                 FontStretch::ULTRA_EXPANDED => ttf_parser::Width::UltraExpanded,
-                _ => ttf_parser::Width::Normal,
+                _ => unreachable!(),
             },
             monospaced: info.flags.contains(FontFlags::MONOSPACE),
         });
+
+        font.hash(&mut self.hasher);
+
         self.to_id.insert(index, Some(id));
         self.from_id.insert(id, font);
+
         Some(id)
     }
 }
