@@ -22,6 +22,7 @@
 
 --- array-bad-token ---
 // Error: 4-6 unexpected end of block comment
+// Hint: 4-6 Consider escaping the `*` or opening the block comment by adding `\*` to avoid the ambiguity.
 #(1*/2)
 
 --- array-bad-number-suffix ---

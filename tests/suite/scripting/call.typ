@@ -80,6 +80,7 @@
 
 --- call-args-bad-token ---
 // Error: 10-12 unexpected end of block comment
+// Hint: 10-12 Consider escaping the `*` or opening the block comment by adding `\*` to avoid the ambiguity.
 #func(a:1*/)
 
 --- call-args-missing-comma ---
