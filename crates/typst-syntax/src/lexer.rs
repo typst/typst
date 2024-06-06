@@ -1,10 +1,10 @@
-use ecow::{eco_format, EcoString};
+use ecow::{eco_format, eco_vec, EcoString};
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::SyntaxKind;
+use crate::{Span, SyntaxError, SyntaxKind};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -19,7 +19,7 @@ pub(super) struct Lexer<'s> {
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
-    error: Option<EcoString>,
+    error: Option<SyntaxError>,
 }
 
 /// What kind of tokens to emit.
@@ -75,7 +75,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<EcoString> {
+    pub fn take_error(&mut self) -> Option<SyntaxError> {
         self.error.take()
     }
 }
@@ -83,8 +83,20 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some(message.into());
+        self.error = Some(SyntaxError {
+            span: Span::detached(),
+            message: message.into(),
+            hints: eco_vec![],
+        });
         SyntaxKind::Error
+    }
+
+    /// If the current node is an error, adds a hint.
+    fn hint(&mut self, message: impl Into<EcoString>) {
+        if let Some(mut e) = self.take_error() {
+            e.hints.push(message.into());
+            self.error = Some(e);
+        }
     }
 }
 
