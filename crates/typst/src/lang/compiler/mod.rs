@@ -31,9 +31,10 @@ use crate::Library;
 use super::compiled::{
     CompiledClosure, CompiledCode, CompiledParam, DefaultValue, Export,
 };
-use super::opcodes::{ClosureId, Opcode, Readable};
+use super::opcodes::Opcode;
 use super::operands::{
-    AccessId, Constant, LabelId, ModuleId, PatternId, Pointer, SpanId, StringId, Writable,
+    AccessId, ClosureId, Constant, LabelId, ModuleId, PatternId, Pointer, Readable,
+    SpanId, StringId, Writable,
 };
 
 pub use self::access::*;

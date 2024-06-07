@@ -5,7 +5,7 @@ use crate::foundations::{IntoValue, Value};
 use crate::lang::compiled::{
     CompiledAccess, CompiledClosure, CompiledDynamicModule, CompiledPattern,
 };
-use crate::lang::opcodes::{
+use crate::lang::operands::{
     AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
 };
 use crate::lang::operands::{Constant, Global, Math, ModuleId, Register, StringId};

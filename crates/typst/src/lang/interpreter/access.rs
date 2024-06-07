@@ -7,7 +7,7 @@ use crate::diag::{bail, error, At, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{call_method_access, Args, IntoValue, Type, Value};
 use crate::lang::compiled::CompiledAccess;
-use crate::lang::opcodes::Readable;
+use crate::lang::operands::Readable;
 
 use super::{Read, Vm};
 

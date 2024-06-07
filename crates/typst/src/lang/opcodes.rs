@@ -7,10 +7,202 @@ use crate::engine::Engine;
 use crate::foundations::Value;
 
 use super::operands::StringId;
-pub use super::operands::{
+use super::operands::{
     AccessId, ClosureId, LabelId, ModuleId, PatternId, Pointer, Readable, SpanId,
     Writable,
 };
+
+/// Macro used to generate opcode related structures and functions.
+///
+/// Consider the following pseudo syntax (see notes down below for clarifications):
+///
+/// ```txt
+/// <operation_list> ::== <operation> ,*
+/// <operation> ::== OperationType: operation_name <output>?  => {
+///     <list_of_arguments>
+/// };
+/// <output> ::== `->` OutputType
+/// <list_of_arguments> ::== <argument> ,*
+/// <argument>: argument_name ::== ArgumentType
+/// ```
+///
+/// Calling this macro with `<operation_list>` creates :
+/// - one struct per `<operation>`:
+///   - with name `OperationType`
+///   - with one public field per `<argument>` with name `argument_name`
+///     and type `ArgumentType`.
+///   - with one public field "out" of type `OutputType` if `<output>` was present.
+/// - an [`Opcode`] enum:
+///   - with the first variant being `Flow = 0`
+///   - with one other variant per `<operation>`: `Opcode::OperationType(OperationType)`.
+/// - an impl block on [`crate::lang::compiler::Compiler`]:
+///   - with a public method per `<operation>`:
+///     - named `operation_name`
+///     - with one arg for each struct fields of type `impl Into<field_type>`
+///     - calls the [Compiler::insr](crate::lang::compiler::Compiler::insr) method
+///       with the Opcode variant corresponding to the `<operation>`.
+/// - A trait implementation of [`crate::lang::interpreter::Run`] for [`Opcode`] calling
+///   the inner [`crate::lang::interpreter::Run`] implementation for the matching opcode.
+///
+/// Behavior is then dictated by implementing `Run` for each generated structure
+/// in [interpreter/run](../interpreter/run/index.html).
+///
+/// ## Notes:
+/// - `<name> ::== ...` should be read as "the definition of `<name>` is ...".
+/// - `?` indicates an element that may or may not be there.
+/// - `*` indicates an element may be repeated 0 or more times.
+/// - `,*` indicates an element may be repeated 0 or more times, separated with
+///   commas, with or without a comma after the last element.
+macro_rules! opcodes {
+    (
+        $(
+            $(#[$sattr:meta])*
+            $name:ident: $snek:ident $(-> $out:ty)? $(=> {
+                $(
+                    $(#[$attr:meta])*
+                    $arg:ident: $arg_ty:ty
+                ),* $(,)?
+            })?
+        ),* $(,)?
+    ) => {
+        $(
+            opcode_struct! {
+                $(#[$sattr])*
+                $name $(-> $out)? $(=> {
+                    $(
+                        $(#[$attr])*
+                        $arg: $arg_ty
+                    ),*
+                })?
+            }
+        )*
+
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(u8)]
+        pub enum Opcode {
+            #[doc = "Indicates a flow event."]
+            Flow = 0,
+            $(
+                $(#[$sattr])*
+                $name($name)
+            ),*
+        }
+
+        impl<'lib> crate::lang::compiler::Compiler<'lib> {
+            $(
+                opcode_filter! {
+                    $(#[$sattr])*
+                    $name: $snek $(-> $out)? $(=> {
+                        $(
+                            $(#[$attr])*
+                            $arg: $arg_ty
+                        ),*,
+                    })?
+                }
+            )*
+        }
+
+        impl crate::lang::interpreter::Run for Opcode {
+            fn run(
+                &self,
+                instructions: &[Opcode],
+                spans: &[Span],
+                span: Span,
+                vm: &mut crate::lang::interpreter::Vm,
+                engine: &mut Engine,
+                iterator: Option<&mut dyn Iterator<Item = Value>>
+            ) -> SourceResult<()> {
+                vm.next();
+
+                let isr = vm.instruction_pointer();
+                match self {
+                    Self::Flow => Ok(()),
+                    $(Self::$name($snek) => {
+                        $snek.run(
+                            &instructions[isr..],
+                            &spans[isr..],
+                            span,
+                            vm,
+                            engine,
+                            iterator
+                        )
+                    })*
+                }
+            }
+
+        }
+    }
+}
+
+macro_rules! opcode_struct {
+    (
+        $(#[$sattr:meta])*
+        $name:ident $(-> $out:ty)? $(=> {
+            $(
+                $(#[$attr:meta])*
+                $arg:ident: $arg_ty:ty
+            ),* $(,)?
+        })?
+    ) => {
+        $(#[$sattr])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(packed)]
+        pub struct $name {
+            $(
+                $(
+                    $(#[$attr])*
+                    pub $arg: $arg_ty,
+                )*
+            )?
+            $(
+                #[doc = "The output of the instruction."]
+                pub out: $out,
+            )?
+        }
+    };
+}
+
+macro_rules! opcode_filter {
+    ($(#[$sattr:meta])*
+    $name:ident: enter $(-> $out:ty)? $(=> {
+        $(
+            $(#[$attr:meta])*
+            $arg:ident: $arg_ty:ty
+        ),* $(,)?
+    })?) => {
+        opcode_filter! {
+            $(#[$sattr])*
+            $name: enter_isr $(-> $out)? $(=> {
+                $(
+                    $(#[$attr])*
+                    $arg: $arg_ty
+                ),*,
+            })?
+        }
+    };
+    (
+        $(#[$sattr:meta])*
+    $name:ident: $snek:ident $(-> $out:ty)? $(=> {
+        $(
+            $(#[$attr:meta])*
+            $arg:ident: $arg_ty:ty
+        ),* $(,)?
+    })?) => {
+        #[allow(clippy::too_many_arguments)]
+        pub fn $snek(&mut self, span: Span, $($($arg: impl Into<$arg_ty>,)*)? $(out: impl Into<$out>)?) {
+            let opcode = $name {
+                $($(
+                    $arg: $arg.into(),
+                )*)?
+                $(
+                    out: <_ as Into<$out>>::into(out),
+                )?
+            };
+
+            self.insr(span, Opcode::$name(opcode));
+        }
+    };
+}
 
 opcodes! {
     // -----------------------------------------------------------------------------
@@ -511,8 +703,16 @@ opcodes! {
         radicand: Readable,
     },
 
+    /// Makes an equation.
+    Equation: equation -> Writable => {
+        /// The value to make into an equation.
+        value: Readable,
+        /// Whether the equation is inline or block.
+        block: bool,
+    },
+
     // -----------------------------------------------------------------------------
-    // ---------------------------------- CONTENT ----------------------------------
+    // ----------------------------------- MARKUP ----------------------------------
     // -----------------------------------------------------------------------------
 
     /// Creates a new [`RefElem`] with a supplement.
@@ -565,208 +765,4 @@ opcodes! {
         /// The description of the term.
         description: Readable,
     },
-
-    /// Makes an equation.
-    Equation: equation -> Writable => {
-        /// The value to make into an equation.
-        value: Readable,
-        /// Whether the equation is inline or block.
-        block: bool,
-    },
-}
-
-/// Macro used to generate opcode related structures and functions.
-///
-/// Consider the following pseudo syntax (see notes down below for clarifications):
-///
-/// ```txt
-/// <operation_list> ::== <operation> ,*
-///
-/// <operation> ::== OperationType: operation_name <output>?  => {
-///     <list_of_arguments>
-/// };
-///
-/// <output> ::== `->` OutputType
-///
-/// <list_of_arguments> ::== <argument> ,*
-///
-/// <argument>: argument_name ::== ArgumentType
-/// ```
-///
-/// Calling this macro with `<operation_list>` creates :
-/// - one struct per `<operation>`:
-///   - with name `OperationType`
-///   - with one public field per `<argument>` with name `argument_name` and type `ArgumentType`.
-///   - with one public field "out" of type `OutputType`  if `<output>` was present.
-///   
-/// - an `Opcode` enum (repr(u8))
-///   - with the first variant being `Flow = 0.`
-///   - with one other variant per `<operation>`: `Opcode::OutputType(OutputType)`
-///
-/// - an impl block lang::compiler::Compiler:
-///   - with a public method per `<operation>`:
-///     - named `operation_name`
-///     - with one arg for each struct fields of type `impl Into<field_type>`1
-///     - calls the [Compiler::insr](crate::lang::compiler::Compiler::insr) method with the Opcode variant corresponding to the `<operation>`.
-///
-/// - A trait implementation of `lang::interpreter::Run` for `Opcode` calling the inner Run implementation for the match Opcode.
-///
-/// Behavior is then dictated by implementing `Run` for each generated structure in [interpreter/run](../interpreter/run/index.html).
-///
-///
-/// Notes:
-/// - `<name> ::== ...` should be read as "the definition of `<name>` is ...".
-/// - `?` indicates an element that may or may not be there.
-/// - `*` indicates an element may be repeated 0 or more times.
-/// - `,*` indicates an element may be repeated 0 or more times, separated with commas, with or without a comma after the last element.
-
-macro_rules! opcodes {
-    (
-        $(
-            $(#[$sattr:meta])*
-            $name:ident: $snek:ident $(-> $out:ty)? $(=> {
-                $(
-                    $(#[$attr:meta])*
-                    $arg:ident: $arg_ty:ty
-                ),* $(,)?
-            })?
-        ),* $(,)?
-    ) => {
-        $(
-            opcode_struct! {
-                $(#[$sattr])*
-                $name $(-> $out)? $(=> {
-                    $(
-                        $(#[$attr])*
-                        $arg: $arg_ty
-                    ),*
-                })?
-            }
-        )*
-
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[repr(u8)]
-        pub enum Opcode {
-            #[doc = "Indicates a flow event."]
-            Flow = 0,
-            $(
-                $(#[$sattr])*
-                $name($name)
-            ),*
-        }
-
-        impl<'lib> crate::lang::compiler::Compiler<'lib> {
-            $(
-                opcode_filter! {
-                    $(#[$sattr])*
-                    $name: $snek $(-> $out)? $(=> {
-                        $(
-                            $(#[$attr])*
-                            $arg: $arg_ty
-                        ),*,
-                    })?
-                }
-            )*
-        }
-
-        impl crate::lang::interpreter::Run for Opcode {
-            fn run(
-                &self,
-                instructions: &[Opcode],
-                spans: &[Span],
-                span: Span,
-                vm: &mut crate::lang::interpreter::Vm,
-                engine: &mut Engine,
-                iterator: Option<&mut dyn Iterator<Item = Value>>
-            ) -> SourceResult<()> {
-                vm.next();
-
-                let isr = vm.instruction_pointer();
-                match self {
-                    Self::Flow => Ok(()),
-                    $(Self::$name($snek) => {
-                        $snek.run(
-                            &instructions[isr..],
-                            &spans[isr..],
-                            span,
-                            vm,
-                            engine,
-                            iterator
-                        )
-                    })*
-                }
-            }
-
-        }
-    }
-}
-
-macro_rules! opcode_struct {
-    (
-        $(#[$sattr:meta])*
-        $name:ident $(-> $out:ty)? $(=> {
-            $(
-                $(#[$attr:meta])*
-                $arg:ident: $arg_ty:ty
-            ),* $(,)?
-        })?
-    ) => {
-        $(#[$sattr])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[repr(packed)]
-        pub struct $name {
-            $(
-                $(
-                    $(#[$attr])*
-                    pub $arg: $arg_ty,
-                )*
-            )?
-            $(
-                #[doc = "The output of the instruction."]
-                pub out: $out,
-            )?
-        }
-    };
-}
-
-macro_rules! opcode_filter {
-    ($(#[$sattr:meta])*
-    $name:ident: enter $(-> $out:ty)? $(=> {
-        $(
-            $(#[$attr:meta])*
-            $arg:ident: $arg_ty:ty
-        ),* $(,)?
-    })?) => {
-        opcode_filter! {
-            $(#[$sattr])*
-            $name: enter_isr $(-> $out)? $(=> {
-                $(
-                    $(#[$attr])*
-                    $arg: $arg_ty
-                ),*,
-            })?
-        }
-    };
-    (
-        $(#[$sattr:meta])*
-    $name:ident: $snek:ident $(-> $out:ty)? $(=> {
-        $(
-            $(#[$attr:meta])*
-            $arg:ident: $arg_ty:ty
-        ),* $(,)?
-    })?) => {
-        #[allow(clippy::too_many_arguments)]
-        pub fn $snek(&mut self, span: Span, $($($arg: impl Into<$arg_ty>,)*)? $(out: impl Into<$out>)?) {
-            let opcode = $name {
-                $($(
-                    $arg: $arg.into(),
-                )*)?
-                $(
-                    out: <_ as Into<$out>>::into(out),
-                )?
-            };
-
-            self.insr(span, Opcode::$name(opcode));
-        }
-    };
 }

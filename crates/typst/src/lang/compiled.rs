@@ -11,7 +11,8 @@ use crate::Library;
 
 use super::closure::Closure;
 use super::compiler::Compiler;
-use super::opcodes::{AccessId, Opcode, PatternId, Readable};
+use super::opcodes::Opcode;
+use super::operands::{AccessId, PatternId, Readable};
 use super::operands::{Register, StringId};
 
 #[derive(Clone, Hash)]

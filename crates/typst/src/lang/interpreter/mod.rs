@@ -22,13 +22,14 @@ use crate::lang::compiled::CompiledParam;
 
 use super::closure::Closure;
 use super::compiled::{CompiledClosure, CompiledCode};
-use super::opcodes::{Opcode, Readable};
+use super::opcodes::Opcode;
+use super::operands::Readable;
 use super::operands::Register;
 
 pub use self::joiner::*;
 pub use self::methods::*;
 pub use self::read::*;
-pub use self::run::*;
+pub use self::run::Run;
 pub use self::state::*;
 
 pub struct Vm<'a, 'b> {

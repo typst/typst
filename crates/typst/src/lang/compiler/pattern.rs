@@ -5,8 +5,7 @@ use typst_syntax::Span;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::lang::compiled::{CompiledPattern, CompiledPatternItem, CompiledPatternKind};
-use crate::lang::opcodes::AccessId;
-use crate::lang::operands::{PatternId, StringId};
+use crate::lang::operands::{AccessId, PatternId, StringId};
 
 use super::access::{Access, CompileAccess};
 use super::{Compiler, IntoCompiledValue};
