@@ -135,10 +135,18 @@ fn compile_assign(
 
     let lhs_span = compiler.span(binary.lhs().span());
     match binary.op() {
-        ast::BinOp::AddAssign => compiler.add_assign(binary.span(), rhs, lhs_span, access),
-        ast::BinOp::SubAssign => compiler.sub_assign(binary.span(), rhs, lhs_span, access),
-        ast::BinOp::MulAssign => compiler.mul_assign(binary.span(), rhs, lhs_span, access),
-        ast::BinOp::DivAssign => compiler.div_assign(binary.span(), rhs, lhs_span, access),
+        ast::BinOp::AddAssign => {
+            compiler.add_assign(binary.span(), rhs, lhs_span, access)
+        }
+        ast::BinOp::SubAssign => {
+            compiler.sub_assign(binary.span(), rhs, lhs_span, access)
+        }
+        ast::BinOp::MulAssign => {
+            compiler.mul_assign(binary.span(), rhs, lhs_span, access)
+        }
+        ast::BinOp::DivAssign => {
+            compiler.div_assign(binary.span(), rhs, lhs_span, access)
+        }
         _ => unreachable!(),
     }
 

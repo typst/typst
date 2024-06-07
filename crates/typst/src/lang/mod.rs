@@ -139,7 +139,13 @@ pub fn eval_string(
     let module = CompiledModule::new(compiler.finish_module(root.span(), "eval", vec![]));
 
     let context = Context::none();
-    let output = run_module_as_eval(&module, &mut engine, context.track(), root.span(), matches!(mode, EvalMode::Markup | EvalMode::Math))?;
+    let output = run_module_as_eval(
+        &module,
+        &mut engine,
+        context.track(),
+        root.span(),
+        matches!(mode, EvalMode::Markup | EvalMode::Math),
+    )?;
 
     Ok(match mode {
         EvalMode::Code => output,

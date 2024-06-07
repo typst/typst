@@ -322,7 +322,9 @@ where
 impl<T> At<T> for Result<T, HintedString> {
     fn at_with(self, span: impl FnOnce() -> Span) -> SourceResult<T> {
         self.map_err(|diags| {
-            eco_vec![SourceDiagnostic::error(span(), diags.message).with_hints(diags.hints)]
+            eco_vec![
+                SourceDiagnostic::error(span(), diags.message).with_hints(diags.hints)
+            ]
         })
     }
 }

@@ -14,7 +14,9 @@ use typst_syntax::Span;
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{Content, Context, IntoValue, Recipe, SequenceElem, Styles, Value};
+use crate::foundations::{
+    Content, Context, IntoValue, Recipe, SequenceElem, Styles, Value,
+};
 use crate::lang::closure::Param;
 use crate::lang::compiled::CompiledParam;
 
@@ -50,7 +52,11 @@ pub struct Vm<'a, 'b> {
 
 impl<'a, 'b> Vm<'a, 'b> {
     /// Creates a new VM that does not display the output.
-    pub fn new(registers: &'a mut [Cow<'b, Value>], code: &'a CompiledCode, context: Tracked<'a, Context<'a>>) -> Self {
+    pub fn new(
+        registers: &'a mut [Cow<'b, Value>],
+        code: &'a CompiledCode,
+        context: Tracked<'a, Context<'a>>,
+    ) -> Self {
         Self {
             state: State::empty(),
             output: None,
@@ -100,6 +106,7 @@ impl<'a> Vm<'a, '_> {
         writable.write_one(self, value)
     }
 
+    /// Write a borrowed value to the VM.
     pub fn write_borrowed(&mut self, reg: Register, value: &'a Value) {
         self.registers[reg.0 as usize] = Cow::Borrowed(value);
     }

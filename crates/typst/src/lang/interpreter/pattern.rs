@@ -53,11 +53,7 @@ impl CompiledPattern {
                     )
                 }
                 other => {
-                    bail!(
-                        self.span,
-                        "cannot destructure {}",
-                        other.ty().long_name()
-                    )
+                    bail!(self.span, "cannot destructure {}", other.ty().long_name())
                 }
             },
         }

@@ -5,7 +5,9 @@ use super::call::ArgsCompile;
 use super::{Compile, Compiler, IntoCompiledValue, ReadableGuard, RegisterGuard};
 use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cannot_mutate_constant, unknown_variable, Func, IntoValue, Module, Type, Value};
+use crate::foundations::{
+    cannot_mutate_constant, unknown_variable, Func, IntoValue, Module, Type, Value,
+};
 use crate::lang::compiled::CompiledAccess;
 use crate::lang::operands::AccessId;
 use crate::utils::PicoStr;
@@ -113,9 +115,7 @@ impl CompileAccess for ast::Expr<'_> {
     ) -> SourceResult<Access> {
         match self {
             Self::Ident(v) => v.access(compiler, engine, mutable),
-            Self::Parenthesized(v) => {
-                v.access(compiler, engine, mutable)
-            }
+            Self::Parenthesized(v) => v.access(compiler, engine, mutable),
             Self::FieldAccess(v) => v.access(compiler, engine, mutable),
             Self::FuncCall(v) => v.access(compiler, engine, mutable),
             _ if mutable => {
@@ -148,7 +148,7 @@ impl CompileAccess for ast::Ident<'_> {
                 }
 
                 Ok(Access::Register(reg))
-            },
+            }
             Some(ReadableGuard::Captured(cap)) => {
                 if mutable {
                     bail!(self.span(), "variables from outside the function are read-only and cannot be modified")
@@ -187,8 +187,8 @@ impl CompileAccess for ast::Ident<'_> {
 
                 // Special case for
 
-                return Err(unknown_variable(self.get())).at(self.span())
-            },
+                return Err(unknown_variable(self.get())).at(self.span());
+            }
             _ => bail!(self.span(), "unexpected variable access"),
         }
     }
@@ -233,18 +233,10 @@ impl CompileAccess for ast::FieldAccess<'_> {
         }
 
         Ok(match &left {
-            Access::Global(global) => {
-                Access::from(field!(self, global, field, left))
-            }
-            Access::Type(ty) => {
-                Access::from(field!(self, ty, field, left))
-            },
-            Access::Func(func) => {
-                Access::from(field!(self, func, field, left))
-            },
-            Access::Value(value) => {
-                Access::from(field!(self, value, field, left))
-            },
+            Access::Global(global) => Access::from(field!(self, global, field, left)),
+            Access::Type(ty) => Access::from(field!(self, ty, field, left)),
+            Access::Func(func) => Access::from(field!(self, func, field, left)),
+            Access::Value(value) => Access::from(field!(self, value, field, left)),
             _ => {
                 let index = compiler.access(left);
                 Access::Chained(

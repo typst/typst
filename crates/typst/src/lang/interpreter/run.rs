@@ -554,7 +554,8 @@ impl SimpleRun for InstantiateModule {
         let module = vm.read(self.module);
 
         // Load the module, we know it's static.
-        let ImportedModule::Static(loaded) = import_value(engine, path, span, true)? else {
+        let ImportedModule::Static(loaded) = import_value(engine, path, span, true)?
+        else {
             bail!(span, "expected static module, found dynamic module");
         };
 
@@ -579,7 +580,8 @@ impl SimpleRun for Include {
         let path = vm.read(self.path);
 
         // Load the module, we know it's static.
-        let ImportedModule::Static(loaded) = import_value(engine, path, span, false)? else {
+        let ImportedModule::Static(loaded) = import_value(engine, path, span, false)?
+        else {
             bail!(span, "expected static module, found dynamic module");
         };
 
@@ -610,12 +612,7 @@ impl SimpleRun for Instantiate {
 }
 
 impl SimpleRun for Call {
-    fn run(
-        &self,
-        span: Span,
-        vm: &mut Vm,
-        engine: &mut Engine,
-    ) -> SourceResult<()> {
+    fn run(&self, span: Span, vm: &mut Vm, engine: &mut Engine) -> SourceResult<()> {
         // Check that we're not exceeding the call depth limit.
         if !engine.route.within(Route::MAX_CALL_DEPTH) {
             bail!(span, "maximum function call depth exceeded");
@@ -792,15 +789,8 @@ impl Run for While {
         let spans = &spans[..self.len as usize];
 
         // Runt the loop inside a new scope.
-        let flow = vm.enter_scope(
-            engine,
-            instructions,
-            spans,
-            None,
-            None,
-            self.content,
-            true,
-        )?;
+        let flow =
+            vm.enter_scope(engine, instructions, spans, None, None, self.content, true)?;
 
         let mut forced_return = false;
         let output = match flow {
@@ -1210,15 +1200,8 @@ impl Run for Enter {
         let spans = &spans[..self.len as usize];
 
         // Enter the scope within the vm.
-        let flow = vm.enter_scope(
-            engine,
-            instructions,
-            spans,
-            None,
-            None,
-            self.content,
-            false,
-        )?;
+        let flow =
+            vm.enter_scope(engine, instructions, spans, None, None, self.content, false)?;
 
         let mut forced_return = false;
         let output = match flow {

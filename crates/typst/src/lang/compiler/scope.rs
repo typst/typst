@@ -72,7 +72,7 @@ impl<'lib> Scope<'lib> {
     /// Whether we are in a function.
     pub fn in_function(&self) -> bool {
         self.flags.contains(ScopeFlags::IN_FUNCTION)
-        || self.parent.as_ref().map_or(false, |p| p.borrow().in_function())
+            || self.parent.as_ref().map_or(false, |p| p.borrow().in_function())
     }
 
     /// Whether we are in a loop.
@@ -139,11 +139,7 @@ impl<'lib> Scope<'lib> {
     ) {
         self.variables.insert(
             name.into(),
-            Variable {
-                register: register.clone(),
-                span,
-                constant: false,
-            },
+            Variable { register: register.clone(), span, constant: false },
         );
     }
 
@@ -168,14 +164,8 @@ impl<'lib> Scope<'lib> {
             self.default(register.clone(), default);
         }
 
-        self.variables.insert(
-            name.into(),
-            Variable {
-                register: register.clone(),
-                constant,
-                span,
-            },
-        );
+        self.variables
+            .insert(name.into(), Variable { register: register.clone(), constant, span });
         register
     }
 

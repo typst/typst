@@ -625,7 +625,7 @@ opcodes! {
     // ----------------------------------- MATH ------------------------------------
     // -----------------------------------------------------------------------------
 
-    /// Creates a new [`LrElem`].
+    /// Creates a new `LrElem`.
     Delimited: delimited -> Writable => {
         /// The left delimiter.
         left: Readable,
@@ -635,7 +635,7 @@ opcodes! {
         right: Readable,
     },
 
-    /// Builds an [`AttachElem`].
+    /// Builds an `AttachElem`.
     Attach: attach -> Writable => {
         /// The base value.
         base: Readable,

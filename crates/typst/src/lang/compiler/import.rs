@@ -296,7 +296,7 @@ pub fn import_value(
         Value::Module(module) => Ok(ImportedModule::Static(module.clone())),
         Value::Str(path) => import(engine, path.as_str(), span),
         Value::Func(func) => {
-            let Some(scope) =  func.scope() else {
+            let Some(scope) = func.scope() else {
                 bail!(span, "cannot import from user-defined functions");
             };
 
@@ -484,7 +484,9 @@ impl Import for Module {
                                 ));
                             }
 
-                            if renamed.original_name().as_str() == renamed.new_name().as_str() {
+                            if renamed.original_name().as_str()
+                                == renamed.new_name().as_str()
+                            {
                                 engine.tracer.warn(warning!(
                                     renamed.span(),
                                     "unnecessary import rename to same name",
