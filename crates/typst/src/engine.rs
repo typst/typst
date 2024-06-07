@@ -6,7 +6,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 
 use crate::diag::SourceResult;
 use crate::eval::Tracer;
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::Introspector;
 use crate::syntax::FileId;
 use crate::World;
 
@@ -19,8 +19,6 @@ pub struct Engine<'a> {
     /// The route the engine took during compilation. This is used to detect
     /// cyclic imports and excessive nesting.
     pub route: Route<'a>,
-    /// Provides stable identities to elements.
-    pub locator: &'a mut Locator<'a>,
     /// The tracer for inspection of the values an expression produces.
     pub tracer: TrackedMut<'a, Tracer>,
 }
@@ -148,6 +146,8 @@ impl<'a> Route<'a> {
 
     /// Whether the route's depth is less than or equal to the given depth.
     pub fn within(&self, depth: usize) -> bool {
+        // We only need atomicity and no synchronization of other operations, so
+        // `Relaxed` is fine.
         use Ordering::Relaxed;
 
         let upper = self.upper.load(Relaxed);
@@ -183,8 +183,6 @@ impl Clone for Route<'_> {
             outer: self.outer,
             id: self.id,
             len: self.len,
-            // The ordering doesn't really matter since it's the upper bound
-            // is only an optimization.
             upper: AtomicUsize::new(self.upper.load(Ordering::Relaxed)),
         }
     }

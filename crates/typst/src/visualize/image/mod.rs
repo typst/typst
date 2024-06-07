@@ -19,6 +19,7 @@ use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
     StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, FixedAlignment, Frame, FrameItem, Length, Point, Region, Rel,
     Size,
@@ -159,7 +160,8 @@ impl Show for Packed<ImageElem> {
         Ok(BlockElem::single_layouter(self.clone(), layout_image)
             .with_width(self.width(styles))
             .with_height(self.height(styles))
-            .pack())
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -174,6 +176,7 @@ impl Figurable for Packed<ImageElem> {}
 fn layout_image(
     elem: &Packed<ImageElem>,
     engine: &mut Engine,
+    _: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {

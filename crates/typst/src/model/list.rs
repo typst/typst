@@ -6,6 +6,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
     Smart, StyleChain, Styles, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
     Regions, Sizing, Spacing, VAlignment, VElem,
@@ -139,7 +140,9 @@ impl ListElem {
 
 impl Show for Packed<ListElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = BlockElem::multi_layouter(self.clone(), layout_list).pack();
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_list)
+            .pack()
+            .spanned(self.span());
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
@@ -156,6 +159,7 @@ impl Show for Packed<ListElem> {
 fn layout_list(
     elem: &Packed<ListElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
@@ -176,11 +180,16 @@ fn layout_list(
         .aligned(HAlignment::Start + VAlignment::Top);
 
     let mut cells = vec![];
+    let mut locator = locator.split();
+
     for item in elem.children() {
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(marker.clone()));
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(item.body().clone().styled(ListElem::set_depth(Depth(1)))));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(
+            item.body.clone().styled(ListElem::set_depth(Depth(1))),
+            locator.next(&item.body.span()),
+        ));
     }
 
     let grid = CellGrid::new(

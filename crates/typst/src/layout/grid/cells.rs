@@ -12,7 +12,10 @@ use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Reflect,
     Resolve, Smart, StyleChain, Value,
 };
-use crate::layout::{Abs, Alignment, Axes, Length, LinePosition, Rel, Sides, Sizing};
+use crate::introspection::Locator;
+use crate::layout::{
+    Abs, Alignment, Axes, Fragment, Length, LinePosition, Regions, Rel, Sides, Sizing,
+};
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
@@ -155,10 +158,11 @@ where
 }
 
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
-#[derive(Clone)]
-pub struct Cell {
+pub struct Cell<'a> {
     /// The cell's body.
     pub body: Content,
+    /// The cell's locator.
+    pub locator: Locator<'a>,
     /// The cell's fill.
     pub fill: Option<Paint>,
     /// The amount of columns spanned by the cell.
@@ -184,11 +188,12 @@ pub struct Cell {
     pub breakable: bool,
 }
 
-impl From<Content> for Cell {
-    /// Create a simple cell given its body.
-    fn from(body: Content) -> Self {
+impl<'a> Cell<'a> {
+    /// Create a simple cell given its body and its locator.
+    pub fn new(body: Content, locator: Locator<'a>) -> Self {
         Self {
             body,
+            locator,
             fill: None,
             colspan: NonZeroUsize::ONE,
             rowspan: NonZeroUsize::ONE,
@@ -197,13 +202,32 @@ impl From<Content> for Cell {
             breakable: true,
         }
     }
+
+    /// Layout the cell into the given regions.
+    ///
+    /// The `disambiguator` indicates which instance of this cell this should be
+    /// layouted as. For normal cells, it is always `0`, but for headers and
+    /// footers, it indicates the index of the header/footer among all. See the
+    /// [`Locator`] docs for more details on the concepts behind this.
+    pub fn layout(
+        &self,
+        engine: &mut Engine,
+        disambiguator: usize,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        let mut locator = self.locator.relayout();
+        if disambiguator > 0 {
+            locator = locator.split().next_inner(disambiguator as u128);
+        }
+        self.body.layout(engine, locator, styles, regions)
+    }
 }
 
 /// A grid entry.
-#[derive(Clone)]
-pub(super) enum Entry {
+pub(super) enum Entry<'a> {
     /// An entry which holds a cell.
-    Cell(Cell),
+    Cell(Cell<'a>),
     /// An entry which is merged with another cell.
     Merged {
         /// The index of the cell this entry is merged with.
@@ -211,9 +235,9 @@ pub(super) enum Entry {
     },
 }
 
-impl Entry {
+impl<'a> Entry<'a> {
     /// Obtains the cell inside this entry, if this is not a merged cell.
-    fn as_cell(&self) -> Option<&Cell> {
+    fn as_cell(&self) -> Option<&Cell<'a>> {
         match self {
             Self::Cell(cell) => Some(cell),
             Self::Merged { .. } => None,
@@ -269,7 +293,7 @@ pub trait ResolvableCell {
     /// the `breakable` field.
     /// Returns a final Cell.
     #[allow(clippy::too_many_arguments)]
-    fn resolve_cell(
+    fn resolve_cell<'a>(
         self,
         x: usize,
         y: usize,
@@ -278,8 +302,9 @@ pub trait ResolvableCell {
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
+        locator: Locator<'a>,
         styles: StyleChain,
-    ) -> Cell;
+    ) -> Cell<'a>;
 
     /// Returns this cell's column override.
     fn x(&self, styles: StyleChain) -> Smart<usize>;
@@ -298,9 +323,9 @@ pub trait ResolvableCell {
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
-pub struct CellGrid {
+pub struct CellGrid<'a> {
     /// The grid cells.
-    pub(super) entries: Vec<Entry>,
+    pub(super) entries: Vec<Entry<'a>>,
     /// The column tracks including gutter tracks.
     pub(super) cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
@@ -321,12 +346,12 @@ pub struct CellGrid {
     pub(super) has_gutter: bool,
 }
 
-impl CellGrid {
+impl<'a> CellGrid<'a> {
     /// Generates the cell grid, given the tracks and cells.
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: impl IntoIterator<Item = Cell>,
+        cells: impl IntoIterator<Item = Cell<'a>>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
         Self::new_internal(tracks, gutter, vec![], vec![], None, None, entries)
@@ -342,6 +367,7 @@ impl CellGrid {
     pub fn resolve<T, C, I>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
+        locator: Locator<'a>,
         children: C,
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
@@ -357,6 +383,8 @@ impl CellGrid {
         C: IntoIterator<Item = ResolvableGridChild<T, I>>,
         C::IntoIter: ExactSizeIterator,
     {
+        let mut locator = locator.split();
+
         // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
 
@@ -660,6 +688,7 @@ impl CellGrid {
                     inset.resolve(engine, styles, x, y)?,
                     stroke.resolve(engine, styles, x, y)?,
                     resolve_breakable(y, rowspan),
+                    locator.next(&cell_span),
                     styles,
                 );
 
@@ -687,7 +716,7 @@ impl CellGrid {
                     // (they can be overridden later); however, if no cells
                     // occupy them as we finish building the grid, then such
                     // positions will be replaced by empty cells.
-                    resolved_cells.resize(new_len, None);
+                    resolved_cells.resize_with(new_len, || None);
                 }
 
                 // The vector is large enough to contain the cell, so we can
@@ -921,6 +950,7 @@ impl CellGrid {
                         inset.resolve(engine, styles, x, y)?,
                         stroke.resolve(engine, styles, x, y)?,
                         resolve_breakable(y, 1),
+                        locator.next(&()),
                         styles,
                     );
                     Ok(Entry::Cell(new_cell))
@@ -1101,7 +1131,7 @@ impl CellGrid {
         hlines: Vec<Vec<Line>>,
         header: Option<Repeatable<Header>>,
         footer: Option<Repeatable<Footer>>,
-        entries: Vec<Entry>,
+        entries: Vec<Entry<'a>>,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -1163,7 +1193,7 @@ impl CellGrid {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    pub(super) fn entry(&self, x: usize, y: usize) -> Option<&Entry> {
+    pub(super) fn entry(&self, x: usize, y: usize) -> Option<&Entry<'a>> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
@@ -1185,7 +1215,7 @@ impl CellGrid {
     ///
     /// Returns `None` if it's a gutter cell or merged position.
     #[track_caller]
-    pub(super) fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
+    pub(super) fn cell(&self, x: usize, y: usize) -> Option<&Cell<'a>> {
         self.entry(x, y).and_then(Entry::as_cell)
     }
 

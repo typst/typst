@@ -69,13 +69,13 @@ pub use self::transform::*;
 
 pub(crate) use self::inline::*;
 
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::{Introspector, Locator, LocatorLink};
 use crate::model::Document;
 use crate::realize::{realize_doc, realize_flow, Arenas};
 use crate::World;
@@ -138,21 +138,20 @@ impl Content {
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
             route: Tracked<Route>,
-            locator: Tracked<Locator>,
             tracer: TrackedMut<Tracer>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
-            let mut locator = Locator::chained(locator);
+            let mut locator = Locator::root().split();
             let mut engine = Engine {
                 world,
                 introspector,
                 route: Route::extend(route).unnested(),
-                locator: &mut locator,
                 tracer,
             };
             let arenas = Arenas::default();
-            let (document, styles) = realize_doc(&mut engine, &arenas, content, styles)?;
-            document.layout(&mut engine, styles)
+            let (document, styles) =
+                realize_doc(&mut engine, locator.next(&()), &arenas, content, styles)?;
+            document.layout(&mut engine, locator.next(&()), styles)
         }
 
         cached(
@@ -160,7 +159,6 @@ impl Content {
             engine.world,
             engine.introspector,
             engine.route.track(),
-            engine.locator.track(),
             TrackedMut::reborrow_mut(&mut engine.tracer),
             styles,
         )
@@ -170,22 +168,7 @@ impl Content {
     pub fn layout(
         &self,
         engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let fragment = self.measure(engine, styles, regions)?;
-        engine.locator.visit_frames(&fragment);
-        Ok(fragment)
-    }
-
-    /// Layout without side effects.
-    ///
-    /// For the results to be valid, the element must either be layouted again
-    /// or the measurement must be confirmed through a call to
-    /// `engine.locator.visit_frames(&fragment)`.
-    pub fn measure(
-        &self,
-        engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -196,17 +179,17 @@ impl Content {
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
             route: Tracked<Route>,
-            locator: Tracked<Locator>,
             tracer: TrackedMut<Tracer>,
+            locator: Tracked<Locator>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
-            let mut locator = Locator::chained(locator);
+            let link = LocatorLink::new(locator);
+            let locator = Locator::link(&link);
             let mut engine = Engine {
                 world,
                 introspector,
                 route: Route::extend(route),
-                locator: &mut locator,
                 tracer,
             };
 
@@ -219,14 +202,16 @@ impl Content {
 
             // If we are in a `PageElem`, this might already be a realized flow.
             if let Some(flow) = content.to_packed::<FlowElem>() {
-                return flow.layout(&mut engine, styles, regions);
+                return flow.layout(&mut engine, locator, styles, regions);
             }
 
             // Layout the content by first turning it into a `FlowElem` and then
             // layouting that.
+            let mut locator = locator.split();
             let arenas = Arenas::default();
-            let (flow, styles) = realize_flow(&mut engine, &arenas, content, styles)?;
-            flow.layout(&mut engine, styles, regions)
+            let (flow, styles) =
+                realize_flow(&mut engine, locator.next(&()), &arenas, content, styles)?;
+            flow.layout(&mut engine, locator.next(&()), styles, regions)
         }
 
         cached(
@@ -234,8 +219,8 @@ impl Content {
             engine.world,
             engine.introspector,
             engine.route.track(),
-            engine.locator.track(),
             TrackedMut::reborrow_mut(&mut engine.tracer),
+            locator.track(),
             styles,
             regions,
         )

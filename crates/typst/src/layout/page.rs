@@ -12,7 +12,9 @@ use crate::foundations::{
     cast, elem, AutoValue, Cast, Content, Context, Dict, Fold, Func, NativeElement,
     Packed, Resolve, Smart, StyleChain, Value,
 };
-use crate::introspection::{Counter, CounterDisplayElem, CounterKey, ManualPageCounter};
+use crate::introspection::{
+    Counter, CounterDisplayElem, CounterKey, Locator, ManualPageCounter,
+};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, Length,
     OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
@@ -349,10 +351,13 @@ impl Packed<PageElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
         extend_to: Option<Parity>,
     ) -> SourceResult<Vec<Page>> {
+        let mut locator = locator.split();
+
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = self.width(styles).unwrap_or(Abs::inf());
@@ -400,7 +405,9 @@ impl Packed<PageElem> {
         regions.root = true;
 
         // Layout the child.
-        let mut frames = child.layout(engine, styles, regions)?.into_frames();
+        let mut frames = child
+            .layout(engine, locator.next(&self.span()), styles, regions)?
+            .into_frames();
 
         // Align the child to the pagebreak's parity.
         // Check for page count after adding the pending frames
@@ -504,7 +511,7 @@ impl Packed<PageElem> {
                 let sub = content
                     .clone()
                     .styled(AlignElem::set_alignment(align))
-                    .layout(engine, styles, pod)?
+                    .layout(engine, locator.next(&content.span()), styles, pod)?
                     .into_frame();
 
                 if ptr::eq(marginal, header) || ptr::eq(marginal, background) {

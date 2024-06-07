@@ -6,6 +6,7 @@ use crate::foundations::{
     elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
     Unlabellable,
 };
+use crate::introspection::Locator;
 use crate::layout::{Em, Fragment, Length, Size};
 use crate::realize::StyleVec;
 
@@ -138,6 +139,7 @@ impl Packed<ParElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         consecutive: bool,
         region: Size,
@@ -146,6 +148,7 @@ impl Packed<ParElem> {
         crate::layout::layout_inline(
             &self.children,
             engine,
+            locator,
             styles,
             consecutive,
             region,
