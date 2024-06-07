@@ -98,7 +98,7 @@ shell-escape = "0.1.5"
 siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
-subsetter = "0.1.1"
+subsetter = {path = "../subsetter"}
 svg2pdf = "0.11.0"
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }

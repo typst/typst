@@ -11,6 +11,7 @@ use std::hash::Hash;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::{Dict, Finish, Name, Ref};
+use subsetter::GlyphRemapper;
 use typst::text::Lang;
 use typst::{text::Font, utils::Deferred, visualize::Image};
 
@@ -82,6 +83,8 @@ pub struct Resources<R = Ref> {
     /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
     /// cmap. This is important for copy-paste and searching.
     pub glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+
+    pub glyph_remappers: HashMap<Font, GlyphRemapper>,
 }
 
 impl<R: Renumber> Renumber for Resources<R> {
@@ -112,6 +115,7 @@ impl Default for Resources<()> {
             color_fonts: None,
             languages: BTreeMap::new(),
             glyph_sets: HashMap::new(),
+            glyph_remappers: HashMap::new()
         }
     }
 }
@@ -138,6 +142,7 @@ impl Resources<()> {
                 .map(|(c, r)| Box::new(c.with_refs(r))),
             languages: self.languages,
             glyph_sets: self.glyph_sets,
+            glyph_remappers: self.glyph_remappers
         }
     }
 }

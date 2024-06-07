@@ -9,6 +9,7 @@ use pdf_writer::{
     types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
     Content, Finish, Name, Rect, Str,
 };
+use subsetter::GlyphRemapper;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
 };
@@ -476,6 +477,12 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let mut adjustment = Em::zero();
     let mut encoded = vec![];
 
+    let glyph_remapper = ctx
+        .resources
+        .glyph_remappers
+        .entry(text.item.font.clone())
+        .or_insert_with(|| GlyphRemapper::new());
+
     // Write the glyphs with kerning adjustments.
     for glyph in text.glyphs() {
         adjustment += glyph.x_offset;
@@ -490,7 +497,7 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
             adjustment = Em::zero();
         }
 
-        let cid = crate::font::glyph_cid(&text.item.font, glyph.id);
+        let cid = glyph_remapper.remap(glyph.id);
         encoded.push((cid >> 8) as u8);
         encoded.push((cid & 0xff) as u8);
 
