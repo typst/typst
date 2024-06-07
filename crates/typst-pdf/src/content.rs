@@ -530,7 +530,7 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
     // displays regular glyphs and not color glyphs.
     ctx.state.font = None;
 
-    let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
+    let glyph_set = ctx.resources.color_glyph_sets.entry(text.item.font.clone()).or_default();
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.

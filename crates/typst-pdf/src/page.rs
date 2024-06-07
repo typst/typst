@@ -53,6 +53,7 @@ pub fn traverse_pages(
     }
 
     improve_glyph_sets(&mut resources.glyph_sets);
+    improve_glyph_sets(&mut resources.color_glyph_sets);
 
     (PdfChunk::new(), (pages, resources))
 }
