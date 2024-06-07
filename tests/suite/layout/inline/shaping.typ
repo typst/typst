@@ -59,3 +59,7 @@ A🐈ዲሞB
 
 // This should be a 1 in a box.
 1️⃣
+
+--- shaping-emoji-bad-zwj ---
+// These two shouldn't be affected by a zero-width joiner.
+🏞‍🌋
