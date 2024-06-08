@@ -12,7 +12,6 @@ use crate::layout::Axes;
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
-use crate::visualize::Image;
 use crate::World;
 
 /// A decoded SVG.
