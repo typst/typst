@@ -8,7 +8,7 @@ use typst::World;
 use crate::analyze::analyze_import;
 use crate::{deref_target, named_items, DerefTarget, NamedItem};
 
-/// Find the definition of item under the cursor.
+/// Find the definition of the item under the cursor.
 ///
 /// Passing a `document` (from a previous compilation) is optional, but enhances
 /// the autocompletions. Label completions, for instance, are only generated
