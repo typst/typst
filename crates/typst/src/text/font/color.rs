@@ -34,46 +34,55 @@ pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
 
     if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
         draw_raster_glyph(&mut frame, font, upem, raster_image);
-    } else if let Some(document) = font.ttf().glyph_svg_image(glyph_id) {
-        draw_svg_glyph(&mut frame, upem, document.data);
     } else if ttf.is_color_glyph(glyph_id) {
-        let mut svg = XmlWriter::new(xmlwriter::Options::default());
-
-        svg.start_element("svg");
-        svg.write_attribute("xmlns", "http://www.w3.org/2000/svg");
-        svg.write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-
-        let mut path_buf = String::with_capacity(256);
-        let gradient_index = 1;
-        let clip_path_index = 1;
-
-        svg.start_element("g");
-
-        let mut glyph_painter = GlyphPainter {
-            face: &ttf,
-            svg: &mut svg,
-            path_buf: &mut path_buf,
-            gradient_index,
-            clip_path_index,
-            palette_index: 0,
-            transform: ttf_parser::Transform::default(),
-            outline_transform: ttf_parser::Transform::default(),
-            transforms_stack: vec![ttf_parser::Transform::default()],
-        };
-
-        ttf.paint_color_glyph(
-            glyph_id,
-            0,
-            RgbaColor::new(0, 0, 0, 255),
-            &mut glyph_painter,
-        ).unwrap();
-        svg.end_element();
-
-        let data = svg.end_document();
-        draw_svg_glyph(&mut frame, upem, data.as_bytes());
+        draw_colr_glyph(&mut frame, upem, ttf, glyph_id);
+    } else if let Some(document) = font.ttf().glyph_svg_image(glyph_id) {
+        draw_svg_glyph(&mut frame, upem, document.data, false);
     }
 
     frame
+}
+
+fn draw_colr_glyph(
+    frame: &mut Frame,
+    upem: Abs,
+    ttf: &ttf_parser::Face,
+    glyph_id: GlyphId
+) {
+    let mut svg = XmlWriter::new(xmlwriter::Options::default());
+
+    svg.start_element("svg");
+    svg.write_attribute("xmlns", "http://www.w3.org/2000/svg");
+    svg.write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+    let mut path_buf = String::with_capacity(256);
+    let gradient_index = 1;
+    let clip_path_index = 1;
+
+    svg.start_element("g");
+
+    let mut glyph_painter = GlyphPainter {
+        face: &ttf,
+        svg: &mut svg,
+        path_buf: &mut path_buf,
+        gradient_index,
+        clip_path_index,
+        palette_index: 0,
+        transform: ttf_parser::Transform::default(),
+        outline_transform: ttf_parser::Transform::default(),
+        transforms_stack: vec![ttf_parser::Transform::default()],
+    };
+
+    ttf.paint_color_glyph(
+        glyph_id,
+        0,
+        RgbaColor::new(0, 0, 0, 255),
+        &mut glyph_painter,
+    ).unwrap();
+    svg.end_element();
+
+    let data = svg.end_document();
+    draw_svg_glyph(frame, upem, &data.as_bytes(), true);
 }
 
 /// Draws a raster glyph in a frame.
@@ -113,6 +122,7 @@ fn draw_svg_glyph(
     frame: &mut Frame,
     upem: Abs,
     data: &[u8],
+    is_colr: bool
 ) -> Option<()> {
     let mut data = data;
     // Decompress SVGZ.
@@ -162,6 +172,13 @@ fn draw_svg_glyph(
     // takes into account these values to clip the embedded SVG.
     // println!("{}", data);
     make_svg_unsized(&mut data);
+
+    let transform = if is_colr {
+        format!("matrix(1 0 0 -1 0 {height}) matrix(1 0 0 1 {tx} {ty})", tx = -left, ty = -top)
+    }   else {
+        format!("matrix(1 0 0 1 {tx} {ty})", tx = -left, ty = -top)
+    };
+
     let wrapper_svg = format!(
         r#"
         <svg
@@ -169,17 +186,13 @@ fn draw_svg_glyph(
             height="{height}"
             viewBox="0 0 {width} {height}"
             xmlns="http://www.w3.org/2000/svg">
-            <g transform="matrix(1 0 0 -1 0 {height}) matrix(1 0 0 1 {tx} {ty})">
+            <g transform="{transform}">
             {inner}
             </g>
         </svg>
     "#,
-        inner = data,
-        tx = -left,
-        ty = -top,
+        inner = data
     );
-
-    std::fs::write("out.svg", wrapper_svg.clone());
 
     let image = Image::new(
         wrapper_svg.into_bytes().into(),
@@ -187,7 +200,14 @@ fn draw_svg_glyph(
         None,
     )
     .unwrap();
-    let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
+
+    let y_shift = if is_colr {
+        Abs::pt(-top)
+    }   else {
+        Abs::pt(top) + upem
+    };
+
+    let position = Point::new(Abs::pt(left), y_shift);
     let size = Axes::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
 
