@@ -89,6 +89,7 @@ fn destructure_array<F>(
 where
     F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
+    let destruct_len = destruct.items().count();
     let len = value.as_slice().len();
     let mut i = 0;
 
@@ -96,16 +97,22 @@ where
         match p {
             ast::DestructuringItem::Pattern(pattern) => {
                 let Ok(v) = value.at(i as i64, None) else {
-                    bail!(pattern.span(), "not enough elements to destructure");
+                    bail!(
+                        pattern.span(), "not enough elements to destructure";
+                        hint: "the provided array has a length of {}", len
+                    );
                 };
                 destructure_impl(vm, pattern, v, f)?;
                 i += 1;
             }
             ast::DestructuringItem::Spread(spread) => {
-                let sink_size = (1 + len).checked_sub(destruct.items().count());
+                let sink_size = (1 + len).checked_sub(destruct_len);
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                 let (Some(sink_size), Some(sink)) = (sink_size, sink) else {
-                    bail!(spread.span(), "not enough elements to destructure");
+                    bail!(
+                        spread.span(), "not enough elements to destructure";
+                        hint: "the provided array has a length of {}", len
+                    );
                 };
                 if let Some(expr) = spread.sink_expr() {
                     f(vm, expr, Value::Array(sink.into()))?;
@@ -119,7 +126,25 @@ where
     }
 
     if i < len {
-        bail!(destruct.span(), "too many elements to destructure");
+        if i == 0 {
+            bail!(
+                destruct.span(), "too many elements to destructure";
+                hint: "the provided array has a length of {}, but the pattern expects an empty array",
+                len
+            )
+        } else if i == 1 {
+            bail!(
+                destruct.span(), "too many elements to destructure";
+                hint: "the provided array has a length of {}, but the pattern expects a single element",
+                len
+            );
+        } else {
+            bail!(
+                destruct.span(), "too many elements to destructure";
+                hint: "the provided array has a length of {}, but the pattern expects {} elements",
+                len, i
+            );
+        }
     }
 
     Ok(())
