@@ -41,7 +41,7 @@ use crate::introspection::{Introspector, Location};
 ///
 /// The `Locator` intentionally does not implement `Copy` and `Clone` so that it
 /// can only be used once. This ensures that whenever we are layouting multiple
-/// things, we make an explicit decision whether we want to:
+/// things, we make an explicit decision whether we want to split or relayout.
 ///
 /// # How it works
 /// There are two primary considerations for the assignment of locations:
