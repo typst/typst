@@ -1,6 +1,7 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Angle, Axes, BlockElem, Frame, FrameItem, Length, Region, Rel, Size,
 };
@@ -60,7 +61,9 @@ pub struct LineElem {
 
 impl Show for Packed<LineElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_line).pack())
+        Ok(BlockElem::single_layouter(self.clone(), layout_line)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -69,6 +72,7 @@ impl Show for Packed<LineElem> {
 fn layout_line(
     elem: &Packed<LineElem>,
     _: &mut Engine,
+    _: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {

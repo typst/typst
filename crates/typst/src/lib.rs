@@ -69,7 +69,7 @@ use crate::eval::Tracer;
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::Introspector;
 use crate::layout::{Alignment, Dir};
 use crate::model::Document;
 use crate::syntax::package::PackageSpec;
@@ -129,12 +129,10 @@ fn typeset(
         tracer.delayed();
 
         let constraint = <Introspector as Validate>::Constraint::new();
-        let mut locator = Locator::new();
         let mut engine = Engine {
             world,
             route: Route::default(),
             tracer: tracer.track_mut(),
-            locator: &mut locator,
             introspector: document.introspector.track_with(&constraint),
         };
 

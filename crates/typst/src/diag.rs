@@ -366,13 +366,12 @@ where
     }
 }
 
-impl<T> At<T> for Result<T, HintedString> {
+impl<T> At<T> for HintedStrResult<T> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|err| {
             let mut components = err.0.into_iter();
             let message = components.next().unwrap();
             let diag = SourceDiagnostic::error(span, message).with_hints(components);
-
             eco_vec![diag]
         })
     }

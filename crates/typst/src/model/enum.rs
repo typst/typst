@@ -9,6 +9,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Context, NativeElement, Packed, Show, Smart,
     StyleChain, Styles,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
     Length, Regions, Sizing, Spacing, VAlignment, VElem,
@@ -215,7 +216,9 @@ impl EnumElem {
 
 impl Show for Packed<EnumElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = BlockElem::multi_layouter(self.clone(), layout_enum).pack();
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_enum)
+            .pack()
+            .spanned(self.span());
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
@@ -232,6 +235,7 @@ impl Show for Packed<EnumElem> {
 fn layout_enum(
     elem: &Packed<EnumElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
@@ -246,6 +250,7 @@ fn layout_enum(
     };
 
     let mut cells = vec![];
+    let mut locator = locator.split();
     let mut number = elem.start(styles);
     let mut parents = EnumElem::parents_in(styles);
 
@@ -280,11 +285,12 @@ fn layout_enum(
         let resolved =
             resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(resolved));
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(
-            item.body().clone().styled(EnumElem::set_parents(smallvec![number])),
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(resolved, locator.next(&())));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(
+            item.body.clone().styled(EnumElem::set_parents(smallvec![number])),
+            locator.next(&item.body.span()),
         ));
         number = number.saturating_add(1);
     }

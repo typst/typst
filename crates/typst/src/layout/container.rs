@@ -7,6 +7,7 @@ use crate::foundations::{
     cast, elem, Args, AutoValue, Construct, Content, NativeElement, Packed, Resolve,
     Smart, StyleChain, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, Length, Region, Regions, Rel,
     Sides, Size, Spacing, VElem,
@@ -120,6 +121,7 @@ impl Packed<BoxElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Frame> {
@@ -140,7 +142,7 @@ impl Packed<BoxElem> {
             // If we have a child, layout it into the body. Boxes are boundaries
             // for gradient relativeness, so we set the `FrameKind` to `Hard`.
             Some(body) => body
-                .layout(engine, styles, pod.into_regions())?
+                .layout(engine, locator, styles, pod.into_regions())?
                 .into_frame()
                 .with_kind(FrameKind::Hard),
         };
@@ -251,6 +253,7 @@ impl InlineElem {
         callback: fn(
             content: &Packed<T>,
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Size,
         ) -> SourceResult<Vec<InlineItem>>,
@@ -264,10 +267,11 @@ impl Packed<InlineElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Vec<InlineItem>> {
-        self.body().call(engine, styles, region)
+        self.body().call(engine, locator, styles, region)
     }
 }
 
@@ -460,6 +464,7 @@ impl BlockElem {
         f: fn(
             content: &Packed<T>,
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Region,
         ) -> SourceResult<Frame>,
@@ -477,6 +482,7 @@ impl BlockElem {
         f: fn(
             content: &Packed<T>,
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment>,
@@ -493,6 +499,7 @@ impl Packed<BlockElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -530,7 +537,8 @@ impl Packed<BlockElem> {
 
             // If we have content as our body, just layout it.
             Some(BlockChild::Content(body)) => {
-                let mut fragment = body.measure(engine, styles, pod)?;
+                let mut fragment =
+                    body.layout(engine, locator.relayout(), styles, pod)?;
 
                 // If the body is automatically sized and produced more than one
                 // fragment, ensure that the width was consistent across all
@@ -551,11 +559,7 @@ impl Packed<BlockElem> {
                         expand: Axes::new(true, pod.expand.y),
                         ..pod
                     };
-                    fragment = body.layout(engine, styles, pod)?;
-                } else {
-                    // Apply the side effect to turn the `measure` into a
-                    // `layout`.
-                    engine.locator.visit_frames(&fragment);
+                    fragment = body.layout(engine, locator, styles, pod)?;
                 }
 
                 fragment
@@ -565,7 +569,7 @@ impl Packed<BlockElem> {
             // base region, give it that.
             Some(BlockChild::SingleLayouter(callback)) => {
                 let pod = Region::new(pod.base(), pod.expand);
-                callback.call(engine, styles, pod).map(Fragment::frame)?
+                callback.call(engine, locator, styles, pod).map(Fragment::frame)?
             }
 
             // If we have a child that wants to layout with full region access,
@@ -577,7 +581,7 @@ impl Packed<BlockElem> {
             Some(BlockChild::MultiLayouter(callback)) => {
                 let expand = (pod.expand | regions.expand) & pod.size.map(Abs::is_finite);
                 let pod = Regions { expand, ..pod };
-                callback.call(engine, styles, pod)?
+                callback.call(engine, locator, styles, pod)?
             }
         };
 
@@ -927,6 +931,7 @@ mod callbacks {
     callback! {
         InlineCallback = (
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Size,
         ) -> SourceResult<Vec<InlineItem>>
@@ -935,6 +940,7 @@ mod callbacks {
     callback! {
         BlockSingleCallback = (
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Region,
         ) -> SourceResult<Frame>
@@ -943,6 +949,7 @@ mod callbacks {
     callback! {
         BlockMultiCallback = (
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment>

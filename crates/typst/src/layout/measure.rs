@@ -5,6 +5,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     dict, func, Content, Context, Dict, Resolve, Smart, StyleChain, Styles,
 };
+use crate::introspection::{Locator, LocatorLink};
 use crate::layout::{Abs, Axes, Length, Regions, Size};
 use crate::syntax::Span;
 
@@ -85,13 +86,24 @@ pub fn measure(
         None => context.styles().at(span)?,
     };
 
-    let available = Axes::new(
-        width.resolve(styles).unwrap_or(Abs::inf()),
-        height.resolve(styles).unwrap_or(Abs::inf()),
+    // Create a pod region with the available space.
+    let pod = Regions::one(
+        Axes::new(
+            width.resolve(styles).unwrap_or(Abs::inf()),
+            height.resolve(styles).unwrap_or(Abs::inf()),
+        ),
+        Axes::splat(false),
     );
 
-    let pod = Regions::one(available, Axes::splat(false));
-    let frame = content.measure(engine, styles, pod)?.into_frame();
+    // We put the locator into a special "measurement mode" to ensure that
+    // introspection-driven features within the content continue to work. Read
+    // the "Dealing with measurement" section of the [`Locator`] docs for more
+    // details.
+    let here = context.location().at(span)?;
+    let link = LocatorLink::measure(here);
+    let locator = Locator::link(&link);
+
+    let frame = content.layout(engine, locator, styles, pod)?.into_frame();
     let Size { x, y } = frame.size();
     Ok(dict! { "width" => x, "height" => y })
 }

@@ -298,7 +298,6 @@ impl Func {
                 engine.world,
                 engine.introspector,
                 engine.route.track(),
-                engine.locator.track(),
                 TrackedMut::reborrow_mut(&mut engine.tracer),
                 context,
                 args,

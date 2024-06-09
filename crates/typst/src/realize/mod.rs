@@ -21,7 +21,7 @@ use crate::engine::{Engine, Route};
 use crate::foundations::{
     Content, NativeElement, Packed, SequenceElem, StyleChain, StyledElem, Styles,
 };
-use crate::introspection::TagElem;
+use crate::introspection::{Locator, SplitLocator, TagElem};
 use crate::layout::{
     AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem, InlineElem,
     PageElem, PagebreakElem, Parity, PlaceElem, VElem,
@@ -39,11 +39,12 @@ use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 #[typst_macros::time(name = "realize doc")]
 pub fn realize_doc<'a>(
     engine: &mut Engine,
+    locator: Locator,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>)> {
-    let mut builder = Builder::new(engine, arenas, true);
+    let mut builder = Builder::new(engine, locator, arenas, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
     Ok(builder.doc.unwrap().finish())
@@ -53,11 +54,12 @@ pub fn realize_doc<'a>(
 #[typst_macros::time(name = "realize flow")]
 pub fn realize_flow<'a>(
     engine: &mut Engine,
+    locator: Locator,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Packed<FlowElem>, StyleChain<'a>)> {
-    let mut builder = Builder::new(engine, arenas, false);
+    let mut builder = Builder::new(engine, locator, arenas, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     Ok(builder.flow.finish())
@@ -67,6 +69,8 @@ pub fn realize_flow<'a>(
 struct Builder<'a, 'v, 't> {
     /// The engine.
     engine: &'v mut Engine<'t>,
+    /// Assigns unique locations to elements.
+    locator: SplitLocator<'v>,
     /// Scratch arenas for building.
     arenas: &'a Arenas<'a>,
     /// The current document building state.
@@ -82,9 +86,15 @@ struct Builder<'a, 'v, 't> {
 }
 
 impl<'a, 'v, 't> Builder<'a, 'v, 't> {
-    fn new(engine: &'v mut Engine<'t>, arenas: &'a Arenas<'a>, top: bool) -> Self {
+    fn new(
+        engine: &'v mut Engine<'t>,
+        locator: Locator<'v>,
+        arenas: &'a Arenas<'a>,
+        top: bool,
+    ) -> Self {
         Self {
             engine,
+            locator: locator.split(),
             arenas,
             doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
@@ -107,7 +117,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 .store(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
-        if let Some(realized) = process(self.engine, content, styles)? {
+        if let Some(realized) = process(self.engine, &mut self.locator, content, styles)?
+        {
             self.engine.route.increase();
             if !self.engine.route.within(Route::MAX_SHOW_RULE_DEPTH) {
                 bail!(

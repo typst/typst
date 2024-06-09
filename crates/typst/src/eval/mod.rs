@@ -28,7 +28,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{Cast, Context, Module, NativeElement, Scope, Scopes, Value};
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::Introspector;
 use crate::math::EquationElem;
 use crate::syntax::{ast, parse, parse_code, parse_math, Source, Span};
 use crate::World;
@@ -49,13 +49,11 @@ pub fn eval(
     }
 
     // Prepare the engine.
-    let mut locator = Locator::new();
     let introspector = Introspector::default();
     let engine = Engine {
         world,
         route: Route::extend(route).with_id(id),
         introspector: introspector.track(),
-        locator: &mut locator,
         tracer,
     };
 
@@ -118,13 +116,11 @@ pub fn eval_string(
 
     // Prepare the engine.
     let mut tracer = Tracer::new();
-    let mut locator = Locator::new();
     let introspector = Introspector::default();
     let engine = Engine {
         world,
         introspector: introspector.track(),
         route: Route::default(),
-        locator: &mut locator,
         tracer: tracer.track_mut(),
     };
 

@@ -6,7 +6,7 @@ use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
     Value,
 };
-use crate::introspection::{Introspector, ManualPageCounter};
+use crate::introspection::{Introspector, Locator, ManualPageCounter};
 use crate::layout::{Page, PageElem};
 use crate::realize::StyleVec;
 
@@ -76,6 +76,7 @@ impl Packed<DocumentElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
     ) -> SourceResult<Document> {
         let mut pages = Vec::with_capacity(self.children().len());
@@ -83,13 +84,20 @@ impl Packed<DocumentElem> {
 
         let children = self.children();
         let mut iter = children.chain(&styles).peekable();
+        let mut locator = locator.split();
 
         while let Some((child, styles)) = iter.next() {
             if let Some(page) = child.to_packed::<PageElem>() {
                 let extend_to = iter
                     .peek()
                     .and_then(|(next, _)| *next.to_packed::<PageElem>()?.clear_to()?);
-                let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
+                let run = page.layout(
+                    engine,
+                    locator.next(&page.span()),
+                    styles,
+                    &mut page_counter,
+                    extend_to,
+                )?;
                 pages.extend(run);
             } else {
                 bail!(child.span(), "unexpected document child");
