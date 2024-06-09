@@ -115,29 +115,12 @@ fn write_page(
         return;
     };
 
-    let global_resources_ref = ctx.resources.reference;
-    let mut page_writer = chunk.page(page_ref);
-    page_writer.parent(page_tree_ref);
-
-    let w = page.content.size.x.to_f32();
-    let h = page.content.size.y.to_f32();
-    page_writer.media_box(Rect::new(0.0, 0.0, w, h));
-    page_writer.contents(content_id);
-    page_writer.pair(Name(b"Resources"), global_resources_ref);
-
-    if page.content.uses_opacities {
-        page_writer
-            .group()
-            .transparency()
-            .isolated(false)
-            .knockout(false)
-            .color_space()
-            .srgb();
-    }
-
-    let mut annotations = page_writer.annotations();
+    let mut annotations = Vec::with_capacity(page.content.links.len());
     for (dest, rect) in &page.content.links {
-        let mut annotation = annotations.push();
+        let id = chunk.alloc();
+        annotations.push(id);
+
+        let mut annotation = chunk.annotation(id);
         annotation.subtype(AnnotationType::Link).rect(*rect);
         annotation.border(0.0, 0.0, 0.0, None).flags(AnnotationFlags::PRINT);
 
@@ -180,7 +163,27 @@ fn write_page(
         }
     }
 
-    annotations.finish();
+    let mut page_writer = chunk.page(page_ref);
+    page_writer.parent(page_tree_ref);
+
+    let w = page.content.size.x.to_f32();
+    let h = page.content.size.y.to_f32();
+    page_writer.media_box(Rect::new(0.0, 0.0, w, h));
+    page_writer.contents(content_id);
+    page_writer.pair(Name(b"Resources"), ctx.resources.reference);
+
+    if page.content.uses_opacities {
+        page_writer
+            .group()
+            .transparency()
+            .isolated(false)
+            .knockout(false)
+            .color_space()
+            .srgb();
+    }
+
+    page_writer.annotations(annotations);
+
     page_writer.finish();
 
     chunk

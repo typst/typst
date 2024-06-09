@@ -19,7 +19,7 @@ use once_cell::sync::Lazy;
 use smallvec::{smallvec, SmallVec};
 use typed_arena::Arena;
 
-use crate::diag::{bail, error, At, FileError, SourceResult, StrResult};
+use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
@@ -150,7 +150,7 @@ cast! {
     BibliographyPaths,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 impl BibliographyElem {
@@ -508,7 +508,7 @@ impl Reflect for CslStyle {
 }
 
 impl FromValue for CslStyle {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         if let Value::Dyn(dynamic) = &value {
             if let Some(concrete) = dynamic.downcast::<Self>() {
                 return Ok(concrete.clone());

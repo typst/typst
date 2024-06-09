@@ -10,9 +10,12 @@ use typst::syntax::package::{
 };
 
 use crate::args::InitCommand;
+use crate::package::PackageStorage;
 
 /// Execute an initialization command.
 pub fn init(command: &InitCommand) -> StrResult<()> {
+    let package_storage = PackageStorage::from_args(&command.package_storage_args);
+
     // Parse the package specification. If the user didn't specify the version,
     // we try to figure it out automatically by downloading the package index
     // or searching the disk.
@@ -20,12 +23,12 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         // Try to parse without version, but prefer the error message of the
         // normal package spec parsing if it fails.
         let spec: VersionlessPackageSpec = command.template.parse().map_err(|_| err)?;
-        let version = crate::package::determine_latest_version(&spec)?;
+        let version = package_storage.determine_latest_version(&spec)?;
         StrResult::Ok(spec.at(version))
     })?;
 
     // Find or download the package.
-    let package_path = crate::package::prepare_package(&spec)?;
+    let package_path = package_storage.prepare_package(&spec)?;
 
     // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;

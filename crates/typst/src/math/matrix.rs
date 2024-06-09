@@ -1,7 +1,7 @@
 use smallvec::{smallvec, SmallVec};
 use unicode_math_class::MathClass;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Packed, Resolve,
     Smart, StyleChain, Value,
@@ -20,7 +20,9 @@ use crate::text::TextElem;
 use crate::utils::Numeric;
 use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
 
-const DEFAULT_ROW_GAP: Em = Em::new(0.5);
+use super::delimiter_alignment;
+
+const DEFAULT_ROW_GAP: Em = Em::new(0.2);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
@@ -439,8 +441,12 @@ fn layout_vec_body(
     for child in column {
         flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
     }
-
-    Ok(stack(flat, align, gap, 0, alternator))
+    // We pad ascent and descent with the ascent and descent of the paren
+    // to ensure that normal vectors are aligned with others unless they are
+    // way too big.
+    let paren =
+        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+    Ok(stack(flat, align, gap, 0, alternator, Some((paren.ascent, paren.descent))))
 }
 
 /// Layout the inner contents of a matrix.
@@ -497,12 +503,18 @@ fn layout_mat_body(
     let mut cols = vec![vec![]; ncols];
 
     let denom_style = style_for_denominator(styles);
+    // We pad ascent and descent with the ascent and descent of the paren
+    // to ensure that normal matrices are aligned with others unless they are
+    // way too big.
+    let paren =
+        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+
     for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
         for (cell, col) in row.iter().zip(&mut cols) {
             let cell = ctx.layout_into_run(cell, styles.chain(&denom_style))?;
 
-            ascent.set_max(cell.ascent());
-            descent.set_max(cell.descent());
+            ascent.set_max(cell.ascent().max(paren.ascent));
+            descent.set_max(cell.descent().max(paren.descent));
 
             col.push(cell);
         }
@@ -610,7 +622,7 @@ fn layout_delimiters(
     if let Some(left) = left {
         let mut left = GlyphFragment::new(ctx, styles, left, span)
             .stretch_vertical(ctx, target, short_fall);
-        left.center_on_axis(ctx);
+        left.align_on_axis(ctx, delimiter_alignment(left.c));
         ctx.push(left);
     }
 
@@ -619,7 +631,7 @@ fn layout_delimiters(
     if let Some(right) = right {
         let mut right = GlyphFragment::new(ctx, styles, right, span)
             .stretch_vertical(ctx, target, short_fall);
-        right.center_on_axis(ctx);
+        right.align_on_axis(ctx, delimiter_alignment(right.c));
         ctx.push(right);
     }
 
@@ -710,5 +722,5 @@ cast! {
     AugmentOffsets,
     self => self.0.into_value(),
     v: isize => Self(smallvec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }

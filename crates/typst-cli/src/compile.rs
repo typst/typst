@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
-use ecow::{eco_format, EcoString};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
+use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, PageRanges};
@@ -97,8 +97,10 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Check if main file can be read and opened.
-    if let Err(errors) = world.source(world.main()).at(Span::detached()) {
+    if let Err(errors) = world
+        .source(world.main())
+        .map_err(|err| hint_invalid_main_file(err, &command.common.input))
+    {
         set_failed();
         if watching {
             Status::Error.print(command).unwrap();
@@ -481,6 +483,52 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
     }
 
     Ok(())
+}
+
+/// Adds useful hints when the main source file couldn't be read
+/// and returns the final diagnostic.
+fn hint_invalid_main_file(
+    file_error: FileError,
+    input: &Input,
+) -> EcoVec<SourceDiagnostic> {
+    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
+    let mut diagnostic =
+        SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
+
+    // Attempt to provide helpful hints for UTF-8 errors.
+    // Perhaps the user mistyped the filename.
+    // For example, they could have written "file.pdf" instead of
+    // "file.typ".
+    if is_utf8_error {
+        if let Input::Path(path) = input {
+            let extension = path.extension();
+            if extension.is_some_and(|extension| extension == "typ") {
+                // No hints if the file is already a .typ file.
+                // The file is indeed just invalid.
+                return eco_vec![diagnostic];
+            }
+
+            match extension {
+                Some(extension) => {
+                    diagnostic.hint(eco_format!(
+                        "a file with the `.{}` extension is not usually a Typst file",
+                        extension.to_string_lossy()
+                    ));
+                }
+
+                None => {
+                    diagnostic
+                        .hint("a file without an extension is not usually a Typst file");
+                }
+            };
+
+            if path.with_extension("typ").exists() {
+                diagnostic.hint("check if you meant to use the `.typ` extension instead");
+            }
+        }
+    }
+
+    eco_vec![diagnostic]
 }
 
 /// Print diagnostic messages to the terminal.

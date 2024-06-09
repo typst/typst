@@ -1,7 +1,7 @@
 use comemo::Track;
 use ecow::{eco_format, EcoString};
 use serde::Serialize;
-use typst::diag::{bail, StrResult};
+use typst::diag::{bail, HintedStrResult, StrResult};
 use typst::eval::{eval_string, EvalMode, Tracer};
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::model::Document;
@@ -14,7 +14,7 @@ use crate::set_failed;
 use crate::world::SystemWorld;
 
 /// Execute a query command.
-pub fn query(command: &QueryCommand) -> StrResult<()> {
+pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
 
     // Reset everything and ensure that the main file is present.
@@ -56,7 +56,7 @@ fn retrieve(
     world: &dyn World,
     command: &QueryCommand,
     document: &Document,
-) -> StrResult<Vec<Content>> {
+) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
         world.track(),
         &command.selector,

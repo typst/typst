@@ -128,5 +128,6 @@
 }
 
 --- table-cell-in-grid ---
-// Error: 7-19 cannot use `table.cell` as a grid cell; use `grid.cell` instead
+// Error: 7-19 cannot use `table.cell` as a grid cell
+// Hint: 7-19 use `grid.cell` instead
 #grid(table.cell[])

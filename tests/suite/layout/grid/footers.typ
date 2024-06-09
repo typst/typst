@@ -131,14 +131,16 @@
 )
 
 --- table-footer-in-grid ---
-// Error: 3:3-3:20 cannot use `table.footer` as a grid footer; use `grid.footer` instead
+// Error: 3:3-3:20 cannot use `table.footer` as a grid footer
+// Hint: 3:3-3:20 use `grid.footer` instead
 #grid(
   [a],
   table.footer([a]),
 )
 
 --- grid-footer-in-table ---
-// Error: 3:3-3:19 cannot use `grid.footer` as a table footer; use `table.footer` instead
+// Error: 3:3-3:19 cannot use `grid.footer` as a table footer
+// Hint: 3:3-3:19 use `table.footer` instead
 #table(
   [a],
   grid.footer([a]),

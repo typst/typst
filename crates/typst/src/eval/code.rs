@@ -1,6 +1,6 @@
 use ecow::{eco_vec, EcoVec};
 
-use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, error, At, SourceResult};
 use crate::eval::{ops, CapturesVisitor, Eval, Vm};
 use crate::foundations::{
     Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str, Value,
@@ -244,11 +244,11 @@ impl Eval for ast::Dict<'_> {
                 ast::DictItem::Keyed(keyed) => {
                     let raw_key = keyed.key();
                     let key = raw_key.eval(vm)?;
-                    let key = key.cast::<Str>().unwrap_or_else(|error| {
-                        let error = SourceDiagnostic::error(raw_key.span(), error);
-                        invalid_keys.push(error);
-                        Str::default()
-                    });
+                    let key =
+                        key.cast::<Str>().at(raw_key.span()).unwrap_or_else(|errors| {
+                            invalid_keys.extend(errors);
+                            Str::default()
+                        });
                     map.insert(key, keyed.expr().eval(vm)?);
                 }
                 ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {

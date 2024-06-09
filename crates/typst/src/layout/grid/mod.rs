@@ -13,10 +13,10 @@ pub use self::lines::LinePosition;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
@@ -406,7 +406,7 @@ cast! {
     self => self.0.into_value(),
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
-    values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    values: Array => Self(values.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// Any child of a grid element.
@@ -430,13 +430,19 @@ cast! {
 }
 
 impl TryFrom<Content> for GridChild {
-    type Error = EcoString;
-    fn try_from(value: Content) -> StrResult<Self> {
+    type Error = HintedString;
+    fn try_from(value: Content) -> HintedStrResult<Self> {
         if value.is::<TableHeader>() {
-            bail!("cannot use `table.header` as a grid header; use `grid.header` instead")
+            bail!(
+                "cannot use `table.header` as a grid header";
+                hint: "use `grid.header` instead"
+            )
         }
         if value.is::<TableFooter>() {
-            bail!("cannot use `table.footer` as a grid footer; use `grid.footer` instead")
+            bail!(
+                "cannot use `table.footer` as a grid footer";
+                hint: "use `grid.footer` instead"
+            )
         }
 
         value
@@ -506,8 +512,8 @@ cast! {
 }
 
 impl TryFrom<Content> for GridItem {
-    type Error = EcoString;
-    fn try_from(value: Content) -> StrResult<Self> {
+    type Error = HintedString;
+    fn try_from(value: Content) -> HintedStrResult<Self> {
         if value.is::<GridHeader>() {
             bail!("cannot place a grid header within another header or footer");
         }
@@ -521,13 +527,22 @@ impl TryFrom<Content> for GridItem {
             bail!("cannot place a table footer within another footer or header");
         }
         if value.is::<TableCell>() {
-            bail!("cannot use `table.cell` as a grid cell; use `grid.cell` instead");
+            bail!(
+                "cannot use `table.cell` as a grid cell";
+                hint: "use `grid.cell` instead"
+            );
         }
         if value.is::<TableHLine>() {
-            bail!("cannot use `table.hline` as a grid line; use `grid.hline` instead");
+            bail!(
+                "cannot use `table.hline` as a grid line";
+                hint: "use `grid.hline` instead"
+            );
         }
         if value.is::<TableVLine>() {
-            bail!("cannot use `table.vline` as a grid line; use `grid.vline` instead");
+            bail!(
+                "cannot use `table.vline` as a grid line";
+                hint: "use `grid.vline` instead"
+            );
         }
 
         Ok(value

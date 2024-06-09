@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use az::SaturatingAs;
 use ecow::EcoString;
-use rustybuzz::{ShapePlan, Tag, UnicodeBuffer};
+use rustybuzz::{ShapePlan, UnicodeBuffer};
+use ttf_parser::Tag;
 use unicode_script::{Script, UnicodeScript};
 
 use super::SpanMapper;

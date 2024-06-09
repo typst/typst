@@ -40,7 +40,14 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let backup_path = backup_path()?;
+    // Full path to the backup file.
+    let backup_path = command.backup_path.clone().map(Ok).unwrap_or_else(backup_path)?;
+
+    if let Some(backup_dir) = backup_path.parent() {
+        fs::create_dir_all(backup_dir)
+            .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
+    }
+
     if command.revert {
         if !backup_path.exists() {
             bail!(
@@ -213,14 +220,19 @@ fn update_needed(release: &Release) -> StrResult<bool> {
     Ok(new_tag > current_tag)
 }
 
-/// Path to a potential backup file.
+/// Path to a potential backup file in the system.
 ///
-/// The backup will be placed in one of the following directories, depending on
-/// the platform:
+/// The backup will be placed as `typst_backup.part` in one of the following
+/// directories, depending on the platform:
 ///  - `$XDG_STATE_HOME` or `~/.local/state` on Linux
 ///    - `$XDG_DATA_HOME` or `~/.local/share` if the above path isn't available
 ///  - `~/Library/Application Support` on macOS
 ///  - `%APPDATA%` on Windows
+///
+/// If a custom backup path is provided via the environment variable
+/// `TYPST_UPDATE_BACKUP_PATH`, it will be used instead of the default
+/// directories determined by the platform. In that case, this function
+/// shouldn't be called.
 fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
@@ -231,10 +243,5 @@ fn backup_path() -> StrResult<PathBuf> {
     let root_backup_dir =
         dirs::data_dir().ok_or("unable to locate local data directory")?;
 
-    let backup_dir = root_backup_dir.join("typst");
-
-    fs::create_dir_all(&backup_dir)
-        .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
-
-    Ok(backup_dir.join("typst_backup.part"))
+    Ok(root_backup_dir.join("typst").join("typst_backup.part"))
 }

@@ -19,6 +19,7 @@ use typst_timing::{timed, TimingScope};
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
+use crate::package::PackageStorage;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
@@ -41,6 +42,8 @@ pub struct SystemWorld {
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
     slots: Mutex<HashMap<FileId, FileSlot>>,
+    /// Holds information about where packages are stored.
+    package_storage: PackageStorage,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
     /// Reset between compilations if not [`Now::Fixed`].
@@ -103,12 +106,15 @@ impl SystemWorld {
         };
 
         let mut searcher = FontSearcher::new();
-        searcher.search(&command.font_paths);
+        searcher
+            .search(&command.font_args.font_paths, command.font_args.ignore_system_fonts);
 
         let now = match command.creation_timestamp {
             Some(time) => Now::Fixed(time),
             None => Now::System(OnceLock::new()),
         };
+
+        let package_storage = PackageStorage::from_args(&command.package_storage_args);
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
@@ -118,6 +124,7 @@ impl SystemWorld {
             book: LazyHash::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
+            package_storage,
             now,
             export_cache: ExportCache::new(),
         })
@@ -144,7 +151,9 @@ impl SystemWorld {
             .get_mut()
             .values()
             .filter(|slot| slot.accessed())
-            .filter_map(|slot| system_path(&self.root, slot.id).ok())
+            .filter_map(|slot| {
+                system_path(&self.root, slot.id, &self.package_storage).ok()
+            })
     }
 
     /// Reset the compilation state in preparation of a new compilation.
@@ -183,11 +192,11 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        self.slot(id, |slot| slot.source(&self.root))
+        self.slot(id, |slot| slot.source(&self.root, &self.package_storage))
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, |slot| slot.file(&self.root))
+        self.slot(id, |slot| slot.file(&self.root, &self.package_storage))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -259,9 +268,13 @@ impl FileSlot {
     }
 
     /// Retrieve the source for this file.
-    fn source(&mut self, project_root: &Path) -> FileResult<Source> {
+    fn source(
+        &mut self,
+        project_root: &Path,
+        package_storage: &PackageStorage,
+    ) -> FileResult<Source> {
         self.source.get_or_init(
-            || read(self.id, project_root),
+            || read(self.id, project_root, package_storage),
             |data, prev| {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
@@ -277,9 +290,15 @@ impl FileSlot {
     }
 
     /// Retrieve the file's bytes.
-    fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
-        self.file
-            .get_or_init(|| read(self.id, project_root), |data, _| Ok(data.into()))
+    fn file(
+        &mut self,
+        project_root: &Path,
+        package_storage: &PackageStorage,
+    ) -> FileResult<Bytes> {
+        self.file.get_or_init(
+            || read(self.id, project_root, package_storage),
+            |data, _| Ok(data.into()),
+        )
     }
 }
 
@@ -344,13 +363,17 @@ impl<T: Clone> SlotCell<T> {
 
 /// Resolves the path of a file id on the system, downloading a package if
 /// necessary.
-fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
+fn system_path(
+    project_root: &Path,
+    id: FileId,
+    package_storage: &PackageStorage,
+) -> FileResult<PathBuf> {
     // Determine the root path relative to which the file path
     // will be resolved.
     let buf;
     let mut root = project_root;
     if let Some(spec) = id.package() {
-        buf = crate::package::prepare_package(spec)?;
+        buf = package_storage.prepare_package(spec)?;
         root = &buf;
     }
 
@@ -363,11 +386,15 @@ fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
 ///
 /// If the ID represents stdin it will read from standard input,
 /// otherwise it gets the file path of the ID and reads the file from disk.
-fn read(id: FileId, project_root: &Path) -> FileResult<Vec<u8>> {
+fn read(
+    id: FileId,
+    project_root: &Path,
+    package_storage: &PackageStorage,
+) -> FileResult<Vec<u8>> {
     if id == *STDIN_ID {
         read_from_stdin()
     } else {
-        read_from_disk(&system_path(project_root, id)?)
+        read_from_disk(&system_path(project_root, id, package_storage)?)
     }
 }
 

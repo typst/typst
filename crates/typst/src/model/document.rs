@@ -1,6 +1,6 @@
 use ecow::EcoString;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
@@ -115,7 +115,7 @@ cast! {
     Author,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// A list of keywords.
@@ -126,7 +126,7 @@ cast! {
     Keywords,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// A finished document with metadata and page frames.
