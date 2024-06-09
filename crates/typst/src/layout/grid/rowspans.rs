@@ -664,6 +664,7 @@ impl<'a> GridLayouter<'a> {
     /// auto row will have to expand, given the current sizes of the auto row
     /// in each region and the pending rowspans' data (parent Y, rowspan amount
     /// and vector of requested sizes).
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_and_measure_rowspans_in_auto_row(
         &self,
         y: usize,
@@ -671,6 +672,7 @@ impl<'a> GridLayouter<'a> {
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
         unbreakable_rows_left: usize,
         row_group_data: Option<&UnbreakableRowGroup>,
+        mut disambiguator: usize,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         // To begin our simulation, we have to unify the sizes demanded by
@@ -733,6 +735,7 @@ impl<'a> GridLayouter<'a> {
             // expand) because we popped the last resolved size from the
             // resolved vector, above.
             simulated_regions.next();
+            disambiguator += 1;
 
             // Subtract the initial header and footer height, since that's the
             // height we used when subtracting from the region backlog's
@@ -756,6 +759,7 @@ impl<'a> GridLayouter<'a> {
             engine,
             last_resolved_size,
             unbreakable_rows_left,
+            disambiguator,
         )?;
 
         if !simulations_stabilized {
@@ -846,6 +850,7 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         last_resolved_size: Option<Abs>,
         unbreakable_rows_left: usize,
+        mut disambiguator: usize,
     ) -> SourceResult<bool> {
         // The max amount this row can expand will be the total size requested
         // by rowspans which was not yet resolved. It is worth noting that,
@@ -868,7 +873,7 @@ impl<'a> GridLayouter<'a> {
         // of the requested rowspan height, we give up.
         for _attempt in 0..5 {
             let rowspan_simulator = RowspanSimulator::new(
-                self.finished.len(),
+                disambiguator,
                 simulated_regions,
                 self.header_height,
                 self.footer_height,
@@ -955,6 +960,7 @@ impl<'a> GridLayouter<'a> {
                 extra_amount_to_grow -= simulated_regions.size.y.max(Abs::zero());
                 simulated_regions.next();
                 simulated_regions.size.y -= self.header_height + self.footer_height;
+                disambiguator += 1;
             }
             simulated_regions.size.y -= extra_amount_to_grow;
         }

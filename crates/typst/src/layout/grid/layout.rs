@@ -1163,6 +1163,7 @@ impl<'a> GridLayouter<'a> {
                 &pending_rowspans,
                 unbreakable_rows_left,
                 row_group_data,
+                disambiguator,
                 engine,
             )?;
         }
