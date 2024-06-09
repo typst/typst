@@ -180,7 +180,7 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 
 /// Encode an SVG into a chunk of PDF objects.
 fn encode_svg(svg: &SvgImage) -> (Chunk, Ref) {
-    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default())
+    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default()).unwrap()
 }
 
 /// A pre-encoded image.

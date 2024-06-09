@@ -3,7 +3,7 @@
 use std::io::Read;
 
 use ttf_parser::{GlyphId, RgbaColor};
-use usvg::{tiny_skia_path, TreeParsing, TreeWriting};
+use usvg::{tiny_skia_path};
 use xmlwriter::XmlWriter;
 
 use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
@@ -144,14 +144,9 @@ fn draw_svg_glyph(
     // Compute the space we need to draw our glyph.
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
-    tree.calculate_bounding_boxes();
-    let mut bbox = usvg::BBox::default();
-    if let Some(tree_bbox) = tree.root.bounding_box {
-        bbox = bbox.expand(tree_bbox);
-    }
-    let bbox = bbox.to_rect()?;
+    let bbox = tree.root().bounding_box();
 
-    let mut data = tree.to_string(&usvg::XmlOptions::default());
+    let mut data = tree.to_string(&usvg::WriteOptions::default());
 
     let width = bbox.width() as f64;
     let height = bbox.height() as f64;
@@ -170,7 +165,6 @@ fn draw_svg_glyph(
     // the glyph, with a transform to make it fit. We also need to remove the
     // viewBox, height and width attributes from the inner SVG, otherwise usvg
     // takes into account these values to clip the embedded SVG.
-    // println!("{}", data);
     make_svg_unsized(&mut data);
 
     let transform = if is_colr {
@@ -439,7 +433,7 @@ impl<'a> GlyphPainter<'a> {
     }
 
     fn paint_sweep_gradient(&mut self, _: ttf_parser::colr::SweepGradient<'a>) {
-        println!("Warning: sweep gradients are not supported.")
+
     }
 }
 
@@ -539,7 +533,6 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
             CompositeMode::Color => "color",
             CompositeMode::Luminosity => "luminosity",
             _ => {
-                println!("Warning: unsupported blend mode: {:?}", mode);
                 "normal"
             }
         };

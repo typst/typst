@@ -129,6 +129,9 @@ xz2 = "0.1"
 yaml-front-matter = "0.1"
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
+[patch.crates-io]
+svg2pdf = {path = "../svg2pdf"}
+
 [profile.dev.package."*"]
 opt-level = 2
 
