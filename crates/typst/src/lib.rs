@@ -63,11 +63,10 @@ use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
 use typst_timing::{timed, TimingScope};
 
-use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult, Warned};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
+    Array, Bytes, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
 use crate::introspection::Introspector;
 use crate::layout::{Alignment, Dir};
@@ -78,44 +77,46 @@ use crate::text::{Font, FontBook};
 use crate::utils::LazyHash;
 use crate::visualize::Color;
 
-/// Compile a source file into a fully layouted document.
+/// Compile sources into a fully layouted document.
 ///
 /// - Returns `Ok(document)` if there were no fatal errors.
 /// - Returns `Err(errors)` if there were fatal errors.
-///
-/// Requires a mutable reference to a tracer. Such a tracer can be created with
-/// `Tracer::new()`. Independently of whether compilation succeeded, calling
-/// `tracer.warnings()` after compilation will return all compiler warnings.
-#[typst_macros::time(name = "compile")]
-pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
-    // Call `track` on the world just once to keep comemo's ID stable.
-    let world = world.track();
+#[typst_macros::time]
+pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
+    let mut sink = Sink::new();
+    let output = compile_inner(world.track(), Traced::default().track(), &mut sink)
+        .map_err(deduplicate);
+    Warned { output, warnings: sink.warnings() }
+}
 
-    // Try to evaluate the source file into a module.
-    let module = crate::eval::eval(
-        world,
-        Route::default().track(),
-        tracer.track_mut(),
-        &world.main(),
-    )
-    .map_err(deduplicate)?;
-
-    // Typeset the module's content, relayouting until convergence.
-    typeset(world, tracer, &module.content()).map_err(deduplicate)
+/// Compiles sources and returns all values and styles observed at the given
+/// `span` during compilation.
+#[typst_macros::time]
+pub fn trace(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)> {
+    let mut sink = Sink::new();
+    let traced = Traced::new(span);
+    compile_inner(world.track(), traced.track(), &mut sink).ok();
+    sink.values()
 }
 
 /// Relayout until introspection converges.
-fn typeset(
+fn compile_inner(
     world: Tracked<dyn World + '_>,
-    tracer: &mut Tracer,
-    content: &Content,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
 ) -> SourceResult<Document> {
-    // The name of the iterations for timing scopes.
-    const ITER_NAMES: &[&str] =
-        &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
-
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
+
+    // First evaluate the main source file into a module.
+    let content = crate::eval::eval(
+        world,
+        traced,
+        sink.track_mut(),
+        Route::default().track(),
+        &world.main(),
+    )?
+    .content();
 
     let mut iter = 0;
     let mut document = Document::default();
@@ -123,17 +124,21 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
+        // The name of the iterations for timing scopes.
+        const ITER_NAMES: &[&str] =
+            &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
         let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
         // Clear delayed errors.
-        tracer.delayed();
+        sink.delayed();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut engine = Engine {
             world,
-            route: Route::default(),
-            tracer: tracer.track_mut(),
             introspector: document.introspector.track_with(&constraint),
+            traced,
+            sink: sink.track_mut(),
+            route: Route::default(),
         };
 
         // Layout!
@@ -146,7 +151,7 @@ fn typeset(
         }
 
         if iter >= 5 {
-            tracer.warn(warning!(
+            sink.warn(warning!(
                 Span::detached(), "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
@@ -155,7 +160,7 @@ fn typeset(
     }
 
     // Promote delayed errors.
-    let delayed = tracer.delayed();
+    let delayed = sink.delayed();
     if !delayed.is_empty() {
         return Err(delayed);
     }

@@ -62,7 +62,7 @@ pub fn process(
             //
             // This way, we can ignore errors that only occur in earlier
             // iterations and also show more useful errors at once.
-            engine.delayed(|engine| show(engine, target, step, styles.chain(&map)))
+            engine.delay(|engine| show(engine, target, step, styles.chain(&map)))
         }
         None => target,
     };

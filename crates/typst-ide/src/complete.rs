@@ -1406,7 +1406,6 @@ impl<'a> CompletionContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use typst::eval::Tracer;
 
     use super::autocomplete;
     use crate::tests::TestWorld;
@@ -1414,7 +1413,7 @@ mod tests {
     #[track_caller]
     fn test(text: &str, cursor: usize, contains: &[&str], excludes: &[&str]) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).ok();
+        let doc = typst::compile(&world).output.ok();
         let (_, completions) =
             autocomplete(&world, doc.as_ref(), &world.main, cursor, true)
                 .unwrap_or_default();
