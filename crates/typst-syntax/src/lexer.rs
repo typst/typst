@@ -919,6 +919,7 @@ fn is_math_id_continue(c: char) -> bool {
     is_xid_continue(c) && c != '_'
 }
 
+/// Whether a character can be part of a label literal's name.
 #[inline]
 fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
