@@ -20,10 +20,9 @@ pub fn parse(text: &str) -> SyntaxNode {
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
-    let m = p.marker();
-    p.skip();
+    let m = p.before_trivia();
     code_exprs(&mut p, |_| false);
-    p.wrap_all(m, SyntaxKind::Code);
+    p.wrap_within(m, p.marker(), SyntaxKind::Code);
     p.finish().into_iter().next().unwrap()
 }
 
@@ -138,7 +137,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::ListMarker
         | SyntaxKind::EnumMarker
         | SyntaxKind::TermMarker
-        | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
+        | SyntaxKind::Colon => p.convert_and_eat(SyntaxKind::Text),
 
         _ => {}
     }
@@ -307,8 +306,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
                     && is_ident(&p.text[start..end])
             } {
-                p.convert(SyntaxKind::Dot);
-                p.convert(SyntaxKind::Ident);
+                p.convert_and_eat(SyntaxKind::Dot);
+                p.convert_and_eat(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
@@ -360,11 +359,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         _ => p.expected("expression"),
     }
 
-    if continuable
-        && min_prec < 3
-        && p.prev_end() == p.current_start()
-        && maybe_delimited(p)
-    {
+    if continuable && min_prec < 3 && !p.had_trivia() && maybe_delimited(p) {
         p.wrap(m, SyntaxKind::Math);
     }
 
@@ -512,7 +507,7 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
 
 fn math_args(p: &mut Parser) {
     let m = p.marker();
-    p.convert(SyntaxKind::LeftParen);
+    p.convert_and_eat(SyntaxKind::LeftParen);
 
     let mut namable = true;
     let mut named = None;
@@ -525,8 +520,8 @@ fn math_args(p: &mut Parser) {
             && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
             && p.text[p.current_end()..].starts_with(':')
         {
-            p.convert(SyntaxKind::Ident);
-            p.convert(SyntaxKind::Colon);
+            p.convert_and_eat(SyntaxKind::Ident);
+            p.convert_and_eat(SyntaxKind::Colon);
             named = Some(arg);
             arg = p.marker();
             array = p.marker();
@@ -536,8 +531,10 @@ fn math_args(p: &mut Parser) {
             ")" => break,
             ";" => {
                 maybe_wrap_in_math(p, arg, named);
-                p.wrap(array, SyntaxKind::Array);
-                p.convert(SyntaxKind::Semicolon);
+                // Must use wrap_within to include wrapping the empty math element when
+                // trivia is present.
+                p.wrap_within(array, p.marker(), SyntaxKind::Array);
+                p.convert_and_eat(SyntaxKind::Semicolon);
                 array = p.marker();
                 arg = p.marker();
                 namable = true;
@@ -547,7 +544,7 @@ fn math_args(p: &mut Parser) {
             }
             "," => {
                 maybe_wrap_in_math(p, arg, named);
-                p.convert(SyntaxKind::Comma);
+                p.convert_and_eat(SyntaxKind::Comma);
                 arg = p.marker();
                 namable = true;
                 if named.is_some() {
@@ -576,11 +573,12 @@ fn math_args(p: &mut Parser) {
     }
 
     if has_arrays && array != p.marker() {
-        p.wrap(array, SyntaxKind::Array);
+        // not sure if this one is needed, haven't tried to expose in math-2d tests yet.
+        p.wrap_within(array, p.marker(), SyntaxKind::Array);
     }
 
     if p.at(SyntaxKind::Text) && p.current_text() == ")" {
-        p.convert(SyntaxKind::RightParen);
+        p.convert_and_eat(SyntaxKind::RightParen);
     } else {
         p.expected("closing paren");
         p.balanced = false;
@@ -606,7 +604,6 @@ fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
         // Convert 0 exprs into a blank math element (so empty arguments are allowed).
         // Convert 2+ exprs into a math element (so they become a joined sequence).
         p.wrap_within(arg, p.marker(), SyntaxKind::Math);
-        p.skip();
     }
 
     if let Some(m) = named {
@@ -655,7 +652,12 @@ fn embedded_code_expr(p: &mut Parser) {
     p.enter_newline_mode(NewlineMode::Stop);
     p.enter(LexMode::Code);
     p.assert(SyntaxKind::Hash);
-    p.unskip();
+    if p.had_trivia() {
+        p.expected_at(p.before_trivia(), "expression");
+        p.exit();
+        p.exit_newline_mode();
+        return;
+    }
 
     let stmt = p.at_set(set::STMT);
     let at = p.at_set(set::ATOMIC_CODE_EXPR);
@@ -1526,7 +1528,18 @@ struct TriviaStart {
     offset: usize,
 }
 
-/// Manages parsing of a stream of tokens.
+/// Manages parsing of a stream of tokens into a tree of SyntaxNodes.
+///
+/// This acts like a bottom-up (shift-reduce) parser, where we investigate a current token
+/// and either:
+/// 1. Eat (shift) another token, putting `current` into the `nodes` vector.
+/// 2. Wrap (reduce) the nodes up to a marker (excluding `current`) into a corresponding
+///    SyntaxKind.
+///
+/// In the end we have a nested tree of SyntaxNodes as a Concrete Syntax Tree. This will
+/// have all irrelevant tokens (whitespace, comments, code parens, commas in function
+/// args, etc) removed when interpreted as an Abstract Syntax Tree for evaluation. The
+/// Concrete Syntax Tree is important for IDE features and highlighting.
 struct Parser<'s> {
     /// The entire source text, shared with the lexer, usually accessed via usize offset.
     text: &'s str,
@@ -1534,6 +1547,7 @@ struct Parser<'s> {
     lexer: Lexer<'s>,
     /// The current token being evaluated, not yet present in `nodes`. This acts like a
     /// single item of lookahead for the parser.
+    /// Invariant: This should never be trivia in Math/Code mode.
     current: Token<'s>,
     /// The start of any trivia before `token` in Math/Code mode. Markup parses trivia
     /// manually and doesn't use this.
@@ -1550,12 +1564,18 @@ struct Parser<'s> {
     /// A stack of newline modes used by Code Mode to determine when an expression should
     /// end or continue in the presence of newlines.
     newline_modes: Vec<NewlineMode>,
+    /// Stored parser checkpoints at a given text index for efficient math paren-expr
+    /// parsing, see comments in `expr_with_paren` (also known as packrat parsing).
     memo: HashMap<usize, (Range<usize>, Checkpoint<'s>)>,
+    /// The stored parse results at each checkpoint.
     memo_arena: Vec<SyntaxNode>,
 }
 
 /// How to proceed with parsing when seeing a newline.
-#[derive(Clone)]
+///
+/// TODO idea: Make LexMode::Math contain the newline mode internally, then we can remove
+/// the doubled node/mode vectors.
+#[derive(Clone, Eq, PartialEq)]
 enum NewlineMode {
     /// Stop always.
     Stop,
@@ -1565,30 +1585,40 @@ enum NewlineMode {
     Continue,
 }
 
+/// An index into the parser's nodes vector, used as a start/stop point for wrapping.
+///
+/// Note: markers are given as `nodes.len()` (which is not a valid index into nodes)
+/// because the current token will take up that index when eaten.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Marker(usize);
 
+/// Cheap checkpoint of Parser state for memoization. Doesn't track lexer/newline modes
+/// since those should never differ between two memoized parses.
 #[derive(Clone)]
 struct Checkpoint<'s> {
     lexer: Lexer<'s>,
     current: Token<'s>,
     prev_trivia: Option<TriviaStart>,
-    nodes: usize,
+    node_len: usize,
 }
 
 impl<'s> Parser<'s> {
+    /// Create a new parser starting at the given text offset and lexer mode.
+    ///
+    /// TODO idea: why not just pass in text with the offset already? (i.e. text[offset..]?)
     fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
-        let kind = lexer.next();
-        let current_text = &text[offset..lexer.cursor()];
+        let mut nodes = vec![];
+        let (current, prev_trivia) =
+            Self::lex_past_trivia(text, &mut nodes, &mut lexer, None);
         Self {
             lexer,
             text,
-            current: Token { kind, text: current_text },
-            prev_trivia: None,
+            current,
+            prev_trivia,
             balanced: true,
-            nodes: vec![],
+            nodes,
             modes: vec![],
             newline_modes: vec![],
             memo: HashMap::new(),
@@ -1596,6 +1626,7 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Consume the parser, yielding the full vector of parsed SyntaxNodes.
     fn finish(self) -> Vec<SyntaxNode> {
         self.nodes
     }
@@ -1607,54 +1638,65 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Kind of like a 'peek()' function, tells you what the next token that would be
+    /// eaten currently is.
     fn current(&self) -> SyntaxKind {
         self.current.kind
     }
 
+    /// The offset into `text` of the current token's start.
     fn current_start(&self) -> usize {
         self.lexer.cursor() - self.current.text.len()
     }
 
+    /// The offset into `text` after current token's text.
     fn current_end(&self) -> usize {
         self.lexer.cursor()
     }
 
+    /// The current token's text.
     fn current_text(&self) -> &'s str {
         self.current.text
     }
 
+    /// Whether the current token is a given SyntaxKind.
     fn at(&self, kind: SyntaxKind) -> bool {
         self.current.kind == kind
     }
 
+    /// Whether the current token matches a SyntaxSet.
     fn at_set(&self, set: SyntaxSet) -> bool {
         set.contains(self.current.kind)
     }
 
+    /// Whether there was trivia between the current node and its predecessor.
+    ///
+    /// This is only relevant for Math/Code mode and will always be false in Markup mode.
+    fn had_trivia(&self) -> bool {
+        self.prev_trivia.is_some()
+    }
+
+    fn directly_at(&self, kind: SyntaxKind) -> bool {
+        self.current.kind == kind && !self.had_trivia()
+    }
+
+    /// Whether we're at the end of the token stream.
+    ///
+    /// Note: this might be a 'fake' end due to the NewlineMode in Code mode.
     fn end(&self) -> bool {
         self.at(SyntaxKind::End)
     }
 
-    fn directly_at(&self, kind: SyntaxKind) -> bool {
-        self.current.kind == kind && self.prev_trivia.is_none()
-    }
-
-    fn eat(&mut self) {
-        self.save();
-        self.lex();
-        self.skip();
-    }
-
+    /// Eat the current node, but return a mutable reference for easy conversion to an
+    /// expected/unexpected error node.
     #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
         let offset = self.nodes.len();
-        self.save();
-        self.lex();
-        self.skip();
+        self.eat();
         &mut self.nodes[offset]
     }
 
-    /// Eats if at `kind`.
+    /// Eats if at `kind`. Returns true if eaten.
     ///
     /// Note: In math and code mode, this will ignore trivia in front of the
     /// `kind`, To forbid skipping trivia, consider using `eat_if_direct`.
@@ -1666,7 +1708,7 @@ impl<'s> Parser<'s> {
         at
     }
 
-    /// Eats only if currently at the start of `kind`.
+    /// Eats only if at `kind` with no preceding trivia. Returns true if eaten.
     fn eat_if_direct(&mut self, kind: SyntaxKind) -> bool {
         let at = self.directly_at(kind);
         if at {
@@ -1675,35 +1717,46 @@ impl<'s> Parser<'s> {
         at
     }
 
+    /// Assert that we are at the given SyntaxKind and eat it. This should be used when
+    /// moving between functions that expect to start with a specific token.
     #[track_caller]
     fn assert(&mut self, kind: SyntaxKind) {
         assert_eq!(self.current.kind, kind);
         self.eat();
     }
 
-    fn convert(&mut self, kind: SyntaxKind) {
+    /// Convert the current token's SyntaxKind and eat it.
+    fn convert_and_eat(&mut self, kind: SyntaxKind) {
         self.current.kind = kind;
         self.eat();
     }
 
+    /// Whether there was a newline in the previous token.
+    /// Warning: only use this in Markup mode due to `prev_trivia` in Math/Code mode.
+    ///
+    /// TODO idea: maybe emit newline tokens in Code mode based on NewlineMode?
     fn newline(&mut self) -> bool {
         self.lexer.newline()
     }
 
+    /// The column of the current node.
     fn column(&self, at: usize) -> usize {
+        // TODO idea: keep track of current column in the parser to make this faster?
         self.text[..at].chars().rev().take_while(|&c| !is_newline(c)).count()
     }
 
+    /// Get a marker of the parser's location for future wrapping.
     fn marker(&self) -> Marker {
         Marker(self.nodes.len())
     }
 
-    /// Get a marker after the last non-trivia node.
+    /// Get a marker that includes any trivia before the current token in Math/Code mode.
     fn before_trivia(&self) -> Marker {
-        match self.prev_trivia {
-            Some(TriviaStart { num, offset: _ }) => Marker(self.marker().0 - num),
-            None => self.marker(),
+        let mut marker = self.marker();
+        if let Some(triv) = &self.prev_trivia {
+            marker.0 -= triv.num;
         }
+        marker
     }
 
     /// Whether the last non-trivia node is an error.
@@ -1719,14 +1772,14 @@ impl<'s> Parser<'s> {
             .filter(|child| !child.kind().is_error() && !child.kind().is_trivia())
     }
 
+    /// Wrap the nodes from a marker up to the current node in a new 'Inner Node' of the
+    /// given kind. This is an easy interface for creating nested SyntaxNodes of a certain
+    /// kind _after_ having parsed their required children.
     fn wrap(&mut self, from: Marker, kind: SyntaxKind) {
         self.wrap_within(from, self.before_trivia(), kind);
     }
 
-    fn wrap_all(&mut self, from: Marker, kind: SyntaxKind) {
-        self.wrap_within(from, Marker(self.nodes.len()), kind)
-    }
-
+    /// Replace the current token
     fn wrap_within(&mut self, from: Marker, to: Marker, kind: SyntaxKind) {
         let len = self.nodes.len();
         let to = to.0.min(len);
@@ -1735,124 +1788,144 @@ impl<'s> Parser<'s> {
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
     }
 
+    /// Change to the given LexMode and push the previous mode onto a stack.
     fn enter(&mut self, mode: LexMode) {
         self.modes.push(self.lexer.mode());
         self.lexer.set_mode(mode);
     }
 
+    /// Pop the previous LexMode off the stack and re-lex the current token if needed.
     fn exit(&mut self) {
         let mode = self.modes.pop().unwrap();
         if mode != self.lexer.mode() {
-            self.unskip();
             self.lexer.set_mode(mode);
-            self.lexer.jump(self.current_start());
-            self.prev_trivia = None;
-            self.lex();
-            self.skip();
+            self.re_lex();
         }
     }
 
+    /// Change to the given NewlineMode and push the previous mode onto a stack.
     fn enter_newline_mode(&mut self, stop: NewlineMode) {
         self.newline_modes.push(stop);
     }
 
+    /// Pop the previous NewlineMode off the stack and re-lex the current token if needed.
     fn exit_newline_mode(&mut self) {
-        self.unskip();
-        self.newline_modes.pop();
-        self.lexer.jump(self.prev_end());
-        self.prev_trivia = None;
-        self.lex();
-        self.skip();
+        let prev = self.newline_modes.pop();
+        if prev != self.newline_modes.last().cloned() {
+            self.re_lex();
+        }
     }
 
+    /// Save a checkpoint of the parser state.
     fn checkpoint(&self) -> Checkpoint<'s> {
         Checkpoint {
             lexer: self.lexer.clone(),
             current: self.current.clone(),
             prev_trivia: self.prev_trivia.clone(),
-            nodes: self.nodes.len(),
+            node_len: self.nodes.len(),
         }
     }
 
+    /// Reset the parser from a checkpoint.
     fn restore(&mut self, checkpoint: Checkpoint<'s>) {
         self.lexer = checkpoint.lexer;
         self.current = checkpoint.current;
         self.prev_trivia = checkpoint.prev_trivia;
-        self.nodes.truncate(checkpoint.nodes);
+        self.nodes.truncate(checkpoint.node_len);
     }
 
-    fn skip(&mut self) {
-        self.prev_trivia = None;
-        if self.lexer.mode() != LexMode::Markup {
-            while self.current.kind.is_trivia() {
-                self.save();
-                self.lex();
-            }
-        }
-    }
-
-    fn unskip(&mut self) {
-        if self.lexer.mode() != LexMode::Markup {
-            if let Some(TriviaStart { num, offset }) = self.prev_trivia.take() {
-                self.nodes.truncate(self.nodes.len() - num);
-                self.lexer.jump(offset);
-                self.lex();
-            }
-        }
-    }
-
-    fn save(&mut self) {
+    /// Eats the current token by saving it as a leaf node, then moves the lexer forward
+    /// to prepare a new current token.
+    fn eat(&mut self) {
         if self.at(SyntaxKind::Error) {
             let message = self.lexer.take_error().unwrap();
             self.nodes.push(SyntaxNode::error(message, self.current.text));
         } else {
-            self.nodes.push(SyntaxNode::leaf(self.current.kind, self.current.text));
+            self.nodes
+                .push(SyntaxNode::leaf(self.current.kind, self.current.text));
         }
-
-        if self.lexer.mode() != LexMode::Markup && self.current.kind.is_trivia() {
-            let (num, offset) = match self.prev_trivia {
-                Some(TriviaStart { num, offset }) => (num + 1, offset),
-                None => (1, self.current_start()),
-            };
-            self.prev_trivia = Some(TriviaStart { num, offset });
-        } else {
-            self.prev_trivia = None;
-        }
+        (self.current, self.prev_trivia) = Self::lex_past_trivia(
+            self.text,
+            &mut self.nodes,
+            &mut self.lexer,
+            self.newline_modes.last(),
+        );
     }
 
-    fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
-        loop {
-            let next = lexer.next();
-            // Loop is terminatable, because SyntaxKind::End is not a trivia.
-            if !next.is_trivia() {
-                break next;
-            }
-        }
-    }
-
-    fn lex(&mut self) {
-        // if !self.current.kind.is_trivia() || self.lexer.mode() == LexMode::Markup {
-        //     self.prev_trivia = None;
-        // }
-        let start = self.lexer.cursor();
-        self.current.kind = self.lexer.next();
-        self.current.text = &self.text[start..self.lexer.cursor()];
-
-        // Special cases to handle newlines in code mode.
-        if self.lexer.mode() == LexMode::Code
-            && self.lexer.newline()
-            && match self.newline_modes.last() {
-                Some(NewlineMode::Continue) => false,
-                Some(NewlineMode::Contextual) => !matches!(
-                    Self::next_non_trivia(&mut self.lexer.clone()),
-                    SyntaxKind::Else | SyntaxKind::Dot
-                ),
+    /// Check whether we need to stop from parsing a newline in code mode.
+    fn stop_for_newline(lexer: &Lexer, mode: Option<&NewlineMode>) -> bool {
+        lexer.mode() == LexMode::Code
+            && lexer.newline()
+            && match mode {
                 Some(NewlineMode::Stop) => true,
+                Some(NewlineMode::Continue) => false,
+                Some(NewlineMode::Contextual) => {
+                    let mut next_lexer = lexer.clone();
+                    !matches!(
+                        loop {
+                            let next = next_lexer.next();
+                            if !next.is_trivia() {
+                                break next;
+                            }
+                        },
+                        SyntaxKind::Else | SyntaxKind::Dot
+                    )
+                }
                 None => false,
             }
-        {
-            self.current.kind = SyntaxKind::End;
+    }
+
+    // Cannot be a function of self since needed for initializization.
+    fn lex_past_trivia<'t, 'a>(
+        text: &'t str,
+        nodes: &'a mut Vec<SyntaxNode>,
+        lexer: &'a mut Lexer,
+        nl_mode: Option<&NewlineMode>,
+    ) -> (Token<'t>, Option<TriviaStart>) {
+        let mut prev_trivia = None;
+        let mut start = lexer.cursor();
+        let mut kind = lexer.next();
+
+        if lexer.mode() != LexMode::Markup {
+            // Skip past any trivia at the start when in Math/Code mode.
+            while kind.is_trivia() {
+                // Note: can only have a newline in code mode inside trivia.
+                if Self::stop_for_newline(lexer, nl_mode) {
+                    // We convert current to a fake End node so that we can re-use the
+                    // existing code which stops upon seeing an end.
+                    kind = SyntaxKind::End;
+                    break;
+                }
+                nodes.push(SyntaxNode::leaf(kind, &text[start..lexer.cursor()]));
+                let (num, offset) = match prev_trivia {
+                    Some(TriviaStart { num, offset }) => (num + 1, offset),
+                    None => (1, start),
+                };
+                prev_trivia = Some(TriviaStart { num, offset });
+                start = lexer.cursor();
+                kind = lexer.next();
+            }
         }
+        (Token { kind, text: &text[start..lexer.cursor()] }, prev_trivia)
+    }
+
+    /// Re-lex the current token and any preceding whitespace. This must be called after
+    /// changing the lex/newline mode.
+    fn re_lex(&mut self) {
+        let prev_start = match self.prev_trivia {
+            Some(TriviaStart { num, offset }) => {
+                self.nodes.truncate(self.nodes.len() - num);
+                offset
+            }
+            None => self.lexer.cursor() - self.current.text.len(),
+        };
+        self.lexer.jump(prev_start);
+        (self.current, self.prev_trivia) = Self::lex_past_trivia(
+            self.text,
+            &mut self.nodes,
+            &mut self.lexer,
+            self.newline_modes.last(),
+        );
     }
 }
 
