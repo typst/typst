@@ -58,15 +58,17 @@ pub use typst_utils as utils;
 
 use std::collections::HashSet;
 use std::ops::{Deref, Range};
+use std::sync::{Arc, Mutex};
 
 use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult, Warned};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Array, Bytes, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
+    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
 };
 use crate::introspection::Introspector;
 use crate::layout::{Alignment, Dir};
@@ -105,8 +107,8 @@ fn compile_inner(
     traced: Tracked<Traced>,
     sink: &mut Sink,
 ) -> SourceResult<Document> {
-    let library = world.library();
-    let styles = StyleChain::new(&library.styles);
+    // Yes, this is a hack. But it's ok, this is just an experimental branch.
+    static INTROSPECTORS: Mutex<Vec<Arc<Introspector>>> = Mutex::new(Vec::new());
 
     // First evaluate the main source file into a module.
     let content = crate::eval::eval(
@@ -118,36 +120,57 @@ fn compile_inner(
     )?
     .content();
 
+    // If we have introspectors from previous compilations, we can speed up
+    // compilation with a small speculative trick: Since quite often the
+    // iterations we go through will be exactly the same ones as previously with
+    // no relevant introspector changes, we can run all iterations in parallel
+    // using the previous introspectors.
+    let mut speculation = INTROSPECTORS
+        .lock()
+        .unwrap()
+        .clone()
+        .par_iter()
+        .enumerate()
+        .map(|(iter, introspector)| {
+            let mut sink = Sink::new();
+            (layout(world, &introspector, traced, &mut sink, &content, iter), sink)
+        })
+        .collect::<Vec<_>>()
+        .into_iter();
+
     let mut iter = 0;
-    let mut document = Document::default();
+    let mut introspector = Arc::new(Introspector::new(&[]));
+    let mut introspectors = vec![];
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
-    loop {
-        // The name of the iterations for timing scopes.
-        const ITER_NAMES: &[&str] =
-            &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
-        let _scope = TimingScope::new(ITER_NAMES[iter], None);
+    let document = loop {
+        // Save this iteration's introspector.
+        introspectors.push(introspector.clone());
 
         // Clear delayed errors.
         sink.delayed();
 
-        let constraint = <Introspector as Validate>::Constraint::new();
-        let mut engine = Engine {
-            world,
-            introspector: document.introspector.track_with(&constraint),
-            traced,
-            sink: sink.track_mut(),
-            route: Route::default(),
+        // Try to use a speculative result if it was valid for the
+        // real current introspector. If not, layout as usual.
+        let (result, constraint) = if let Some((pair, subsink)) =
+            speculation.next().filter(|((_, constraint), _)| {
+                timed!("check speculation", introspector.validate(&constraint))
+            }) {
+            sink.extend(subsink.delayed, subsink.warnings, subsink.values);
+            pair
+        } else {
+            layout(world, &introspector, traced, sink, &content, iter)
         };
 
-        // Layout!
-        document = content.layout_document(&mut engine, styles)?;
-        document.introspector.rebuild(&document.pages);
+        let document = result?;
+        introspector = document.introspector.clone();
+
+        // Bump the iteration.
         iter += 1;
 
-        if timed!("check stabilized", document.introspector.validate(&constraint)) {
-            break;
+        if timed!("check stabilized", introspector.validate(&constraint)) {
+            break document;
         }
 
         if iter >= 5 {
@@ -155,9 +178,12 @@ fn compile_inner(
                 Span::detached(), "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
-            break;
+            break document;
         }
-    }
+    };
+
+    // Save the introspectors for next time.
+    *INTROSPECTORS.lock().unwrap() = introspectors;
 
     // Promote delayed errors.
     let delayed = sink.delayed();
@@ -166,6 +192,39 @@ fn compile_inner(
     }
 
     Ok(document)
+}
+
+/// Run a single layout iteration with the given introspector.
+///
+/// Returns the document and the introspector constraints for it.
+fn layout(
+    world: Tracked<dyn World + '_>,
+    introspector: &Introspector,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+    content: &Content,
+    iter: usize,
+) -> (SourceResult<Document>, <Introspector as Validate>::Constraint) {
+    // The name of the iterations for timing scopes.
+    const ITERS: &[&str] =
+        &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
+    let _scope = TimingScope::new(ITERS[iter], None);
+
+    let constraint = <Introspector as Validate>::Constraint::new();
+    let mut engine = Engine {
+        world,
+        introspector: introspector.track_with(&constraint),
+        traced,
+        sink: sink.track_mut(),
+        route: Route::default(),
+    };
+
+    let library = world.library();
+    let styles = StyleChain::new(&library.styles);
+
+    // Layout!
+    let document = content.layout_document(&mut engine, styles);
+    (document, constraint)
 }
 
 /// Deduplicate diagnostics.
@@ -189,7 +248,7 @@ fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> 
 /// information on when something can change. For example, fonts typically don't
 /// change and can thus even be cached across multiple compilations (for
 /// long-running applications like `typst watch`). Source files on the other
-/// hand can change and should thus be cleared after each compilation. Advanced
+/// hand can change and might thus be cleared after each compilation. Advanced
 /// clients like language servers can also retain the source files and
 /// [edit](Source::edit) them in-place to benefit from better incremental
 /// performance.

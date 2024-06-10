@@ -128,13 +128,13 @@ pub struct Sink {
     /// because the introspector is not yet ready. We first ignore that and
     /// proceed with empty content and only if the error remains by the end
     /// of the last iteration, we promote it.
-    delayed: EcoVec<SourceDiagnostic>,
+    pub(crate) delayed: EcoVec<SourceDiagnostic>,
     /// Warnings emitted during iteration.
-    warnings: EcoVec<SourceDiagnostic>,
+    pub(crate) warnings: EcoVec<SourceDiagnostic>,
     /// Hashes of all warning's spans and messages for warning deduplication.
     warnings_set: HashSet<u128>,
     /// A sequence of traced values for a span.
-    values: EcoVec<(Value, Option<Styles>)>,
+    pub(crate) values: EcoVec<(Value, Option<Styles>)>,
 }
 
 impl Sink {
@@ -186,7 +186,7 @@ impl Sink {
     }
 
     /// Extend from another sink.
-    fn extend(
+    pub fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,
         warnings: EcoVec<SourceDiagnostic>,

@@ -38,21 +38,25 @@ pub struct Introspector {
 }
 
 impl Introspector {
-    /// Applies new frames in-place, reusing the existing allocations.
+    /// Build a new introspector for a page collection.
     #[typst_macros::time(name = "introspect")]
-    pub fn rebuild(&mut self, pages: &[Page]) {
-        self.pages = pages.len();
-        self.elems.clear();
-        self.labels.clear();
-        self.keys.clear();
-        self.page_numberings.clear();
-        self.queries.clear();
+    pub fn new(pages: &[Page]) -> Self {
+        let mut this = Self {
+            pages: pages.len(),
+            elems: IndexMap::new(),
+            labels: HashMap::new(),
+            keys: HashMap::new(),
+            page_numberings: Vec::with_capacity(pages.len()),
+            queries: QueryCache::default(),
+        };
 
         for (i, page) in pages.iter().enumerate() {
             let page_nr = NonZeroUsize::new(1 + i).unwrap();
-            self.extract(&page.frame, page_nr, Transform::identity());
-            self.page_numberings.push(page.numbering.clone());
+            this.extract(&page.frame, page_nr, Transform::identity());
+            this.page_numberings.push(page.numbering.clone());
         }
+
+        this
     }
 
     /// Extract metadata from a frame.
@@ -327,10 +331,6 @@ impl QueryCache {
 
     fn insert(&self, hash: u128, output: EcoVec<Content>) {
         self.0.write().unwrap().insert(hash, output);
-    }
-
-    fn clear(&mut self) {
-        self.0.get_mut().unwrap().clear();
     }
 }
 

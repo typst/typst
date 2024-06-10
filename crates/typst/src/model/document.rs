@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ecow::EcoString;
 
 use crate::diag::{bail, HintedStrResult, SourceResult};
@@ -107,13 +109,15 @@ impl Packed<DocumentElem> {
             pages.extend(result?.finalize(engine, &mut page_counter)?);
         }
 
+        let introspector = Introspector::new(&pages);
+
         Ok(Document {
             pages,
             title: DocumentElem::title_in(styles).map(|content| content.plain_text()),
             author: DocumentElem::author_in(styles).0,
             keywords: DocumentElem::keywords_in(styles).0,
             date: DocumentElem::date_in(styles),
-            introspector: Introspector::default(),
+            introspector: Arc::new(introspector),
         })
     }
 }
@@ -154,7 +158,7 @@ pub struct Document {
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
     /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
+    pub introspector: Arc<Introspector>,
 }
 
 #[cfg(test)]
