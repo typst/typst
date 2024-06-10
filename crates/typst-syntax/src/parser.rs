@@ -357,11 +357,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         _ => p.expected("expression"),
     }
 
-    if continuable
-        && min_prec < 3
-        && !p.had_trivia()
-        && maybe_delimited(p)
-    {
+    if continuable && min_prec < 3 && !p.had_trivia() && maybe_delimited(p) {
         p.wrap(m, SyntaxKind::Math);
     }
 
@@ -1573,7 +1569,8 @@ impl<'s> Parser<'s> {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
         let mut nodes = vec![];
-        let (current, prev_trivia) = Self::lex_past_trivia(text, &mut nodes, &mut lexer, None);
+        let (current, prev_trivia) =
+            Self::lex_past_trivia(text, &mut nodes, &mut lexer, None);
         Self {
             lexer,
             text,
@@ -1773,7 +1770,8 @@ impl<'s> Parser<'s> {
             let message = self.lexer.take_error().unwrap();
             self.nodes.push(SyntaxNode::error(message, self.current.text));
         } else {
-            self.nodes.push(SyntaxNode::leaf(self.current.kind, self.current.text));
+            self.nodes
+                .push(SyntaxNode::leaf(self.current.kind, self.current.text));
         }
         (self.current, self.prev_trivia) = Self::lex_past_trivia(
             self.text,
@@ -1795,11 +1793,13 @@ impl<'s> Parser<'s> {
                     !matches!(
                         loop {
                             let next = next_lexer.next();
-                            if !next.is_trivia() { break next; }
+                            if !next.is_trivia() {
+                                break next;
+                            }
                         },
                         SyntaxKind::Else | SyntaxKind::Dot
                     )
-                },
+                }
                 None => false,
             }
     }
@@ -1809,7 +1809,7 @@ impl<'s> Parser<'s> {
         text: &'t str,
         nodes: &'a mut Vec<SyntaxNode>,
         lexer: &'a mut Lexer,
-        nl_mode: Option<&NewlineMode>
+        nl_mode: Option<&NewlineMode>,
     ) -> (Token<'t>, Option<TriviaStart>) {
         let mut prev_trivia = None;
         let mut start = lexer.cursor();
@@ -1828,7 +1828,7 @@ impl<'s> Parser<'s> {
                 nodes.push(SyntaxNode::leaf(kind, &text[start..lexer.cursor()]));
                 let (num, offset) = match prev_trivia {
                     Some(TriviaStart { num, offset }) => (num + 1, offset),
-                    None => (1, start)
+                    None => (1, start),
                 };
                 prev_trivia = Some(TriviaStart { num, offset });
                 start = lexer.cursor();
@@ -1845,7 +1845,7 @@ impl<'s> Parser<'s> {
             Some(TriviaStart { num, offset }) => {
                 self.nodes.truncate(self.nodes.len() - num);
                 offset
-            },
+            }
             None => self.lexer.cursor() - self.current.text.len(),
         };
         self.lexer.jump(prev_start);
