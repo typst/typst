@@ -132,7 +132,7 @@ pub struct TextElem {
             let book = engine.world.book();
             for family in &font_list.v {
                 if !book.contains_family(family.as_str()) {
-                    engine.tracer.warn(warning!(
+                    engine.sink.warn(warning!(
                         font_list.span,
                         "unknown font family: {}",
                         family.as_str(),

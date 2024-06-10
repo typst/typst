@@ -4,8 +4,7 @@ use std::path::Path;
 
 use ecow::eco_vec;
 use tiny_skia as sk;
-use typst::diag::SourceDiagnostic;
-use typst::eval::Tracer;
+use typst::diag::{SourceDiagnostic, Warned};
 use typst::foundations::Smart;
 use typst::layout::{Abs, Frame, FrameItem, Page, Transform};
 use typst::model::Document;
@@ -80,13 +79,12 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        let mut tracer = Tracer::new();
-        let (doc, errors) = match typst::compile(&self.world, &mut tracer) {
+        let Warned { output, warnings } = typst::compile(&self.world);
+        let (doc, errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
         };
 
-        let warnings = tracer.warnings();
         if doc.is_none() && errors.is_empty() {
             log!(self, "no document, but also no errors");
         }

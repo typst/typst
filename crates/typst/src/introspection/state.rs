@@ -2,8 +2,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::diag::{bail, At, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
     LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str, StyleChain,
@@ -214,8 +213,9 @@ impl State {
         self.sequence_impl(
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -225,14 +225,16 @@ impl State {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<Value>> {
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route).unnested(),
-            tracer,
         };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];

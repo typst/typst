@@ -134,7 +134,7 @@ impl Eval for ast::Strong<'_> {
         let body = self.body();
         if body.exprs().next().is_none() {
             vm.engine
-                .tracer
+                .sink
                 .warn(warning!(
                     self.span(), "no text within stars";
                     hint: "using multiple consecutive stars (e.g. **) has no additional effect",
@@ -152,7 +152,7 @@ impl Eval for ast::Emph<'_> {
         let body = self.body();
         if body.exprs().next().is_none() {
             vm.engine
-                .tracer
+                .sink
                 .warn(warning!(
                     self.span(), "no text within underscores";
                     hint: "using multiple consecutive underscores (e.g. __) has no additional effect"

@@ -11,8 +11,7 @@ use self::shaping::{
     END_PUNCT_PAT,
 };
 use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, LocatorLink, Tag, TagElem};
 use crate::layout::{
@@ -45,8 +44,9 @@ pub(crate) fn layout_inline(
         children: &StyleVec,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-        tracer: TrackedMut<Tracer>,
         locator: Tracked<Locator>,
         styles: StyleChain,
         consecutive: bool,
@@ -58,8 +58,9 @@ pub(crate) fn layout_inline(
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route),
-            tracer,
         };
 
         // Collect all text into one string for BiDi analysis.
@@ -83,8 +84,9 @@ pub(crate) fn layout_inline(
         children,
         engine.world,
         engine.introspector,
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
-        TrackedMut::reborrow_mut(&mut engine.tracer),
         locator.track(),
         styles,
         consecutive,

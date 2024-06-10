@@ -72,8 +72,7 @@ pub(crate) use self::inline::*;
 use comemo::{Track, Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
 use crate::introspection::{Introspector, Locator, LocatorLink};
 use crate::model::Document;
@@ -137,16 +136,18 @@ impl Content {
             content: &Content,
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
+            traced: Tracked<Traced>,
+            sink: TrackedMut<Sink>,
             route: Tracked<Route>,
-            tracer: TrackedMut<Tracer>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
             let mut locator = Locator::root().split();
             let mut engine = Engine {
                 world,
                 introspector,
+                traced,
+                sink,
                 route: Route::extend(route).unnested(),
-                tracer,
             };
             let arenas = Arenas::default();
             let (document, styles) =
@@ -158,8 +159,9 @@ impl Content {
             self,
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
             styles,
         )
     }
@@ -178,8 +180,9 @@ impl Content {
             content: &Content,
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
+            traced: Tracked<Traced>,
+            sink: TrackedMut<Sink>,
             route: Tracked<Route>,
-            tracer: TrackedMut<Tracer>,
             locator: Tracked<Locator>,
             styles: StyleChain,
             regions: Regions,
@@ -189,8 +192,9 @@ impl Content {
             let mut engine = Engine {
                 world,
                 introspector,
+                traced,
+                sink,
                 route: Route::extend(route),
-                tracer,
             };
 
             if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {
@@ -218,8 +222,9 @@ impl Content {
             self,
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
             locator.track(),
             styles,
             regions,

@@ -170,7 +170,6 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
 mod tests {
     use std::num::NonZeroUsize;
 
-    use typst::eval::Tracer;
     use typst::layout::{Abs, Point, Position};
 
     use super::{jump_from_click, jump_from_cursor, Jump};
@@ -200,14 +199,14 @@ mod tests {
     #[track_caller]
     fn test_click(text: &str, click: Point, expected: Option<Jump>) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
+        let doc = typst::compile(&world).output.unwrap();
         assert_eq!(jump_from_click(&world, &doc, &doc.pages[0].frame, click), expected);
     }
 
     #[track_caller]
     fn test_cursor(text: &str, cursor: usize, expected: Option<Position>) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
+        let doc = typst::compile(&world).output.unwrap();
         let pos = jump_from_cursor(&doc, &world.main, cursor);
         assert_eq!(pos.is_some(), expected.is_some());
         if let (Some(pos), Some(expected)) = (pos, expected) {

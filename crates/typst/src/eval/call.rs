@@ -2,8 +2,8 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
-use crate::engine::Engine;
-use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
+use crate::engine::{Engine, Sink, Traced};
+use crate::eval::{Access, Eval, FlowEvent, Route, Vm};
 use crate::foundations::{
     call_method_mut, is_mutating_method, Arg, Args, Bytes, Capturer, Closure, Content,
     Context, Func, IntoValue, NativeElement, Scope, Scopes, Value,
@@ -275,8 +275,9 @@ pub(crate) fn call_closure(
     closure: &LazyHash<Closure>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
     route: Tracked<Route>,
-    tracer: TrackedMut<Tracer>,
     context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
@@ -294,8 +295,9 @@ pub(crate) fn call_closure(
     let engine = Engine {
         world,
         introspector,
+        traced,
+        sink,
         route: Route::extend(route),
-        tracer,
     };
 
     // Prepare VM.

@@ -6,8 +6,7 @@ use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, HintedStrResult, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
@@ -281,8 +280,9 @@ impl Counter {
         self.sequence_impl(
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -292,14 +292,16 @@ impl Counter {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route).unnested(),
-            tracer,
         };
 
         let mut state = CounterState::init(&self.0);
