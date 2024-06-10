@@ -121,6 +121,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
+        SyntaxKind::DecoratorMarker => decorator(p),
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
@@ -144,6 +145,19 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     }
 
     *at_start = false;
+}
+
+fn decorator(p: &mut Parser) {
+    let m = p.marker();
+    p.enter(LexMode::Decorator);
+    p.assert(SyntaxKind::DecoratorMarker);
+
+    while !p.end() {
+        p.eat();
+    }
+
+    p.exit();
+    p.wrap(m, SyntaxKind::Decorator);
 }
 
 /// Parses strong content: `*Strong*`.
