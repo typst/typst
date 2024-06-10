@@ -145,6 +145,7 @@ pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpac
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
+#[typst_macros::time(name = "encode raster image")]
 fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
     let dynamic = image.dynamic();
     let channel_count = dynamic.color().channel_count();
@@ -169,6 +170,7 @@ fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
 }
 
 /// Encode an image's alpha channel if present.
+#[typst_macros::time(name = "encode alpha")]
 fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = raster
         .dynamic()
@@ -179,6 +181,7 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 }
 
 /// Encode an SVG into a chunk of PDF objects.
+#[typst_macros::time(name = "encode svg")]
 fn encode_svg(svg: &SvgImage) -> (Chunk, Ref) {
     svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default())
 }

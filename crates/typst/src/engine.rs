@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::diag::{SourceDiagnostic, SourceResult};
 use crate::foundations::{Styles, Value};
@@ -43,6 +44,46 @@ impl Engine<'_> {
                 T::default()
             }
         }
+    }
+
+    /// Runs tasks on the engine in parallel.
+    pub fn parallelize<P, I, T, U, F>(&mut self, iter: P, f: F) -> impl Iterator<Item = U>
+    where
+        P: IntoIterator<IntoIter = I>,
+        I: Iterator<Item = T>,
+        T: Send,
+        U: Send,
+        F: Fn(&mut Engine, T) -> U + Send + Sync,
+    {
+        let Engine { world, introspector, traced, ref route, .. } = *self;
+
+        // We collect into a vector and then call `into_par_iter` instead of
+        // using `par_bridge` because it does not retain the ordering.
+        let work: Vec<T> = iter.into_iter().collect();
+
+        // Work in parallel.
+        let mut pairs: Vec<(U, Sink)> = Vec::with_capacity(work.len());
+        work.into_par_iter()
+            .map(|value| {
+                let mut sink = Sink::new();
+                let mut engine = Engine {
+                    world,
+                    introspector,
+                    traced,
+                    sink: sink.track_mut(),
+                    route: route.clone(),
+                };
+                (f(&mut engine, value), sink)
+            })
+            .collect_into_vec(&mut pairs);
+
+        // Apply the subsinks to the outer sink.
+        for (_, sink) in &mut pairs {
+            let sink = std::mem::take(sink);
+            self.sink.extend(sink.delayed, sink.warnings, sink.values);
+        }
+
+        pairs.into_iter().map(|(output, _)| output)
     }
 }
 
@@ -141,6 +182,22 @@ impl Sink {
     pub fn value(&mut self, value: Value, styles: Option<Styles>) {
         if self.values.len() < Self::MAX_VALUES {
             self.values.push((value, styles));
+        }
+    }
+
+    /// Extend from another sink.
+    fn extend(
+        &mut self,
+        delayed: EcoVec<SourceDiagnostic>,
+        warnings: EcoVec<SourceDiagnostic>,
+        values: EcoVec<(Value, Option<Styles>)>,
+    ) {
+        self.delayed.extend(delayed);
+        for warning in warnings {
+            self.warn(warning);
+        }
+        if let Some(remaining) = Self::MAX_VALUES.checked_sub(self.values.len()) {
+            self.values.extend(values.into_iter().take(remaining));
         }
     }
 }

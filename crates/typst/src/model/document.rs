@@ -79,29 +79,32 @@ impl Packed<DocumentElem> {
         locator: Locator,
         styles: StyleChain,
     ) -> SourceResult<Document> {
-        let mut pages = Vec::with_capacity(self.children().len());
-        let mut page_counter = ManualPageCounter::new();
-
         let children = self.children();
-        let mut iter = children.chain(&styles).peekable();
+        let mut peekable = children.chain(&styles).peekable();
         let mut locator = locator.split();
 
-        while let Some((child, styles)) = iter.next() {
-            if let Some(page) = child.to_packed::<PageElem>() {
-                let extend_to = iter
-                    .peek()
-                    .and_then(|(next, _)| *next.to_packed::<PageElem>()?.clear_to()?);
-                let run = page.layout(
-                    engine,
-                    locator.next(&page.span()),
-                    styles,
-                    &mut page_counter,
-                    extend_to,
-                )?;
-                pages.extend(run);
-            } else {
-                bail!(child.span(), "unexpected document child");
-            }
+        let iter = std::iter::from_fn(|| {
+            let (child, styles) = peekable.next()?;
+            let extend_to = peekable
+                .peek()
+                .and_then(|(next, _)| *next.to_packed::<PageElem>()?.clear_to()?);
+            let locator = locator.next(&child.span());
+            Some((child, styles, extend_to, locator))
+        });
+
+        let layouts =
+            engine.parallelize(iter, |engine, (child, styles, extend_to, locator)| {
+                if let Some(page) = child.to_packed::<PageElem>() {
+                    page.layout(engine, locator, styles, extend_to)
+                } else {
+                    bail!(child.span(), "unexpected document child");
+                }
+            });
+
+        let mut page_counter = ManualPageCounter::new();
+        let mut pages = Vec::with_capacity(self.children().len());
+        for result in layouts {
+            pages.extend(result?.finalize(engine, &mut page_counter)?);
         }
 
         Ok(Document {
