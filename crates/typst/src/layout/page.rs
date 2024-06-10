@@ -13,7 +13,7 @@ use crate::foundations::{
     Packed, Resolve, Smart, StyleChain, Value,
 };
 use crate::introspection::{
-    Counter, CounterDisplayElem, CounterKey, Locator, ManualPageCounter,
+    Counter, CounterDisplayElem, CounterKey, Locator, ManualPageCounter, SplitLocator,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, Length,
@@ -348,14 +348,13 @@ impl Packed<PageElem> {
     /// a fragment consisting of multiple frames, one per output page of this
     /// page run.
     #[typst_macros::time(name = "page", span = self.span())]
-    pub fn layout(
-        &self,
+    pub fn layout<'a>(
+        &'a self,
         engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        page_counter: &mut ManualPageCounter,
+        locator: Locator<'a>,
+        styles: StyleChain<'a>,
         extend_to: Option<Parity>,
-    ) -> SourceResult<Vec<Page>> {
+    ) -> SourceResult<PageLayout<'a>> {
         let mut locator = locator.split();
 
         // When one of the lengths is infinite the page fits its content along
@@ -382,14 +381,6 @@ impl Packed<PageElem> {
             .resolve(styles)
             .relative_to(size);
 
-        // Determine the binding.
-        let binding =
-            self.binding(styles)
-                .unwrap_or_else(|| match TextElem::dir_in(styles) {
-                    Dir::LTR => Binding::Left,
-                    _ => Binding::Right,
-                });
-
         // Realize columns.
         let mut child = self.body().clone();
         let columns = self.columns(styles);
@@ -405,27 +396,70 @@ impl Packed<PageElem> {
         regions.root = true;
 
         // Layout the child.
-        let mut frames = child
+        let frames = child
             .layout(engine, locator.next(&self.span()), styles, regions)?
             .into_frames();
 
+        Ok(PageLayout {
+            page: self,
+            locator,
+            styles,
+            extend_to,
+            area,
+            margin,
+            two_sided,
+            frames,
+        })
+    }
+}
+
+/// A prepared layout of a page run that can be finalized with access to the
+/// page counter.
+pub struct PageLayout<'a> {
+    page: &'a Packed<PageElem>,
+    locator: SplitLocator<'a>,
+    styles: StyleChain<'a>,
+    extend_to: Option<Parity>,
+    area: Size,
+    margin: Sides<Abs>,
+    two_sided: bool,
+    frames: Vec<Frame>,
+}
+
+impl PageLayout<'_> {
+    /// Finalize the layout with access to the next page counter.
+    #[typst_macros::time(name = "finalize page", span = self.page.span())]
+    pub fn finalize(
+        mut self,
+        engine: &mut Engine,
+        page_counter: &mut ManualPageCounter,
+    ) -> SourceResult<Vec<Page>> {
+        let styles = self.styles;
+
         // Align the child to the pagebreak's parity.
         // Check for page count after adding the pending frames
-        if extend_to
-            .is_some_and(|p| !p.matches(page_counter.physical().get() + frames.len()))
-        {
+        if self.extend_to.is_some_and(|p| {
+            !p.matches(page_counter.physical().get() + self.frames.len())
+        }) {
             // Insert empty page after the current pages.
-            let size = area.map(Abs::is_finite).select(area, Size::zero());
-            frames.push(Frame::hard(size));
+            let size = self.area.map(Abs::is_finite).select(self.area, Size::zero());
+            self.frames.push(Frame::hard(size));
         }
 
-        let fill = self.fill(styles);
-        let foreground = self.foreground(styles);
-        let background = self.background(styles);
-        let header_ascent = self.header_ascent(styles);
-        let footer_descent = self.footer_descent(styles);
-        let numbering = self.numbering(styles);
-        let number_align = self.number_align(styles);
+        let fill = self.page.fill(styles);
+        let foreground = self.page.foreground(styles);
+        let background = self.page.background(styles);
+        let header_ascent = self.page.header_ascent(styles);
+        let footer_descent = self.page.footer_descent(styles);
+        let numbering = self.page.numbering(styles);
+        let number_align = self.page.number_align(styles);
+        let binding =
+            self.page
+                .binding(styles)
+                .unwrap_or_else(|| match TextElem::dir_in(styles) {
+                    Dir::LTR => Binding::Left,
+                    _ => Binding::Right,
+                });
 
         // Construct the numbering (for header or footer).
         let numbering_marginal = numbering.as_ref().map(|numbering| {
@@ -440,7 +474,7 @@ impl Packed<PageElem> {
                 both,
             )
             .pack()
-            .spanned(self.span());
+            .spanned(self.page.span());
 
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.
@@ -451,8 +485,8 @@ impl Packed<PageElem> {
             counter
         });
 
-        let header = self.header(styles);
-        let footer = self.footer(styles);
+        let header = self.page.header(styles);
+        let footer = self.page.footer(styles);
         let (header, footer) = if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
             (
                 header.as_ref().unwrap_or(&numbering_marginal),
@@ -466,16 +500,16 @@ impl Packed<PageElem> {
         };
 
         // Post-process pages.
-        let mut pages = Vec::with_capacity(frames.len());
-        for mut frame in frames {
+        let mut pages = Vec::with_capacity(self.frames.len());
+        for mut frame in self.frames {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
             // If two sided, left becomes inside and right becomes outside.
             // Thus, for left-bound pages, we want to swap on even pages and
             // for right-bound pages, we want to swap on odd pages.
-            let mut margin = margin;
-            if two_sided && binding.swap(page_counter.physical()) {
+            let mut margin = self.margin;
+            if self.two_sided && binding.swap(page_counter.physical()) {
                 std::mem::swap(&mut margin.left, &mut margin.right);
             }
 
@@ -511,7 +545,7 @@ impl Packed<PageElem> {
                 let sub = content
                     .clone()
                     .styled(AlignElem::set_alignment(align))
-                    .layout(engine, locator.next(&content.span()), styles, pod)?
+                    .layout(engine, self.locator.next(&content.span()), styles, pod)?
                     .into_frame();
 
                 if ptr::eq(marginal, header) || ptr::eq(marginal, background) {
