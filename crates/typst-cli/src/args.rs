@@ -217,6 +217,11 @@ pub struct SharedArgs {
     /// Arguments related to storage of packages in the system
     #[clap(flatten)]
     pub package_storage_args: PackageStorageArgs,
+
+    /// Number of parallel jobs spawned during compilation,
+    /// defaults to number of CPUs.
+    #[clap(long, short)]
+    pub jobs: Option<usize>,
 }
 
 /// Arguments related to where packages are stored in the system.
