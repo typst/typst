@@ -406,6 +406,8 @@ impl<'a> GlyphPainter<'a> {
         let gradient_id = format!("rg{}", self.gradient_index);
         self.gradient_index += 1;
 
+        let gradient_transform = paint_transform(self.outline_transform, self.transform);
+
         self.svg.start_element("radialGradient");
         self.svg.write_attribute("id", &gradient_id);
         self.svg.write_attribute("cx", &gradient.x1);
@@ -417,7 +419,7 @@ impl<'a> GlyphPainter<'a> {
         self.svg.write_attribute("gradientUnits", &"userSpaceOnUse");
         self.svg.write_spread_method_attribute(gradient.extend);
         self.svg
-            .write_transform_attribute("gradientTransform", self.transform);
+            .write_transform_attribute("gradientTransform", gradient_transform);
         self.write_gradient_stops(
             gradient.stops(self.palette_index, self.face.variation_coordinates()),
         );
