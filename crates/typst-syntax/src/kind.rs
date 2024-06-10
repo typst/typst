@@ -13,6 +13,8 @@ pub enum SyntaxKind {
     LineComment,
     /// A block comment: `/* ... */`.
     BlockComment,
+    /// A decorator's marker: `/!`
+    DecoratorMarker,
 
     /// The contents of a file or content block.
     Markup,
@@ -374,6 +376,7 @@ impl SyntaxKind {
             Self::Error => "syntax error",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
+            Self::DecoratorMarker => "decorator marker",
             Self::Markup => "markup",
             Self::Text => "text",
             Self::Space => "space",

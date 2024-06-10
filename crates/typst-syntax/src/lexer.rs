@@ -233,7 +233,7 @@ impl Lexer<'_> {
         // Already collected all we need from the decorator.
         self.s.jump(start + 2);
 
-        SyntaxKind::Decorator
+        SyntaxKind::DecoratorMarker
     }
 }
 
