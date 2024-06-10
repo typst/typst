@@ -196,7 +196,9 @@ impl Sink {
         for warning in warnings {
             self.warn(warning);
         }
-        self.values.extend(values);
+        if let Some(remaining) = Self::MAX_VALUES.checked_sub(self.values.len()) {
+            self.values.extend(values.into_iter().take(remaining));
+        }
     }
 }
 
