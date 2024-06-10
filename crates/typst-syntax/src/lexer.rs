@@ -18,6 +18,8 @@ pub(super) struct Lexer<'s> {
     newline: bool,
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
+    /// The state held by decorator lexing.
+    decorator: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
     error: Option<SyntaxError>,
 }
@@ -33,6 +35,8 @@ pub(super) enum LexMode {
     Code,
     /// The contents of a raw block.
     Raw,
+    /// The contents of a decorator.
+    Decorator,
 }
 
 impl<'s> Lexer<'s> {
@@ -45,6 +49,7 @@ impl<'s> Lexer<'s> {
             newline: false,
             error: None,
             raw: Vec::new(),
+            decorator: Vec::new(),
         }
     }
 
@@ -108,6 +113,14 @@ impl Lexer<'_> {
             return kind;
         }
 
+        if self.mode == LexMode::Decorator {
+            let Some((kind, end)) = self.decorator.pop() else {
+                return SyntaxKind::End;
+            };
+            self.s.jump(end);
+            return kind;
+        }
+
         self.newline = false;
         self.error = None;
         let start = self.s.cursor();
@@ -115,6 +128,7 @@ impl Lexer<'_> {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
+            Some('/') if self.s.eat_if('!') => self.decorator(),
             Some('*') if self.s.eat_if('/') => {
                 let kind = self.error("unexpected end of block comment");
                 self.hint(
@@ -123,12 +137,12 @@ impl Lexer<'_> {
                 );
                 kind
             }
-
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
                 LexMode::Code => self.code(start, c),
                 LexMode::Raw => unreachable!(),
+                LexMode::Decorator => unreachable!(),
             },
 
             None => SyntaxKind::End,
@@ -149,10 +163,6 @@ impl Lexer<'_> {
         } else {
             SyntaxKind::Space
         }
-    }
-
-    fn decorator(&mut self) -> SyntaxKind {
-        todo!()
     }
 
     fn line_comment(&mut self) -> SyntaxKind {
@@ -183,6 +193,44 @@ impl Lexer<'_> {
         }
 
         SyntaxKind::BlockComment
+    }
+}
+
+/// Decorators.
+impl Lexer<'_> {
+    fn decorator(&mut self) -> SyntaxKind {
+        let start = self.s.cursor() - 1;
+
+        self.decorator.clear();
+
+        while !self.s.eat_newline() {
+            let start = self.s.cursor();
+            let token = match self.s.eat() {
+                Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+                Some('/') if self.s.eat_if('/') => break,
+                Some('/') if self.s.eat_if('*') => self.block_comment(),
+                Some('(') => SyntaxKind::LeftParen,
+                Some(')') => SyntaxKind::RightParen,
+                Some('"') => self.string(),
+                Some(c @ '0'..='9') => self.number(start, c),
+                Some(',') => SyntaxKind::Comma,
+                Some(c) if is_id_start(c) => self.ident(start),
+                Some(c) => {
+                    return self.error(eco_format!(
+                        "the character {c} is not valid in a decorator"
+                    ))
+                }
+                None => break,
+            };
+
+            let end = self.s.cursor();
+            self.decorator.push((token, end));
+        }
+
+        // Already collected all we need from the decorator.
+        self.s.jump(start + 1);
+
+        SyntaxKind::Decorator
     }
 }
 
