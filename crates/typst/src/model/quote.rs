@@ -183,11 +183,6 @@ impl Show for Packed<QuoteElem> {
         }
 
         if block {
-            realized = BlockElem::new()
-                .with_body(Some(BlockChild::Content(realized)))
-                .pack()
-                .spanned(self.span());
-
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
 
@@ -211,7 +206,14 @@ impl Show for Packed<QuoteElem> {
                 realized += weak_v + Content::sequence(seq).aligned(Alignment::END);
             }
 
+            realized = BlockElem::new()
+                .with_body(Some(BlockChild::Content(realized)))
+                .with_breakable(false)
+                .pack()
+                .spanned(self.span());
+            
             realized = PadElem::new(realized).pack();
+
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
             realized += SpaceElem::new().pack()
                 + CiteElem::new(*label).pack().spanned(self.span());
