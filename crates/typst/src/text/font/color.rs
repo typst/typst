@@ -77,7 +77,7 @@ fn draw_colr_glyph(
     );
 
     let mut glyph_painter = GlyphPainter {
-        face: &ttf,
+        face: ttf,
         svg: &mut svg,
         path_buf: &mut path_buf,
         gradient_index,
@@ -286,22 +286,22 @@ impl ColrBuilder<'_> {
 impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
     fn move_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "M {} {} ", x, y).unwrap()
+        write!(self.0, "M {x} {y} ").unwrap()
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "L {} {} ", x, y).unwrap()
+        write!(self.0, "L {x} {y} ").unwrap()
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "Q {} {} {} {} ", x1, y1, x, y).unwrap()
+        write!(self.0, "Q {x1} {y1} {x} {y} ").unwrap()
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "C {} {} {} {} {} {} ", x1, y1, x2, y2, x, y).unwrap()
+        write!(self.0, "C {x1} {y1} {x2} {y2} {x} {y} ").unwrap()
     }
 
     fn close(&mut self) {
@@ -415,7 +415,7 @@ impl<'a> GlyphPainter<'a> {
 
         self.svg.start_element("path");
         self.svg
-            .write_attribute_fmt("fill", format_args!("url(#{})", gradient_id));
+            .write_attribute_fmt("fill", format_args!("url(#{gradient_id})"));
         self.svg
             .write_transform_attribute("transform", self.outline_transform);
         self.svg.write_attribute("d", self.path_buf);
@@ -447,7 +447,7 @@ impl<'a> GlyphPainter<'a> {
 
         self.svg.start_element("path");
         self.svg
-            .write_attribute_fmt("fill", format_args!("url(#{})", gradient_id));
+            .write_attribute_fmt("fill", format_args!("url(#{gradient_id})"));
         self.svg
             .write_transform_attribute("transform", self.outline_transform);
         self.svg.write_attribute("d", self.path_buf);
@@ -511,7 +511,7 @@ impl GlyphPainter<'_> {
 
         self.svg.start_element("g");
         self.svg
-            .write_attribute_fmt("clip-path", format_args!("url(#{})", clip_id));
+            .write_attribute_fmt("clip-path", format_args!("url(#{clip_id})"));
     }
 }
 
@@ -556,7 +556,7 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
         };
         self.svg.write_attribute_fmt(
             "style",
-            format_args!("mix-blend-mode: {}; isolation: isolate", mode),
+            format_args!("mix-blend-mode: {mode}; isolation: isolate"),
         );
     }
 
@@ -619,8 +619,7 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
         let y_max = clipbox.y_max;
 
         let clip_path = format!(
-            "M {} {} L {} {} L {} {} L {} {} Z",
-            x_min, y_min, x_max, y_min, x_max, y_max, x_min, y_max
+            "M {x_min} {y_min} L {x_max} {y_min} L {x_max} {y_max} L {x_min} {y_max} Z"
         );
 
         self.clip_with_path(&clip_path);
