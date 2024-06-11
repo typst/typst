@@ -83,11 +83,7 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some(SyntaxError {
-            span: Span::detached(),
-            message: message.into(),
-            hints: eco_vec![],
-        });
+        self.error = Some(SyntaxError::new(message));
         SyntaxKind::Error
     }
 
