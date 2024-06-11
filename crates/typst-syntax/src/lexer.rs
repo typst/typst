@@ -1,10 +1,10 @@
-use ecow::{eco_format, eco_vec, EcoString};
+use ecow::{eco_format, EcoString};
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{Span, SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
