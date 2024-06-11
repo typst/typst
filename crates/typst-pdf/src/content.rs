@@ -481,7 +481,7 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
         .resources
         .glyph_remappers
         .entry(text.item.font.clone())
-        .or_insert_with(GlyphRemapper::new);
+        .or_default();
 
     // Write the glyphs with kerning adjustments.
     for glyph in text.glyphs() {
