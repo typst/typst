@@ -3,6 +3,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Alignment, Angle, Axes, BlockElem, FixedAlignment, Frame, HAlignment, Length,
     Point, Ratio, Region, Regions, Rel, Size, VAlignment,
@@ -41,7 +42,9 @@ pub struct MoveElem {
 
 impl Show for Packed<MoveElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_move).pack())
+        Ok(BlockElem::single_layouter(self.clone(), layout_move)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -50,12 +53,13 @@ impl Show for Packed<MoveElem> {
 fn layout_move(
     elem: &Packed<MoveElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
     let mut frame = elem
         .body()
-        .layout(engine, styles, region.into_regions())?
+        .layout(engine, locator, styles, region.into_regions())?
         .into_frame();
     let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
     let delta = delta.zip_map(region.size, Rel::relative_to);
@@ -126,7 +130,9 @@ pub struct RotateElem {
 
 impl Show for Packed<RotateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_rotate).pack())
+        Ok(BlockElem::single_layouter(self.clone(), layout_rotate)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -135,6 +141,7 @@ impl Show for Packed<RotateElem> {
 fn layout_rotate(
     elem: &Packed<RotateElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
@@ -151,6 +158,7 @@ fn layout_rotate(
 
     measure_and_layout(
         engine,
+        locator,
         region,
         size,
         styles,
@@ -219,7 +227,9 @@ pub struct ScaleElem {
 
 impl Show for Packed<ScaleElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_scale).pack())
+        Ok(BlockElem::single_layouter(self.clone(), layout_scale)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -228,6 +238,7 @@ impl Show for Packed<ScaleElem> {
 fn layout_scale(
     elem: &Packed<ScaleElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
@@ -240,6 +251,7 @@ fn layout_scale(
 
     measure_and_layout(
         engine,
+        locator,
         region,
         size,
         styles,
@@ -379,6 +391,7 @@ impl Default for Transform {
 #[allow(clippy::too_many_arguments)]
 fn measure_and_layout(
     engine: &mut Engine,
+    locator: Locator,
     region: Region,
     size: Size,
     styles: StyleChain,
@@ -390,11 +403,11 @@ fn measure_and_layout(
     if reflow {
         // Measure the size of the body.
         let pod = Regions::one(size, Axes::splat(false));
-        let frame = body.measure(engine, styles, pod)?.into_frame();
+        let frame = body.layout(engine, locator.relayout(), styles, pod)?.into_frame();
 
         // Actually perform the layout.
         let pod = Regions::one(frame.size(), Axes::splat(true));
-        let mut frame = body.layout(engine, styles, pod)?.into_frame();
+        let mut frame = body.layout(engine, locator, styles, pod)?.into_frame();
         let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
         // Compute the transform.
@@ -410,7 +423,9 @@ fn measure_and_layout(
         Ok(frame)
     } else {
         // Layout the body.
-        let mut frame = body.layout(engine, styles, region.into_regions())?.into_frame();
+        let mut frame = body
+            .layout(engine, locator, styles, region.into_regions())?
+            .into_frame();
         let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
         // Compute the transform.

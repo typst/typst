@@ -2,13 +2,13 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
-use crate::engine::Engine;
-use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
+use crate::engine::{Engine, Sink, Traced};
+use crate::eval::{Access, Eval, FlowEvent, Route, Vm};
 use crate::foundations::{
     call_method_mut, is_mutating_method, Arg, Args, Bytes, Capturer, Closure, Content,
     Context, Func, IntoValue, NativeElement, Scope, Scopes, Value,
 };
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::Introspector;
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
@@ -275,9 +275,9 @@ pub(crate) fn call_closure(
     closure: &LazyHash<Closure>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
     route: Tracked<Route>,
-    locator: Tracked<Locator>,
-    tracer: TrackedMut<Tracer>,
     context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
@@ -292,13 +292,12 @@ pub(crate) fn call_closure(
     scopes.top = closure.captured.clone();
 
     // Prepare the engine.
-    let mut locator = Locator::chained(locator);
     let engine = Engine {
         world,
         introspector,
+        traced,
+        sink,
         route: Route::extend(route),
-        locator: &mut locator,
-        tracer,
     };
 
     // Prepare VM.

@@ -18,7 +18,7 @@ use crate::foundations::{
     NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
     Value,
 };
-use crate::introspection::{Location, TagElem};
+use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
@@ -494,7 +494,7 @@ impl Content {
     pub fn backlinked(self, loc: Location) -> Self {
         let mut backlink = Content::empty().spanned(self.span());
         backlink.set_location(loc);
-        TagElem::packed(backlink) + self
+        self
     }
 
     /// Set alignments for this content.

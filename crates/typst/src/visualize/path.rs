@@ -6,6 +6,7 @@ use crate::foundations::{
     array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Resolve, Show,
     Smart, StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, Frame, FrameItem, Length, Point, Region, Rel, Size,
 };
@@ -72,7 +73,9 @@ pub struct PathElem {
 
 impl Show for Packed<PathElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_path).pack())
+        Ok(BlockElem::single_layouter(self.clone(), layout_path)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -81,6 +84,7 @@ impl Show for Packed<PathElem> {
 fn layout_path(
     elem: &Packed<PathElem>,
     _: &mut Engine,
+    _: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {

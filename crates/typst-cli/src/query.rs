@@ -1,8 +1,8 @@
 use comemo::Track;
 use ecow::{eco_format, EcoString};
 use serde::Serialize;
-use typst::diag::{bail, HintedStrResult, StrResult};
-use typst::eval::{eval_string, EvalMode, Tracer};
+use typst::diag::{bail, HintedStrResult, StrResult, Warned};
+use typst::eval::{eval_string, EvalMode};
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::model::Document;
 use typst::syntax::Span;
@@ -21,11 +21,9 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let mut tracer = Tracer::new();
-    let result = typst::compile(&world, &mut tracer);
-    let warnings = tracer.warnings();
+    let Warned { output, warnings } = typst::compile(&world);
 
-    match result {
+    match output {
         // Retrieve and print query results.
         Ok(document) => {
             let data = retrieve(&world, command, &document)?;

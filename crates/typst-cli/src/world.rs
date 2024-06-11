@@ -56,6 +56,11 @@ pub struct SystemWorld {
 impl SystemWorld {
     /// Create a new system world.
     pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
+        // Set up the thread pool.
+        if let Some(jobs) = command.jobs {
+            rayon::ThreadPoolBuilder::new().num_threads(jobs).build_global().ok();
+        }
+
         // Resolve the system-global input path.
         let input = match &command.input {
             Input::Stdin => None,

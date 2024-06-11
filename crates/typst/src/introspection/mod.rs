@@ -23,6 +23,8 @@ pub use self::metadata::*;
 pub use self::query_::*;
 pub use self::state::*;
 
+use std::fmt::{self, Debug, Formatter};
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -56,7 +58,7 @@ pub fn define(global: &mut Scope) {
     global.define_func::<locate>();
 }
 
-/// Holds a locatable element that was realized.
+/// Holds a tag for a locatable element that was realized.
 ///
 /// The `TagElem` is handled by all layouters. The held element becomes
 /// available for introspection in the next compiler iteration.
@@ -65,14 +67,13 @@ pub struct TagElem {
     /// The introspectible element.
     #[required]
     #[internal]
-    pub elem: Content,
+    pub tag: Tag,
 }
 
 impl TagElem {
     /// Create a packed tag element.
-    pub fn packed(elem: Content) -> Content {
-        let span = elem.span();
-        let mut content = Self::new(elem).pack().spanned(span);
+    pub fn packed(tag: Tag) -> Content {
+        let mut content = Self::new(tag).pack();
         // We can skip preparation for the `TagElem`.
         content.mark_prepared();
         content
@@ -90,5 +91,31 @@ impl Unlabellable for Packed<TagElem> {}
 impl Behave for Packed<TagElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Invisible
+    }
+}
+
+/// Holds a locatable element that was realized.
+#[derive(Clone, PartialEq, Hash)]
+pub struct Tag {
+    /// The introspectible element.
+    pub elem: Content,
+    /// The element's key hash, which forms the base of its location (but is
+    /// locally disambiguated and combined with outer hashes).
+    ///
+    /// We need to retain this for introspector-assisted location assignment
+    /// during measurement.
+    pub(crate) key: u128,
+}
+
+impl Tag {
+    /// Create a tag from an element and its key hash.
+    pub fn new(elem: Content, key: u128) -> Self {
+        Self { elem, key }
+    }
+}
+
+impl Debug for Tag {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Tag({:?})", self.elem)
     }
 }
