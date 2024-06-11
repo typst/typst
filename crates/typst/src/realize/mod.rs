@@ -220,16 +220,19 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             {
                 bail!(span, "document set rules must appear before any content");
             }
-        } else if let Some(Some(span)) = local.interruption::<PageElem>() {
+        }
+        if let Some(Some(span)) = local.interruption::<PageElem>() {
             if self.doc.is_none() {
                 bail!(span, "page configuration is not allowed inside of containers");
             }
             self.interrupt_page(outer, false)?;
-        } else if local.interruption::<ParElem>().is_some()
+        }
+        if local.interruption::<ParElem>().is_some()
             || local.interruption::<AlignElem>().is_some()
         {
             self.interrupt_par()?;
-        } else if local.interruption::<ListElem>().is_some()
+        }
+        if local.interruption::<ListElem>().is_some()
             || local.interruption::<EnumElem>().is_some()
             || local.interruption::<TermsElem>().is_some()
         {
