@@ -37,7 +37,7 @@ pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
     } else if ttf.is_color_glyph(glyph_id) {
         draw_colr_glyph(&mut frame, upem, ttf, glyph_id);
     } else if let Some(document) = font.ttf().glyph_svg_image(glyph_id) {
-        draw_svg_glyph(&mut frame, upem, document.data, false);
+        draw_svg_glyph(&mut frame, upem, document.data, ttf.global_bounding_box(), false);
     }
 
     frame
@@ -82,7 +82,7 @@ fn draw_colr_glyph(
     svg.end_element();
 
     let data = svg.end_document();
-    draw_svg_glyph(frame, upem, &data.as_bytes(), true);
+    draw_svg_glyph(frame, upem, &data.as_bytes(), ttf.global_bounding_box(), true);
 }
 
 /// Draws a raster glyph in a frame.
@@ -122,6 +122,7 @@ fn draw_svg_glyph(
     frame: &mut Frame,
     upem: Abs,
     data: &[u8],
+    global_bbox: ttf_parser::Rect,
     is_colr: bool
 ) -> Option<()> {
     let mut data = data;
@@ -141,17 +142,14 @@ fn draw_svg_glyph(
     let opts = usvg::Options::default();
     let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
 
-    // Compute the space we need to draw our glyph.
-    // See https://github.com/RazrFalcon/resvg/issues/602 for why
-    // using the svg size is problematic here.
-    let bbox = tree.root().bounding_box();
-
     let mut data = tree.to_string(&usvg::WriteOptions::default());
 
-    let width = bbox.width() as f64;
-    let height = bbox.height() as f64;
-    let left = bbox.left() as f64;
-    let top = bbox.top() as f64;
+    let width = global_bbox.width() as f64;
+    let height = global_bbox.height() as f64;
+    let x_min = global_bbox.x_min as f64;
+    let y_max = global_bbox.y_max as f64;
+    let tx = -x_min;
+    let ty = -y_max;
 
     // The SVG coordinates and the font coordinates are not the same: the Y axis
     // is mirrored. But the origin of the axes are the same (which means that
@@ -168,9 +166,9 @@ fn draw_svg_glyph(
     make_svg_unsized(&mut data);
 
     let transform = if is_colr {
-        format!("matrix(1 0 0 -1 0 {height}) matrix(1 0 0 1 {tx} {ty})", tx = -left, ty = -top)
+        format!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})")
     }   else {
-        format!("matrix(1 0 0 1 {tx} {ty})", tx = -left, ty = -top)
+        format!("matrix(1 0 0 1 {tx} {ty})")
     };
 
     let wrapper_svg = format!(
@@ -196,12 +194,12 @@ fn draw_svg_glyph(
     .unwrap();
 
     let y_shift = if is_colr {
-        Abs::pt(-top)
+        Abs::raw(upem.to_raw() - y_max)
     }   else {
-        Abs::pt(top) + upem
+        Abs::raw(0.0)
     };
 
-    let position = Point::new(Abs::pt(left), y_shift);
+    let position = Point::new(Abs::raw(x_min), y_shift);
     let size = Axes::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
 
