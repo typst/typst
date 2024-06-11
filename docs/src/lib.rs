@@ -542,8 +542,10 @@ fn group_page(
     let mut outline_items = vec![];
     for name in &group.filter {
         let value = group.module().scope().get(name).unwrap();
-        let Value::Func(func) = value else { panic!("not a function") };
-        let func = func_model(resolver, func, &path, true);
+        let Ok(func) = value.clone().cast::<Func>() else {
+            panic!("not a function");
+        };
+        let func = func_model(resolver, &func, &path, true);
         let id_base = urlify(&eco_format!("functions-{}", func.name));
         let children = func_outline(&func, &id_base);
         outline_items.push(OutlineItem {
@@ -661,15 +663,15 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, c) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                list.iter().copied().find(|&(_, x)| x == c.ch()).map(|(s, _)| s)
             };
 
             list.push(SymbolModel {
                 name: complete(variant),
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::MARKUP_LIST),
                 math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH_LIST),
-                codepoint: c as u32,
-                accent: typst::symbols::Symbol::combining_accent(c).is_some(),
+                codepoint: c.ch() as _,
+                accent: typst::math::Accent::combine(c.ch()).is_some(),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _)| other != &variant)
