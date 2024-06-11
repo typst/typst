@@ -2256,7 +2256,7 @@ dependencies = [
 [[package]]
 name = "subsetter"
 version = "0.1.1"
-source = "git+https://github.com/LaurenzV/subsetter?branch=rewrite#677d31dc6b8a0f37bba41ef683ae80700c813a27"
+source = "git+https://github.com/LaurenzV/subsetter?branch=rewrite#5d99129179b5f0e98ff25abd88238909bf327e7f"
 
 [[package]]
 name = "subsetter"
