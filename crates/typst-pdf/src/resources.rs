@@ -118,7 +118,7 @@ impl Default for Resources<()> {
             languages: BTreeMap::new(),
             glyph_sets: HashMap::new(),
             color_glyph_sets: HashMap::new(),
-            glyph_remappers: HashMap::new()
+            glyph_remappers: HashMap::new(),
         }
     }
 }
@@ -146,7 +146,7 @@ impl Resources<()> {
             languages: self.languages,
             glyph_sets: self.glyph_sets,
             color_glyph_sets: self.color_glyph_sets,
-            glyph_remappers: self.glyph_remappers
+            glyph_remappers: self.glyph_remappers,
         }
     }
 }

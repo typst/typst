@@ -2259,6 +2259,11 @@ version = "0.1.1"
 source = "git+https://github.com/LaurenzV/subsetter?branch=rewrite#677d31dc6b8a0f37bba41ef683ae80700c813a27"
 
 [[package]]
+name = "subsetter"
+version = "0.1.1"
+source = "git+https://github.com/LaurenzV/subsetter?rev=5d99129#5d99129179b5f0e98ff25abd88238909bf327e7f"
+
+[[package]]
 name = "svg2pdf"
 version = "0.11.0"
 source = "git+https://github.com/typst/svg2pdf?branch=subsetter#f22c5dec01ee414bac05a17609aa35783571a915"
@@ -2271,7 +2276,7 @@ dependencies = [
  "pdf-writer",
  "resvg",
  "siphasher 1.0.1",
- "subsetter",
+ "subsetter 0.1.1 (git+https://github.com/LaurenzV/subsetter?branch=rewrite)",
  "tiny-skia",
  "ttf-parser",
  "unicode-properties",
@@ -2731,7 +2736,7 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
- "subsetter",
+ "subsetter 0.1.1 (git+https://github.com/LaurenzV/subsetter?rev=5d99129)",
  "svg2pdf",
  "ttf-parser",
  "typst",

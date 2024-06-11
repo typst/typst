@@ -36,7 +36,6 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
                 continue;
             }
 
-
             let type0_ref = chunk.alloc();
             let cid_ref = chunk.alloc();
             let descriptor_ref = chunk.alloc();
@@ -48,7 +47,7 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             let glyph_remapper = resources.glyph_remappers.get(font).unwrap();
             let ttf = font.ttf();
 
-            let subset = subset_font(font, &glyph_remapper);
+            let subset = subset_font(font, glyph_remapper);
 
             // Do we have a TrueType or CFF font?
             //
@@ -94,10 +93,13 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             // Extract the widths of all glyphs.
             // `remapped_gids` returns an iterator over the old GIDs in their new sorted
             // order, so we can append the widths as is.
-            let widths = glyph_remapper.remapped_gids().map(|gid| {
-                let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
-                 font.to_em(width).to_font_units()
-            }).collect::<Vec<_>>();
+            let widths = glyph_remapper
+                .remapped_gids()
+                .map(|gid| {
+                    let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
+                    font.to_em(width).to_font_units()
+                })
+                .collect::<Vec<_>>();
 
             // Write all non-zero glyph widths.
             let mut first = 0;
@@ -116,9 +118,8 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
 
             // Write the /ToUnicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
-            let cmap = create_cmap(&glyph_set, &glyph_remapper);
+            let cmap = create_cmap(glyph_set, glyph_remapper);
             chunk.cmap(cmap_ref, &cmap.finish());
-
 
             let mut stream = chunk.stream(data_ref, &subset);
             stream.filter(Filter::FlateDecode);
