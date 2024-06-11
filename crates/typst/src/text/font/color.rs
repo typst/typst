@@ -7,10 +7,10 @@ use ttf_parser::{GlyphId, RgbaColor};
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
-use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
+use crate::layout::{Abs, Axes, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
-use crate::text::{Font, Glyph, Lang, TextItem};
-use crate::visualize::{Color, Image, Paint, Rgb};
+use crate::text::{Font, Glyph};
+use crate::visualize::Image;
 
 /// Tells if a glyph is a color glyph or not in a given font.
 pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
