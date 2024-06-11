@@ -89,9 +89,8 @@ impl Lexer<'_> {
 
     /// If the current node is an error, adds a hint.
     fn hint(&mut self, message: impl Into<EcoString>) {
-        if let Some(mut e) = self.take_error() {
-            e.hints.push(message.into());
-            self.error = Some(e);
+        if let Some(error) = &mut self.error {
+            error.hints.push(message.into());
         }
     }
 }
