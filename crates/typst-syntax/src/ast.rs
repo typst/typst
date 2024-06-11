@@ -80,6 +80,19 @@ impl<'a> Markup<'a> {
     }
 }
 
+node! {
+    /// A comment: `// something`.
+    LineComment
+}
+
+impl<'a> LineComment<'a> {
+    /// The comment's contents, excluding the initial '//' marker.
+    pub fn content(self) -> &'a str {
+        let text = self.0.text();
+        text.strip_prefix("//").unwrap_or(text)
+    }
+}
+
 /// An expression in markup, math or code.
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum Expr<'a> {

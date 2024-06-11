@@ -7,10 +7,10 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{Severity, SourceDiagnostic, SourceResult};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
-use crate::syntax::{FileId, Span};
+use crate::syntax::{ast, FileId, Span};
 use crate::World;
 
 /// Holds all data needed during compilation.
@@ -160,6 +160,19 @@ impl Sink {
     pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
     }
+
+    /// Apply warning suppression.
+    pub fn suppress_warnings(&mut self, world: &dyn World) {
+        self.warnings.retain(|diag| {
+            // Only retain warnings which weren't locally suppressed where they
+            // were emitted or at any of their tracepoints.
+            diag.severity != Severity::Warning
+                || (!check_warning_suppressed(diag.span, world, &diag.message)
+                    && !diag.trace.iter().any(|tracepoint| {
+                        check_warning_suppressed(tracepoint.span, world, &diag.message)
+                    }))
+        });
+    }
 }
 
 #[comemo::track]
@@ -200,6 +213,41 @@ impl Sink {
             self.values.extend(values.into_iter().take(remaining));
         }
     }
+}
+
+/// Checks if a given warning is suppressed given one span it has a tracepoint
+/// in. If one of the ancestors of the node where the warning occurred has a
+/// warning suppression decorator sibling right before it suppressing this
+/// particular warning, the warning is considered suppressed.
+fn check_warning_suppressed(
+    span: Span,
+    world: &dyn World,
+    _message: &ecow::EcoString,
+) -> bool {
+    let Some(file) = span.id() else {
+        // Don't suppress detached warnings.
+        return false;
+    };
+
+    // The source must exist if a warning occurred in the file,
+    // or has a tracepoint in the file.
+    let source = world.source(file).unwrap();
+    // The span must point to this source file, so we unwrap.
+    let mut node = &source.find(span).unwrap();
+
+    // Walk the parent nodes to check for a warning suppression.
+    while let Some(parent) = node.parent() {
+        if let Some(sibling) = parent.prev_attached_comment() {
+            if let Some(comment) = sibling.cast::<ast::LineComment>() {
+                let _text = comment.content();
+                // Find comment, return true if this warning was suppressed
+                todo!();
+            }
+        }
+        node = parent;
+    }
+
+    false
 }
 
 /// The route the engine took during compilation. This is used to detect

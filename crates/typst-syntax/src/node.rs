@@ -773,17 +773,53 @@ impl<'a> LinkedNode<'a> {
         self.parent.as_deref()
     }
 
-    /// Get the first previous non-trivia sibling node.
-    pub fn prev_sibling(&self) -> Option<Self> {
+    fn prev_sibling_inner(&self) -> Option<Self> {
         let parent = self.parent()?;
         let index = self.index.checked_sub(1)?;
         let node = parent.node.children().nth(index)?;
         let offset = self.offset - node.len();
-        let prev = Self { node, parent: self.parent.clone(), index, offset };
+        Some(Self { node, parent: self.parent.clone(), index, offset })
+    }
+
+    /// Get the first previous non-trivia sibling node.
+    pub fn prev_sibling(&self) -> Option<Self> {
+        let prev = self.prev_sibling_inner()?;
         if prev.kind().is_trivia() {
             prev.prev_sibling()
         } else {
             Some(prev)
+        }
+    }
+
+    /// Get the first sibling comment node at the line above this node.
+    /// This is done by moving backwards until the rightmost newline, and then
+    /// checking for comments before the previous newline.
+    pub fn prev_attached_comment(&self) -> Option<Self> {
+        if self.kind() == SyntaxKind::Parbreak
+            || self.kind() == SyntaxKind::Space && self.text().contains('\n')
+        {
+            // We hit a newline, so let's check for comments before the next
+            // newline.
+            let mut sibling_before_newline = self.prev_sibling_inner()?;
+            while sibling_before_newline.kind().is_trivia()
+                && !matches!(
+                    sibling_before_newline.kind(),
+                    SyntaxKind::Space | SyntaxKind::LineComment | SyntaxKind::Parbreak
+                )
+            {
+                sibling_before_newline = sibling_before_newline.prev_sibling_inner()?;
+            }
+            if sibling_before_newline.kind() == SyntaxKind::LineComment {
+                // Found a comment on the previous line
+                Some(sibling_before_newline)
+            } else {
+                // No comments on the previous line
+                None
+            }
+        } else {
+            self.prev_sibling_inner()
+                .as_ref()
+                .and_then(Self::prev_attached_comment)
         }
     }
 
