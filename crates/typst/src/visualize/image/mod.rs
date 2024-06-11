@@ -404,7 +404,7 @@ impl Image {
     pub fn dpi(&self) -> Option<f64> {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
-            ImageKind::Svg(_) => None,
+            ImageKind::Svg(_) => Some(usvg::Options::default().dpi as f64),
         }
     }
 
