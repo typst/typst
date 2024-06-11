@@ -117,7 +117,7 @@ impl Lexer<'_> {
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
                 let kind = self.error("unexpected end of block comment");
-                self.hint(r#"Consider escaping the `*` or opening the block comment by adding `\*` to avoid the ambiguity."#);
+                self.hint(r#"consider escaping the `*` with a backslash or opening the block comment with `/*`"#);
                 kind
             }
 
