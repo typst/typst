@@ -1,9 +1,10 @@
 //! Utilities for color font handling
 
+use image::EncodableLayout;
 use std::io::Read;
 
 use ttf_parser::{GlyphId, RgbaColor};
-use usvg::{tiny_skia_path};
+use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
 use crate::layout::{Abs, Axes, Em, Frame, FrameItem, Point, Size};
@@ -47,8 +48,8 @@ fn draw_colr_glyph(
     frame: &mut Frame,
     upem: Abs,
     ttf: &ttf_parser::Face,
-    glyph_id: GlyphId
-) {
+    glyph_id: GlyphId,
+) -> Option<()> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
     svg.start_element("svg");
@@ -73,16 +74,81 @@ fn draw_colr_glyph(
         transforms_stack: vec![ttf_parser::Transform::default()],
     };
 
-    ttf.paint_color_glyph(
-        glyph_id,
-        0,
-        RgbaColor::new(0, 0, 0, 255),
-        &mut glyph_painter,
-    ).unwrap();
+    ttf.paint_color_glyph(glyph_id, 0, RgbaColor::new(0, 0, 0, 255), &mut glyph_painter)
+        .unwrap();
     svg.end_element();
 
-    let data = svg.end_document();
-    draw_svg_glyph(frame, upem, &data.as_bytes(), ttf.global_bounding_box(), true);
+    let mut data = svg.end_document().into_bytes();
+
+    let mut decoded = vec![];
+    if data.starts_with(&[0x1f, 0x8b]) {
+        let mut decoder = flate2::read::GzDecoder::new(data.as_bytes());
+        decoder.read_to_end(&mut decoded).ok()?;
+        data = decoded;
+    }
+
+    // Parse XML.
+    let xml = std::str::from_utf8(&data).ok()?;
+    let document = roxmltree::Document::parse(xml).ok()?;
+
+    // Parse SVG.
+    let opts = usvg::Options::default();
+    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+
+    let mut data = tree.to_string(&usvg::WriteOptions::default());
+
+    let width = ttf.global_bounding_box().width() as f64;
+    let height = ttf.global_bounding_box().height() as f64;
+    let x_min = ttf.global_bounding_box().x_min as f64;
+    let y_max = ttf.global_bounding_box().y_max as f64;
+    let tx = -x_min;
+    let ty = -y_max;
+
+    // The SVG coordinates and the font coordinates are not the same: the Y axis
+    // is mirrored. But the origin of the axes are the same (which means that
+    // the horizontal axis in the SVG document corresponds to the baseline). See
+    // the reference for more details:
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/svg#coordinate-systems-and-glyph-metrics
+    //
+    // If we used the SVG document as it is, svg2pdf would produce a cropped
+    // glyph (only what is under the baseline would be visible). So we need to
+    // embed the original SVG in another one that has the exact dimensions of
+    // the glyph, with a transform to make it fit. We also need to remove the
+    // viewBox, height and width attributes from the inner SVG, otherwise usvg
+    // takes into account these values to clip the embedded SVG.
+    make_svg_unsized(&mut data);
+
+    let transform = format!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})");
+
+    let wrapper_svg = format!(
+        r#"
+        <svg
+            width="{width}"
+            height="{height}"
+            viewBox="0 0 {width} {height}"
+            xmlns="http://www.w3.org/2000/svg">
+            <g transform="{transform}">
+            {inner}
+            </g>
+        </svg>
+    "#,
+        inner = data
+    );
+
+    let image = Image::new(
+        wrapper_svg.into_bytes().into(),
+        typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
+        None,
+    )
+    .unwrap();
+
+    let y_shift = Abs::raw(upem.to_raw() - y_max);
+
+    let position = Point::new(Abs::raw(x_min), y_shift);
+    let size = Axes::new(Abs::pt(width), Abs::pt(height));
+    frame.push(position, FrameItem::Image(image, size, Span::detached()));
+
+    Some(())
 }
 
 /// Draws a raster glyph in a frame.
@@ -123,7 +189,7 @@ fn draw_svg_glyph(
     upem: Abs,
     data: &[u8],
     global_bbox: ttf_parser::Rect,
-    is_colr: bool
+    is_colr: bool,
 ) -> Option<()> {
     let mut data = data;
     // Decompress SVGZ.
@@ -167,7 +233,7 @@ fn draw_svg_glyph(
 
     let transform = if is_colr {
         format!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})")
-    }   else {
+    } else {
         format!("matrix(1 0 0 1 {tx} {ty})")
     };
 
@@ -193,11 +259,7 @@ fn draw_svg_glyph(
     )
     .unwrap();
 
-    let y_shift = if is_colr {
-        Abs::raw(upem.to_raw() - y_max)
-    }   else {
-        Abs::raw(0.0)
-    };
+    let y_shift = if is_colr { Abs::raw(upem.to_raw() - y_max) } else { Abs::raw(0.0) };
 
     let position = Point::new(Abs::raw(x_min), y_shift);
     let size = Axes::new(Abs::pt(width), Abs::pt(height));
@@ -309,14 +371,14 @@ impl XmlWriterExt for xmlwriter::XmlWriter {
 
         self.write_attribute_fmt(
             name,
-            format_args!(
-                "matrix({} {} {} {} {} {})",
-                ts.a, ts.b, ts.c, ts.d, ts.e, ts.f
-            ),
+            format_args!("matrix({} {} {} {} {} {})", ts.a, ts.b, ts.c, ts.d, ts.e, ts.f),
         );
     }
 
-    fn write_spread_method_attribute(&mut self, extend: ttf_parser::colr::GradientExtend) {
+    fn write_spread_method_attribute(
+        &mut self,
+        extend: ttf_parser::colr::GradientExtend,
+    ) {
         self.write_attribute(
             "spreadMethod",
             match extend {
@@ -432,9 +494,7 @@ impl<'a> GlyphPainter<'a> {
         self.svg.end_element();
     }
 
-    fn paint_sweep_gradient(&mut self, _: ttf_parser::colr::SweepGradient<'a>) {
-
-    }
+    fn paint_sweep_gradient(&mut self, _: ttf_parser::colr::SweepGradient<'a>) {}
 }
 
 fn paint_transform(
@@ -532,9 +592,7 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
             CompositeMode::Saturation => "saturation",
             CompositeMode::Color => "color",
             CompositeMode::Luminosity => "luminosity",
-            _ => {
-                "normal"
-            }
+            _ => "normal",
         };
         self.svg.write_attribute_fmt(
             "style",
