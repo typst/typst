@@ -114,3 +114,15 @@ B #cite(<netwok>) #cite(<arrgh>).
 @mcintosh_anxiety
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-author-date")
+
+--- cite-type-error-hint ---
+// Test hint for cast error from str to label
+// Error: 7-15 expected label, found string
+// Hint: 7-15 use `<netwok>` or `label("netwok")` to create a label
+#cite("netwok")
+
+--- cite-type-error-hint-invalid-literal ---
+// Test hint for cast error from str to label
+// Error: 7-17 expected label, found string
+// Hint: 7-17 use `label("%@&#*!\\")` to create a label
+#cite("%@&#*!\\")

@@ -408,7 +408,7 @@ impl Lexer<'_> {
     }
 
     fn ref_marker(&mut self) -> SyntaxKind {
-        self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
+        self.s.eat_while(is_valid_in_label_literal);
 
         // Don't include the trailing characters likely to be part of text.
         while matches!(self.s.scout(-1), Some('.' | ':')) {
@@ -419,7 +419,7 @@ impl Lexer<'_> {
     }
 
     fn label(&mut self) -> SyntaxKind {
-        let label = self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
+        let label = self.s.eat_while(is_valid_in_label_literal);
         if label.is_empty() {
             return self.error("label cannot be empty");
         }
@@ -917,4 +917,15 @@ fn is_math_id_start(c: char) -> bool {
 #[inline]
 fn is_math_id_continue(c: char) -> bool {
     is_xid_continue(c) && c != '_'
+}
+
+/// Whether a character can be part of a label literal's name.
+#[inline]
+fn is_valid_in_label_literal(c: char) -> bool {
+    is_id_continue(c) || matches!(c, ':' | '.')
+}
+
+/// Returns true if this string is valid in a label literal.
+pub fn is_valid_label_literal_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(is_valid_in_label_literal)
 }

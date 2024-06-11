@@ -610,11 +610,7 @@ macro_rules! primitive {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
-                    v => Err(eco_format!(
-                        "expected {}, found {}",
-                        Type::of::<Self>(),
-                        v.ty(),
-                    ).into()),
+                    v => Err(<Self as Reflect>::error(&v)),
                 }
             }
         }
