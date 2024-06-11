@@ -667,6 +667,7 @@ pub struct SyntaxError {
 }
 
 impl SyntaxError {
+    /// Create a new detached syntax error.
     pub fn new(message: impl Into<EcoString>) -> Self {
         Self {
             span: Span::detached(),
