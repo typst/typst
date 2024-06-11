@@ -37,8 +37,8 @@ pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
         draw_raster_glyph(&mut frame, font, upem, raster_image);
     } else if ttf.is_color_glyph(glyph_id) {
         draw_colr_glyph(&mut frame, upem, ttf, glyph_id);
-    } else if let Some(document) = font.ttf().glyph_svg_image(glyph_id) {
-        draw_svg_glyph(&mut frame, upem, document.data, ttf.global_bounding_box(), false);
+    } else if ttf.glyph_svg_image(glyph_id).is_some() {
+        draw_svg_glyph(&mut frame, upem, font, glyph_id);
     }
 
     frame
@@ -153,11 +153,13 @@ fn draw_raster_glyph(
 fn draw_svg_glyph(
     frame: &mut Frame,
     upem: Abs,
-    data: &[u8],
-    global_bbox: ttf_parser::Rect,
-    is_colr: bool,
+    font: &Font,
+    glyph_id: GlyphId,
 ) -> Option<()> {
-    let mut data = data;
+    // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
+    // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
+    let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;
+
     // Decompress SVGZ.
     let mut decoded = vec![];
     if data.starts_with(&[0x1f, 0x8b]) {
@@ -172,16 +174,15 @@ fn draw_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+
+    let bbox = tree.root().bounding_box();
+    let width = bbox.width() as f64;
+    let height = bbox.height() as f64;
+    let left = bbox.left() as f64;
+    let top = bbox.top() as f64;
 
     let mut data = tree.to_string(&usvg::WriteOptions::default());
-
-    let width = global_bbox.width() as f64;
-    let height = global_bbox.height() as f64;
-    let x_min = global_bbox.x_min as f64;
-    let y_max = global_bbox.y_max as f64;
-    let tx = -x_min;
-    let ty = -y_max;
 
     // The SVG coordinates and the font coordinates are not the same: the Y axis
     // is mirrored. But the origin of the axes are the same (which means that
@@ -196,13 +197,6 @@ fn draw_svg_glyph(
     // viewBox, height and width attributes from the inner SVG, otherwise usvg
     // takes into account these values to clip the embedded SVG.
     make_svg_unsized(&mut data);
-
-    let transform = if is_colr {
-        format!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})")
-    } else {
-        format!("matrix(1 0 0 1 {tx} {ty})")
-    };
-
     let wrapper_svg = format!(
         r#"
         <svg
@@ -210,12 +204,14 @@ fn draw_svg_glyph(
             height="{height}"
             viewBox="0 0 {width} {height}"
             xmlns="http://www.w3.org/2000/svg">
-            <g transform="{transform}">
+            <g transform="matrix(1 0 0 1 {tx} {ty})">
             {inner}
             </g>
         </svg>
     "#,
-        inner = data
+        inner = data,
+        tx = -left,
+        ty = -top,
     );
 
     let image = Image::new(
@@ -223,11 +219,8 @@ fn draw_svg_glyph(
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
     )
-    .unwrap();
-
-    let y_shift = if is_colr { Abs::raw(upem.to_raw() - y_max) } else { Abs::raw(0.0) };
-
-    let position = Point::new(Abs::raw(x_min), y_shift);
+        .unwrap();
+    let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Axes::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
 
