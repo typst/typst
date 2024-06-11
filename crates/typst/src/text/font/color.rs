@@ -1,8 +1,8 @@
 //! Utilities for color font handling
 
-use image::EncodableLayout;
 use std::io::Read;
 
+use image::EncodableLayout;
 use ttf_parser::{GlyphId, RgbaColor};
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
@@ -219,7 +219,7 @@ fn draw_svg_glyph(
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
     )
-        .unwrap();
+    .unwrap();
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Axes::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
@@ -273,9 +273,9 @@ fn make_svg_unsized(svg: &mut String) {
     }
 }
 
-struct Builder<'a>(&'a mut String);
+struct ColrBuilder<'a>(&'a mut String);
 
-impl Builder<'_> {
+impl ColrBuilder<'_> {
     fn finish(&mut self) {
         if !self.0.is_empty() {
             self.0.pop(); // remove trailing space
@@ -283,7 +283,7 @@ impl Builder<'_> {
     }
 }
 
-impl ttf_parser::OutlineBuilder for Builder<'_> {
+impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
     fn move_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
         write!(self.0, "M {} {} ", x, y).unwrap()
@@ -349,7 +349,8 @@ impl XmlWriterExt for xmlwriter::XmlWriter {
     }
 }
 
-// NOTE: This is only a best-effort translation of COLR into SVG.
+// NOTE: This is only a best-effort translation of COLR into SVG. It's not feature-complete
+// and it's also not possible to make it feature-complete using just raw SVG features.
 pub(crate) struct GlyphPainter<'a> {
     pub(crate) face: &'a ttf_parser::Face<'a>,
     pub(crate) svg: &'a mut xmlwriter::XmlWriter,
@@ -517,7 +518,7 @@ impl GlyphPainter<'_> {
 impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
     fn outline_glyph(&mut self, glyph_id: ttf_parser::GlyphId) {
         self.path_buf.clear();
-        let mut builder = Builder(self.path_buf);
+        let mut builder = ColrBuilder(self.path_buf);
         match self.face.outline_glyph(glyph_id, &mut builder) {
             Some(v) => v,
             None => return,
