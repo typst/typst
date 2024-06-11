@@ -12,7 +12,6 @@ use crate::layout::Axes;
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
-use crate::visualize::Image;
 use crate::World;
 
 /// A decoded SVG.
@@ -102,9 +101,10 @@ fn base_options() -> usvg::Options<'static> {
         // Disable usvg's default to "Times New Roman".
         font_family: String::new(),
 
-        // We override the DPI here so that we get the correct the size when
-        // scaling the image to its natural size.
-        dpi: Image::DEFAULT_DPI as f32,
+        // We don't override the DPI here, because we already
+        // force the image into the corresponding DPI by setting
+        // the width and height. Changing the DPI only trips up
+        // the logic in `resvg`.
 
         // Override usvg's resource loading defaults.
         resources_dir: None,

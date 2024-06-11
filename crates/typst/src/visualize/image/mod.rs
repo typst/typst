@@ -329,6 +329,9 @@ impl Image {
     /// if the image doesn't contain DPI metadata.
     pub const DEFAULT_DPI: f64 = 72.0;
 
+    /// Should always be the same as the default DPI used by usvg.
+    pub const USVG_DEFAULT_DPI: f64 = 96.0;
+
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
@@ -407,7 +410,7 @@ impl Image {
     pub fn dpi(&self) -> Option<f64> {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
-            ImageKind::Svg(_) => None,
+            ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
         }
     }
 
