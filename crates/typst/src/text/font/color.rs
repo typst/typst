@@ -52,15 +52,29 @@ fn draw_colr_glyph(
 ) -> Option<()> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
+    let width = ttf.global_bounding_box().width() as f64;
+    let height = ttf.global_bounding_box().height() as f64;
+    let x_min = ttf.global_bounding_box().x_min as f64;
+    let y_max = ttf.global_bounding_box().y_max as f64;
+    let tx = -x_min;
+    let ty = -y_max;
+
     svg.start_element("svg");
     svg.write_attribute("xmlns", "http://www.w3.org/2000/svg");
     svg.write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+    svg.write_attribute("width", &width);
+    svg.write_attribute("height", &height);
+    svg.write_attribute_fmt("viewBox", format_args!("0 0 {width} {height}"));
 
     let mut path_buf = String::with_capacity(256);
     let gradient_index = 1;
     let clip_path_index = 1;
 
     svg.start_element("g");
+    svg.write_attribute_fmt(
+        "transform",
+        format_args!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})"),
+    );
 
     let mut glyph_painter = GlyphPainter {
         face: &ttf,
@@ -87,56 +101,8 @@ fn draw_colr_glyph(
         data = decoded;
     }
 
-    // Parse XML.
-    let xml = std::str::from_utf8(&data).ok()?;
-    let document = roxmltree::Document::parse(xml).ok()?;
-
-    // Parse SVG.
-    let opts = usvg::Options::default();
-    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-
-    let mut data = tree.to_string(&usvg::WriteOptions::default());
-
-    let width = ttf.global_bounding_box().width() as f64;
-    let height = ttf.global_bounding_box().height() as f64;
-    let x_min = ttf.global_bounding_box().x_min as f64;
-    let y_max = ttf.global_bounding_box().y_max as f64;
-    let tx = -x_min;
-    let ty = -y_max;
-
-    // The SVG coordinates and the font coordinates are not the same: the Y axis
-    // is mirrored. But the origin of the axes are the same (which means that
-    // the horizontal axis in the SVG document corresponds to the baseline). See
-    // the reference for more details:
-    // https://learn.microsoft.com/en-us/typography/opentype/spec/svg#coordinate-systems-and-glyph-metrics
-    //
-    // If we used the SVG document as it is, svg2pdf would produce a cropped
-    // glyph (only what is under the baseline would be visible). So we need to
-    // embed the original SVG in another one that has the exact dimensions of
-    // the glyph, with a transform to make it fit. We also need to remove the
-    // viewBox, height and width attributes from the inner SVG, otherwise usvg
-    // takes into account these values to clip the embedded SVG.
-    make_svg_unsized(&mut data);
-
-    let transform = format!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})");
-
-    let wrapper_svg = format!(
-        r#"
-        <svg
-            width="{width}"
-            height="{height}"
-            viewBox="0 0 {width} {height}"
-            xmlns="http://www.w3.org/2000/svg">
-            <g transform="{transform}">
-            {inner}
-            </g>
-        </svg>
-    "#,
-        inner = data
-    );
-
     let image = Image::new(
-        wrapper_svg.into_bytes().into(),
+        data.into(),
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
     )
