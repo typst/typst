@@ -92,6 +92,8 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             }
 
             // Extract the widths of all glyphs.
+            // `remapped_gids` returns an iterator over the old GIDs in their new sorted
+            // order, so we can append the widths as is.
             let widths = glyph_remapper.remapped_gids().map(|gid| {
                 let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
                  font.to_em(width).to_font_units()
@@ -263,6 +265,7 @@ fn create_cmap(
     // Produce a reverse mapping from glyphs' CIDs to unicode strings.
     let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
     for (&g, text) in glyph_set.iter() {
+        // See commend in `write_normal_text` for why we can choose the CID this way.
         let cid = glyph_remapper.get(g).unwrap();
         if !text.is_empty() {
             cmap.pair_with_multiple(cid, text.chars());

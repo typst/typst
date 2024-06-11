@@ -83,8 +83,9 @@ pub struct Resources<R = Ref> {
     /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
     /// cmap. This is important for copy-paste and searching.
     pub glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+    /// Same as `glyph_sets`, but for color fonts.
     pub color_glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
-
+    /// Stores the glyph remapper for each font for the subsetter.
     pub glyph_remappers: HashMap<Font, GlyphRemapper>,
 }
 

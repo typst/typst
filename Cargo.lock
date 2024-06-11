@@ -2256,18 +2256,12 @@ dependencies = [
 [[package]]
 name = "subsetter"
 version = "0.1.1"
-
-[[package]]
-name = "subsetter"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
+source = "git+https://github.com/LaurenzV/subsetter?branch=rewrite#677d31dc6b8a0f37bba41ef683ae80700c813a27"
 
 [[package]]
 name = "svg2pdf"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e31565956eb1dc398c0d9776ee1d1bac4e34759af63dcbe0520df32313a5b53b"
+source = "git+https://github.com/typst/svg2pdf?branch=subsetter#f22c5dec01ee414bac05a17609aa35783571a915"
 dependencies = [
  "fontdb",
  "image 0.25.1",
@@ -2277,7 +2271,7 @@ dependencies = [
  "pdf-writer",
  "resvg",
  "siphasher 1.0.1",
- "subsetter 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subsetter",
  "tiny-skia",
  "ttf-parser",
  "unicode-properties",
@@ -2737,7 +2731,7 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
- "subsetter 0.1.1",
+ "subsetter",
  "svg2pdf",
  "ttf-parser",
  "typst",
