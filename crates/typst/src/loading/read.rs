@@ -1,6 +1,6 @@
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, Cast};
 use crate::loading::Readable;
@@ -54,4 +54,17 @@ pub fn read(
 pub enum Encoding {
     /// The Unicode UTF-8 encoding.
     Utf8,
+}
+
+/// Reads a directory and returns a list of file names.
+#[func(title = "Read Directory")]
+pub fn read_dir(
+    /// The engine.
+    engine: &mut Engine,
+    /// Path to a directory.
+    path: Spanned<EcoString>,
+) -> Result<EcoVec<EcoString>, EcoVec<SourceDiagnostic>> {
+    let Spanned { v: path, span } = path;
+    let id = span.resolve_path(&path).at(span)?;
+    engine.world.directory(id).at(span)
 }

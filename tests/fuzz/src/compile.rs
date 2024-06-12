@@ -1,5 +1,6 @@
 #![no_main]
 
+use ecow::{EcoString, EcoVec};
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
@@ -48,6 +49,10 @@ impl World for FuzzWorld {
     }
 
     fn file(&self, src: FileId) -> FileResult<Bytes> {
+        Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
+    }
+
+    fn directory(&self, src: FileId) -> FileResult<EcoVec<EcoString>> {
         Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
     }
 

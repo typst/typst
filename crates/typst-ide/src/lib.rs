@@ -151,6 +151,10 @@ mod tests {
             Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
         }
 
+        fn directory(&self, id: FileId) -> FileResult<ecow::EcoVec<ecow::EcoString>> {
+            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+        }
+
         fn font(&self, index: usize) -> Option<Font> {
             Some(self.base.fonts[index].clone())
         }

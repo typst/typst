@@ -2686,6 +2686,7 @@ name = "typst-fuzz"
 version = "0.11.0"
 dependencies = [
  "comemo",
+ "ecow",
  "libfuzzer-sys",
  "typst",
  "typst-assets",

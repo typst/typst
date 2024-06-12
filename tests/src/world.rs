@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use ecow::{EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{bail, FileError, FileResult, StrResult};
@@ -59,6 +60,10 @@ impl World for TestWorld {
         self.slot(id, FileSlot::file)
     }
 
+    fn directory(&self, id: FileId) -> FileResult<EcoVec<EcoString>> {
+        self.slot(id, FileSlot::directory)
+    }
+
     fn font(&self, index: usize) -> Option<Font> {
         Some(self.base.fonts[index].clone())
     }
@@ -109,12 +114,18 @@ struct FileSlot {
     id: FileId,
     source: OnceLock<FileResult<Source>>,
     file: OnceLock<FileResult<Bytes>>,
+    directory: OnceLock<FileResult<EcoVec<EcoString>>>,
 }
 
 impl FileSlot {
     /// Create a new file slot.
     fn new(id: FileId) -> Self {
-        Self { id, file: OnceLock::new(), source: OnceLock::new() }
+        Self {
+            id,
+            file: OnceLock::new(),
+            source: OnceLock::new(),
+            directory: OnceLock::new(),
+        }
     }
 
     /// Retrieve the source for this file.
@@ -136,6 +147,29 @@ impl FileSlot {
                     Cow::Owned(buf) => buf.into(),
                     Cow::Borrowed(buf) => Bytes::from_static(buf),
                 })
+            })
+            .clone()
+    }
+
+    /// Retrieve the directory's contents.
+    fn directory(&mut self) -> FileResult<EcoVec<EcoString>> {
+        self.directory
+            .get_or_init(|| {
+                let path = system_path(self.id)?;
+                let entries = fs::read_dir(path).map_err(|e| {
+                    FileError::Other(Some(EcoString::from(e.to_string())))
+                })?;
+                let mut vec = EcoVec::new();
+                for entry in entries {
+                    let entry = entry.map_err(|e| {
+                        FileError::Other(Some(EcoString::from(e.to_string())))
+                    })?;
+                    let path = entry.path();
+                    let name =
+                        path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+                    vec.push(name.into());
+                }
+                Ok(vec)
             })
             .clone()
     }

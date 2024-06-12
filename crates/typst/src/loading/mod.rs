@@ -36,6 +36,7 @@ pub static DATA_LOADING: Category;
 pub(super) fn define(global: &mut Scope) {
     global.category(DATA_LOADING);
     global.define_func::<read>();
+    global.define_func::<read_dir>();
     global.define_func::<csv>();
     global.define_func::<json>();
     global.define_func::<toml>();
