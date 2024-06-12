@@ -15,7 +15,8 @@ use crate::world::SystemWorld;
 
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
-    let mut world = SystemWorld::new(&command.common)?;
+    let mut world =
+        SystemWorld::new(&command.common, command.common.format.unwrap_or_default())?;
 
     // Reset everything and ensure that the main file is present.
     world.reset();
@@ -97,9 +98,9 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         let Some(value) = mapped.first() else {
             bail!("no such field found for element");
         };
-        serialize(value, command.format, command.pretty)
+        serialize(value, command.output_format, command.pretty)
     } else {
-        serialize(&mapped, command.format, command.pretty)
+        serialize(&mapped, command.output_format, command.pretty)
     }
 }
 

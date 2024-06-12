@@ -35,7 +35,7 @@ impl CompileCommand {
                 panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
             Output::Path(path.with_extension(
-                match self.output_format().unwrap_or(OutputFormat::Pdf) {
+                match self.output_format().unwrap_or_default() {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",
                     OutputFormat::Svg => "svg",
@@ -44,11 +44,13 @@ impl CompileCommand {
         })
     }
 
-    /// The format to use for generated output, either specified by the user or inferred from the extension.
+    /// The format to use for generated output, either specified by the user or
+    /// inferred from the extension.
     ///
-    /// Will return `Err` if the format was not specified and could not be inferred.
+    /// Will return `Err` if the format was not specified and could not be
+    /// inferred.
     pub fn output_format(&self) -> StrResult<OutputFormat> {
-        Ok(if let Some(specified) = self.format {
+        Ok(if let Some(specified) = self.common.format {
             specified
         } else if let Some(Output::Path(output)) = &self.output {
             match output.extension() {
@@ -58,7 +60,7 @@ impl CompileCommand {
                 _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
             }
         } else {
-            OutputFormat::Pdf
+            OutputFormat::default()
         })
     }
 
@@ -76,8 +78,8 @@ impl CompileCommand {
 
 /// Execute a compilation command.
 pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
-    let mut world =
-        SystemWorld::new(&command.common).map_err(|err| eco_format!("{err}"))?;
+    let mut world = SystemWorld::new(&command.common, command.output_format()?)
+        .map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
     Ok(())
 }

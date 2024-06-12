@@ -30,7 +30,7 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
     // Additionally, if any files do not exist, wait until they do.
     let mut world = loop {
-        match SystemWorld::new(&command.common) {
+        match SystemWorld::new(&command.common, command.output_format()?) {
             Ok(world) => break world,
             Err(
                 ref err @ (WorldCreationError::InputNotFound(ref path)

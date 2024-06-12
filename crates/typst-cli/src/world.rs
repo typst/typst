@@ -13,10 +13,10 @@ use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, World};
+use typst::{ExportTarget, Library, World};
 use typst_timing::{timed, TimingScope};
 
-use crate::args::{Input, SharedArgs};
+use crate::args::{Input, OutputFormat, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::PackageStorage;
@@ -55,7 +55,10 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
+    pub fn new(
+        command: &SharedArgs,
+        target: OutputFormat,
+    ) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
         if let Some(jobs) = command.jobs {
             rayon::ThreadPoolBuilder::new().num_threads(jobs).build_global().ok();
@@ -107,7 +110,14 @@ impl SystemWorld {
                 .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
                 .collect();
 
-            Library::builder().with_inputs(inputs).build()
+            Library::builder()
+                .with_inputs(inputs)
+                .with_target(match target {
+                    OutputFormat::Pdf => ExportTarget::Pdf,
+                    OutputFormat::Png => ExportTarget::Raster,
+                    OutputFormat::Svg => ExportTarget::Svg,
+                })
+                .build()
         };
 
         let mut searcher = FontSearcher::new();
