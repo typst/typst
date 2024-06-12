@@ -14,7 +14,7 @@ use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::LazyHash;
 use typst::visualize::Color;
-use typst::{Library, World};
+use typst::{ExportTarget, Library, World};
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -28,9 +28,27 @@ impl TestWorld {
     ///
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
-    pub fn new(source: Source) -> Self {
-        static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
-        Self { main: source, base: &*BASE }
+    pub fn new(source: Source, target: ExportTarget) -> Self {
+        let base = match target {
+            ExportTarget::Pdf => {
+                static BASE: Lazy<TestBase> =
+                    Lazy::new(|| TestBase::new(ExportTarget::Pdf));
+                &*BASE
+            }
+            ExportTarget::Svg => {
+                static BASE: Lazy<TestBase> =
+                    Lazy::new(|| TestBase::new(ExportTarget::Svg));
+                &*BASE
+            }
+            ExportTarget::Raster => {
+                static BASE: Lazy<TestBase> =
+                    Lazy::new(|| TestBase::new(ExportTarget::Raster));
+                &*BASE
+            }
+            _ => todo!("unsupported export target"),
+        };
+
+        Self { main: source, base }
     }
 }
 
@@ -87,15 +105,15 @@ struct TestBase {
     slots: Mutex<HashMap<FileId, FileSlot>>,
 }
 
-impl Default for TestBase {
-    fn default() -> Self {
+impl TestBase {
+    fn new(target: ExportTarget) -> Self {
         let fonts: Vec<_> = typst_assets::fonts()
             .chain(typst_dev_assets::fonts())
             .flat_map(|data| Font::iter(Bytes::from_static(data)))
             .collect();
 
         Self {
-            library: LazyHash::new(library()),
+            library: LazyHash::new(library(target)),
             book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
             slots: Mutex::new(HashMap::new()),
@@ -169,11 +187,11 @@ fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
 }
 
 /// The extended standard library for testing.
-fn library() -> Library {
+fn library(target: ExportTarget) -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::default();
+    let mut lib = Library::builder().with_target(target).build();
 
     #[func]
     fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {

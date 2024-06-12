@@ -1,6 +1,8 @@
 use std::io::{self, IsTerminal, StderrLock, Write};
 use std::time::{Duration, Instant};
 
+use typst::ExportTarget;
+
 use crate::collect::Test;
 use crate::run::TestResult;
 
@@ -41,11 +43,15 @@ impl<'a> Logger<'a> {
     }
 
     /// Register a finished test.
-    pub fn end(&mut self, test: &'a Test, result: std::thread::Result<TestResult>) {
+    pub fn end(
+        &mut self,
+        test: &'a Test,
+        results: std::thread::Result<Vec<(ExportTarget, TestResult)>>,
+    ) {
         self.active.retain(|t| t.name != test.name);
 
-        let result = match result {
-            Ok(result) => result,
+        let results = match results {
+            Ok(results) => results,
             Err(_) => {
                 self.failed += 1;
                 self.temp_lines = 0;
@@ -58,30 +64,34 @@ impl<'a> Logger<'a> {
             }
         };
 
-        if result.is_ok() {
+        if results.iter().all(|(_, result)| result.is_ok()) {
             self.passed += 1;
         } else {
             self.failed += 1;
         }
 
-        self.mismatched_image |= result.mismatched_image;
-        self.last_change = Instant::now();
+        for (target, result) in results {
+            self.mismatched_image |= result.mismatched_image;
+            self.last_change = Instant::now();
 
-        self.print(move |out| {
-            if !result.errors.is_empty() {
-                writeln!(out, "❌ {test}")?;
-                for line in result.errors.lines() {
+            self.print(move |out| {
+                let target = target.to_string().to_uppercase();
+                if !result.errors.is_empty() {
+                    writeln!(out, "❌ {target: >6} : {test}")?;
+
+                    for line in result.errors.lines() {
+                        writeln!(out, "  {line}")?;
+                    }
+                } else if crate::ARGS.verbose || !result.infos.is_empty() {
+                    writeln!(out, "✅ {target: >6} : {test}")?;
+                }
+                for line in result.infos.lines() {
                     writeln!(out, "  {line}")?;
                 }
-            } else if crate::ARGS.verbose || !result.infos.is_empty() {
-                writeln!(out, "✅ {test}")?;
-            }
-            for line in result.infos.lines() {
-                writeln!(out, "  {line}")?;
-            }
-            Ok(())
-        })
-        .unwrap();
+                Ok(())
+            })
+            .unwrap();
+        }
     }
 
     /// Prints a summary and returns whether the test suite passed.

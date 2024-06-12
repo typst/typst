@@ -54,6 +54,13 @@ You may find more options in the help message:
 testit --help
 ```
 
+The options `--raster`, `--svg`, `--pdf` and `--all` control which export
+target is compiled and exported. If no export target is given, `--raster` is
+assumed. Tests which don't match the requested targets are filtered out.
+
+**The raster target is currently the only target for which the outputs are
+compared to references. Not running raster export means no comparison!**
+
 To make the integration tests go faster they don't generate PDFs by default.
 Pass the `--pdf` flag to generate those. Mind that PDFs are not tested
 automatically at the moment, so you should always check the output manually when
@@ -63,9 +70,14 @@ testit --pdf
 ```
 
 ## Writing tests
-The syntax for an individual test is `--- {name} ---` followed by some Typst
-code that should be tested. The name must be globally unique in the test suite,
-so that tests can be easily migrated across files.
+The syntax for an individual test is `--- {name} [: {targets}] ---` followed by
+some Typst code that should be tested. The name must be globally unique in the
+test suite, so that tests can be easily migrated across files.
+
+Targets specify for which target a test should be run and exported. Multiple
+targets can be specified using the `|` pipe operator like
+`--- name : PDF | RASTER ---`. If no target is specified, all targets are
+assumed.
 
 There are, broadly speaking, three kinds of tests:
 

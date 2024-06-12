@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use regex::Regex;
 
+use crate::targets::ExportTargets;
+
 /// Typst's test runner.
 #[derive(Debug, Clone, Parser)]
 #[command(bin_name = "cargo test --workspace --test tests --")]
@@ -31,18 +33,21 @@ pub struct CliArguments {
     /// Does not affect the comparison or the reference image.
     #[arg(short, long, default_value_t = 1.0)]
     pub scale: f32,
-    /// Whether to run the tests in extended mode, including PDF and SVG
-    /// export.
+    /// Whether to run the all exports for all tests.
     ///
     /// This is used in CI.
-    #[arg(long, env = "TYPST_TESTS_EXTENDED")]
-    pub extended: bool,
-    /// Runs PDF export.
+    #[arg(long, env = "TYPST_TESTS_ALL")]
+    all: bool,
+    /// Runs PNG export, implied by `--all`, this is assumed if no other exports
+    /// are used.
     #[arg(long)]
-    pub pdf: bool,
-    /// Runs SVG export.
+    raster: bool,
+    /// Runs PDF export, implied by `--all`.
     #[arg(long)]
-    pub svg: bool,
+    pdf: bool,
+    /// Runs SVG export, implied by `--all`.
+    #[arg(long)]
+    svg: bool,
     /// Displays the syntax tree.
     #[arg(long)]
     pub syntax: bool,
@@ -55,14 +60,19 @@ pub struct CliArguments {
 }
 
 impl CliArguments {
-    /// Whether to run PDF export.
-    pub fn pdf(&self) -> bool {
-        self.pdf || self.extended
-    }
-
-    /// Whether to run SVG export.
-    pub fn svg(&self) -> bool {
-        self.svg || self.extended
+    /// The targets to test for.
+    pub fn targets(&self) -> ExportTargets {
+        if self.all {
+            ExportTargets::all()
+        } else if self.pdf || self.svg || self.raster {
+            let mut targets = ExportTargets::empty();
+            targets.set(ExportTargets::PDF, self.pdf);
+            targets.set(ExportTargets::SVG, self.svg);
+            targets.set(ExportTargets::RASTER, self.raster);
+            targets
+        } else {
+            ExportTargets::RASTER
+        }
     }
 }
 

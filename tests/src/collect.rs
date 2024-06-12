@@ -9,13 +9,16 @@ use typst::syntax::package::PackageVersion;
 use typst::syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
 use unscanny::Scanner;
 
+use crate::targets::ExportTargets;
+use crate::ARGS;
+
 /// Collects all tests from all files.
 ///
 /// Returns:
 /// - the tests and the number of skipped tests in the success case.
 /// - parsing errors in the failure case.
 pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
-    Collector::new().collect()
+    Collector::new(ARGS.targets()).collect()
 }
 
 /// A single test.
@@ -25,11 +28,12 @@ pub struct Test {
     pub source: Source,
     pub notes: Vec<Note>,
     pub large: bool,
+    pub targets: ExportTargets,
 }
 
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} ({})", self.name, self.pos)
+        write!(f, "{} ({}, {})", self.name, self.pos, self.targets)
     }
 }
 
@@ -107,17 +111,19 @@ struct Collector {
     seen: HashMap<EcoString, FilePos>,
     large: HashSet<EcoString>,
     skipped: usize,
+    targets: ExportTargets,
 }
 
 impl Collector {
     /// Creates a new test collector.
-    fn new() -> Self {
+    fn new(targets: ExportTargets) -> Self {
         Self {
             tests: vec![],
             errors: vec![],
             seen: HashMap::new(),
             large: HashSet::new(),
             skipped: 0,
+            targets,
         }
     }
 
@@ -213,11 +219,21 @@ impl<'a> Parser<'a> {
 
         while !self.s.done() {
             let mut name = EcoString::new();
+            let mut targets = ExportTargets::all();
             let mut notes = vec![];
             if self.s.eat_if("---") {
                 self.s.eat_while(' ');
                 name = self.s.eat_until(char::is_whitespace).into();
                 self.s.eat_while(' ');
+
+                if self.s.eat_if(':') {
+                    self.s.eat_while(' ');
+                    match self.s.eat_until("---").parse::<ExportTargets>() {
+                        Ok(parsed) => targets = parsed,
+                        Err(_) => self.error("couldn't parse targets"),
+                    }
+                    self.s.eat_while(' ');
+                }
 
                 if name.is_empty() {
                     self.error("expected test name");
@@ -251,6 +267,12 @@ impl<'a> Parser<'a> {
                 }
             }
 
+            let matched = targets & self.collector.targets;
+            if matched.is_empty() {
+                self.collector.skipped += 1;
+                continue;
+            }
+
             let text = self.s.from(start);
             let large = text.starts_with("// LARGE");
             if large {
@@ -280,7 +302,9 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            self.collector.tests.push(Test { pos, name, source, notes, large });
+            self.collector
+                .tests
+                .push(Test { pos, name, source, notes, large, targets });
         }
     }
 
@@ -302,11 +326,13 @@ impl<'a> Parser<'a> {
     /// Parses an annotation in a test.
     fn parse_note(&mut self, source: &Source) -> Option<Note> {
         let head = self.s.eat_while(is_id_continue);
+
         if !self.s.eat_if(':') {
             return None;
         }
 
         let kind: NoteKind = head.parse().ok()?;
+
         self.s.eat_if(' ');
 
         let mut range = None;
