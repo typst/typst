@@ -129,6 +129,8 @@ Typst's CLI is available from different sources:
   - build and run a development version with
     `nix run github:typst/typst -- --version`.
 
+- Flox users can install Typst into their environment with `flox install typst`
+
 - Docker users can run a prebuilt image with
   `docker run -it ghcr.io/typst/typst:latest`.
 
