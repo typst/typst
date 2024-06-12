@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::SyntaxKind;
+use crate::{SyntaxError, SyntaxKind};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -19,7 +19,7 @@ pub(super) struct Lexer<'s> {
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
-    error: Option<EcoString>,
+    error: Option<SyntaxError>,
 }
 
 /// What kind of tokens to emit.
@@ -75,7 +75,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<EcoString> {
+    pub fn take_error(&mut self) -> Option<SyntaxError> {
         self.error.take()
     }
 }
@@ -83,8 +83,15 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some(message.into());
+        self.error = Some(SyntaxError::new(message));
         SyntaxKind::Error
+    }
+
+    /// If the current node is an error, adds a hint.
+    fn hint(&mut self, message: impl Into<EcoString>) {
+        if let Some(error) = &mut self.error {
+            error.hints.push(message.into());
+        }
     }
 }
 
@@ -109,7 +116,12 @@ impl Lexer<'_> {
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
-                self.error("unexpected end of block comment")
+                let kind = self.error("unexpected end of block comment");
+                self.hint(
+                    "consider escaping the `*` with a backslash or \
+                     opening the block comment with `/*`",
+                );
+                kind
             }
 
             Some(c) => match self.mode {
