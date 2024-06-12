@@ -134,6 +134,12 @@
     - The `sys.version` constant (of type [`version`]) that specifies
       the currently active Typst compiler version.
 
+    - The `sys.target` constant (of type [`str`]) that specifies the currently
+      active export target.
+
+      This value is one of `{"pdf"}`, `{"svg"}` or `{"raster"}` and can be used
+      to access target specific features.
+
     - The `sys.inputs` [dictionary], which makes external inputs
       available to the project. An input specified in the command line as
       `--input key=value` becomes available under `sys.inputs.key` as
