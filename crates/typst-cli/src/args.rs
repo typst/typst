@@ -96,10 +96,6 @@ pub struct CompileCommand {
     #[clap(long = "make-deps", value_name = "PATH")]
     pub make_deps: Option<PathBuf>,
 
-    /// The format of the output file, inferred from the extension by default
-    #[arg(long = "format", short = 'f')]
-    pub format: Option<OutputFormat>,
-
     /// Opens the output file using the default viewer after compilation.
     /// Ignored if output is stdout
     #[arg(long = "open")]
@@ -156,8 +152,8 @@ pub struct QueryCommand {
     pub one: bool,
 
     /// The format to serialize in
-    #[clap(long = "format", default_value = "json")]
-    pub format: SerializationFormat,
+    #[clap(long = "output-format", default_value = "json")]
+    pub output_format: SerializationFormat,
 
     /// Whether to pretty-print the serialized output
     #[clap(long)]
@@ -177,6 +173,12 @@ pub struct SharedArgs {
     /// Path to input Typst file. Use `-` to read input from stdin
     #[clap(value_parser = input_value_parser)]
     pub input: Input,
+
+    /// The format of the output file, inferred from the extension by default
+    ///
+    /// This is visible through `sys.target`
+    #[arg(long = "format", short = 'f')]
+    pub format: Option<OutputFormat>,
 
     /// Configures the project root (for absolute paths)
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
@@ -437,8 +439,9 @@ pub struct UpdateCommand {
 }
 
 /// Which format to use for the generated output file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum OutputFormat {
+    #[default]
     Pdf,
     Png,
     Svg,
