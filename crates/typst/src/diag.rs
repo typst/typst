@@ -284,6 +284,17 @@ impl WarnIdentifier {
     }
 }
 
+impl Identifier {
+    /// The identifier's name, e.g. 'unnecessary-stars'.
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Warn(warning_identifier) => warning_identifier.name(),
+            Self::User(user_identifier) => &user_identifier,
+            Self::Error(_) => unreachable!(),
+        }
+    }
+}
+
 /// A part of a diagnostic's [trace](SourceDiagnostic::trace).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {

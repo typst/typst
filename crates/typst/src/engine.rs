@@ -7,7 +7,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{Severity, SourceDiagnostic, SourceResult};
+use crate::diag::{self, Severity, SourceDiagnostic, SourceResult};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
 use crate::syntax::{ast, FileId, Span};
@@ -164,12 +164,17 @@ impl Sink {
     /// Apply warning suppression.
     pub fn suppress_warnings(&mut self, world: &dyn World) {
         self.warnings.retain(|diag| {
+            let Some(identifier) = &diag.identifier else {
+                // Can't suppress without an identifier.
+                return true;
+            };
+
             // Only retain warnings which weren't locally suppressed where they
             // were emitted or at any of their tracepoints.
             diag.severity != Severity::Warning
-                || (!check_warning_suppressed(diag.span, world, &diag.message)
+                || (!check_warning_suppressed(diag.span, world, &identifier)
                     && !diag.trace.iter().any(|tracepoint| {
-                        check_warning_suppressed(tracepoint.span, world, &diag.message)
+                        check_warning_suppressed(tracepoint.span, world, &identifier)
                     }))
         });
     }
@@ -222,7 +227,7 @@ impl Sink {
 fn check_warning_suppressed(
     span: Span,
     world: &dyn World,
-    _message: &ecow::EcoString,
+    identifier: &diag::Identifier,
 ) -> bool {
     let Some(file) = span.id() else {
         // Don't suppress detached warnings.
@@ -239,15 +244,32 @@ fn check_warning_suppressed(
     while let Some(parent) = node.parent() {
         if let Some(sibling) = parent.prev_attached_comment() {
             if let Some(comment) = sibling.cast::<ast::LineComment>() {
-                let _text = comment.content();
-                // Find comment, return true if this warning was suppressed
-                todo!();
+                if matches!(parse_warning_suppression(comment.content()), Some(suppressed) if identifier.name() == suppressed)
+                {
+                    return true;
+                }
             }
         }
         node = parent;
     }
 
     false
+}
+
+// TODO: replace this ad-hoc solution
+// Expects a comment '//! allow("identifier")
+fn parse_warning_suppression(comment: &str) -> Option<&str> {
+    const ALLOW_SEGMENT: &str = "! allow(\"";
+    if !comment.starts_with(ALLOW_SEGMENT) {
+        return None;
+    }
+    let after_allow = comment.get(ALLOW_SEGMENT.len()..)?.trim();
+    let (suppressed_identifier, rest) = after_allow.split_once('"')?;
+    if rest.trim() != ")" {
+        return None;
+    }
+
+    Some(suppressed_identifier)
 }
 
 /// The route the engine took during compilation. This is used to detect
