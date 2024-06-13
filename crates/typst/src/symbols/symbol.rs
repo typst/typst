@@ -85,27 +85,24 @@ impl Symbol {
         Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
     }
 
-    /// Get the symbol's text.
+    /// Get the symbol's char.
     pub fn get(&self) -> char {
+        self.sym().char()
+    }
+
+    /// Resolve the symbol's `SymChar`.
+    pub fn sym(&self) -> SymChar {
         match &self.0 {
-            Repr::Single(c) => c.ch(),
-            Repr::Const(_) => find(self.variants(), "").unwrap().ch(),
-            Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap().ch(),
+            Repr::Single(c) => *c,
+            Repr::Const(_) => find(self.variants(), "").unwrap(),
+            Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap(),
         }
     }
 
-    /// Get the function associated with the symbol.
-    pub fn func(&self) -> Option<Func> {
-        match &self.0 {
-            Repr::Single(c) => c.func(),
-            Repr::Const(_) => find(self.variants(), "").unwrap().func(),
-            Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap().func(),
-        }
-    }
-
-    /// Get the function associated with the symbol, or error if there is none.
-    pub fn try_func(&self) -> StrResult<Func> {
-        self.func()
+    /// Try to get the function associated with the symbol, if any.
+    pub fn func(&self) -> StrResult<Func> {
+        self.sym()
+            .func()
             .ok_or_else(|| eco_format!("symbol {self} is not callable"))
     }
 
@@ -219,7 +216,7 @@ impl SymChar {
     }
 
     /// Get the character of the symbol.
-    pub const fn ch(&self) -> char {
+    pub const fn char(&self) -> char {
         self.0
     }
 

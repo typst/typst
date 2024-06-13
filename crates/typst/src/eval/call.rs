@@ -128,31 +128,27 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        let func = match callee.clone().cast::<Func>().at(callee_span) {
-            Ok(func) => func,
-            Err(_) if in_math => {
-                // For non-functions in math, we wrap the arguments in parentheses.
-                let mut body = Content::empty();
-                for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-                    if i > 0 {
-                        body += TextElem::packed(',');
-                    }
-                    body += arg;
-                }
-                if trailing_comma {
+        let func_result = callee.clone().cast::<Func>().at(callee_span);
+        if in_math && func_result.is_err() {
+            // For non-functions in math, we wrap the arguments in parentheses.
+            let mut body = Content::empty();
+            for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+                if i > 0 {
                     body += TextElem::packed(',');
                 }
-                return Ok(Value::Content(
-                    callee.display().spanned(callee_span)
-                        + LrElem::new(
-                            TextElem::packed('(') + body + TextElem::packed(')'),
-                        )
-                        .pack(),
-                ));
+                body += arg;
             }
-            Err(err) => return Err(err),
-        };
+            if trailing_comma {
+                body += TextElem::packed(',');
+            }
+            return Ok(Value::Content(
+                callee.display().spanned(callee_span)
+                    + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+                        .pack(),
+            ));
+        }
 
+        let func = func_result?;
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
             func.call(&mut vm.engine, vm.context, args)
