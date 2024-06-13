@@ -40,7 +40,7 @@ pub struct PackageInfo {
     /// The path of the entrypoint into the package.
     pub entrypoint: EcoString,
     /// The minimum required compiler version for the package.
-    pub compiler: Option<PackageVersion>,
+    pub compiler: Option<SemVerBound>,
 }
 
 impl PackageManifest {
@@ -62,7 +62,7 @@ impl PackageManifest {
 
         if let Some(required) = self.package.compiler {
             let current = PackageVersion::compiler();
-            if current < required {
+            if !current.matches_ge(&required) {
                 return Err(eco_format!(
                     "package requires typst {required} or newer \
                      (current version is {current})"
@@ -216,6 +216,171 @@ impl PackageVersion {
     }
 }
 
+impl PackageVersion {
+    // the code in this impl block is based on https://github.com/dtolnay/semver/blob/1.0.23/src/eval.rs
+    // author: David Tolnay <https://github.com/dtolnay>
+    // licensed under Apache 2.0
+
+    /// Performs an `==` match with the given version bound. Version elements missing in the bound
+    /// are ignored.
+    ///
+    /// ```
+    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
+    /// # use std::str::FromStr;
+    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
+    ///
+    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("0").unwrap()));
+    /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1").unwrap()));
+    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("2").unwrap()));
+    ///
+    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.0").unwrap()));
+    /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1.1").unwrap()));
+    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.2").unwrap()));
+    ///
+    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.1.0").unwrap()));
+    /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1.1.1").unwrap()));
+    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.1.2").unwrap()));
+    /// ```
+    pub fn matches_eq(&self, bound: &SemVerBound) -> bool {
+        if self.major != bound.major {
+            return false;
+        }
+        if bound.minor.map_or(false, |minor| self.minor != minor) {
+            return false;
+        }
+        if bound.patch.map_or(false, |patch| self.patch != patch) {
+            return false;
+        }
+        true
+    }
+
+    /// Performs a `>` match with the given version bound. The match only succeeds if some version
+    /// element in the bound is actually greater than that of the version.
+    ///
+    /// ```
+    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
+    /// # use std::str::FromStr;
+    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
+    ///
+    /// assert!(v1_1_1.matches_gt(&SemVerBound::from_str("0").unwrap()));
+    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1").unwrap()));
+    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("2").unwrap()));
+    ///
+    /// assert!(v1_1_1.matches_gt(&SemVerBound::from_str("1.0").unwrap()));
+    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1").unwrap()));
+    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.2").unwrap()));
+    ///
+    /// assert!(v1_1_1.matches_gt(&SemVerBound::from_str("1.1.0").unwrap()));
+    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1.1").unwrap()));
+    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1.2").unwrap()));
+    /// ```
+    pub fn matches_gt(&self, bound: &SemVerBound) -> bool {
+        if self.major != bound.major {
+            return self.major > bound.major;
+        }
+        let Some(minor) = bound.minor else {
+            return false;
+        };
+        if self.minor != minor {
+            return self.minor > minor;
+        }
+        let Some(patch) = bound.patch else {
+            return false;
+        };
+        if self.patch != patch {
+            return self.patch > patch;
+        }
+        false
+    }
+
+    /// Performs a `<` match with the given version bound. The match only succeeds if some version
+    /// element in the bound is actually less than that of the version.
+    ///
+    /// ```
+    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
+    /// # use std::str::FromStr;
+    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
+    ///
+    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("0").unwrap()));
+    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1").unwrap()));
+    /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("2").unwrap()));
+    ///
+    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.0").unwrap()));
+    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1").unwrap()));
+    /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("1.2").unwrap()));
+    ///
+    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1.0").unwrap()));
+    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1.1").unwrap()));
+    /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("1.1.2").unwrap()));
+    /// ```
+    pub fn matches_lt(&self, bound: &SemVerBound) -> bool {
+        if self.major != bound.major {
+            return self.major < bound.major;
+        }
+        let Some(minor) = bound.minor else {
+            return false;
+        };
+        if self.minor != minor {
+            return self.minor < minor;
+        }
+        let Some(patch) = bound.patch else {
+            return false;
+        };
+        if self.patch != patch {
+            return self.patch < patch;
+        }
+        false
+    }
+
+    /// Performs a `>=` match with the given versions. The match succeeds when either a `==` or `>`
+    /// match does.
+    ///
+    /// ```
+    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
+    /// # use std::str::FromStr;
+    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
+    ///
+    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("0").unwrap()));
+    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1").unwrap()));
+    /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("2").unwrap()));
+    ///
+    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.0").unwrap()));
+    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1").unwrap()));
+    /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("1.2").unwrap()));
+    ///
+    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1.0").unwrap()));
+    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1.1").unwrap()));
+    /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("1.1.2").unwrap()));
+    /// ```
+    pub fn matches_ge(&self, bound: &SemVerBound) -> bool {
+        self.matches_eq(bound) || self.matches_gt(bound)
+    }
+
+    /// Performs a `<=` match with the given versions. The match succeeds when either a `==` or `<`
+    /// match does.
+    ///
+    /// ```
+    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
+    /// # use std::str::FromStr;
+    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
+    ///
+    /// assert!(!v1_1_1.matches_le(&SemVerBound::from_str("0").unwrap()));
+    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1").unwrap()));
+    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("2").unwrap()));
+    ///
+    /// assert!(!v1_1_1.matches_le(&SemVerBound::from_str("1.0").unwrap()));
+    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1").unwrap()));
+    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.2").unwrap()));
+    ///
+    /// assert!(!v1_1_1.matches_le(&SemVerBound::from_str("1.1.0").unwrap()));
+    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1.1").unwrap()));
+    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1.2").unwrap()));
+    /// ```
+    pub fn matches_le(&self, bound: &SemVerBound) -> bool {
+        self.matches_eq(bound) || self.matches_lt(bound)
+    }
+}
+
 impl FromStr for PackageVersion {
     type Err = EcoString;
 
@@ -260,6 +425,76 @@ impl Serialize for PackageVersion {
 }
 
 impl<'de> Deserialize<'de> for PackageVersion {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let string = EcoString::deserialize(d)?;
+        string.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+/// A version bound for compatibility specification.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct SemVerBound {
+    /// The bounds's major version.
+    pub major: u32,
+    /// The bounds's minor version.
+    pub minor: Option<u32>,
+    /// The bounds's patch version. Can only be present if minor is too.
+    pub patch: Option<u32>,
+}
+
+impl FromStr for SemVerBound {
+    type Err = EcoString;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split('.');
+        let mut next = |kind| {
+            if let Some(part) = parts.next() {
+                part.parse::<u32>().map(Some).map_err(|_| {
+                    eco_format!("`{part}` is not a valid {kind} version bound")
+                })
+            } else {
+                Ok(None)
+            }
+        };
+
+        let major = next("major")?
+            .ok_or_else(|| eco_format!("version bound is missing major version"))?;
+        let minor = next("minor")?;
+        let patch = next("patch")?;
+        if let Some(rest) = parts.next() {
+            Err(eco_format!("version bound has unexpected fourth component: `{rest}`"))?;
+        }
+
+        Ok(Self { major, minor, patch })
+    }
+}
+
+impl Debug for SemVerBound {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl Display for SemVerBound {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.major)?;
+        if let Some(minor) = self.minor {
+            write!(f, ".{minor}")?;
+        }
+        if let Some(patch) = self.patch {
+            write!(f, ".{patch}")?;
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for SemVerBound {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for SemVerBound {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let string = EcoString::deserialize(d)?;
         string.parse().map_err(serde::de::Error::custom)
