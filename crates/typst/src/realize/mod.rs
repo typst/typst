@@ -10,6 +10,8 @@ mod arenas;
 mod behaviour;
 mod process;
 
+use once_cell::unsync::Lazy;
+
 pub use self::arenas::Arenas;
 pub use self::behaviour::{Behave, BehavedBuilder, Behaviour, StyleVec};
 pub use self::process::process;
@@ -19,7 +21,7 @@ use std::mem;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, NativeElement, Packed, SequenceElem, StyleChain, StyledElem, Styles,
+    Content, NativeElement, Packed, SequenceElem, Smart, StyleChain, StyledElem, Styles,
 };
 use crate::introspection::{Locator, SplitLocator, TagElem};
 use crate::layout::{
@@ -407,17 +409,31 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
+        let par_spacing = Lazy::new(|| {
+            arenas.store(VElem::par_spacing(ParElem::spacing_in(styles).into()).pack())
+        });
+
         if let Some(elem) = content.to_packed::<BlockElem>() {
-            self.0.push(arenas.store(elem.above(styles).pack()), styles);
+            let above = match elem.above(styles) {
+                Smart::Auto => *par_spacing,
+                Smart::Custom(above) => arenas.store(VElem::block_spacing(above).pack()),
+            };
+
+            let below = match elem.below(styles) {
+                Smart::Auto => *par_spacing,
+                Smart::Custom(below) => arenas.store(VElem::block_spacing(below).pack()),
+            };
+
+            self.0.push(above, styles);
             self.0.push(content, styles);
-            self.0.push(arenas.store(elem.below(styles).pack()), styles);
+            self.0.push(below, styles);
             return true;
         }
 
         if content.is::<ParElem>() {
-            self.0.push(arenas.store(BlockElem::above_in(styles).pack()), styles);
+            self.0.push(*par_spacing, styles);
             self.0.push(content, styles);
-            self.0.push(arenas.store(BlockElem::below_in(styles).pack()), styles);
+            self.0.push(*par_spacing, styles);
             return true;
         }
 

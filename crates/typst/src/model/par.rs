@@ -38,10 +38,37 @@ use crate::realize::StyleVec;
 #[elem(title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
+    ///
+    /// Leading defines the spacing between the [bottom edge]($text.bottom-edge)
+    /// of one line and the [top edge]($text.top-edge) of the following line. By
+    /// default, these two properties are up to the font, but they can also be
+    /// configured manually with a text set rule.
+    ///
+    /// By setting top edge, bottom edge, and leading, you can also configure a
+    /// consistent baseline-to-baseline distance. You could, for instance, set
+    /// the leading to `{1em}`, the top-edge to `{0.8em}`, and the bottom-edge
+    /// to `-{0.2em}` to get a baseline gap of exactly `{2em}`. The exact
+    /// distribution of the top- and bottom-edge values affects the bounds of
+    /// the first and last line.
     #[resolve]
     #[ghost]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
+
+    /// The spacing between paragraphs.
+    ///
+    /// Just like leading, this defines the spacing between the bottom edge of a
+    /// paragraph's last line and the top edge of the next paragraph's first
+    /// line.
+    ///
+    /// When a paragraph is adjacent to a [`block`] that is not a paragraph,
+    /// that block's [`above`]($block.above) or [`below`]($block.below) property
+    /// takes precedence over the paragraph spacing. Headings, for instance,
+    /// reduce the spacing below them by default for a better look.
+    #[resolve]
+    #[ghost]
+    #[default(Em::new(1.2).into())]
+    pub spacing: Length,
 
     /// Whether to justify text in its line.
     ///

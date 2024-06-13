@@ -9,9 +9,7 @@ use crate::foundations::{
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
-use crate::layout::{
-    Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Regions, VElem,
-};
+use crate::layout::{Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Regions};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 use crate::utils::NonZeroExt;
@@ -280,8 +278,8 @@ impl ShowSet for Packed<HeadingElem> {
         let mut out = Styles::new();
         out.set(TextElem::set_size(TextSize(size.into())));
         out.set(TextElem::set_weight(FontWeight::BOLD));
-        out.set(BlockElem::set_above(VElem::block_around(above.into())));
-        out.set(BlockElem::set_below(VElem::block_around(below.into())));
+        out.set(BlockElem::set_above(Smart::Custom(above.into())));
+        out.set(BlockElem::set_below(Smart::Custom(below.into())));
         out.set(BlockElem::set_sticky(true));
         out
     }

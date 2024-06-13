@@ -129,7 +129,7 @@ More.
 
 --- list-wide-cannot-attach ---
 // Test that wide lists cannot be ...
-#set block(spacing: 15pt)
+#set par(spacing: 15pt)
 Hello
 - A
 
