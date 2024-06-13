@@ -2,7 +2,9 @@
 
 #[macro_use]
 mod ctx;
-mod accent;
+
+pub mod accent;
+
 mod align;
 mod attach;
 mod cancel;
@@ -21,7 +23,7 @@ mod stretch;
 mod style;
 mod underover;
 
-pub use self::accent::*;
+pub use self::accent::{Accent, AccentElem};
 pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;

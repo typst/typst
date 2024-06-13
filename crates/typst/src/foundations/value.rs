@@ -658,7 +658,8 @@ primitive! { Dict: "dictionary", Dict }
 primitive! {
     Func: "function",
     Func,
-    Type(ty) => ty.constructor()?.clone()
+    Type(ty) => ty.constructor()?.clone(),
+    Symbol(symbol) => symbol.func()?
 }
 primitive! { Args: "arguments", Args }
 primitive! { Type: "type", Type }

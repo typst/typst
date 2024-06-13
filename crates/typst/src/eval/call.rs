@@ -9,8 +9,7 @@ use crate::foundations::{
     Context, Func, IntoValue, NativeElement, Scope, Scopes, Value,
 };
 use crate::introspection::Introspector;
-use crate::math::{Accent, AccentElem, LrElem};
-use crate::symbols::Symbol;
+use crate::math::LrElem;
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Span, Spanned, SyntaxNode};
 use crate::text::TextElem;
@@ -129,23 +128,9 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        // Handle math special cases for non-functions:
-        // Combining accent symbols apply themselves while everything else
-        // simply displays the arguments verbatim.
-        if in_math && !matches!(callee, Value::Func(_)) {
-            if let Value::Symbol(sym) = &callee {
-                let c = sym.get();
-                if let Some(accent) = Symbol::combining_accent(c) {
-                    let base = args.expect("base")?;
-                    let size = args.named("size")?;
-                    args.finish()?;
-                    let mut accent = AccentElem::new(base, Accent::new(accent));
-                    if let Some(size) = size {
-                        accent = accent.with_size(size);
-                    }
-                    return Ok(Value::Content(accent.pack()));
-                }
-            }
+        let func_result = callee.clone().cast::<Func>().at(callee_span);
+        if in_math && func_result.is_err() {
+            // For non-functions in math, we wrap the arguments in parentheses.
             let mut body = Content::empty();
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
@@ -163,11 +148,10 @@ impl Eval for ast::FuncCall<'_> {
             ));
         }
 
-        let callee = callee.cast::<Func>().at(callee_span)?;
-        let point = || Tracepoint::Call(callee.name().map(Into::into));
+        let func = func_result?;
+        let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
-            callee
-                .call(&mut vm.engine, vm.context, args)
+            func.call(&mut vm.engine, vm.context, args)
                 .trace(vm.world(), point, span)
         };
 
