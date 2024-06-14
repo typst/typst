@@ -171,16 +171,16 @@ impl Eval for ast::FuncCall<'_> {
             // part of the call stack that led to the warning being raised,
             // thus allowing suppression of the warning through this call.
             let mut local_sink = Sink::new();
-            let previous_sink =
-                std::mem::replace(&mut vm.engine.sink, local_sink.track_mut());
+            let mut engine = Engine {
+                sink: local_sink.track_mut(),
+                route: vm.engine.route.clone(),
+                ..vm.engine
+            };
 
-            let call_result = func.call(&mut vm.engine, vm.context, args).trace(
-                vm.world(),
-                point,
-                span,
-            );
+            let call_result =
+                func.call(&mut engine, vm.context, args)
+                    .trace(vm.world(), point, span);
 
-            std::mem::replace(&mut vm.engine.sink, previous_sink);
             local_sink.trace_warnings(vm.world(), point, span);
 
             // Push the accumulated warnings and other fields back to the
