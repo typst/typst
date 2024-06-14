@@ -261,12 +261,14 @@ fn check_warning_suppressed(
     // The source must exist if a warning occurred in the file,
     // or has a tracepoint in the file.
     let source = world.source(file).unwrap();
-    // The span must point to this source file, so we unwrap.
-    let mut node = &source.find(span).unwrap();
 
-    // Walk the parent nodes to check for a warning suppression.
-    while let Some(parent) = node.parent() {
-        if let Some(sibling) = parent.prev_attached_comment() {
+    let search_root = source.find(span);
+    let mut searched_node = search_root.as_ref();
+
+    // Walk the parent nodes to check for a warning suppression in the
+    // previous line.
+    while let Some(node) = searched_node {
+        if let Some(sibling) = node.prev_attached_comment() {
             if let Some(comment) = sibling.cast::<ast::LineComment>() {
                 if matches!(parse_warning_suppression(comment.content()), Some(suppressed) if identifier.name() == suppressed)
                 {
@@ -274,7 +276,7 @@ fn check_warning_suppressed(
                 }
             }
         }
-        node = parent;
+        searched_node = node.parent();
     }
 
     false
