@@ -2,7 +2,6 @@
 
 use std::io::Read;
 
-use image::EncodableLayout;
 use ttf_parser::{GlyphId, RgbaColor};
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
@@ -92,14 +91,7 @@ fn draw_colr_glyph(
         .unwrap();
     svg.end_element();
 
-    let mut data = svg.end_document().into_bytes();
-
-    let mut decoded = vec![];
-    if data.starts_with(&[0x1f, 0x8b]) {
-        let mut decoder = flate2::read::GzDecoder::new(data.as_bytes());
-        decoder.read_to_end(&mut decoded).ok()?;
-        data = decoded;
-    }
+    let data = svg.end_document().into_bytes();
 
     let image = Image::new(
         data.into(),
@@ -309,46 +301,6 @@ impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
     }
 }
 
-trait XmlWriterExt {
-    fn write_color_attribute(&mut self, name: &str, ts: ttf_parser::RgbaColor);
-    fn write_transform_attribute(&mut self, name: &str, ts: ttf_parser::Transform);
-    fn write_spread_method_attribute(&mut self, method: ttf_parser::colr::GradientExtend);
-}
-
-impl XmlWriterExt for xmlwriter::XmlWriter {
-    fn write_color_attribute(&mut self, name: &str, color: ttf_parser::RgbaColor) {
-        self.write_attribute_fmt(
-            name,
-            format_args!("rgb({}, {}, {})", color.red, color.green, color.blue),
-        );
-    }
-
-    fn write_transform_attribute(&mut self, name: &str, ts: ttf_parser::Transform) {
-        if ts.is_default() {
-            return;
-        }
-
-        self.write_attribute_fmt(
-            name,
-            format_args!("matrix({} {} {} {} {} {})", ts.a, ts.b, ts.c, ts.d, ts.e, ts.f),
-        );
-    }
-
-    fn write_spread_method_attribute(
-        &mut self,
-        extend: ttf_parser::colr::GradientExtend,
-    ) {
-        self.write_attribute(
-            "spreadMethod",
-            match extend {
-                ttf_parser::colr::GradientExtend::Pad => &"pad",
-                ttf_parser::colr::GradientExtend::Repeat => &"repeat",
-                ttf_parser::colr::GradientExtend::Reflect => &"reflect",
-            },
-        );
-    }
-}
-
 // NOTE: This is only a best-effort translation of COLR into SVG. It's not feature-complete
 // and it's also not possible to make it feature-complete using just raw SVG features.
 pub(crate) struct GlyphPainter<'a> {
@@ -368,20 +320,51 @@ impl<'a> GlyphPainter<'a> {
         for stop in stops {
             self.svg.start_element("stop");
             self.svg.write_attribute("offset", &stop.stop_offset);
-            self.svg.write_color_attribute("stop-color", stop.color);
+            self.write_color_attribute("stop-color", stop.color);
             let opacity = f32::from(stop.color.alpha) / 255.0;
             self.svg.write_attribute("stop-opacity", &opacity);
             self.svg.end_element();
         }
     }
 
+    fn write_color_attribute(&mut self, name: &str, color: ttf_parser::RgbaColor) {
+        self.svg.write_attribute_fmt(
+            name,
+            format_args!("rgb({}, {}, {})", color.red, color.green, color.blue),
+        );
+    }
+
+    fn write_transform_attribute(&mut self, name: &str, ts: ttf_parser::Transform) {
+        if ts.is_default() {
+            return;
+        }
+
+        self.svg.write_attribute_fmt(
+            name,
+            format_args!("matrix({} {} {} {} {} {})", ts.a, ts.b, ts.c, ts.d, ts.e, ts.f),
+        );
+    }
+
+    fn write_spread_method_attribute(
+        &mut self,
+        extend: ttf_parser::colr::GradientExtend,
+    ) {
+        self.svg.write_attribute(
+            "spreadMethod",
+            match extend {
+                ttf_parser::colr::GradientExtend::Pad => &"pad",
+                ttf_parser::colr::GradientExtend::Repeat => &"repeat",
+                ttf_parser::colr::GradientExtend::Reflect => &"reflect",
+            },
+        );
+    }
+
     fn paint_solid(&mut self, color: ttf_parser::RgbaColor) {
         self.svg.start_element("path");
-        self.svg.write_color_attribute("fill", color);
+        self.write_color_attribute("fill", color);
         let opacity = f32::from(color.alpha) / 255.0;
         self.svg.write_attribute("fill-opacity", &opacity);
-        self.svg
-            .write_transform_attribute("transform", self.outline_transform);
+        self.write_transform_attribute("transform", self.outline_transform);
         self.svg.write_attribute("d", self.path_buf);
         self.svg.end_element();
     }
@@ -405,9 +388,8 @@ impl<'a> GlyphPainter<'a> {
         self.svg.write_attribute("x2", &gradient.x1);
         self.svg.write_attribute("y2", &gradient.y1);
         self.svg.write_attribute("gradientUnits", &"userSpaceOnUse");
-        self.svg.write_spread_method_attribute(gradient.extend);
-        self.svg
-            .write_transform_attribute("gradientTransform", gradient_transform);
+        self.write_spread_method_attribute(gradient.extend);
+        self.write_transform_attribute("gradientTransform", gradient_transform);
         self.write_gradient_stops(
             gradient.stops(self.palette_index, self.face.variation_coordinates()),
         );
@@ -416,8 +398,7 @@ impl<'a> GlyphPainter<'a> {
         self.svg.start_element("path");
         self.svg
             .write_attribute_fmt("fill", format_args!("url(#{gradient_id})"));
-        self.svg
-            .write_transform_attribute("transform", self.outline_transform);
+        self.write_transform_attribute("transform", self.outline_transform);
         self.svg.write_attribute("d", self.path_buf);
         self.svg.end_element();
     }
@@ -437,9 +418,8 @@ impl<'a> GlyphPainter<'a> {
         self.svg.write_attribute("fx", &gradient.x0);
         self.svg.write_attribute("fy", &gradient.y0);
         self.svg.write_attribute("gradientUnits", &"userSpaceOnUse");
-        self.svg.write_spread_method_attribute(gradient.extend);
-        self.svg
-            .write_transform_attribute("gradientTransform", gradient_transform);
+        self.write_spread_method_attribute(gradient.extend);
+        self.write_transform_attribute("gradientTransform", gradient_transform);
         self.write_gradient_stops(
             gradient.stops(self.palette_index, self.face.variation_coordinates()),
         );
@@ -448,8 +428,7 @@ impl<'a> GlyphPainter<'a> {
         self.svg.start_element("path");
         self.svg
             .write_attribute_fmt("fill", format_args!("url(#{gradient_id})"));
-        self.svg
-            .write_transform_attribute("transform", self.outline_transform);
+        self.write_transform_attribute("transform", self.outline_transform);
         self.svg.write_attribute("d", self.path_buf);
         self.svg.end_element();
     }
@@ -503,8 +482,7 @@ impl GlyphPainter<'_> {
         self.svg.start_element("clipPath");
         self.svg.write_attribute("id", &clip_id);
         self.svg.start_element("path");
-        self.svg
-            .write_transform_attribute("transform", self.outline_transform);
+        self.write_transform_attribute("transform", self.outline_transform);
         self.svg.write_attribute("d", &path);
         self.svg.end_element();
         self.svg.end_element();
