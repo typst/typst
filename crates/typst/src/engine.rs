@@ -7,7 +7,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{self, Severity, SourceDiagnostic, SourceResult};
+use crate::diag::{self, Severity, SourceDiagnostic, SourceResult, Trace, Tracepoint};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
 use crate::syntax::{ast, FileId, Span};
@@ -161,6 +161,30 @@ impl Sink {
         self.values
     }
 
+    /// Takes and returns all fields from this sink:
+    /// delayed errors, warnings and traced values.
+    pub fn take(
+        self,
+    ) -> (
+        EcoVec<SourceDiagnostic>,
+        EcoVec<SourceDiagnostic>,
+        EcoVec<(Value, Option<Styles>)>,
+    ) {
+        (self.delayed, self.warnings, self.values)
+    }
+
+    /// Adds a tracepoint to all warnings outside the given span.
+    pub fn trace_warnings<F>(
+        &mut self,
+        world: Tracked<dyn World + '_>,
+        make_point: F,
+        span: Span,
+    ) where
+        F: Fn() -> Tracepoint,
+    {
+        self.warnings = std::mem::take(&mut self.warnings).trace(world, make_point, span);
+    }
+
     /// Apply warning suppression.
     pub fn suppress_warnings(&mut self, world: &dyn World) {
         self.warnings.retain(|diag| {
@@ -204,7 +228,7 @@ impl Sink {
     }
 
     /// Extend from another sink.
-    fn extend(
+    pub fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,
         warnings: EcoVec<SourceDiagnostic>,

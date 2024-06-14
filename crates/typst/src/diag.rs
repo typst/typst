@@ -325,36 +325,48 @@ impl Display for Tracepoint {
     }
 }
 
-/// Enrich a [`SourceResult`] with a tracepoint.
-pub trait Trace<T> {
-    /// Add the tracepoint to all errors that lie outside the `span`.
+/// Enrich diagnostics with a tracepoint.
+pub trait Trace {
+    /// Add the tracepoint to all diagnostics that lie outside the `span`.
     fn trace<F>(self, world: Tracked<dyn World + '_>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
-impl<T> Trace<T> for SourceResult<T> {
+impl Trace for EcoVec<SourceDiagnostic> {
+    fn trace<F>(
+        mut self,
+        world: Tracked<dyn World + '_>,
+        make_point: F,
+        span: Span,
+    ) -> Self
+    where
+        F: Fn() -> Tracepoint,
+    {
+        let Some(trace_range) = world.range(span) else { return self };
+        for error in self.make_mut().iter_mut() {
+            // Skip traces that surround the error.
+            if let Some(error_range) = world.range(error.span) {
+                if error.span.id() == span.id()
+                    && trace_range.start <= error_range.start
+                    && trace_range.end >= error_range.end
+                {
+                    continue;
+                }
+            }
+
+            error.trace.push(Spanned::new(make_point(), span));
+        }
+        self
+    }
+}
+
+impl<T> Trace for SourceResult<T> {
     fn trace<F>(self, world: Tracked<dyn World + '_>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
-        self.map_err(|mut errors| {
-            let Some(trace_range) = world.range(span) else { return errors };
-            for error in errors.make_mut().iter_mut() {
-                // Skip traces that surround the error.
-                if let Some(error_range) = world.range(error.span) {
-                    if error.span.id() == span.id()
-                        && trace_range.start <= error_range.start
-                        && trace_range.end >= error_range.end
-                    {
-                        continue;
-                    }
-                }
-
-                error.trace.push(Spanned::new(make_point(), span));
-            }
-            errors
-        })
+        self.map_err(|errors| errors.trace(world, make_point, span))
     }
 }
 

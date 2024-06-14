@@ -1,4 +1,4 @@
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
@@ -165,8 +165,31 @@ impl Eval for ast::FuncCall<'_> {
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
-            func.call(&mut vm.engine, vm.context, args)
-                .trace(vm.world(), point, span)
+            // Create a temporary sink to accumulate all warnings produced by
+            // this call (either directly or due to a nested call). Later, we
+            // add a tracepoint to those warnings, indicating this call was
+            // part of the call stack that led to the warning being raised,
+            // thus allowing suppression of the warning through this call.
+            let mut local_sink = Sink::new();
+            let previous_sink =
+                std::mem::replace(&mut vm.engine.sink, local_sink.track_mut());
+
+            let call_result = func.call(&mut vm.engine, vm.context, args).trace(
+                vm.world(),
+                point,
+                span,
+            );
+
+            std::mem::replace(&mut vm.engine.sink, previous_sink);
+            local_sink.trace_warnings(vm.world(), point, span);
+
+            // Push the accumulated warnings and other fields back to the
+            // original sink after we have modified them. This is needed so the
+            // warnings are properly returned by compilation later.
+            let (delayed, warnings, values) = local_sink.take();
+            vm.engine.sink.extend(delayed, warnings, values);
+
+            call_result
         };
 
         // Stacker is broken on WASM.
