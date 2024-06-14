@@ -79,8 +79,7 @@ impl Engine<'_> {
 
         // Apply the subsinks to the outer sink.
         for (_, sink) in &mut pairs {
-            let sink = std::mem::take(sink);
-            self.sink.extend(sink.delayed, sink.warnings, sink.values);
+            Sink::extend_tracked(&mut self.sink, std::mem::take(sink));
         }
 
         pairs.into_iter().map(|(output, _)| output)
@@ -122,7 +121,7 @@ impl Engine<'_> {
         // Push the accumulated warnings and other fields back to the
         // original sink after we have modified them. This is needed so the
         // warnings are properly returned by compilation later.
-        self.sink.extend(sink.delayed, sink.warnings, sink.values);
+        Sink::extend_tracked(&mut self.sink, sink);
 
         call_result
     }
@@ -187,6 +186,16 @@ impl Sink {
         Self::default()
     }
 
+    /// Extend the destination sink with the data from the source sink.
+    /// This calls a tracked function on the destination unless the source
+    /// is fully empty (which is usually the case).
+    pub fn extend_tracked(destination: &mut TrackedMut<'_, Self>, source: Sink) {
+        let Sink { delayed, warnings, values, .. } = source;
+        if !delayed.is_empty() || !warnings.is_empty() || !values.is_empty() {
+            destination.extend(delayed, warnings, values);
+        }
+    }
+
     /// Get the stored delayed errors.
     pub fn delayed(&mut self) -> EcoVec<SourceDiagnostic> {
         std::mem::take(&mut self.delayed)
@@ -200,18 +209,6 @@ impl Sink {
     /// Get the values for the traced span.
     pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
-    }
-
-    /// Takes and returns all fields from this sink:
-    /// delayed errors, warnings and traced values.
-    pub fn take(
-        self,
-    ) -> (
-        EcoVec<SourceDiagnostic>,
-        EcoVec<SourceDiagnostic>,
-        EcoVec<(Value, Option<Styles>)>,
-    ) {
-        (self.delayed, self.warnings, self.values)
     }
 
     /// Adds a tracepoint to all warnings outside the given span.
@@ -269,7 +266,10 @@ impl Sink {
     }
 
     /// Extend from another sink.
-    pub fn extend(
+    /// Using `Sink::extend_tracked` is preferable as it avoids a call to this
+    /// function if all arguments are empty, thus avoiding an unnecessary
+    /// tracked call in most cases.
+    fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,
         warnings: EcoVec<SourceDiagnostic>,
