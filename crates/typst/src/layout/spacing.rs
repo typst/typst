@@ -126,12 +126,13 @@ pub struct VElem {
     #[external]
     pub weak: bool,
 
-    /// The element's weakness level, see also [`Behaviour`].
+    /// The spacing's weakness level, see also [`Behaviour`].
     #[internal]
     #[parse(args.named("weak")?.map(|v: bool| v as usize))]
     pub weakness: usize,
 
-    /// Whether the element collapses if there is a parbreak in front.
+    /// Whether the spacing collapses if not immediately preceded by a
+    /// paragraph.
     #[internal]
     #[parse(Some(false))]
     pub attach: bool,

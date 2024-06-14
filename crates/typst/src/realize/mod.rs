@@ -385,16 +385,15 @@ impl<'a> FlowBuilder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> bool {
+        let last_was_par = self.1;
+        self.1 = false;
+
         if content.is::<ParbreakElem>() {
-            self.1 = true;
             return true;
         }
 
-        let last_was_parbreak = self.1;
-        self.1 = false;
-
         if let Some(elem) = content.to_packed::<VElem>() {
-            if !elem.attach(styles) || !last_was_parbreak {
+            if !elem.attach(styles) || last_was_par {
                 self.0.push(content, styles);
             }
             return true;
@@ -434,6 +433,7 @@ impl<'a> FlowBuilder<'a> {
             self.0.push(*par_spacing, styles);
             self.0.push(content, styles);
             self.0.push(*par_spacing, styles);
+            self.1 = true;
             return true;
         }
 
