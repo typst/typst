@@ -7,7 +7,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{self, Severity, SourceDiagnostic, SourceResult, Trace, Tracepoint};
+use crate::diag::{self, SourceDiagnostic, SourceResult, Trace, Tracepoint};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
 use crate::syntax::{ast, FileId, Span};
@@ -201,14 +201,62 @@ impl Sink {
         std::mem::take(&mut self.delayed)
     }
 
-    /// Get the stored warnings.
-    pub fn warnings(self) -> EcoVec<SourceDiagnostic> {
-        self.warnings
-    }
-
     /// Get the values for the traced span.
     pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
+    }
+
+    /// Apply warning suppression, deduplication, and return the remaining
+    /// warnings.
+    ///
+    /// We deduplicate warnings which are identical modulo tracepoints.
+    /// This is so we can attempt to suppress each tracepoint separately,
+    /// without having one suppression discard all other attempts of raising
+    /// this same warning through a different set of tracepoints.
+    ///
+    /// For example, calling the same function twice but suppressing a warning
+    /// on the first call shouldn't suppress on the second, so each set of
+    /// tracepoints for a particular warning matters. If at least one instance
+    /// of a warning isn't suppressed, the warning will be returned, and the
+    /// remaining duplicates are discarded.
+    pub fn suppress_and_deduplicate_warnings(
+        mut self,
+        world: &dyn World,
+    ) -> EcoVec<SourceDiagnostic> {
+        let mut unsuppressed_warning_set = HashSet::<u128>::default();
+
+        // Only retain warnings which weren't locally suppressed where they
+        // were emitted or at any of their tracepoints.
+        self.warnings.retain(|diag| {
+            let hash =
+                crate::utils::hash128(&(&diag.span, &diag.identifier, &diag.message));
+            if unsuppressed_warning_set.contains(&hash) {
+                // This warning - with the same span, identifier and message -
+                // was already raised and not suppressed before, with a
+                // different set of tracepoints. Therefore, we should not raise
+                // it again, and checking for suppression is unnecessary.
+                return false;
+            }
+
+            let Some(identifier) = &diag.identifier else {
+                // Can't suppress without an identifier.
+                // Therefore, retain the warning.
+                // It is not a duplicate due to the check above.
+                unsuppressed_warning_set.insert(hash);
+                return true;
+            };
+
+            let should_raise = !check_warning_suppressed(diag.span, world, &identifier)
+                && !diag.trace.iter().any(|tracepoint| {
+                    check_warning_suppressed(tracepoint.span, world, &identifier)
+                });
+
+            // If this warning wasn't suppressed, any further duplicates (with
+            // different tracepoints) should be removed.
+            should_raise && unsuppressed_warning_set.insert(hash)
+        });
+
+        self.warnings
     }
 
     /// Adds a tracepoint to all warnings outside the given span.
@@ -222,24 +270,6 @@ impl Sink {
     {
         self.warnings = std::mem::take(&mut self.warnings).trace(world, make_point, span);
     }
-
-    /// Apply warning suppression.
-    pub fn suppress_warnings(&mut self, world: &dyn World) {
-        self.warnings.retain(|diag| {
-            let Some(identifier) = &diag.identifier else {
-                // Can't suppress without an identifier.
-                return true;
-            };
-
-            // Only retain warnings which weren't locally suppressed where they
-            // were emitted or at any of their tracepoints.
-            diag.severity != Severity::Warning
-                || (!check_warning_suppressed(diag.span, world, &identifier)
-                    && !diag.trace.iter().any(|tracepoint| {
-                        check_warning_suppressed(tracepoint.span, world, &identifier)
-                    }))
-        });
-    }
 }
 
 #[comemo::track]
@@ -252,7 +282,19 @@ impl Sink {
     /// Add a warning.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
         // Check if warning is a duplicate.
-        let hash = crate::utils::hash128(&(&warning.span, &warning.message));
+        // Identical warnings with differing tracepoints are considered
+        // separate because suppressing the warning through one tracepoint
+        // shouldn't suppress it through the others.
+        // Later, during warning suppression (when calling
+        // `suppress_and_deduplicate_warnings`), we deduplicate without
+        // considering tracepoints, such that, if at least one duplicate wasn't
+        // suppressed, it is raised.
+        let hash = crate::utils::hash128(&(
+            &warning.span,
+            &warning.identifier,
+            &warning.message,
+            &warning.trace,
+        ));
         if self.warnings_set.insert(hash) {
             self.warnings.push(warning);
         }

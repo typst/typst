@@ -87,8 +87,8 @@ pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
     let output = compile_inner(world.track(), Traced::default().track(), &mut sink)
         .map_err(deduplicate);
 
-    sink.suppress_warnings(world);
-    Warned { output, warnings: sink.warnings() }
+    let warnings = sink.suppress_and_deduplicate_warnings(world);
+    Warned { output, warnings }
 }
 
 /// Compiles sources and returns all values and styles observed at the given
