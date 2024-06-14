@@ -2261,7 +2261,7 @@ source = "git+https://github.com/LaurenzV/subsetter?branch=rewrite#5d99129179b5f
 [[package]]
 name = "subsetter"
 version = "0.1.1"
-source = "git+https://github.com/LaurenzV/subsetter?rev=5d99129#5d99129179b5f0e98ff25abd88238909bf327e7f"
+source = "git+https://github.com/LaurenzV/subsetter?rev=b2288af#b2288afedbe5dcb2e6f88e3ee542b8bef7edef8f"
 
 [[package]]
 name = "svg2pdf"
@@ -2736,7 +2736,7 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
- "subsetter 0.1.1 (git+https://github.com/LaurenzV/subsetter?rev=5d99129)",
+ "subsetter 0.1.1 (git+https://github.com/LaurenzV/subsetter?rev=b2288af)",
  "svg2pdf",
  "ttf-parser",
  "typst",
