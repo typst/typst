@@ -43,12 +43,25 @@ First!
 ]
 
 --- block-spacing-basic ---
-#set block(spacing: 10pt)
+#set par(spacing: 10pt)
 Hello
 
 There
 
 #block(spacing: 20pt)[Further down]
+
+--- block-above-below-context ---
+#context test(block.above, auto)
+#set block(spacing: 20pt)
+#context test(block.above, 20pt)
+#context test(block.below, 20pt)
+
+--- block-spacing-context ---
+// The values for `above` and `below` might be different, so we cannot retrieve
+// `spacing` directly
+//
+// Error: 16-23 function `block` does not contain field `spacing`
+#context block.spacing
 
 --- block-spacing-table ---
 // Test that paragraph spacing loses against block spacing.

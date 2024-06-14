@@ -12,7 +12,7 @@ use crate::foundations::{
 use crate::introspection::Locator;
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    Length, Regions, Sizing, Spacing, VAlignment, VElem,
+    Length, Regions, Sizing, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -155,10 +155,12 @@ pub struct EnumElem {
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) enumeration.
+    /// The spacing between the items of the enumeration.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// enumerations and paragraph [`spacing`]($par.spacing) for wide
+    /// (non-tight) enumerations.
+    pub spacing: Smart<Length>,
 
     /// The alignment that enum numbers should have.
     ///
@@ -242,12 +244,13 @@ fn layout_enum(
     let numbering = elem.numbering(styles);
     let indent = elem.indent(styles);
     let body_indent = elem.body_indent(styles);
-    let gutter = if elem.tight(styles) {
-        ParElem::leading_in(styles).into()
-    } else {
-        elem.spacing(styles)
-            .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-    };
+    let gutter = elem.spacing(styles).unwrap_or_else(|| {
+        if elem.tight(styles) {
+            ParElem::leading_in(styles).into()
+        } else {
+            ParElem::spacing_in(styles).into()
+        }
+    });
 
     let mut cells = vec![];
     let mut locator = locator.split();

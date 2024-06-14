@@ -153,13 +153,13 @@ impl VElem {
         Self::new(amount).with_weakness(2).with_attach(true)
     }
 
-    /// Weak spacing with BlockElem::ABOVE/BELOW weakness.
-    pub fn block_around(amount: Spacing) -> Self {
+    /// Weak spacing with `BlockElem::spacing` weakness.
+    pub fn block_spacing(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(3)
     }
 
-    /// Weak spacing with BlockElem::SPACING weakness.
-    pub fn block_spacing(amount: Spacing) -> Self {
+    /// Weak spacing with `ParElem::spacing` weakness.
+    pub fn par_spacing(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(4)
     }
 }

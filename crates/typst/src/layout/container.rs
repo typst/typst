@@ -10,7 +10,7 @@ use crate::foundations::{
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, Length, Region, Regions, Rel,
-    Sides, Size, Spacing, VElem,
+    Sides, Size, Spacing,
 };
 use crate::utils::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -385,8 +385,20 @@ pub struct BlockElem {
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
-    /// The spacing around this block. This is shorthand to set `above` and
-    /// `below` to the same value.
+    /// The spacing around the block. When `{auto}`, inherits the paragraph
+    /// [`spacing`]($par.spacing).
+    ///
+    /// For two adjacent blocks, the larger of the first block's `above` and the
+    /// second block's `below` spacing wins. Moreover, block spacing takes
+    /// precedence over paragraph [`spacing`]($par.spacing).
+    ///
+    /// Note that this is only a shorthand to set `above` and `below` to the
+    /// same value. Since the values for `above` and `below` might differ, a
+    /// [context] block only provides access to `{block.above}` and
+    /// `{block.below}`, not to `{block.spacing}` directly.
+    ///
+    /// This property can be used in combination with a show rule to adjust the
+    /// spacing around arbitrary block-level elements.
     ///
     /// ```example
     /// #set align(center)
@@ -400,35 +412,16 @@ pub struct BlockElem {
     #[default(Em::new(1.2).into())]
     pub spacing: Spacing,
 
-    /// The spacing between this block and its predecessor. Takes precedence
-    /// over `spacing`. Can be used in combination with a show rule to adjust
-    /// the spacing around arbitrary block-level elements.
-    #[external]
-    #[default(Em::new(1.2).into())]
-    pub above: Spacing,
-    #[internal]
+    /// The spacing between this block and its predecessor.
     #[parse(
         let spacing = args.named("spacing")?;
-        args.named("above")?
-            .map(VElem::block_around)
-            .or_else(|| spacing.map(VElem::block_spacing))
+        args.named("above")?.or(spacing)
     )]
-    #[default(VElem::block_spacing(Em::new(1.2).into()))]
-    pub above: VElem,
+    pub above: Smart<Spacing>,
 
-    /// The spacing between this block and its successor. Takes precedence
-    /// over `spacing`.
-    #[external]
-    #[default(Em::new(1.2).into())]
-    pub below: Spacing,
-    #[internal]
-    #[parse(
-        args.named("below")?
-            .map(VElem::block_around)
-            .or_else(|| spacing.map(VElem::block_spacing))
-    )]
-    #[default(VElem::block_spacing(Em::new(1.2).into()))]
-    pub below: VElem,
+    /// The spacing between this block and its successor.
+    #[parse(args.named("below")?.or(spacing))]
+    pub below: Smart<Spacing>,
 
     /// Whether to clip the content inside the block.
     #[default(false)]

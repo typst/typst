@@ -231,7 +231,7 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        let row_gutter = *BlockElem::below_in(styles).amount();
+        let row_gutter = ParElem::spacing_in(styles).into();
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in references {
