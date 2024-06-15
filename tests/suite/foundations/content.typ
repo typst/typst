@@ -118,3 +118,7 @@
 }
 
 = Hello, world! <my-label>
+
+--- content-fields-unset ---
+// Error: 10-15 field "block" in content is not set at this point
+#raw("").block
