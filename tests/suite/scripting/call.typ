@@ -49,6 +49,13 @@
 // Error: 2-3 expected function, found string
 #x()
 
+--- call-shadowed-builtin-function ---
+#let image = "image"
+
+// Error: 2-7 expected function, found string
+// Hint: 2-7 use `std.image` to access the shadowed standard library function
+#image("image")
+
 --- call-bad-type-int-expr ---
 #let f(x) = x
 
