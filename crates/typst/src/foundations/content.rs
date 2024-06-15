@@ -961,6 +961,36 @@ pub trait PlainText {
     fn plain_text(&self, text: &mut EcoString);
 }
 
+/// An error arising when trying to access a field of content.
+#[derive(Copy, Clone, Debug)]
+enum FieldAccessError {
+    MissingField,
+    MissingFieldNoDefault,
+    FieldNotSet,
+}
+
+impl FieldAccessError {
+    /// Gets the error message given a field name.
+    #[cold]
+    fn get_message(self, field: &str) -> EcoString {
+        match self {
+            FieldAccessError::MissingField => {
+                eco_format!("content does not contain field {}", field.repr())
+            }
+            FieldAccessError::MissingFieldNoDefault => {
+                eco_format!(
+                    "content does not contain field {} and \
+                 no default value was specified",
+                    field.repr()
+                )
+            }
+            FieldAccessError::FieldNotSet => {
+                eco_format!("field {} in content is not set at this point", field.repr())
+            }
+        }
+    }
+}
+
 /// The missing field access error message.
 #[cold]
 fn missing_field(field: &str) -> EcoString {
