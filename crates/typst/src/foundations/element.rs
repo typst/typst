@@ -20,6 +20,8 @@ use crate::utils::Static;
 #[doc(inline)]
 pub use typst_macros::elem;
 
+use super::FieldAccessError;
+
 /// A document element.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Element(Static<NativeElementData>);
@@ -124,7 +126,11 @@ impl Element {
     }
 
     /// Extract the field name for the given field ID.
-    pub fn field_from_styles(&self, id: u8, styles: StyleChain) -> Option<Value> {
+    pub fn field_from_styles(
+        &self,
+        id: u8,
+        styles: StyleChain,
+    ) -> Result<Value, FieldAccessError> {
         (self.0.field_from_styles)(id, styles)
     }
 
@@ -223,13 +229,17 @@ pub trait Fields {
     fn has(&self, id: u8) -> bool;
 
     /// Get the field with the given field ID.
-    fn field(&self, id: u8) -> Option<Value>;
+    fn field(&self, id: u8) -> Result<Value, FieldAccessError>;
 
     /// Get the field with the given ID in the presence of styles.
-    fn field_with_styles(&self, id: u8, styles: StyleChain) -> Option<Value>;
+    fn field_with_styles(
+        &self,
+        id: u8,
+        styles: StyleChain,
+    ) -> Result<Value, FieldAccessError>;
 
     /// Get the field with the given ID from the styles.
-    fn field_from_styles(id: u8, styles: StyleChain) -> Option<Value>
+    fn field_from_styles(id: u8, styles: StyleChain) -> Result<Value, FieldAccessError>
     where
         Self: Sized;
 
@@ -282,7 +292,7 @@ pub struct NativeElementData {
     /// Gets the name of a field by its numeric index.
     pub field_name: fn(u8) -> Option<&'static str>,
     /// Get the field with the given ID in the presence of styles (see [`Fields`]).
-    pub field_from_styles: fn(u8, StyleChain) -> Option<Value>,
+    pub field_from_styles: fn(u8, StyleChain) -> Result<Value, FieldAccessError>,
     /// Gets the localized name for this element (see [`LocalName`][crate::text::LocalName]).
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,

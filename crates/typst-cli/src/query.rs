@@ -88,7 +88,7 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
     let mapped: Vec<_> = elements
         .into_iter()
         .filter_map(|c| match &command.field {
-            Some(field) => c.get_by_name(field),
+            Some(field) => c.get_by_name(field).ok(),
             _ => Some(c.into_value()),
         })
         .collect();

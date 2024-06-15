@@ -390,13 +390,13 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
         }
 
         impl ::std::convert::TryFrom<u8> for Fields {
-            type Error = ();
+            type Error = #foundations::FieldAccessError;
 
             fn try_from(value: u8) -> Result<Self, Self::Error> {
                 #(const #consts: u8 = Fields::#variants as u8;)*
                 match value {
                     #(#consts => Ok(Self::#variants),)*
-                    _ => Err(()),
+                    _ => Err(#foundations::FieldAccessError::Internal),
                 }
             }
         }
@@ -877,9 +877,9 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let Field { enum_ident, ident, .. } = field;
 
         let expr = if field.required {
-            quote! { Some(#into_value(self.#ident.clone())) }
+            quote! { Ok(#into_value(self.#ident.clone())) }
         } else {
-            quote! { self.#ident.clone().map(#into_value) }
+            quote! { self.#ident.clone().map(#into_value).ok_or(#foundations::FieldAccessError::FieldNotSet) }
         };
 
         quote! { Fields::#enum_ident => #expr }
@@ -890,9 +890,9 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let Field { enum_ident, ident, .. } = field;
 
         let expr = if field.required {
-            quote! { Some(#into_value(self.#ident.clone())) }
+            quote! { Ok(#into_value(self.#ident.clone())) }
         } else if field.synthesized {
-            quote! { self.#ident.clone().map(#into_value) }
+            quote! { self.#ident.clone().map(#into_value).ok_or(#foundations::FieldAccessError::FieldNotSet) }
         } else {
             let value = create_style_chain_access(
                 field,
@@ -900,7 +900,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 if field.ghost { quote!(None) } else { quote!(self.#ident.as_ref()) },
             );
 
-            quote! { Some(#into_value(#value)) }
+            quote! { Ok(#into_value(#value)) }
         };
 
         quote! { Fields::#enum_ident => #expr }
@@ -911,10 +911,10 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let Field { enum_ident, .. } = field;
 
         let expr = if field.required || field.synthesized {
-            quote! { None }
+            quote! { Err(#foundations::FieldAccessError::MissingField) }
         } else {
             let value = create_style_chain_access(field, false, quote!(None));
-            quote! { Some(#into_value(#value)) }
+            quote! { Ok(#into_value(#value)) }
         };
 
         quote! { Fields::#enum_ident => #expr }
@@ -977,27 +977,27 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 }
             }
 
-            fn field(&self, id: u8) -> Option<#foundations::Value> {
-                let id = Fields::try_from(id).ok()?;
+            fn field(&self, id: u8) -> Result<#foundations::Value, #foundations::FieldAccessError> {
+                let id = Fields::try_from(id)?;
                 match id {
                     #(#field_arms,)*
-                    _ => None,
+                    _ => Err(#foundations::FieldAccessError::Internal),
                 }
             }
 
-            fn field_with_styles(&self, id: u8, styles: #foundations::StyleChain) -> Option<#foundations::Value> {
-                let id = Fields::try_from(id).ok()?;
+            fn field_with_styles(&self, id: u8, styles: #foundations::StyleChain) -> Result<#foundations::Value, #foundations::FieldAccessError> {
+                let id = Fields::try_from(id)?;
                 match id {
                     #(#field_with_styles_arms,)*
-                    _ => None,
+                    _ => Err(#foundations::FieldAccessError::Internal),
                 }
             }
 
-            fn field_from_styles(id: u8, styles: #foundations::StyleChain) -> Option<#foundations::Value> {
-                let id = Fields::try_from(id).ok()?;
+            fn field_from_styles(id: u8, styles: #foundations::StyleChain) -> Result<#foundations::Value, #foundations::FieldAccessError> {
+                let id = Fields::try_from(id)?;
                 match id {
                     #(#field_from_styles_arms,)*
-                    _ => None,
+                    _ => Err(#foundations::FieldAccessError::Internal),
                 }
             }
 
