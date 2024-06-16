@@ -40,7 +40,7 @@ pub struct PackageInfo {
     /// The path of the entrypoint into the package.
     pub entrypoint: EcoString,
     /// The minimum required compiler version for the package.
-    pub compiler: Option<SemVerBound>,
+    pub compiler: Option<VersionBound>,
 }
 
 impl PackageManifest {
@@ -241,7 +241,7 @@ impl PackageVersion {
     /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1.1.1").unwrap()));
     /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.1.2").unwrap()));
     /// ```
-    pub fn matches_eq(&self, bound: &SemVerBound) -> bool {
+    pub fn matches_eq(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return false;
         }
@@ -274,7 +274,7 @@ impl PackageVersion {
     /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1.1").unwrap()));
     /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1.2").unwrap()));
     /// ```
-    pub fn matches_gt(&self, bound: &SemVerBound) -> bool {
+    pub fn matches_gt(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return self.major > bound.major;
         }
@@ -313,7 +313,7 @@ impl PackageVersion {
     /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1.1").unwrap()));
     /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("1.1.2").unwrap()));
     /// ```
-    pub fn matches_lt(&self, bound: &SemVerBound) -> bool {
+    pub fn matches_lt(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return self.major < bound.major;
         }
@@ -352,7 +352,7 @@ impl PackageVersion {
     /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1.1").unwrap()));
     /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("1.1.2").unwrap()));
     /// ```
-    pub fn matches_ge(&self, bound: &SemVerBound) -> bool {
+    pub fn matches_ge(&self, bound: &VersionBound) -> bool {
         self.matches_eq(bound) || self.matches_gt(bound)
     }
 
@@ -376,7 +376,7 @@ impl PackageVersion {
     /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1.1").unwrap()));
     /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1.2").unwrap()));
     /// ```
-    pub fn matches_le(&self, bound: &SemVerBound) -> bool {
+    pub fn matches_le(&self, bound: &VersionBound) -> bool {
         self.matches_eq(bound) || self.matches_lt(bound)
     }
 }
@@ -433,7 +433,7 @@ impl<'de> Deserialize<'de> for PackageVersion {
 
 /// A version bound for compatibility specification.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct SemVerBound {
+pub struct VersionBound {
     /// The bounds's major version.
     pub major: u32,
     /// The bounds's minor version.
@@ -442,7 +442,7 @@ pub struct SemVerBound {
     pub patch: Option<u32>,
 }
 
-impl FromStr for SemVerBound {
+impl FromStr for VersionBound {
     type Err = EcoString;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -469,13 +469,13 @@ impl FromStr for SemVerBound {
     }
 }
 
-impl Debug for SemVerBound {
+impl Debug for VersionBound {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl Display for SemVerBound {
+impl Display for VersionBound {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.major)?;
         if let Some(minor) = self.minor {
@@ -488,13 +488,13 @@ impl Display for SemVerBound {
     }
 }
 
-impl Serialize for SemVerBound {
+impl Serialize for VersionBound {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.collect_str(self)
     }
 }
 
-impl<'de> Deserialize<'de> for SemVerBound {
+impl<'de> Deserialize<'de> for VersionBound {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let string = EcoString::deserialize(d)?;
         string.parse().map_err(serde::de::Error::custom)
