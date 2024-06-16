@@ -215,16 +215,17 @@ impl PackageVersion {
         }
     }
 
-    /// Performs an `==` match with the given version bound. Version elements missing in the bound
-    /// are ignored.
+    /// Performs an `==` match with the given version bound. Version elements
+    /// missing in the bound are ignored.
     pub fn matches_eq(&self, bound: &VersionBound) -> bool {
         self.major == bound.major
             && bound.minor.map_or(true, |minor| self.minor == minor)
             && bound.patch.map_or(true, |patch| self.patch == patch)
     }
 
-    /// Performs a `>` match with the given version bound. The match only succeeds if some version
-    /// element in the bound is actually greater than that of the version.
+    /// Performs a `>` match with the given version bound. The match only
+    /// succeeds if some version element in the bound is actually greater than
+    /// that of the version.
     pub fn matches_gt(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return self.major > bound.major;
@@ -240,8 +241,9 @@ impl PackageVersion {
         false
     }
 
-    /// Performs a `<` match with the given version bound. The match only succeeds if some version
-    /// element in the bound is actually less than that of the version.
+    /// Performs a `<` match with the given version bound. The match only
+    /// succeeds if some version element in the bound is actually less than that
+    /// of the version.
     pub fn matches_lt(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return self.major < bound.major;
@@ -257,14 +259,14 @@ impl PackageVersion {
         false
     }
 
-    /// Performs a `>=` match with the given versions. The match succeeds when either a `==` or `>`
-    /// match does.
+    /// Performs a `>=` match with the given versions. The match succeeds when
+    /// either a `==` or `>` match does.
     pub fn matches_ge(&self, bound: &VersionBound) -> bool {
         self.matches_eq(bound) || self.matches_gt(bound)
     }
 
-    /// Performs a `<=` match with the given versions. The match succeeds when either a `==` or `<`
-    /// match does.
+    /// Performs a `<=` match with the given versions. The match succeeds when
+    /// either a `==` or `<` match does.
     pub fn matches_le(&self, bound: &VersionBound) -> bool {
         self.matches_eq(bound) || self.matches_lt(bound)
     }
