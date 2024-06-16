@@ -214,12 +214,6 @@ impl PackageVersion {
             patch: env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
         }
     }
-}
-
-impl PackageVersion {
-    // the code in this impl block is based on https://github.com/dtolnay/semver/blob/1.0.23/src/eval.rs
-    // author: David Tolnay <https://github.com/dtolnay>
-    // licensed under Apache 2.0
 
     /// Performs an `==` match with the given version bound. Version elements missing in the bound
     /// are ignored.
@@ -483,5 +477,16 @@ impl<'de> Deserialize<'de> for VersionBound {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let string = EcoString::deserialize(d)?;
         string.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_angle_unit_conversion() {
+        assert!((Angle::rad(2.0 * PI).to_deg() - 360.0) < 1e-4);
+        assert!((Angle::deg(45.0).to_rad() - std::f64::consts::FRAC_PI_4) < 1e-4);
     }
 }
