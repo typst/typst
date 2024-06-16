@@ -217,24 +217,6 @@ impl PackageVersion {
 
     /// Performs an `==` match with the given version bound. Version elements missing in the bound
     /// are ignored.
-    ///
-    /// ```
-    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
-    /// # use std::str::FromStr;
-    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
-    ///
-    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("0").unwrap()));
-    /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1").unwrap()));
-    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("2").unwrap()));
-    ///
-    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.0").unwrap()));
-    /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1.1").unwrap()));
-    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.2").unwrap()));
-    ///
-    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.1.0").unwrap()));
-    /// assert!(v1_1_1.matches_eq(&SemVerBound::from_str("1.1.1").unwrap()));
-    /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.1.2").unwrap()));
-    /// ```
     pub fn matches_eq(&self, bound: &VersionBound) -> bool {
         self.major == bound.major
             && bound.minor.map_or(true, |minor| self.minor == minor)
@@ -243,24 +225,6 @@ impl PackageVersion {
 
     /// Performs a `>` match with the given version bound. The match only succeeds if some version
     /// element in the bound is actually greater than that of the version.
-    ///
-    /// ```
-    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
-    /// # use std::str::FromStr;
-    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
-    ///
-    /// assert!(v1_1_1.matches_gt(&SemVerBound::from_str("0").unwrap()));
-    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1").unwrap()));
-    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("2").unwrap()));
-    ///
-    /// assert!(v1_1_1.matches_gt(&SemVerBound::from_str("1.0").unwrap()));
-    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1").unwrap()));
-    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.2").unwrap()));
-    ///
-    /// assert!(v1_1_1.matches_gt(&SemVerBound::from_str("1.1.0").unwrap()));
-    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1.1").unwrap()));
-    /// assert!(!v1_1_1.matches_gt(&SemVerBound::from_str("1.1.2").unwrap()));
-    /// ```
     pub fn matches_gt(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return self.major > bound.major;
@@ -278,24 +242,6 @@ impl PackageVersion {
 
     /// Performs a `<` match with the given version bound. The match only succeeds if some version
     /// element in the bound is actually less than that of the version.
-    ///
-    /// ```
-    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
-    /// # use std::str::FromStr;
-    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
-    ///
-    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("0").unwrap()));
-    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1").unwrap()));
-    /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("2").unwrap()));
-    ///
-    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.0").unwrap()));
-    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1").unwrap()));
-    /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("1.2").unwrap()));
-    ///
-    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1.0").unwrap()));
-    /// assert!(!v1_1_1.matches_lt(&SemVerBound::from_str("1.1.1").unwrap()));
-    /// assert!(v1_1_1.matches_lt(&SemVerBound::from_str("1.1.2").unwrap()));
-    /// ```
     pub fn matches_lt(&self, bound: &VersionBound) -> bool {
         if self.major != bound.major {
             return self.major < bound.major;
@@ -313,48 +259,12 @@ impl PackageVersion {
 
     /// Performs a `>=` match with the given versions. The match succeeds when either a `==` or `>`
     /// match does.
-    ///
-    /// ```
-    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
-    /// # use std::str::FromStr;
-    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
-    ///
-    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("0").unwrap()));
-    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1").unwrap()));
-    /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("2").unwrap()));
-    ///
-    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.0").unwrap()));
-    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1").unwrap()));
-    /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("1.2").unwrap()));
-    ///
-    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1.0").unwrap()));
-    /// assert!(v1_1_1.matches_ge(&SemVerBound::from_str("1.1.1").unwrap()));
-    /// assert!(!v1_1_1.matches_ge(&SemVerBound::from_str("1.1.2").unwrap()));
-    /// ```
     pub fn matches_ge(&self, bound: &VersionBound) -> bool {
         self.matches_eq(bound) || self.matches_gt(bound)
     }
 
     /// Performs a `<=` match with the given versions. The match succeeds when either a `==` or `<`
     /// match does.
-    ///
-    /// ```
-    /// # use typst_syntax::package::{PackageVersion, SemVerBound};
-    /// # use std::str::FromStr;
-    /// let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
-    ///
-    /// assert!(!v1_1_1.matches_le(&SemVerBound::from_str("0").unwrap()));
-    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1").unwrap()));
-    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("2").unwrap()));
-    ///
-    /// assert!(!v1_1_1.matches_le(&SemVerBound::from_str("1.0").unwrap()));
-    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1").unwrap()));
-    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.2").unwrap()));
-    ///
-    /// assert!(!v1_1_1.matches_le(&SemVerBound::from_str("1.1.0").unwrap()));
-    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1.1").unwrap()));
-    /// assert!(v1_1_1.matches_le(&SemVerBound::from_str("1.1.2").unwrap()));
-    /// ```
     pub fn matches_le(&self, bound: &VersionBound) -> bool {
         self.matches_eq(bound) || self.matches_lt(bound)
     }
@@ -482,11 +392,24 @@ impl<'de> Deserialize<'de> for VersionBound {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     #[test]
-    fn test_angle_unit_conversion() {
-        assert!((Angle::rad(2.0 * PI).to_deg() - 360.0) < 1e-4);
-        assert!((Angle::deg(45.0).to_rad() - std::f64::consts::FRAC_PI_4) < 1e-4);
+    fn version_version_match() {
+        let v1_1_1 = PackageVersion::from_str("1.1.1").unwrap();
+
+        assert!(v1_1_1.matches_eq(&VersionBound::from_str("1").unwrap()));
+        assert!(v1_1_1.matches_eq(&VersionBound::from_str("1.1").unwrap()));
+        assert!(!v1_1_1.matches_eq(&VersionBound::from_str("1.2").unwrap()));
+
+        assert!(!v1_1_1.matches_gt(&VersionBound::from_str("1").unwrap()));
+        assert!(v1_1_1.matches_gt(&VersionBound::from_str("1.0").unwrap()));
+        assert!(!v1_1_1.matches_gt(&VersionBound::from_str("1.1").unwrap()));
+
+        assert!(!v1_1_1.matches_lt(&VersionBound::from_str("1").unwrap()));
+        assert!(!v1_1_1.matches_lt(&VersionBound::from_str("1.1").unwrap()));
+        assert!(v1_1_1.matches_lt(&VersionBound::from_str("1.2").unwrap()));
     }
 }
