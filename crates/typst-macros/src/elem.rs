@@ -879,7 +879,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let expr = if field.required {
             quote! { Ok(#into_value(self.#ident.clone())) }
         } else {
-            quote! { self.#ident.clone().map(#into_value).ok_or(#foundations::FieldAccessError::FieldNotSet) }
+            quote! { self.#ident.clone().map(#into_value).ok_or(#foundations::FieldAccessError::Unset) }
         };
 
         quote! { Fields::#enum_ident => #expr }
@@ -892,7 +892,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let expr = if field.required {
             quote! { Ok(#into_value(self.#ident.clone())) }
         } else if field.synthesized {
-            quote! { self.#ident.clone().map(#into_value).ok_or(#foundations::FieldAccessError::FieldNotSet) }
+            quote! { self.#ident.clone().map(#into_value).ok_or(#foundations::FieldAccessError::Unset) }
         } else {
             let value = create_style_chain_access(
                 field,
@@ -911,7 +911,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let Field { enum_ident, .. } = field;
 
         let expr = if field.required || field.synthesized {
-            quote! { Err(#foundations::FieldAccessError::MissingField) }
+            quote! { Err(#foundations::FieldAccessError::Unknown) }
         } else {
             let value = create_style_chain_access(field, false, quote!(None));
             quote! { Ok(#into_value(#value)) }
@@ -982,7 +982,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 match id {
                     #(#field_arms,)*
                     // This arm might be reached if someone tries to access an internal field
-                    _ => Err(#foundations::FieldAccessError::MissingField),
+                    _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
 
@@ -991,7 +991,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 match id {
                     #(#field_with_styles_arms,)*
                     // This arm might be reached if someone tries to access an internal field
-                    _ => Err(#foundations::FieldAccessError::MissingField),
+                    _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
 
@@ -1000,7 +1000,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 match id {
                     #(#field_from_styles_arms,)*
                     // This arm might be reached if someone tries to access an internal field
-                    _ => Err(#foundations::FieldAccessError::MissingField),
+                    _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
 

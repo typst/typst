@@ -128,5 +128,5 @@
 #raw("").at("block")
 
 --- content-try-to-access-internal-field ---
-// Error 8-15 content does not contain field "hidden"
+// Error: 9-15 content does not contain field "hidden"
 #hide[].hidden

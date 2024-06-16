@@ -206,7 +206,7 @@ impl Content {
                 return Ok(label.into_value());
             }
         }
-        let id = self.elem().field_id(name).ok_or(FieldAccessError::MissingField)?;
+        let id = self.elem().field_id(name).ok_or(FieldAccessError::Unknown)?;
         self.get(id, None)
     }
 
@@ -968,8 +968,8 @@ pub trait PlainText {
 /// An error arising when trying to access a field of content.
 #[derive(Copy, Clone, Debug)]
 pub enum FieldAccessError {
-    MissingField,
-    FieldNotSet,
+    Unknown,
+    Unset,
     Internal,
 }
 
@@ -978,10 +978,10 @@ impl FieldAccessError {
     #[cold]
     pub fn get_message(self, field: &str) -> EcoString {
         match self {
-            FieldAccessError::MissingField => {
+            FieldAccessError::Unknown => {
                 eco_format!("content does not contain field {}", field.repr())
             }
-            FieldAccessError::FieldNotSet => {
+            FieldAccessError::Unset => {
                 eco_format!("field {} in content is not set at this point", field.repr())
             }
             FieldAccessError::Internal => {
