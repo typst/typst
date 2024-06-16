@@ -47,8 +47,6 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             let glyph_remapper = resources.glyph_remappers.get(font).unwrap();
             let ttf = font.ttf();
 
-            let subset = subset_font(font, glyph_remapper);
-
             // Do we have a TrueType or CFF font?
             //
             // FIXME: CFF2 must be handled differently and requires PDF 2.0
@@ -121,12 +119,12 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             let cmap = create_cmap(glyph_set, glyph_remapper);
             chunk.cmap(cmap_ref, &cmap.finish());
 
+            let subset = subset_font(font, glyph_remapper);
             let mut stream = chunk.stream(data_ref, &subset);
             stream.filter(Filter::FlateDecode);
             if is_cff {
                 stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
             }
-
             stream.finish();
 
             let mut font_descriptor =
@@ -193,8 +191,10 @@ pub fn write_font_descriptor<'a>(
 
 /// Subset a font to the given glyphs.
 ///
-/// - For a font with TrueType outlines, this returns the whole OpenType font.
-/// - For a font with CFF outlines, this returns just the CFF font program.
+/// - For a font with TrueType outlines, this produces the whole OpenType font.
+/// - For a font with CFF outlines, this produces just the CFF font program.
+///
+/// In both cases, this returns the already compressed data.
 #[comemo::memoize]
 #[typst_macros::time(name = "subset font")]
 fn subset_font(font: &Font, glyph_remapper: &GlyphRemapper) -> Arc<Vec<u8>> {
