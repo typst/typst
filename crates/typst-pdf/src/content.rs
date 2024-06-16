@@ -476,6 +476,12 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     let mut adjustment = Em::zero();
     let mut encoded = vec![];
 
+    let glyph_remapper = ctx
+        .resources
+        .glyph_remappers
+        .entry(text.item.font.clone())
+        .or_default();
+
     // Write the glyphs with kerning adjustments.
     for glyph in text.glyphs() {
         adjustment += glyph.x_offset;
@@ -490,7 +496,26 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
             adjustment = Em::zero();
         }
 
-        let cid = crate::font::glyph_cid(&text.item.font, glyph.id);
+        // In PDF, we use CIDs to index the glyphs in a font, not GIDs. What a
+        // CID actually refers to depends on the type of font we are embedding:
+        //
+        // - For TrueType fonts, the CIDs are defined by an external mapping.
+        // - For SID-keyed CFF fonts, the CID is the same as the GID in the font.
+        // - For CID-keyed CFF fonts, the CID refers to the CID in the font.
+        //
+        // (See in the PDF-spec for more details on this.)
+        //
+        // However, in our case:
+        // - We use the identity-mapping for TrueType fonts.
+        // - SID-keyed fonts will get converted into CID-keyed fonts by the
+        //   subsetter.
+        // - CID-keyed fonts will be rewritten in a way so that the mapping
+        //   between CID and GID is always the identity mapping, regardless of
+        //   the mapping before.
+        //
+        // Because of this, we can always use the remapped GID as the CID,
+        // regardless of which type of font we are actually embedding.
+        let cid = glyph_remapper.remap(glyph.id);
         encoded.push((cid >> 8) as u8);
         encoded.push((cid & 0xff) as u8);
 
@@ -523,7 +548,11 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
     // displays regular glyphs and not color glyphs.
     ctx.state.font = None;
 
-    let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
+    let glyph_set = ctx
+        .resources
+        .color_glyph_sets
+        .entry(text.item.font.clone())
+        .or_default();
 
     for glyph in text.glyphs() {
         // Retrieve the Type3 font reference and the glyph index in the font.

@@ -8,6 +8,7 @@ use pdf_writer::{
     writers::FontDescriptor,
     Chunk, Filter, Finish, Name, Rect, Ref, Str,
 };
+use subsetter::GlyphRemapper;
 use ttf_parser::{name_id, GlyphId, Tag};
 use typst::text::Font;
 use typst::utils::SliceExt;
@@ -43,6 +44,7 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             out.insert(font.clone(), type0_ref);
 
             let glyph_set = resources.glyph_sets.get(font).unwrap();
+            let glyph_remapper = resources.glyph_remappers.get(font).unwrap();
             let ttf = font.ttf();
 
             // Do we have a TrueType or CFF font?
@@ -87,16 +89,15 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             }
 
             // Extract the widths of all glyphs.
-            let mut widths = vec![];
-            for gid in std::iter::once(0).chain(glyph_set.keys().copied()) {
-                let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
-                let units = font.to_em(width).to_font_units();
-                let cid = glyph_cid(font, gid);
-                if usize::from(cid) >= widths.len() {
-                    widths.resize(usize::from(cid) + 1, 0.0);
-                    widths[usize::from(cid)] = units;
-                }
-            }
+            // `remapped_gids` returns an iterator over the old GIDs in their new sorted
+            // order, so we can append the widths as is.
+            let widths = glyph_remapper
+                .remapped_gids()
+                .map(|gid| {
+                    let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
+                    font.to_em(width).to_font_units()
+                })
+                .collect::<Vec<_>>();
 
             // Write all non-zero glyph widths.
             let mut first = 0;
@@ -115,19 +116,15 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
 
             // Write the /ToUnicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
-            let cmap = create_cmap(font, glyph_set);
+            let cmap = create_cmap(glyph_set, glyph_remapper);
             chunk.cmap(cmap_ref, &cmap.finish());
 
-            // Subset and write the font's bytes.
-            let glyphs: Vec<_> = glyph_set.keys().copied().collect();
-            let data = subset_font(font, &glyphs);
-
-            let mut stream = chunk.stream(data_ref, &data);
+            let subset = subset_font(font, glyph_remapper);
+            let mut stream = chunk.stream(data_ref, &subset);
             stream.filter(Filter::FlateDecode);
             if is_cff {
                 stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
             }
-
             stream.finish();
 
             let mut font_descriptor =
@@ -194,15 +191,18 @@ pub fn write_font_descriptor<'a>(
 
 /// Subset a font to the given glyphs.
 ///
-/// - For a font with TrueType outlines, this returns the whole OpenType font.
-/// - For a font with CFF outlines, this returns just the CFF font program.
+/// - For a font with TrueType outlines, this produces the whole OpenType font.
+/// - For a font with CFF outlines, this produces just the CFF font program.
+///
+/// In both cases, this returns the already compressed data.
 #[comemo::memoize]
 #[typst_macros::time(name = "subset font")]
-fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
+fn subset_font(font: &Font, glyph_remapper: &GlyphRemapper) -> Arc<Vec<u8>> {
     let data = font.data();
-    let profile = subsetter::Profile::pdf(glyphs);
-    let subsetted = subsetter::subset(data, font.index(), profile);
-    let mut data = subsetted.as_deref().unwrap_or(data);
+    // TODO: Fail export instead of unwrapping once export diagnoistics exist.
+    let subsetted = subsetter::subset(data, font.index(), glyph_remapper).unwrap();
+
+    let mut data = subsetted.as_ref();
 
     // Extract the standalone CFF font program if applicable.
     let raw = ttf_parser::RawFace::parse(data, 0).unwrap();
@@ -259,46 +259,19 @@ pub fn improve_glyph_sets(glyph_sets: &mut HashMap<Font, BTreeMap<u16, EcoString
 }
 
 /// Create a /ToUnicode CMap.
-fn create_cmap(font: &Font, glyph_set: &BTreeMap<u16, EcoString>) -> UnicodeCmap {
+fn create_cmap(
+    glyph_set: &BTreeMap<u16, EcoString>,
+    glyph_remapper: &GlyphRemapper,
+) -> UnicodeCmap {
     // Produce a reverse mapping from glyphs' CIDs to unicode strings.
     let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
     for (&g, text) in glyph_set.iter() {
+        // See commend in `write_normal_text` for why we can choose the CID this way.
+        let cid = glyph_remapper.get(g).unwrap();
         if !text.is_empty() {
-            cmap.pair_with_multiple(glyph_cid(font, g), text.chars());
+            cmap.pair_with_multiple(cid, text.chars());
         }
     }
 
     cmap
-}
-
-/// Get the CID for a glyph id.
-///
-/// When writing text into a PDF, we have to specify CIDs (character ids) not
-/// GIDs (glyph IDs).
-///
-/// Most of the time, the mapping between these two is an identity mapping. In
-/// particular, for TrueType fonts, the mapping is an identity mapping because
-/// of this line above:
-/// ```ignore
-/// cid.cid_to_gid_map_predefined(Name(b"Identity"));
-/// ```
-///
-/// However, CID-keyed CFF fonts may have a non-identity mapping defined in
-/// their charset. For those, we must map the glyph IDs in a `TextItem` to CIDs.
-/// The font defines the map through its charset. The charset usually maps
-/// glyphs to SIDs (string ids) specifying the glyph's name. Not for CID-keyed
-/// fonts though! For these, the SIDs are CIDs in disguise. Relevant quote from
-/// the CFF spec:
-///
-/// > The charset data, although in the same format as non-CIDFonts, will
-/// > represent CIDs rather than SIDs, [...]
-///
-/// This function performs the mapping from glyph ID to CID. It also works for
-/// non CID-keyed fonts. Then, it will simply return the glyph ID.
-pub(super) fn glyph_cid(font: &Font, glyph_id: u16) -> u16 {
-    font.ttf()
-        .tables()
-        .cff
-        .and_then(|cff| cff.glyph_cid(ttf_parser::GlyphId(glyph_id)))
-        .unwrap_or(glyph_id)
 }
