@@ -565,8 +565,8 @@ impl Content {
         default: Option<Value>,
     ) -> StrResult<Value> {
         self.get_by_name(&field)
-            .or(default.ok_or(FieldAccessError::MissingFieldNoDefault))
-            .map_err(|e| e.get_message(&field))
+            .or_else(|e| default.ok_or(e))
+            .map_err(|e| e.get_message_no_default(&field))
     }
 
     /// Returns the fields of this content.
@@ -969,7 +969,6 @@ pub trait PlainText {
 #[derive(Copy, Clone, Debug)]
 pub enum FieldAccessError {
     MissingField,
-    MissingFieldNoDefault,
     FieldNotSet,
     Internal,
 }
@@ -982,13 +981,6 @@ impl FieldAccessError {
             FieldAccessError::MissingField => {
                 eco_format!("content does not contain field {}", field.repr())
             }
-            FieldAccessError::MissingFieldNoDefault => {
-                eco_format!(
-                    "content does not contain field {} and \
-                 no default value was specified",
-                    field.repr()
-                )
-            }
             FieldAccessError::FieldNotSet => {
                 eco_format!("field {} in content is not set at this point", field.repr())
             }
@@ -999,5 +991,12 @@ impl FieldAccessError {
                 )
             }
         }
+    }
+
+    #[cold]
+    pub fn get_message_no_default(self, field: &str) -> EcoString {
+        let mut msg = self.get_message(field);
+        msg.push_str(" and no default was specified");
+        msg
     }
 }

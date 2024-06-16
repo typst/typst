@@ -122,3 +122,7 @@
 --- content-fields-unset ---
 // Error: 10-15 field "block" in content is not set at this point
 #raw("").block
+
+--- content-fields-unset-no-default ---
+// Error: 2-21 field "block" in content is not set at this point and no default was specified
+#raw("").at("block")
