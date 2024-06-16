@@ -242,16 +242,9 @@ impl PackageVersion {
     /// assert!(!v1_1_1.matches_eq(&SemVerBound::from_str("1.1.2").unwrap()));
     /// ```
     pub fn matches_eq(&self, bound: &VersionBound) -> bool {
-        if self.major != bound.major {
-            return false;
-        }
-        if bound.minor.map_or(false, |minor| self.minor != minor) {
-            return false;
-        }
-        if bound.patch.map_or(false, |patch| self.patch != patch) {
-            return false;
-        }
-        true
+        self.major == bound.major
+            && bound.minor.map_or(true, |minor| self.minor == minor)
+            && bound.patch.map_or(true, |patch| self.patch == patch)
     }
 
     /// Performs a `>` match with the given version bound. The match only succeeds if some version
@@ -278,15 +271,11 @@ impl PackageVersion {
         if self.major != bound.major {
             return self.major > bound.major;
         }
-        let Some(minor) = bound.minor else {
-            return false;
-        };
+        let Some(minor) = bound.minor else { return false };
         if self.minor != minor {
             return self.minor > minor;
         }
-        let Some(patch) = bound.patch else {
-            return false;
-        };
+        let Some(patch) = bound.patch else { return false };
         if self.patch != patch {
             return self.patch > patch;
         }
@@ -317,15 +306,11 @@ impl PackageVersion {
         if self.major != bound.major {
             return self.major < bound.major;
         }
-        let Some(minor) = bound.minor else {
-            return false;
-        };
+        let Some(minor) = bound.minor else { return false };
         if self.minor != minor {
             return self.minor < minor;
         }
-        let Some(patch) = bound.patch else {
-            return false;
-        };
+        let Some(patch) = bound.patch else { return false };
         if self.patch != patch {
             return self.patch < patch;
         }
