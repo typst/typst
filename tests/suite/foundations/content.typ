@@ -126,3 +126,7 @@
 --- content-fields-unset-no-default ---
 // Error: 2-21 field "block" in content is not set at this point and no default was specified
 #raw("").at("block")
+
+--- content-try-to-access-internal-field ---
+// Error 8-15 content does not contain field "hidden"
+#hide[].hidden

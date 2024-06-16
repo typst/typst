@@ -981,7 +981,8 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 let id = Fields::try_from(id)?;
                 match id {
                     #(#field_arms,)*
-                    _ => Err(#foundations::FieldAccessError::Internal),
+                    // This arm might be reached if someone tries to access an internal field
+                    _ => Err(#foundations::FieldAccessError::MissingField),
                 }
             }
 
@@ -989,7 +990,8 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 let id = Fields::try_from(id)?;
                 match id {
                     #(#field_with_styles_arms,)*
-                    _ => Err(#foundations::FieldAccessError::Internal),
+                    // This arm might be reached if someone tries to access an internal field
+                    _ => Err(#foundations::FieldAccessError::MissingField),
                 }
             }
 
@@ -997,7 +999,8 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 let id = Fields::try_from(id)?;
                 match id {
                     #(#field_from_styles_arms,)*
-                    _ => Err(#foundations::FieldAccessError::Internal),
+                    // This arm might be reached if someone tries to access an internal field
+                    _ => Err(#foundations::FieldAccessError::MissingField),
                 }
             }
 
