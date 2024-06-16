@@ -13,7 +13,7 @@
 - C
 
 --- content-field-missing ---
-// Error: 25-28 content does not contain field "fun"
+// Error: 25-28 heading does not have field "fun"
 #show heading: it => it.fun
 = A
 
@@ -120,13 +120,13 @@
 = Hello, world! <my-label>
 
 --- content-fields-unset ---
-// Error: 10-15 field "block" in content is not set at this point
+// Error: 10-15 field "block" in raw is not known at this point
 #raw("").block
 
 --- content-fields-unset-no-default ---
-// Error: 2-21 field "block" in content is not set at this point and no default was specified
+// Error: 2-21 field "block" in raw is not known at this point and no default was specified
 #raw("").at("block")
 
 --- content-try-to-access-internal-field ---
-// Error: 9-15 content does not contain field "hidden"
+// Error: 9-15 hide does not have field "hidden"
 #hide[].hidden
