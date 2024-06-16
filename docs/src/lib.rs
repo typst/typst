@@ -661,15 +661,15 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, c) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                list.iter().copied().find(|&(_, x)| x == c.char()).map(|(s, _)| s)
             };
 
             list.push(SymbolModel {
                 name: complete(variant),
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::MARKUP_LIST),
                 math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH_LIST),
-                codepoint: c as u32,
-                accent: typst::symbols::Symbol::combining_accent(c).is_some(),
+                codepoint: c.char() as _,
+                accent: typst::math::Accent::combine(c.char()).is_some(),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _)| other != &variant)

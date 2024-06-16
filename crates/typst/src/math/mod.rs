@@ -2,7 +2,9 @@
 
 #[macro_use]
 mod ctx;
-mod accent;
+
+pub mod accent;
+
 mod align;
 mod attach;
 mod cancel;
@@ -21,7 +23,7 @@ mod stretch;
 mod style;
 mod underover;
 
-pub use self::accent::*;
+pub use self::accent::{Accent, AccentElem};
 pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
@@ -232,7 +234,7 @@ impl LayoutMath for Content {
             return elem.layout_math(ctx, styles);
         }
 
-        if let Some(realized) = process(ctx.engine, self, styles)? {
+        if let Some(realized) = process(ctx.engine, &mut ctx.locator, self, styles)? {
             return realized.layout_math(ctx, styles);
         }
 
@@ -296,9 +298,9 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(tag) = self.to_packed::<TagElem>() {
+        if let Some(elem) = self.to_packed::<TagElem>() {
             let mut frame = Frame::soft(Size::zero());
-            frame.push(Point::zero(), FrameItem::Tag(tag.elem.clone()));
+            frame.push(Point::zero(), FrameItem::Tag(elem.tag.clone()));
             ctx.push(FrameFragment::new(ctx, styles, frame));
             return Ok(());
         }

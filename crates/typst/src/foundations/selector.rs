@@ -277,12 +277,12 @@ impl Repr for Selector {
 
 cast! {
     type Selector,
+    text: EcoString => Self::text(&text)?,
     func: Func => func
         .element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),
-    text: EcoString => Self::text(&text)?,
     regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }

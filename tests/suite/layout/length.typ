@@ -45,7 +45,8 @@
 }
 
 --- length-unit-hint ---
-// Error: 1:17-1:19 expected length, found integer: a length needs a unit - did you mean 12pt?
+// Error: 17-19 expected length, found integer
+// Hint: 17-19 a length needs a unit - did you mean 12pt?
 #set text(size: 12)
 
 --- length-ignore-em-pt-hint ---

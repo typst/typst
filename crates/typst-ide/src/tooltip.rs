@@ -2,7 +2,8 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::eval::{CapturesVisitor, Tracer};
+use typst::engine::Sink;
+use typst::eval::CapturesVisitor;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
@@ -79,7 +80,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut last = None;
     let mut pieces: Vec<EcoString> = vec![];
     let mut iter = values.iter();
-    for (value, _) in (&mut iter).take(Tracer::MAX_VALUES - 1) {
+    for (value, _) in (&mut iter).take(Sink::MAX_VALUES - 1) {
         if let Some((prev, count)) = &mut last {
             if *prev == value {
                 *count += 1;
@@ -253,7 +254,6 @@ fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 
 #[cfg(test)]
 mod tests {
-    use typst::eval::Tracer;
     use typst::syntax::Side;
 
     use super::{tooltip, Tooltip};
@@ -270,7 +270,7 @@ mod tests {
     #[track_caller]
     fn test(text: &str, cursor: usize, side: Side, expected: Option<Tooltip>) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).ok();
+        let doc = typst::compile(&world).output.ok();
         assert_eq!(tooltip(&world, doc.as_ref(), &world.main, cursor, side), expected);
     }
 

@@ -32,7 +32,7 @@ impl<'a> Vm<'a> {
         scopes: Scopes<'a>,
         target: Span,
     ) -> Self {
-        let inspected = target.id().and_then(|id| engine.tracer.inspected(id));
+        let inspected = target.id().and_then(|id| engine.traced.get(id));
         Self { engine, context, flow: None, scopes, inspected }
     }
 
@@ -54,7 +54,7 @@ impl<'a> Vm<'a> {
     #[cold]
     pub fn trace(&mut self, value: Value) {
         self.engine
-            .tracer
+            .sink
             .value(value.clone(), self.context.styles().ok().map(|s| s.to_map()));
     }
 }

@@ -6,14 +6,13 @@ use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, HintedStrResult, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
     Selector, Show, Smart, Str, StyleChain, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
@@ -281,9 +280,9 @@ impl Counter {
         self.sequence_impl(
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            engine.locator.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -293,17 +292,16 @@ impl Counter {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-        locator: Tracked<Locator>,
-        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
-        let mut locator = Locator::chained(locator);
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route).unnested(),
-            locator: &mut locator,
-            tracer,
         };
 
         let mut state = CounterState::init(&self.0);
@@ -815,8 +813,8 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Tag(elem) => {
-                    let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
+                FrameItem::Tag(tag) => {
+                    let Some(elem) = tag.elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };
                     if *elem.key() == CounterKey::Page {
