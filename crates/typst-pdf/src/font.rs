@@ -117,7 +117,7 @@ pub fn write_fonts(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Font, Ref>) {
             // Write the /ToUnicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
             let cmap = create_cmap(glyph_set, glyph_remapper);
-            chunk.cmap(cmap_ref, &cmap.finish());
+            chunk.cmap(cmap_ref, &cmap).filter(Filter::FlateDecode);
 
             let subset = subset_font(font, glyph_remapper);
             let mut stream = chunk.stream(data_ref, &subset);
@@ -258,11 +258,13 @@ pub fn improve_glyph_sets(glyph_sets: &mut HashMap<Font, BTreeMap<u16, EcoString
     }
 }
 
-/// Create a /ToUnicode CMap.
+/// Create a compressed `/ToUnicode` CMap.
+#[comemo::memoize]
+#[typst_macros::time(name = "create cmap")]
 fn create_cmap(
     glyph_set: &BTreeMap<u16, EcoString>,
     glyph_remapper: &GlyphRemapper,
-) -> UnicodeCmap {
+) -> Arc<Vec<u8>> {
     // Produce a reverse mapping from glyphs' CIDs to unicode strings.
     let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
     for (&g, text) in glyph_set.iter() {
@@ -272,6 +274,5 @@ fn create_cmap(
             cmap.pair_with_multiple(cid, text.chars());
         }
     }
-
-    cmap
+    Arc::new(deflate(&cmap.finish()))
 }
