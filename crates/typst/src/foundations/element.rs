@@ -125,7 +125,7 @@ impl Element {
         (self.0.field_name)(id)
     }
 
-    /// Extract the field name for the given field ID.
+    /// Extract the value of the field for the given field ID and style chain.
     pub fn field_from_styles(
         &self,
         id: u8,
