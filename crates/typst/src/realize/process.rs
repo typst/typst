@@ -168,6 +168,7 @@ fn verdict<'a>(
         && map.is_empty()
         && (prepared || {
             target.label().is_none()
+                && target.location().is_none()
                 && !target.can::<dyn ShowSet>()
                 && !target.can::<dyn Locatable>()
                 && !target.can::<dyn Synthesize>()
