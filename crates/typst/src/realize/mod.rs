@@ -119,6 +119,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 .store(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
+        // Styled elements and sequences can (at least currently) also have
+        // labels, so this needs to happen before they are handled.
         if let Some(realized) = process(self.engine, &mut self.locator, content, styles)?
         {
             self.engine.route.increase();
