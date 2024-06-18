@@ -14,8 +14,9 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 31] = [
+const TRANSLATIONS: [(&str, &str); 33] = [
     translation!("ar"),
+    translation!("ca"),
     translation!("cs"),
     translation!("da"),
     translation!("de"),
