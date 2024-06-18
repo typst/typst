@@ -69,7 +69,7 @@ pub fn definition(
             }
             NamedItem::Fn(name) => Some(
                 Definition::item(name.get().clone(), name.span(), None)
-                    .with_kind(DefinitionKind::Item(ItemDefinitionKind::Function)),
+                    .with_kind(DefinitionKind::Function),
             ),
             NamedItem::Module(item) => Some(Definition::module(item)),
             NamedItem::Import(name, span, value) => {
@@ -129,35 +129,27 @@ impl Definition {
     }
 
     fn item(name: EcoString, span: Span, value: Option<Value>) -> Self {
-        let var_kind = value
+        let kind = value
             .as_ref()
             .and_then(|e| {
                 if matches!(e, Value::Func(..)) {
-                    Some(ItemDefinitionKind::Function)
+                    Some(DefinitionKind::Function)
                 } else {
                     None
                 }
             })
-            .unwrap_or(ItemDefinitionKind::Variable);
+            .unwrap_or(DefinitionKind::Variable);
 
-        Self {
-            name,
-            kind: DefinitionKind::Item(var_kind),
-            value,
-            range: span,
-            name_range: span,
-        }
+        Self { name, kind, value, range: span, name_range: span }
     }
 
     fn module(module: &Module) -> Self {
-        let file_id = match module.file_id() {
-            Some(file_id) => ModuleDefinitionKind::Path(file_id),
-            None => ModuleDefinitionKind::Builtin(module.clone()),
-        };
-
         Definition {
             name: EcoString::new(),
-            kind: DefinitionKind::Module(file_id),
+            kind: match module.file_id() {
+                Some(file_id) => DefinitionKind::ModulePath(file_id),
+                None => DefinitionKind::Module(module.clone()),
+            },
             value: Some(Value::Module(module.clone())),
             range: Span::detached(),
             name_range: Span::detached(),
@@ -168,35 +160,26 @@ impl Definition {
 /// The kind of a definition.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum DefinitionKind {
-    /// `import "foo";`
-    ///         ^^^^^
-    Module(ModuleDefinitionKind),
-    /// `let foo;`
-    ///      ^^^
-    Item(ItemDefinitionKind),
-    /// `<foo>`
-    ///   ^^^
-    Label,
-}
-
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum ModuleDefinitionKind {
     /// `import ("fo" + "o.typ")`
     ///           ^^^^^^^^
-    Path(FileId),
+    ///
+    /// IDE will always resolve a path instead of a module whenever possible.
+    /// This allows resolving a module containing errors.
+    ModulePath(FileId),
     /// `import calc: *`
     ///         ^^^^
-    Builtin(Module),
-}
-
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum ItemDefinitionKind {
+    ///
+    /// Some modules are not associated with a file, like the built-in modules.
+    Module(Module),
     /// `let foo;`
     ///      ^^^
     Variable,
     /// `let foo(it) = it;`
     ///      ^^^
     Function,
+    /// `<foo>`
+    ///   ^^^
+    Label,
 }
 
 #[cfg(test)]
@@ -216,9 +199,7 @@ mod tests {
     }
 
     fn func(text: &str, value: bool) -> Option<Definition> {
-        var(text, value).map(|d| {
-            d.with_kind(super::DefinitionKind::Item(super::ItemDefinitionKind::Function))
-        })
+        var(text, value).map(|d| d.with_kind(super::DefinitionKind::Function))
     }
 
     #[track_caller]
