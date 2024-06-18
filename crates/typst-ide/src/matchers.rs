@@ -1,12 +1,8 @@
 use ecow::EcoString;
-use typst::{
-    foundations::{Module, Value},
-    syntax::{
-        ast::{self, AstNode},
-        LinkedNode, Span, SyntaxKind,
-    },
-    World,
-};
+use typst::foundations::{Module, Value};
+use typst::syntax::ast::AstNode;
+use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::World;
 
 use crate::analyze::analyze_import;
 
