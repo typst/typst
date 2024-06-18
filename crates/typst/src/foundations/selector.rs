@@ -277,12 +277,12 @@ impl Repr for Selector {
 
 cast! {
     type Selector,
+    text: EcoString => Self::text(&text)?,
     func: Func => func
         .element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),
-    text: EcoString => Self::text(&text)?,
     regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }
@@ -339,7 +339,7 @@ cast! {
 }
 
 impl FromValue for LocatableSelector {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
             match selector {
                 Selector::Elem(elem, _) => {
@@ -421,8 +421,8 @@ cast! {
 }
 
 impl FromValue for ShowableSelector {
-    fn from_value(value: Value) -> StrResult<Self> {
-        fn validate(selector: &Selector, nested: bool) -> StrResult<()> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        fn validate(selector: &Selector, nested: bool) -> HintedStrResult<()> {
             match selector {
                 Selector::Elem(_, _) => {}
                 Selector::Label(_) => {}

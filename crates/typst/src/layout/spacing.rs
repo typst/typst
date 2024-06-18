@@ -126,10 +126,16 @@ pub struct VElem {
     #[external]
     pub weak: bool,
 
-    /// The element's weakness level, see also [`Behaviour`].
+    /// The spacing's weakness level, see also [`Behaviour`].
     #[internal]
     #[parse(args.named("weak")?.map(|v: bool| v as usize))]
     pub weakness: usize,
+
+    /// Whether the spacing collapses if not immediately preceded by a
+    /// paragraph.
+    #[internal]
+    #[parse(Some(false))]
+    pub attach: bool,
 }
 
 impl VElem {
@@ -145,16 +151,16 @@ impl VElem {
 
     /// Weak spacing with list attach weakness.
     pub fn list_attach(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(2)
+        Self::new(amount).with_weakness(2).with_attach(true)
     }
 
-    /// Weak spacing with BlockElem::ABOVE/BELOW weakness.
-    pub fn block_around(amount: Spacing) -> Self {
+    /// Weak spacing with `BlockElem::spacing` weakness.
+    pub fn block_spacing(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(3)
     }
 
-    /// Weak spacing with BlockElem::SPACING weakness.
-    pub fn block_spacing(amount: Spacing) -> Self {
+    /// Weak spacing with `ParElem::spacing` weakness.
+    pub fn par_spacing(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(4)
     }
 }

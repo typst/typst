@@ -14,19 +14,15 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
-use typst::foundations::AutoValue;
-use typst::foundations::Bytes;
-use typst::foundations::NoneValue;
 use typst::foundations::{
-    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
-    FOUNDATIONS,
+    AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
+    Scope, Smart, Type, Value, FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
 use typst::layout::{Abs, Margin, PageElem, LAYOUT};
 use typst::loading::DATA_LOADING;
 use typst::math::MATH;
-use typst::model::Document;
-use typst::model::MODEL;
+use typst::model::{Document, MODEL};
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
 use typst::utils::LazyHash;
@@ -665,15 +661,15 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, c) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                list.iter().copied().find(|&(_, x)| x == c.char()).map(|(s, _)| s)
             };
 
             list.push(SymbolModel {
                 name: complete(variant),
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::MARKUP_LIST),
                 math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH_LIST),
-                codepoint: c as u32,
-                accent: typst::symbols::Symbol::combining_accent(c).is_some(),
+                codepoint: c.char() as _,
+                accent: typst::math::Accent::combine(c.char()).is_some(),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _)| other != &variant)

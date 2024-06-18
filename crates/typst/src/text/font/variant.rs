@@ -141,6 +141,12 @@ impl Debug for FontWeight {
     }
 }
 
+impl From<fontdb::Weight> for FontWeight {
+    fn from(weight: fontdb::Weight) -> Self {
+        Self::from_number(weight.0)
+    }
+}
+
 cast! {
     FontWeight,
     self => IntoValue::into_value(match self {
@@ -237,6 +243,21 @@ impl FontStretch {
         Ratio::new(self.0 as f64 / 1000.0)
     }
 
+    /// Round to one of the pre-defined variants.
+    pub fn round(self) -> Self {
+        match self.0 {
+            ..=562 => Self::ULTRA_CONDENSED,
+            563..=687 => Self::EXTRA_CONDENSED,
+            688..=812 => Self::CONDENSED,
+            813..=937 => Self::SEMI_CONDENSED,
+            938..=1062 => Self::NORMAL,
+            1063..=1187 => Self::SEMI_EXPANDED,
+            1188..=1374 => Self::EXPANDED,
+            1375..=1749 => Self::EXTRA_EXPANDED,
+            1750.. => Self::ULTRA_EXPANDED,
+        }
+    }
+
     /// The absolute ratio distance between this and another font stretch.
     pub fn distance(self, other: Self) -> Ratio {
         (self.to_ratio() - other.to_ratio()).abs()
@@ -248,6 +269,7 @@ impl Default for FontStretch {
         Self::NORMAL
     }
 }
+
 impl Repr for FontStretch {
     fn repr(&self) -> EcoString {
         self.to_ratio().repr()

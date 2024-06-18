@@ -10,8 +10,10 @@ mod arenas;
 mod behaviour;
 mod process;
 
+use once_cell::unsync::Lazy;
+
 pub use self::arenas::Arenas;
-pub use self::behaviour::{Behave, BehavedBuilder, Behaviour};
+pub use self::behaviour::{Behave, BehavedBuilder, Behaviour, StyleVec};
 pub use self::process::process;
 
 use std::mem;
@@ -19,12 +21,12 @@ use std::mem;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, NativeElement, Packed, SequenceElem, StyleChain, StyledElem, Styles,
+    Content, NativeElement, Packed, SequenceElem, Smart, StyleChain, StyledElem, Styles,
 };
-use crate::introspection::TagElem;
+use crate::introspection::{Locator, SplitLocator, TagElem};
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem,
-    LayoutMultiple, LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem, InlineElem,
+    PageElem, PagebreakElem, Parity, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -39,11 +41,12 @@ use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 #[typst_macros::time(name = "realize doc")]
 pub fn realize_doc<'a>(
     engine: &mut Engine,
+    locator: Locator,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>)> {
-    let mut builder = Builder::new(engine, arenas, true);
+    let mut builder = Builder::new(engine, locator, arenas, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
     Ok(builder.doc.unwrap().finish())
@@ -53,11 +56,12 @@ pub fn realize_doc<'a>(
 #[typst_macros::time(name = "realize flow")]
 pub fn realize_flow<'a>(
     engine: &mut Engine,
+    locator: Locator,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Packed<FlowElem>, StyleChain<'a>)> {
-    let mut builder = Builder::new(engine, arenas, false);
+    let mut builder = Builder::new(engine, locator, arenas, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     Ok(builder.flow.finish())
@@ -67,6 +71,8 @@ pub fn realize_flow<'a>(
 struct Builder<'a, 'v, 't> {
     /// The engine.
     engine: &'v mut Engine<'t>,
+    /// Assigns unique locations to elements.
+    locator: SplitLocator<'v>,
     /// Scratch arenas for building.
     arenas: &'a Arenas<'a>,
     /// The current document building state.
@@ -82,9 +88,15 @@ struct Builder<'a, 'v, 't> {
 }
 
 impl<'a, 'v, 't> Builder<'a, 'v, 't> {
-    fn new(engine: &'v mut Engine<'t>, arenas: &'a Arenas<'a>, top: bool) -> Self {
+    fn new(
+        engine: &'v mut Engine<'t>,
+        locator: Locator<'v>,
+        arenas: &'a Arenas<'a>,
+        top: bool,
+    ) -> Self {
         Self {
             engine,
+            locator: locator.split(),
             arenas,
             doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
@@ -107,7 +119,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 .store(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
-        if let Some(realized) = process(self.engine, content, styles)? {
+        // Styled elements and sequences can (at least currently) also have
+        // labels, so this needs to happen before they are handled.
+        if let Some(realized) = process(self.engine, &mut self.locator, content, styles)?
+        {
             self.engine.route.increase();
             if !self.engine.route.within(Route::MAX_SHOW_RULE_DEPTH) {
                 bail!(
@@ -209,16 +224,19 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             {
                 bail!(span, "document set rules must appear before any content");
             }
-        } else if let Some(Some(span)) = local.interruption::<PageElem>() {
+        }
+        if let Some(Some(span)) = local.interruption::<PageElem>() {
             if self.doc.is_none() {
                 bail!(span, "page configuration is not allowed inside of containers");
             }
             self.interrupt_page(outer, false)?;
-        } else if local.interruption::<ParElem>().is_some()
+        }
+        if local.interruption::<ParElem>().is_some()
             || local.interruption::<AlignElem>().is_some()
         {
             self.interrupt_par()?;
-        } else if local.interruption::<ListElem>().is_some()
+        }
+        if local.interruption::<ListElem>().is_some()
             || local.interruption::<EnumElem>().is_some()
             || local.interruption::<TermsElem>().is_some()
         {
@@ -369,16 +387,21 @@ impl<'a> FlowBuilder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> bool {
+        let last_was_par = self.1;
+        self.1 = false;
+
         if content.is::<ParbreakElem>() {
-            self.1 = true;
             return true;
         }
 
-        let last_was_parbreak = self.1;
-        self.1 = false;
+        if let Some(elem) = content.to_packed::<VElem>() {
+            if !elem.attach(styles) || last_was_par {
+                self.0.push(content, styles);
+            }
+            return true;
+        }
 
-        if content.is::<VElem>()
-            || content.is::<ColbreakElem>()
+        if content.is::<ColbreakElem>()
             || content.is::<TagElem>()
             || content.is::<PlaceElem>()
             || content.is::<FlushElem>()
@@ -387,35 +410,32 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.can::<dyn LayoutSingle>()
-            || content.can::<dyn LayoutMultiple>()
-            || content.is::<ParElem>()
-        {
-            let is_tight_list = if let Some(elem) = content.to_packed::<ListElem>() {
-                elem.tight(styles)
-            } else if let Some(elem) = content.to_packed::<EnumElem>() {
-                elem.tight(styles)
-            } else if let Some(elem) = content.to_packed::<TermsElem>() {
-                elem.tight(styles)
-            } else {
-                false
+        let par_spacing = Lazy::new(|| {
+            arenas.store(VElem::par_spacing(ParElem::spacing_in(styles).into()).pack())
+        });
+
+        if let Some(elem) = content.to_packed::<BlockElem>() {
+            let above = match elem.above(styles) {
+                Smart::Auto => *par_spacing,
+                Smart::Custom(above) => arenas.store(VElem::block_spacing(above).pack()),
             };
 
-            if !last_was_parbreak && is_tight_list {
-                let leading = ParElem::leading_in(styles);
-                let spacing = VElem::list_attach(leading.into());
-                self.0.push(arenas.store(spacing.pack()), styles);
-            }
-
-            let (above, below) = if let Some(block) = content.to_packed::<BlockElem>() {
-                (block.above(styles), block.below(styles))
-            } else {
-                (BlockElem::above_in(styles), BlockElem::below_in(styles))
+            let below = match elem.below(styles) {
+                Smart::Auto => *par_spacing,
+                Smart::Custom(below) => arenas.store(VElem::block_spacing(below).pack()),
             };
 
-            self.0.push(arenas.store(above.pack()), styles);
+            self.0.push(above, styles);
             self.0.push(content, styles);
-            self.0.push(arenas.store(below.pack()), styles);
+            self.0.push(below, styles);
+            return true;
+        }
+
+        if content.is::<ParElem>() {
+            self.0.push(*par_spacing, styles);
+            self.0.push(content, styles);
+            self.0.push(*par_spacing, styles);
+            self.1 = true;
             return true;
         }
 
@@ -452,9 +472,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HElem>()
             || content.is::<LinebreakElem>()
             || content.is::<SmartQuoteElem>()
-            || content
-                .to_packed::<EquationElem>()
-                .is_some_and(|elem| !elem.block(styles))
+            || content.is::<InlineElem>()
             || content.is::<BoxElem>()
         {
             self.0.push(content, styles);
@@ -518,54 +536,30 @@ impl<'a> ListBuilder<'a> {
     /// Turns this builder into the resulting list, along with
     /// its [style chain][StyleChain].
     fn finish(self) -> (Content, StyleChain<'a>) {
-        let (items, trunk, span) = self.items.finish_iter();
-        let mut items = items.peekable();
+        let (items, trunk, span) = self.items.finish();
+        let mut items = items.into_iter().peekable();
         let (first, _) = items.peek().unwrap();
         let output = if first.is::<ListItem>() {
-            ListElem::new(
-                items
-                    .map(|(item, local)| {
-                        let mut item = item.to_packed::<ListItem>().unwrap().clone();
-                        let body = item.body().clone().styled_with_map(local);
-                        item.push_body(body);
-                        item
-                    })
-                    .collect(),
-            )
-            .with_tight(self.tight)
-            .pack()
-            .spanned(span)
+            let children = items
+                .map(|(item, local)| {
+                    item.into_packed::<ListItem>().unwrap().styled(local)
+                })
+                .collect();
+            ListElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else if first.is::<EnumItem>() {
-            EnumElem::new(
-                items
-                    .map(|(item, local)| {
-                        let mut item = item.to_packed::<EnumItem>().unwrap().clone();
-                        let body = item.body().clone().styled_with_map(local);
-                        item.push_body(body);
-                        item
-                    })
-                    .collect(),
-            )
-            .with_tight(self.tight)
-            .pack()
-            .spanned(span)
+            let children = items
+                .map(|(item, local)| {
+                    item.into_packed::<EnumItem>().unwrap().styled(local)
+                })
+                .collect();
+            EnumElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else if first.is::<TermItem>() {
-            TermsElem::new(
-                items
-                    .map(|(item, local)| {
-                        let mut item = item.to_packed::<TermItem>().unwrap().clone();
-                        let term = item.term().clone().styled_with_map(local.clone());
-                        let description =
-                            item.description().clone().styled_with_map(local);
-                        item.push_term(term);
-                        item.push_description(description);
-                        item
-                    })
-                    .collect(),
-            )
-            .with_tight(self.tight)
-            .pack()
-            .spanned(span)
+            let children = items
+                .map(|(item, local)| {
+                    item.into_packed::<TermItem>().unwrap().styled(local)
+                })
+                .collect();
+            TermsElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else {
             unreachable!()
         };

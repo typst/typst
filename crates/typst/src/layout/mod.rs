@@ -58,7 +58,7 @@ pub use self::page::*;
 pub use self::place::*;
 pub use self::point::*;
 pub use self::ratio::*;
-pub use self::regions::Regions;
+pub use self::regions::*;
 pub use self::rel::*;
 pub use self::repeat::*;
 pub use self::sides::*;
@@ -69,13 +69,12 @@ pub use self::transform::*;
 
 pub(crate) use self::inline::*;
 
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::{Introspector, Locator, LocatorLink};
 use crate::model::Document;
 use crate::realize::{realize_doc, realize_flow, Arenas};
 use crate::World;
@@ -119,72 +118,15 @@ pub fn define(global: &mut Scope) {
     global.define_func::<layout>();
 }
 
-/// Root-level layout.
-///
-/// This produces a complete document and is implemented for
-/// [`DocumentElem`][crate::model::DocumentElem]. Any [`Content`]
-/// can also be laid out at root level, in which case it is
-/// wrapped inside a document element.
-pub trait LayoutRoot {
-    /// Layout into a document with one frame per page.
-    fn layout_root(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Document>;
-}
-
-/// Layout into multiple [regions][Regions].
-///
-/// This is more appropriate for elements that, for example, can be
-/// laid out across multiple pages or columns.
-pub trait LayoutMultiple {
-    /// Layout into one frame per region.
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>;
-
-    /// Layout without side effects.
+impl Content {
+    /// Layout the content into a document.
     ///
-    /// This element must be layouted again in the same order for the results to
-    /// be valid.
-    fn measure(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let mut locator = Locator::chained(engine.locator.track());
-        let mut engine = Engine {
-            world: engine.world,
-            route: engine.route.clone(),
-            introspector: engine.introspector,
-            locator: &mut locator,
-            tracer: TrackedMut::reborrow_mut(&mut engine.tracer),
-        };
-        self.layout(&mut engine, styles, regions)
-    }
-}
-
-/// Layout into a single [region][Regions].
-///
-/// This is more appropriate for elements that don't make sense to
-/// layout across multiple pages or columns, such as shapes.
-pub trait LayoutSingle {
-    /// Layout into one frame per region.
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Frame>;
-}
-
-impl LayoutRoot for Content {
-    fn layout_root(
+    /// This first realizes the content into a
+    /// [`DocumentElem`][crate::model::DocumentElem], which is then laid out. In
+    /// contrast to [`layout`](Self::layout()), this does not take regions since
+    /// the regions are defined by the page configuration in the content and
+    /// style chain.
+    pub fn layout_document(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
@@ -194,40 +136,41 @@ impl LayoutRoot for Content {
             content: &Content,
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
+            traced: Tracked<Traced>,
+            sink: TrackedMut<Sink>,
             route: Tracked<Route>,
-            locator: Tracked<Locator>,
-            tracer: TrackedMut<Tracer>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
-            let mut locator = Locator::chained(locator);
+            let mut locator = Locator::root().split();
             let mut engine = Engine {
                 world,
                 introspector,
+                traced,
+                sink,
                 route: Route::extend(route).unnested(),
-                locator: &mut locator,
-                tracer,
             };
             let arenas = Arenas::default();
-            let (document, styles) = realize_doc(&mut engine, &arenas, content, styles)?;
-            document.layout_root(&mut engine, styles)
+            let (document, styles) =
+                realize_doc(&mut engine, locator.next(&()), &arenas, content, styles)?;
+            document.layout(&mut engine, locator.next(&()), styles)
         }
 
         cached(
             self,
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            engine.locator.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
             styles,
         )
     }
-}
 
-impl LayoutMultiple for Content {
-    fn layout(
+    /// Layout the content into the given regions.
+    pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -237,19 +180,21 @@ impl LayoutMultiple for Content {
             content: &Content,
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
+            traced: Tracked<Traced>,
+            sink: TrackedMut<Sink>,
             route: Tracked<Route>,
             locator: Tracked<Locator>,
-            tracer: TrackedMut<Tracer>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
-            let mut locator = Locator::chained(locator);
+            let link = LocatorLink::new(locator);
+            let locator = Locator::link(&link);
             let mut engine = Engine {
                 world,
                 introspector,
+                traced,
+                sink,
                 route: Route::extend(route),
-                locator: &mut locator,
-                tracer,
             };
 
             if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {
@@ -261,28 +206,28 @@ impl LayoutMultiple for Content {
 
             // If we are in a `PageElem`, this might already be a realized flow.
             if let Some(flow) = content.to_packed::<FlowElem>() {
-                return flow.layout(&mut engine, styles, regions);
+                return flow.layout(&mut engine, locator, styles, regions);
             }
 
             // Layout the content by first turning it into a `FlowElem` and then
             // layouting that.
+            let mut locator = locator.split();
             let arenas = Arenas::default();
-            let (flow, styles) = realize_flow(&mut engine, &arenas, content, styles)?;
-            flow.layout(&mut engine, styles, regions)
+            let (flow, styles) =
+                realize_flow(&mut engine, locator.next(&()), &arenas, content, styles)?;
+            flow.layout(&mut engine, locator.next(&()), styles, regions)
         }
 
-        let fragment = cached(
+        cached(
             self,
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            engine.locator.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
+            locator.track(),
             styles,
             regions,
-        )?;
-
-        engine.locator.visit_frames(&fragment);
-        Ok(fragment)
+        )
     }
 }

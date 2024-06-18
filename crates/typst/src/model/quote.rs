@@ -4,7 +4,9 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles,
 };
-use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
+use crate::layout::{
+    Alignment, BlockChild, BlockElem, Em, HElem, PadElem, Spacing, VElem,
+};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
@@ -181,8 +183,10 @@ impl Show for Packed<QuoteElem> {
         }
 
         if block {
-            realized =
-                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
+            realized = BlockElem::new()
+                .with_body(Some(BlockChild::Content(realized)))
+                .pack()
+                .spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
@@ -218,15 +222,14 @@ impl Show for Packed<QuoteElem> {
 }
 
 impl ShowSet for Packed<QuoteElem> {
-    fn show_set(&self, _: StyleChain) -> Styles {
-        let x = Em::new(1.0).into();
-        let above = Em::new(2.4).into();
-        let below = Em::new(1.8).into();
+    fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(PadElem::set_left(x));
-        out.set(PadElem::set_right(x));
-        out.set(BlockElem::set_above(VElem::block_around(above)));
-        out.set(BlockElem::set_below(VElem::block_around(below)));
+        if self.block(styles) {
+            out.set(PadElem::set_left(Em::new(1.0).into()));
+            out.set(PadElem::set_right(Em::new(1.0).into()));
+            out.set(BlockElem::set_above(Smart::Custom(Em::new(2.4).into())));
+            out.set(BlockElem::set_below(Smart::Custom(Em::new(1.8).into())));
+        }
         out
     }
 }

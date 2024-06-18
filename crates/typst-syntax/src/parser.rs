@@ -6,7 +6,9 @@ use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
 use crate::set::SyntaxSet;
-use crate::{ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxKind, SyntaxNode};
+use crate::{
+    ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode,
+};
 
 /// Parses a source file.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -633,6 +635,10 @@ fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
             code_expr(p);
             if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
                 p.expected("semicolon or line break");
+                if p.at(SyntaxKind::Label) {
+                    p.hint("labels can only be applied in markup mode");
+                    p.hint("try wrapping your code in a markup block (`[ ]`)");
+                }
             }
         }
 
@@ -1756,8 +1762,8 @@ impl<'s> Parser<'s> {
     fn save(&mut self) {
         let text = self.current_text();
         if self.at(SyntaxKind::Error) {
-            let message = self.lexer.take_error().unwrap();
-            self.nodes.push(SyntaxNode::error(message, text));
+            let error = self.lexer.take_error().unwrap();
+            self.nodes.push(SyntaxNode::error(error, text));
         } else {
             self.nodes.push(SyntaxNode::leaf(self.current, text));
         }
@@ -1834,8 +1840,17 @@ impl<'s> Parser<'s> {
     /// Produce an error that the given `thing` was expected at the position
     /// of the marker `m`.
     fn expected_at(&mut self, m: Marker, thing: &str) {
-        let error = SyntaxNode::error(eco_format!("expected {thing}"), "");
+        let error =
+            SyntaxNode::error(SyntaxError::new(eco_format!("expected {thing}")), "");
         self.nodes.insert(m.0, error);
+    }
+
+    /// Produce a hint.
+    fn hint(&mut self, hint: &str) {
+        let m = self.before_trivia();
+        if let Some(error) = self.nodes.get_mut(m.0 - 1) {
+            error.hint(hint);
+        }
     }
 
     /// Consume the next token (if any) and produce an error stating that it was

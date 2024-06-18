@@ -1,12 +1,10 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
+    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Styles,
 };
-use crate::layout::{
-    BlockElem, Dir, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Sides, Spacing,
-    StackChild, StackElem,
-};
+use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
 use crate::model::ParElem;
 use crate::text::TextElem;
 use crate::utils::Numeric;
@@ -27,7 +25,7 @@ use crate::utils::Numeric;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", LayoutMultiple)]
+#[elem(scope, title = "Term List", Show)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
@@ -82,10 +80,12 @@ pub struct TermsElem {
     #[default(Em::new(2.0).into())]
     pub hanging_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) term list.
+    /// The spacing between the items of the term list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// term lists and paragraph [`spacing`]($par.spacing) for wide
+    /// (non-tight) term lists.
+    pub spacing: Smart<Length>,
 
     /// The term list's children.
     ///
@@ -109,23 +109,18 @@ impl TermsElem {
     type TermItem;
 }
 
-impl LayoutMultiple for Packed<TermsElem> {
-    #[typst_macros::time(name = "terms", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
+impl Show for Packed<TermsElem> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
-        let gutter = if self.tight(styles) {
-            ParElem::leading_in(styles).into()
-        } else {
-            self.spacing(styles)
-                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-        };
+        let gutter = self.spacing(styles).unwrap_or_else(|| {
+            if self.tight(styles) {
+                ParElem::leading_in(styles).into()
+            } else {
+                ParElem::spacing_in(styles).into()
+            }
+        });
 
         let pad = hanging_indent + indent;
         let unpad = (!hanging_indent.is_zero())
@@ -148,11 +143,18 @@ impl LayoutMultiple for Packed<TermsElem> {
             padding.right = pad.into();
         }
 
-        StackElem::new(children)
-            .with_spacing(Some(gutter))
+        let mut realized = StackElem::new(children)
+            .with_spacing(Some(gutter.into()))
             .pack()
-            .padded(padding)
-            .layout(engine, styles, regions)
+            .padded(padding);
+
+        if self.tight(styles) {
+            let leading = ParElem::leading_in(styles);
+            let spacing = VElem::list_attach(leading.into()).pack();
+            realized = spacing + realized;
+        }
+
+        Ok(realized)
     }
 }
 
@@ -166,6 +168,15 @@ pub struct TermItem {
     /// The description of the term.
     #[required]
     pub description: Content,
+}
+
+impl Packed<TermItem> {
+    /// Apply styles to this term item.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        self.term.style_in_place(styles.clone());
+        self.description.style_in_place(styles);
+        self
+    }
 }
 
 cast! {

@@ -3,10 +3,10 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Resolve, StyleChain};
-use crate::layout::{Abs, AlignElem, Em, Frame, Point, Size};
+use crate::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
 use crate::math::{
     alignments, scaled_font_size, spacing, EquationElem, FrameFragment, MathContext,
-    MathFragment, MathParItem, MathSize,
+    MathFragment, MathSize,
 };
 use crate::model::ParElem;
 
@@ -117,11 +117,19 @@ impl MathRun {
     }
 
     pub fn ascent(&self) -> Abs {
-        self.iter().map(MathFragment::ascent).max().unwrap_or_default()
+        self.iter()
+            .filter(|e| affects_row_height(e))
+            .map(|e| e.ascent())
+            .max()
+            .unwrap_or_default()
     }
 
     pub fn descent(&self) -> Abs {
-        self.iter().map(MathFragment::descent).max().unwrap_or_default()
+        self.iter()
+            .filter(|e| affects_row_height(e))
+            .map(|e| e.descent())
+            .max()
+            .unwrap_or_default()
     }
 
     pub fn class(&self) -> MathClass {
@@ -251,7 +259,7 @@ impl MathRun {
         frame
     }
 
-    pub fn into_par_items(self) -> Vec<MathParItem> {
+    pub fn into_par_items(self) -> Vec<InlineItem> {
         let mut items = vec![];
 
         let mut x = Abs::zero();
@@ -279,7 +287,7 @@ impl MathRun {
                 match fragment {
                     MathFragment::Space(width)
                     | MathFragment::Spacing(SpacingFragment { width, .. }) => {
-                        items.push(MathParItem::Space(width));
+                        items.push(InlineItem::Space(width, true));
                         continue;
                     }
                     _ => {}
@@ -305,7 +313,7 @@ impl MathRun {
                     std::mem::replace(&mut frame, Frame::soft(Size::zero()));
 
                 finalize_frame(&mut frame_prev, x, ascent, descent);
-                items.push(MathParItem::Frame(frame_prev));
+                items.push(InlineItem::Frame(frame_prev));
                 empty = true;
 
                 x = Abs::zero();
@@ -315,7 +323,7 @@ impl MathRun {
                 space_is_visible = true;
                 if let Some(f_next) = iter.peek() {
                     if !is_space(f_next) {
-                        items.push(MathParItem::Space(Abs::zero()));
+                        items.push(InlineItem::Space(Abs::zero(), true));
                     }
                 }
             } else {
@@ -327,7 +335,7 @@ impl MathRun {
         // contribute width (if it had hidden content).
         if !empty {
             finalize_frame(&mut frame, x, ascent, descent);
-            items.push(MathParItem::Frame(frame));
+            items.push(InlineItem::Frame(frame));
         }
 
         items
@@ -385,4 +393,8 @@ impl MathRunFrameBuilder {
         }
         frame
     }
+}
+
+fn affects_row_height(fragment: &MathFragment) -> bool {
+    !matches!(fragment, MathFragment::Align | MathFragment::Linebreak)
 }

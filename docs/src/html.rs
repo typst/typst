@@ -7,7 +7,6 @@ use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileResult, StrResult};
-use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -411,8 +410,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let source = Source::new(id, compile);
     let world = DocWorld(source);
 
-    let mut tracer = Tracer::new();
-    let mut document = match typst::compile(&world, &mut tracer) {
+    let mut document = match typst::compile(&world).output {
         Ok(doc) => doc,
         Err(err) => {
             let msg = &err[0].message;

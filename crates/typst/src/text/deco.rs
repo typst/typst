@@ -423,7 +423,7 @@ pub(crate) fn decorate(
     {
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
         let size = Size::new(width + 2.0 * deco.extent, top - bottom);
-        let rects = styled_rect(size, *radius, fill.clone(), stroke.clone());
+        let rects = styled_rect(size, radius, fill.clone(), stroke);
         let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
         frame.prepend_multiple(
             rects

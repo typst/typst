@@ -139,6 +139,55 @@
   [G], [H]
 )
 
+--- table-contextual-measurement ---
+// Test that table cells with varying contextual results are properly
+// measured.
+#let c = counter("c")
+#let k = context square(width: c.get().first() * 5pt)
+#let u(n) = [#n] + c.update(n)
+#table(
+  columns: 3,
+  u(1), k, u(2),
+  k, u(4), k,
+  k, k, k,
+)
+
+--- table-header-citation ---
+#set page(height: 60pt)
+#table(
+  table.header[@netwok],
+  [A],
+  [A],
+)
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
+--- table-header-counter ---
+#set page(height: 60pt)
+#let c = counter("c")
+#table(
+  table.header(c.step() + context c.display()),
+  [A],
+  [A],
+)
+
+--- table-header-footer-madness ---
+#set page(height: 100pt)
+#let c = counter("c")
+#let it = context c.get().first() * v(10pt)
+#table(
+  table.header(c.step()),
+  [A],
+  [A],
+  [A],
+  [A],
+  [A],
+  [A],
+  [A],
+  table.footer(it),
+)
+
 --- table-cell-override ---
 // Cell override
 #table(
@@ -262,7 +311,8 @@
 }
 
 --- grid-cell-in-table ---
-// Error: 8-19 cannot use `grid.cell` as a table cell; use `table.cell` instead
+// Error: 8-19 cannot use `grid.cell` as a table cell
+// Hint: 8-19 use `table.cell` instead
 #table(grid.cell[])
 
 --- issue-183-table-lines ---

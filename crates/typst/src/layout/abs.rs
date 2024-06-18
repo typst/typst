@@ -7,6 +7,9 @@ use ecow::EcoString;
 use crate::foundations::{cast, repr, Fold, Repr, Value};
 use crate::utils::{Numeric, Scalar};
 
+/// The epsilon for approximate comparisons.
+const EPS: f64 = 1e-6;
+
 /// An absolute length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Abs(Scalar);
@@ -54,7 +57,7 @@ impl Abs {
 
     /// Get the value of this absolute length in raw units.
     pub const fn to_raw(self) -> f64 {
-        (self.0).get()
+        self.0.get()
     }
 
     /// Get the value of this absolute length in a unit.
@@ -110,12 +113,17 @@ impl Abs {
     /// Whether the other absolute length fits into this one (i.e. is smaller).
     /// Allows for a bit of slack.
     pub fn fits(self, other: Self) -> bool {
-        self.0 + 1e-6 >= other.0
+        self.0 + EPS >= other.0
     }
 
     /// Compares two absolute lengths for whether they are approximately equal.
     pub fn approx_eq(self, other: Self) -> bool {
-        self == other || (self - other).to_raw().abs() < 1e-6
+        self == other || (self - other).to_raw().abs() < EPS
+    }
+
+    /// Whether the size is close to zero or negative.
+    pub fn approx_empty(self) -> bool {
+        self.to_raw() <= EPS
     }
 
     /// Returns a number that represent the sign of this length

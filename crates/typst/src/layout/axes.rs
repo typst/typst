@@ -4,7 +4,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, Not};
 
 use crate::diag::bail;
 use crate::foundations::{array, cast, Array, Resolve, Smart, StyleChain};
-use crate::layout::{Abs, Dir, Length, Ratio, Rel};
+use crate::layout::{Abs, Dir, Length, Ratio, Rel, Size};
 use crate::utils::Get;
 
 /// A container with a horizontal and vertical component.
@@ -117,6 +117,16 @@ impl<T: Ord> Axes<T> {
     /// The minimum of width and height.
     pub fn max_by_side(self) -> T {
         self.x.max(self.y)
+    }
+}
+
+impl Axes<Rel<Abs>> {
+    /// Evaluate the axes relative to the given `size`.
+    pub fn relative_to(&self, size: Size) -> Size {
+        Size {
+            x: self.x.relative_to(size.x),
+            y: self.y.relative_to(size.y),
+        }
     }
 }
 

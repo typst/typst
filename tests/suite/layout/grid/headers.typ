@@ -133,14 +133,16 @@
 )
 
 --- table-header-in-grid ---
-// Error: 2:3-2:20 cannot use `table.header` as a grid header; use `grid.header` instead
+// Error: 2:3-2:20 cannot use `table.header` as a grid header
+// Hint: 2:3-2:20 use `grid.header` instead
 #grid(
   table.header([a]),
   [a],
 )
 
 --- grid-header-in-table ---
-// Error: 2:3-2:19 cannot use `grid.header` as a table header; use `table.header` instead
+// Error: 2:3-2:19 cannot use `grid.header` as a table header
+// Hint: 2:3-2:19 use `table.header` instead
 #table(
   grid.header([a]),
   [a],

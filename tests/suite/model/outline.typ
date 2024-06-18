@@ -118,6 +118,7 @@ Ok ...
 }
 
 #outline(indent: auto)
+#v(1.2em, weak: true)
 
 #set text(8pt)
 #show heading: set block(spacing: 0.65em)
@@ -142,6 +143,7 @@ Ok ...
 
 #counter(page).update(3)
 #outline(indent: auto, fill: repeat[--])
+#v(1.2em, weak: true)
 
 #set text(8pt)
 #show heading: set block(spacing: 0.65em)

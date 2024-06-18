@@ -69,7 +69,8 @@ pub fn write_color_fonts(
                     .font
                     .advance(color_glyph.gid)
                     .unwrap_or(Em::new(0.0))
-                    .to_font_units();
+                    .get() as f32
+                    * scale_factor;
                 widths.push(width);
                 chunk
                     .stream(
@@ -114,7 +115,7 @@ pub fn write_color_fonts(
             pdf_font.finish();
 
             // Encode a CMAP to make it possible to search or copy glyphs.
-            let glyph_set = resources.glyph_sets.get(&font_slice.font).unwrap();
+            let glyph_set = resources.color_glyph_sets.get(&font_slice.font).unwrap();
             let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
             for (index, glyph) in subset.iter().enumerate() {
                 let Some(text) = glyph_set.get(&glyph.gid) else {
@@ -239,8 +240,10 @@ impl ColorFontMap<()> {
             }
 
             let frame = frame_for_glyph(font, gid);
-            let width = font.advance(gid).unwrap_or(Em::new(0.0)).to_font_units();
-            let instructions = content::build(&mut self.resources, &frame, Some(width));
+            let width =
+                font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
+            let instructions =
+                content::build(&mut self.resources, &frame, Some(width as f32));
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 

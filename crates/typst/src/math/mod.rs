@@ -2,7 +2,9 @@
 
 #[macro_use]
 mod ctx;
-mod accent;
+
+pub mod accent;
+
 mod align;
 mod attach;
 mod cancel;
@@ -21,7 +23,7 @@ mod stretch;
 mod style;
 mod underover;
 
-pub use self::accent::*;
+pub use self::accent::{Accent, AccentElem};
 pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
@@ -46,7 +48,7 @@ use crate::foundations::{
     StyledElem,
 };
 use crate::introspection::TagElem;
-use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing};
+use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing, VAlignment};
 use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -232,7 +234,7 @@ impl LayoutMath for Content {
             return elem.layout_math(ctx, styles);
         }
 
-        if let Some(realized) = process(ctx.engine, self, styles)? {
+        if let Some(realized) = process(ctx.engine, &mut ctx.locator, self, styles)? {
             return realized.layout_math(ctx, styles);
         }
 
@@ -241,7 +243,7 @@ impl LayoutMath for Content {
             self.sequence_recursive_for_each(&mut |child: &Content| {
                 bb.push(child, StyleChain::default());
             });
-            for child in bb.finish::<Content>().0 {
+            for (child, _) in bb.finish().0.chain(&styles) {
                 child.layout_math(ctx, styles)?;
             }
             return Ok(());
@@ -296,9 +298,9 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(tag) = self.to_packed::<TagElem>() {
+        if let Some(elem) = self.to_packed::<TagElem>() {
             let mut frame = Frame::soft(Size::zero());
-            frame.push(Point::zero(), FrameItem::Tag(tag.elem.clone()));
+            frame.push(Point::zero(), FrameItem::Tag(elem.tag.clone()));
             ctx.push(FrameFragment::new(ctx, styles, frame));
             return Ok(());
         }
@@ -315,5 +317,13 @@ impl LayoutMath for Content {
         ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
 
         Ok(())
+    }
+}
+
+fn delimiter_alignment(delimiter: char) -> VAlignment {
+    match delimiter {
+        '\u{231c}' | '\u{231d}' => VAlignment::Top,
+        '\u{231e}' | '\u{231f}' => VAlignment::Bottom,
+        _ => VAlignment::Horizon,
     }
 }

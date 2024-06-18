@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 
 use ecow::eco_format;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult, StrResult};
 use crate::eval::{access_dict, Access, Eval, Vm};
 use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
 use crate::layout::{Alignment, Length, Rel};
@@ -59,7 +59,7 @@ impl Eval for ast::Binary<'_> {
 fn apply_binary(
     binary: ast::Binary,
     vm: &mut Vm,
-    op: fn(Value, Value) -> StrResult<Value>,
+    op: fn(Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let lhs = binary.lhs().eval(vm)?;
 
@@ -78,7 +78,7 @@ fn apply_binary(
 fn apply_assignment(
     binary: ast::Binary,
     vm: &mut Vm,
-    op: fn(Value, Value) -> StrResult<Value>,
+    op: fn(Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let rhs = binary.rhs().eval(vm)?;
     let lhs = binary.lhs();
@@ -102,7 +102,7 @@ fn apply_assignment(
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(eco_format!($fmt, $($value.ty()),*))
+        return Err(eco_format!($fmt, $($value.ty()),*).into())
     };
 }
 
@@ -134,7 +134,7 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Apply the unary plus operator to a value.
-pub fn pos(value: Value) -> StrResult<Value> {
+pub fn pos(value: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match value {
         Int(v) => Int(v),
@@ -159,7 +159,7 @@ pub fn pos(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the negation of a value.
-pub fn neg(value: Value) -> StrResult<Value> {
+pub fn neg(value: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match value {
         Int(v) => Int(v.checked_neg().ok_or_else(too_large)?),
@@ -176,7 +176,7 @@ pub fn neg(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the sum of two values.
-pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (a, None) => a,
@@ -252,7 +252,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the difference of two values.
-pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn sub(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or_else(too_large)?),
@@ -285,7 +285,7 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the product of two values.
-pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn mul(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or_else(too_large)?),
@@ -344,7 +344,7 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the quotient of two values.
-pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     if is_zero(&rhs) {
         bail!("cannot divide by zero");
@@ -416,7 +416,7 @@ fn try_div_relative(a: Rel<Length>, b: Rel<Length>) -> StrResult<f64> {
 }
 
 /// Compute the logical "not" of a value.
-pub fn not(value: Value) -> StrResult<Value> {
+pub fn not(value: Value) -> HintedStrResult<Value> {
     match value {
         Value::Bool(b) => Ok(Value::Bool(!b)),
         v => mismatch!("cannot apply 'not' to {}", v),
@@ -424,7 +424,7 @@ pub fn not(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the logical "and" of two values.
-pub fn and(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn and(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     match (lhs, rhs) {
         (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(a && b)),
         (a, b) => mismatch!("cannot apply 'and' to {} and {}", a, b),
@@ -432,7 +432,7 @@ pub fn and(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the logical "or" of two values.
-pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn or(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     match (lhs, rhs) {
         (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(a || b)),
         (a, b) => mismatch!("cannot apply 'or' to {} and {}", a, b),
@@ -440,19 +440,19 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute whether two values are equal.
-pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn eq(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(equal(&lhs, &rhs)))
 }
 
 /// Compute whether two values are unequal.
-pub fn neq(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn neq(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(!equal(&lhs, &rhs)))
 }
 
 macro_rules! comparison {
     ($name:ident, $op:tt, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
-        pub fn $name(lhs: Value, rhs: Value) -> StrResult<Value> {
+        pub fn $name(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
             let ordering = compare(&lhs, &rhs)?;
             Ok(Value::Bool(matches!(ordering, $($pat)*)))
         }
@@ -577,7 +577,7 @@ fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
 }
 
 /// Test whether one value is "in" another one.
-pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn in_(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     if let Some(b) = contains(&lhs, &rhs) {
         Ok(Value::Bool(b))
     } else {
@@ -586,7 +586,7 @@ pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Test whether one value is "not in" another one.
-pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn not_in(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     if let Some(b) = contains(&lhs, &rhs) {
         Ok(Value::Bool(!b))
     } else {

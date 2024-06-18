@@ -18,7 +18,7 @@ use crate::foundations::{
     NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
     Value,
 };
-use crate::introspection::{Location, TagElem};
+use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
@@ -137,20 +137,26 @@ impl Content {
         self.inner.label
     }
 
-    /// Set the label of the content.
+    /// Attach a label to the content.
     pub fn labelled(mut self, label: Label) -> Self {
-        self.make_mut().label = Some(label);
+        self.set_label(label);
         self
     }
 
-    /// Check whether a show rule recipe is disabled.
-    pub fn is_guarded(&self, index: RecipeIndex) -> bool {
-        self.inner.lifecycle.contains(index.0)
+    /// Set the label of the content.
+    pub fn set_label(&mut self, label: Label) {
+        self.make_mut().label = Some(label);
     }
 
-    /// Whether this content has already been prepared.
-    pub fn is_prepared(&self) -> bool {
-        self.inner.lifecycle.contains(0)
+    /// Assigns a location to the content.
+    ///
+    /// This identifies the content and e.g. makes it linkable by
+    /// `.linked(Destination::Location(loc))`.
+    ///
+    /// Useful in combination with [`Location::variant`].
+    pub fn located(mut self, loc: Location) -> Self {
+        self.set_location(loc);
+        self
     }
 
     /// Set the location of the content.
@@ -158,10 +164,20 @@ impl Content {
         self.make_mut().location = Some(location);
     }
 
+    /// Check whether a show rule recipe is disabled.
+    pub fn is_guarded(&self, index: RecipeIndex) -> bool {
+        self.inner.lifecycle.contains(index.0)
+    }
+
     /// Disable a show rule recipe.
     pub fn guarded(mut self, index: RecipeIndex) -> Self {
         self.make_mut().lifecycle.insert(index.0);
         self
+    }
+
+    /// Whether this content has already been prepared.
+    pub fn is_prepared(&self) -> bool {
+        self.inner.lifecycle.contains(0)
     }
 
     /// Mark this content as prepared.
@@ -385,6 +401,19 @@ impl Content {
         }
     }
 
+    /// Style this content with a full style map in-place.
+    pub fn style_in_place(&mut self, styles: Styles) {
+        if styles.is_empty() {
+            return;
+        }
+
+        if let Some(style_elem) = self.to_packed_mut::<StyledElem>() {
+            style_elem.styles.apply(styles);
+        } else {
+            *self = StyledElem::new(std::mem::take(self), styles).into();
+        }
+    }
+
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
@@ -473,15 +502,6 @@ impl Content {
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
         self.styled(LinkElem::set_dests(smallvec![dest]))
-    }
-
-    /// Make the content linkable by `.linked(Destination::Location(loc))`.
-    ///
-    /// Should be used in combination with [`Location::variant`].
-    pub fn backlinked(self, loc: Location) -> Self {
-        let mut backlink = Content::empty().spanned(self.span());
-        backlink.set_location(loc);
-        TagElem::packed(backlink) + self
     }
 
     /// Set alignments for this content.

@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
@@ -49,10 +49,7 @@ pub struct AlignElem {
 impl Show for Packed<AlignElem> {
     #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self
-            .body()
-            .clone()
-            .styled(AlignElem::set_alignment(self.alignment(styles))))
+        Ok(self.body().clone().aligned(self.alignment(styles)))
     }
 }
 
@@ -419,6 +416,16 @@ impl VAlignment {
             Self::Bottom => Self::Top,
         }
     }
+
+    /// Returns the position of this alignment in a container with the given
+    /// extent.
+    pub fn position(self, extent: Abs) -> Abs {
+        match self {
+            Self::Top => Abs::zero(),
+            Self::Horizon => extent / 2.0,
+            Self::Bottom => extent,
+        }
+    }
 }
 
 impl FixAlignment for VAlignment {
@@ -630,7 +637,7 @@ where
     H: Reflect + TryFrom<Alignment, Error = EcoString>,
     V: Reflect + TryFrom<Alignment, Error = EcoString>,
 {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         if Alignment::castable(&value) {
             let align = Alignment::from_value(value)?;
             let result = match align {

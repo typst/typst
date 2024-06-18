@@ -90,12 +90,12 @@ pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>)
                         }
                     }
                 }
-                EncodedImage::Svg(svg_chunk) => {
+                EncodedImage::Svg(svg_chunk, id) => {
                     let mut map = HashMap::new();
                     svg_chunk.renumber_into(&mut chunk.chunk, |old| {
                         *map.entry(old).or_insert_with(|| chunk.alloc.bump())
                     });
-                    out.insert(image.clone(), map[&Ref::new(1)]);
+                    out.insert(image.clone(), map[&id]);
                 }
             }
         }
@@ -132,7 +132,10 @@ pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpac
 
             EncodedImage::Raster { data, filter, has_color, width, height, icc, alpha }
         }
-        ImageKind::Svg(svg) => EncodedImage::Svg(encode_svg(svg)),
+        ImageKind::Svg(svg) => {
+            let (chunk, id) = encode_svg(svg);
+            EncodedImage::Svg(chunk, id)
+        }
     });
 
     (deferred, color_space)
@@ -142,6 +145,7 @@ pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpac
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
+#[typst_macros::time(name = "encode raster image")]
 fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
     let dynamic = image.dynamic();
     let channel_count = dynamic.color().channel_count();
@@ -166,6 +170,7 @@ fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
 }
 
 /// Encode an image's alpha channel if present.
+#[typst_macros::time(name = "encode alpha")]
 fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = raster
         .dynamic()
@@ -176,25 +181,10 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 }
 
 /// Encode an SVG into a chunk of PDF objects.
-///
-/// The main XObject will have ID 1.
-fn encode_svg(svg: &SvgImage) -> Chunk {
-    let mut chunk = Chunk::new();
-
-    // Safety: We do not keep any references to tree nodes beyond the
-    // scope of `with`.
-    unsafe {
-        svg.with(|tree| {
-            svg2pdf::convert_tree_into(
-                tree,
-                svg2pdf::Options::default(),
-                &mut chunk,
-                Ref::new(1),
-            );
-        });
-    }
-
-    chunk
+#[typst_macros::time(name = "encode svg")]
+fn encode_svg(svg: &SvgImage) -> (Chunk, Ref) {
+    // TODO: Don't unwrap once we have export diagostics.
+    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default()).unwrap()
 }
 
 /// A pre-encoded image.
@@ -219,5 +209,5 @@ pub enum EncodedImage {
     /// A vector graphic.
     ///
     /// The chunk is the SVG converted to PDF objects.
-    Svg(Chunk),
+    Svg(Chunk, Ref),
 }

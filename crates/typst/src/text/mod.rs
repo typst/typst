@@ -29,14 +29,13 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
-use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
-use rustybuzz::{Feature, Tag};
+use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::Rect;
+use ttf_parser::{Rect, Tag};
 
-use crate::diag::{bail, warning, At, Hint, SourceResult, StrResult};
+use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
@@ -112,7 +111,8 @@ pub struct TextElem {
     ///   variable to add directories that should be scanned for fonts. The
     ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
     ///   `typst fonts` to see the fonts that Typst has discovered on your
-    ///   system.
+    ///   system. Note that you can pass the `--ignore-system-fonts` parameter
+    ///   to the CLI to ensure Typst won't search for system fonts.
     ///
     /// ```example
     /// #set text(font: "PT Sans")
@@ -132,7 +132,7 @@ pub struct TextElem {
             let book = engine.world.book();
             for family in &font_list.v {
                 if !book.contains_family(family.as_str()) {
-                    engine.tracer.warn(warning!(
+                    engine.sink.warn(warning!(
                         font_list.span,
                         "unknown font family: {}",
                         family.as_str(),
@@ -394,7 +394,6 @@ pub struct TextElem {
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
-    #[parse(parse_lang(args)?)]
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,
@@ -812,7 +811,7 @@ cast! {
         self.0.into_value()
     },
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
+    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
 }
 
 /// Resolve a prioritized iterator over the font families.
@@ -1131,7 +1130,7 @@ cast! {
             let tag = v.cast::<EcoString>()?;
             Ok((Tag::from_bytes_lossy(tag.as_bytes()), 1))
         })
-        .collect::<StrResult<_>>()?),
+        .collect::<HintedStrResult<_>>()?),
     values: Dict => Self(values
         .into_iter()
         .map(|(k, v)| {
@@ -1139,7 +1138,7 @@ cast! {
             let tag = Tag::from_bytes_lossy(k.as_bytes());
             Ok((tag, num))
         })
-        .collect::<StrResult<_>>()?),
+        .collect::<HintedStrResult<_>>()?),
 }
 
 impl Fold for FontFeatures {
@@ -1299,28 +1298,4 @@ cast! {
         v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
         ret
     },
-}
-
-/// Function to parse the language argument.
-/// Provides a hint if a region is used in the language parameter.
-fn parse_lang(args: &mut Args) -> SourceResult<Option<Lang>> {
-    let Some(Spanned { v: iso, span }) = args.named::<Spanned<EcoString>>("lang")? else {
-        return Ok(None);
-    };
-
-    let result = Lang::from_str(&iso);
-    if result.is_err() {
-        if let Some((lang, region)) = iso.split_once('-') {
-            if Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
-                return result
-                    .hint(eco_format!(
-                        "you should leave only \"{}\" in the `lang` parameter and specify \"{}\" in the `region` parameter",
-                        lang, region,
-                    ))
-                    .at(span)
-                    .map(Some);
-            }
-        }
-    }
-    result.at(span).map(Some)
 }

@@ -238,3 +238,31 @@ Look, ma, no page numbers!
 
 #set page(header: auto, footer: auto)
 Default page numbers now.
+
+--- issue-2631-page-header-ordering ---
+#set text(6pt)
+#show heading: set text(6pt, weight: "regular")
+#set page(
+  margin: (x: 10pt, top: 20pt, bottom: 10pt),
+  height: 50pt,
+  header: context {
+    let prev = query(selector(heading).before(here()))
+    let next = query(selector(heading).after(here()))
+    let prev = if prev != () { prev.last().body }
+    let next = if next != () { next.first().body }
+    (prev: prev, next: next)
+  }
+)
+
+= First
+Hi
+#pagebreak()
+= Second
+
+--- issue-4340-set-document-and-page ---
+// Test custom page fields being applied on the last page
+// if the document has custom fields.
+#set document(author: "")
+#set page(fill: gray)
+text
+#pagebreak()

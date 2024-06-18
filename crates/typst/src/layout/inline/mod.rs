@@ -1,7 +1,7 @@
 mod linebreak;
 mod shaping;
 
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -11,16 +11,15 @@ use self::shaping::{
     END_PUNCT_PAT,
 };
 use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
-use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
-use crate::introspection::{Introspector, Locator, TagElem};
+use crate::engine::{Engine, Route, Sink, Traced};
+use crate::foundations::{Packed, Resolve, Smart, StyleChain};
+use crate::introspection::{Introspector, Locator, LocatorLink, Tag, TagElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame,
-    FrameItem, HElem, Point, Regions, Size, Sizing, Spacing,
+    Abs, AlignElem, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, FrameItem,
+    HElem, InlineElem, InlineItem, Point, Size, Sizing, Spacing,
 };
-use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
+use crate::realize::StyleVec;
 use crate::syntax::Span;
 use crate::text::{
     Costs, Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem,
@@ -31,8 +30,9 @@ use crate::World;
 
 /// Layouts content inline.
 pub(crate) fn layout_inline(
-    children: &[Content],
+    children: &StyleVec,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     consecutive: bool,
     region: Size,
@@ -41,29 +41,31 @@ pub(crate) fn layout_inline(
     #[comemo::memoize]
     #[allow(clippy::too_many_arguments)]
     fn cached(
-        children: &[Content],
+        children: &StyleVec,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
         locator: Tracked<Locator>,
-        tracer: TrackedMut<Tracer>,
         styles: StyleChain,
         consecutive: bool,
         region: Size,
         expand: bool,
     ) -> SourceResult<Fragment> {
-        let mut locator = Locator::chained(locator);
+        let link = LocatorLink::new(locator);
+        let locator = Locator::link(&link);
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route),
-            locator: &mut locator,
-            tracer,
         };
 
         // Collect all text into one string for BiDi analysis.
         let (text, segments, spans) =
-            collect(children, &mut engine, &styles, region, consecutive)?;
+            collect(children, &mut engine, locator, &styles, region, consecutive)?;
 
         // Perform BiDi analysis and then prepare paragraph layout by building a
         // representation on which we can do line breaking without layouting
@@ -78,21 +80,19 @@ pub(crate) fn layout_inline(
         finalize(&mut engine, &p, &lines, region, expand, shrink)
     }
 
-    let fragment = cached(
+    cached(
         children,
         engine.world,
         engine.introspector,
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
-        engine.locator.track(),
-        TrackedMut::reborrow_mut(&mut engine.tracer),
+        locator.track(),
         styles,
         consecutive,
         region,
         expand,
-    )?;
-
-    engine.locator.visit_frames(&fragment);
-    Ok(fragment)
+    )
 }
 
 /// Range of a substring of text.
@@ -220,14 +220,14 @@ impl Segment<'_> {
 enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
-    /// Absolute spacing between other items.
+    /// Absolute spacing between other items, and whether it is weak.
     Absolute(Abs, bool),
     /// Fractional spacing between other items.
-    Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
+    Fractional(Fr, Option<(&'a Packed<BoxElem>, Locator<'a>, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame, StyleChain<'a>),
     /// A tag.
-    Tag(&'a Packed<TagElem>),
+    Tag(&'a Tag),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(&'static str),
@@ -429,14 +429,16 @@ impl<'a> Line<'a> {
 /// Collect all text of the paragraph into one string and layout equations. This
 /// also performs string-level preprocessing like case transformations.
 fn collect<'a>(
-    children: &'a [Content],
+    children: &'a StyleVec,
     engine: &mut Engine<'_>,
+    locator: Locator<'a>,
     styles: &'a StyleChain<'a>,
     region: Size,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
-    let mut iter = children.iter().peekable();
+    let mut iter = children.chain(styles).peekable();
+    let mut locator = locator.split();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
@@ -456,14 +458,7 @@ fn collect<'a>(
 
     let outer_dir = TextElem::dir_in(*styles);
 
-    while let Some(mut child) = iter.next() {
-        let outer = styles;
-        let mut styles = *styles;
-        if let Some(styled) = child.to_packed::<StyledElem>() {
-            child = &styled.child;
-            styles = outer.chain(&styled.styles);
-        }
-
+    while let Some((child, styles)) = iter.next() {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
@@ -516,12 +511,7 @@ fn collect<'a>(
                     TextElem::region_in(styles),
                     elem.alternative(styles),
                 );
-                let peeked = iter.peek().and_then(|&child| {
-                    let child = if let Some(styled) = child.to_packed::<StyledElem>() {
-                        &styled.child
-                    } else {
-                        child
-                    };
+                let peeked = iter.peek().and_then(|(child, _)| {
                     if let Some(elem) = child.to_packed::<TextElem>() {
                         elem.text().chars().next()
                     } else if child.is::<SmartQuoteElem>() {
@@ -544,17 +534,15 @@ fn collect<'a>(
             } else {
                 collector.push_text(if double { "\"" } else { "'" }, styles);
             }
-        } else if let Some(elem) = child.to_packed::<EquationElem>() {
+        } else if let Some(elem) = child.to_packed::<InlineElem>() {
             collector.push_item(Item::Skip(LTR_ISOLATE));
 
-            let pod = Regions::one(region, Axes::splat(false));
-            for item in elem.layout_inline(engine, styles, pod)? {
+            for item in elem.layout(engine, locator.next(&elem.span()), styles, region)? {
                 match item {
-                    MathParItem::Space(space) => {
-                        // Spaces generated by math layout are weak.
-                        collector.push_item(Item::Absolute(space, true));
+                    InlineItem::Space(space, weak) => {
+                        collector.push_item(Item::Absolute(space, weak));
                     }
-                    MathParItem::Frame(frame) => {
+                    InlineItem::Frame(frame) => {
                         collector.push_item(Item::Frame(frame, styles));
                     }
                 }
@@ -562,15 +550,15 @@ fn collect<'a>(
 
             collector.push_item(Item::Skip(POP_ISOLATE));
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
+            let loc = locator.next(&elem.span());
             if let Sizing::Fr(v) = elem.width(styles) {
-                collector.push_item(Item::Fractional(v, Some((elem, styles))));
+                collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let pod = Regions::one(region, Axes::splat(false));
-                let frame = elem.layout(engine, styles, pod)?;
+                let frame = elem.layout(engine, loc, styles, region)?;
                 collector.push_item(Item::Frame(frame, styles));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
-            collector.push_item(Item::Tag(elem));
+            collector.push_item(Item::Tag(&elem.tag));
         } else {
             bail!(child.span(), "unexpected paragraph child");
         };
@@ -646,7 +634,7 @@ impl<'a> Collector<'a> {
 /// Prepare paragraph layout by shaping the whole paragraph.
 fn prepare<'a>(
     engine: &mut Engine,
-    children: &'a [Content],
+    children: &'a StyleVec,
     text: &'a str,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
@@ -686,9 +674,9 @@ fn prepare<'a>(
         bidi,
         items,
         spans,
-        hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
+        hyphenate: children.shared_get(styles, TextElem::hyphenate_in),
         costs: TextElem::costs_in(styles),
-        lang: shared_get(styles, children, TextElem::lang_in),
+        lang: children.shared_get(styles, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
@@ -817,21 +805,6 @@ fn is_generic_script(script: Script) -> bool {
 /// Whether these script can be part of the same shape run.
 fn is_compatible(a: Script, b: Script) -> bool {
     is_generic_script(a) || is_generic_script(b) || a == b
-}
-
-/// Get a style property, but only if it is the same for all children of the
-/// paragraph.
-fn shared_get<T: PartialEq>(
-    styles: StyleChain<'_>,
-    children: &[Content],
-    getter: fn(StyleChain) -> T,
-) -> Option<T> {
-    let value = getter(styles);
-    children
-        .iter()
-        .filter_map(|child| child.to_packed::<StyledElem>())
-        .all(|styled| getter(styles.chain(&styled.styles)) == value)
-        .then_some(value)
 }
 
 /// Find suitable linebreaks.
@@ -1438,10 +1411,10 @@ fn commit(
             }
             Item::Fractional(v, elem) => {
                 let amount = v.share(fr, remaining);
-                if let Some((elem, styles)) = elem {
+                if let Some((elem, loc, styles)) = elem {
                     let region = Size::new(amount, full);
-                    let pod = Regions::one(region, Axes::new(true, false));
-                    let mut frame = elem.layout(engine, *styles, pod)?;
+                    let mut frame =
+                        elem.layout(engine, loc.relayout(), *styles, region)?;
                     frame.post_process(*styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
                     push(&mut offset, frame);
@@ -1463,7 +1436,7 @@ fn commit(
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
-                frame.push(Point::zero(), FrameItem::Tag(tag.elem.clone()));
+                frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
                 frames.push((offset, frame));
             }
             Item::Skip(_) => {}

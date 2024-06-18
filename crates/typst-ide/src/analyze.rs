@@ -1,9 +1,9 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-use typst::engine::{Engine, Route};
-use typst::eval::{Tracer, Vm};
+use typst::engine::{Engine, Route, Sink, Traced};
+use typst::eval::Vm;
 use typst::foundations::{Context, Label, Scopes, Styles, Value};
-use typst::introspection::{Introspector, Locator};
+use typst::introspection::Introspector;
 use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
@@ -38,10 +38,7 @@ pub fn analyze_expr(
                 }
             }
 
-            let mut tracer = Tracer::new();
-            tracer.inspect(node.span());
-            typst::compile(world, &mut tracer).ok();
-            return tracer.values();
+            return typst::trace(world, node.span());
         }
     };
 
@@ -58,15 +55,15 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         return Some(source);
     }
 
-    let mut locator = Locator::default();
     let introspector = Introspector::default();
-    let mut tracer = Tracer::new();
+    let traced = Traced::default();
+    let mut sink = Sink::new();
     let engine = Engine {
         world: world.track(),
-        route: Route::default(),
         introspector: introspector.track(),
-        locator: &mut locator,
-        tracer: tracer.track_mut(),
+        traced: traced.track(),
+        sink: sink.track_mut(),
+        route: Route::default(),
     };
 
     let context = Context::none();

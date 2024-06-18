@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
 };
@@ -332,7 +332,7 @@ fn str_to_set(value: &str) -> StrResult<[EcoString; 2]> {
     }
 }
 
-fn array_to_set(value: Array) -> StrResult<[EcoString; 2]> {
+fn array_to_set(value: Array) -> HintedStrResult<[EcoString; 2]> {
     let value = value.as_slice();
     if value.len() != 2 {
         bail!(

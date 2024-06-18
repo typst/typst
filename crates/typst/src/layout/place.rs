@@ -1,8 +1,9 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain, Unlabellable};
+use crate::introspection::Locator;
 use crate::layout::{
-    Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, Size, VAlignment,
+    Alignment, Axes, Em, Fragment, Length, Regions, Rel, Size, VAlignment,
 };
 use crate::realize::{Behave, Behaviour};
 
@@ -108,6 +109,7 @@ impl Packed<PlaceElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         base: Size,
     ) -> SourceResult<Fragment> {
@@ -134,7 +136,7 @@ impl Packed<PlaceElem> {
             .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
-        let frame = child.layout(engine, styles, pod)?.into_frame();
+        let frame = child.layout(engine, locator, styles, pod)?.into_frame();
         Ok(Fragment::frame(frame))
     }
 }

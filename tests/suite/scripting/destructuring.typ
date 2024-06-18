@@ -119,12 +119,22 @@
 // Error: 7-14 expected pattern, found function call
 #let (a.at(0),) = (1,)
 
+--- destructuring-let-empty-array ---
+#let () = ()
+
+--- destructuring-let-empty-array-too-many-elements ---
+// Error: 6-8 too many elements to destructure
+// Hint: 6-8 the provided array has a length of 2, but the pattern expects an empty array
+#let () = (1, 2)
+
 --- destructuring-let-array-too-few-elements ---
 // Error: 13-14 not enough elements to destructure
+// Hint: 13-14 the provided array has a length of 2
 #let (a, b, c) = (1, 2)
 
 --- destructuring-let-array-too-few-elements-with-sink ---
 // Error: 7-10 not enough elements to destructure
+// Hint: 7-10 the provided array has a length of 2
 #let (..a, b, c, d) = (1, 2)
 
 --- destructuring-let-array-bool-invalid ---
@@ -183,6 +193,7 @@
 --- destructuring-let-array-trailing-placeholders ---
 // Trailing placeholders.
 // Error: 10-11 not enough elements to destructure
+// Hint: 10-11 the provided array has a length of 1
 #let (a, _, _, _, _) = (1,)
 #test(a, 1)
 
@@ -350,8 +361,10 @@
 
 --- issue-3275-destructuring-loop-over-2d-array-1 ---
 // Error: 10-11 not enough elements to destructure
+// Hint: 10-11 the provided array has a length of 1
 #for (x, y) in ((1,), (2,)) {}
 
 --- issue-3275-destructuring-loop-over-2d-array-2 ---
 // Error: 6-12 too many elements to destructure
+// Hint: 6-12 the provided array has a length of 3, but the pattern expects 2 elements
 #for (x, y) in ((1,2,3), (4,5,6)) {}
