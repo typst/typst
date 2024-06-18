@@ -60,8 +60,12 @@ impl World for TestWorld {
         self.slot(id, FileSlot::file)
     }
 
-    fn directory(&self, id: FileId) -> FileResult<EcoVec<EcoString>> {
-        self.slot(id, FileSlot::directory)
+    fn directory(
+        &self,
+        id: FileId,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
+        self.slot(id, |slot| slot.directory(dir_trailing))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -152,7 +156,10 @@ impl FileSlot {
     }
 
     /// Retrieve the directory's contents.
-    fn directory(&mut self) -> FileResult<EcoVec<EcoString>> {
+    fn directory(
+        &mut self,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
         self.directory
             .get_or_init(|| {
                 let path = system_path(self.id)?;
@@ -160,13 +167,27 @@ impl FileSlot {
                     FileError::Other(Some(EcoString::from(e.to_string())))
                 })?;
                 let mut vec = EcoVec::new();
+                let dir_trailing = dir_trailing.unwrap_or_default();
+                let dir_trailing = dir_trailing.as_str();
                 for entry in entries {
                     let entry = entry.map_err(|e| {
                         FileError::Other(Some(EcoString::from(e.to_string())))
                     })?;
+                    // If the entry is a directory, add a trailing slash.
+                    let is_directory =
+                        entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
                     let path = entry.path();
-                    let name =
-                        path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+                    let name = path
+                        .file_name()
+                        .and_then(|s| {
+                            let mut s = s.to_os_string();
+                            if is_directory {
+                                s.push(dir_trailing);
+                            }
+
+                            s.into_string().ok()
+                        })
+                        .unwrap_or_default();
                     vec.push(name.into());
                 }
                 Ok(vec)

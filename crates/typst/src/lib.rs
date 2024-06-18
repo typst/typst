@@ -213,7 +213,11 @@ pub trait World: Send + Sync {
     fn file(&self, id: FileId) -> FileResult<Bytes>;
 
     /// Try to access the specified directory.
-    fn directory(&self, id: FileId) -> FileResult<EcoVec<EcoString>>;
+    fn directory(
+        &self,
+        id: FileId,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>>;
 
     /// Try to access the font with the given index in the font book.
     fn font(&self, index: usize) -> Option<Font>;
@@ -261,8 +265,12 @@ macro_rules! delegate_for_ptr {
                 self.deref().file(id)
             }
 
-            fn directory(&self, id: FileId) -> FileResult<EcoVec<EcoString>> {
-                self.deref().directory(id)
+            fn directory(
+                &self,
+                id: FileId,
+                dir_trailing: Option<EcoString>,
+            ) -> FileResult<EcoVec<EcoString>> {
+                self.deref().directory(id, dir_trailing)
             }
 
             fn font(&self, index: usize) -> Option<Font> {

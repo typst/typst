@@ -63,8 +63,14 @@ pub fn read_dir(
     engine: &mut Engine,
     /// Path to a directory.
     path: Spanned<EcoString>,
+    /// Trailing to add to directories.
+    ///
+    /// If set to `{none}`, directories will not have a trailing.
+    #[named]
+    #[default(None)]
+    dir_trailing: Option<EcoString>,
 ) -> Result<EcoVec<EcoString>, EcoVec<SourceDiagnostic>> {
     let Spanned { v: path, span } = path;
     let id = span.resolve_path(&path).at(span)?;
-    engine.world.directory(id).at(span)
+    engine.world.directory(id, dir_trailing).at(span)
 }
