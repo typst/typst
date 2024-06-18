@@ -52,7 +52,11 @@ impl World for FuzzWorld {
         Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
     }
 
-    fn directory(&self, src: FileId) -> FileResult<EcoVec<EcoString>> {
+    fn directory(
+        &self,
+        src: FileId,
+        _dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
         Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
     }
 
