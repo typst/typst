@@ -499,6 +499,8 @@ their name. Some symbols are additionally available through shorthands, such as
 Refer to the [symbol pages]($reference/symbols) for a full list of the symbols.
 If a symbol is missing, you can also access it through a
 [Unicode escape sequence]($syntax/#escapes).
+A pretty complete list of LaTeX math symbols and their Typst equivalent can be
+found in the community-managed [typstfun PDF](http://mirrors.ctan.org/info/typstfun/typstfun.pdf).
 
 Alternate and related forms of symbols can often be selected by
 [appending a modifier]($symbol) after a period. For example,
