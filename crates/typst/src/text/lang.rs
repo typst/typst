@@ -24,6 +24,7 @@ const TRANSLATIONS: [(&str, &str); 31] = [
     translation!("et"),
     translation!("fi"),
     translation!("fr"),
+    translation!("gl"),
     translation!("gr"),
     translation!("hu"),
     translation!("it"),
@@ -67,6 +68,7 @@ impl Lang {
     pub const FILIPINO: Self = Self(*b"tl ", 2);
     pub const FINNISH: Self = Self(*b"fi ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
+    pub const GALICIAN: Self = Self(*b"gl ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const GREEK: Self = Self(*b"gr ", 2);
     pub const HUNGARIAN: Self = Self(*b"hu ", 2);
