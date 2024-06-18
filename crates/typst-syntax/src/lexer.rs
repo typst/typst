@@ -199,7 +199,7 @@ impl Lexer<'_> {
 /// Decorators.
 impl Lexer<'_> {
     fn decorator(&mut self) -> SyntaxKind {
-        let start = self.s.cursor() - 1;
+        let start = self.s.cursor() - 2;
 
         self.decorator.clear();
 
@@ -227,8 +227,11 @@ impl Lexer<'_> {
             self.decorator.push((token, end));
         }
 
+        // The saved tokens will be removed in reverse.
+        self.decorator.reverse();
+
         // Already collected all we need from the decorator.
-        self.s.jump(start + 1);
+        self.s.jump(start + 2);
 
         SyntaxKind::Decorator
     }
