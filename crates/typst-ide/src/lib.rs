@@ -12,7 +12,7 @@ pub use self::complete::{autocomplete, Completion, CompletionKind};
 pub use self::definition::{definition, Definition, DefinitionKind};
 pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
 pub use self::tooltip::{tooltip, Tooltip};
-use matchers::*;
+pub use matchers::{deref_target, named_items, DerefTarget, NamedItem};
 
 use std::fmt::Write;
 

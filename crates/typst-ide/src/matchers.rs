@@ -7,10 +7,10 @@ use typst::World;
 use crate::analyze::analyze_import;
 
 /// Find the named items starting from the given position.
-pub fn named_items<T, F: FnMut(NamedItem) -> Option<T>>(
+pub fn named_items<T>(
     world: &dyn World,
     position: LinkedNode,
-    mut recv: F,
+    mut recv: impl FnMut(NamedItem) -> Option<T>,
 ) -> Option<T> {
     let mut ancestor = Some(position);
     while let Some(node) = &ancestor {
@@ -96,10 +96,15 @@ pub fn named_items<T, F: FnMut(NamedItem) -> Option<T>>(
     None
 }
 
+/// An item that is named.
 pub enum NamedItem<'a> {
+    /// A variable item.
     Var(ast::Ident<'a>),
+    /// A function item.
     Fn(ast::Ident<'a>),
+    /// A (imported) module item.
     Module(&'a Module),
+    /// An imported item.
     Import(&'a EcoString, Span, Option<&'a Value>),
 }
 
@@ -135,7 +140,7 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
     let expr = expr_node.cast::<ast::Expr>()?;
     Some(match expr {
         ast::Expr::Label(..) => DerefTarget::Label(expr_node),
-        ast::Expr::Ref(..) => DerefTarget::Ref(expr_node),
+        ast::Expr::Ref(..) => DerefTarget::LabelRef(expr_node),
         ast::Expr::FuncCall(call) => {
             DerefTarget::Callee(expr_node.find(call.callee().span())?)
         }
@@ -150,25 +155,35 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
             } else if parent.kind() == SyntaxKind::ModuleInclude {
                 DerefTarget::IncludePath(expr_node)
             } else {
-                DerefTarget::Normal(expr_node.kind(), expr_node)
+                DerefTarget::Code(expr_node.kind(), expr_node)
             }
         }
         _ if expr.hash()
             || matches!(expr_node.kind(), SyntaxKind::MathIdent | SyntaxKind::Error) =>
         {
-            DerefTarget::Normal(expr_node.kind(), expr_node)
+            DerefTarget::Code(expr_node.kind(), expr_node)
         }
         _ => return None,
     })
 }
 
+/// A complete or incomplete "expression" node that can be operated by IDE.
 #[derive(Debug, Clone)]
 pub enum DerefTarget<'a> {
+    /// A label expression.
     Label(LinkedNode<'a>),
-    Ref(LinkedNode<'a>),
+    /// A label reference expression.
+    LabelRef(LinkedNode<'a>),
+    /// A variable access expression.
+    ///
+    /// It can be either an identifier or a field access.
     VarAccess(LinkedNode<'a>),
+    /// A function call expression.
     Callee(LinkedNode<'a>),
+    /// An import path expression.
     ImportPath(LinkedNode<'a>),
+    /// An include path expression.
     IncludePath(LinkedNode<'a>),
-    Normal(SyntaxKind, LinkedNode<'a>),
+    /// Any code expression.
+    Code(SyntaxKind, LinkedNode<'a>),
 }

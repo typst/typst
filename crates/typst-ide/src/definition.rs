@@ -32,7 +32,7 @@ pub fn definition(
                 analyze_import(world, &path).and_then(|v| v.cast::<Module>().ok())?;
             return Some(Definition::module(&import_item));
         }
-        DerefTarget::Ref(r) => {
+        DerefTarget::LabelRef(r) => {
             let ref_node = r.cast::<ast::Ref>()?.target();
             let sel = Selector::Label(Label::new(ref_node));
             let elem = document?.introspector.query_first(&sel)?;
@@ -46,7 +46,7 @@ pub fn definition(
                 name_span: Span::detached(),
             });
         }
-        DerefTarget::Label(..) | DerefTarget::Normal(..) => {
+        DerefTarget::Label(..) | DerefTarget::Code(..) => {
             return None;
         }
     };
