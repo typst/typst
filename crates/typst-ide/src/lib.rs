@@ -9,7 +9,7 @@ mod tooltip;
 
 pub use self::analyze::analyze_labels;
 pub use self::complete::{autocomplete, Completion, CompletionKind};
-pub use self::definition::{definition, Definition};
+pub use self::definition::{definition, Definition, DefinitionKind};
 pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
 pub use self::tooltip::{tooltip, Tooltip};
 use matchers::*;

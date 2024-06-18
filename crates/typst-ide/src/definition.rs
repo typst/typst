@@ -42,8 +42,8 @@ pub fn definition(
                 kind: DefinitionKind::Label,
                 name: r.text().clone(),
                 value: elem.label().map(Value::Label),
-                range: span,
-                name_range: Span::detached(),
+                span,
+                name_span: Span::detached(),
             });
         }
         DerefTarget::Label(..) | DerefTarget::Normal(..) => {
@@ -57,23 +57,29 @@ pub fn definition(
         use_site = use_site.find(node.target().span())?;
     }
 
-    let name = use_site.cast::<ast::Ident>()?.get().clone();
+    let name = &use_site.cast::<ast::Ident>()?.get().clone();
     let src = named_items(world, use_site, |item: NamedItem| {
-        if item.name() != &name {
+        if item.name() != name {
             return None;
         }
 
         match item {
             NamedItem::Var(name) => {
-                Some(Definition::item(name.get().clone(), name.span(), None))
+                let name_span = name.span();
+                let span = find_let_binding(source, name_span);
+                Some(Definition::item(name.get(), span, name_span, None))
             }
-            NamedItem::Fn(name) => Some(
-                Definition::item(name.get().clone(), name.span(), None)
-                    .with_kind(DefinitionKind::Function),
-            ),
+            NamedItem::Fn(name) => {
+                let name_span = name.span();
+                let span = find_let_binding(source, name_span);
+                Some(
+                    Definition::item(name.get(), span, name_span, None)
+                        .with_kind(DefinitionKind::Function),
+                )
+            }
             NamedItem::Module(item) => Some(Definition::module(item)),
             NamedItem::Import(name, span, value) => {
-                Some(Definition::item(name.clone(), span, value.cloned()))
+                Some(Definition::item(name, Span::detached(), span, value.cloned()))
             }
         }
     });
@@ -89,9 +95,10 @@ pub fn definition(
 
         let scope = if in_math { library.math.scope() } else { library.global.scope() };
         for (item_name, value) in scope.iter() {
-            if item_name == &name {
+            if item_name == name {
                 return Some(Definition::item(
-                    name.clone(),
+                    name,
+                    Span::detached(),
                     Span::detached(),
                     Some(value.clone()),
                 ));
@@ -117,10 +124,10 @@ pub struct Definition {
     pub kind: DefinitionKind,
     /// A possible instance of the definition.
     pub value: Option<Value>,
-    /// The source range of the entire definition.
-    pub range: Span,
-    /// The range of the name of the definition.
-    pub name_range: Span,
+    /// The source span of the entire definition.
+    pub span: Span,
+    /// The span of the name of the definition.
+    pub name_span: Span,
 }
 
 impl Definition {
@@ -128,7 +135,7 @@ impl Definition {
         Self { kind, ..self }
     }
 
-    fn item(name: EcoString, span: Span, value: Option<Value>) -> Self {
+    fn item(name: &EcoString, span: Span, name_span: Span, value: Option<Value>) -> Self {
         let kind = value
             .as_ref()
             .and_then(|e| {
@@ -140,7 +147,7 @@ impl Definition {
             })
             .unwrap_or(DefinitionKind::Variable);
 
-        Self { name, kind, value, range: span, name_range: span }
+        Self { name: name.clone(), kind, value, span, name_span }
     }
 
     fn module(module: &Module) -> Self {
@@ -151,35 +158,53 @@ impl Definition {
                 None => DefinitionKind::Module(module.clone()),
             },
             value: Some(Value::Module(module.clone())),
-            range: Span::detached(),
-            name_range: Span::detached(),
+            span: Span::detached(),
+            name_span: Span::detached(),
         }
     }
 }
 
-/// The kind of a definition.
+/// A kind of item that is definition.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum DefinitionKind {
-    /// `import ("fo" + "o.typ")`
-    ///           ^^^^^^^^
+    /// ```plain
+    /// let foo;
+    ///     ^^^
+    /// ```
+    Variable,
+    /// ```plain
+    /// let foo(it) = it;
+    ///     ^^^
+    /// ```
+    Function,
+    /// ```plain
+    /// import ("fo" + "o.typ")
+    ///          ^^^^^^^^
+    /// ```
     ///
     /// IDE will always resolve a path instead of a module whenever possible.
     /// This allows resolving a module containing errors.
     ModulePath(FileId),
-    /// `import calc: *`
-    ///         ^^^^
+    /// ```plain
+    /// import calc: *
+    ///        ^^^^
+    /// ```
     ///
     /// Some modules are not associated with a file, like the built-in modules.
     Module(Module),
-    /// `let foo;`
-    ///      ^^^
-    Variable,
-    /// `let foo(it) = it;`
-    ///      ^^^
-    Function,
-    /// `<foo>`
-    ///   ^^^
+    /// ```plain
+    /// <foo>
+    ///  ^^^
+    /// ```
     Label,
+}
+
+fn find_let_binding(source: &Source, name_span: Span) -> Span {
+    let node = LinkedNode::new(source.root());
+    std::iter::successors(node.find(name_span).as_ref(), |n| n.parent())
+        .find(|n| matches!(n.kind(), SyntaxKind::LetBinding))
+        .map(|s| s.span())
+        .unwrap_or_else(Span::detached)
 }
 
 #[cfg(test)]
@@ -192,7 +217,8 @@ mod tests {
 
     fn var(text: &str, value: bool) -> Option<Definition> {
         Some(Definition::item(
-            text.into(),
+            &text.into(),
+            Span::detached(),
             Span::detached(),
             if value { Some(Value::Bool(false)) } else { None },
         ))
