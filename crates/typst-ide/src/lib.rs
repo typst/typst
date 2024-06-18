@@ -7,7 +7,7 @@ mod jump;
 mod matchers;
 mod tooltip;
 
-pub use self::analyze::analyze_labels;
+pub use self::analyze::{analyze_expr, analyze_import, analyze_labels};
 pub use self::complete::{autocomplete, Completion, CompletionKind};
 pub use self::definition::{definition, Definition, DefinitionKind};
 pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
@@ -96,7 +96,7 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use once_cell::sync::Lazy;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
