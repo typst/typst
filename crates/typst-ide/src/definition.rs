@@ -139,11 +139,7 @@ impl Definition {
         let kind = value
             .as_ref()
             .and_then(|e| {
-                if matches!(e, Value::Func(..)) {
-                    Some(DefinitionKind::Function)
-                } else {
-                    None
-                }
+                matches!(e, Value::Func(..)).then_some(DefinitionKind::Function)
             })
             .unwrap_or(DefinitionKind::Variable);
 
