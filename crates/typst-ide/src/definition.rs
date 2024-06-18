@@ -209,8 +209,8 @@ fn find_let_binding(source: &Source, name_span: Span) -> Span {
 
 #[cfg(test)]
 mod tests {
+    use typst::foundations::Value;
     use typst::syntax::{Side, Span};
-    use typst::{eval::Tracer, foundations::Value};
 
     use super::{definition, Definition};
     use crate::tests::TestWorld;
@@ -231,7 +231,7 @@ mod tests {
     #[track_caller]
     fn test(text: &str, cursor: usize, expected: Option<Definition>) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).ok();
+        let doc = typst::compile(&world).output.ok();
         let actual = definition(&world, doc.as_ref(), &world.main, cursor, Side::After);
         let actual = actual.map(|d| (d.kind, d.name, d.value.is_some()));
         let expected = expected.map(|d| (d.kind, d.name, d.value.is_some()));
