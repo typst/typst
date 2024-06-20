@@ -1721,7 +1721,7 @@ impl Cmyk {
     }
 
     fn from_luma(luma: Luma) -> Self {
-        let l = luma.luma;
+        let l = 1.0 - luma.luma;
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
