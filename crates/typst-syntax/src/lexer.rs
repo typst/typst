@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -18,10 +18,6 @@ pub(super) struct Lexer<'s> {
     newline: bool,
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
-    /// The subtree of tokens associated with this token.
-    /// The parser is responsible for converting this subtree into syntax nodes
-    /// matching this structure.
-    subtree: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
     error: Option<SyntaxError>,
 }
@@ -49,7 +45,6 @@ impl<'s> Lexer<'s> {
             newline: false,
             error: None,
             raw: Vec::new(),
-            subtree: Vec::new(),
         }
     }
 
@@ -104,24 +99,24 @@ impl Lexer<'_> {
 impl Lexer<'_> {
     /// Proceed to the next token and return its [`SyntaxKind`]. Note the
     /// token could be a [trivia](SyntaxKind::is_trivia).
-    pub fn next(&mut self) -> SyntaxKind {
+    pub fn next(&mut self) -> SyntaxNode {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
-                return SyntaxKind::End;
+                return SyntaxNode::end();
             };
+            let start = self.s.cursor();
             self.s.jump(end);
-            return kind;
+            return self.emit_token(kind, start);
         }
 
         self.newline = false;
         self.error = None;
-        self.subtree.clear();
         let start = self.s.cursor();
-        match self.s.eat() {
+        let token = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
-            Some('/') if self.s.eat_if('!') => self.decorator(),
+            Some('/') if self.s.eat_if('!') => return self.decorator(start),
             Some('*') if self.s.eat_if('/') => {
                 let kind = self.error("unexpected end of block comment");
                 self.hint(
@@ -138,12 +133,22 @@ impl Lexer<'_> {
             },
 
             None => SyntaxKind::End,
-        }
+        };
+
+        self.emit_token(token, start)
     }
 
-    /// Takes the subtree associated with the latest token.
-    pub fn take_subtree(&mut self) -> Vec<(SyntaxKind, usize)> {
-        std::mem::take(&mut self.subtree)
+    /// Converts a token into a syntax node based on its kind.
+    /// Produces an error node if there are errors.
+    fn emit_token(&mut self, kind: SyntaxKind, start: usize) -> SyntaxNode {
+        let text = self.s.from(start);
+        if kind == SyntaxKind::End {
+            SyntaxNode::end()
+        } else if let Some(error) = self.take_error() {
+            SyntaxNode::error(error, text)
+        } else {
+            SyntaxNode::leaf(kind, text)
+        }
     }
 
     /// Eat whitespace characters greedily.
@@ -192,34 +197,32 @@ impl Lexer<'_> {
         SyntaxKind::BlockComment
     }
 
-    fn decorator(&mut self) -> SyntaxKind {
-        let mut start = self.s.cursor();
+    fn decorator(&mut self, start: usize) -> SyntaxNode {
+        // TODO: DecoratorMarker node
+        let mut current_start = start;
+        let mut subtree = vec![];
         while !self.s.peek().is_some_and(is_newline) {
             let token = match self.s.eat() {
-                Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+                Some(c) if is_space(c, self.mode) => self.whitespace(current_start, c),
                 Some('/') if self.s.eat_if('/') => break,
                 Some('/') if self.s.eat_if('*') => self.block_comment(),
                 Some('(') => SyntaxKind::LeftParen,
                 Some(')') => SyntaxKind::RightParen,
                 Some('"') => self.string(),
-                Some(c @ '0'..='9') => self.number(start, c),
+                Some(c @ '0'..='9') => self.number(current_start, c),
                 Some(',') => SyntaxKind::Comma,
-                Some(c) if is_id_start(c) => self.ident(start),
+                Some(c) if is_id_start(c) => self.ident(current_start),
                 Some(c) => self
                     .error(eco_format!("the character {c} is not valid in a decorator")),
                 None => break,
             };
 
-            if token.is_error() {
-                return token;
-            }
-
-            let end = self.s.cursor();
-            self.subtree.push((token, end));
-            start = end;
+            let node = self.emit_token(token, current_start);
+            subtree.push(node);
+            current_start = self.s.cursor();
         }
 
-        SyntaxKind::Decorator
+        SyntaxNode::inner(SyntaxKind::Decorator, subtree)
     }
 }
 

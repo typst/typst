@@ -39,6 +39,11 @@ impl SyntaxNode {
         Self(Repr::Error(Arc::new(ErrorNode::new(error, text))))
     }
 
+    /// Create a new end node. It is only used to terminate the token stream.
+    pub const fn end() -> Self {
+        Self::placeholder(SyntaxKind::End)
+    }
+
     /// Create a dummy node of the given kind.
     ///
     /// Panics if `kind` is `SyntaxKind::Error`.
