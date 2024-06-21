@@ -193,8 +193,8 @@ impl Lexer<'_> {
     }
 
     fn decorator(&mut self) -> SyntaxKind {
-        while !self.s.eat_newline() {
-            let start = self.s.cursor();
+        let mut start = self.s.cursor();
+        while !self.s.peek().is_some_and(is_newline) {
             let token = match self.s.eat() {
                 Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
                 Some('/') if self.s.eat_if('/') => break,
@@ -216,6 +216,7 @@ impl Lexer<'_> {
 
             let end = self.s.cursor();
             self.subtree.push((token, end));
+            start = end;
         }
 
         SyntaxKind::Decorator
