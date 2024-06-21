@@ -813,19 +813,18 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Get the first sibling decorator node at the line above this node.
-    /// This is done by moving backwards until the rightmost newline, and then
-    /// checking for decorators before the previous newline.
+    /// This is done by moving backwards, checking for decorators, until we hit
+    /// a second newline (that is, we only check, at most, the line before this
+    /// node).
     pub fn prev_attached_decorator(&self) -> Option<Self> {
         let mut cursor = self.prev_sibling_inner()?;
         let mut newlines = cursor.newlines();
         let mut at_previous_line = false;
         while newlines < 2 {
-            if at_previous_line {
-                if cursor.kind() == SyntaxKind::Decorator {
-                    // Decorators are attached if they're in a consecutive
-                    // previous line.
-                    return Some(cursor);
-                }
+            if cursor.kind() == SyntaxKind::Decorator {
+                // Decorators are attached if they're in a consecutive
+                // previous line.
+                return Some(cursor);
             }
 
             if newlines == 1 {
