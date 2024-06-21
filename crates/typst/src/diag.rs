@@ -289,7 +289,7 @@ impl Identifier {
     pub fn name(&self) -> &str {
         match self {
             Self::Warn(warning_identifier) => warning_identifier.name(),
-            Self::User(user_identifier) => &user_identifier,
+            Self::User(user_identifier) => user_identifier,
             Self::Error(_) => unreachable!(),
         }
     }

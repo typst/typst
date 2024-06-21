@@ -168,9 +168,8 @@ impl Eval for ast::FuncCall<'_> {
             // Add this function call as a tracepoint to the returned
             // diagnostics. This allows visualizing which calls led to them,
             // but also allows suppressing warnings at each tracepoint.
-            vm.engine.tracepoint(point, span, |mut engine| {
-                func.call(&mut engine, vm.context, args)
-            })
+            vm.engine
+                .tracepoint(point, span, |engine| func.call(engine, vm.context, args))
         };
 
         // Stacker is broken on WASM.

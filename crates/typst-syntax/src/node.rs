@@ -844,7 +844,7 @@ impl<'a> LinkedNode<'a> {
 
         // Found a parbreak or something else with two or more newlines.
         // Can't have an attached decorator there.
-        return None;
+        None
     }
 
     /// Get the next non-trivia sibling node.

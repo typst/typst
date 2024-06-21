@@ -246,9 +246,9 @@ impl Sink {
                 return true;
             };
 
-            let should_raise = !check_warning_suppressed(diag.span, world, &identifier)
+            let should_raise = !check_warning_suppressed(diag.span, world, identifier)
                 && !diag.trace.iter().any(|tracepoint| {
-                    check_warning_suppressed(tracepoint.span, world, &identifier)
+                    check_warning_suppressed(tracepoint.span, world, identifier)
                 });
 
             // If this warning wasn't suppressed, any further duplicates (with
