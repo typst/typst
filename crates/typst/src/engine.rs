@@ -351,13 +351,13 @@ fn check_warning_suppressed(
     // Walk the parent nodes to check for a warning suppression in the
     // previous line.
     while let Some(node) = searched_node {
-        if let Some(sibling) = node.prev_attached_comment() {
-            if let Some(comment) = sibling.cast::<ast::LineComment>() {
-                if matches!(parse_warning_suppression(comment.content()), Some(suppressed) if identifier.name() == suppressed)
-                {
-                    return true;
-                }
+        let mut searched_decorator = node.prev_attached_decorator();
+        while let Some(sibling) = searched_decorator {
+            let decorator = sibling.cast::<ast::Decorator>().unwrap();
+            if check_decorator_suppresses_warning(decorator, identifier) {
+                return true;
             }
+            searched_decorator = sibling.prev_attached_decorator();
         }
         searched_node = node.parent();
     }
@@ -365,20 +365,24 @@ fn check_warning_suppressed(
     false
 }
 
-// TODO: replace this ad-hoc solution
-// Expects a comment '//! allow("identifier")
-fn parse_warning_suppression(comment: &str) -> Option<&str> {
-    const ALLOW_SEGMENT: &str = "! allow(\"";
-    if !comment.starts_with(ALLOW_SEGMENT) {
-        return None;
-    }
-    let after_allow = comment.get(ALLOW_SEGMENT.len()..)?.trim();
-    let (suppressed_identifier, rest) = after_allow.split_once('"')?;
-    if rest.trim() != ")" {
-        return None;
+fn check_decorator_suppresses_warning(
+    decorator: ast::Decorator,
+    warning: &diag::Identifier,
+) -> bool {
+    if decorator.name().as_str() != "allow" {
+        return false;
     }
 
-    Some(suppressed_identifier)
+    for argument in decorator.arguments() {
+        let ast::Expr::Str(str) = argument else {
+            continue;
+        };
+        if warning.name() == str.get() {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// The route the engine took during compilation. This is used to detect

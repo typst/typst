@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::ast::AstNode;
-use crate::{FileId, Span, SyntaxKind};
+use crate::{is_newline, FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -145,6 +145,21 @@ impl SyntaxNode {
             Repr::Leaf(_) => false,
             Repr::Inner(inner) => inner.erroneous,
             Repr::Error(_) => true,
+        }
+    }
+
+    /// The amount of newlines in this node or its descendants,
+    /// capped at 256, that is, a return value of 256 means that the total
+    /// amount of newlines may be 256 or larger.
+    pub fn newlines(&self) -> u8 {
+        match &self.0 {
+            Repr::Leaf(_) | Repr::Error(_) => self
+                .text()
+                .chars()
+                .filter(|c| is_newline(*c))
+                .take(u8::MAX as usize)
+                .count() as u8,
+            Repr::Inner(inner) => inner.newlines,
         }
     }
 
@@ -381,6 +396,11 @@ struct InnerNode {
     descendants: usize,
     /// Whether this node or any of its children are erroneous.
     erroneous: bool,
+    /// The (capped) amount of newlines in this node's descendants.
+    /// This is solely used to tell whether this node contains 0, 1, 2 or more
+    /// newlines. As such, this number is capped at 256, even though there may
+    /// be more newlines inside this node.
+    newlines: u8,
     /// The upper bound of this node's numbering range.
     upper: u64,
     /// This node's children, losslessly make up this node.
@@ -407,6 +427,7 @@ impl InnerNode {
             kind,
             len,
             span: Span::detached(),
+            newlines: 0,
             descendants,
             erroneous,
             upper: 0,
@@ -791,36 +812,40 @@ impl<'a> LinkedNode<'a> {
         }
     }
 
-    /// Get the first sibling comment node at the line above this node.
+    /// Get the first sibling decorator node at the line above this node.
     /// This is done by moving backwards until the rightmost newline, and then
-    /// checking for comments before the previous newline.
-    pub fn prev_attached_comment(&self) -> Option<Self> {
-        if self.kind() == SyntaxKind::Parbreak
-            || self.kind() == SyntaxKind::Space && self.text().contains('\n')
-        {
-            // We hit a newline, so let's check for comments before the next
-            // newline.
-            let mut sibling_before_newline = self.prev_sibling_inner()?;
-            while sibling_before_newline.kind().is_trivia()
-                && !matches!(
-                    sibling_before_newline.kind(),
-                    SyntaxKind::Space | SyntaxKind::LineComment | SyntaxKind::Parbreak
-                )
-            {
-                sibling_before_newline = sibling_before_newline.prev_sibling_inner()?;
+    /// checking for decorators before the previous newline.
+    pub fn prev_attached_decorator(&self) -> Option<Self> {
+        let mut cursor = self.prev_sibling_inner()?;
+        let mut newlines = cursor.newlines();
+        let mut at_previous_line = false;
+        while newlines < 2 {
+            if at_previous_line {
+                if cursor.kind() == SyntaxKind::Decorator {
+                    // Decorators are attached if they're in a consecutive
+                    // previous line.
+                    return Some(cursor);
+                }
             }
-            if sibling_before_newline.kind() == SyntaxKind::LineComment {
-                // Found a comment on the previous line
-                Some(sibling_before_newline)
-            } else {
-                // No comments on the previous line
-                None
+
+            if newlines == 1 {
+                if at_previous_line {
+                    // No decorators at the previous line.
+                    // Don't move onto the line before the previous, since then
+                    // the decorator wouldn't be attached.
+                    return None;
+                } else {
+                    at_previous_line = true;
+                }
             }
-        } else {
-            self.prev_sibling_inner()
-                .as_ref()
-                .and_then(Self::prev_attached_comment)
+
+            cursor = cursor.prev_sibling_inner()?;
+            newlines = cursor.newlines();
         }
+
+        // Found a parbreak or something else with two or more newlines.
+        // Can't have an attached decorator there.
+        return None;
     }
 
     /// Get the next non-trivia sibling node.

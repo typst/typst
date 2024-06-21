@@ -81,15 +81,31 @@ impl<'a> Markup<'a> {
 }
 
 node! {
-    /// A comment: `// something`.
-    LineComment
+    /// A decorator: `/! allow("warning")`.
+    Decorator
 }
 
-impl<'a> LineComment<'a> {
-    /// The comment's contents, excluding the initial '//' marker.
-    pub fn content(self) -> &'a str {
-        let text = self.0.text();
-        text.strip_prefix("//").unwrap_or(text)
+impl<'a> Decorator<'a> {
+    /// The name of the decorator, e.g. `allow`.
+    pub fn name(self) -> Ident<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The decorator's arguments.
+    pub fn arguments(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
+        let mut found_non_ident = false;
+        self.0
+            .children()
+            .filter(move |node| {
+                // Skip the name (first identifier).
+                if node.is::<Ident>() {
+                    return found_non_ident;
+                } else if !node.kind().is_trivia() {
+                    found_non_ident = true;
+                }
+                true
+            })
+            .filter_map(Expr::from_untyped)
     }
 }
 
