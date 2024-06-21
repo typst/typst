@@ -18,8 +18,10 @@ pub(super) struct Lexer<'s> {
     newline: bool,
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
-    /// The state held by decorator lexing.
-    decorator: Vec<(SyntaxKind, usize)>,
+    /// The subtree of tokens associated with this token.
+    /// The parser is responsible for converting this subtree into syntax nodes
+    /// matching this structure.
+    subtree: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
     error: Option<SyntaxError>,
 }
@@ -35,8 +37,6 @@ pub(super) enum LexMode {
     Code,
     /// The contents of a raw block.
     Raw,
-    /// The contents of a decorator.
-    Decorator,
 }
 
 impl<'s> Lexer<'s> {
@@ -49,7 +49,7 @@ impl<'s> Lexer<'s> {
             newline: false,
             error: None,
             raw: Vec::new(),
-            decorator: Vec::new(),
+            subtree: Vec::new(),
         }
     }
 
@@ -113,16 +113,9 @@ impl Lexer<'_> {
             return kind;
         }
 
-        if self.mode == LexMode::Decorator {
-            let Some((kind, end)) = self.decorator.pop() else {
-                return SyntaxKind::End;
-            };
-            self.s.jump(end);
-            return kind;
-        }
-
         self.newline = false;
         self.error = None;
+        self.subtree.clear();
         let start = self.s.cursor();
         match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
@@ -142,11 +135,15 @@ impl Lexer<'_> {
                 LexMode::Math => self.math(start, c),
                 LexMode::Code => self.code(start, c),
                 LexMode::Raw => unreachable!(),
-                LexMode::Decorator => unreachable!(),
             },
 
             None => SyntaxKind::End,
         }
+    }
+
+    /// Takes the subtree associated with the latest token.
+    pub fn take_subtree(&mut self) -> Vec<(SyntaxKind, usize)> {
+        std::mem::take(&mut self.subtree)
     }
 
     /// Eat whitespace characters greedily.
@@ -194,15 +191,8 @@ impl Lexer<'_> {
 
         SyntaxKind::BlockComment
     }
-}
 
-/// Decorators.
-impl Lexer<'_> {
     fn decorator(&mut self) -> SyntaxKind {
-        let start = self.s.cursor() - 2;
-
-        self.decorator.clear();
-
         while !self.s.eat_newline() {
             let start = self.s.cursor();
             let token = match self.s.eat() {
@@ -215,25 +205,20 @@ impl Lexer<'_> {
                 Some(c @ '0'..='9') => self.number(start, c),
                 Some(',') => SyntaxKind::Comma,
                 Some(c) if is_id_start(c) => self.ident(start),
-                Some(c) => {
-                    return self.error(eco_format!(
-                        "the character {c} is not valid in a decorator"
-                    ))
-                }
+                Some(c) => self
+                    .error(eco_format!("the character {c} is not valid in a decorator")),
                 None => break,
             };
 
+            if token.is_error() {
+                return token;
+            }
+
             let end = self.s.cursor();
-            self.decorator.push((token, end));
+            self.subtree.push((token, end));
         }
 
-        // The saved tokens will be removed in reverse.
-        self.decorator.reverse();
-
-        // Already collected all we need from the decorator.
-        self.s.jump(start + 2);
-
-        SyntaxKind::DecoratorMarker
+        SyntaxKind::Decorator
     }
 }
 

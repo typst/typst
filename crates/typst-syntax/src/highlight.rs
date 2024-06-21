@@ -286,7 +286,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Destructuring => None,
         SyntaxKind::DestructAssignment => None,
 
-        SyntaxKind::DecoratorMarker => Some(Tag::Comment),
         SyntaxKind::Decorator => None,
 
         SyntaxKind::LineComment => Some(Tag::Comment),

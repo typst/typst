@@ -108,7 +108,8 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::Space
         | SyntaxKind::Parbreak
         | SyntaxKind::LineComment
-        | SyntaxKind::BlockComment => {
+        | SyntaxKind::BlockComment
+        | SyntaxKind::Decorator => {
             p.eat();
             return;
         }
@@ -121,7 +122,6 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
-        SyntaxKind::DecoratorMarker => decorator(p),
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
@@ -145,19 +145,6 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     }
 
     *at_start = false;
-}
-
-fn decorator(p: &mut Parser) {
-    let m = p.marker();
-    p.enter(LexMode::Decorator);
-    p.assert(SyntaxKind::DecoratorMarker);
-
-    while !p.end() {
-        p.eat();
-    }
-
-    p.exit();
-    p.wrap(m, SyntaxKind::Decorator);
 }
 
 /// Parses strong content: `*Strong*`.
@@ -1775,9 +1762,23 @@ impl<'s> Parser<'s> {
 
     fn save(&mut self) {
         let text = self.current_text();
+        let subtree = self.lexer.take_subtree();
         if self.at(SyntaxKind::Error) {
             let error = self.lexer.take_error().unwrap();
             self.nodes.push(SyntaxNode::error(error, text));
+        } else if !subtree.is_empty() {
+            let mut text_cursor = self.current_start;
+            let mut children = Vec::with_capacity(subtree.len());
+
+            for (kind, end) in subtree {
+                // Ensure no errors in the subtree
+                assert!(!kind.is_error());
+
+                children.push(SyntaxNode::leaf(kind, &self.text[text_cursor..end]));
+                text_cursor = end;
+            }
+
+            self.nodes.push(SyntaxNode::inner(self.current, children));
         } else {
             self.nodes.push(SyntaxNode::leaf(self.current, text));
         }

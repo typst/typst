@@ -13,8 +13,8 @@ pub enum SyntaxKind {
     LineComment,
     /// A block comment: `/* ... */`.
     BlockComment,
-    /// A decorator's marker: `/!`
-    DecoratorMarker,
+    /// A decorator: `/! allow("warning")`
+    Decorator,
 
     /// The contents of a file or content block.
     Markup,
@@ -280,9 +280,6 @@ pub enum SyntaxKind {
     Destructuring,
     /// A destructuring assignment expression: `(x, y) = (1, 2)`.
     DestructAssignment,
-
-    /// A decorator: `/! allow("amogus")`
-    Decorator,
 }
 
 impl SyntaxKind {
@@ -360,7 +357,11 @@ impl SyntaxKind {
     pub fn is_trivia(self) -> bool {
         matches!(
             self,
-            Self::LineComment | Self::BlockComment | Self::Space | Self::Parbreak
+            Self::LineComment
+                | Self::BlockComment
+                | Self::Space
+                | Self::Parbreak
+                | Self::Decorator
         )
     }
 
@@ -376,7 +377,7 @@ impl SyntaxKind {
             Self::Error => "syntax error",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
-            Self::DecoratorMarker => "decorator marker",
+            Self::Decorator => "decorator",
             Self::Markup => "markup",
             Self::Text => "text",
             Self::Space => "space",
@@ -504,7 +505,6 @@ impl SyntaxKind {
             Self::FuncReturn => "`return` expression",
             Self::Destructuring => "destructuring pattern",
             Self::DestructAssignment => "destructuring assignment expression",
-            Self::Decorator => "decorator",
         }
     }
 }
