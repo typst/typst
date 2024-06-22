@@ -88,9 +88,9 @@ impl<'a> Scopes<'a> {
             })?
     }
 
-    /// Check if a std variable is shadowed.
+    /// Check if an std variable is shadowed.
     pub fn check_std_shadowed(&self, var: &str) -> bool {
-        self.base.is_some_and(|base| base.std.field(var).is_ok())
+        self.base.is_some_and(|base| base.global.scope().get(var).is_some())
             && std::iter::once(&self.top)
                 .chain(self.scopes.iter().rev())
                 .any(|scope| scope.get(var).is_some())

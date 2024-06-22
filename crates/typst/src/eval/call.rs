@@ -148,21 +148,21 @@ impl Eval for ast::FuncCall<'_> {
             ));
         }
 
-        let func = match func_result {
-            Ok(func) => func,
-            Err(mut err) => {
+        let func = func_result
+            .map_err(|mut err| {
                 if let ast::Expr::Ident(ident) = self.callee() {
                     let ident = ident.get();
                     if vm.scopes.check_std_shadowed(ident) {
                         err.hint(eco_format!(
-                            "use `std.{}` to access the shadowed standard library function",
-                            ident,
-                        ));
+                        "use `std.{}` to access the shadowed standard library function",
+                        ident,
+                    ));
                     }
                 }
-                return Err(err).at(callee_span);
-            }
-        };
+                err
+            })
+            .at(callee_span)?;
+
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
             func.call(&mut vm.engine, vm.context, args)
