@@ -11,16 +11,14 @@ use smallvec::SmallVec;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, Args, Content, Dict, Func, ParamInfo, Repr, Scope, Selector, StyleChain,
-    Styles, Value,
+    cast, Args, Content, Dict, FieldAccessError, Func, ParamInfo, Repr, Scope, Selector,
+    StyleChain, Styles, Value,
 };
 use crate::text::{Lang, Region};
 use crate::utils::Static;
 
 #[doc(inline)]
 pub use typst_macros::elem;
-
-use super::FieldAccessError;
 
 /// A document element.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]

@@ -2,7 +2,7 @@ use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::eval::Vm;
-use typst::foundations::{Context, FieldAccessError, Label, Scopes, Styles, Value};
+use typst::foundations::{Context, Label, Scopes, Styles, Value};
 use typst::introspection::Introspector;
 use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
@@ -93,9 +93,10 @@ pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, 
         let details = elem
             .get_by_name("caption")
             .or_else(|_| elem.get_by_name("body"))
+            .ok()
             .and_then(|field| match field {
-                Value::Content(content) => Ok(content),
-                _ => Err(FieldAccessError::Internal),
+                Value::Content(content) => Some(content),
+                _ => None,
             })
             .as_ref()
             .unwrap_or(elem)

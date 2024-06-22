@@ -962,6 +962,10 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
 
     let Elem { ident, .. } = element;
 
+    let result = quote! {
+        Result<#foundations::Value, #foundations::FieldAccessError>
+    };
+
     quote! {
         impl #foundations::Fields for #ident {
             type Enum = Fields;
@@ -977,29 +981,32 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 }
             }
 
-            fn field(&self, id: u8) -> Result<#foundations::Value, #foundations::FieldAccessError> {
+            fn field(&self, id: u8) -> #result {
                 let id = Fields::try_from(id)?;
                 match id {
                     #(#field_arms,)*
-                    // This arm might be reached if someone tries to access an internal field
+                    // This arm might be reached if someone tries to access an
+                    // internal field.
                     _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
 
-            fn field_with_styles(&self, id: u8, styles: #foundations::StyleChain) -> Result<#foundations::Value, #foundations::FieldAccessError> {
+            fn field_with_styles(&self, id: u8, styles: #foundations::StyleChain) -> #result {
                 let id = Fields::try_from(id)?;
                 match id {
                     #(#field_with_styles_arms,)*
-                    // This arm might be reached if someone tries to access an internal field
+                    // This arm might be reached if someone tries to access an
+                    // internal field.
                     _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
 
-            fn field_from_styles(id: u8, styles: #foundations::StyleChain) -> Result<#foundations::Value, #foundations::FieldAccessError> {
+            fn field_from_styles(id: u8, styles: #foundations::StyleChain) -> #result {
                 let id = Fields::try_from(id)?;
                 match id {
                     #(#field_from_styles_arms,)*
-                    // This arm might be reached if someone tries to access an internal field
+                    // This arm might be reached if someone tries to access an
+                    // internal field.
                     _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
