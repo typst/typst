@@ -542,7 +542,7 @@ fn group_page(
     let mut outline_items = vec![];
     for name in &group.filter {
         let value = group.module().scope().get(name).unwrap();
-        let Value::Func(func) = value else { panic!("not a function") };
+        let Ok(ref func) = value.clone().cast::<Func>() else { panic!("not a function") };
         let func = func_model(resolver, func, &path, true);
         let id_base = urlify(&eco_format!("functions-{}", func.name));
         let children = func_outline(&func, &id_base);
