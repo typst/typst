@@ -44,7 +44,7 @@ struct Repr {
     scope: Scope,
     /// The module's layoutable contents.
     content: Content,
-    /// The module's source id
+    /// The id of the file which defines the module, if any.
     file_id: Option<FileId>,
 }
 

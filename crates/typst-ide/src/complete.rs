@@ -17,8 +17,10 @@ use typst::visualize::Color;
 use typst::World;
 use unscanny::Scanner;
 
-use crate::analyze::{analyze_expr, analyze_import, analyze_labels};
-use crate::{named_items, plain_docs_sentence, summarize_font_family};
+use crate::{
+    analyze_expr, analyze_import, analyze_labels, named_items, plain_docs_sentence,
+    summarize_font_family,
+};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -1323,8 +1325,7 @@ impl<'a> CompletionContext<'a> {
             if name.value().as_ref().map_or(true, &filter) {
                 defined.insert(name.name().clone());
             }
-
-            Option::<()>::None
+            None::<()>
         });
 
         let in_math = matches!(

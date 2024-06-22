@@ -4,7 +4,7 @@ use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
 
-use crate::analyze::analyze_import;
+use crate::analyze_import;
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(
@@ -127,7 +127,8 @@ impl<'a> NamedItem<'a> {
     }
 }
 
-/// Find an expression that can be dereferenced on the given node.
+/// Categorize an expression into common classes IDE functionality can operate
+/// on.
 pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
     // Move to the first ancestor that is an expression.
     let mut ancestor = node;
@@ -140,7 +141,7 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
     let expr = expr_node.cast::<ast::Expr>()?;
     Some(match expr {
         ast::Expr::Label(..) => DerefTarget::Label(expr_node),
-        ast::Expr::Ref(..) => DerefTarget::LabelRef(expr_node),
+        ast::Expr::Ref(..) => DerefTarget::Ref(expr_node),
         ast::Expr::FuncCall(call) => {
             DerefTarget::Callee(expr_node.find(call.callee().span())?)
         }
@@ -167,13 +168,13 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
     })
 }
 
-/// A complete or incomplete "expression" node that can be operated by IDE.
+/// Classes of expressions that can be operated on by IDE functionality.
 #[derive(Debug, Clone)]
 pub enum DerefTarget<'a> {
     /// A label expression.
     Label(LinkedNode<'a>),
-    /// A label reference expression.
-    LabelRef(LinkedNode<'a>),
+    /// A reference expression.
+    Ref(LinkedNode<'a>),
     /// A variable access expression.
     ///
     /// It can be either an identifier or a field access.

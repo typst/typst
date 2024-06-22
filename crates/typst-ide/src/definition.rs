@@ -5,13 +5,12 @@ use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::World;
 
-use crate::analyze::analyze_import;
-use crate::{deref_target, named_items, DerefTarget, NamedItem};
+use crate::{analyze_import, deref_target, named_items, DerefTarget, NamedItem};
 
 /// Find the definition of the item under the cursor.
 ///
 /// Passing a `document` (from a previous compilation) is optional, but enhances
-/// the autocompletions. Label completions, for instance, are only generated
+/// the definition search. Label definitions, for instance, are only generated
 /// when the document is available.
 pub fn definition(
     world: &dyn World,
@@ -32,7 +31,7 @@ pub fn definition(
                 analyze_import(world, &path).and_then(|v| v.cast::<Module>().ok())?;
             return Some(Definition::module(&import_item));
         }
-        DerefTarget::LabelRef(r) => {
+        DerefTarget::Ref(r) => {
             let ref_node = r.cast::<ast::Ref>()?.target();
             let sel = Selector::Label(Label::new(ref_node));
             let elem = document?.introspector.query_first(&sel)?;
@@ -57,9 +56,9 @@ pub fn definition(
         use_site = use_site.find(node.target().span())?;
     }
 
-    let name = &use_site.cast::<ast::Ident>()?.get().clone();
+    let name = use_site.cast::<ast::Ident>()?.get().clone();
     let src = named_items(world, use_site, |item: NamedItem| {
-        if item.name() != name {
+        if *item.name() != name {
             return None;
         }
 
@@ -67,22 +66,26 @@ pub fn definition(
             NamedItem::Var(name) => {
                 let name_span = name.span();
                 let span = find_let_binding(source, name_span);
-                Some(Definition::item(name.get(), span, name_span, None))
+                Some(Definition::item(name.get().clone(), span, name_span, None))
             }
             NamedItem::Fn(name) => {
                 let name_span = name.span();
                 let span = find_let_binding(source, name_span);
                 Some(
-                    Definition::item(name.get(), span, name_span, None)
+                    Definition::item(name.get().clone(), span, name_span, None)
                         .with_kind(DefinitionKind::Function),
                 )
             }
             NamedItem::Module(item) => Some(Definition::module(item)),
-            NamedItem::Import(name, span, value) => {
-                Some(Definition::item(name, Span::detached(), span, value.cloned()))
-            }
+            NamedItem::Import(name, span, value) => Some(Definition::item(
+                name.clone(),
+                Span::detached(),
+                span,
+                value.cloned(),
+            )),
         }
     });
+
     let src = src.or_else(|| {
         let in_math = matches!(
             leaf.parent_kind(),
@@ -95,7 +98,7 @@ pub fn definition(
 
         let scope = if in_math { library.math.scope() } else { library.global.scope() };
         for (item_name, value) in scope.iter() {
-            if item_name == name {
+            if *item_name == name {
                 return Some(Definition::item(
                     name,
                     Span::detached(),
@@ -122,33 +125,31 @@ pub struct Definition {
     pub name: EcoString,
     /// The kind of the definition.
     pub kind: DefinitionKind,
-    /// A possible instance of the definition.
+    /// An instance of the definition, if available.
     pub value: Option<Value>,
-    /// The source span of the entire definition.
+    /// The source span of the entire definition. May be detached if unknown.
     pub span: Span,
-    /// The span of the name of the definition.
+    /// The span of the definition's name. May be detached if unknown.
     pub name_span: Span,
 }
 
 impl Definition {
-    fn with_kind(self, kind: DefinitionKind) -> Self {
-        Self { kind, ..self }
-    }
-
-    fn item(name: &EcoString, span: Span, name_span: Span, value: Option<Value>) -> Self {
-        let kind = value
-            .as_ref()
-            .and_then(|e| {
-                matches!(e, Value::Func(..)).then_some(DefinitionKind::Function)
-            })
-            .unwrap_or(DefinitionKind::Variable);
-
-        Self { name: name.clone(), kind, value, span, name_span }
+    fn item(name: EcoString, span: Span, name_span: Span, value: Option<Value>) -> Self {
+        Self {
+            name,
+            kind: match value {
+                Some(Value::Func(_)) => DefinitionKind::Function,
+                _ => DefinitionKind::Variable,
+            },
+            value,
+            span,
+            name_span,
+        }
     }
 
     fn module(module: &Module) -> Self {
         Definition {
-            name: EcoString::new(),
+            name: module.name().clone(),
             kind: match module.file_id() {
                 Some(file_id) => DefinitionKind::ModulePath(file_id),
                 None => DefinitionKind::Module(module.clone()),
@@ -157,6 +158,10 @@ impl Definition {
             span: Span::detached(),
             name_span: Span::detached(),
         }
+    }
+
+    fn with_kind(self, kind: DefinitionKind) -> Self {
+        Self { kind, ..self }
     }
 }
 
@@ -213,7 +218,7 @@ mod tests {
 
     fn var(text: &str, value: bool) -> Option<Definition> {
         Some(Definition::item(
-            &text.into(),
+            text.into(),
             Span::detached(),
             Span::detached(),
             if value { Some(Value::Bool(false)) } else { None },
