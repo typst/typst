@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::args::PackageStorageArgs;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
+use once_cell::sync::OnceCell;
 use termcolor::WriteColor;
 use typst::diag::{bail, PackageError, PackageResult, StrResult};
 use typst::syntax::package::{
@@ -21,6 +22,7 @@ const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 pub struct PackageStorage {
     pub package_cache_path: Option<PathBuf>,
     pub package_path: Option<PathBuf>,
+    index: OnceCell<Vec<PackageInfo>>,
 }
 
 impl PackageStorage {
@@ -31,7 +33,11 @@ impl PackageStorage {
         let package_path = args.package_path.clone().or_else(|| {
             dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
         });
-        Self { package_cache_path, package_path }
+        Self {
+            package_cache_path,
+            package_path,
+            index: OnceCell::new(),
+        }
     }
 
     /// Make a package available in the on-disk cache.
@@ -53,7 +59,7 @@ impl PackageStorage {
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == "preview" {
-                download_package(spec, &dir)?;
+                self.download_package(spec, &dir)?;
                 if dir.exists() {
                     return Ok(dir);
                 }
@@ -71,7 +77,7 @@ impl PackageStorage {
         if spec.namespace == "preview" {
             // For `@preview`, download the package index and find the latest
             // version.
-            download_index()?
+            self.download_index()?
                 .iter()
                 .filter(|package| package.name == spec.name)
                 .map(|package| package.version)
@@ -95,42 +101,58 @@ impl PackageStorage {
     }
 }
 
-/// Download a package over the network.
-fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()> {
-    // The `@preview` namespace is the only namespace that supports on-demand
-    // fetching.
-    assert_eq!(spec.namespace, "preview");
+impl PackageStorage {
+    /// Download a package over the network.
+    fn download_package(
+        &self,
+        spec: &PackageSpec,
+        package_dir: &Path,
+    ) -> PackageResult<()> {
+        // The `@preview` namespace is the only namespace that supports on-demand
+        // fetching.
+        assert_eq!(spec.namespace, "preview");
 
-    let url = format!("{HOST}/preview/{}-{}.tar.gz", spec.name, spec.version);
+        let url = format!("{HOST}/preview/{}-{}.tar.gz", spec.name, spec.version);
 
-    print_downloading(spec).unwrap();
+        print_downloading(spec).unwrap();
 
-    let data = match download_with_progress(&url) {
-        Ok(data) => data,
-        Err(ureq::Error::Status(404, _)) => {
-            return Err(PackageError::NotFound(spec.clone()))
-        }
-        Err(err) => return Err(PackageError::NetworkFailed(Some(eco_format!("{err}")))),
-    };
+        let data = match download_with_progress(&url) {
+            Ok(data) => data,
+            Err(ureq::Error::Status(404, _)) => {
+                if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
+                    return Err(PackageError::VersionNotFound(spec.clone(), version));
+                } else {
+                    return Err(PackageError::NotFound(spec.clone()));
+                }
+            }
+            Err(err) => {
+                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))))
+            }
+        };
 
-    let decompressed = flate2::read::GzDecoder::new(data.as_slice());
-    tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
-        fs::remove_dir_all(package_dir).ok();
-        PackageError::MalformedArchive(Some(eco_format!("{err}")))
-    })
-}
+        let decompressed = flate2::read::GzDecoder::new(data.as_slice());
+        tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
+            fs::remove_dir_all(package_dir).ok();
+            PackageError::MalformedArchive(Some(eco_format!("{err}")))
+        })
+    }
 
-/// Download the `@preview` package index.
-fn download_index() -> StrResult<Vec<PackageInfo>> {
-    let url = format!("{HOST}/preview/index.json");
-    match download(&url) {
-        Ok(response) => response
-            .into_json()
-            .map_err(|err| eco_format!("failed to parse package index: {err}")),
-        Err(ureq::Error::Status(404, _)) => {
-            bail!("failed to fetch package index (not found)")
-        }
-        Err(err) => bail!("failed to fetch package index ({err})"),
+    /// Download the `@preview` package index.
+    ///
+    /// To avoid downloading the index multiple times, the result is cached.
+    fn download_index(&self) -> StrResult<&Vec<PackageInfo>> {
+        self.index.get_or_try_init(|| {
+            let url = format!("{HOST}/preview/index.json");
+            match download(&url) {
+                Ok(response) => response
+                    .into_json()
+                    .map_err(|err| eco_format!("failed to parse package index: {err}")),
+                Err(ureq::Error::Status(404, _)) => {
+                    bail!("failed to fetch package index (not found)")
+                }
+                Err(err) => bail!("failed to fetch package index ({err})"),
+            }
+        })
     }
 }
 

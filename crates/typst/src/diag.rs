@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
-use crate::syntax::package::PackageSpec;
+use crate::syntax::package::{PackageSpec, PackageVersion};
 use crate::syntax::{Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
 
@@ -503,6 +503,8 @@ pub type PackageResult<T> = Result<T, PackageError>;
 pub enum PackageError {
     /// The specified package does not exist.
     NotFound(PackageSpec),
+    /// The specified package found, but the version does not exist.
+    VersionNotFound(PackageSpec, PackageVersion),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
@@ -518,6 +520,13 @@ impl Display for PackageError {
         match self {
             Self::NotFound(spec) => {
                 write!(f, "package not found (searched for {spec})",)
+            }
+            Self::VersionNotFound(spec, latest) => {
+                write!(
+                    f,
+                    "package found, but version {} does not exist (latest is {})",
+                    spec.version, latest,
+                )
             }
             Self::NetworkFailed(Some(err)) => {
                 write!(f, "failed to download package ({err})")
