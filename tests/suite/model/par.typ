@@ -78,3 +78,10 @@ Welcome \ here. Does this work well?
 #set text(dir: rtl)
 لآن وقد أظلم الليل وبدأت النجوم
 تنضخ وجه الطبيعة التي أعْيَتْ من طول ما انبعثت في النهار
+
+--- par-inline-math-overlap ---
+#lorem(1) $1/123456$ #lorem(2) $12345667/1/1$
+
+#lorem(3) $sum_(x=0)^n$ #lorem(3)
+
+#lorem(3) $display((a+b)/(c+d))$ #lorem(2) $display((a/b+1)/c+1)$ #lorem(7)
