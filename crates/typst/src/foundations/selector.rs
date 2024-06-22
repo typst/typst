@@ -128,7 +128,7 @@ impl Selector {
             Self::Elem(element, dict) => {
                 target.func() == *element
                     && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
-                        target.get(*id, styles).as_ref() == Some(value)
+                        target.get(*id, styles).as_ref().ok() == Some(value)
                     })
             }
             Self::Label(label) => target.label() == Some(*label),

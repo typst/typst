@@ -92,7 +92,8 @@ pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, 
         let Some(label) = elem.label() else { continue };
         let details = elem
             .get_by_name("caption")
-            .or_else(|| elem.get_by_name("body"))
+            .or_else(|_| elem.get_by_name("body"))
+            .ok()
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,

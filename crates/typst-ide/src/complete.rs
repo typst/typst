@@ -441,7 +441,7 @@ fn field_access_completions(
             if let Some((elem, styles)) = func.element().zip(styles.as_ref()) {
                 for param in elem.params().iter().filter(|param| !param.required) {
                     if let Some(value) = elem.field_id(param.name).and_then(|id| {
-                        elem.field_from_styles(id, StyleChain::new(styles))
+                        elem.field_from_styles(id, StyleChain::new(styles)).ok()
                     }) {
                         ctx.value_completion(
                             Some(param.name.into()),
