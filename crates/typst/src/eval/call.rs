@@ -128,7 +128,7 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        let func_result = callee.clone().cast::<Func>().at(callee_span);
+        let func_result = callee.clone().cast::<Func>();
         if in_math && func_result.is_err() {
             // For non-functions in math, we wrap the arguments in parentheses.
             let mut body = Content::empty();
@@ -148,7 +148,21 @@ impl Eval for ast::FuncCall<'_> {
             ));
         }
 
-        let func = func_result?;
+        let func = func_result
+            .map_err(|mut err| {
+                if let ast::Expr::Ident(ident) = self.callee() {
+                    let ident = ident.get();
+                    if vm.scopes.check_std_shadowed(ident) {
+                        err.hint(eco_format!(
+                        "use `std.{}` to access the shadowed standard library function",
+                        ident,
+                    ));
+                    }
+                }
+                err
+            })
+            .at(callee_span)?;
+
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
             func.call(&mut vm.engine, vm.context, args)
