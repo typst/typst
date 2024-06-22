@@ -85,6 +85,15 @@ pub struct PackageSpec {
     pub version: PackageVersion,
 }
 
+impl PackageSpec {
+    pub fn versionless(&self) -> VersionlessPackageSpec {
+        VersionlessPackageSpec {
+            namespace: self.namespace.clone(),
+            name: self.name.clone(),
+        }
+    }
+}
+
 impl FromStr for PackageSpec {
     type Err = EcoString;
 
