@@ -329,3 +329,7 @@
 #color.hsl(blue) \
 #color.hsv(blue) \
 #luma(blue)
+
+--- issue-color-mix-luma ---
+// When mixing luma colors, we accidentally used the wrong component.
+#rect(fill: gradient.linear(black, silver, space: luma))
