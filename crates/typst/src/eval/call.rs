@@ -1,7 +1,9 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
-use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
+use crate::diag::{
+    bail, error, At, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint,
+};
 use crate::engine::{Engine, Sink, Traced};
 use crate::eval::{Access, Eval, FlowEvent, Route, Vm};
 use crate::foundations::{
@@ -10,7 +12,7 @@ use crate::foundations::{
 };
 use crate::introspection::Introspector;
 use crate::math::LrElem;
-use crate::syntax::ast::{self, AstNode};
+use crate::syntax::ast::{self, AstNode, Ident};
 use crate::syntax::{Span, Spanned, SyntaxNode};
 use crate::text::TextElem;
 use crate::utils::LazyHash;
@@ -32,33 +34,28 @@ impl Eval for ast::FuncCall<'_> {
         }
 
         // Try to evaluate as a call to an associated function or field.
-        let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
-            let target = access.target();
-            let target_span = target.span();
+        let (callee, args) = if let ast::Expr::FieldAccess(access) = callee {
+            let target_expr = access.target();
             let field = access.field();
-            let field_span = field.span();
-
-            let target = if is_mutating_method(&field) {
-                let mut args = args.eval(vm)?.spanned(span);
-                let target = target.access(vm)?;
-
-                // Only arrays and dictionaries have mutable methods.
-                if matches!(target, Value::Array(_) | Value::Dict(_)) {
-                    args.span = span;
-                    let point = || Tracepoint::Call(Some(field.get().clone()));
-                    return call_method_mut(target, &field, args, span).trace(
-                        vm.world(),
-                        point,
-                        span,
-                    );
-                }
-
-                target.clone()
-            } else {
-                access.target().eval(vm)?
-            };
-
             let mut args = args.eval(vm)?.spanned(span);
+
+            // Evaluate the target expression.
+            let target = if is_mutating_method(&field) {
+                match target_expr.access(vm)? {
+                    // Only arrays and dictionaries have mutable methods.
+                    target @ (Value::Array(_) | Value::Dict(_)) => {
+                        let point = || Tracepoint::Call(Some(field.get().clone()));
+                        return call_method_mut(target, &field, args, span).trace(
+                            vm.world(),
+                            point,
+                            span,
+                        );
+                    }
+                    target => target.clone(),
+                }
+            } else {
+                target_expr.eval(vm)?
+            };
 
             // Handle plugins.
             if let Value::Plugin(plugin) = &target {
@@ -67,100 +64,18 @@ impl Eval for ast::FuncCall<'_> {
                 return Ok(plugin.call(&field, bytes).at(span)?.into_value());
             }
 
-            // Prioritize associated functions on the value's type (i.e.,
-            // methods) over its fields. A function call on a field is only
-            // allowed for functions, types, modules (because they are scopes),
-            // and symbols (because they have modifiers).
-            //
-            // For dictionaries, it is not allowed because it would be ambiguous
-            // (prioritizing associated functions would make an addition of a
-            // new associated function a breaking change and prioritizing fields
-            // would break associated functions for certain dictionaries).
-            if let Some(callee) = target.ty().scope().get(&field) {
-                let this = Arg {
-                    span: target_span,
-                    name: None,
-                    value: Spanned::new(target, target_span),
-                };
-                args.span = span;
-                args.items.insert(0, this);
-                (callee.clone(), args)
-            } else if matches!(
-                target,
-                Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
-            ) {
-                (target.field(&field).at(field_span)?, args)
-            } else {
-                let mut error = error!(
-                    field_span,
-                    "type {} has no method `{}`",
-                    target.ty(),
-                    field.as_str()
-                );
-
-                let mut field_hint = || {
-                    if target.field(&field).is_ok() {
-                        error.hint(eco_format!(
-                            "did you mean to access the field `{}`?",
-                            field.as_str()
-                        ));
-                    }
-                };
-
-                match target {
-                    Value::Dict(ref dict) => {
-                        if matches!(dict.get(&field), Ok(Value::Func(_))) {
-                            error.hint(eco_format!(
-                                "to call the function stored in the dictionary, surround \
-                                 the field access with parentheses, e.g. `(dict.{})(..)`",
-                               field.as_str(),
-                            ));
-                        } else {
-                            field_hint();
-                        }
-                    }
-                    _ => field_hint(),
-                }
-
-                bail!(error);
-            }
+            eval_callee_args(target, target_expr.span(), field, args)?
         } else {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
         let func_result = callee.clone().cast::<Func>();
         if in_math && func_result.is_err() {
-            // For non-functions in math, we wrap the arguments in parentheses.
-            let mut body = Content::empty();
-            for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-                if i > 0 {
-                    body += TextElem::packed(',');
-                }
-                body += arg;
-            }
-            if trailing_comma {
-                body += TextElem::packed(',');
-            }
-            return Ok(Value::Content(
-                callee.display().spanned(callee_span)
-                    + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
-                        .pack(),
-            ));
+            return wrap_args_in_math(callee, callee_span, args, trailing_comma);
         }
 
         let func = func_result
-            .map_err(|mut err| {
-                if let ast::Expr::Ident(ident) = self.callee() {
-                    let ident = ident.get();
-                    if vm.scopes.check_std_shadowed(ident) {
-                        err.hint(eco_format!(
-                        "use `std.{}` to access the shadowed standard library function",
-                        ident,
-                    ));
-                    }
-                }
-                err
-            })
+            .map_err(|err| hint_if_shadowed_std(vm, &self.callee(), err))
             .at(callee_span)?;
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
@@ -368,12 +283,107 @@ pub(crate) fn call_closure(
     Ok(output)
 }
 
+/// Evaluate the callee and its arguments.
+///
+/// Prioritize associated functions on the value's type (i.e., methods) over its fields.
+/// A function call on a field is only allowed for functions, types, modules (because
+/// they are scopes), and symbols (because they have modifiers).
+///
+/// For dictionaries, it is not allowed because it would be ambiguous (prioritizing
+/// associated functions would make an addition of a new associated function a breaking
+/// change and prioritizing fields would break associated functions for certain
+/// dictionaries).
+fn eval_callee_args(
+    target: Value,
+    target_span: Span,
+    field: Ident,
+    mut args: Args,
+) -> SourceResult<(Value, Args)> {
+    if let Some(callee) = target.ty().scope().get(&field) {
+        args.insert(0, target_span, target);
+        Ok((callee.clone(), args))
+    } else if matches!(
+        target,
+        Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
+    ) {
+        Ok((target.field(&field).at(field.span())?, args))
+    } else {
+        let mut error = error!(
+            field.span(),
+            "type {} has no method `{}`",
+            target.ty(),
+            field.as_str(),
+        );
+
+        match target {
+            Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
+                error.hint(eco_format!(
+                    "to call the function stored in the dictionary, surround \
+                        the field access with parentheses, e.g. `(dict.{})(..)`",
+                    field.as_str(),
+                ));
+            }
+            _ if target.field(&field).is_ok() => {
+                error.hint(eco_format!(
+                    "did you mean to access the field `{}`?",
+                    field.as_str(),
+                ));
+            }
+            _ => {}
+        }
+
+        bail!(error)
+    }
+}
+
+/// Check if the expression is in a math context.
 fn in_math(expr: ast::Expr) -> bool {
     match expr {
         ast::Expr::MathIdent(_) => true,
         ast::Expr::FieldAccess(access) => in_math(access.target()),
         _ => false,
     }
+}
+
+/// For non-functions in math, we wrap the arguments in parentheses.
+fn wrap_args_in_math(
+    callee: Value,
+    callee_span: Span,
+    mut args: Args,
+    trailing_comma: bool,
+) -> SourceResult<Value> {
+    let mut body = Content::empty();
+    for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+        if i > 0 {
+            body += TextElem::packed(',');
+        }
+        body += arg;
+    }
+    if trailing_comma {
+        body += TextElem::packed(',');
+    }
+    Ok(Value::Content(
+        callee.display().spanned(callee_span)
+            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')')).pack(),
+    ))
+}
+
+/// Provide a hint if the callee is a shadowed standard library function.
+fn hint_if_shadowed_std(
+    vm: &mut Vm,
+    callee: &ast::Expr,
+    mut err: HintedString,
+) -> HintedString {
+    if let ast::Expr::Ident(ident) = callee {
+        let ident = ident.get();
+        if vm.scopes.check_std_shadowed(ident) {
+            err.hint(eco_format!(
+                "use `std.{}` to access the shadowed standard library function",
+                ident,
+            ));
+        }
+    }
+    err
 }
 
 /// A visitor that determines which variables to capture for a closure.

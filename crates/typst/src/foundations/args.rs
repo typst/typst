@@ -76,6 +76,18 @@ impl Args {
         self.items.iter().filter(|slot| slot.name.is_none()).count()
     }
 
+    /// Insert a positional argument at a specific index.
+    pub fn insert(&mut self, index: usize, span: Span, value: Value) {
+        self.items.insert(
+            index,
+            Arg {
+                span: self.span,
+                name: None,
+                value: Spanned::new(value, span),
+            },
+        )
+    }
+
     /// Push a positional argument.
     pub fn push(&mut self, span: Span, value: Value) {
         self.items.push(Arg {
