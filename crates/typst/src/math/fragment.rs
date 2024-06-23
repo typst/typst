@@ -120,17 +120,18 @@ impl MathFragment {
     }
 
     pub fn is_spaced(&self) -> bool {
-        self.class() == MathClass::Fence
-            || match self {
-                MathFragment::Frame(frame) => {
-                    frame.spaced
-                        && matches!(
-                            frame.class,
-                            MathClass::Normal | MathClass::Alphabetic
-                        )
-                }
-                _ => false,
-            }
+        if self.class() == MathClass::Fence {
+            return true;
+        }
+
+        matches!(
+            self,
+            MathFragment::Frame(FrameFragment {
+                spaced: true,
+                class: MathClass::Normal | MathClass::Alphabetic,
+                ..
+            })
+        )
     }
 
     pub fn is_text_like(&self) -> bool {
