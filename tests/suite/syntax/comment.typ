@@ -37,6 +37,7 @@ Second part
 --- comment-block-unclosed ---
 // End should not appear without start.
 // Error: 7-9 unexpected end of block comment
+// Hint: 7-9 consider escaping the `*` with a backslash or opening the block comment with `/*`
 /* */ */
 
 // Unterminated is okay.

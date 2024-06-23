@@ -12,7 +12,7 @@ use crate::args::FontsCommand;
 /// Execute a font listing command.
 pub fn fonts(command: &FontsCommand) -> StrResult<()> {
     let mut searcher = FontSearcher::new();
-    searcher.search(&command.font_paths);
+    searcher.search(&command.font_args.font_paths, command.font_args.ignore_system_fonts);
 
     for (name, infos) in searcher.book.families() {
         println!("{name}");
@@ -66,7 +66,7 @@ impl FontSearcher {
     }
 
     /// Search everything that is available.
-    pub fn search(&mut self, font_paths: &[PathBuf]) {
+    pub fn search(&mut self, font_paths: &[PathBuf], ignore_system_fonts: bool) {
         let mut db = Database::new();
 
         // Font paths have highest priority.
@@ -74,8 +74,10 @@ impl FontSearcher {
             db.load_fonts_dir(path);
         }
 
-        // System fonts have second priority.
-        db.load_system_fonts();
+        if !ignore_system_fonts {
+            // System fonts have second priority.
+            db.load_system_fonts();
+        }
 
         for face in db.faces() {
             let path = match &face.source {

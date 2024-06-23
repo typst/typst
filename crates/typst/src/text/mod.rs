@@ -31,9 +31,9 @@ pub use self::space::*;
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, EcoString};
-use rustybuzz::{Feature, Tag};
+use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::Rect;
+use ttf_parser::{Rect, Tag};
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
@@ -111,7 +111,8 @@ pub struct TextElem {
     ///   variable to add directories that should be scanned for fonts. The
     ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
     ///   `typst fonts` to see the fonts that Typst has discovered on your
-    ///   system.
+    ///   system. Note that you can pass the `--ignore-system-fonts` parameter
+    ///   to the CLI to ensure Typst won't search for system fonts.
     ///
     /// ```example
     /// #set text(font: "PT Sans")
@@ -131,7 +132,7 @@ pub struct TextElem {
             let book = engine.world.book();
             for family in &font_list.v {
                 if !book.contains_family(family.as_str()) {
-                    engine.tracer.warn(warning!(
+                    engine.sink.warn(warning!(
                         font_list.span,
                         "unknown font family: {}",
                         family.as_str(),

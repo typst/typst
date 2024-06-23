@@ -231,7 +231,7 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        let row_gutter = *BlockElem::below_in(styles).amount();
+        let row_gutter = ParElem::spacing_in(styles).into();
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in references {
@@ -833,13 +833,16 @@ impl<'a> Generator<'a> {
                     let dest = Destination::Location(*location);
                     content = content.linked(dest);
                 }
-                content.backlinked(backlink)
+                content
             });
 
             // Render the main reference content.
-            let reference = renderer
-                .display_elem_children(&item.content, &mut prefix)
-                .backlinked(backlink);
+            let mut reference =
+                renderer.display_elem_children(&item.content, &mut prefix);
+
+            // Attach a backlink to either the prefix or the reference so that
+            // we can link to the bibliography entry.
+            prefix.as_mut().unwrap_or(&mut reference).set_location(backlink);
 
             output.push((prefix, reference));
         }

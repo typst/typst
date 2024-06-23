@@ -8,7 +8,7 @@ use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
     Styles, Synthesize,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Locator};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame,
     InlineElem, InlineItem, OuterHAlignment, Point, Regions, Size, SpecificAlignment,
@@ -166,9 +166,13 @@ impl Synthesize for Packed<EquationElem> {
 impl Show for Packed<EquationElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         if self.block(styles) {
-            Ok(BlockElem::multi_layouter(self.clone(), layout_equation_block).pack())
+            Ok(BlockElem::multi_layouter(self.clone(), layout_equation_block)
+                .pack()
+                .spanned(self.span()))
         } else {
-            Ok(InlineElem::layouter(self.clone(), layout_equation_inline).pack())
+            Ok(InlineElem::layouter(self.clone(), layout_equation_inline)
+                .pack()
+                .spanned(self.span()))
         }
     }
 }
@@ -265,7 +269,8 @@ impl LayoutMath for Packed<EquationElem> {
 #[typst_macros::time(span = elem.span())]
 fn layout_equation_inline(
     elem: &Packed<EquationElem>,
-    engine: &mut Engine<'_>,
+    engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     region: Size,
 ) -> SourceResult<Vec<InlineItem>> {
@@ -273,7 +278,7 @@ fn layout_equation_inline(
 
     let font = find_math_font(engine, styles, elem.span())?;
 
-    let mut ctx = MathContext::new(engine, styles, region, &font);
+    let mut ctx = MathContext::new(engine, locator, styles, region, &font);
     let run = ctx.layout_into_run(elem, styles)?;
 
     let mut items = if run.row_count() == 1 {
@@ -311,6 +316,7 @@ fn layout_equation_inline(
 fn layout_equation_block(
     elem: &Packed<EquationElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
@@ -319,7 +325,9 @@ fn layout_equation_block(
     let span = elem.span();
     let font = find_math_font(engine, styles, span)?;
 
-    let mut ctx = MathContext::new(engine, styles, regions.base(), &font);
+    let mut locator = locator.split();
+    let mut ctx =
+        MathContext::new(engine, locator.next(&()), styles, regions.base(), &font);
     let full_equation_builder = ctx
         .layout_into_run(elem, styles)?
         .multiline_frame_builder(&ctx, styles);
@@ -395,7 +403,7 @@ fn layout_equation_block(
     let number = Counter::of(EquationElem::elem())
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
         .spanned(span)
-        .layout(engine, styles, pod)?
+        .layout(engine, locator.next(&()), styles, pod)?
         .into_frame();
 
     static NUMBER_GUTTER: Em = Em::new(0.5);

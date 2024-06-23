@@ -115,7 +115,7 @@ pub fn write_color_fonts(
             pdf_font.finish();
 
             // Encode a CMAP to make it possible to search or copy glyphs.
-            let glyph_set = resources.glyph_sets.get(&font_slice.font).unwrap();
+            let glyph_set = resources.color_glyph_sets.get(&font_slice.font).unwrap();
             let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
             for (index, glyph) in subset.iter().enumerate() {
                 let Some(text) = glyph_set.get(&glyph.gid) else {

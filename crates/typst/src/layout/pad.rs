@@ -3,6 +3,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, BlockElem, Fragment, Frame, Length, Point, Regions, Rel, Sides, Size,
 };
@@ -64,7 +65,9 @@ pub struct PadElem {
 
 impl Show for Packed<PadElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), layout_pad).pack())
+        Ok(BlockElem::multi_layouter(self.clone(), layout_pad)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -73,6 +76,7 @@ impl Show for Packed<PadElem> {
 fn layout_pad(
     elem: &Packed<PadElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
@@ -87,7 +91,7 @@ fn layout_pad(
     let pod = regions.map(&mut backlog, |size| shrink(size, &padding));
 
     // Layout child into padded regions.
-    let mut fragment = elem.body().layout(engine, styles, pod)?;
+    let mut fragment = elem.body().layout(engine, locator, styles, pod)?;
 
     for frame in &mut fragment {
         grow(frame, &padding);

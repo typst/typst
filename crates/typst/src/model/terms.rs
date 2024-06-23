@@ -4,9 +4,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
     Styles,
 };
-use crate::layout::{
-    BlockElem, Dir, Em, HElem, Length, Sides, Spacing, StackChild, StackElem, VElem,
-};
+use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
 use crate::model::ParElem;
 use crate::text::TextElem;
 use crate::utils::Numeric;
@@ -82,10 +80,12 @@ pub struct TermsElem {
     #[default(Em::new(2.0).into())]
     pub hanging_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) term list.
+    /// The spacing between the items of the term list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// term lists and paragraph [`spacing`]($par.spacing) for wide
+    /// (non-tight) term lists.
+    pub spacing: Smart<Length>,
 
     /// The term list's children.
     ///
@@ -114,12 +114,13 @@ impl Show for Packed<TermsElem> {
         let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
-        let gutter = if self.tight(styles) {
-            ParElem::leading_in(styles).into()
-        } else {
-            self.spacing(styles)
-                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-        };
+        let gutter = self.spacing(styles).unwrap_or_else(|| {
+            if self.tight(styles) {
+                ParElem::leading_in(styles).into()
+            } else {
+                ParElem::spacing_in(styles).into()
+            }
+        });
 
         let pad = hanging_indent + indent;
         let unpad = (!hanging_indent.is_zero())
@@ -143,7 +144,7 @@ impl Show for Packed<TermsElem> {
         }
 
         let mut realized = StackElem::new(children)
-            .with_spacing(Some(gutter))
+            .with_spacing(Some(gutter.into()))
             .pack()
             .padded(padding);
 

@@ -9,9 +9,10 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Context, NativeElement, Packed, Show, Smart,
     StyleChain, Styles,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    Length, Regions, Sizing, Spacing, VAlignment, VElem,
+    Length, Regions, Sizing, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -154,10 +155,12 @@ pub struct EnumElem {
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) enumeration.
+    /// The spacing between the items of the enumeration.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// enumerations and paragraph [`spacing`]($par.spacing) for wide
+    /// (non-tight) enumerations.
+    pub spacing: Smart<Length>,
 
     /// The alignment that enum numbers should have.
     ///
@@ -215,7 +218,9 @@ impl EnumElem {
 
 impl Show for Packed<EnumElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = BlockElem::multi_layouter(self.clone(), layout_enum).pack();
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_enum)
+            .pack()
+            .spanned(self.span());
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
@@ -232,20 +237,23 @@ impl Show for Packed<EnumElem> {
 fn layout_enum(
     elem: &Packed<EnumElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let numbering = elem.numbering(styles);
     let indent = elem.indent(styles);
     let body_indent = elem.body_indent(styles);
-    let gutter = if elem.tight(styles) {
-        ParElem::leading_in(styles).into()
-    } else {
-        elem.spacing(styles)
-            .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-    };
+    let gutter = elem.spacing(styles).unwrap_or_else(|| {
+        if elem.tight(styles) {
+            ParElem::leading_in(styles).into()
+        } else {
+            ParElem::spacing_in(styles).into()
+        }
+    });
 
     let mut cells = vec![];
+    let mut locator = locator.split();
     let mut number = elem.start(styles);
     let mut parents = EnumElem::parents_in(styles);
 
@@ -280,11 +288,12 @@ fn layout_enum(
         let resolved =
             resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(resolved));
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(
-            item.body().clone().styled(EnumElem::set_parents(smallvec![number])),
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(resolved, locator.next(&())));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(
+            item.body.clone().styled(EnumElem::set_parents(smallvec![number])),
+            locator.next(&item.body.span()),
         ));
         number = number.saturating_add(1);
     }

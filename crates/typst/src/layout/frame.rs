@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
-use crate::foundations::{cast, dict, Content, Dict, StyleChain, Value};
+use crate::foundations::{cast, dict, Dict, StyleChain, Value};
+use crate::introspection::Tag;
 use crate::layout::{
     Abs, Axes, Corners, FixedAlignment, HideElem, Length, Point, Rel, Sides, Size,
     Transform,
@@ -521,8 +522,9 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
     Link(Destination, Size),
-    /// An introspectable element that produced something within this frame.
-    Tag(Content),
+    /// An introspectable element that produced something within this frame
+    /// alongside its key.
+    Tag(Tag),
 }
 
 impl Debug for FrameItem {
@@ -533,7 +535,7 @@ impl Debug for FrameItem {
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
-            Self::Tag(elem) => write!(f, "Tag({elem:?})"),
+            Self::Tag(tag) => write!(f, "{tag:?}"),
         }
     }
 }

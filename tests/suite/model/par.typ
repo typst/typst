@@ -19,17 +19,19 @@ heaven Would through the airy region stream so bright That birds would sing and
 think it were not night. See, how she leans her cheek upon her hand! O, that I
 were a glove upon that hand, That I might touch that cheek!
 
---- par-leading-and-block-spacing ---
+--- par-leading-and-spacing ---
 // Test changing leading and spacing.
-#set block(spacing: 1em)
-#set par(leading: 2pt)
+#set par(spacing: 1em, leading: 2pt)
 But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
 
+--- par-spacing-context ---
+#set par(spacing: 10pt)
+#context test(par.spacing, 10pt)
+
 --- par-first-line-indent ---
-#set par(first-line-indent: 12pt, leading: 5pt)
-#set block(spacing: 5pt)
+#set par(first-line-indent: 12pt, spacing: 5pt, leading: 5pt)
 #show heading: set text(size: 10pt)
 
 The first paragraph has no indent.

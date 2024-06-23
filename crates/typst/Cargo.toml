@@ -68,6 +68,7 @@ unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }
+xmlwriter = { workspace = true }
 wasmi = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -3,6 +3,7 @@ use std::num::NonZeroUsize;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, Dir, Fragment, Frame, Length, Point, Ratio, Regions, Rel, Size,
 };
@@ -62,7 +63,8 @@ impl Show for Packed<ColumnsElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(BlockElem::multi_layouter(self.clone(), layout_columns)
             .with_rootable(true)
-            .pack())
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -71,6 +73,7 @@ impl Show for Packed<ColumnsElem> {
 fn layout_columns(
     elem: &Packed<ColumnsElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
@@ -79,7 +82,7 @@ fn layout_columns(
     // Separating the infinite space into infinite columns does not make
     // much sense.
     if !regions.size.x.is_finite() {
-        return body.layout(engine, styles, regions);
+        return body.layout(engine, locator, styles, regions);
     }
 
     // Determine the width of the gutter and each column.
@@ -104,7 +107,7 @@ fn layout_columns(
     };
 
     // Layout the children.
-    let mut frames = body.layout(engine, styles, pod)?.into_iter();
+    let mut frames = body.layout(engine, locator, styles, pod)?.into_iter();
     let mut finished = vec![];
 
     let dir = TextElem::dir_in(styles);

@@ -29,7 +29,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set text(8pt)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
-#set text(0pt)
+#show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
 --- quote-cite-format-label-or-numeric ---
@@ -38,7 +38,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set quote(block: true)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
-#set text(0pt)
+#show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "ieee")
 
 --- quote-cite-format-note ---
@@ -47,7 +47,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set quote(block: true)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
-#set text(0pt)
+#show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-notes")
 
 --- quote-cite-format-author-date ---
@@ -56,7 +56,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set quote(block: true)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
-#set text(0pt)
+#show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "apa")
 
 --- quote-nesting ---

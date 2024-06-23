@@ -16,7 +16,7 @@ use crate::model::Numbering;
 use crate::utils::NonZeroExt;
 
 /// Can be queried for elements and their positions.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Introspector {
     /// The number of pages in the document.
     pages: usize,
@@ -25,6 +25,9 @@ pub struct Introspector {
     /// Maps labels to their indices in the element list. We use a smallvec such
     /// that if the label is unique, we don't need to allocate.
     labels: HashMap<Label, SmallVec<[usize; 1]>>,
+    /// Maps from element keys to the locations of all elements that had this
+    /// key. Used for introspector-assisted location assignment.
+    keys: HashMap<u128, SmallVec<[Location; 1]>>,
     /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Option<Numbering>>,
     /// Caches queries done on the introspector. This is important because
@@ -41,6 +44,7 @@ impl Introspector {
         self.pages = pages.len();
         self.elems.clear();
         self.labels.clear();
+        self.keys.clear();
         self.page_numberings.clear();
         self.queries.clear();
 
@@ -61,18 +65,21 @@ impl Introspector {
                         .pre_concat(group.transform);
                     self.extract(&group.frame, page, ts);
                 }
-                FrameItem::Tag(elem)
-                    if !self.elems.contains_key(&elem.location().unwrap()) =>
+                FrameItem::Tag(tag)
+                    if !self.elems.contains_key(&tag.elem.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
-                    let ret = self.elems.insert(
-                        elem.location().unwrap(),
-                        (elem.clone(), Position { page, point: pos }),
-                    );
+                    let loc = tag.elem.location().unwrap();
+                    let ret = self
+                        .elems
+                        .insert(loc, (tag.elem.clone(), Position { page, point: pos }));
                     assert!(ret.is_none(), "duplicate locations");
 
+                    // Build the key map.
+                    self.keys.entry(tag.key).or_default().push(loc);
+
                     // Build the label cache.
-                    if let Some(label) = elem.label() {
+                    if let Some(label) = tag.elem.label() {
                         self.labels.entry(label).or_default().push(self.elems.len() - 1);
                     }
                 }
@@ -86,21 +93,24 @@ impl Introspector {
         self.elems.values().map(|(c, _)| c)
     }
 
+    /// Perform a binary search for `elem` among the `list`.
+    fn binary_search(&self, list: &[Content], elem: &Content) -> Result<usize, usize> {
+        list.binary_search_by_key(&self.elem_index(elem), |elem| self.elem_index(elem))
+    }
+
     /// Get an element by its location.
     fn get(&self, location: &Location) -> Option<&Content> {
         self.elems.get(location).map(|(elem, _)| elem)
     }
 
     /// Get the index of this element among all.
-    fn index(&self, elem: &Content) -> usize {
-        self.elems
-            .get_index_of(&elem.location().unwrap())
-            .unwrap_or(usize::MAX)
+    fn elem_index(&self, elem: &Content) -> usize {
+        self.loc_index(&elem.location().unwrap())
     }
 
-    /// Perform a binary search for `elem` among the `list`.
-    fn binary_search(&self, list: &[Content], elem: &Content) -> Result<usize, usize> {
-        list.binary_search_by_key(&self.index(elem), |elem| self.index(elem))
+    /// Get the index of the element with this location among all.
+    fn loc_index(&self, location: &Location) -> usize {
+        self.elems.get_index_of(location).unwrap_or(usize::MAX)
     }
 }
 
@@ -183,7 +193,7 @@ impl Introspector {
             Selector::Or(selectors) => selectors
                 .iter()
                 .flat_map(|sel| self.query(sel))
-                .map(|elem| self.index(&elem))
+                .map(|elem| self.elem_index(&elem))
                 .collect::<BTreeSet<usize>>()
                 .into_iter()
                 .map(|index| self.elems[index].0.clone())
@@ -283,17 +293,20 @@ impl Introspector {
             .map(|&(_, pos)| pos)
             .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
     }
-}
 
-impl Default for Introspector {
-    fn default() -> Self {
-        Self {
-            pages: 0,
-            elems: IndexMap::new(),
-            labels: HashMap::new(),
-            page_numberings: vec![],
-            queries: QueryCache::default(),
-        }
+    /// Try to find a location for an element with the given `key` hash
+    /// that is closest after the `anchor`.
+    ///
+    /// This is used for introspector-assisted location assignment during
+    /// measurement. See the "Dealing with Measurement" section of the
+    /// [`Locator`](crate::introspection::Locator) docs for more details.
+    pub fn locator(&self, key: u128, anchor: Location) -> Option<Location> {
+        let anchor = self.loc_index(&anchor);
+        self.keys
+            .get(&key)?
+            .iter()
+            .copied()
+            .min_by_key(|loc| self.loc_index(loc).wrapping_sub(anchor))
     }
 }
 

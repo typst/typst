@@ -120,3 +120,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-2051-new-cm-svg ---
 #set text(font: "New Computer Modern")
 #image("/assets/images/diagram.svg")
+
+--- issue-3733-dpi-svg ---
+#set page(width: 200pt, height: 200pt, margin: 0pt)
+#image("/assets/images/relative.svg")

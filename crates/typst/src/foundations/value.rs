@@ -610,11 +610,7 @@ macro_rules! primitive {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
-                    v => Err(eco_format!(
-                        "expected {}, found {}",
-                        Type::of::<Self>(),
-                        v.ty(),
-                    ).into()),
+                    v => Err(<Self as Reflect>::error(&v)),
                 }
             }
         }
@@ -662,7 +658,8 @@ primitive! { Dict: "dictionary", Dict }
 primitive! {
     Func: "function",
     Func,
-    Type(ty) => ty.constructor()?.clone()
+    Type(ty) => ty.constructor()?.clone(),
+    Symbol(symbol) => symbol.func()?
 }
 primitive! { Args: "arguments", Args }
 primitive! { Type: "type", Type }

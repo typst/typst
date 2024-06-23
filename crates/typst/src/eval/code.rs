@@ -315,7 +315,7 @@ impl Eval for ast::FieldAccess<'_> {
             if let Some(element) = func.element();
             if let Some(id) = element.field_id(&field);
             let styles = vm.context.styles().at(field.span());
-            if let Some(value) = element.field_from_styles(
+            if let Ok(value) = element.field_from_styles(
                 id,
                 styles.as_ref().map(|&s| s).unwrap_or_default(),
             );

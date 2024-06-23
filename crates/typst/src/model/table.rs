@@ -8,6 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Fold, NativeElement, Packed, Show, Smart, StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, BlockElem, Cell, CellGrid, Celled, Dir,
     Fragment, GridCell, GridFooter, GridHLine, GridHeader, GridLayouter, GridVLine,
@@ -262,7 +263,9 @@ impl TableElem {
 
 impl Show for Packed<TableElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), layout_table).pack())
+        Ok(BlockElem::multi_layouter(self.clone(), layout_table)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -271,6 +274,7 @@ impl Show for Packed<TableElem> {
 fn layout_table(
     elem: &Packed<TableElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
@@ -304,6 +308,7 @@ fn layout_table(
     let grid = CellGrid::resolve(
         tracks,
         gutter,
+        locator,
         children,
         fill,
         align,
@@ -800,7 +805,7 @@ impl Default for Packed<TableCell> {
 }
 
 impl ResolvableCell for Packed<TableCell> {
-    fn resolve_cell(
+    fn resolve_cell<'a>(
         mut self,
         x: usize,
         y: usize,
@@ -809,8 +814,9 @@ impl ResolvableCell for Packed<TableCell> {
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
+        locator: Locator<'a>,
         styles: StyleChain,
-    ) -> Cell {
+    ) -> Cell<'a> {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let rowspan = cell.rowspan(styles);
@@ -862,6 +868,7 @@ impl ResolvableCell for Packed<TableCell> {
         cell.push_breakable(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
+            locator,
             fill,
             colspan,
             rowspan,

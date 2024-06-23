@@ -286,7 +286,8 @@ impl Show for Packed<FootnoteEntry> {
             .pack()
             .spanned(span)
             .linked(Destination::Location(loc))
-            .backlinked(loc.variant(1));
+            .located(loc.variant(1));
+
         Ok(Content::sequence([
             HElem::new(self.indent(styles).into()).pack(),
             sup,

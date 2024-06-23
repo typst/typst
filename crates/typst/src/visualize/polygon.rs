@@ -5,6 +5,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     elem, func, scope, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{Axes, BlockElem, Em, Frame, FrameItem, Length, Point, Region, Rel};
 use crate::syntax::Span;
 use crate::utils::Numeric;
@@ -125,7 +126,9 @@ impl PolygonElem {
 
 impl Show for Packed<PolygonElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_polygon).pack())
+        Ok(BlockElem::single_layouter(self.clone(), layout_polygon)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -134,6 +137,7 @@ impl Show for Packed<PolygonElem> {
 fn layout_polygon(
     elem: &Packed<PolygonElem>,
     _: &mut Engine,
+    _: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {

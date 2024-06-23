@@ -2,8 +2,9 @@ use std::any::Any;
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use std::sync::atomic::Ordering;
 
-use portable_atomic::{AtomicU128, Ordering};
+use portable_atomic::AtomicU128;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 /// A wrapper type with lazily-computed hash.
@@ -70,7 +71,9 @@ impl<T: ?Sized> LazyHash<T> {
     /// Get the hash, returns zero if not computed yet.
     #[inline]
     fn load_hash(&self) -> u128 {
-        self.hash.load(Ordering::SeqCst)
+        // We only need atomicity and no synchronization of other operations, so
+        // `Relaxed` is fine.
+        self.hash.load(Ordering::Relaxed)
     }
 }
 
@@ -78,20 +81,18 @@ impl<T: Hash + ?Sized + 'static> LazyHash<T> {
     /// Get the hash or compute it if not set yet.
     #[inline]
     fn load_or_compute_hash(&self) -> u128 {
-        let hash = self.load_hash();
+        let mut hash = self.load_hash();
         if hash == 0 {
-            let hashed = hash_item(&self.value);
-            self.hash.store(hashed, Ordering::SeqCst);
-            hashed
-        } else {
-            hash
+            hash = hash_item(&self.value);
+            self.hash.store(hash, Ordering::Relaxed);
         }
+        hash
     }
 
     /// Reset the hash to zero.
     #[inline]
     fn reset_hash(&mut self) {
-        // Because we have a mutable reference, we can skip the atomic
+        // Because we have a mutable reference, we can skip the atomic.
         *self.hash.get_mut() = 0;
     }
 }

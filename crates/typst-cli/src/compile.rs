@@ -8,8 +8,7 @@ use codespan_reporting::term;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
+use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult, Warned};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, PageRanges};
 use typst::model::Document;
@@ -112,11 +111,9 @@ pub fn compile_once(
         return Ok(());
     }
 
-    let mut tracer = Tracer::new();
-    let result = typst::compile(world, &mut tracer);
-    let warnings = tracer.warnings();
+    let Warned { output, warnings } = typst::compile(world);
 
-    match result {
+    match output {
         // Export the PDF / PNG.
         Ok(document) => {
             export(world, &document, command, watching)?;

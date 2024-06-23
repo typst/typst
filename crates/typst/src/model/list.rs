@@ -6,9 +6,10 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
     Smart, StyleChain, Styles, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
-    Regions, Sizing, Spacing, VAlignment, VElem,
+    Regions, Sizing, VAlignment, VElem,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -106,10 +107,12 @@ pub struct ListElem {
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) list.
+    /// The spacing between the items of the list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// lists and paragraph [`spacing`]($par.spacing) for wide (non-tight)
+    /// lists.
+    pub spacing: Smart<Length>,
 
     /// The bullet list's children.
     ///
@@ -139,7 +142,9 @@ impl ListElem {
 
 impl Show for Packed<ListElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = BlockElem::multi_layouter(self.clone(), layout_list).pack();
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_list)
+            .pack()
+            .spanned(self.span());
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
@@ -156,17 +161,19 @@ impl Show for Packed<ListElem> {
 fn layout_list(
     elem: &Packed<ListElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let indent = elem.indent(styles);
     let body_indent = elem.body_indent(styles);
-    let gutter = if elem.tight(styles) {
-        ParElem::leading_in(styles).into()
-    } else {
-        elem.spacing(styles)
-            .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-    };
+    let gutter = elem.spacing(styles).unwrap_or_else(|| {
+        if elem.tight(styles) {
+            ParElem::leading_in(styles).into()
+        } else {
+            ParElem::spacing_in(styles).into()
+        }
+    });
 
     let Depth(depth) = ListElem::depth_in(styles);
     let marker = elem
@@ -176,11 +183,16 @@ fn layout_list(
         .aligned(HAlignment::Start + VAlignment::Top);
 
     let mut cells = vec![];
+    let mut locator = locator.split();
+
     for item in elem.children() {
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(marker.clone()));
-        cells.push(Cell::from(Content::empty()));
-        cells.push(Cell::from(item.body().clone().styled(ListElem::set_depth(Depth(1)))));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(
+            item.body.clone().styled(ListElem::set_depth(Depth(1))),
+            locator.next(&item.body.span()),
+        ));
     }
 
     let grid = CellGrid::new(

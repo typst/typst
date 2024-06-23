@@ -258,3 +258,11 @@ Default page numbers now.
 Hi
 #pagebreak()
 = Second
+
+--- issue-4340-set-document-and-page ---
+// Test custom page fields being applied on the last page
+// if the document has custom fields.
+#set document(author: "")
+#set page(fill: gray)
+text
+#pagebreak()

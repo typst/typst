@@ -185,16 +185,10 @@ in the active file needs to re-run. This is all handled automatically by
 
 
 ## Tests
-Typst has an extensive suite of integration tests. A test file consists of
-multiple tests that are separated by `---`. For each test file, we store a
-reference image defining what the compiler _should_ output. To manage the
-reference images, you can use the VS code extension in `tools/test-helper`.
-
-The integration tests cover parsing, evaluation, realization, layout and
-rendering. PDF output is sadly untested, but most bugs are in earlier phases of
-the compiler; the PDF output itself is relatively straight-forward. IDE
-functionality is also mostly untested. PDF and IDE testing should be added in
-the future.
+Typst has an extensive suite of integration tests. These tests cover parsing,
+evaluation, realization, layout, and rendering. PDF output is sadly untested so
+far, but most bugs are in earlier phases of the compiler. For more details about
+testing, see the [tests directory](/tests) and its README.
 
 [docs]: https://typst.app/docs/
 [`comemo`]: https://github.com/typst/comemo/

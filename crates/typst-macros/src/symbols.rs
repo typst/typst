@@ -3,7 +3,7 @@ use quote::quote;
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
-use syn::{Ident, Result, Token};
+use syn::{Ident, LitChar, Path, Result, Token};
 
 /// Expand the `symbols!` macro.
 pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
@@ -12,12 +12,16 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
     let pairs = list.iter().map(|symbol| {
         let name = symbol.name.to_string();
         let kind = match &symbol.kind {
-            Kind::Single(c) => quote! { ::typst::symbols::Symbol::single(#c), },
+            Kind::Single(c, h) => {
+                let symbol = construct_sym_char(c, h);
+                quote! { ::typst::symbols::Symbol::single(#symbol), }
+            }
             Kind::Multiple(variants) => {
                 let variants = variants.iter().map(|variant| {
                     let name = &variant.name;
                     let c = &variant.c;
-                    quote! { (#name, #c) }
+                    let symbol = construct_sym_char(c, &variant.handler);
+                    quote! { (#name, #symbol) }
                 });
                 quote! {
                     ::typst::symbols::Symbol::list(&[#(#variants),*])
@@ -29,20 +33,35 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
     Ok(quote! { &[#(#pairs),*] })
 }
 
+fn construct_sym_char(ch: &LitChar, handler: &Handler) -> TokenStream {
+    match &handler.0 {
+        None => quote! { ::typst::symbols::SymChar::pure(#ch), },
+        Some(path) => quote! {
+            ::typst::symbols::SymChar::with_func(
+                #ch,
+                <#path as ::typst::foundations::NativeFunc>::func,
+            ),
+        },
+    }
+}
+
 struct Symbol {
     name: syn::Ident,
     kind: Kind,
 }
 
 enum Kind {
-    Single(syn::LitChar),
+    Single(syn::LitChar, Handler),
     Multiple(Punctuated<Variant, Token![,]>),
 }
 
 struct Variant {
     name: String,
     c: syn::LitChar,
+    handler: Handler,
 }
+
+struct Handler(Option<Path>);
 
 impl Parse for Symbol {
     fn parse(input: ParseStream) -> Result<Self> {
@@ -55,9 +74,13 @@ impl Parse for Symbol {
 
 impl Parse for Kind {
     fn parse(input: ParseStream) -> Result<Self> {
+        let handler = input.parse::<Handler>()?;
         if input.peek(syn::LitChar) {
-            Ok(Self::Single(input.parse()?))
+            Ok(Self::Single(input.parse()?, handler))
         } else {
+            if handler.0.is_some() {
+                return Err(input.error("unexpected handler"));
+            }
             let content;
             syn::bracketed!(content in input);
             Ok(Self::Multiple(Punctuated::parse_terminated(&content)?))
@@ -68,6 +91,7 @@ impl Parse for Kind {
 impl Parse for Variant {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut name = String::new();
+        let handler = input.parse::<Handler>()?;
         if input.peek(syn::Ident::peek_any) {
             name.push_str(&input.call(Ident::parse_any)?.to_string());
             while input.peek(Token![.]) {
@@ -78,6 +102,26 @@ impl Parse for Variant {
             input.parse::<Token![:]>()?;
         }
         let c = input.parse()?;
-        Ok(Self { name, c })
+        Ok(Self { name, c, handler })
+    }
+}
+
+impl Parse for Handler {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let Ok(attrs) = input.call(syn::Attribute::parse_outer) else {
+            return Ok(Self(None));
+        };
+        let handler = attrs
+            .iter()
+            .find_map(|attr| {
+                if attr.path().is_ident("call") {
+                    if let Ok(path) = attr.parse_args::<Path>() {
+                        return Some(Self(Some(path)));
+                    }
+                }
+                None
+            })
+            .unwrap_or(Self(None));
+        Ok(handler)
     }
 }

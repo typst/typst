@@ -35,8 +35,8 @@ impl SyntaxNode {
     }
 
     /// Create a new error node.
-    pub fn error(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
-        Self(Repr::Error(Arc::new(ErrorNode::new(message, text))))
+    pub fn error(error: SyntaxError, text: impl Into<EcoString>) -> Self {
+        Self(Repr::Error(Arc::new(ErrorNode::new(error, text))))
     }
 
     /// Create a dummy node of the given kind.
@@ -209,7 +209,7 @@ impl SyntaxNode {
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         if !self.kind().is_error() {
             let text = std::mem::take(self).into_text();
-            *self = SyntaxNode::error(message, text);
+            *self = SyntaxNode::error(SyntaxError::new(message), text);
         }
     }
 
@@ -628,15 +628,8 @@ struct ErrorNode {
 
 impl ErrorNode {
     /// Create new error node.
-    fn new(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
-        Self {
-            text: text.into(),
-            error: SyntaxError {
-                span: Span::detached(),
-                message: message.into(),
-                hints: eco_vec![],
-            },
-        }
+    fn new(error: SyntaxError, text: impl Into<EcoString>) -> Self {
+        Self { text: text.into(), error }
     }
 
     /// The byte length of the node in the source text.
@@ -674,6 +667,15 @@ pub struct SyntaxError {
 }
 
 impl SyntaxError {
+    /// Create a new detached syntax error.
+    pub fn new(message: impl Into<EcoString>) -> Self {
+        Self {
+            span: Span::detached(),
+            message: message.into(),
+            hints: eco_vec![],
+        }
+    }
+
     /// Whether the two errors are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
         self.message == other.message && self.hints == other.hints

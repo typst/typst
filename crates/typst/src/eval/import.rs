@@ -35,7 +35,7 @@ impl Eval for ast::ModuleImport<'_> {
             if let ast::Expr::Ident(ident) = self.source() {
                 if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
-                    vm.engine.tracer.warn(warning!(
+                    vm.engine.sink.warn(warning!(
                         new_name.span(),
                         "unnecessary import rename to same name",
                     ));
@@ -110,7 +110,7 @@ impl Eval for ast::ModuleImport<'_> {
                                 if renamed_item.original_name().as_str()
                                     == renamed_item.new_name().as_str()
                                 {
-                                    vm.engine.tracer.warn(warning!(
+                                    vm.engine.sink.warn(warning!(
                                         renamed_item.new_name().span(),
                                         "unnecessary import rename to same name",
                                     ));
@@ -185,8 +185,9 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     let point = || Tracepoint::Import;
     Ok(eval(
         vm.world(),
+        vm.engine.traced,
+        TrackedMut::reborrow_mut(&mut vm.engine.sink),
         vm.engine.route.track(),
-        TrackedMut::reborrow_mut(&mut vm.engine.tracer),
         &source,
     )
     .trace(vm.world(), point, span)?
@@ -209,8 +210,9 @@ fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     let point = || Tracepoint::Import;
     eval(
         world,
+        vm.engine.traced,
+        TrackedMut::reborrow_mut(&mut vm.engine.sink),
         vm.engine.route.track(),
-        TrackedMut::reborrow_mut(&mut vm.engine.tracer),
         &source,
     )
     .trace(world, point, span)
