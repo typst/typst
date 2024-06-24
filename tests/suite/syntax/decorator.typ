@@ -49,18 +49,18 @@ this is ok
 // Error: 4-18 expected identifier
 /! 555!**INVALID!
 
-// Error: 9-12 expected left parenthesis
+// Error: 9-12 expected opening paren
 /! allow)")
 
 // Error: 10-14 unclosed string
-// Error: 14 expected right parenthesis
+// Error: 14 expected closing paren
 /! allow("abc
 
 // Error: 17-20 expected whitespace
 /! allow("abc") abc
 
 // Error: 16-26 expected comma
-// Error: 26 expected right parenthesis
+// Error: 26 expected closing paren
 /! allow("abc" "abc") abc
 
 // Error: 16-21 expected comma

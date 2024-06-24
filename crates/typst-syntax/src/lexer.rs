@@ -257,7 +257,7 @@ impl Lexer<'_> {
         let current_start = self.s.cursor();
         if !self.s.eat_if('(') {
             self.s.eat_until(is_newline);
-            subtree.push(self.emit_error("expected left parenthesis", current_start));
+            subtree.push(self.emit_error("expected opening paren", current_start));
 
             // Return a single error node until the end of the decorator.
             return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
@@ -317,7 +317,7 @@ impl Lexer<'_> {
 
         // Right parenthesis (covered above)
         if !finished {
-            subtree.push(self.emit_error("expected right parenthesis", self.s.cursor()));
+            subtree.push(self.emit_error("expected closing paren", self.s.cursor()));
         }
 
         SyntaxNode::inner(SyntaxKind::Decorator, subtree)
