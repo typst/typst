@@ -1099,7 +1099,7 @@ fn is_valid_in_label_literal(c: char) -> bool {
 /// Whether a character can be part of a string in a decorator.
 #[inline]
 fn is_valid_in_decorator_string(c: char) -> bool {
-    is_id_continue(c) || c == '@' || c == '/' || c == '-'
+    is_id_continue(c) || c == '@' || c == '/'
 }
 
 /// Returns true if this string is valid in a label literal.
