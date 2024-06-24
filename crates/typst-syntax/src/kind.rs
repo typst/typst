@@ -280,6 +280,11 @@ pub enum SyntaxKind {
     Destructuring,
     /// A destructuring assignment expression: `(x, y) = (1, 2)`.
     DestructAssignment,
+
+    /// A decorator's marker: `/!`.
+    DecoratorMarker,
+    /// A decorator's name: `allow`.
+    DecoratorName,
 }
 
 impl SyntaxKind {
@@ -505,6 +510,8 @@ impl SyntaxKind {
             Self::FuncReturn => "`return` expression",
             Self::Destructuring => "destructuring pattern",
             Self::DestructAssignment => "destructuring assignment expression",
+            Self::DecoratorMarker => "decorator marker",
+            Self::DecoratorName => "decorator name",
         }
     }
 }

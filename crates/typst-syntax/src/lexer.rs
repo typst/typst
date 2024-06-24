@@ -222,16 +222,18 @@ impl Lexer<'_> {
     /// `/! decorator-name("string argument1", "string argument2")`
     /// with optional whitespaces and comments between arguments.
     fn decorator(&mut self, start: usize) -> SyntaxNode {
-        // TODO: DecoratorMarker node
-        let current_start = start;
-        let mut subtree = vec![];
+        // Start by lexing the marker.
+        let marker = self.emit_token(SyntaxKind::DecoratorMarker, start);
+        let mut subtree = vec![marker];
+
+        let current_start = self.s.cursor();
 
         // Ignore initial non-newline whitespaces
         if !self.s.eat_while(is_inline_whitespace).is_empty() {
             subtree.push(self.emit_token(SyntaxKind::Space, current_start));
         }
 
-        // Decorator's name
+        // Lex the decorator name
         let current_start = self.s.cursor();
         if !self.s.eat_if(is_id_start) {
             self.s.eat_until(is_newline);
@@ -241,17 +243,8 @@ impl Lexer<'_> {
             return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
         }
 
-        self.s.eat_while(is_id_continue);
-        let ident = self.s.from(current_start);
-
-        subtree.push(if ident == "allow" {
-            self.emit_token(SyntaxKind::Ident, current_start)
-        } else {
-            self.emit_error(
-                eco_format!("expected decorator name 'allow', found '{ident}'"),
-                current_start,
-            )
-        });
+        let decorator_name = self.decorator_name(current_start);
+        subtree.push(self.emit_token(decorator_name, current_start));
 
         // Left parenthesis before decorator arguments
         let current_start = self.s.cursor();
@@ -323,6 +316,26 @@ impl Lexer<'_> {
         SyntaxNode::inner(SyntaxKind::Decorator, subtree)
     }
 
+    /// Lexes a decorator name.
+    /// A decorator name is an identifier within a specific subset of allowed
+    /// identifiers.
+    /// Currently, `allow` is the only valid decorator name.
+    fn decorator_name(&mut self, start: usize) -> SyntaxKind {
+        self.s.eat_while(is_id_continue);
+        let ident = self.s.from(start);
+
+        if ident == "allow" {
+            SyntaxKind::DecoratorName
+        } else {
+            let error = self.error(eco_format!("invalid decorator name"));
+            self.hint("must be 'allow'");
+            error
+        }
+    }
+
+    /// Lexes a string in a decorator.
+    /// Currently, such strings only allow a very restricted set of characters.
+    /// These restrictions may be lifted in the future.
     fn decorator_string(&mut self) -> SyntaxKind {
         // TODO: Allow more characters in decorators' strings, perhaps allowing
         // newlines somehow.

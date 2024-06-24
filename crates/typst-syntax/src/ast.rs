@@ -81,13 +81,29 @@ impl<'a> Markup<'a> {
 }
 
 node! {
+    DecoratorName
+}
+
+impl<'a> DecoratorName<'a> {
+    /// Get the decorator name.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+
+    /// Get the decorator name as a string slice.
+    pub fn as_str(self) -> &'a str {
+        self.get()
+    }
+}
+
+node! {
     /// A decorator: `/! allow("warning")`.
     Decorator
 }
 
 impl<'a> Decorator<'a> {
     /// The name of the decorator, e.g. `allow`.
-    pub fn name(self) -> Ident<'a> {
+    pub fn name(self) -> DecoratorName<'a> {
         self.0.cast_first_match().unwrap_or_default()
     }
 

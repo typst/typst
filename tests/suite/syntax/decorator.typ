@@ -36,7 +36,8 @@ this is ok
 /! allow("@some/thing-there123")
 
 --- unknown-decorator ---
-// Error: 4-12 expected decorator name 'allow', found 'whatever'
+// Error: 4-12 invalid decorator name
+// Hint: 4-12 must be 'allow'
 /! whatever()
 
 --- invalid-decorator-syntax ---
