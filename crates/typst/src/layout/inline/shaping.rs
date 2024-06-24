@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -8,11 +7,12 @@ use az::SaturatingAs;
 use ecow::EcoString;
 use rustybuzz::{ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
+use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::SpanMapper;
+use super::{Item, Range, SpanMapper};
 use crate::engine::Engine;
-use crate::foundations::StyleChain;
+use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
@@ -27,7 +27,7 @@ use crate::World;
 /// This type contains owned or borrowed shaped text runs, which can be
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
-pub(super) struct ShapedText<'a> {
+pub struct ShapedText<'a> {
     /// The start of the text in the full paragraph.
     pub base: usize,
     /// The text that was shaped.
@@ -52,7 +52,7 @@ pub(super) struct ShapedText<'a> {
 
 /// A single glyph resulting from shaping.
 #[derive(Debug, Clone)]
-pub(super) struct ShapedGlyph {
+pub struct ShapedGlyph {
     /// The font the glyph is contained in.
     pub font: Font,
     /// The glyph's index in the font.
@@ -69,12 +69,11 @@ pub(super) struct ShapedGlyph {
     /// is a sequence of one or multiple glyphs that cannot be separated and
     /// must always be treated as a union.
     ///
-    /// The range values of the glyphs in a [`ShapedText`] should not
-    /// overlap with each other, and they should be monotonically
-    /// increasing (for left-to-right or top-to-bottom text) or
-    /// monotonically decreasing (for right-to-left or bottom-to-top
-    /// text).
-    pub range: Range<usize>,
+    /// The range values of the glyphs in a [`ShapedText`] should not overlap
+    /// with each other, and they should be monotonically increasing (for
+    /// left-to-right or top-to-bottom text) or monotonically decreasing (for
+    /// right-to-left or bottom-to-top text).
+    pub range: Range,
     /// Whether splitting the shaping result before this glyph would yield the
     /// same results as shaping the parts to both sides of `text_index`
     /// separately.
@@ -90,7 +89,7 @@ pub(super) struct ShapedGlyph {
 }
 
 #[derive(Debug, Clone, Default)]
-pub(super) struct Adjustability {
+pub struct Adjustability {
     /// The left and right strechability
     pub stretchability: (Em, Em),
     /// The left and right shrinkability
@@ -414,7 +413,7 @@ impl<'a> ShapedText<'a> {
         &'a self,
         engine: &Engine,
         spans: &SpanMapper,
-        text_range: Range<usize>,
+        text_range: Range,
     ) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
@@ -508,7 +507,7 @@ impl<'a> ShapedText<'a> {
 
     /// Find the subslice of glyphs that represent the given text range if both
     /// sides are safe to break.
-    fn slice_safe_to_break(&self, text_range: Range<usize>) -> Option<&[ShapedGlyph]> {
+    fn slice_safe_to_break(&self, text_range: Range) -> Option<&[ShapedGlyph]> {
         let Range { mut start, mut end } = text_range;
         if !self.dir.is_positive() {
             std::mem::swap(&mut start, &mut end);
@@ -552,8 +551,9 @@ impl<'a> ShapedText<'a> {
                 // text_index:    ^
                 // glyphs:  0     .  1
                 //
-                // We will get found = Err(1), because '\n' does not have a glyph.
-                // But it's safe to break here. Thus the following condition:
+                // We will get found = Err(1), because '\n' does not have a
+                // glyph. But it's safe to break here. Thus the following
+                // condition:
                 // - glyphs[0].end == text_index == 3
                 // - text[3] == '\n'
                 return (idx > 0
@@ -589,23 +589,82 @@ impl Debug for ShapedText<'_> {
     }
 }
 
-/// Holds shaping results and metadata common to all shaped segments.
-struct ShapingContext<'a, 'v> {
-    engine: &'a Engine<'v>,
-    spans: &'a SpanMapper,
-    glyphs: Vec<ShapedGlyph>,
-    used: Vec<Font>,
+/// Group a range of text by BiDi level and script, shape the runs and generate
+/// items for them.
+pub fn shape_range<'a>(
+    items: &mut Vec<Item<'a>>,
+    engine: &Engine,
+    bidi: &BidiInfo<'a>,
+    range: Range,
+    spans: &SpanMapper,
     styles: StyleChain<'a>,
-    size: Abs,
-    variant: FontVariant,
-    features: Vec<rustybuzz::Feature>,
-    fallback: bool,
-    dir: Dir,
+) {
+    let script = TextElem::script_in(styles);
+    let lang = TextElem::lang_in(styles);
+    let region = TextElem::region_in(styles);
+    let mut process = |range: Range, level: BidiLevel| {
+        let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
+        let shaped = shape(
+            engine,
+            range.start,
+            &bidi.text[range],
+            spans,
+            styles,
+            dir,
+            lang,
+            region,
+        );
+        items.push(Item::Text(shaped));
+    };
+
+    let mut prev_level = BidiLevel::ltr();
+    let mut prev_script = Script::Unknown;
+    let mut cursor = range.start;
+
+    // Group by embedding level and script.  If the text's script is explicitly
+    // set (rather than inferred from the glyphs), we keep the script at an
+    // unchanging `Script::Unknown` so that only level changes cause breaks.
+    for i in range.clone() {
+        if !bidi.text.is_char_boundary(i) {
+            continue;
+        }
+
+        let level = bidi.levels[i];
+        let curr_script = match script {
+            Smart::Auto => {
+                bidi.text[i..].chars().next().map_or(Script::Unknown, |c| c.script())
+            }
+            Smart::Custom(_) => Script::Unknown,
+        };
+
+        if level != prev_level || !is_compatible(curr_script, prev_script) {
+            if cursor < i {
+                process(cursor..i, prev_level);
+            }
+            cursor = i;
+            prev_level = level;
+            prev_script = curr_script;
+        } else if is_generic_script(prev_script) {
+            prev_script = curr_script;
+        }
+    }
+
+    process(cursor..range.end, prev_level);
+}
+
+/// Whether this is not a specific script.
+fn is_generic_script(script: Script) -> bool {
+    matches!(script, Script::Unknown | Script::Common | Script::Inherited)
+}
+
+/// Whether these script can be part of the same shape run.
+fn is_compatible(a: Script, b: Script) -> bool {
+    is_generic_script(a) || is_generic_script(b) || a == b
 }
 
 /// Shape text into [`ShapedText`].
 #[allow(clippy::too_many_arguments)]
-pub(super) fn shape<'a>(
+fn shape<'a>(
     engine: &Engine,
     base: usize,
     text: &'a str,
@@ -653,6 +712,20 @@ pub(super) fn shape<'a>(
         width: ctx.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(size),
         glyphs: Cow::Owned(ctx.glyphs),
     }
+}
+
+/// Holds shaping results and metadata common to all shaped segments.
+struct ShapingContext<'a, 'v> {
+    engine: &'a Engine<'v>,
+    spans: &'a SpanMapper,
+    glyphs: Vec<ShapedGlyph>,
+    used: Vec<Font>,
+    styles: StyleChain<'a>,
+    size: Abs,
+    variant: FontVariant,
+    features: Vec<rustybuzz::Feature>,
+    fallback: bool,
+    dir: Dir,
 }
 
 /// Shape text with font fallback using the `families` iterator.
@@ -712,8 +785,7 @@ fn shape_segment<'a>(
     buffer.guess_segment_properties();
 
     // Prepare the shape plan. This plan depends on direction, script, language,
-    // and features, but is independent from the text and can thus be
-    // memoized.
+    // and features, but is independent from the text and can thus be memoized.
     let plan = create_shape_plan(
         &font,
         buffer.direction(),
@@ -908,7 +980,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
             continue;
         }
 
-        // Now we apply consecutive punctuation adjustment, specified in Chinese Layout
+        // Now we apply consecutive punctuation adjustment, specified in Chinese Layout.
         // Requirements, section 3.1.6.1 Punctuation Adjustment Space, and Japanese Layout
         // Requirements, section 3.1 Line Composition Rules for Punctuation Marks
         let Some(next) = glyphs.peek_mut() else { continue };
@@ -945,7 +1017,7 @@ fn language(styles: StyleChain) -> rustybuzz::Language {
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
 #[cfg(debug_assertions)]
-fn assert_all_glyphs_in_range(glyphs: &[ShapedGlyph], text: &str, range: Range<usize>) {
+fn assert_all_glyphs_in_range(glyphs: &[ShapedGlyph], text: &str, range: Range) {
     if glyphs
         .iter()
         .any(|g| g.range.start < range.start || g.range.end > range.end)
@@ -954,9 +1026,11 @@ fn assert_all_glyphs_in_range(glyphs: &[ShapedGlyph], text: &str, range: Range<u
     }
 }
 
-/// Asserts that the ranges of `glyphs` is in the proper order according to `dir`.
+/// Asserts that the ranges of `glyphs` is in the proper order according to
+/// `dir`.
 ///
-/// This asserts instead of returning a bool in order to provide a more informative message when the invariant is violated.
+/// This asserts instead of returning a bool in order to provide a more
+/// informative message when the invariant is violated.
 #[cfg(debug_assertions)]
 fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
     if glyphs.is_empty() {
@@ -981,15 +1055,15 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
 }
 
 // The CJK punctuation that can appear at the beginning or end of a line.
-pub(super) const BEGIN_PUNCT_PAT: &[char] =
+pub const BEGIN_PUNCT_PAT: &[char] =
     &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
-pub(super) const END_PUNCT_PAT: &[char] = &[
+pub const END_PUNCT_PAT: &[char] = &[
     '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
     '〗', '〕', '］', '｝', '？', '！',
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CjkPunctStyle {
+pub enum CjkPunctStyle {
     /// Standard GB/T 15834-2011, used mostly in mainland China.
     Gb,
     /// Standard by Taiwan Ministry of Education, used in Taiwan and Hong Kong.
@@ -998,7 +1072,7 @@ pub(super) enum CjkPunctStyle {
     Jis,
 }
 
-pub(super) fn cjk_punct_style(lang: Lang, region: Option<Region>) -> CjkPunctStyle {
+pub fn cjk_punct_style(lang: Lang, region: Option<Region>) -> CjkPunctStyle {
     match (lang, region.as_ref().map(Region::as_str)) {
         (Lang::CHINESE, Some("TW" | "HK")) => CjkPunctStyle::Cns,
         (Lang::JAPANESE, _) => CjkPunctStyle::Jis,
@@ -1013,7 +1087,7 @@ fn is_space(c: char) -> bool {
 }
 
 /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
-pub(super) fn is_of_cj_script(c: char) -> bool {
+pub fn is_of_cj_script(c: char) -> bool {
     is_cj_script(c, c.script())
 }
 
@@ -1047,8 +1121,9 @@ fn is_cjk_left_aligned_punctuation(
     }
 
     if matches!(style, Gb) && matches!(c, '？' | '！') {
-        // In GB style, exclamations and question marks are also left aligned and can be adjusted.
-        // Note that they are not adjustable in other styles.
+        // In GB style, exclamations and question marks are also left aligned
+        // and can be adjusted. Note that they are not adjustable in other
+        // styles.
         return true;
     }
 
