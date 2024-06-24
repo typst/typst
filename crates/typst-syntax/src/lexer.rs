@@ -97,8 +97,13 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
-    /// token could be a [trivia](SyntaxKind::is_trivia).
+    /// Proceed to the next token and return a [`SyntaxNode`] containing it.
+    /// Note the token could be a [trivia](SyntaxKind::is_trivia).
+    /// Also, the syntax node returned might not always be a leaf, but could
+    /// actually come with a subtree (could be an inner node). This happens
+    /// when it is preferred to perform parsing at the character level instead
+    /// of at the token level, as seen, for example, in
+    /// [`decorator`](Lexer::decorator).
     pub fn next(&mut self) -> SyntaxNode {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
@@ -210,6 +215,12 @@ impl Lexer<'_> {
 
 /// Decorator lexing and auxiliary methods.
 impl Lexer<'_> {
+    /// Lexes and parses a decorator into a complete syntax subtree.
+    /// The lexer is fully responsible by the decorator, as it is simpler to
+    /// parse them at the character level, given they follow a very simple
+    /// and rigid structure, in the form
+    /// `/! decorator-name("string argument1", "string argument2")`
+    /// with optional whitespaces and comments between arguments.
     fn decorator(&mut self, start: usize) -> SyntaxNode {
         // TODO: DecoratorMarker node
         let current_start = start;
