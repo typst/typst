@@ -1,10 +1,9 @@
 // Test decorators.
 
---- decorators ---
+--- basic-decorators ---
 
 /! allow()
 /! allow("A")
-/! allow(5)
 /! allow("the")
 
 /! allow("unnecessary-stars")
@@ -20,12 +19,67 @@ $
   #[*a*]
 $
 
+--- decorator-comments ---
+
+/! allow("abc") // this is ok
+
+/! allow("abc") /* this is ok */
+
+/! allow("abc" /* this is ok */, "abc")
+
+/! allow("abc" /*
+this is ok
+*/, "abc")
+
+--- decorator-strings ---
+
+/! allow("@some/thing-there123")
+
 --- unknown-decorator ---
+// Error: 4-12 expected decorator name 'allow', found 'whatever'
 /! whatever()
 
---- invalid-decorator ---
-// Error: 1-13 the character * is not valid in a decorator
-/! invalid(*)
+--- invalid-decorator-syntax ---
+// Error: 10-11 the character '*' is not valid in a decorator
+/! allow(*)
+
+// Error: 10-11 the character '5' is not valid in a decorator
+/! allow(5)
+
+// Error: 4-18 expected identifier
+/! 555!**INVALID!
+
+// Error: 9-12 expected left parenthesis
+/! allow)")
+
+// Error: 10-14 unclosed string
+// Error: 14 expected right parenthesis
+/! allow("abc
+
+// Error: 17-20 expected whitespace
+/! allow("abc") abc
+
+// Error: 16-26 expected comma
+// Error: 26 expected right parenthesis
+/! allow("abc" "abc") abc
+
+// Error: 16-21 expected comma
+/! allow("abc" "abc", "abc")
+
+// Error: 10-11 unexpected comma
+/! allow(,  "abc", "abc", "abc")
+
+--- invalid-decorator-strings ---
+
+// Error: 10-15 invalid character ' ' in a decorator's string
+/! allow("a b")
+
+// Error: 10-18 invalid character '|' in a decorator's string
+/! allow("aaaaa|")
+
+// TODO: Why does this print / instead of \?
+// Error: 10-18 invalid character '/' in a decorator's string
+/! allow("aaaaa\")
 
 --- allow-suppresses-warns ---
 

@@ -138,7 +138,17 @@ impl Lexer<'_> {
         self.emit_token(token, start)
     }
 
+    /// Constructs an error node with the given message.
+    /// The node's text is taken from the given start position up to and
+    /// including the current cursor position.
+    fn emit_error(&self, message: impl Into<EcoString>, start: usize) -> SyntaxNode {
+        let text = self.s.from(start);
+        SyntaxNode::error(SyntaxError::new(message), text)
+    }
+
     /// Converts a token into a syntax node based on its kind.
+    /// The node's text is taken from the given start position up to and
+    /// including the current cursor position.
     /// Produces an error node if there are errors.
     fn emit_token(&mut self, kind: SyntaxKind, start: usize) -> SyntaxNode {
         let text = self.s.from(start);
@@ -196,33 +206,131 @@ impl Lexer<'_> {
 
         SyntaxKind::BlockComment
     }
+}
 
+/// Decorator lexing and auxiliary methods.
+impl Lexer<'_> {
     fn decorator(&mut self, start: usize) -> SyntaxNode {
         // TODO: DecoratorMarker node
-        let mut current_start = start;
+        let current_start = start;
         let mut subtree = vec![];
+
+        // Ignore initial non-newline whitespaces
+        if !self.s.eat_while(is_inline_whitespace).is_empty() {
+            subtree.push(self.emit_token(SyntaxKind::Space, current_start));
+        }
+
+        // Decorator's name
+        let current_start = self.s.cursor();
+        if !self.s.eat_if(is_id_start) {
+            self.s.eat_until(is_newline);
+            subtree.push(self.emit_error("expected identifier", current_start));
+
+            // Return a single error node until the end of the decorator.
+            return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
+        }
+
+        self.s.eat_while(is_id_continue);
+        let ident = self.s.from(current_start);
+
+        subtree.push(if ident == "allow" {
+            self.emit_token(SyntaxKind::Ident, current_start)
+        } else {
+            self.emit_error(
+                eco_format!("expected decorator name 'allow', found '{ident}'"),
+                current_start,
+            )
+        });
+
+        // Left parenthesis before decorator arguments
+        let current_start = self.s.cursor();
+        if !self.s.eat_if('(') {
+            self.s.eat_until(is_newline);
+            subtree.push(self.emit_error("expected left parenthesis", current_start));
+
+            // Return a single error node until the end of the decorator.
+            return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
+        }
+
+        subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
+
+        // Decorator arguments
+        // Keep reading until we find a right parenthesis or newline.
+        // We have to check the newline before eating (through '.peek()') to
+        // ensure it is not considered part of the decorator.
+        let mut current_start = self.s.cursor();
+        let mut expecting_comma = false;
+        let mut finished = false;
         while !self.s.peek().is_some_and(is_newline) {
             let token = match self.s.eat() {
-                Some(c) if is_space(c, self.mode) => self.whitespace(current_start, c),
-                Some('/') if self.s.eat_if('/') => break,
+                Some(c) if c.is_whitespace() => {
+                    self.s.eat_while(is_inline_whitespace);
+                    SyntaxKind::Space
+                }
+                Some('/') if self.s.eat_if('/') => self.line_comment(),
                 Some('/') if self.s.eat_if('*') => self.block_comment(),
-                Some('(') => SyntaxKind::LeftParen,
-                Some(')') => SyntaxKind::RightParen,
-                Some('"') => self.string(),
-                Some(c @ '0'..='9') => self.number(current_start, c),
-                Some(',') => SyntaxKind::Comma,
-                Some(c) if is_id_start(c) => self.ident(current_start),
-                Some(c) => self
-                    .error(eco_format!("the character {c} is not valid in a decorator")),
+                Some(_) if finished => {
+                    // After we finished specifying arguments, there must only
+                    // be whitespaces until the line ends.
+                    self.s.eat_until(char::is_whitespace);
+                    self.error("expected whitespace")
+                }
+                Some('"') if expecting_comma => {
+                    self.s.eat_until(|c| c == ',' || is_newline(c));
+                    self.error("expected comma")
+                }
+                Some('"') => {
+                    expecting_comma = true;
+                    self.decorator_string()
+                }
+                Some(',') if expecting_comma => {
+                    expecting_comma = false;
+                    SyntaxKind::Comma
+                }
+                Some(',') => self.error("unexpected comma"),
+                Some(')') => {
+                    finished = true;
+                    SyntaxKind::RightParen
+                }
+                Some(c) => self.error(eco_format!(
+                    "the character '{c}' is not valid in a decorator"
+                )),
                 None => break,
             };
 
             let node = self.emit_token(token, current_start);
             subtree.push(node);
+
             current_start = self.s.cursor();
         }
 
+        // Right parenthesis (covered above)
+        if !finished {
+            subtree.push(self.emit_error("expected right parenthesis", self.s.cursor()));
+        }
+
         SyntaxNode::inner(SyntaxKind::Decorator, subtree)
+    }
+
+    fn decorator_string(&mut self) -> SyntaxKind {
+        // TODO: Allow more characters in decorators' strings, perhaps allowing
+        // newlines somehow.
+        // Could perhaps use one //! per line so we can break a decorator into
+        // multiple lines in a sensible way.
+        let start = self.s.cursor();
+        self.s.eat_while(|c| !is_newline(c) && c != '"');
+
+        let content = self.s.from(start);
+        if !self.s.eat_if('"') {
+            return self.error("unclosed string");
+        }
+
+        if let Some(c) = content.chars().find(|c| !is_valid_in_decorator_string(*c)) {
+            return self
+                .error(eco_format!("invalid character '{c}' in a decorator's string"));
+        }
+
+        SyntaxKind::Str
     }
 }
 
@@ -849,6 +957,13 @@ fn is_space(character: char, mode: LexMode) -> bool {
     }
 }
 
+/// Whether a character is a whitespace but not interpreted as a newline by
+/// Typst.
+#[inline]
+pub fn is_inline_whitespace(character: char) -> bool {
+    character.is_whitespace() && !is_newline(character)
+}
+
 /// Whether a character is interpreted as a newline by Typst.
 #[inline]
 pub fn is_newline(character: char) -> bool {
@@ -979,6 +1094,12 @@ fn is_math_id_continue(c: char) -> bool {
 #[inline]
 fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
+}
+
+/// Whether a character can be part of a string in a decorator.
+#[inline]
+fn is_valid_in_decorator_string(c: char) -> bool {
+    is_id_continue(c) || c == '@' || c == '/' || c == '-'
 }
 
 /// Returns true if this string is valid in a label literal.
