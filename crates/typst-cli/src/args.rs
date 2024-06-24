@@ -100,9 +100,11 @@ pub struct CompileCommand {
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
-    /// Opens the output file using the default viewer after compilation.
-    /// Ignored if output is stdout
-    #[arg(long = "open")]
+    /// Opens the output file with the default viewer or a specific program after
+    /// compilation
+    ///
+    /// Ignored if output is stdout.
+    #[arg(long = "open", value_name = "VIEWER")]
     pub open: Option<Option<String>>,
 
     /// The PPI (pixels per inch) to use for PNG export
