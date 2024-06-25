@@ -57,11 +57,11 @@ this is ok
 // Error: 14 expected closing paren
 /! allow("abc
 
-// Error: 17-20 expected whitespace
+// Error: 17-20 expected end of decorator
 /! allow("abc") abc
 
-// Error: 16-26 expected comma
-// Error: 26 expected closing paren
+// Error: 16-21 expected comma
+// Error: 23-26 expected end of decorator
 /! allow("abc" "abc") abc
 
 // Error: 16-21 expected comma

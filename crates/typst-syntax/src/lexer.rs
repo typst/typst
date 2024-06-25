@@ -265,7 +265,7 @@ impl Lexer<'_> {
         let mut current_start = self.s.cursor();
         let mut expecting_comma = false;
         let mut finished = false;
-        while !self.s.peek().is_some_and(is_newline) {
+        while !self.s.at(is_newline) {
             let token = match self.s.eat() {
                 Some(c) if c.is_whitespace() => {
                     self.s.eat_while(is_inline_whitespace);
@@ -277,10 +277,10 @@ impl Lexer<'_> {
                     // After we finished specifying arguments, there must only
                     // be whitespaces until the line ends.
                     self.s.eat_until(char::is_whitespace);
-                    self.error("expected whitespace")
+                    self.error("expected end of decorator")
                 }
                 Some('"') if expecting_comma => {
-                    self.s.eat_until(|c| c == ',' || is_newline(c));
+                    self.s.eat_until(|c| c == ',' || c == ')' || is_newline(c));
                     self.error("expected comma")
                 }
                 Some('"') => {
