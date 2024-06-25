@@ -9,7 +9,7 @@ use comemo::{Track, Tracked, TrackedMut};
 
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::finalize::finalize;
-use self::line::{commit, line, Dash, Line};
+use self::line::{commit, line, Line};
 use self::linebreak::{linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{
