@@ -75,7 +75,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<SyntaxError> {
+    fn take_error(&mut self) -> Option<SyntaxError> {
         self.error.take()
     }
 }
