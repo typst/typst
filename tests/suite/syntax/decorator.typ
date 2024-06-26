@@ -7,16 +7,16 @@
 /! allow("the")
 
 /! allow("unnecessary-stars")
-#[*a*]
+#h(0em)
 
 #{
   /! allow("unnecessary-stars")
-  [*a*]
+  h(0em)
 }
 
-$
+#let _ = $
   /! allow("unnecessary-stars")
-  #[*a*]
+  h(#0em)
 $
 
 --- decorator-comments ---
@@ -123,7 +123,7 @@ this is ok
 **
 
 /! allow("unnecessary-stars")
-b
+#h(0em)
 // Warning: 3-5 no text within stars
 // Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
 #[**]
