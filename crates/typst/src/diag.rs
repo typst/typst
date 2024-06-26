@@ -122,7 +122,7 @@ macro_rules! __warning {
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
-            std::option::Option::Some($crate::diag::WarnIdentifier::$id),
+            std::option::Option::Some($crate::diag::CompilerWarning::$id),
             $crate::diag::eco_format!($fmt, $($arg),*),
         ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
@@ -195,7 +195,7 @@ impl SourceDiagnostic {
     /// Create a new, bare warning.
     pub fn warning(
         span: Span,
-        identifier: Option<WarnIdentifier>,
+        identifier: Option<CompilerWarning>,
         message: impl Into<EcoString>,
     ) -> Self {
         Self {
@@ -242,19 +242,14 @@ impl From<SyntaxError> for SourceDiagnostic {
 /// Any possible identifier for a diagnostic.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Identifier {
-    /// Identifier for a built-in compiler error.
-    Error(ErrorIdentifier),
     /// Identifier for a built-in compiler warning.
-    Warn(WarnIdentifier),
+    Warn(CompilerWarning),
     /// Identifier for a warning raised by a package.
     User(EcoString),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ErrorIdentifier {}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum WarnIdentifier {
+pub enum CompilerWarning {
     UnnecessaryImportRenaming,
     UnnecessaryStars,
     UnnecessaryUnderscores,
@@ -262,24 +257,24 @@ pub enum WarnIdentifier {
     UnknownFontFamilies,
 }
 
-impl WarnIdentifier {
+impl CompilerWarning {
     pub const fn name(&self) -> &'static str {
         match self {
-            WarnIdentifier::UnnecessaryImportRenaming => "unnecessary-import-renaming",
-            WarnIdentifier::UnnecessaryStars => "unnecessary-stars",
-            WarnIdentifier::UnnecessaryUnderscores => "unnecessary-underscores",
-            WarnIdentifier::NonConvergingLayout => "non-converging-layout",
-            WarnIdentifier::UnknownFontFamilies => "unknown-font-families",
+            CompilerWarning::UnnecessaryImportRenaming => "unnecessary-import-renaming",
+            CompilerWarning::UnnecessaryStars => "unnecessary-stars",
+            CompilerWarning::UnnecessaryUnderscores => "unnecessary-underscores",
+            CompilerWarning::NonConvergingLayout => "non-converging-layout",
+            CompilerWarning::UnknownFontFamilies => "unknown-font-families",
         }
     }
 
     pub const fn categories(&self) -> &'_ [&'static str] {
         match self {
-            WarnIdentifier::UnnecessaryImportRenaming => &["unnecessary", "syntax"],
-            WarnIdentifier::UnnecessaryStars => &["unnecessary", "markup"],
-            WarnIdentifier::UnnecessaryUnderscores => &["unnecessary", "markup"],
-            WarnIdentifier::NonConvergingLayout => &["layout"],
-            WarnIdentifier::UnknownFontFamilies => &["fonts"],
+            CompilerWarning::UnnecessaryImportRenaming => &["unnecessary", "syntax"],
+            CompilerWarning::UnnecessaryStars => &["unnecessary", "markup"],
+            CompilerWarning::UnnecessaryUnderscores => &["unnecessary", "markup"],
+            CompilerWarning::NonConvergingLayout => &["layout"],
+            CompilerWarning::UnknownFontFamilies => &["fonts"],
         }
     }
 }
@@ -290,7 +285,6 @@ impl Identifier {
         match self {
             Self::Warn(warning_identifier) => warning_identifier.name(),
             Self::User(user_identifier) => user_identifier,
-            Self::Error(_) => unreachable!(),
         }
     }
 }
