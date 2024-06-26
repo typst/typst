@@ -22,6 +22,25 @@ pub(super) struct Lexer<'s> {
     error: Option<SyntaxError>,
 }
 
+/// How to proceed with lexing when seeing a newline in Code mode.
+///
+/// This enum causes the lexer to emit false `SyntaxKind::End` tokens when lexing in code
+/// mode. This simplifies parsing in Code mode, since the parser will think it's done when
+/// newlines interrupt expressions and won't have to handle the complexity of potentially
+/// continuing past newlines for if-else statements or trailing field-accesses.
+///
+/// Note that this does not interact with newlines in block comments.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum NewlineMode {
+    /// Never emit a false `End`.
+    Continue,
+    /// Emit a false `End` at any newline.
+    Stop,
+    /// Emit a false `End` only if there is no continuation with `else` or `.`.
+    /// Note that a continuation might come after an arbitrary amount of trivia.
+    MaybeContinue,
+}
+
 /// What kind of tokens to emit.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub(super) enum LexMode {
@@ -30,7 +49,7 @@ pub(super) enum LexMode {
     /// Math atoms, operators, etc.
     Math,
     /// Keywords, literals and operators.
-    Code,
+    Code(NewlineMode),
     /// The contents of a raw block.
     Raw,
 }
@@ -56,6 +75,9 @@ impl<'s> Lexer<'s> {
     /// Change the lexing mode.
     pub fn set_mode(&mut self, mode: LexMode) {
         self.mode = mode;
+        // TODO: Removing this doesn't fail any existing tests, but it feels like it might
+        // be a footgun otherwise?
+        self.newline = false;
     }
 
     /// The index in the string at which the last token ends and next token
@@ -108,10 +130,11 @@ impl Lexer<'_> {
             return kind;
         }
 
+        let prev_newline = self.newline;
         self.newline = false;
         self.error = None;
         let start = self.s.cursor();
-        match self.s.eat() {
+        let kind = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
@@ -127,12 +150,36 @@ impl Lexer<'_> {
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
-                LexMode::Code => self.code(start, c),
+                LexMode::Code(mode) => match mode {
+                    // Code mode might produce false `SyntaxKind::End` tokens on newlines.
+                    NewlineMode::Stop if prev_newline => SyntaxKind::End,
+                    NewlineMode::MaybeContinue if prev_newline => {
+                        // Lookahead at the next token before lexing to avoid entering
+                        // an invalid state somehow.
+                        let mut lookahead = self.clone();
+                        match lookahead.code(start, c) {
+                            SyntaxKind::Dot | SyntaxKind::Else => self.code(start, c),
+                            _ => SyntaxKind::End,
+                        }
+                    }
+                    _ => self.code(start, c),
+                },
                 LexMode::Raw => unreachable!(),
             },
 
             None => SyntaxKind::End,
-        }
+        };
+        // Preserve `self.newline` when in MaybeContinue mode and parsing trivia.
+        if matches!(self.mode, LexMode::Code(NewlineMode::MaybeContinue))
+            && kind.is_trivia()
+        {
+            self.newline = self.newline || prev_newline;
+            // TODO: I'm not sure about this block, feels uglier than it should be?
+            // also maybe add more comments to self.newline's description?
+            // Maybe instead store some kind of "while trivia" info about any recent
+            // trivia between this and the previous token?
+        };
+        kind
     }
 
     /// Eat whitespace characters greedily.
