@@ -23,5 +23,8 @@ unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 
+[dev-dependencies]
+toml = { workspace = true }
+
 [lints]
 workspace = true
