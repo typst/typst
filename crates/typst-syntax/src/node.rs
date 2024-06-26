@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::ast::AstNode;
-use crate::{is_newline, FileId, Span, SyntaxKind};
+use crate::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -153,18 +153,15 @@ impl SyntaxNode {
         }
     }
 
-    /// The amount of newlines in this node or its descendants,
-    /// capped at 256, that is, a return value of 256 means that the total
-    /// amount of newlines may be 256 or larger.
-    pub fn newlines(&self) -> u8 {
+    /// The amount of newlines in this node or its descendants, capped at 2,
+    /// that is, a return value of 2 means that the total amount of newlines
+    /// may be 2 or larger.
+    pub fn capped_newlines(&self) -> u8 {
         match &self.0 {
-            Repr::Leaf(_) | Repr::Error(_) => self
-                .text()
-                .chars()
-                .filter(|c| is_newline(*c))
-                .take(u8::MAX as usize)
-                .count() as u8,
-            Repr::Inner(inner) => inner.newlines,
+            Repr::Leaf(_) | Repr::Error(_) => {
+                crate::lexer::count_capped_newlines(self.text())
+            }
+            Repr::Inner(inner) => inner.capped_newlines,
         }
     }
 
@@ -403,9 +400,9 @@ struct InnerNode {
     erroneous: bool,
     /// The (capped) amount of newlines in this node's descendants.
     /// This is solely used to tell whether this node contains 0, 1, 2 or more
-    /// newlines. As such, this number is capped at 256, even though there may
-    /// be more newlines inside this node.
-    newlines: u8,
+    /// newlines. As such, this number is capped at 2, even though there may be
+    /// more newlines inside this node.
+    capped_newlines: u8,
     /// The upper bound of this node's numbering range.
     upper: u64,
     /// This node's children, losslessly make up this node.
@@ -421,18 +418,23 @@ impl InnerNode {
         let mut len = 0;
         let mut descendants = 1;
         let mut erroneous = false;
+        let mut capped_newlines: u8 = 0;
 
         for child in &children {
             len += child.len();
             descendants += child.descendants();
             erroneous |= child.erroneous();
+
+            if capped_newlines < 2 {
+                capped_newlines = capped_newlines.saturating_add(child.capped_newlines());
+            }
         }
 
         Self {
             kind,
             len,
             span: Span::detached(),
-            newlines: 0,
+            capped_newlines: capped_newlines.min(2),
             descendants,
             erroneous,
             upper: 0,
@@ -823,7 +825,7 @@ impl<'a> LinkedNode<'a> {
     /// node).
     pub fn prev_attached_decorator(&self) -> Option<Self> {
         let mut cursor = self.prev_sibling_inner()?;
-        let mut newlines = cursor.newlines();
+        let mut newlines = cursor.capped_newlines();
         let mut at_previous_line = false;
         while newlines < 2 {
             if cursor.kind() == SyntaxKind::Decorator {
@@ -844,7 +846,7 @@ impl<'a> LinkedNode<'a> {
             }
 
             cursor = cursor.prev_sibling_inner()?;
-            newlines = cursor.newlines();
+            newlines = cursor.capped_newlines();
         }
 
         // Found a parbreak or something else with two or more newlines.

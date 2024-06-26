@@ -1075,6 +1075,25 @@ fn count_newlines(text: &str) -> usize {
     newlines
 }
 
+/// Count newlines in text.
+/// Only counts up to 2 newlines.
+pub(crate) fn count_capped_newlines(text: &str) -> u8 {
+    let mut newlines = 0;
+    let mut s = Scanner::new(text);
+    while let Some(c) = s.eat() {
+        if is_newline(c) {
+            if c == '\r' {
+                s.eat_if('\n');
+            }
+            newlines += 1;
+            if newlines == 2 {
+                break;
+            }
+        }
+    }
+    newlines
+}
+
 /// Whether a string is a valid Typst identifier.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
