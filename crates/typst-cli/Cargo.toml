@@ -12,6 +12,11 @@ repository = { workspace = true }
 license = { workspace = true }
 readme = { workspace = true }
 
+[lib]
+name = "typst_cli"
+path = "src/lib.rs"
+doc = false
+
 [[bin]]
 name = "typst"
 path = "src/main.rs"
