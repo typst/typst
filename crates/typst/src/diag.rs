@@ -239,7 +239,7 @@ impl From<SyntaxError> for SourceDiagnostic {
     }
 }
 
-/// Any possible identifier for a diagnostic.
+/// The identifier of a [`SourceDiagnostic`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Identifier {
     /// Identifier for a built-in compiler warning.
@@ -248,6 +248,7 @@ pub enum Identifier {
     User(EcoString),
 }
 
+/// Built-in compiler warnings.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CompilerWarning {
     UnnecessaryImportRenaming,
@@ -258,6 +259,8 @@ pub enum CompilerWarning {
 }
 
 impl CompilerWarning {
+    /// The name of the warning as a string, following the format of diagnostic
+    /// identifiers.
     pub const fn name(&self) -> &'static str {
         match self {
             CompilerWarning::UnnecessaryImportRenaming => "unnecessary-import-renaming",
@@ -265,16 +268,6 @@ impl CompilerWarning {
             CompilerWarning::UnnecessaryUnderscores => "unnecessary-underscores",
             CompilerWarning::NonConvergingLayout => "non-converging-layout",
             CompilerWarning::UnknownFontFamilies => "unknown-font-families",
-        }
-    }
-
-    pub const fn categories(&self) -> &'_ [&'static str] {
-        match self {
-            CompilerWarning::UnnecessaryImportRenaming => &["unnecessary", "syntax"],
-            CompilerWarning::UnnecessaryStars => &["unnecessary", "markup"],
-            CompilerWarning::UnnecessaryUnderscores => &["unnecessary", "markup"],
-            CompilerWarning::NonConvergingLayout => &["layout"],
-            CompilerWarning::UnknownFontFamilies => &["fonts"],
         }
     }
 }
