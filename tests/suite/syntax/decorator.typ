@@ -112,6 +112,12 @@ this is ok
 /! allow("unknown-font-families")
 #g()
 
+--- allow-suppresses-line-below-but-not-same-line ---
+// Warning: 3-5 no text within stars
+// Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
+#[**] /! allow("unnecessary-stars")
+#[**]
+
 --- allow-before-parbreak-doesnt-suppress-warn ---
 // Warning: 3:3-3:5 no text within stars
 // Hint: 3:3-3:5 using multiple consecutive stars (e.g. **) has no additional effect
