@@ -1,4 +1,5 @@
 use ecow::{eco_format, EcoString};
+use serde::Serialize;
 
 use crate::foundations::{func, scope, ty, Repr};
 use crate::utils::PicoStr;
@@ -67,6 +68,15 @@ impl Label {
 impl Repr for Label {
     fn repr(&self) -> EcoString {
         eco_format!("<{}>", self.as_str())
+    }
+}
+
+impl Serialize for Label {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_map::<&str, &str, _>(vec![("type", "label"), ("name", self.as_str())])
     }
 }
 

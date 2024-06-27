@@ -3,6 +3,8 @@ use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg, Rem};
 
 use ecow::EcoString;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::foundations::{cast, repr, Fold, Repr, Value};
 use crate::utils::{Numeric, Scalar};
@@ -151,6 +153,18 @@ impl Debug for Abs {
 impl Repr for Abs {
     fn repr(&self) -> EcoString {
         repr::format_float_with_unit(self.to_pt(), "pt")
+    }
+}
+
+impl Serialize for Abs {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "length")?;
+        map_ser.serialize_entry("pts", &self.to_pt())?;
+        map_ser.end()
     }
 }
 

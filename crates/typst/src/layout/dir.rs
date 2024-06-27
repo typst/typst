@@ -1,5 +1,6 @@
 use ecow::EcoString;
-
+use serde::ser::SerializeMap;
+use serde::Serialize;
 use crate::foundations::{func, scope, ty, Repr};
 use crate::layout::{Axis, Side};
 
@@ -130,3 +131,16 @@ impl Repr for Dir {
         }
     }
 }
+
+impl Serialize for Dir {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "direction")?;
+        map_ser.serialize_entry("value", &self.repr())?;
+        map_ser.end()
+    }
+}
+

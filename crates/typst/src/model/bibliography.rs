@@ -16,6 +16,7 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
+use serde::{Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
 use typed_arena::Arena;
 
@@ -531,6 +532,15 @@ impl Repr for CslStyle {
             .as_ref()
             .map(|name| name.repr())
             .unwrap_or_else(|| "..".into())
+    }
+}
+
+impl Serialize for CslStyle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        serializer.serialize_str(&self.repr())
     }
 }
 

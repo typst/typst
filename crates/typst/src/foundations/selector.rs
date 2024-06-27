@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
+use serde::{Serialize, Serializer};
+use serde::ser::SerializeMap;
 use smallvec::SmallVec;
 
 use crate::diag::{bail, HintedStrResult, StrResult};
@@ -272,6 +274,67 @@ impl Repr for Selector {
                 )
             }
         }
+    }
+}
+
+impl Serialize for Selector {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let size = match self {
+            Self::Elem(_, dict) => {
+                if let Some(_) = dict { 4 } else { 3 }
+            }
+            Self::Before { selector: _, end: _, inclusive }
+            | Self::After { selector: _, start: _, inclusive } => {
+                if !*inclusive { 5 } else { 4 }
+            }
+            _ => 3
+        };
+
+
+        let mut map_ser = serializer.serialize_map(Some(size))?;
+        map_ser.serialize_entry("type", "selector")?;
+
+        macro_rules! ser_entries {
+            ($(($key:expr, $value: expr)),+) => {{
+                $(map_ser.serialize_entry($key, $value)?;)+
+            }}
+        }
+
+        match self {
+            Self::Elem(elem, dict) => {
+                ser_entries!(("func", "element"), ("element", elem.name()));
+                if let Some(dict) = dict {
+                    let dict = dict
+                        .iter()
+                        .map(|(id, value)| (elem.field_name(*id).unwrap(), value.clone()))
+                        .map(|(name, value)| (EcoString::from(name).into(), value))
+                        .collect::<Dict>();
+                    map_ser.serialize_entry("where", &dict)?;
+                }
+            }
+            Self::Label(label) => ser_entries!(("func", "label"), ("label", label)),
+            Self::Regex(regex) => ser_entries!(("func", "regex"), ("regex", regex)),
+            Self::Can(cap) => ser_entries!(("func", "can"), ("id", &eco_format!("{cap:?}"))),
+            Self::Or(selectors) => ser_entries!(("func", "or"), ("variants", selectors)),
+            Self::And(selectors) => ser_entries!(("func", "and"), ("variants", selectors)),
+            Self::Location(loc) => ser_entries!(("func", "location"), ("location", loc)),
+            Self::Before { selector, end, inclusive } => {
+                ser_entries!(("func", "before"), ("selector", selector), ("end", end));
+                if !*inclusive {
+                    map_ser.serialize_entry("inclusive", &false)?;
+                }
+            }
+            Self::After { selector, start, inclusive } => {
+                ser_entries!(("func", "after"), ("selector", selector), ("start", start));
+                if !*inclusive {
+                    map_ser.serialize_entry("inclusive", &false)?;
+                }
+            }
+        };
+        map_ser.end()
     }
 }
 

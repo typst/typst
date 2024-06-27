@@ -4,6 +4,8 @@ use std::ops::{Add, Div, Mul, Neg};
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString};
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::diag::{At, Hint, HintedStrResult, SourceResult};
 use crate::foundations::{func, scope, ty, Context, Fold, Repr, Resolve, StyleChain};
@@ -174,6 +176,19 @@ impl Repr for Length {
             (true, false) => self.em.repr(),
             (_, true) => self.abs.repr(),
         }
+    }
+}
+
+impl Serialize for Length {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(3))?;
+        map_ser.serialize_entry("type", "length")?;
+        map_ser.serialize_entry("pt", &self.abs.to_pt())?;
+        map_ser.serialize_entry("em", &self.em.get())?;
+        map_ser.end()
     }
 }
 

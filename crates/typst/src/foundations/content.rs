@@ -1,7 +1,7 @@
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::iter::{self, Sum};
+use std::iter::Sum;
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Deref, DerefMut};
 use std::sync::Arc;
@@ -705,7 +705,8 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            iter::once(("func".into(), self.func().name().into_value()))
+            vec![("type".into(), "content".into_value()), ("func".into(), self.func().name().into_value())]
+                .into_iter()
                 .chain(self.fields()),
         )
     }

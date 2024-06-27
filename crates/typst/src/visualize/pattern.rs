@@ -2,6 +2,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
+use serde::ser::SerializeMap;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -280,5 +282,23 @@ impl repr::Repr for Pattern {
         out.push_str(", ..)");
 
         out
+    }
+}
+
+impl Serialize for Pattern {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let size = 3 + if matches!(self.0.relative, Smart::Custom(_)) { 1 } else { 0 };
+        let mut map_ser = serializer.serialize_map(Some(size))?;
+        map_ser.serialize_entry("type", "pattern")?;
+        map_ser.serialize_entry("size", &self.0.size)?;
+        map_ser.serialize_entry("spacing", &self.0.spacing)?;
+        if let Smart::Custom(relative) = self.0.relative {
+            match relative {
+                RelativeTo::Parent => map_ser.serialize_entry("relative", "parent")?,
+                RelativeTo::Self_ => map_ser.serialize_entry("relative", "self")?,
+            }
+        }
+        // Unfortunately seem to cannot meaningfully Serialize `frame` here
+        map_ser.end()
     }
 }

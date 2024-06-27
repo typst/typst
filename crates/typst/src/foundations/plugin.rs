@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 use wasmi::{AsContext, AsContextMut};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
@@ -309,6 +310,16 @@ impl Debug for Plugin {
 impl repr::Repr for Plugin {
     fn repr(&self) -> EcoString {
         "plugin(..)".into()
+    }
+}
+
+impl Serialize for Plugin {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_map::<&str, &str, _>(vec![("type", "plugin"),])
+        // Nothing useful here
     }
 }
 

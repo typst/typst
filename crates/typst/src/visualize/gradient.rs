@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use kurbo::Vec2;
+use serde::{Serialize, Serializer};
+use serde::ser::SerializeMap;
 
 use crate::diag::{bail, SourceResult};
 use crate::foundations::{
@@ -882,6 +884,19 @@ impl Repr for Gradient {
     }
 }
 
+impl Serialize for Gradient {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::Linear(linear) => linear.serialize(serializer),
+            Self::Radial(radial) => radial.serialize(serializer),
+            Self::Conic(conic) => conic.serialize(serializer),
+        }
+    }
+}
+
 /// A gradient that interpolates between two colors along an axis.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LinearGradient {
@@ -941,6 +956,22 @@ impl Repr for LinearGradient {
 
         r.push(')');
         r
+    }
+}
+
+impl Serialize for LinearGradient {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(6))?;
+        map_ser.serialize_entry("type", "gradient")?;
+        map_ser.serialize_entry("func", "linear")?;
+        map_ser.serialize_entry("space", &self.space.into_value().repr())?;
+        map_ser.serialize_entry("angle", &self.angle)?;
+        map_ser.serialize_entry("relative", &self.relative.into_value())?;
+        map_ser.serialize_entry("stops", &self.stops)?;
+        map_ser.end()
     }
 }
 
@@ -1025,6 +1056,23 @@ impl Repr for RadialGradient {
     }
 }
 
+impl Serialize for RadialGradient {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        let mut map_ser = serializer.serialize_map(Some(8))?;
+        map_ser.serialize_entry("type", "gradient")?;
+        map_ser.serialize_entry("func", "radial")?;
+        map_ser.serialize_entry("center", &self.center)?;
+        map_ser.serialize_entry("radius", &self.radius)?;
+        map_ser.serialize_entry("focal-center", &self.focal_center)?;
+        map_ser.serialize_entry("focal-radius", &self.focal_radius)?;
+        map_ser.serialize_entry("space", &self.space.into_value().repr())?;
+        map_ser.serialize_entry("relative", &self.relative.into_value())?;
+        map_ser.serialize_entry("stops", &self.stops)?;
+        map_ser.end()
+    }
+}
+
 /// A gradient that interpolates between two colors radially
 /// around a center point.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -1087,6 +1135,21 @@ impl Repr for ConicGradient {
 
         r.push(')');
         r
+    }
+}
+
+impl Serialize for ConicGradient {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        let mut map_ser = serializer.serialize_map(Some(7))?;
+        map_ser.serialize_entry("type", "gradient")?;
+        map_ser.serialize_entry("func", "conic")?;
+        map_ser.serialize_entry("angle", &self.angle)?;
+        map_ser.serialize_entry("center", &self.center)?;
+        map_ser.serialize_entry("space", &self.space.into_value().repr())?;
+        map_ser.serialize_entry("relative", &self.relative.into_value())?;
+        map_ser.serialize_entry("stops", &self.stops)?;
+        map_ser.end()
     }
 }
 

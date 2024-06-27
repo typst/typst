@@ -4,7 +4,8 @@ use std::hash::Hash;
 use std::iter::repeat;
 
 use ecow::{eco_format, EcoString, EcoVec};
-
+use serde::ser::SerializeMap;
+use serde::Serialize;
 use crate::diag::{bail, StrResult};
 use crate::foundations::{cast, func, repr, scope, ty, Repr};
 
@@ -186,6 +187,18 @@ impl Repr for Version {
     fn repr(&self) -> EcoString {
         let parts: Vec<_> = self.0.iter().map(|v| eco_format!("{v}")).collect();
         eco_format!("version{}", &repr::pretty_array_like(&parts, false))
+    }
+}
+
+impl Serialize for Version {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "version")?;
+        map_ser.serialize_entry("value", &self.0)?;
+        map_ser.end()
     }
 }
 

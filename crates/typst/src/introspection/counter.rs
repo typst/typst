@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use serde::{Serialize, Serializer};
+use serde::ser::SerializeMap;
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, HintedStrResult, SourceResult};
@@ -572,6 +574,18 @@ impl Repr for Counter {
     }
 }
 
+impl Serialize for Counter {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "counter")?;
+        map_ser.serialize_entry("value", &self.0)?;
+        map_ser.end()
+    }
+}
+
 /// Identifies a counter.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterKey {
@@ -611,6 +625,30 @@ impl Repr for CounterKey {
             Self::Selector(selector) => selector.repr(),
             Self::Str(str) => str.repr(),
         }
+    }
+}
+
+impl Serialize for CounterKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map_serializer = serializer.serialize_map(Some(if matches!(self, Self::Page) { 2 } else { 3 }))?;
+        map_serializer.serialize_entry("type", "counter-key")?;
+        match self {
+            Self::Page => {
+                map_serializer.serialize_entry("func", "page")?;
+            }
+            Self::Selector(selector) => {
+                map_serializer.serialize_entry("func", "selector")?;
+                map_serializer.serialize_entry("selector", selector)?;
+            }
+            Self::Str(str) => {
+                map_serializer.serialize_entry("func", "str")?;
+                map_serializer.serialize_entry("str", str)?;
+            }
+        }
+        map_serializer.end()
     }
 }
 

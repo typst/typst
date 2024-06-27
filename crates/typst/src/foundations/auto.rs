@@ -1,5 +1,7 @@
 use ecow::EcoString;
 use std::fmt::{self, Debug, Formatter};
+use std::iter;
+use serde::{Serialize, Serializer};
 
 use crate::diag::HintedStrResult;
 use crate::foundations::{
@@ -57,6 +59,15 @@ impl Debug for AutoValue {
 impl Repr for AutoValue {
     fn repr(&self) -> EcoString {
         "auto".into()
+    }
+}
+
+impl Serialize for AutoValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_map::<&str, &str, _>(iter::once(("type", "auto")))
     }
 }
 

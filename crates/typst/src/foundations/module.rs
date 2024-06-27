@@ -2,6 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::diag::StrResult;
 use crate::foundations::{repr, ty, Content, Scope, Value};
@@ -116,6 +118,18 @@ impl Debug for Module {
 impl repr::Repr for Module {
     fn repr(&self) -> EcoString {
         eco_format!("<module {}>", self.name())
+    }
+}
+
+impl Serialize for Module {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "module")?;
+        map_ser.serialize_entry("name", self.name())?;
+        map_ser.end()
     }
 }
 

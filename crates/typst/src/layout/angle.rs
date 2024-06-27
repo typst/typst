@@ -4,6 +4,8 @@ use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::EcoString;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::foundations::{func, repr, scope, ty, Repr};
 use crate::utils::{Numeric, Scalar};
@@ -138,6 +140,19 @@ impl Repr for Angle {
         repr::format_float_with_unit(self.to_deg(), "deg")
     }
 }
+
+impl Serialize for Angle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "angle")?;
+        map_ser.serialize_entry("deg", &self.to_deg())?;
+        map_ser.end()
+    }
+}
+
 
 impl Neg for Angle {
     type Output = Self;

@@ -3,6 +3,8 @@ use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::EcoString;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::foundations::{repr, ty, Repr};
 use crate::layout::Abs;
@@ -80,6 +82,18 @@ impl Debug for Fr {
 impl Repr for Fr {
     fn repr(&self) -> EcoString {
         repr::format_float_with_unit(self.get(), "fr")
+    }
+}
+
+impl Serialize for Fr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "fraction")?;
+        map_ser.serialize_entry("value", &self.get())?;
+        map_ser.end()
     }
 }
 

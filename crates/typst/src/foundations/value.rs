@@ -8,6 +8,7 @@ use ecow::{eco_format, EcoString};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use erased_serde::Serialize as ErasedSerialize;
 
 use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::eval::ops;
@@ -93,7 +94,7 @@ impl Value {
     /// Create a new dynamic value.
     pub fn dynamic<T>(any: T) -> Self
     where
-        T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
+        T: Debug + Repr + NativeType + PartialEq + Hash + ErasedSerialize + Sync + Send + 'static,
     {
         Self::Dyn(Dynamic::new(any))
     }
@@ -357,17 +358,35 @@ impl Serialize for Value {
     {
         match self {
             Self::None => NoneValue.serialize(serializer),
+            Self::Auto => AutoValue.serialize(serializer),
             Self::Bool(v) => v.serialize(serializer),
             Self::Int(v) => v.serialize(serializer),
             Self::Float(v) => v.serialize(serializer),
+            Self::Length(v) => v.serialize(serializer),
+            Self::Angle(v) => v.serialize(serializer),
+            Self::Ratio(v) => v.serialize(serializer),
+            Self::Relative(v) => v.serialize(serializer),
+            Self::Fraction(v) => v.serialize(serializer),
+            Self::Color(v) => v.serialize(serializer),
+            Self::Gradient(v) => v.serialize(serializer),
+            Self::Pattern(v) => v.serialize(serializer),
+            Self::Symbol(v) => v.serialize(serializer),
+            Self::Version(v) => v.serialize(serializer),
             Self::Str(v) => v.serialize(serializer),
             Self::Bytes(v) => v.serialize(serializer),
-            Self::Symbol(v) => v.serialize(serializer),
+            Self::Label(v) => v.serialize(serializer),
+            Self::Datetime(v) => v.serialize(serializer),
+            Self::Duration(v) => v.serialize(serializer),
             Self::Content(v) => v.serialize(serializer),
             Self::Array(v) => v.serialize(serializer),
             Self::Dict(v) => v.serialize(serializer),
+            Self::Args(v) => v.serialize(serializer),
+            Self::Type(v) => v.serialize(serializer),
+            Self::Module(v) => v.serialize(serializer),
+            Self::Plugin(v) => v.serialize(serializer),
+            Self::Dyn(v) => v.serialize(serializer),
 
-            // Fall back to repr() for other things.
+            // Fall back to repr() for Styles and Func.
             other => serializer.serialize_str(&other.repr()),
         }
     }
@@ -493,7 +512,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
 }
 
 /// A value that is not part of the built-in enum.
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, Serialize)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
@@ -501,7 +520,7 @@ impl Dynamic {
     /// Create a new instance from any value that satisfies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
+        T: Debug + Repr + NativeType + PartialEq + Hash + ErasedSerialize + Sync + Send + 'static,
     {
         Self(Arc::new(any))
     }
@@ -534,13 +553,22 @@ impl Repr for Dynamic {
     }
 }
 
+impl<'a> Serialize for dyn Bounds {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        erased_serde::serialize(self, serializer)
+    }
+}
+
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
 }
 
-trait Bounds: Debug + Repr + Sync + Send + 'static {
+trait Bounds: Debug + Repr + ErasedSerialize + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_ty(&self) -> Type;
@@ -549,7 +577,7 @@ trait Bounds: Debug + Repr + Sync + Send + 'static {
 
 impl<T> Bounds for T
 where
-    T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
+    T: Debug + Repr + NativeType + PartialEq + Hash + ErasedSerialize + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self

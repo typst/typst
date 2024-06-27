@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
+use serde::{Serialize, Serializer};
 
 use crate::engine::Engine;
 use crate::foundations::{func, scope, ty, Repr};
@@ -102,6 +103,15 @@ impl Debug for Location {
 impl Repr for Location {
     fn repr(&self) -> EcoString {
         "..".into()
+    }
+}
+
+impl Serialize for Location {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        serializer.serialize_str(&self.repr())
     }
 }
 
