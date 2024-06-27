@@ -374,10 +374,7 @@ fn check_decorator_suppresses_warning(
     }
 
     for argument in decorator.arguments() {
-        let ast::Expr::Str(str) = argument else {
-            continue;
-        };
-        if warning.name() == str.get() {
+        if warning.name() == argument.get() {
             return true;
         }
     }

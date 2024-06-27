@@ -108,20 +108,9 @@ impl<'a> Decorator<'a> {
     }
 
     /// The decorator's arguments.
-    pub fn arguments(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
-        let mut found_non_ident = false;
-        self.0
-            .children()
-            .filter(move |node| {
-                // Skip the name (first identifier).
-                if node.is::<Ident>() {
-                    return found_non_ident;
-                } else if !node.kind().is_trivia() {
-                    found_non_ident = true;
-                }
-                true
-            })
-            .filter_map(Expr::from_untyped)
+    /// Currently, they are always strings.
+    pub fn arguments(self) -> impl DoubleEndedIterator<Item = Str<'a>> {
+        self.0.children().filter_map(Str::from_untyped)
     }
 }
 
