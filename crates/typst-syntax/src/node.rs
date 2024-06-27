@@ -826,31 +826,18 @@ impl<'a> LinkedNode<'a> {
     pub fn prev_attached_decorator(&self) -> Option<Self> {
         let mut cursor = self.prev_sibling_inner()?;
         let mut newlines = cursor.capped_newlines();
-        let mut at_previous_line = false;
         while newlines < 2 {
             if cursor.kind() == SyntaxKind::Decorator {
-                // Decorators are attached if they're in a consecutive
-                // previous line.
                 return Some(cursor);
             }
 
-            if newlines == 1 {
-                if at_previous_line {
-                    // No decorators at the previous line.
-                    // Don't move onto the line before the previous, since then
-                    // the decorator wouldn't be attached.
-                    return None;
-                } else {
-                    at_previous_line = true;
-                }
-            }
-
             cursor = cursor.prev_sibling_inner()?;
-            newlines = cursor.capped_newlines();
+            newlines += cursor.capped_newlines();
         }
 
-        // Found a parbreak or something else with two or more newlines.
-        // Can't have an attached decorator there.
+        // Decorators are attached if they're in the previous line.
+        // If we counted at least two newlines, no decorators are attached to
+        // this node.
         None
     }
 
