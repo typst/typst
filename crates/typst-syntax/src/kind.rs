@@ -13,7 +13,7 @@ pub enum SyntaxKind {
     LineComment,
     /// A block comment: `/* ... */`.
     BlockComment,
-    /// A decorator: `/! allow("warning")`
+    /// A decorator: `/! allow("warning")`.
     Decorator,
 
     /// The contents of a file or content block.
