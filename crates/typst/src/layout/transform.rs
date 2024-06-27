@@ -1,3 +1,5 @@
+use typst_utils::Numeric;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -149,12 +151,11 @@ fn layout_rotate(
     let align = elem.origin(styles).resolve(styles);
 
     // Compute the new region's approximate size.
-    let size = region
-        .size
-        .to_point()
-        .transform_inf(Transform::rotate(angle))
-        .map(Abs::abs)
-        .to_size();
+    let (_, mut size) = compute_bounding_box(region.size, Transform::rotate(-angle));
+
+    if !region.size.x.is_finite() || !region.size.y.is_finite() {
+        size = Size::new(Abs::inf(), Abs::inf());
+    }
 
     measure_and_layout(
         engine,
@@ -247,7 +248,16 @@ fn layout_scale(
     let align = elem.origin(styles).resolve(styles);
 
     // Compute the new region's approximate size.
-    let size = region.size.zip_map(Axes::new(sx, sy), |r, s| s.of(r)).map(Abs::abs);
+    let size = region
+        .size
+        .zip_map(Axes::new(sx, sy), |r, s| {
+            if r.is_finite() {
+                Ratio::new(1.0 / s).of(r)
+            } else {
+                r
+            }
+        })
+        .map(Abs::abs);
 
     measure_and_layout(
         engine,
@@ -416,7 +426,7 @@ fn measure_and_layout(
             .pre_concat(Transform::translate(-x, -y));
 
         // Compute the bounding box and offset and wrap in a new frame.
-        let (offset, size) = compute_bounding_box(&frame, ts);
+        let (offset, size) = compute_bounding_box(frame.size(), ts);
         frame.transform(ts);
         frame.translate(offset);
         frame.set_size(size);
@@ -439,20 +449,20 @@ fn measure_and_layout(
     }
 }
 
-/// Computes the bounding box and offset of a transformed frame.
-fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
+/// Computes the bounding box and offset of a transformed area.
+fn compute_bounding_box(size: Size, ts: Transform) -> (Point, Size) {
     let top_left = Point::zero().transform_inf(ts);
-    let top_right = Point::new(frame.width(), Abs::zero()).transform_inf(ts);
-    let bottom_left = Point::new(Abs::zero(), frame.height()).transform_inf(ts);
-    let bottom_right = Point::new(frame.width(), frame.height()).transform_inf(ts);
+    let top_right = Point::new(size.x, Abs::zero()).transform_inf(ts);
+    let bottom_left = Point::new(Abs::zero(), size.y).transform_inf(ts);
+    let bottom_right = Point::new(size.x, size.y).transform_inf(ts);
 
-    // We first compute the new bounding box of the rotated frame.
+    // We first compute the new bounding box of the rotated area.
     let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);
     let min_y = top_left.y.min(top_right.y).min(bottom_left.y).min(bottom_right.y);
     let max_x = top_left.x.max(top_right.x).max(bottom_left.x).max(bottom_right.x);
     let max_y = top_left.y.max(top_right.y).max(bottom_left.y).max(bottom_right.y);
 
-    // Then we compute the new size of the frame.
+    // Then we compute the new size of the area.
     let width = max_x - min_x;
     let height = max_y - min_y;
 
