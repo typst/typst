@@ -82,7 +82,7 @@ this is ok
 // Error: 10-18 invalid character '/' in a decorator's string
 /! allow("aaaaa\")
 
---- allow-suppresses-warns ---
+--- allow-suppresses-warns-below ---
 
 /! allow("unnecessary-stars")
 #[**]
@@ -99,6 +99,18 @@ this is ok
 
 /! allow("unnecessary-stars")
 **
+
+--- allow-suppresses-warn-with-tracepoint ---
+#let f() = {
+  text(font: "Unbeknownst")[]
+}
+
+#let g() = {
+  f()
+}
+
+/! allow("unknown-font-families")
+#g()
 
 --- allow-before-parbreak-doesnt-suppress-warn ---
 // Warning: 3:3-3:5 no text within stars
