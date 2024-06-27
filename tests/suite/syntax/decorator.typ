@@ -127,3 +127,17 @@ this is ok
 // Warning: 3-5 no text within stars
 // Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
 #[**]
+
+--- allow-doesnt-suppress-warn-in-nested-context ---
+// Warning: 2:14-2:27 unknown font family: unbeknownst
+#let f() = context {
+  text(font: "Unbeknownst")[]
+}
+
+/! allow("unknown-font-families")
+#f()
+
+/! allow("unknown-font-families")
+#context {
+  text(font: "Unbeknownst")[]
+}
