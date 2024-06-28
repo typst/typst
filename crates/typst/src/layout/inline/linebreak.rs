@@ -24,6 +24,7 @@ const DEFAULT_RUNT_COST: Cost = 0.5;
 const CONSECUTIVE_DASH_COST: Cost = 0.3;
 const MAX_COST: Cost = 1_000_000.0;
 const MIN_RATIO: f64 = -1.0;
+const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
 
 /// The general line break segmenter.
@@ -251,7 +252,7 @@ fn linebreak_optimized_bounded<'a>(
             // The total cost of this line and its chain of predecessors.
             let total = pred.total + line_cost;
 
-            // If the line is already underful (`line_ratio > 0`), it'll only
+            // If the line is already underfull (`line_ratio > 0`), it'll only
             // get worse from here, so further attempts would also have a cost
             // exceeding `bound`.
             if line_ratio > 0.0 && line_lower_bound.is_none() {
@@ -382,6 +383,7 @@ fn linebreak_optimized_approximate(
                 justify,
                 unbreakable,
                 consecutive_dash,
+                true,
             );
 
             // Adjust the set of active breakpoints.
@@ -471,6 +473,7 @@ fn ratio_and_cost(
         attempt.justify,
         unbreakable,
         pred.dash.is_some() && attempt.dash.is_some(),
+        false,
     );
 
     (ratio, cost)
@@ -524,9 +527,10 @@ fn raw_cost(
     justify: bool,
     unbreakable: bool,
     consecutive_dash: bool,
+    approx: bool,
 ) -> Cost {
     // Determine the cost of the line.
-    let mut cost = if ratio < metrics.min_ratio {
+    let mut cost = if ratio < metrics.min_ratio(approx) {
         // Overfull line always has maximum cost.
         MAX_COST
     } else if breakpoint == Breakpoint::Mandatory || at_end {
@@ -757,6 +761,7 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
 /// Resolved metrics relevant for cost computation.
 struct CostMetrics {
     min_ratio: f64,
+    min_approx_ratio: f64,
     hyph_cost: Cost,
     runt_cost: Cost,
     approx_hyphen_width: Abs,
@@ -768,10 +773,19 @@ impl CostMetrics {
         Self {
             // When justifying, we may stretch spaces below their natural width.
             min_ratio: if p.justify { MIN_RATIO } else { 0.0 },
+            min_approx_ratio: if p.justify { MIN_APPROX_RATIO } else { 0.0 },
             hyph_cost: DEFAULT_HYPH_COST * p.costs.hyphenation().get(),
             runt_cost: DEFAULT_RUNT_COST * p.costs.runt().get(),
             // Approximate hyphen width for estimates.
             approx_hyphen_width: Em::new(0.33).at(p.size),
+        }
+    }
+
+    fn min_ratio(&self, approx: bool) -> f64 {
+        if approx {
+            self.min_approx_ratio
+        } else {
+            self.min_ratio
         }
     }
 }
