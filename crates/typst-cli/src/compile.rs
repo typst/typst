@@ -330,7 +330,9 @@ fn export_image_page(
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let pixmap = typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
+            let bg =
+                if command.fill_transparent { Color::TRANSPARENT } else { Color::WHITE };
+            let pixmap = typst_render::render(frame, command.ppi / 72.0, bg);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;

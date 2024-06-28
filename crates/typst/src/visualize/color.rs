@@ -217,6 +217,7 @@ impl Color {
         MODULE.clone()
     };
 
+    pub const TRANSPARENT: Self = Self::Luma(Luma::new(0.0, 0.0));
     pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
     pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));
     pub const WHITE: Self = Self::Luma(Luma::new(1.0, 1.0));
