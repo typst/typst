@@ -1,8 +1,8 @@
+use crate::foundations::{func, scope, ty, Repr};
+use crate::layout::{Axis, Side};
 use ecow::EcoString;
 use serde::ser::SerializeMap;
 use serde::Serialize;
-use crate::foundations::{func, scope, ty, Repr};
-use crate::layout::{Axis, Side};
 
 /// The four directions into which content can be laid out.
 ///
@@ -143,4 +143,3 @@ impl Serialize for Dir {
         map_ser.end()
     }
 }
-

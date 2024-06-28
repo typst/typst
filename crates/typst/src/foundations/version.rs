@@ -3,11 +3,11 @@ use std::fmt::{self, Display, Formatter, Write};
 use std::hash::Hash;
 use std::iter::repeat;
 
+use crate::diag::{bail, StrResult};
+use crate::foundations::{cast, func, repr, scope, ty, Repr};
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::ser::SerializeMap;
 use serde::Serialize;
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, func, repr, scope, ty, Repr};
 
 /// A version with an arbitrary number of components.
 ///

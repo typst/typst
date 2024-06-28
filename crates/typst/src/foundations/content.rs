@@ -705,9 +705,12 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            vec![("type".into(), "content".into_value()), ("func".into(), self.func().name().into_value())]
-                .into_iter()
-                .chain(self.fields()),
+            vec![
+                ("type".into(), "content".into_value()),
+                ("func".into(), self.func().name().into_value()),
+            ]
+            .into_iter()
+            .chain(self.fields()),
         )
     }
 }

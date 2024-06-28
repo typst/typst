@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
 
 use crate::diag::{bail, HintedStrResult, StrResult};
@@ -284,15 +284,22 @@ impl Serialize for Selector {
     {
         let size = match self {
             Self::Elem(_, dict) => {
-                if let Some(_) = dict { 4 } else { 3 }
+                if dict.is_some() {
+                    4
+                } else {
+                    3
+                }
             }
             Self::Before { selector: _, end: _, inclusive }
             | Self::After { selector: _, start: _, inclusive } => {
-                if !*inclusive { 5 } else { 4 }
+                if !*inclusive {
+                    5
+                } else {
+                    4
+                }
             }
-            _ => 3
+            _ => 3,
         };
-
 
         let mut map_ser = serializer.serialize_map(Some(size))?;
         map_ser.serialize_entry("type", "selector")?;
@@ -317,9 +324,13 @@ impl Serialize for Selector {
             }
             Self::Label(label) => ser_entries!(("func", "label"), ("label", label)),
             Self::Regex(regex) => ser_entries!(("func", "regex"), ("regex", regex)),
-            Self::Can(cap) => ser_entries!(("func", "can"), ("id", &eco_format!("{cap:?}"))),
+            Self::Can(cap) => {
+                ser_entries!(("func", "can"), ("id", &eco_format!("{cap:?}")))
+            }
             Self::Or(selectors) => ser_entries!(("func", "or"), ("variants", selectors)),
-            Self::And(selectors) => ser_entries!(("func", "and"), ("variants", selectors)),
+            Self::And(selectors) => {
+                ser_entries!(("func", "and"), ("variants", selectors))
+            }
             Self::Location(loc) => ser_entries!(("func", "location"), ("location", loc)),
             Self::Before { selector, end, inclusive } => {
                 ser_entries!(("func", "before"), ("selector", selector), ("end", end));

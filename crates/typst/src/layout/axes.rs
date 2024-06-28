@@ -204,7 +204,9 @@ cast! {
 
 impl<T: Serialize> Serialize for Axes<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
+    where
+        S: Serializer,
+    {
         serializer.collect_seq(&[&self.x, &self.y])
     }
 }

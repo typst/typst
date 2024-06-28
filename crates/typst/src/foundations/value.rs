@@ -5,10 +5,10 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
+use erased_serde::Serialize as ErasedSerialize;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use erased_serde::Serialize as ErasedSerialize;
 
 use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::eval::ops;
@@ -94,7 +94,15 @@ impl Value {
     /// Create a new dynamic value.
     pub fn dynamic<T>(any: T) -> Self
     where
-        T: Debug + Repr + NativeType + PartialEq + Hash + ErasedSerialize + Sync + Send + 'static,
+        T: Debug
+            + Repr
+            + NativeType
+            + PartialEq
+            + Hash
+            + ErasedSerialize
+            + Sync
+            + Send
+            + 'static,
     {
         Self::Dyn(Dynamic::new(any))
     }
@@ -520,7 +528,15 @@ impl Dynamic {
     /// Create a new instance from any value that satisfies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Debug + Repr + NativeType + PartialEq + Hash + ErasedSerialize + Sync + Send + 'static,
+        T: Debug
+            + Repr
+            + NativeType
+            + PartialEq
+            + Hash
+            + ErasedSerialize
+            + Sync
+            + Send
+            + 'static,
     {
         Self(Arc::new(any))
     }
@@ -553,7 +569,7 @@ impl Repr for Dynamic {
     }
 }
 
-impl<'a> Serialize for dyn Bounds {
+impl Serialize for dyn Bounds {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -577,7 +593,15 @@ trait Bounds: Debug + Repr + ErasedSerialize + Sync + Send + 'static {
 
 impl<T> Bounds for T
 where
-    T: Debug + Repr + NativeType + PartialEq + Hash + ErasedSerialize + Sync + Send + 'static,
+    T: Debug
+        + Repr
+        + NativeType
+        + PartialEq
+        + Hash
+        + ErasedSerialize
+        + Sync
+        + Send
+        + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self

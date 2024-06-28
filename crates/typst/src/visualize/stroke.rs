@@ -1,6 +1,3 @@
-use ecow::EcoString;
-use serde::{Serialize, Serializer};
-use serde::ser::SerializeMap;
 use crate::diag::{HintedStrResult, SourceResult};
 use crate::foundations::{
     cast, dict, func, scope, ty, Args, Cast, Dict, Fold, FromValue, NoneValue, Repr,
@@ -9,6 +6,9 @@ use crate::foundations::{
 use crate::layout::{Abs, Length};
 use crate::utils::{Numeric, Scalar};
 use crate::visualize::{Color, Gradient, Paint, Pattern};
+use ecow::EcoString;
+use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 
 /// Defines how to draw a line.
 ///
@@ -334,7 +334,8 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
 impl<T: Numeric + Serialize> Serialize for Stroke<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer {
+        S: Serializer,
+    {
         let Self { paint, thickness, cap, join, dash, miter_limit } = &self;
 
         let size = [
@@ -344,7 +345,11 @@ impl<T: Numeric + Serialize> Serialize for Stroke<T> {
             matches!(&join, Smart::Custom(_)),
             matches!(&dash, Smart::Custom(_)),
             matches!(&miter_limit, Smart::Custom(_)),
-        ].iter().filter(|it| **it).count() + 1;
+        ]
+        .iter()
+        .filter(|it| **it)
+        .count()
+            + 1;
         let mut map_ser = serializer.serialize_map(Some(size))?;
         map_ser.serialize_entry("type", "stroke")?;
         if let Smart::Custom(paint) = &paint {
@@ -520,7 +525,10 @@ impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
 }
 
 impl<T: Numeric + Serialize, DT: Serialize> Serialize for DashPattern<T, DT> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut map_ser = serializer.serialize_map(Some(2))?;
         // Don't serialize type, this is represented with just a Dict
         map_ser.serialize_entry("array", &self.array)?;
@@ -602,7 +610,10 @@ impl<T: Numeric + Repr> Repr for DashLength<T> {
 }
 
 impl<T: Numeric + Serialize> Serialize for DashLength<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         match self {
             DashLength::LineWidth => serializer.serialize_str("dot"),
             DashLength::Length(v) => v.serialize(serializer),

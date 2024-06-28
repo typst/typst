@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use kurbo::Vec2;
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, SourceResult};
 use crate::foundations::{
@@ -1058,7 +1058,9 @@ impl Repr for RadialGradient {
 
 impl Serialize for RadialGradient {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
+    where
+        S: Serializer,
+    {
         let mut map_ser = serializer.serialize_map(Some(8))?;
         map_ser.serialize_entry("type", "gradient")?;
         map_ser.serialize_entry("func", "radial")?;
@@ -1140,7 +1142,9 @@ impl Repr for ConicGradient {
 
 impl Serialize for ConicGradient {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
+    where
+        S: Serializer,
+    {
         let mut map_ser = serializer.serialize_map(Some(7))?;
         map_ser.serialize_entry("type", "gradient")?;
         map_ser.serialize_entry("func", "conic")?;

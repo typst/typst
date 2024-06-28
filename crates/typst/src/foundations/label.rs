@@ -76,7 +76,10 @@ impl Serialize for Label {
     where
         S: serde::Serializer,
     {
-        serializer.collect_map::<&str, &str, _>(vec![("type", "label"), ("name", self.as_str())])
+        serializer.collect_map::<&str, &str, _>(vec![
+            ("type", "label"),
+            ("name", self.as_str()),
+        ])
     }
 }
 

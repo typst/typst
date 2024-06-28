@@ -3,8 +3,8 @@ use std::hash::Hash;
 use std::ops::{Add, Sub};
 
 use ecow::{eco_format, EcoString, EcoVec};
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{format_description, Month, PrimitiveDateTime};
@@ -478,8 +478,11 @@ impl Serialize for Datetime {
             self.day().is_some(),
             self.hour().is_some(),
             self.minute().is_some(),
-            self.second().is_some()
-        ].into_iter().filter(|&x| x).count();
+            self.second().is_some(),
+        ]
+        .into_iter()
+        .filter(|&x| x)
+        .count();
 
         let mut map_ser = serializer.serialize_map(Some(size + 1))?;
         map_ser.serialize_entry("type", "datetime")?;

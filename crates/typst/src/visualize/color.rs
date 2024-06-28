@@ -9,8 +9,8 @@ use palette::{
     Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 use qcms::Profile;
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
@@ -1578,10 +1578,11 @@ impl Repr for Color {
     }
 }
 
-
 impl Serialize for Color {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
+    where
+        S: Serializer,
+    {
         let components = match self {
             Self::Luma(c) => 1 + if c.alpha != 1.0 { 1 } else { 0 },
             Self::Oklab(c) => 3 + if c.alpha != 1.0 { 1 } else { 0 },
@@ -1643,7 +1644,8 @@ impl Serialize for Color {
             Self::Hsl(c) => {
                 map_ser.serialize_entry("func", "hsl")?;
                 map_ser.serialize_entry("hue", &hue_angle(c.hue.into_degrees()))?;
-                map_ser.serialize_entry("saturation", &Ratio::new(c.saturation.into()))?;
+                map_ser
+                    .serialize_entry("saturation", &Ratio::new(c.saturation.into()))?;
                 map_ser.serialize_entry("lightness", &Ratio::new(c.lightness.into()))?;
                 if c.alpha != 1.0 {
                     map_ser.serialize_entry("alpha", &Ratio::new(c.alpha.into()))?;
@@ -1652,7 +1654,8 @@ impl Serialize for Color {
             Self::Hsv(c) => {
                 map_ser.serialize_entry("func", "hsv")?;
                 map_ser.serialize_entry("hue", &hue_angle(c.hue.into_degrees()))?;
-                map_ser.serialize_entry("saturation", &Ratio::new(c.saturation.into()))?;
+                map_ser
+                    .serialize_entry("saturation", &Ratio::new(c.saturation.into()))?;
                 map_ser.serialize_entry("value", &Ratio::new(c.value.into()))?;
                 if c.alpha != 1.0 {
                     map_ser.serialize_entry("alpha", &Ratio::new(c.alpha.into()))?;

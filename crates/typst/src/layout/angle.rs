@@ -153,7 +153,6 @@ impl Serialize for Angle {
     }
 }
 
-
 impl Neg for Angle {
     type Output = Self;
 

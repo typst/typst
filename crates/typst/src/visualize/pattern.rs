@@ -2,8 +2,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -286,7 +286,10 @@ impl repr::Repr for Pattern {
 }
 
 impl Serialize for Pattern {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let size = 3 + if matches!(self.0.relative, Smart::Custom(_)) { 1 } else { 0 };
         let mut map_ser = serializer.serialize_map(Some(size))?;
         map_ser.serialize_entry("type", "pattern")?;

@@ -318,7 +318,7 @@ impl Serialize for Plugin {
     where
         S: Serializer,
     {
-        serializer.collect_map::<&str, &str, _>(vec![("type", "plugin"),])
+        serializer.collect_map::<&str, &str, _>(vec![("type", "plugin")])
         // Nothing useful here
     }
 }

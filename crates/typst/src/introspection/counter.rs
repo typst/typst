@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, HintedStrResult, SourceResult};
@@ -633,7 +633,8 @@ impl Serialize for CounterKey {
     where
         S: Serializer,
     {
-        let mut map_serializer = serializer.serialize_map(Some(if matches!(self, Self::Page) { 2 } else { 3 }))?;
+        let mut map_serializer = serializer
+            .serialize_map(Some(if matches!(self, Self::Page) { 2 } else { 3 }))?;
         map_serializer.serialize_entry("type", "counter-key")?;
         match self {
             Self::Page => {

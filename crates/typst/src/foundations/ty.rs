@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 
+use crate::diag::StrResult;
+use crate::foundations::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
+use crate::utils::Static;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use serde::ser::SerializeMap;
 use serde::Serialize;
-use crate::diag::StrResult;
-use crate::foundations::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
-use crate::utils::Static;
 
 #[rustfmt::skip]
 #[doc(inline)]

@@ -1,7 +1,7 @@
 use ecow::EcoString;
+use serde::{Serialize, Serializer};
 use std::fmt::{self, Debug, Formatter};
 use std::iter;
-use serde::{Serialize, Serializer};
 
 use crate::diag::HintedStrResult;
 use crate::foundations::{
