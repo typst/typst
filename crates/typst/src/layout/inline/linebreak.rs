@@ -24,6 +24,7 @@ const DEFAULT_RUNT_COST: Cost = 0.5;
 const CONSECUTIVE_DASH_COST: Cost = 0.3;
 const MAX_COST: Cost = 1_000_000.0;
 const MIN_RATIO: f64 = -1.0;
+const BOUND_EPS: f64 = 1e-3;
 
 /// The general line break segmenter.
 static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
@@ -187,21 +188,30 @@ fn linebreak_optimized_bounded<'a>(
         line: line(engine, p, 0..0, Breakpoint::Mandatory, None),
     }];
 
-    let mut bps = 0;
     let mut active = 0;
     let mut prev_end = 0;
 
     breakpoints(p, |end, breakpoint| {
-        bps += 1;
-
         let table_len = table.len();
         let at_end = end == p.bidi.text.len();
 
         // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
+
+        // A lower bound for the cost of all following line attempts.
+        let mut line_lower_bound = None;
+
         for (pred_index, pred) in table.iter().enumerate().skip(active) {
             let start = pred.line.end;
             let unbreakable = prev_end == start;
+
+            // If the minimum cost we've established for the line is already
+            // too much, skip it.
+            if let Some(lower) = line_lower_bound {
+                if pred.total + lower > bound + BOUND_EPS {
+                    continue;
+                }
+            }
 
             // Build the line.
             let attempt = line(engine, p, start..end, breakpoint, Some(&pred.line));
@@ -241,17 +251,16 @@ fn linebreak_optimized_bounded<'a>(
             // The total cost of this line and its chain of predecessors.
             let total = pred.total + line_cost;
 
-            // If the cost already exceeds the upper bound, we don't need to
-            // integrate this to result to the table.
-            if total > bound + 1e-3 {
-                // If the line is already underfull, it'll only get worse, so
-                // further attempts would also have a cost exceeding `bound`.
-                if line_ratio > 0.0 {
-                    break;
-                }
+            // If the line is already underful (`line_ratio > 0`), it'll only
+            // get worse from here, so further attempts would also have a cost
+            // exceeding `bound`.
+            if line_ratio > 0.0 && line_lower_bound.is_none() {
+                line_lower_bound = Some(line_cost);
+            }
 
-                // If the line isn't yet underfull, a later attempt might still
-                // be better.
+            // If the cost already exceeds the upper bound, we don't need to
+            // integrate this result into the table.
+            if total > bound + BOUND_EPS {
                 continue;
             }
 
