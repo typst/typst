@@ -160,7 +160,7 @@ impl Serialize for Type {
     {
         let mut map_ser = serializer.serialize_map(Some(2))?;
         map_ser.serialize_entry("type", "type")?;
-        map_ser.serialize_entry("name", self.long_name())?;
+        map_ser.serialize_entry("name", self.short_name())?;
         map_ser.end()
     }
 }

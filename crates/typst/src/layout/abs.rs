@@ -163,7 +163,7 @@ impl Serialize for Abs {
     {
         let mut map_ser = serializer.serialize_map(Some(2))?;
         map_ser.serialize_entry("type", "length")?;
-        map_ser.serialize_entry("pts", &self.to_pt())?;
+        map_ser.serialize_entry("pt", &self.to_pt())?;
         map_ser.end()
     }
 }
