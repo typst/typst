@@ -500,7 +500,14 @@ impl Show for Packed<OutlineEntry> {
         };
 
         // The body text remains overridable.
-        seq.push(self.body().clone().linked(Destination::Location(location)));
+        seq.push(
+            BoxElem::new()
+                .with_body(Some(
+                    self.body().clone().linked(Destination::Location(location)),
+                ))
+                .pack()
+                .spanned(self.span()),
+        );
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
