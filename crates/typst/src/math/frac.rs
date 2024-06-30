@@ -1,5 +1,5 @@
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{elem, Content, Packed, StyleChain, Value};
+use crate::foundations::{elem, Content, Packed, SequenceElem, Smart, StyleChain, Value};
 use crate::layout::{Em, Frame, FrameItem, Point, Size};
 use crate::math::{
     scaled_font_size, style_for_denominator, style_for_numerator, FrameFragment,
@@ -8,6 +8,8 @@ use crate::math::{
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::visualize::{FixedStroke, Geometry};
+
+use super::delimited;
 
 const FRAC_AROUND: Em = Em::new(0.1);
 
@@ -33,19 +35,88 @@ pub struct FracElem {
     /// The fraction's denominator.
     #[required]
     pub denom: Content,
+
+    /// Whether to display the fraction horizontally.
+    /// ```example
+    /// #show math.equation.where(block: false): set math.frac(horizontal: true)
+    /// Display $a/b$ as horizontal fraction in inline math, but as vertical in a block:
+    /// $ a/b $
+    /// ```
+    #[default(false)]
+    pub horizontal: bool,
+
+    /// Whether to put brackets around the numerator and denominator when the fraction is displayed horizontally.
+    /// Only has an effect if `horizontal` is set to `true`.
+    ///
+    /// If set to `auto` brackets are inserted automatically based on the number of elements in the numerator or denominator.
+    /// ```example
+    /// #set math.frac(horizontal: true)
+    /// Brackets are inserted automatically: $(a + b)/b$
+    ///
+    /// #set math.frac(bracket-horizontal: false)
+    /// Brackets are never inserted: $(a + b)/b$
+    ///
+    /// #set math.frac(bracket-horizontal: false)
+    /// Brackets are always inserted: $(a + b)/b$
+    /// ```
+    ///
+    pub bracket_horizontal: Smart<bool>,
 }
 
 impl LayoutMath for Packed<FracElem> {
     #[typst_macros::time(name = "math.frac", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        layout(
-            ctx,
-            styles,
-            self.num(),
-            std::slice::from_ref(self.denom()),
-            false,
-            self.span(),
-        )
+        if self.horizontal(styles) {
+            let (delimit_left, delimit_right) = match self.bracket_horizontal(styles) {
+                Smart::Auto => {
+                    (is_multiple_elements(self.num()), is_multiple_elements(self.denom()))
+                }
+                Smart::Custom(b) => (b, b),
+            };
+
+            let slash = ctx.layout_into_fragment(&TextElem::packed('/'), styles)?;
+            let left = ctx.layout_into_fragment(
+                &delimit_if(self.num().clone(), delimit_left),
+                styles,
+            )?;
+            let right = ctx.layout_into_fragment(
+                &delimit_if(self.denom().clone(), delimit_right),
+                styles,
+            )?;
+            ctx.push(left);
+            ctx.push(slash);
+            ctx.push(right);
+            Ok(())
+        } else {
+            layout(
+                ctx,
+                styles,
+                self.num(),
+                std::slice::from_ref(self.denom()),
+                false,
+                self.span(),
+            )
+        }
+    }
+}
+
+/// Whether the content consists of multiple elements
+fn is_multiple_elements(content: &Content) -> bool {
+    if content.is::<SequenceElem>() {
+        match content.get_by_name("children") {
+            Ok(Value::Array(a)) => return a.len() > 1,
+            _ => unreachable!("Sequence must have field children of type Array"),
+        }
+    }
+    false
+}
+
+/// Delimits the content if delimit is true
+fn delimit_if(content: Content, delimit: bool) -> Content {
+    if delimit {
+        delimited(content, '(', ')', Some(Smart::Auto))
+    } else {
+        content
     }
 }
 
