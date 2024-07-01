@@ -193,9 +193,6 @@ fn linebreak_optimized_bounded<'a>(
     let mut prev_end = 0;
 
     breakpoints(p, |end, breakpoint| {
-        let table_len = table.len();
-        let at_end = end == p.bidi.text.len();
-
         // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
 
@@ -228,25 +225,18 @@ fn linebreak_optimized_bounded<'a>(
                 unbreakable,
             );
 
-            // Adjust the set of active breakpoints.
-            if line_ratio < metrics.min_ratio {
-                // The line is overfull. This is the case if
-                // - justification is on, but we'd need to shrink too much
-                // - justification is off and the line just doesn't fit
-                //
-                // If this is the earliest breakpoint in the active set
-                // (active == i), remove it from the active set. If there is an
-                // earlier one (active < i), then the logically shorter line was
-                // in fact longer (can happen with negative spacing) and we
-                // can't trim the active set just yet.
-                if active == pred_index {
-                    active += 1;
-                }
-            } else if breakpoint == Breakpoint::Mandatory || at_end {
-                // This is a mandatory break and the line is not overfull, so
-                // all breakpoints before this one become inactive since no line
-                // can span above the mandatory break.
-                active = table_len;
+            // If the line is overfull, we adjust the set of active candidate
+            // line starts. This is the case if
+            // - justification is on, but we'd need to shrink too much
+            // - justification is off and the line just doesn't fit
+            //
+            // If this is the earliest breakpoint in the active set
+            // (active == i), remove it from the active set. If there is an
+            // earlier one (active < i), then the logically shorter line was
+            // in fact longer (can happen with negative spacing) and we
+            // can't trim the active set just yet.
+            if line_ratio < metrics.min_ratio && active == pred_index {
+                active += 1;
             }
 
             // The total cost of this line and its chain of predecessors.
@@ -269,6 +259,12 @@ fn linebreak_optimized_bounded<'a>(
             if best.as_ref().map_or(true, |best| best.total >= total) {
                 best = Some(Entry { pred: pred_index, total, line: attempt });
             }
+        }
+
+        // If this is a mandatory break, all breakpoints before this one become
+        // inactive since no line can span over the mandatory break.
+        if breakpoint == Breakpoint::Mandatory {
+            active = table.len();
         }
 
         table.extend(best);
@@ -338,7 +334,6 @@ fn linebreak_optimized_approximate(
     let mut prev_end = 0;
 
     breakpoints(p, |end, breakpoint| {
-        let table_len = table.len();
         let at_end = end == p.bidi.text.len();
 
         // Find the optimal predecessor.
@@ -390,12 +385,8 @@ fn linebreak_optimized_approximate(
 
             // Adjust the set of active breakpoints.
             // See `linebreak_optimized` for details.
-            if line_ratio < metrics.min_ratio {
-                if active == pred_index {
-                    active += 1;
-                }
-            } else if breakpoint == Breakpoint::Mandatory || at_end {
-                active = table_len;
+            if line_ratio < metrics.min_ratio && active == pred_index {
+                active += 1;
             }
 
             // The total cost of this line and its chain of predecessors.
@@ -411,6 +402,12 @@ fn linebreak_optimized_approximate(
                     breakpoint,
                 });
             }
+        }
+
+        // If this is a mandatory break, all breakpoints before this one become
+        // inactive.
+        if breakpoint == Breakpoint::Mandatory {
+            active = table.len();
         }
 
         table.extend(best);
