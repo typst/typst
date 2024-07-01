@@ -275,13 +275,14 @@ fn linebreak_optimized_bounded<'a>(
     let mut lines = Vec::with_capacity(16);
     let mut idx = table.len() - 1;
 
-    // This should only happen if our bound was faulty.
-    // (Which shouldn't happen!)
-    assert_eq!(
-        table[idx].line.end,
-        p.bidi.text.len(),
-        "paragraph wasn't laid out in full",
-    );
+    // This should only happen if our bound was faulty. Which shouldn't happen!
+    if table[idx].line.end != p.bidi.text.len() {
+        #[cfg(debug_assertions)]
+        panic!("bounded paragraph layout is incomplete");
+
+        #[cfg(not(debug_assertions))]
+        return linebreak_optimized_bounded(engine, p, width, metrics, Cost::INFINITY);
+    }
 
     while idx != 0 {
         table.truncate(idx + 1);
