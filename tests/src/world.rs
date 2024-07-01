@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use ecow::{EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{bail, FileError, FileResult, StrResult};
@@ -59,6 +60,14 @@ impl World for TestWorld {
         self.slot(id, FileSlot::file)
     }
 
+    fn directory(
+        &self,
+        id: FileId,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
+        self.slot(id, |slot| slot.directory(dir_trailing))
+    }
+
     fn font(&self, index: usize) -> Option<Font> {
         Some(self.base.fonts[index].clone())
     }
@@ -109,12 +118,18 @@ struct FileSlot {
     id: FileId,
     source: OnceLock<FileResult<Source>>,
     file: OnceLock<FileResult<Bytes>>,
+    directory: OnceLock<FileResult<EcoVec<EcoString>>>,
 }
 
 impl FileSlot {
     /// Create a new file slot.
     fn new(id: FileId) -> Self {
-        Self { id, file: OnceLock::new(), source: OnceLock::new() }
+        Self {
+            id,
+            file: OnceLock::new(),
+            source: OnceLock::new(),
+            directory: OnceLock::new(),
+        }
     }
 
     /// Retrieve the source for this file.
@@ -136,6 +151,46 @@ impl FileSlot {
                     Cow::Owned(buf) => buf.into(),
                     Cow::Borrowed(buf) => Bytes::from_static(buf),
                 })
+            })
+            .clone()
+    }
+
+    /// Retrieve the directory's contents.
+    fn directory(
+        &mut self,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
+        self.directory
+            .get_or_init(|| {
+                let path = system_path(self.id)?;
+                let entries = fs::read_dir(path).map_err(|e| {
+                    FileError::Other(Some(EcoString::from(e.to_string())))
+                })?;
+                let mut vec = EcoVec::new();
+                let dir_trailing = dir_trailing.unwrap_or_default();
+                let dir_trailing = dir_trailing.as_str();
+                for entry in entries {
+                    let entry = entry.map_err(|e| {
+                        FileError::Other(Some(EcoString::from(e.to_string())))
+                    })?;
+                    // If the entry is a directory, add a trailing slash.
+                    let is_directory =
+                        entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+                    let path = entry.path();
+                    let name = path
+                        .file_name()
+                        .and_then(|s| {
+                            let mut s = s.to_os_string();
+                            if is_directory {
+                                s.push(dir_trailing);
+                            }
+
+                            s.into_string().ok()
+                        })
+                        .unwrap_or_default();
+                    vec.push(name.into());
+                }
+                Ok(vec)
             })
             .clone()
     }

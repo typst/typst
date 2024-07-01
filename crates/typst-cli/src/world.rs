@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
-use ecow::{eco_format, EcoString};
+use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
@@ -204,6 +204,16 @@ impl World for SystemWorld {
         self.slot(id, |slot| slot.file(&self.root, &self.package_storage))
     }
 
+    fn directory(
+        &self,
+        id: FileId,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
+        self.slot(id, |slot| {
+            slot.directory(&self.root, &self.package_storage, dir_trailing)
+        })
+    }
+
     fn font(&self, index: usize) -> Option<Font> {
         self.fonts[index].get()
     }
@@ -304,6 +314,41 @@ impl FileSlot {
             || read(self.id, project_root, package_storage),
             |data, _| Ok(data.into()),
         )
+    }
+
+    /// Retrieve the directory's contents.
+    fn directory(
+        &mut self,
+        project_root: &Path,
+        package_storage: &PackageStorage,
+        dir_trailing: Option<EcoString>,
+    ) -> FileResult<EcoVec<EcoString>> {
+        let path = system_path(project_root, self.id, package_storage)?;
+        let entries = fs::read_dir(path)
+            .map_err(|e| FileError::Other(Some(EcoString::from(e.to_string()))))?;
+        let mut vec = EcoVec::new();
+        let dir_trailing = dir_trailing.unwrap_or_default();
+        let dir_trailing = dir_trailing.as_str();
+        for entry in entries {
+            let entry = entry
+                .map_err(|e| FileError::Other(Some(EcoString::from(e.to_string()))))?;
+            // If the entry is a directory, add a trailing slash.
+            let is_directory = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+            let path = entry.path();
+            let name = path
+                .file_name()
+                .and_then(|s| {
+                    let mut s = s.to_os_string();
+                    if is_directory {
+                        s.push(dir_trailing);
+                    }
+
+                    s.into_string().ok()
+                })
+                .unwrap_or_default();
+            vec.push(name.into());
+        }
+        Ok(vec)
     }
 }
 

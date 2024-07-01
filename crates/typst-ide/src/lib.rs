@@ -93,6 +93,7 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
+    use ecow::{EcoString, EcoVec};
     use once_cell::sync::Lazy;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
@@ -148,6 +149,14 @@ mod tests {
         }
 
         fn file(&self, id: FileId) -> FileResult<Bytes> {
+            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+        }
+
+        fn directory(
+            &self,
+            id: FileId,
+            _dir_trailing: Option<EcoString>,
+        ) -> FileResult<EcoVec<EcoString>> {
             Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
         }
 

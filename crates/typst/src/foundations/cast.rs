@@ -3,7 +3,7 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoVec};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
@@ -167,6 +167,20 @@ impl<T: Reflect> Reflect for &mut T {
     }
 }
 
+impl<T: Reflect> Reflect for EcoVec<T> {
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
 /// Cast a Rust type into a Typst [`Value`].
 ///
 /// See also: [`Reflect`].
@@ -235,6 +249,12 @@ impl<T: IntoValue> IntoResult for HintedStrResult<T> {
 impl<T: IntoValue> IntoResult for SourceResult<T> {
     fn into_result(self, _: Span) -> SourceResult<Value> {
         self.map(IntoValue::into_value)
+    }
+}
+
+impl<T: IntoValue + Clone> IntoValue for EcoVec<T> {
+    fn into_value(self) -> Value {
+        Value::Array(self.into_iter().map(|x| IntoValue::into_value(x)).collect())
     }
 }
 

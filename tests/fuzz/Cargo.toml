@@ -14,6 +14,7 @@ typst-render = { workspace = true }
 typst-syntax = { workspace = true }
 comemo = { workspace = true }
 libfuzzer-sys = { workspace = true }
+ecow = { workspace = true }
 
 [[bin]]
 name = "parse"
