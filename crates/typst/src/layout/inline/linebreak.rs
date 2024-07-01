@@ -357,21 +357,23 @@ fn linebreak_optimized_approximate(
             let consecutive_dash =
                 pred.breakpoint == Breakpoint::Hyphen && breakpoint == Breakpoint::Hyphen;
 
-            // Estimate the line width.
-            let mut line_width = estimates.widths.estimate(start..end);
-            if breakpoint == Breakpoint::Hyphen {
-                line_width += metrics.approx_hyphen_width;
-            }
-
-            // Estimate how much the line's spaces would need to be stretched
-            // to make it the desired width.
+            // Estimate how much the line's spaces would need to be stretched to
+            // make it the desired width. We trim at the end to not take into
+            // account trailing spaces. This is, again, only an approximation of
+            // the real behaviour of `line`.
+            let trimmed_end = start + p.bidi.text[start..end].trim_end().len();
             let line_ratio = raw_ratio(
                 p,
                 width,
-                line_width,
-                estimates.stretchability.estimate(start..end),
-                estimates.shrinkability.estimate(start..end),
-                estimates.justifiables.estimate(start..end),
+                estimates.widths.estimate(start..trimmed_end)
+                    + if breakpoint == Breakpoint::Hyphen {
+                        metrics.approx_hyphen_width
+                    } else {
+                        Abs::zero()
+                    },
+                estimates.stretchability.estimate(start..trimmed_end),
+                estimates.shrinkability.estimate(start..trimmed_end),
+                estimates.justifiables.estimate(start..trimmed_end),
             );
 
             // Determine the line's cost.
@@ -781,6 +783,9 @@ impl CostMetrics {
         }
     }
 
+    /// The minimum line ratio we allow for shrinking. For approximate layout,
+    /// we allow less because otherwise we get an invalid layout fairly often,
+    /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
         if approx {
             self.min_approx_ratio
