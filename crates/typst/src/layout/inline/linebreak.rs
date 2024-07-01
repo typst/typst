@@ -379,7 +379,7 @@ fn linebreak_optimized_approximate(
 
             // Determine the line's cost.
             let line_cost = raw_cost(
-                &metrics,
+                metrics,
                 breakpoint,
                 line_ratio,
                 at_end,
@@ -524,6 +524,7 @@ fn raw_ratio(
 }
 
 /// Compute the cost of a line given raw metrics.
+#[allow(clippy::too_many_arguments)]
 fn raw_cost(
     metrics: &CostMetrics,
     breakpoint: Breakpoint,
