@@ -1,3 +1,5 @@
+use std::ops::{Add, Sub};
+
 use icu_properties::maps::CodePointMapData;
 use icu_properties::LineBreak;
 use icu_provider::AsDeserializingBufferProvider;
@@ -8,10 +10,22 @@ use once_cell::sync::Lazy;
 
 use super::*;
 use crate::engine::Engine;
-use crate::layout::Abs;
+use crate::layout::{Abs, Em};
 use crate::model::Linebreaks;
 use crate::syntax::link_prefix;
 use crate::text::{Lang, TextElem};
+
+/// The cost of a line or paragraph layout.
+type Cost = f64;
+
+// Cost parameters.
+const DEFAULT_HYPH_COST: Cost = 0.5;
+const DEFAULT_RUNT_COST: Cost = 0.5;
+const CONSECUTIVE_DASH_COST: Cost = 0.3;
+const MAX_COST: Cost = 1_000_000.0;
+const MIN_RATIO: f64 = -1.0;
+const MIN_APPROX_RATIO: f64 = -0.5;
+const BOUND_EPS: f64 = 1e-3;
 
 /// The general line break segmenter.
 static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
@@ -84,10 +98,8 @@ fn linebreak_simple<'a>(
     let mut last = None;
 
     breakpoints(p, |end, breakpoint| {
-        let prepend_hyphen = lines.last().map(should_repeat_hyphen).unwrap_or(false);
-
         // Compute the line and its size.
-        let mut attempt = line(engine, p, start..end, breakpoint, prepend_hyphen);
+        let mut attempt = line(engine, p, start..end, breakpoint, lines.last());
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -96,7 +108,7 @@ fn linebreak_simple<'a>(
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(engine, p, start..end, breakpoint, prepend_hyphen);
+                attempt = line(engine, p, start..end, breakpoint, lines.last());
             }
         }
 
@@ -142,144 +154,142 @@ fn linebreak_optimized<'a>(
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
-    /// The cost of a line or paragraph layout.
-    type Cost = f64;
+    let metrics = CostMetrics::compute(p);
 
-    /// An entry in the dynamic programming table.
+    // Determines the exact costs of a likely good layout through Knuth-Plass
+    // with approximate metrics. We can use this cost as an upper bound to prune
+    // the search space in our proper optimization pass below.
+    let upper_bound = linebreak_optimized_approximate(engine, p, width, &metrics);
+
+    // Using the upper bound, perform exact optimized linebreaking.
+    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound)
+}
+
+/// Performs line breaking in optimized Knuth-Plass style, but with an upper
+/// bound on the cost. This allows us to skip many parts of the search space.
+#[typst_macros::time]
+fn linebreak_optimized_bounded<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    width: Abs,
+    metrics: &CostMetrics,
+    upper_bound: Cost,
+) -> Vec<Line<'a>> {
+    /// An entry in the dynamic programming table for paragraph optimization.
     struct Entry<'a> {
         pred: usize,
         total: Cost,
         line: Line<'a>,
     }
 
-    // Cost parameters.
-    const DEFAULT_HYPH_COST: Cost = 0.5;
-    const DEFAULT_RUNT_COST: Cost = 0.5;
-    const CONSECUTIVE_DASH_COST: Cost = 0.3;
-    const MAX_COST: Cost = 1_000_000.0;
-    const MIN_RATIO: f64 = -1.0;
-
-    let hyph_cost = DEFAULT_HYPH_COST * p.costs.hyphenation().get();
-    let runt_cost = DEFAULT_RUNT_COST * p.costs.runt().get();
-
     // Dynamic programming table.
-    let mut active = 0;
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(engine, p, 0..0, Breakpoint::Mandatory, false),
+        line: line(engine, p, 0..0, Breakpoint::Mandatory, None),
     }];
 
-    let em = p.size;
-    let mut lines = Vec::with_capacity(16);
+    let mut active = 0;
+    let mut prev_end = 0;
+
     breakpoints(p, |end, breakpoint| {
-        let k = table.len();
-        let is_end = end == p.bidi.text.len();
+        // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
 
-        // Find the optimal predecessor.
-        for (i, pred) in table.iter().enumerate().skip(active) {
-            // Layout the line.
+        // A lower bound for the cost of all following line attempts.
+        let mut line_lower_bound = None;
+
+        for (pred_index, pred) in table.iter().enumerate().skip(active) {
             let start = pred.line.end;
-            let prepend_hyphen = should_repeat_hyphen(&pred.line);
+            let unbreakable = prev_end == start;
 
-            let attempt = line(engine, p, start..end, breakpoint, prepend_hyphen);
-
-            // Determine how much the line's spaces would need to be stretched
-            // to make it the desired width.
-            let delta = width - attempt.width;
-            // Determine how much stretch are permitted.
-            let adjust = if delta >= Abs::zero() {
-                attempt.stretchability()
-            } else {
-                attempt.shrinkability()
-            };
-            // Ideally, the ratio should between -1.0 and 1.0, but sometimes a
-            // value above 1.0 is possible, in which case the line is underfull.
-            let mut ratio = delta / adjust;
-            if ratio.is_nan() {
-                // The line is not stretchable, but it just fits. This often
-                // happens with monospace fonts and CJK texts.
-                ratio = 0.0;
-            }
-            if ratio > 1.0 {
-                // We should stretch the line above its stretchability. Now
-                // calculate the extra amount. Also, don't divide by zero.
-                let extra_stretch =
-                    (delta - adjust) / attempt.justifiables().max(1) as f64;
-                // Normalize the amount by half Em size.
-                ratio = 1.0 + extra_stretch / (em / 2.0);
+            // If the minimum cost we've established for the line is already
+            // too much, skip this attempt.
+            if line_lower_bound
+                .is_some_and(|lower| pred.total + lower > upper_bound + BOUND_EPS)
+            {
+                continue;
             }
 
-            // Determine the cost of the line.
-            let min_ratio = if p.justify { MIN_RATIO } else { 0.0 };
-            let mut cost = if ratio < min_ratio {
-                // The line is overfull. This is the case if
-                // - justification is on, but we'd need to shrink too much
-                // - justification is off and the line just doesn't fit
-                //
-                // If this is the earliest breakpoint in the active set
-                // (active == i), remove it from the active set. If there is an
-                // earlier one (active < i), then the logically shorter line was
-                // in fact longer (can happen with negative spacing) and we
-                // can't trim the active set just yet.
-                if active == i {
-                    active += 1;
-                }
-                MAX_COST
-            } else if breakpoint == Breakpoint::Mandatory || is_end {
-                // This is a mandatory break and the line is not overfull, so
-                // all breakpoints before this one become inactive since no line
-                // can span above the mandatory break.
-                active = k;
-                // - If ratio > 0, we need to stretch the line only when justify
-                //   is needed.
-                // - If ratio < 0, we always need to shrink the line.
-                if (ratio > 0.0 && attempt.justify) || ratio < 0.0 {
-                    ratio.powi(3).abs()
-                } else {
-                    0.0
-                }
-            } else {
-                // Normal line with cost of |ratio^3|.
-                ratio.powi(3).abs()
-            };
+            // Build the line.
+            let attempt = line(engine, p, start..end, breakpoint, Some(&pred.line));
 
-            // Penalize runts.
-            if k == i + 1 && is_end {
-                cost += runt_cost;
-            }
+            // Determine the cost of the line and its stretch ratio.
+            let (line_ratio, line_cost) = ratio_and_cost(
+                p,
+                metrics,
+                width,
+                &pred.line,
+                &attempt,
+                breakpoint,
+                unbreakable,
+            );
 
-            // Penalize hyphens.
-            if breakpoint == Breakpoint::Hyphen {
-                cost += hyph_cost;
-            }
-
-            // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
-            // where r is the ratio, p=50 is the penalty, and a=3000 is
-            // consecutive the penalty. We divide the whole formula by 10,
-            // resulting (0.01 + |r|^3 + p)^2 + a, where p=0.5 and a=0.3
-            cost = (0.01 + cost).powi(2);
-
-            // Penalize two consecutive dashes (not necessarily hyphens) extra.
-            if attempt.dash.is_some() && pred.line.dash.is_some() {
-                cost += CONSECUTIVE_DASH_COST;
+            // If the line is overfull, we adjust the set of active candidate
+            // line starts. This is the case if
+            // - justification is on, but we'd need to shrink too much
+            // - justification is off and the line just doesn't fit
+            //
+            // If this is the earliest breakpoint in the active set
+            // (active == i), remove it from the active set. If there is an
+            // earlier one (active < i), then the logically shorter line was
+            // in fact longer (can happen with negative spacing) and we
+            // can't trim the active set just yet.
+            if line_ratio < metrics.min_ratio && active == pred_index {
+                active += 1;
             }
 
             // The total cost of this line and its chain of predecessors.
-            let total = pred.total + cost;
+            let total = pred.total + line_cost;
+
+            // If the line is already underfull (`line_ratio > 0`), any shorter
+            // slice of the line will be even more underfull. So it'll only get
+            // worse from here and further attempts would also have a cost
+            // exceeding `bound`. There is one exception: When the line has
+            // negative spacing, we can't know for sure, so we don't assign the
+            // lower bound in that case.
+            if line_ratio > 0.0
+                && line_lower_bound.is_none()
+                && !attempt.has_negative_width_items()
+            {
+                line_lower_bound = Some(line_cost);
+            }
+
+            // If the cost already exceeds the upper bound, we don't need to
+            // integrate this result into the table.
+            if total > upper_bound + BOUND_EPS {
+                continue;
+            }
 
             // If this attempt is better than what we had before, take it!
             if best.as_ref().map_or(true, |best| best.total >= total) {
-                best = Some(Entry { pred: i, total, line: attempt });
+                best = Some(Entry { pred: pred_index, total, line: attempt });
             }
         }
 
-        table.push(best.unwrap());
+        // If this is a mandatory break, all breakpoints before this one become
+        // inactive since no line can span over the mandatory break.
+        if breakpoint == Breakpoint::Mandatory {
+            active = table.len();
+        }
+
+        table.extend(best);
+        prev_end = end;
     });
 
     // Retrace the best path.
+    let mut lines = Vec::with_capacity(16);
     let mut idx = table.len() - 1;
+
+    // This should only happen if our bound was faulty. Which shouldn't happen!
+    if table[idx].line.end != p.bidi.text.len() {
+        #[cfg(debug_assertions)]
+        panic!("bounded paragraph layout is incomplete");
+
+        #[cfg(not(debug_assertions))]
+        return linebreak_optimized_bounded(engine, p, width, metrics, Cost::INFINITY);
+    }
+
     while idx != 0 {
         table.truncate(idx + 1);
         let entry = table.pop().unwrap();
@@ -289,6 +299,282 @@ fn linebreak_optimized<'a>(
 
     lines.reverse();
     lines
+}
+
+/// Runs the normal Knuth-Plass algorithm, but instead of building proper lines
+/// (which is costly) to determine costs, it determines approximate costs using
+/// cummulative arrays.
+///
+/// This results in a likely good paragraph layouts, for which we then compute
+/// the exact cost. This cost is an upper bound for proper optimized
+/// linebreaking. We can use it to heavily prune the search space.
+#[typst_macros::time]
+fn linebreak_optimized_approximate(
+    engine: &Engine,
+    p: &Preparation,
+    width: Abs,
+    metrics: &CostMetrics,
+) -> Cost {
+    // Determine the cummulative estimation metrics.
+    let estimates = Estimates::compute(p);
+
+    /// An entry in the dynamic programming table for paragraph optimization.
+    struct Entry {
+        pred: usize,
+        total: Cost,
+        end: usize,
+        unbreakable: bool,
+        breakpoint: Breakpoint,
+    }
+
+    // Dynamic programming table.
+    let mut table = vec![Entry {
+        pred: 0,
+        total: 0.0,
+        end: 0,
+        unbreakable: false,
+        breakpoint: Breakpoint::Mandatory,
+    }];
+
+    let mut active = 0;
+    let mut prev_end = 0;
+
+    breakpoints(p, |end, breakpoint| {
+        let at_end = end == p.bidi.text.len();
+
+        // Find the optimal predecessor.
+        let mut best: Option<Entry> = None;
+        for (pred_index, pred) in table.iter().enumerate().skip(active) {
+            let start = pred.end;
+            let unbreakable = prev_end == start;
+
+            // Whether the line is justified. This is not 100% accurate w.r.t
+            // to line()'s behaviour, but good enough.
+            let justify = p.justify && !at_end && breakpoint != Breakpoint::Mandatory;
+
+            // We don't really know whether the line naturally ends with a dash
+            // here, so we can miss that case, but it's ok, since all of this
+            // just an estimate.
+            let consecutive_dash =
+                pred.breakpoint == Breakpoint::Hyphen && breakpoint == Breakpoint::Hyphen;
+
+            // Estimate how much the line's spaces would need to be stretched to
+            // make it the desired width. We trim at the end to not take into
+            // account trailing spaces. This is, again, only an approximation of
+            // the real behaviour of `line`.
+            let trimmed_end = start + p.bidi.text[start..end].trim_end().len();
+            let line_ratio = raw_ratio(
+                p,
+                width,
+                estimates.widths.estimate(start..trimmed_end)
+                    + if breakpoint == Breakpoint::Hyphen {
+                        metrics.approx_hyphen_width
+                    } else {
+                        Abs::zero()
+                    },
+                estimates.stretchability.estimate(start..trimmed_end),
+                estimates.shrinkability.estimate(start..trimmed_end),
+                estimates.justifiables.estimate(start..trimmed_end),
+            );
+
+            // Determine the line's cost.
+            let line_cost = raw_cost(
+                metrics,
+                breakpoint,
+                line_ratio,
+                at_end,
+                justify,
+                unbreakable,
+                consecutive_dash,
+                true,
+            );
+
+            // Adjust the set of active breakpoints.
+            // See `linebreak_optimized` for details.
+            if line_ratio < metrics.min_ratio && active == pred_index {
+                active += 1;
+            }
+
+            // The total cost of this line and its chain of predecessors.
+            let total = pred.total + line_cost;
+
+            // If this attempt is better than what we had before, take it!
+            if best.as_ref().map_or(true, |best| best.total >= total) {
+                best = Some(Entry {
+                    pred: pred_index,
+                    total,
+                    end,
+                    unbreakable,
+                    breakpoint,
+                });
+            }
+        }
+
+        // If this is a mandatory break, all breakpoints before this one become
+        // inactive.
+        if breakpoint == Breakpoint::Mandatory {
+            active = table.len();
+        }
+
+        table.extend(best);
+        prev_end = end;
+    });
+
+    // Retrace the best path.
+    let mut indices = Vec::with_capacity(16);
+    let mut idx = table.len() - 1;
+    while idx != 0 {
+        indices.push(idx);
+        idx = table[idx].pred;
+    }
+
+    let mut exact = 0.0;
+    let mut pred = line(engine, p, 0..0, Breakpoint::Mandatory, None);
+
+    // The cost that we optimized was only an approximate cost, so the layout we
+    // got here is only likely to be good, not guaranteed to be the best. We now
+    // computes its exact cost as that gives us a sound upper bound for the
+    // proper optimization pass.
+    for idx in indices.into_iter().rev() {
+        let Entry { end, breakpoint, unbreakable, .. } = table[idx];
+
+        let start = pred.end;
+        let attempt = line(engine, p, start..end, breakpoint, Some(&pred));
+
+        let (_, line_cost) =
+            ratio_and_cost(p, metrics, width, &pred, &attempt, breakpoint, unbreakable);
+
+        exact += line_cost;
+        pred = attempt;
+    }
+
+    exact
+}
+
+/// Compute the stretch ratio and cost of a line.
+fn ratio_and_cost(
+    p: &Preparation,
+    metrics: &CostMetrics,
+    available_width: Abs,
+    pred: &Line,
+    attempt: &Line,
+    breakpoint: Breakpoint,
+    unbreakable: bool,
+) -> (f64, Cost) {
+    let ratio = raw_ratio(
+        p,
+        available_width,
+        attempt.width,
+        attempt.stretchability(),
+        attempt.shrinkability(),
+        attempt.justifiables(),
+    );
+
+    let cost = raw_cost(
+        metrics,
+        breakpoint,
+        ratio,
+        attempt.end == p.bidi.text.len(),
+        attempt.justify,
+        unbreakable,
+        pred.dash.is_some() && attempt.dash.is_some(),
+        false,
+    );
+
+    (ratio, cost)
+}
+
+/// Determine the stretch ratio for a line given raw metrics.
+fn raw_ratio(
+    p: &Preparation,
+    available_width: Abs,
+    line_width: Abs,
+    stretchability: Abs,
+    shrinkability: Abs,
+    justifiables: usize,
+) -> f64 {
+    // Determine how much the line's spaces would need to be stretched
+    // to make it the desired width.
+    let delta = available_width - line_width;
+
+    // Determine how much stretch is permitted.
+    let adjust = if delta >= Abs::zero() { stretchability } else { shrinkability };
+
+    // Ideally, the ratio should between -1.0 and 1.0.
+    //
+    // A ratio above 1.0 is possible for an underfull line, but a ratio below
+    // -1.0 is forbidden because the line would overflow.
+    let mut ratio = delta / adjust;
+
+    // The line is not stretchable, but it just fits. This often happens with
+    // monospace fonts and CJK texts.
+    if ratio.is_nan() {
+        ratio = 0.0;
+    }
+
+    if ratio > 1.0 {
+        // We should stretch the line above its stretchability. Now
+        // calculate the extra amount. Also, don't divide by zero.
+        let extra_stretch = (delta - adjust) / justifiables.max(1) as f64;
+        // Normalize the amount by half the em size.
+        ratio = 1.0 + extra_stretch / (p.size / 2.0);
+    }
+
+    ratio
+}
+
+/// Compute the cost of a line given raw metrics.
+#[allow(clippy::too_many_arguments)]
+fn raw_cost(
+    metrics: &CostMetrics,
+    breakpoint: Breakpoint,
+    ratio: f64,
+    at_end: bool,
+    justify: bool,
+    unbreakable: bool,
+    consecutive_dash: bool,
+    approx: bool,
+) -> Cost {
+    // Determine the cost of the line.
+    let mut cost = if ratio < metrics.min_ratio(approx) {
+        // Overfull line always has maximum cost.
+        MAX_COST
+    } else if breakpoint == Breakpoint::Mandatory || at_end {
+        // - If ratio < 0, we always need to shrink the line (even the last one).
+        // - If ratio > 0, we need to stretch the line only when it is justified
+        //   (last line is not justified by default even if `p.justify` is true).
+        if ratio < 0.0 || (ratio > 0.0 && justify) {
+            ratio.powi(3).abs()
+        } else {
+            0.0
+        }
+    } else {
+        // Normal line with cost of |ratio^3|.
+        ratio.powi(3).abs()
+    };
+
+    // Penalize runts (lone words in the last line).
+    if unbreakable && at_end {
+        cost += metrics.runt_cost;
+    }
+
+    // Penalize hyphenation.
+    if breakpoint == Breakpoint::Hyphen {
+        cost += metrics.hyph_cost;
+    }
+
+    // In the Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
+    // where r is the ratio, p=50 is the penalty, and a=3000 is
+    // consecutive the penalty. We divide the whole formula by 10,
+    // resulting (0.01 + |r|^3 + p)^2 + a, where p=0.5 and a=0.3
+    let mut cost = (0.01 + cost).powi(2);
+
+    // Penalize two consecutive dashes (not necessarily hyphens) extra.
+    if consecutive_dash {
+        cost += CONSECUTIVE_DASH_COST;
+    }
+
+    cost
 }
 
 /// Calls `f` for all possible points in the text where lines can broken.
@@ -433,7 +719,7 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
         // - other -> other
         // - alphabetic -> numeric
         // - numeric -> alphabetic
-        // Never before after opening delimiters.
+        // Never before/after opening delimiters.
         if end > 0
             && prev != Class::Open
             && if class == Class::Other { prev == Class::Other } else { class != prev }
@@ -478,48 +764,141 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     hypher::Lang::from_iso(bytes)
 }
 
-/// Whether the hyphen should repeat at the start of the next line.
-fn should_repeat_hyphen(pred_line: &Line) -> bool {
-    // If the predecessor line does not end with a Dash::HardHyphen, we shall
-    // not place a hyphen at the start of the next line.
-    if pred_line.dash != Some(Dash::HardHyphen) {
-        return false;
+/// Resolved metrics relevant for cost computation.
+struct CostMetrics {
+    min_ratio: f64,
+    min_approx_ratio: f64,
+    hyph_cost: Cost,
+    runt_cost: Cost,
+    approx_hyphen_width: Abs,
+}
+
+impl CostMetrics {
+    /// Compute shared metrics for paragraph optimization.
+    fn compute(p: &Preparation) -> Self {
+        Self {
+            // When justifying, we may stretch spaces below their natural width.
+            min_ratio: if p.justify { MIN_RATIO } else { 0.0 },
+            min_approx_ratio: if p.justify { MIN_APPROX_RATIO } else { 0.0 },
+            hyph_cost: DEFAULT_HYPH_COST * p.costs.hyphenation().get(),
+            runt_cost: DEFAULT_RUNT_COST * p.costs.runt().get(),
+            // Approximate hyphen width for estimates.
+            approx_hyphen_width: Em::new(0.33).at(p.size),
+        }
     }
 
-    // If there's a trimmed out space, we needn't repeat the hyphen. That's the
-    // case of a text like "...kebab é a -melhor- comida que existe", where the
-    // hyphens are a kind of emphasis marker.
-    if pred_line.trimmed.end != pred_line.end {
-        return false;
+    /// The minimum line ratio we allow for shrinking. For approximate layout,
+    /// we allow less because otherwise we get an invalid layout fairly often,
+    /// which makes our bound useless.
+    fn min_ratio(&self, approx: bool) -> f64 {
+        if approx {
+            self.min_approx_ratio
+        } else {
+            self.min_ratio
+        }
+    }
+}
+
+/// Estimated line metrics.
+///
+/// Allows to get a quick estimate of a metric for a line between two byte
+/// positions.
+struct Estimates {
+    widths: CummulativeVec<Abs>,
+    stretchability: CummulativeVec<Abs>,
+    shrinkability: CummulativeVec<Abs>,
+    justifiables: CummulativeVec<usize>,
+}
+
+impl Estimates {
+    /// Compute estimations for approximate Knuth-Plass layout.
+    fn compute(p: &Preparation) -> Self {
+        let cap = p.bidi.text.len();
+
+        let mut widths = CummulativeVec::with_capacity(cap);
+        let mut stretchability = CummulativeVec::with_capacity(cap);
+        let mut shrinkability = CummulativeVec::with_capacity(cap);
+        let mut justifiables = CummulativeVec::with_capacity(cap);
+
+        for item in &p.items {
+            let textual_len = item.textual_len();
+            let after = widths.len() + textual_len;
+
+            if let Item::Text(shaped) = item {
+                for g in shaped.glyphs.iter() {
+                    let byte_len = g.range.len();
+                    let stretch = g.stretchability().0 + g.stretchability().1;
+                    let shrink = g.shrinkability().0 + g.shrinkability().1;
+                    widths.push(byte_len, g.x_advance.at(shaped.size));
+                    stretchability.push(byte_len, stretch.at(shaped.size));
+                    shrinkability.push(byte_len, shrink.at(shaped.size));
+                    justifiables.push(byte_len, g.is_justifiable() as usize);
+                }
+            } else {
+                widths.push(textual_len, item.width());
+            }
+
+            widths.adjust(after);
+            stretchability.adjust(after);
+            shrinkability.adjust(after);
+            justifiables.adjust(after);
+        }
+
+        Self {
+            widths,
+            stretchability,
+            shrinkability,
+            justifiables,
+        }
+    }
+}
+
+/// An accumulative array of a metric.
+struct CummulativeVec<T> {
+    total: T,
+    summed: Vec<T>,
+}
+
+impl<T> CummulativeVec<T>
+where
+    T: Default + Copy + Add<Output = T> + Sub<Output = T>,
+{
+    /// Create a new instance with the given capacity.
+    fn with_capacity(capacity: usize) -> Self {
+        let total = T::default();
+        let mut summed = Vec::with_capacity(capacity);
+        summed.push(total);
+        Self { total, summed }
     }
 
-    // The hyphen should repeat only in the languages that require that feature.
-    // For more information see the discussion at https://github.com/typst/typst/issues/3235
-    let Some(Item::Text(shape)) = pred_line.last.as_ref() else { return false };
+    /// Get the covered byte length.
+    fn len(&self) -> usize {
+        self.summed.len()
+    }
 
-    match shape.lang {
-        // - Lower Sorbian: see https://dolnoserbski.de/ortografija/psawidla/K3
-        // - Czech: see https://prirucka.ujc.cas.cz/?id=164
-        // - Croatian: see http://pravopis.hr/pravilo/spojnica/68/
-        // - Polish: see https://www.ortograf.pl/zasady-pisowni/lacznik-zasady-pisowni
-        // - Portuguese: see https://www2.senado.leg.br/bdsf/bitstream/handle/id/508145/000997415.pdf (Base XX)
-        // - Slovak: see https://www.zones.sk/studentske-prace/gramatika/10620-pravopis-rozdelovanie-slov/
-        Lang::LOWER_SORBIAN
-        | Lang::CZECH
-        | Lang::CROATIAN
-        | Lang::POLISH
-        | Lang::PORTUGUESE
-        | Lang::SLOVAK => true,
-        // In Spanish the hyphen is required only if the word next to hyphen is
-        // not capitalized. Otherwise, the hyphen must not be repeated.
-        //
-        // See § 4.1.1.1.2.e on the "Ortografía de la lengua española"
-        // https://www.rae.es/ortografía/como-signo-de-división-de-palabras-a-final-de-línea
-        Lang::SPANISH => pred_line.bidi.text[pred_line.end..]
-            .chars()
-            .next()
-            .map(|c| !c.is_uppercase())
-            .unwrap_or(false),
-        _ => false,
+    /// Adjust to cover the given byte length.
+    fn adjust(&mut self, len: usize) {
+        self.summed.resize(len, self.total);
+    }
+
+    /// Adds a new segment with the given byte length and metric.
+    fn push(&mut self, byte_len: usize, metric: T) {
+        self.total = self.total + metric;
+        for _ in 0..byte_len {
+            self.summed.push(self.total);
+        }
+    }
+
+    /// Estimates the metrics for the line spanned by the range.
+    fn estimate(&self, range: Range) -> T {
+        self.get(range.end) - self.get(range.start)
+    }
+
+    /// Get the metric at the given byte position.
+    fn get(&self, index: usize) -> T {
+        match index.checked_sub(1) {
+            None => T::default(),
+            Some(i) => self.summed[i],
+        }
     }
 }

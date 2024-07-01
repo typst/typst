@@ -3,7 +3,7 @@ use unicode_bidi::BidiInfo;
 use super::*;
 use crate::engine::Engine;
 use crate::layout::{Abs, Em, Fr, Frame, FrameItem, Point};
-use crate::text::TextElem;
+use crate::text::{Lang, TextElem};
 use crate::utils::Numeric;
 
 /// A layouted line, consisting of a sequence of layouted paragraph items that
@@ -99,6 +99,15 @@ impl<'a> Line<'a> {
         self.items().filter_map(Item::text).map(|s| s.shrinkability()).sum()
     }
 
+    /// Whether the line has items with negative width.
+    pub fn has_negative_width_items(&self) -> bool {
+        self.items().any(|item| match item {
+            Item::Absolute(amount, _) => *amount < Abs::zero(),
+            Item::Frame(frame, _) => frame.width() < Abs::zero(),
+            _ => false,
+        })
+    }
+
     /// The sum of fractions in the line.
     pub fn fr(&self) -> Fr {
         self.items()
@@ -129,7 +138,7 @@ pub fn line<'a>(
     p: &'a Preparation,
     mut range: Range,
     breakpoint: Breakpoint,
-    prepend_hyphen: bool,
+    pred: Option<&Line>,
 ) -> Line<'a> {
     let end = range.end;
     let mut justify =
@@ -148,6 +157,8 @@ pub fn line<'a>(
             dash: None,
         };
     }
+
+    let prepend_hyphen = pred.map_or(false, should_insert_hyphen);
 
     // Slice out the relevant items.
     let (mut expanded, mut inner) = p.slice(range.clone());
@@ -526,6 +537,54 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
     }
 
     (reordered, starts_rtl)
+}
+
+/// Whether a hyphen should be inserted at the start of the next line.
+fn should_insert_hyphen(pred_line: &Line) -> bool {
+    // If the predecessor line does not end with a Dash::HardHyphen, we shall
+    // not place a hyphen at the start of the next line.
+    if pred_line.dash != Some(Dash::HardHyphen) {
+        return false;
+    }
+
+    // If there's a trimmed out space, we needn't repeat the hyphen. That's the
+    // case of a text like "...kebab é a -melhor- comida que existe", where the
+    // hyphens are a kind of emphasis marker.
+    if pred_line.trimmed.end != pred_line.end {
+        return false;
+    }
+
+    // The hyphen should repeat only in the languages that require that feature.
+    // For more information see the discussion at https://github.com/typst/typst/issues/3235
+    let Some(Item::Text(shape)) = pred_line.last.as_ref() else { return false };
+
+    match shape.lang {
+        // - Lower Sorbian: see https://dolnoserbski.de/ortografija/psawidla/K3
+        // - Czech: see https://prirucka.ujc.cas.cz/?id=164
+        // - Croatian: see http://pravopis.hr/pravilo/spojnica/68/
+        // - Polish: see https://www.ortograf.pl/zasady-pisowni/lacznik-zasady-pisowni
+        // - Portuguese: see https://www2.senado.leg.br/bdsf/bitstream/handle/id/508145/000997415.pdf (Base XX)
+        // - Slovak: see https://www.zones.sk/studentske-prace/gramatika/10620-pravopis-rozdelovanie-slov/
+        Lang::LOWER_SORBIAN
+        | Lang::CZECH
+        | Lang::CROATIAN
+        | Lang::POLISH
+        | Lang::PORTUGUESE
+        | Lang::SLOVAK => true,
+
+        // In Spanish the hyphen is required only if the word next to hyphen is
+        // not capitalized. Otherwise, the hyphen must not be repeated.
+        //
+        // See § 4.1.1.1.2.e on the "Ortografía de la lengua española"
+        // https://www.rae.es/ortografía/como-signo-de-división-de-palabras-a-final-de-línea
+        Lang::SPANISH => pred_line.bidi.text[pred_line.end..]
+            .chars()
+            .next()
+            .map(|c| !c.is_uppercase())
+            .unwrap_or(false),
+
+        _ => false,
+    }
 }
 
 /// How much a character should hang into the end margin.
