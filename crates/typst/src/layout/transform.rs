@@ -1,7 +1,12 @@
-use crate::diag::SourceResult;
+use std::ops::Div;
+
+use once_cell::unsync;
+use typst_macros::cast;
+
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
 };
 use crate::introspection::Locator;
 use crate::layout::{
@@ -188,15 +193,15 @@ pub struct ScaleElem {
         let all = args.find()?;
         args.named("x")?.or(all)
     )]
-    #[default(Ratio::one())]
-    pub x: Ratio,
+    #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
+    pub x: Smart<ScaleAmount>,
 
     /// The vertical scaling factor.
     ///
     /// The body will be mirrored vertically if the parameter is negative.
     #[parse(args.named("y")?.or(all))]
-    #[default(Ratio::one())]
-    pub y: Ratio,
+    #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
+    pub y: Smart<ScaleAmount>,
 
     /// The origin of the transformation.
     ///
@@ -242,12 +247,12 @@ fn layout_scale(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let sx = elem.x(styles);
-    let sy = elem.y(styles);
     let align = elem.origin(styles).resolve(styles);
 
+    let scale = elem.resolve_scale(engine, region.size, styles)?;
+
     // Compute the new region's approximate size.
-    let size = region.size.zip_map(Axes::new(sx, sy), |r, s| s.of(r)).map(Abs::abs);
+    let size = region.size.zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
 
     measure_and_layout(
         engine,
@@ -256,10 +261,79 @@ fn layout_scale(
         size,
         styles,
         elem.body(),
-        Transform::scale(sx, sy),
+        Transform::scale(scale.x, scale.y),
         align,
         elem.reflow(styles),
     )
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+enum ScaleAmount {
+    Ratio(Ratio),
+    Length(Length),
+}
+
+impl Packed<ScaleElem> {
+    /// Resolves scale parameters, preserving aspect ratio if one of the scales is set to `auto`.
+    fn resolve_scale(
+        &self,
+        engine: &mut Engine,
+        container: Size,
+        styles: StyleChain,
+    ) -> SourceResult<Axes<Ratio>> {
+        let size = unsync::Lazy::<SourceResult<Size>, _>::new(|| {
+            let pod = Regions::one(container, Axes::splat(false));
+            let frame = self.body().measure(engine, styles, pod)?.into_frame();
+            SourceResult::Ok(frame.size())
+        });
+        fn resolve_axis(
+            axis: Smart<ScaleAmount>,
+            body: impl Fn() -> SourceResult<Abs>,
+            styles: StyleChain,
+        ) -> SourceResult<Smart<Ratio>> {
+            Ok(match axis {
+                Smart::Auto => Smart::Auto,
+                Smart::Custom(amt) => Smart::Custom(match amt {
+                    ScaleAmount::Ratio(ratio) => ratio,
+                    ScaleAmount::Length(length) => {
+                        let length = length.resolve(styles);
+                        Ratio::new(length.div(body()?))
+                    }
+                }),
+            })
+        }
+        let x = resolve_axis(
+            self.x(styles),
+            || size.as_ref().map(|size| size.x).map_err(Clone::clone),
+            styles,
+        )?;
+        let y = resolve_axis(
+            self.y(styles),
+            || size.as_ref().map(|size| size.y).map_err(Clone::clone),
+            styles,
+        )?;
+        match (x, y) {
+            (Smart::Auto, Smart::Auto) => {
+                bail!(self.span(), "x and y cannot both be auto")
+            }
+            (Smart::Custom(x_ratio), Smart::Custom(y_ratio)) => {
+                Ok(Axes::new(x_ratio, y_ratio))
+            }
+            (Smart::Auto, Smart::Custom(ratio)) | (Smart::Custom(ratio), Smart::Auto) => {
+                Ok(Axes::splat(ratio))
+            }
+        }
+    }
+}
+
+cast! {
+    ScaleAmount,
+    self => match self {
+        ScaleAmount::Ratio(ratio) => ratio.into_value(),
+        ScaleAmount::Length(length) => length.into_value(),
+    },
+    ratio: Ratio => ScaleAmount::Ratio(ratio),
+    length: Length => ScaleAmount::Length(length),
 }
 
 /// A scale-skew-translate transformation.
