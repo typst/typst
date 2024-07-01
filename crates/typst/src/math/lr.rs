@@ -251,7 +251,7 @@ pub fn norm(
     delimited(body, '‖', '‖', size)
 }
 
-fn delimited(
+pub(crate) fn delimited(
     body: Content,
     left: char,
     right: char,
