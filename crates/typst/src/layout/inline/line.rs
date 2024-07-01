@@ -99,6 +99,15 @@ impl<'a> Line<'a> {
         self.items().filter_map(Item::text).map(|s| s.shrinkability()).sum()
     }
 
+    /// Whether the line has items with negative width.
+    pub fn has_negative_width_items(&self) -> bool {
+        self.items().any(|item| match item {
+            Item::Absolute(amount, _) => *amount < Abs::zero(),
+            Item::Frame(frame, _) => frame.width() < Abs::zero(),
+            _ => false,
+        })
+    }
+
     /// The sum of fractions in the line.
     pub fn fr(&self) -> Fr {
         self.items()

@@ -159,10 +159,10 @@ fn linebreak_optimized<'a>(
     // Determines the exact costs of a likely good layout through Knuth-Plass
     // with approximate metrics. We can use this cost as an upper bound to prune
     // the search space in our proper optimization pass below.
-    let bound = linebreak_optimized_approximate(engine, p, width, &metrics);
+    let upper_bound = linebreak_optimized_approximate(engine, p, width, &metrics);
 
     // Using the upper bound, perform exact optimized linebreaking.
-    linebreak_optimized_bounded(engine, p, width, &metrics, bound)
+    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound)
 }
 
 /// Performs line breaking in optimized Knuth-Plass style, but with an upper
@@ -173,7 +173,7 @@ fn linebreak_optimized_bounded<'a>(
     p: &'a Preparation<'a>,
     width: Abs,
     metrics: &CostMetrics,
-    bound: Cost,
+    upper_bound: Cost,
 ) -> Vec<Line<'a>> {
     /// An entry in the dynamic programming table for paragraph optimization.
     struct Entry<'a> {
@@ -204,11 +204,11 @@ fn linebreak_optimized_bounded<'a>(
             let unbreakable = prev_end == start;
 
             // If the minimum cost we've established for the line is already
-            // too much, skip it.
-            if let Some(lower) = line_lower_bound {
-                if pred.total + lower > bound + BOUND_EPS {
-                    continue;
-                }
+            // too much, skip this attempt.
+            if line_lower_bound
+                .is_some_and(|lower| pred.total + lower > upper_bound + BOUND_EPS)
+            {
+                continue;
             }
 
             // Build the line.
@@ -242,16 +242,22 @@ fn linebreak_optimized_bounded<'a>(
             // The total cost of this line and its chain of predecessors.
             let total = pred.total + line_cost;
 
-            // If the line is already underfull (`line_ratio > 0`), it'll only
-            // get worse from here, so further attempts would also have a cost
-            // exceeding `bound`.
-            if line_ratio > 0.0 && line_lower_bound.is_none() {
+            // If the line is already underfull (`line_ratio > 0`), any shorter
+            // slice of the line will be even more underfull. So it'll only get
+            // worse from here and further attempts would also have a cost
+            // exceeding `bound`. There is one exception: When the line has
+            // negative spacing, we can't know for sure, so we don't assign the
+            // lower bound in that case.
+            if line_ratio > 0.0
+                && line_lower_bound.is_none()
+                && !attempt.has_negative_width_items()
+            {
                 line_lower_bound = Some(line_cost);
             }
 
             // If the cost already exceeds the upper bound, we don't need to
             // integrate this result into the table.
-            if total > bound + BOUND_EPS {
+            if total > upper_bound + BOUND_EPS {
                 continue;
             }
 
@@ -292,7 +298,6 @@ fn linebreak_optimized_bounded<'a>(
     }
 
     lines.reverse();
-
     lines
 }
 
