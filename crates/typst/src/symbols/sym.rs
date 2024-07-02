@@ -480,7 +480,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     checkmark: ['✓', light: '🗸', heavy: '✔'],
     crossmark: ['✗', heavy: '✘'],
     floral: ['❦', l: '☙', r: '❧'],
-    notes: [up: '🎜', down: '🎝'],
     refmark: '※',
     servicemark: '℠',
     maltese: '✠',
@@ -494,6 +493,27 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         spade.filled: '♠',
         spade.stroked: '♤',
     ],
+
+    // Music.
+    notes: [
+        up: '🎜',
+        down: '🎝',
+        fr1: '𝅝',
+        fr2: '𝅗𝅥',
+        fr4: '𝅘𝅥',
+        fr4.alt: '♩',
+        fr8: '𝅘𝅥𝅮',
+        fr8.alt: '♪',
+        fr8.beamed: '♫',
+        fr16: '𝅘𝅥𝅯',
+        fr16.beamed: '♬',
+        fr32: '𝅘𝅥𝅰',
+        fr64: '𝅘𝅥𝅱',
+        fr128: '𝅘𝅥𝅲',
+    ],
+    natural: '♮',
+    flat: '♭',
+    sharp: '♯',
 
     // Shapes.
     bullet: '•',
