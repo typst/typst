@@ -2,6 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ecow::{eco_format, EcoString};
+use serde::ser::SerializeMap;
+use serde::Serialize;
 use time::ext::NumericalDuration;
 
 use crate::foundations::{func, repr, scope, ty, Repr};
@@ -151,6 +153,39 @@ impl Repr for Duration {
         }
 
         eco_format!("duration{}", &repr::pretty_array_like(&vec, false))
+    }
+}
+
+impl Serialize for Duration {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(6))?;
+        map_ser.serialize_entry("type", "duration")?;
+
+        let mut tmp = self.0;
+
+        let weeks = tmp.whole_seconds() / 604_800.0 as i64;
+        map_ser.serialize_entry("weeks", &weeks)?;
+        tmp -= weeks.weeks();
+
+        let days = tmp.whole_days();
+        map_ser.serialize_entry("days", &days)?;
+        tmp -= days.days();
+
+        let hours = tmp.whole_hours();
+        map_ser.serialize_entry("hours", &hours)?;
+        tmp -= hours.hours();
+
+        let minutes = tmp.whole_minutes();
+        map_ser.serialize_entry("minutes", &minutes)?;
+        tmp -= minutes.minutes();
+
+        let seconds = tmp.whole_seconds();
+        map_ser.serialize_entry("seconds", &seconds)?;
+
+        map_ser.end()
     }
 }
 
