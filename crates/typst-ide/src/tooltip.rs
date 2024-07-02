@@ -11,14 +11,13 @@ use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_2, Numeric};
 use typst::World;
 
-use crate::analyze::{analyze_expr, analyze_labels};
-use crate::{plain_docs_sentence, summarize_font_family};
+use crate::{analyze_expr, analyze_labels, plain_docs_sentence, summarize_font_family};
 
 /// Describe the item under the cursor.
 ///
 /// Passing a `document` (from a previous compilation) is optional, but enhances
-/// the autocompletions. Label completions, for instance, are only generated
-/// when the document is available.
+/// the tooltips. Label tooltips, for instance, are only generated when the
+/// document is available.
 pub fn tooltip(
     world: &dyn World,
     document: Option<&Document>,
