@@ -334,13 +334,20 @@ fn math_completions(ctx: &mut CompletionContext) {
 
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
+    // Used to determine whether trivia nodes are allowed before '.'.
+    // During an inline expression in markup mode trivia nodes exit the inline expression.
+    // So when doing suggestions trivia nodes before '.' are disallowed in markup mode.
+    let in_markup: bool = matches!(
+        ctx.leaf.parent_kind(),
+        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
+    );
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
             || (ctx.leaf.kind() == SyntaxKind::Text
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
-        if let Some(prev) = ctx.leaf.prev_sibling();
+        if let Some(prev) = ctx.leaf.prev_sibling(in_markup);
         if prev.is::<ast::Expr>();
         if prev.parent_kind() != Some(SyntaxKind::Markup) ||
            prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
@@ -355,9 +362,9 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     // Behind a started field access: "emoji.fa|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Ident;
-        if let Some(prev) = ctx.leaf.prev_sibling();
+        if let Some(prev) = ctx.leaf.prev_sibling(false);
         if prev.kind() == SyntaxKind::Dot;
-        if let Some(prev_prev) = prev.prev_sibling();
+        if let Some(prev_prev) = prev.prev_sibling(in_markup);
         if prev_prev.is::<ast::Expr>();
         if let Some((value, styles)) = analyze_expr(ctx.world, &prev_prev).into_iter().next();
         then {
@@ -503,7 +510,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // "#import "path.typ": |",
     // "#import "path.typ": a, b, |".
     if_chain! {
-        if let Some(prev) = ctx.leaf.prev_sibling();
+        if let Some(prev) = ctx.leaf.prev_sibling(false);
         if let Some(ast::Expr::Import(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
@@ -1356,7 +1363,7 @@ impl<'a> CompletionContext<'a> {
                     }
                 }
 
-                sibling = node.prev_sibling();
+                sibling = node.prev_sibling(false);
             }
 
             if let Some(parent) = node.parent() {
