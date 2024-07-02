@@ -495,9 +495,11 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Music.
-    notes: [
-        up: '🎜',
-        down: '🎝',
+    note: [
+        ascend: '🎜',
+        descend: '🎝',
+        alt: '🎵',
+        multiple: '🎶',
         fr1: '𝅝',
         fr2: '𝅗𝅥',
         fr4: '𝅘𝅥',
@@ -510,10 +512,29 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         fr32: '𝅘𝅥𝅰',
         fr64: '𝅘𝅥𝅱',
         fr128: '𝅘𝅥𝅲',
+        grace.slash: '𝆔',
+        grace.noslash: '𝆕',
     ],
-    natural: '♮',
-    flat: '♭',
-    sharp: '♯',
+    natural: [
+        '♮',
+        up: '𝄮',
+        down: '𝄯',
+    ],
+    flat: [
+        '♭',
+        double: '𝄫',
+        up: '𝄬',
+        down: '𝄭',
+        quarter: '𝄳',
+        kievan: '𝇨',
+    ],
+    sharp: [
+        '♯',
+        double: '𝄪',
+        up: '𝄰',
+        down: '𝄱',
+        quarter: '𝄲',
+    ],
 
     // Shapes.
     bullet: '•',
