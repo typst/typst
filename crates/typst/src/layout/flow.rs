@@ -5,20 +5,26 @@
 //! inline-level layoutable elements.
 
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
+
+use typst_syntax::Span;
+use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Args, Construct, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
-use crate::introspection::{Locator, SplitLocator, Tag, TagElem};
+use crate::introspection::{Counter, CounterUpdate, Locator, SplitLocator, Tag, TagElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem, Fr,
     Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
 };
-use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
+use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine};
 use crate::realize::StyleVec;
 use crate::utils::Numeric;
+
+use super::{Alignment, Length, Ratio};
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
@@ -291,6 +297,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 consecutive,
                 self.regions.base(),
                 self.regions.expand.x,
+                self.root,
             )?
             .into_frames();
 
@@ -309,6 +316,46 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         for (i, mut frame) in lines.into_iter().enumerate() {
             if i > 0 {
                 self.handle_item(FlowItem::Absolute(leading, true))?;
+            }
+
+            if self.root {
+                let line_counter = Counter::of(ParLine::elem());
+                let mut line_counter_update = line_counter
+                    .clone()
+                    .update(Span::detached(), CounterUpdate::Step(NonZeroUsize::ONE));
+
+                let update_hash = crate::utils::hash128(&line_counter_update);
+                let location =
+                    self.locator.next_location(engine.introspector, update_hash);
+                line_counter_update.set_location(location);
+
+                let locator = self.locator.next(&update_hash);
+                let counter_update =
+                    line_counter_update.layout(engine, locator, styles, self.regions)?;
+
+                for subframe in counter_update {
+                    frame.prepend_frame(Point::zero(), subframe);
+                }
+
+                let line_counter_display = line_counter.display_at_loc(
+                    engine,
+                    location,
+                    styles,
+                    &Numbering::Pattern("1".parse().unwrap()),
+                )?;
+
+                self.layout_placed(
+                    engine,
+                    &Packed::new(
+                        PlaceElem::new(line_counter_display)
+                            .with_alignment(Smart::Custom(Alignment::START))
+                            .with_dx(Rel::new(
+                                Ratio::zero(),
+                                Length::from(Abs::cm(-1.0)),
+                            )),
+                    ),
+                    styles,
+                )?;
             }
 
             self.drain_tag(&mut frame);

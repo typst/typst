@@ -413,6 +413,7 @@ pub fn commit(
     width: Abs,
     full: Abs,
     shrink: bool,
+    in_root_flow: bool,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();

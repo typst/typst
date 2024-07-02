@@ -37,6 +37,7 @@ pub(crate) fn layout_inline(
     consecutive: bool,
     region: Size,
     expand: bool,
+    in_root_flow: bool,
 ) -> SourceResult<Fragment> {
     #[comemo::memoize]
     #[allow(clippy::too_many_arguments)]
@@ -52,6 +53,7 @@ pub(crate) fn layout_inline(
         consecutive: bool,
         region: Size,
         expand: bool,
+        in_root_flow: bool,
     ) -> SourceResult<Fragment> {
         let link = LocatorLink::new(locator);
         let locator = Locator::link(&link);
@@ -74,7 +76,7 @@ pub(crate) fn layout_inline(
         let lines = linebreak(&engine, &p, region.x - p.hang);
 
         // Turn the selected lines into frames.
-        finalize(&mut engine, &p, &lines, styles, region, expand)
+        finalize(&mut engine, &p, &lines, styles, region, expand, in_root_flow)
     }
 
     cached(
@@ -89,5 +91,6 @@ pub(crate) fn layout_inline(
         consecutive,
         region,
         expand,
+        in_root_flow,
     )
 }

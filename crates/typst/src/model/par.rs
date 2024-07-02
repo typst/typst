@@ -6,7 +6,7 @@ use crate::foundations::{
     elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
     Unlabellable,
 };
-use crate::introspection::Locator;
+use crate::introspection::{Locatable, Locator};
 use crate::layout::{Em, Fragment, Length, Size};
 use crate::realize::StyleVec;
 
@@ -170,6 +170,7 @@ impl Packed<ParElem> {
         consecutive: bool,
         region: Size,
         expand: bool,
+        in_root_flow: bool,
     ) -> SourceResult<Fragment> {
         crate::layout::layout_inline(
             &self.children,
@@ -179,6 +180,7 @@ impl Packed<ParElem> {
             consecutive,
             region,
             expand,
+            in_root_flow,
         )
     }
 }
@@ -224,3 +226,9 @@ pub enum Linebreaks {
 pub struct ParbreakElem {}
 
 impl Unlabellable for Packed<ParbreakElem> {}
+
+/// A paragraph line.
+/// This element is exclusively used for the line number counter, and cannot
+/// be placed.
+#[elem(title = "Paragraph Line", Locatable)]
+pub struct ParLine {}
