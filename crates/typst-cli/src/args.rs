@@ -109,6 +109,11 @@ pub struct CompileCommand {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
+    /// Don't fill the background with white below everything else
+    /// (only applies to PNG export).
+    #[arg(long = "fill-transparent")]
+    pub fill_transparent: bool,
+
     /// Produces performance timings of the compilation process (experimental)
     ///
     /// The resulting JSON file can be loaded into a tracing tool such as
