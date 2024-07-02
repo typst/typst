@@ -216,8 +216,11 @@ impl i64 {
     }
 
     /// Converts bytes to an integer.
-    ///
     /// Bytes should be 8 bytes (64 bits) in size.
+    /// 
+    /// ```example
+    /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)), "little")
+    /// ```
     #[func]
     pub fn from_bytes(
         /// The bytes that should be converted to an integer.
@@ -237,6 +240,10 @@ impl i64 {
 
     /// Converts an integer to bytes.
     /// The integer is converted to 8 bytes or 64 bits in size.
+    /// 
+    /// ```example
+    /// #array(10000.to-bytes("big"))
+    /// ```
     #[func]
     pub fn to_bytes(
         self,
