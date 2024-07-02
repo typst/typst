@@ -48,6 +48,16 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     // See https://corefonts.sourceforge.net/.
     "Arial-Black" => Exception::new()
         .weight(900),
+    // Archivo Narrow is different from Archivo and Archivo Black. Since Archivo Black seems
+    // identical to Archivo weight 900, only differentiate between Archivo and Archivo Narrow.
+    "ArchivoNarrow-Regular" => Exception::new()
+        .family("Archivo Narrow"),
+    "ArchivoNarrow-Italic" => Exception::new()
+        .family("Archivo Narrow"),
+    "ArchivoNarrow-Bold" => Exception::new()
+        .family("Archivo Narrow"),
+    "ArchivoNarrow-BoldItalic" => Exception::new()
+        .family("Archivo Narrow"),
     // Fandol fonts designed for Chinese typesetting.
     // See https://ctan.org/tex-archive/fonts/fandol/.
     "FandolHei-Bold" => Exception::new()
