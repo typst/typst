@@ -286,6 +286,10 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Destructuring => None,
         SyntaxKind::DestructAssignment => None,
 
+        SyntaxKind::Decorator => None,
+        SyntaxKind::DecoratorMarker => None,
+        SyntaxKind::DecoratorName => None,
+
         SyntaxKind::LineComment => Some(Tag::Comment),
         SyntaxKind::BlockComment => Some(Tag::Comment),
         SyntaxKind::Error => Some(Tag::Error),

@@ -165,8 +165,11 @@ impl Eval for ast::FuncCall<'_> {
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
-            func.call(&mut vm.engine, vm.context, args)
-                .trace(vm.world(), point, span)
+            // Add this function call as a tracepoint to the returned
+            // diagnostics. This allows visualizing which calls led to them,
+            // but also allows suppressing warnings at each tracepoint.
+            vm.engine
+                .tracepoint(point, span, |engine| func.call(engine, vm.context, args))
         };
 
         // Stacker is broken on WASM.

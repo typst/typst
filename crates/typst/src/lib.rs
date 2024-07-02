@@ -86,7 +86,9 @@ pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
     let mut sink = Sink::new();
     let output = compile_inner(world.track(), Traced::default().track(), &mut sink)
         .map_err(deduplicate);
-    Warned { output, warnings: sink.warnings() }
+
+    let warnings = sink.suppress_and_deduplicate_warnings(world);
+    Warned { output, warnings }
 }
 
 /// Compiles sources and returns all values and styles observed at the given
@@ -152,7 +154,7 @@ fn compile_inner(
 
         if iter >= 5 {
             sink.warn(warning!(
-                Span::detached(), "layout did not converge within 5 attempts";
+                Span::detached(), NonConvergingLayout, "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
             break;

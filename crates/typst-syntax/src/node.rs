@@ -39,6 +39,11 @@ impl SyntaxNode {
         Self(Repr::Error(Arc::new(ErrorNode::new(error, text))))
     }
 
+    /// Create a new end node. It is only used to terminate the token stream.
+    pub const fn end() -> Self {
+        Self::placeholder(SyntaxKind::End)
+    }
+
     /// Create a dummy node of the given kind.
     ///
     /// Panics if `kind` is `SyntaxKind::Error`.
@@ -145,6 +150,18 @@ impl SyntaxNode {
             Repr::Leaf(_) => false,
             Repr::Inner(inner) => inner.erroneous,
             Repr::Error(_) => true,
+        }
+    }
+
+    /// The amount of newlines in this node or its descendants, capped at 2,
+    /// that is, a return value of 2 means that the total amount of newlines
+    /// may be 2 or larger.
+    pub fn capped_newlines(&self) -> u8 {
+        match &self.0 {
+            Repr::Leaf(_) | Repr::Error(_) => {
+                crate::lexer::count_capped_newlines(self.text())
+            }
+            Repr::Inner(inner) => inner.capped_newlines,
         }
     }
 
@@ -381,6 +398,11 @@ struct InnerNode {
     descendants: usize,
     /// Whether this node or any of its children are erroneous.
     erroneous: bool,
+    /// The (capped) amount of newlines in this node's descendants.
+    /// This is solely used to tell whether this node contains 0, 1, 2 or more
+    /// newlines. As such, this number is capped at 2, even though there may be
+    /// more newlines inside this node.
+    capped_newlines: u8,
     /// The upper bound of this node's numbering range.
     upper: u64,
     /// This node's children, losslessly make up this node.
@@ -396,17 +418,23 @@ impl InnerNode {
         let mut len = 0;
         let mut descendants = 1;
         let mut erroneous = false;
+        let mut capped_newlines: u8 = 0;
 
         for child in &children {
             len += child.len();
             descendants += child.descendants();
             erroneous |= child.erroneous();
+
+            if capped_newlines < 2 {
+                capped_newlines = capped_newlines.saturating_add(child.capped_newlines());
+            }
         }
 
         Self {
             kind,
             len,
             span: Span::detached(),
+            capped_newlines: capped_newlines.min(2),
             descendants,
             erroneous,
             upper: 0,
@@ -773,18 +801,44 @@ impl<'a> LinkedNode<'a> {
         self.parent.as_deref()
     }
 
-    /// Get the first previous non-trivia sibling node.
-    pub fn prev_sibling(&self) -> Option<Self> {
+    fn prev_sibling_inner(&self) -> Option<Self> {
         let parent = self.parent()?;
         let index = self.index.checked_sub(1)?;
         let node = parent.node.children().nth(index)?;
         let offset = self.offset - node.len();
-        let prev = Self { node, parent: self.parent.clone(), index, offset };
+        Some(Self { node, parent: self.parent.clone(), index, offset })
+    }
+
+    /// Get the first previous non-trivia sibling node.
+    pub fn prev_sibling(&self) -> Option<Self> {
+        let prev = self.prev_sibling_inner()?;
         if prev.kind().is_trivia() {
             prev.prev_sibling()
         } else {
             Some(prev)
         }
+    }
+
+    /// Get the first sibling decorator node at the line above this node.
+    /// This is done by moving backwards, checking for decorators, until we hit
+    /// a second newline (that is, we only check, at most, the line before this
+    /// node).
+    pub fn prev_attached_decorator(&self) -> Option<Self> {
+        let mut cursor = self.prev_sibling_inner()?;
+        let mut newlines = cursor.capped_newlines();
+        while newlines < 2 {
+            if cursor.kind() == SyntaxKind::Decorator {
+                return Some(cursor);
+            }
+
+            cursor = cursor.prev_sibling_inner()?;
+            newlines += cursor.capped_newlines();
+        }
+
+        // Decorators are attached if they're in the previous line.
+        // If we counted at least two newlines, no decorators are attached to
+        // this node.
+        None
     }
 
     /// Get the next non-trivia sibling node.

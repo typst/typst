@@ -7,10 +7,10 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{self, SourceDiagnostic, SourceResult, Trace, Tracepoint};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
-use crate::syntax::{FileId, Span};
+use crate::syntax::{ast, FileId, Span};
 use crate::World;
 
 /// Holds all data needed during compilation.
@@ -79,11 +79,51 @@ impl Engine<'_> {
 
         // Apply the subsinks to the outer sink.
         for (_, sink) in &mut pairs {
-            let sink = std::mem::take(sink);
-            self.sink.extend(sink.delayed, sink.warnings, sink.values);
+            Sink::extend_tracked(&mut self.sink, std::mem::take(sink));
         }
 
         pairs.into_iter().map(|(output, _)| output)
+    }
+
+    /// Executes some code with a tracepoint for diagnostics.
+    /// The tracepoint is added to any diagnostics returned by the function,
+    /// as well as any warnings emitted by it.
+    pub fn tracepoint<F, M, T>(
+        &mut self,
+        make_point: M,
+        span: Span,
+        f: F,
+    ) -> SourceResult<T>
+    where
+        F: FnOnce(&mut Engine) -> SourceResult<T>,
+        M: Copy + Fn() -> Tracepoint,
+    {
+        let Engine { world, introspector, traced, ref route, .. } = *self;
+
+        // Create a temporary sink to accumulate all warnings produced by
+        // this call (either directly or due to a nested call). Later, we
+        // add a tracepoint to those warnings, indicating this call was
+        // part of the call stack that led to the warning being raised,
+        // thus allowing suppression of the warning through this call.
+        let mut sink = Sink::new();
+        let mut engine = Engine {
+            world,
+            introspector,
+            traced,
+            sink: sink.track_mut(),
+            route: route.clone(),
+        };
+
+        // Trace errors immediately, followed by warnings on the sink.
+        let call_result = f(&mut engine).trace(world, make_point, span);
+        sink.trace_warnings(world, make_point, span);
+
+        // Push the accumulated warnings and other fields back to the
+        // original sink after we have modified them. This is needed so the
+        // warnings are properly returned by compilation later.
+        Sink::extend_tracked(&mut self.sink, sink);
+
+        call_result
     }
 }
 
@@ -146,19 +186,89 @@ impl Sink {
         Self::default()
     }
 
+    /// Extend the destination sink with the data from the source sink.
+    /// This calls a tracked function on the destination unless the source
+    /// is fully empty (which is usually the case).
+    pub fn extend_tracked(destination: &mut TrackedMut<'_, Self>, source: Sink) {
+        let Sink { delayed, warnings, values, .. } = source;
+        if !delayed.is_empty() || !warnings.is_empty() || !values.is_empty() {
+            destination.extend(delayed, warnings, values);
+        }
+    }
+
     /// Get the stored delayed errors.
     pub fn delayed(&mut self) -> EcoVec<SourceDiagnostic> {
         std::mem::take(&mut self.delayed)
     }
 
-    /// Get the stored warnings.
-    pub fn warnings(self) -> EcoVec<SourceDiagnostic> {
-        self.warnings
-    }
-
     /// Get the values for the traced span.
     pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
+    }
+
+    /// Apply warning suppression, deduplication, and return the remaining
+    /// warnings.
+    ///
+    /// We deduplicate warnings which are identical modulo tracepoints.
+    /// This is so we can attempt to suppress each tracepoint separately,
+    /// without having one suppression discard all other attempts of raising
+    /// this same warning through a different set of tracepoints.
+    ///
+    /// For example, calling the same function twice but suppressing a warning
+    /// on the first call shouldn't suppress on the second, so each set of
+    /// tracepoints for a particular warning matters. If at least one instance
+    /// of a warning isn't suppressed, the warning will be returned, and the
+    /// remaining duplicates are discarded.
+    pub fn suppress_and_deduplicate_warnings(
+        mut self,
+        world: &dyn World,
+    ) -> EcoVec<SourceDiagnostic> {
+        let mut unsuppressed_warning_set = HashSet::<u128>::default();
+
+        // Only retain warnings which weren't locally suppressed where they
+        // were emitted or at any of their tracepoints.
+        self.warnings.retain(|diag| {
+            let hash =
+                crate::utils::hash128(&(&diag.span, &diag.identifier, &diag.message));
+            if unsuppressed_warning_set.contains(&hash) {
+                // This warning - with the same span, identifier and message -
+                // was already raised and not suppressed before, with a
+                // different set of tracepoints. Therefore, we should not raise
+                // it again, and checking for suppression is unnecessary.
+                return false;
+            }
+
+            let Some(identifier) = &diag.identifier else {
+                // Can't suppress without an identifier.
+                // Therefore, retain the warning.
+                // It is not a duplicate due to the check above.
+                unsuppressed_warning_set.insert(hash);
+                return true;
+            };
+
+            let should_raise = !check_warning_suppressed(diag.span, world, identifier)
+                && !diag.trace.iter().any(|tracepoint| {
+                    check_warning_suppressed(tracepoint.span, world, identifier)
+                });
+
+            // If this warning wasn't suppressed, any further duplicates (with
+            // different tracepoints) should be removed.
+            should_raise && unsuppressed_warning_set.insert(hash)
+        });
+
+        self.warnings
+    }
+
+    /// Adds a tracepoint to all warnings outside the given span.
+    pub fn trace_warnings<F>(
+        &mut self,
+        world: Tracked<dyn World + '_>,
+        make_point: F,
+        span: Span,
+    ) where
+        F: Fn() -> Tracepoint,
+    {
+        self.warnings = std::mem::take(&mut self.warnings).trace(world, make_point, span);
     }
 }
 
@@ -172,7 +282,19 @@ impl Sink {
     /// Add a warning.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
         // Check if warning is a duplicate.
-        let hash = crate::utils::hash128(&(&warning.span, &warning.message));
+        // Identical warnings with differing tracepoints are considered
+        // separate because suppressing the warning through one tracepoint
+        // shouldn't suppress it through the others.
+        // Later, during warning suppression (when calling
+        // `suppress_and_deduplicate_warnings`), we deduplicate without
+        // considering tracepoints, such that, if at least one duplicate wasn't
+        // suppressed, it is raised.
+        let hash = crate::utils::hash128(&(
+            &warning.span,
+            &warning.identifier,
+            &warning.message,
+            &warning.trace,
+        ));
         if self.warnings_set.insert(hash) {
             self.warnings.push(warning);
         }
@@ -186,6 +308,9 @@ impl Sink {
     }
 
     /// Extend from another sink.
+    /// Using `Sink::extend_tracked` is preferable as it avoids a call to this
+    /// function if all arguments are empty, thus avoiding an unnecessary
+    /// tracked call in most cases.
     fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,
@@ -200,6 +325,61 @@ impl Sink {
             self.values.extend(values.into_iter().take(remaining));
         }
     }
+}
+
+/// Checks if a given warning is suppressed given one span it has a tracepoint
+/// in. If one of the ancestors of the node where the warning occurred has a
+/// warning suppression decorator sibling right before it suppressing this
+/// particular warning, the warning is considered suppressed.
+fn check_warning_suppressed(
+    span: Span,
+    world: &dyn World,
+    identifier: &diag::Identifier,
+) -> bool {
+    let Some(file) = span.id() else {
+        // Don't suppress detached warnings.
+        return false;
+    };
+
+    // The source must exist if a warning occurred in the file,
+    // or has a tracepoint in the file.
+    let source = world.source(file).unwrap();
+
+    let search_root = source.find(span);
+    let mut searched_node = search_root.as_ref();
+
+    // Walk the parent nodes to check for a warning suppression in the
+    // previous line.
+    while let Some(node) = searched_node {
+        let mut searched_decorator = node.prev_attached_decorator();
+        while let Some(sibling) = searched_decorator {
+            let decorator = sibling.cast::<ast::Decorator>().unwrap();
+            if check_decorator_suppresses_warning(decorator, identifier) {
+                return true;
+            }
+            searched_decorator = sibling.prev_attached_decorator();
+        }
+        searched_node = node.parent();
+    }
+
+    false
+}
+
+fn check_decorator_suppresses_warning(
+    decorator: ast::Decorator,
+    warning: &diag::Identifier,
+) -> bool {
+    if decorator.name().as_str() != "allow" {
+        return false;
+    }
+
+    for argument in decorator.arguments() {
+        if warning.name() == argument.get() {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// The route the engine took during compilation. This is used to detect

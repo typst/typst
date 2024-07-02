@@ -80,6 +80,40 @@ impl<'a> Markup<'a> {
     }
 }
 
+node! {
+    DecoratorName
+}
+
+impl<'a> DecoratorName<'a> {
+    /// Get the decorator name.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+
+    /// Get the decorator name as a string slice.
+    pub fn as_str(self) -> &'a str {
+        self.get()
+    }
+}
+
+node! {
+    /// A decorator: `/! allow("warning")`.
+    Decorator
+}
+
+impl<'a> Decorator<'a> {
+    /// The name of the decorator, e.g. `allow`.
+    pub fn name(self) -> DecoratorName<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The decorator's arguments.
+    /// Currently, they are always strings.
+    pub fn arguments(self) -> impl DoubleEndedIterator<Item = Str<'a>> {
+        self.0.children().filter_map(Str::from_untyped)
+    }
+}
+
 /// An expression in markup, math or code.
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum Expr<'a> {

@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -75,7 +75,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<SyntaxError> {
+    fn take_error(&mut self) -> Option<SyntaxError> {
         self.error.take()
     }
 }
@@ -97,24 +97,31 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
-    /// token could be a [trivia](SyntaxKind::is_trivia).
-    pub fn next(&mut self) -> SyntaxKind {
+    /// Proceed to the next token and return a [`SyntaxNode`] containing it.
+    /// Note the token could be a [trivia](SyntaxKind::is_trivia).
+    /// Also, the syntax node returned might not always be a leaf, but could
+    /// actually come with a subtree (could be an inner node). This happens
+    /// when it is preferred to perform parsing at the character level instead
+    /// of at the token level, as seen, for example, in
+    /// [`decorator`](Lexer::decorator).
+    pub fn next(&mut self) -> SyntaxNode {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
-                return SyntaxKind::End;
+                return SyntaxNode::end();
             };
+            let start = self.s.cursor();
             self.s.jump(end);
-            return kind;
+            return self.emit_token(kind, start);
         }
 
         self.newline = false;
         self.error = None;
         let start = self.s.cursor();
-        match self.s.eat() {
+        let token = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
+            Some('/') if self.s.eat_if('!') => return self.decorator(start),
             Some('*') if self.s.eat_if('/') => {
                 let kind = self.error("unexpected end of block comment");
                 self.hint(
@@ -123,7 +130,6 @@ impl Lexer<'_> {
                 );
                 kind
             }
-
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
@@ -132,6 +138,31 @@ impl Lexer<'_> {
             },
 
             None => SyntaxKind::End,
+        };
+
+        self.emit_token(token, start)
+    }
+
+    /// Constructs an error node with the given message.
+    /// The node's text is taken from the given start position up to and
+    /// including the current cursor position.
+    fn emit_error(&self, message: impl Into<EcoString>, start: usize) -> SyntaxNode {
+        let text = self.s.from(start);
+        SyntaxNode::error(SyntaxError::new(message), text)
+    }
+
+    /// Converts a token into a syntax node based on its kind.
+    /// The node's text is taken from the given start position up to and
+    /// including the current cursor position.
+    /// Produces an error node if there are errors.
+    fn emit_token(&mut self, kind: SyntaxKind, start: usize) -> SyntaxNode {
+        let text = self.s.from(start);
+        if kind == SyntaxKind::End {
+            SyntaxNode::end()
+        } else if let Some(error) = self.take_error() {
+            SyntaxNode::error(error, text)
+        } else {
+            SyntaxNode::leaf(kind, text)
         }
     }
 
@@ -179,6 +210,151 @@ impl Lexer<'_> {
         }
 
         SyntaxKind::BlockComment
+    }
+}
+
+/// Decorator lexing and auxiliary methods.
+impl Lexer<'_> {
+    /// Lexes and parses a decorator into a complete syntax subtree.
+    /// The lexer is fully responsible by the decorator, as it is simpler to
+    /// parse them at the character level, given they follow a very simple
+    /// and rigid structure, in the form
+    /// `/! decorator-name("string argument1", "string argument2")`
+    /// with optional whitespaces and comments between arguments.
+    fn decorator(&mut self, start: usize) -> SyntaxNode {
+        // Start by lexing the marker.
+        let marker = self.emit_token(SyntaxKind::DecoratorMarker, start);
+        let mut subtree = vec![marker];
+
+        let current_start = self.s.cursor();
+
+        // Ignore initial non-newline whitespaces
+        if !self.s.eat_while(is_inline_whitespace).is_empty() {
+            subtree.push(self.emit_token(SyntaxKind::Space, current_start));
+        }
+
+        // Lex the decorator name
+        let current_start = self.s.cursor();
+        if !self.s.eat_if(is_id_start) {
+            self.s.eat_until(is_newline);
+            subtree.push(self.emit_error("expected identifier", current_start));
+
+            // Return a single error node until the end of the decorator.
+            return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
+        }
+
+        let decorator_name = self.decorator_name(current_start);
+        subtree.push(self.emit_token(decorator_name, current_start));
+
+        // Left parenthesis before decorator arguments
+        let current_start = self.s.cursor();
+        if !self.s.eat_if('(') {
+            self.s.eat_until(is_newline);
+            subtree.push(self.emit_error("expected opening paren", current_start));
+
+            // Return a single error node until the end of the decorator.
+            return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
+        }
+
+        subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
+
+        // Decorator arguments
+        // Keep reading until we find a right parenthesis or newline.
+        // We have to check the newline before eating (through '.peek()') to
+        // ensure it is not considered part of the decorator.
+        let mut current_start = self.s.cursor();
+        let mut expecting_comma = false;
+        let mut finished = false;
+        while !self.s.at(is_newline) {
+            let token = match self.s.eat() {
+                Some(c) if c.is_whitespace() => {
+                    self.s.eat_while(is_inline_whitespace);
+                    SyntaxKind::Space
+                }
+                Some('/') if self.s.eat_if('/') => self.line_comment(),
+                Some('/') if self.s.eat_if('*') => self.block_comment(),
+                Some(_) if finished => {
+                    // After we finished specifying arguments, there must only
+                    // be whitespaces until the line ends.
+                    self.s.eat_until(char::is_whitespace);
+                    self.error("expected end of decorator")
+                }
+                Some('"') if expecting_comma => {
+                    self.s.eat_until(|c| c == ',' || c == ')' || is_newline(c));
+                    self.error("expected comma")
+                }
+                Some('"') => {
+                    expecting_comma = true;
+                    self.decorator_string()
+                }
+                Some(',') if expecting_comma => {
+                    expecting_comma = false;
+                    SyntaxKind::Comma
+                }
+                Some(',') => self.error("unexpected comma"),
+                Some(')') => {
+                    finished = true;
+                    SyntaxKind::RightParen
+                }
+                Some(c) => self.error(eco_format!(
+                    "the character '{c}' is not valid in a decorator"
+                )),
+                None => break,
+            };
+
+            let node = self.emit_token(token, current_start);
+            subtree.push(node);
+
+            current_start = self.s.cursor();
+        }
+
+        // Right parenthesis (covered above)
+        if !finished {
+            subtree.push(self.emit_error("expected closing paren", self.s.cursor()));
+        }
+
+        SyntaxNode::inner(SyntaxKind::Decorator, subtree)
+    }
+
+    /// Lexes a decorator name.
+    /// A decorator name is an identifier within a specific subset of allowed
+    /// identifiers.
+    /// Currently, `allow` is the only valid decorator name.
+    fn decorator_name(&mut self, start: usize) -> SyntaxKind {
+        self.s.eat_while(is_id_continue);
+        let ident = self.s.from(start);
+
+        if ident == "allow" {
+            SyntaxKind::DecoratorName
+        } else {
+            let error = self.error(eco_format!("invalid decorator name"));
+            self.hint("must be 'allow'");
+            error
+        }
+    }
+
+    /// Lexes a string in a decorator.
+    /// Currently, such strings only allow a very restricted set of characters.
+    /// These restrictions may be lifted in the future.
+    fn decorator_string(&mut self) -> SyntaxKind {
+        // TODO: Allow more characters in decorators' strings, perhaps allowing
+        // newlines somehow.
+        // Could perhaps use one //! per line so we can break a decorator into
+        // multiple lines in a sensible way.
+        let start = self.s.cursor();
+        self.s.eat_while(|c| !is_newline(c) && c != '"');
+
+        let content = self.s.from(start);
+        if !self.s.eat_if('"') {
+            return self.error("unclosed string");
+        }
+
+        if let Some(c) = content.chars().find(|c| !is_valid_in_decorator_string(*c)) {
+            return self
+                .error(eco_format!("invalid character '{c}' in a decorator's string"));
+        }
+
+        SyntaxKind::Str
     }
 }
 
@@ -805,6 +981,13 @@ fn is_space(character: char, mode: LexMode) -> bool {
     }
 }
 
+/// Whether a character is a whitespace but not interpreted as a newline by
+/// Typst.
+#[inline]
+pub fn is_inline_whitespace(character: char) -> bool {
+    character.is_whitespace() && !is_newline(character)
+}
+
 /// Whether a character is interpreted as a newline by Typst.
 #[inline]
 pub fn is_newline(character: char) -> bool {
@@ -892,6 +1075,25 @@ fn count_newlines(text: &str) -> usize {
     newlines
 }
 
+/// Count newlines in text.
+/// Only counts up to 2 newlines.
+pub(crate) fn count_capped_newlines(text: &str) -> u8 {
+    let mut newlines = 0;
+    let mut s = Scanner::new(text);
+    while let Some(c) = s.eat() {
+        if is_newline(c) {
+            if c == '\r' {
+                s.eat_if('\n');
+            }
+            newlines += 1;
+            if newlines == 2 {
+                break;
+            }
+        }
+    }
+    newlines
+}
+
 /// Whether a string is a valid Typst identifier.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
@@ -935,6 +1137,12 @@ fn is_math_id_continue(c: char) -> bool {
 #[inline]
 fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
+}
+
+/// Whether a character can be part of a string in a decorator.
+#[inline]
+fn is_valid_in_decorator_string(c: char) -> bool {
+    is_id_continue(c) || c == '@' || c == '/'
 }
 
 /// Returns true if this string is valid in a label literal.

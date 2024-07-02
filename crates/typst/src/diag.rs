@@ -115,12 +115,14 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr,
+        $id:ident,
         $fmt:literal $(, $arg:expr)*
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
         $(,)?
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
+            std::option::Option::Some($crate::diag::CompilerWarning::$id),
             $crate::diag::eco_format!($fmt, $($arg),*),
         ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
@@ -157,6 +159,8 @@ pub struct SourceDiagnostic {
     pub severity: Severity,
     /// The span of the relevant node in the source code.
     pub span: Span,
+    /// The identifier for this diagnostic.
+    pub identifier: Option<Identifier>,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
@@ -181,6 +185,7 @@ impl SourceDiagnostic {
         Self {
             severity: Severity::Error,
             span,
+            identifier: None,
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -188,10 +193,15 @@ impl SourceDiagnostic {
     }
 
     /// Create a new, bare warning.
-    pub fn warning(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn warning(
+        span: Span,
+        identifier: Option<CompilerWarning>,
+        message: impl Into<EcoString>,
+    ) -> Self {
         Self {
             severity: Severity::Warning,
             span,
+            identifier: identifier.map(Identifier::Warn),
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -220,10 +230,54 @@ impl From<SyntaxError> for SourceDiagnostic {
     fn from(error: SyntaxError) -> Self {
         Self {
             severity: Severity::Error,
+            identifier: None,
             span: error.span,
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
+        }
+    }
+}
+
+/// The identifier of a [`SourceDiagnostic`].
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Identifier {
+    /// Identifier for a built-in compiler warning.
+    Warn(CompilerWarning),
+    /// Identifier for a warning raised by a package.
+    User(EcoString),
+}
+
+/// Built-in compiler warnings.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum CompilerWarning {
+    UnnecessaryImportRenaming,
+    UnnecessaryStars,
+    UnnecessaryUnderscores,
+    NonConvergingLayout,
+    UnknownFontFamilies,
+}
+
+impl CompilerWarning {
+    /// The name of the warning as a string, following the format of diagnostic
+    /// identifiers.
+    pub const fn name(&self) -> &'static str {
+        match self {
+            CompilerWarning::UnnecessaryImportRenaming => "unnecessary-import-renaming",
+            CompilerWarning::UnnecessaryStars => "unnecessary-stars",
+            CompilerWarning::UnnecessaryUnderscores => "unnecessary-underscores",
+            CompilerWarning::NonConvergingLayout => "non-converging-layout",
+            CompilerWarning::UnknownFontFamilies => "unknown-font-families",
+        }
+    }
+}
+
+impl Identifier {
+    /// The identifier's name, e.g. 'unnecessary-stars'.
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Warn(warning_identifier) => warning_identifier.name(),
+            Self::User(user_identifier) => user_identifier,
         }
     }
 }
@@ -258,36 +312,48 @@ impl Display for Tracepoint {
     }
 }
 
-/// Enrich a [`SourceResult`] with a tracepoint.
-pub trait Trace<T> {
-    /// Add the tracepoint to all errors that lie outside the `span`.
+/// Enrich diagnostics with a tracepoint.
+pub trait Trace {
+    /// Add the tracepoint to all diagnostics that lie outside the `span`.
     fn trace<F>(self, world: Tracked<dyn World + '_>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
-impl<T> Trace<T> for SourceResult<T> {
+impl Trace for EcoVec<SourceDiagnostic> {
+    fn trace<F>(
+        mut self,
+        world: Tracked<dyn World + '_>,
+        make_point: F,
+        span: Span,
+    ) -> Self
+    where
+        F: Fn() -> Tracepoint,
+    {
+        let Some(trace_range) = world.range(span) else { return self };
+        for error in self.make_mut().iter_mut() {
+            // Skip traces that surround the error.
+            if let Some(error_range) = world.range(error.span) {
+                if error.span.id() == span.id()
+                    && trace_range.start <= error_range.start
+                    && trace_range.end >= error_range.end
+                {
+                    continue;
+                }
+            }
+
+            error.trace.push(Spanned::new(make_point(), span));
+        }
+        self
+    }
+}
+
+impl<T> Trace for SourceResult<T> {
     fn trace<F>(self, world: Tracked<dyn World + '_>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
-        self.map_err(|mut errors| {
-            let Some(trace_range) = world.range(span) else { return errors };
-            for error in errors.make_mut().iter_mut() {
-                // Skip traces that surround the error.
-                if let Some(error_range) = world.range(error.span) {
-                    if error.span.id() == span.id()
-                        && trace_range.start <= error_range.start
-                        && trace_range.end >= error_range.end
-                    {
-                        continue;
-                    }
-                }
-
-                error.trace.push(Spanned::new(make_point(), span));
-            }
-            errors
-        })
+        self.map_err(|errors| errors.trace(world, make_point, span))
     }
 }
 
