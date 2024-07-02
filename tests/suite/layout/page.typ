@@ -68,6 +68,11 @@
 #text(15pt, font: "Roboto", fill: white, smallcaps[Typst])
 #page(width: 40pt, fill: none, margin: (top: 10pt, rest: auto))[Hi]
 
+--- page-fill-transparent ---
+// Pages with transparent background at the top should produce a transparent png
+#set page(fill: rgb(0, 0, 0, 0), width: auto, height: auto, margin: 0pt)
+#text(fill: olive, size: 15pt)[hi]
+
 --- page-margin-uniform ---
 // Set all margins at once.
 #[

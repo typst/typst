@@ -7,7 +7,7 @@ mod text;
 
 use tiny_skia as sk;
 use typst::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Size, Transform,
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Size, Transform,
 };
 use typst::model::Document;
 use typst::visualize::Color;
@@ -17,16 +17,16 @@ use typst::visualize::Color;
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
 #[typst_macros::time(name = "render")]
-pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
-    let size = frame.size();
+pub fn render(page: &Page, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
+    let size = page.frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(paint::to_sk_color(fill));
+    canvas.fill(paint::to_sk_color(page.background.unwrap_or(fill)));
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-    render_frame(&mut canvas, State::new(size, ts, pixel_per_pt), frame);
+    render_frame(&mut canvas, State::new(size, ts, pixel_per_pt), &page.frame);
 
     canvas
 }
@@ -44,7 +44,7 @@ pub fn render_merged(
     let pixmaps: Vec<_> = document
         .pages
         .iter()
-        .map(|page| render(&page.frame, pixel_per_pt, frame_fill))
+        .map(|page| render(&page, pixel_per_pt, frame_fill))
         .collect();
 
     let gap = (pixel_per_pt * gap.to_f32()).round() as u32;

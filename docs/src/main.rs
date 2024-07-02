@@ -35,8 +35,8 @@ impl<'a> Resolver for CliResolver<'a> {
             );
         }
 
-        let frame = &document.pages.first().expect("page 0").frame;
-        let pixmap = render(frame, 2.0, Color::WHITE);
+        let page = &document.pages.first().expect("page 0");
+        let pixmap = render(page, 2.0, Color::WHITE);
         let filename = format!("{hash:x}.png");
         let path = self.assets_dir.join(&filename);
         fs::create_dir_all(path.parent().expect("parent")).expect("create dir");
