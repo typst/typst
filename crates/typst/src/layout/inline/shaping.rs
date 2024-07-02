@@ -513,14 +513,14 @@ impl<'a> ShapedText<'a> {
             std::mem::swap(&mut start, &mut end);
         }
 
-        let left = self.find_safe_to_break(start, Side::Left)?;
-        let right = self.find_safe_to_break(end, Side::Right)?;
+        let left = self.find_safe_to_break(start)?;
+        let right = self.find_safe_to_break(end)?;
         Some(&self.glyphs[left..right])
     }
 
     /// Find the glyph offset matching the text index that is most towards the
     /// given side and safe-to-break.
-    fn find_safe_to_break(&self, text_index: usize, towards: Side) -> Option<usize> {
+    fn find_safe_to_break(&self, text_index: usize) -> Option<usize> {
         let ltr = self.dir.is_positive();
 
         // Handle edge cases.
@@ -540,7 +540,7 @@ impl<'a> ShapedText<'a> {
                 ordering.reverse()
             }
         });
-        let mut idx = match found {
+        let idx = match found {
             Ok(idx) => idx,
             Err(idx) => {
                 // Handle the special case where we break before a '\n'
@@ -562,19 +562,6 @@ impl<'a> ShapedText<'a> {
                 .then_some(idx);
             }
         };
-
-        let next = match towards {
-            Side::Left => usize::checked_sub,
-            Side::Right => usize::checked_add,
-        };
-
-        // Search for the outermost glyph with the text index.
-        while let Some(next) = next(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.range.start != text_index) {
-                break;
-            }
-            idx = next;
-        }
 
         // RTL needs offset one because the left side of the range should be
         // exclusive and the right side inclusive, contrary to the normal
