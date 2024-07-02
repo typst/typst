@@ -3,7 +3,7 @@ use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
+use crate::foundations::{cast, func, repr, scope, ty, Bytes, Repr, Str, Value};
 
 /// A whole number.
 ///
@@ -214,12 +214,66 @@ impl i64 {
             self >> shift
         }
     }
+
+    /// Converts bytes to an integer.
+    ///
+    /// Bytes should be 8 bytes (64 bits) in size.
+    #[func]
+    pub fn from_bytes(
+        /// The bytes that should be converted to an integer.
+        bytes: Bytes,
+        /// Endianness
+        /// - Little endian: the bytes are interpreted from the least significant to the most significant.
+        /// - Big endian: the bytes are interpreted from the most significant to the least significant.
+        endianness: Endianness,
+    ) -> Result<i64, EcoString> {
+        let array: [u8; 8] =
+            bytes.as_ref().try_into().map_err(|_| "Bytes should have size 8")?;
+        match endianness {
+            Endianness::Big => Ok(i64::from_be_bytes(array)),
+            Endianness::Little => Ok(i64::from_le_bytes(array)),
+        }
+    }
+
+    /// Converts an integer to bytes.
+    /// The integer is converted to 8 bytes or 64 bits in size.
+    #[func]
+    pub fn to_bytes(
+        self,
+        /// Endianness
+        /// - Little endian: the bytes are interpreted from the least significant to the most significant.
+        /// - Big endian: the bytes are interpreted from the most significant to the least significant.
+        endianness: Endianness,
+    ) -> Bytes {
+        let array = match endianness {
+            Endianness::Big => self.to_be_bytes(),
+            Endianness::Little => self.to_le_bytes(),
+        };
+        Bytes::from(array.to_vec())
+    }
 }
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
         eco_format!("{:?}", self)
     }
+}
+
+/// The endianness of a bytes to and from int conversion.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+enum Endianness {
+    Big,
+    Little,
+}
+
+cast! {
+    Endianness,
+    v: Str => 
+        match v.as_str() {
+            "big" => Ok(Self::Big),
+            "little" => Ok(Self::Little),
+            _ => Err("invalid endianness"),
+        }?,
 }
 
 /// A value that can be cast to an integer.
