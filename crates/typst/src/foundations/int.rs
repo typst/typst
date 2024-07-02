@@ -1,6 +1,5 @@
-use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
-
 use ecow::{eco_format, EcoString};
+use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
 use crate::diag::StrResult;
 use crate::foundations::{cast, func, repr, scope, ty, Bytes, Repr, Str, Value};
@@ -145,7 +144,6 @@ impl i64 {
     #[func(title = "Bitwise Left Shift")]
     pub fn bit_lshift(
         self,
-
         /// The amount of bits to shift. Must not be negative.
         shift: u32,
     ) -> StrResult<i64> {
@@ -168,7 +166,6 @@ impl i64 {
     #[func(title = "Bitwise Right Shift")]
     pub fn bit_rshift(
         self,
-
         /// The amount of bits to shift. Must not be negative.
         ///
         /// Shifts larger than 63 are allowed and will cause the return value to
@@ -178,7 +175,6 @@ impl i64 {
         /// just applying this operation multiple times. Therefore, the shift will
         /// always succeed.
         shift: u32,
-
         /// Toggles whether a logical (unsigned) right shift should be performed
         /// instead of arithmetic right shift.
         /// If this is `true`, negative operands will not preserve their sign bit,
@@ -217,7 +213,7 @@ impl i64 {
 
     /// Converts bytes to an integer.
     /// Bytes should be 8 bytes (64 bits) in size.
-    /// 
+    ///
     /// ```example
     /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)), "little")
     /// ```
@@ -240,7 +236,7 @@ impl i64 {
 
     /// Converts an integer to bytes.
     /// The integer is converted to 8 bytes or 64 bits in size.
-    /// 
+    ///
     /// ```example
     /// #array(10000.to-bytes("big"))
     /// ```
@@ -275,7 +271,7 @@ enum Endianness {
 
 cast! {
     Endianness,
-    v: Str => 
+    v: Str =>
         match v.as_str() {
             "big" => Ok(Self::Big),
             "little" => Ok(Self::Little),
