@@ -100,8 +100,10 @@ pub struct CompileCommand {
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
-    /// Opens the output file using the default viewer after compilation.
-    /// Ignored if output is stdout
+    /// Opens the output file with the default viewer or a specific program after
+    /// compilation
+    ///
+    /// Ignored if output is stdout.
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
