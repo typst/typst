@@ -8,7 +8,8 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::{
-    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_directional_control, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
+    SpaceElem, TextElem,
 };
 use crate::utils::Numeric;
 
@@ -201,7 +202,7 @@ pub fn collect<'a>(
                 );
                 let peeked = iter.peek().and_then(|(child, _)| {
                     if let Some(elem) = child.to_packed::<TextElem>() {
-                        elem.text().chars().next()
+                        elem.text().chars().find(|c| !is_directional_control(*c))
                     } else if child.is::<SmartQuoteElem>() {
                         Some('"')
                     } else if child.is::<SpaceElem>()
@@ -302,7 +303,8 @@ impl<'a> Collector<'a> {
     }
 
     fn push_segment(&mut self, segment: Segment<'a>, is_quote: bool) {
-        if let Some(last) = self.full.chars().last() {
+        if let Some(last) = self.full.chars().rev().find(|c| !is_directional_control(*c))
+        {
             self.quoter.last(last, is_quote);
         }
 
