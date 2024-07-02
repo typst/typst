@@ -4,6 +4,7 @@ mod args;
 mod collect;
 mod logger;
 mod run;
+mod targets;
 mod world;
 
 use std::path::Path;
@@ -104,8 +105,8 @@ fn test() {
         // to `typst::utils::Deferred` yielding.
         tests.iter().par_bridge().for_each(|test| {
             logger.lock().start(test);
-            let result = std::panic::catch_unwind(|| run::run(test));
-            logger.lock().end(test, result);
+            let results = std::panic::catch_unwind(|| run::run(test));
+            logger.lock().end(test, results);
         });
 
         sender.send(()).unwrap();

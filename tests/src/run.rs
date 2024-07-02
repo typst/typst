@@ -9,16 +9,21 @@ use typst::foundations::Smart;
 use typst::layout::{Abs, Frame, FrameItem, Page, Transform};
 use typst::model::Document;
 use typst::visualize::Color;
-use typst::WorldExt;
+use typst::{ExportTarget, WorldExt};
 
 use crate::collect::{FileSize, NoteKind, Test};
 use crate::world::TestWorld;
+use crate::ARGS;
 
 /// Runs a single test.
 ///
-/// Returns whether the test passed.
-pub fn run(test: &Test) -> TestResult {
-    Runner::new(test).run()
+/// Returns whether the test passed for the given export target, each result
+/// corresponds to a single target.
+pub fn run(test: &Test) -> Vec<(ExportTarget, TestResult)> {
+    (test.targets & ARGS.targets())
+        .iter_target()
+        .map(|target| (target, Runner::new(test, target).run()))
+        .collect()
 }
 
 /// The result of running a single test.
@@ -51,6 +56,7 @@ macro_rules! log {
 /// Runs a single test.
 pub struct Runner<'a> {
     test: &'a Test,
+    target: ExportTarget,
     world: TestWorld,
     seen: Vec<bool>,
     result: TestResult,
@@ -59,10 +65,11 @@ pub struct Runner<'a> {
 
 impl<'a> Runner<'a> {
     /// Create a new test runner.
-    fn new(test: &'a Test) -> Self {
+    fn new(test: &'a Test, target: ExportTarget) -> Self {
         Self {
             test,
-            world: TestWorld::new(test.source.clone()),
+            target,
+            world: TestWorld::new(test.source.clone(), target),
             seen: vec![false; test.notes.len()],
             result: TestResult {
                 errors: String::new(),
@@ -155,6 +162,24 @@ impl<'a> Runner<'a> {
             return;
         }
 
+        // Write PDF if requested.
+        if self.target == ExportTarget::Pdf {
+            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
+            let pdf = typst_pdf::pdf(document, Smart::Auto, None, None);
+            std::fs::write(pdf_path, pdf).unwrap();
+        }
+
+        // Write SVG if requested.
+        if self.target == ExportTarget::Svg {
+            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, self.test.name);
+            let svg = typst_svg::svg_merged(document, Abs::pt(5.0));
+            std::fs::write(svg_path, svg).unwrap();
+        }
+
+        if self.target != ExportTarget::Raster {
+            return;
+        }
+
         // Render the live version.
         let pixmap = render(document, 1.0);
 
@@ -169,20 +194,6 @@ impl<'a> Runner<'a> {
         }
         let data = pixmap_live.encode_png().unwrap();
         std::fs::write(&live_path, data).unwrap();
-
-        // Write PDF if requested.
-        if crate::ARGS.pdf() {
-            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
-            let pdf = typst_pdf::pdf(document, Smart::Auto, None, None);
-            std::fs::write(pdf_path, pdf).unwrap();
-        }
-
-        // Write SVG if requested.
-        if crate::ARGS.svg() {
-            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, self.test.name);
-            let svg = typst_svg::svg_merged(document, Abs::pt(5.0));
-            std::fs::write(svg_path, svg).unwrap();
-        }
 
         // Compare against reference image if available.
         let equal = has_ref && {
