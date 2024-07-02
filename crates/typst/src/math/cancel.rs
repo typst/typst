@@ -68,7 +68,7 @@ pub struct CancelElem {
     /// - If given an angle, the line is rotated by that angle clockwise with
     ///   respect to the y-axis.
     /// - If `{auto}`, the line assumes the default angle; that is, along the
-    ///   anti-diagonal of the content box.
+    ///   rising diagonal of the content box.
     /// - If given a function `angle => angle`, the line is rotated, with
     ///   respect to the y-axis, by the angle returned by that function. The
     ///   function receives the default angle as its input.
