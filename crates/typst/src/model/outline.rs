@@ -483,7 +483,7 @@ impl OutlineEntry {
 
 impl Show for Packed<OutlineEntry> {
     #[typst_macros::time(name = "outline.entry", span = self.span())]
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();
 
@@ -500,7 +500,18 @@ impl Show for Packed<OutlineEntry> {
         };
 
         // The body text remains overridable.
+        seq.push(
+            TextElem::new(
+                match TextElem::dir_in(styles) {
+                    crate::layout::Dir::RTL => "\u{202B}",
+                    _ => "\u{202A}",
+                }
+                .into(),
+            )
+            .pack(),
+        );
         seq.push(self.body().clone().linked(Destination::Location(location)));
+        seq.push(TextElem::new("\u{202C}".into()).pack());
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
