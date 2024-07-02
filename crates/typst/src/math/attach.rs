@@ -253,6 +253,7 @@ fn layout_attachments(
     let (base_width, base_ascent, base_descent) =
         (base.width(), base.ascent(), base.descent());
     let base_class = base.class();
+    let base_is_text_like = base.is_text_like();
 
     let mut ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
@@ -273,7 +274,11 @@ fn layout_attachments(
 
     let (center_frame, base_offset) = attach_top_and_bottom(ctx, styles, base, t, b);
     if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
-        ctx.push(FrameFragment::new(ctx, styles, center_frame).with_class(base_class));
+        ctx.push(
+            FrameFragment::new(ctx, styles, center_frame)
+                .with_class(base_class)
+                .with_text_like(base_is_text_like),
+        );
         return Ok(());
     }
 
@@ -321,7 +326,11 @@ fn layout_attachments(
         frame.push_frame(pos, br.into_frame());
     }
 
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
+    ctx.push(
+        FrameFragment::new(ctx, styles, frame)
+            .with_class(base_class)
+            .with_text_like(base_is_text_like),
+    );
 
     Ok(())
 }
