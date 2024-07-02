@@ -2760,7 +2760,6 @@ dependencies = [
  "flate2",
  "fontdb",
  "fs_extra",
- "icu_datetime",
  "native-tls",
  "notify",
  "once_cell",
