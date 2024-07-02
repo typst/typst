@@ -480,7 +480,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     checkmark: ['✓', light: '🗸', heavy: '✔'],
     crossmark: ['✗', heavy: '✘'],
     floral: ['❦', l: '☙', r: '❧'],
-    notes: [up: '🎜', down: '🎝'],
     refmark: '※',
     servicemark: '℠',
     maltese: '✠',
@@ -493,6 +492,72 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         heart.stroked: '♡',
         spade.filled: '♠',
         spade.stroked: '♤',
+    ],
+
+    // Music.
+    note: [
+        ascend: '🎜',
+        descend: '🎝',
+        whole: '𝅝',
+        v1: '𝅝', // the same as whole
+        half: '𝅗𝅥',
+        v2: '𝅗𝅥', // the same as half
+        quarter: '𝅘𝅥',
+        quarter.alt: '♩',
+        v4: '𝅘𝅥', // the same as quarter
+        v4.alt: '♩', // the same as quarter.alt
+        v8: '𝅘𝅥𝅮',
+        v8.alt: '♪',
+        v8.beamed: '♫',
+        v16: '𝅘𝅥𝅯',
+        v16.beamed: '♬',
+        v32: '𝅘𝅥𝅰',
+        v64: '𝅘𝅥𝅱',
+        v128: '𝅘𝅥𝅲',
+        grace.slash: '𝆔',
+        grace.noslash: '𝆕',
+        kievan.final: '𝇠',
+        kievan.whole: '𝇢',
+        kievan.half: '𝇣',
+        kievan.quarter.down: '𝇤',
+        kievan.quarter.up: '𝇥',
+        kievan.v8.down: '𝇦',
+        kievan.v8.up: '𝇧',
+    ],
+    rest: [
+        whole: '𝄻',
+        v1: '𝄻', // the same as whole
+        multiple: '𝄺',
+        multiple.measure: '𝄩',
+        half: '𝄼',
+        v2: '𝄼', // the same as half
+        quarter: '𝄽',
+        v4: '𝄽', // the same as quarter
+        v8: '𝄾',
+        v16: '𝄿',
+        v32: '𝅀',
+        v64: '𝅁',
+        v128: '𝅂',
+    ],
+    natural: [
+        '♮',
+        up: '𝄮',
+        down: '𝄯',
+    ],
+    flat: [
+        '♭',
+        double: '𝄫',
+        up: '𝄬',
+        down: '𝄭',
+        quarter: '𝄳',
+        kievan: '𝇨',
+    ],
+    sharp: [
+        '♯',
+        double: '𝄪',
+        up: '𝄰',
+        down: '𝄱',
+        quarter: '𝄲',
     ],
 
     // Shapes.
