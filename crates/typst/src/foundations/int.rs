@@ -1,5 +1,6 @@
-use ecow::{eco_format, EcoString};
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
+
+use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{cast, func, repr, scope, ty, Bytes, Repr, Str, Value};
