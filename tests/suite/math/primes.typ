@@ -12,7 +12,11 @@ $a'_b^c$, $a_b'^c$, $a_b^c'$, $a_b'^c'^d'$
 
 $(a'_b')^(c'_d')$, $a'/b'$, $a_b'/c_d'$
 
-$∫'$, $∑'$, $a'^2^2$, $a'_2_2$, $ ∑'_S' $
+$∫'$, $∑'$, $a'^2^2$, $a'_2_2$
+
+$f_n'^a'$, $f^a'_n'$
+
+$ ∑'_S' $
 
 --- math-primes-attach ---
 // Test attaching primes only
@@ -52,8 +56,8 @@ $
 --- math-primes-with-superscript ---
 // Test prime symbols don't raise the superscript position
 $
+  sqrt(f)/f
   sqrt(f^2)/f^2
   sqrt(f'^2)/f'^2
-  sqrt(f'_n^2)/f'_n^2
-  sqrt(f'''''^2)/f'''''^2
+  sqrt(f''_n^2)/f''^2_n
 $

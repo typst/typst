@@ -52,31 +52,55 @@ pub struct AttachElem {
 impl LayoutMath for Packed<AttachElem> {
     #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
-
-        let layout_attachment =
-            |ctx: &mut MathContext, styles: StyleChain, getter: GetAttachment| {
-                getter(self, styles)
-                    .map(|elem| ctx.layout_into_fragment(&elem, styles))
-                    .transpose()
-            };
-
         let base = ctx.layout_into_fragment(self.base(), styles)?;
 
         let sup_style = style_for_superscript(styles);
-        let tl = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tl)?;
-        let tr = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tr)?;
-        let t = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::t)?;
+        let sup_style_chain = styles.chain(&sup_style);
+        let tl = self.tl(sup_style_chain);
+        let (tr, primes) = {
+            let tr = self.tr(sup_style_chain);
+            if tr.as_ref().is_some_and(|content| content.is::<PrimesElem>()) {
+                (None, tr)
+            } else {
+                (tr, None)
+            }
+        };
+        let t = self.t(sup_style_chain);
 
         let sub_style = style_for_subscript(styles);
-        let bl = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::bl)?;
-        let br = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::br)?;
-        let b = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::b)?;
+        let sub_style_chain = styles.chain(&sub_style);
+        let bl = self.bl(sub_style_chain);
+        let br = self.br(sub_style_chain);
+        let b = self.b(sub_style_chain);
 
         let limits = base.limits().active(styles);
-        let (t, tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
+        let (t, mut tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
+        if let Some(primes) = primes {
+            tr = tr.map_or(Some(primes.clone()), |tr| Some(primes + tr));
+        }
         let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
-        layout_attachments(ctx, styles, base, [tl, t, tr, bl, b, br])
+
+        macro_rules! layout {
+            ($content:ident, $style_chain:ident) => {
+                $content
+                    .map(|elem| ctx.layout_into_fragment(&elem, $style_chain))
+                    .transpose()
+            };
+        }
+
+        layout_attachments(
+            styles,
+            base,
+            [
+                layout!(tl, sup_style_chain)?,
+                layout!(t, sup_style_chain)?,
+                layout!(tr, sup_style_chain)?,
+                layout!(bl, sub_style_chain)?,
+                layout!(b, sub_style_chain)?,
+                layout!(br, sub_style_chain)?,
+            ],
+            ctx,
+        )
     }
 }
 
@@ -240,10 +264,10 @@ macro_rules! measure {
 
 /// Layout the attachments.
 fn layout_attachments(
-    ctx: &mut MathContext,
     styles: StyleChain,
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
+    ctx: &mut MathContext,
 ) -> SourceResult<()> {
     let (shift_up, shift_down) =
         compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br]);
@@ -253,7 +277,6 @@ fn layout_attachments(
     let (base_width, base_ascent, base_descent) =
         (base.width(), base.ascent(), base.descent());
     let base_class = base.class();
-    let base_is_text_like = base.is_text_like();
 
     let mut ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
@@ -274,11 +297,7 @@ fn layout_attachments(
 
     let (center_frame, base_offset) = attach_top_and_bottom(ctx, styles, base, t, b);
     if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
-        ctx.push(
-            FrameFragment::new(ctx, styles, center_frame)
-                .with_class(base_class)
-                .with_text_like(base_is_text_like),
-        );
+        ctx.push(FrameFragment::new(ctx, styles, center_frame).with_class(base_class));
         return Ok(());
     }
 
@@ -326,11 +345,7 @@ fn layout_attachments(
         frame.push_frame(pos, br.into_frame());
     }
 
-    ctx.push(
-        FrameFragment::new(ctx, styles, frame)
-            .with_class(base_class)
-            .with_text_like(base_is_text_like),
-    );
+    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
 
     Ok(())
 }
