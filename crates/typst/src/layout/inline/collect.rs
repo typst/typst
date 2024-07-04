@@ -79,7 +79,7 @@ impl<'a> Item<'a> {
     }
 
     /// The natural layouted width of the item.
-    pub fn width(&self) -> Abs {
+    pub fn natural_width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v, _) => *v,

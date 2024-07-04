@@ -13,16 +13,24 @@ use crate::text::{Costs, Lang, TextElem};
 /// Only when a line break falls onto a text index that is not safe-to-break per
 /// rustybuzz, we have to reshape that portion.
 pub struct Preparation<'a> {
+    /// The paragraph's full text.
+    pub text: &'a str,
     /// Bidirectional text embedding levels for the paragraph.
-    pub bidi: BidiInfo<'a>,
+    ///
+    /// This is `None` if the paragraph is BiDi-uniform (all the base direction).
+    pub bidi: Option<BidiInfo<'a>>,
     /// Text runs, spacing and layouted elements.
-    pub items: Vec<Item<'a>>,
+    pub items: Vec<(Range, Item<'a>)>,
+    /// Maps from byte indices to item indices.
+    pub indices: Vec<usize>,
     /// The span mapper.
     pub spans: SpanMapper,
     /// Whether to hyphenate if it's the same for all children.
     pub hyphenate: Option<bool>,
     /// Costs for various layout decisions.
     pub costs: Costs,
+    /// The dominant direction.
+    pub dir: Dir,
     /// The text language if it's the same for all children.
     pub lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
@@ -44,46 +52,18 @@ pub struct Preparation<'a> {
 }
 
 impl<'a> Preparation<'a> {
-    /// Find the item that contains the given `text_offset`.
-    pub fn find(&self, text_offset: usize) -> Option<&Item<'a>> {
-        let mut cursor = 0;
-        for item in &self.items {
-            let end = cursor + item.textual_len();
-            if (cursor..end).contains(&text_offset) {
-                return Some(item);
-            }
-            cursor = end;
-        }
-        None
+    /// Get the item that contains the given `text_offset`.
+    pub fn get(&self, offset: usize) -> &(Range, Item<'a>) {
+        let idx = self.indices.get(offset).copied().unwrap_or(0);
+        &self.items[idx]
     }
 
-    /// Return the items that intersect the given `text_range`.
-    ///
-    /// Returns the expanded range around the items and the items.
-    pub fn slice(&self, text_range: Range) -> (Range, &[Item<'a>]) {
-        let mut cursor = 0;
-        let mut start = 0;
-        let mut end = 0;
-        let mut expanded = text_range.clone();
-
-        for (i, item) in self.items.iter().enumerate() {
-            if cursor <= text_range.start {
-                start = i;
-                expanded.start = cursor;
-            }
-
-            let len = item.textual_len();
-            if cursor < text_range.end || cursor + len <= text_range.end {
-                end = i + 1;
-                expanded.end = cursor + len;
-            } else {
-                break;
-            }
-
-            cursor += len;
-        }
-
-        (expanded, &self.items[start..end])
+    /// Iterate over the items that intersect the given `sliced` range.
+    pub fn slice(&self, sliced: Range) -> impl Iterator<Item = &(Range, Item<'a>)> {
+        let start = self.indices.get(sliced.start).copied().unwrap_or(0);
+        self.items[start..].iter().take_while(move |(range, _)| {
+            range.start < sliced.end || range.end <= sliced.end
+        })
     }
 }
 
@@ -99,29 +79,41 @@ pub fn prepare<'a>(
     spans: SpanMapper,
     styles: StyleChain<'a>,
 ) -> SourceResult<Preparation<'a>> {
-    let bidi = BidiInfo::new(
-        text,
-        match TextElem::dir_in(styles) {
-            Dir::LTR => Some(BidiLevel::ltr()),
-            Dir::RTL => Some(BidiLevel::rtl()),
-            _ => None,
-        },
-    );
+    let dir = TextElem::dir_in(styles);
+    let default_level = match dir {
+        Dir::RTL => BidiLevel::rtl(),
+        _ => BidiLevel::ltr(),
+    };
+
+    let bidi = BidiInfo::new(text, Some(default_level));
+    let is_bidi = bidi
+        .levels
+        .iter()
+        .any(|level| level.is_ltr() != default_level.is_ltr());
 
     let mut cursor = 0;
     let mut items = Vec::with_capacity(segments.len());
 
     // Shape the text to finalize the items.
     for segment in segments {
-        let end = cursor + segment.textual_len();
+        let len = segment.textual_len();
+        let end = cursor + len;
+        let range = cursor..end;
+
         match segment {
             Segment::Text(_, styles) => {
-                shape_range(&mut items, engine, &bidi, cursor..end, &spans, styles);
+                shape_range(&mut items, engine, text, &bidi, range, styles);
             }
-            Segment::Item(item) => items.push(item),
+            Segment::Item(item) => items.push((range, item)),
         }
 
         cursor = end;
+    }
+
+    // Build the mapping from byte to item indices.
+    let mut indices = Vec::with_capacity(text.len());
+    for (i, (range, _)) in items.iter().enumerate() {
+        indices.extend(range.clone().map(|_| i));
     }
 
     let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(styles).is_auto();
@@ -130,11 +122,14 @@ pub fn prepare<'a>(
     }
 
     Ok(Preparation {
-        bidi,
+        text,
+        bidi: is_bidi.then_some(bidi),
         items,
+        indices,
         spans,
         hyphenate: children.shared_get(styles, TextElem::hyphenate_in),
         costs: TextElem::costs_in(styles),
+        dir,
         lang: children.shared_get(styles, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
@@ -150,10 +145,14 @@ pub fn prepare<'a>(
 /// Add some spacing between Han characters and western characters. See
 /// Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition
 /// in Horizontal Written Mode
-fn add_cjk_latin_spacing(items: &mut [Item]) {
-    let mut items = items.iter_mut().filter(|x| !matches!(x, Item::Tag(_))).peekable();
+fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
+    let mut items = items
+        .iter_mut()
+        .filter(|(_, x)| !matches!(x, Item::Tag(_)))
+        .peekable();
+
     let mut prev: Option<&ShapedGlyph> = None;
-    while let Some(item) = items.next() {
+    while let Some((_, item)) = items.next() {
         let Some(text) = item.text_mut() else {
             prev = None;
             continue;
@@ -168,7 +167,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
             let next = glyphs.peek().map(|n| n as _).or_else(|| {
                 items
                     .peek()
-                    .and_then(|i| i.text())
+                    .and_then(|(_, i)| i.text())
                     .and_then(|shaped| shaped.glyphs.first())
             });
 

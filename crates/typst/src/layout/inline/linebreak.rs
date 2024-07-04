@@ -1,6 +1,7 @@
 use std::ops::{Add, Sub};
 
 use icu_properties::maps::CodePointMapData;
+use icu_properties::sets::CodePointSetData;
 use icu_properties::LineBreak;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
@@ -27,30 +28,33 @@ const MIN_RATIO: f64 = -1.0;
 const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
 
+/// The ICU blob data.
+fn blob() -> BlobDataProvider {
+    BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap()
+}
+
 /// The general line break segmenter.
-static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
-    let provider =
-        BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
-    LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap()
-});
+static SEGMENTER: Lazy<LineSegmenter> =
+    Lazy::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
 
 /// The line break segmenter for Chinese/Japanese text.
 static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
-    let provider =
-        BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
     let cj_blob =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU_CJ_SEGMENT)
             .unwrap();
-    let cj_provider = ForkByKeyProvider::new(cj_blob, provider);
+    let cj_provider = ForkByKeyProvider::new(cj_blob, blob());
     LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
 });
 
 /// The Unicode line break properties for each code point.
 static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
-    let provider =
-        BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
-    let deser_provider = provider.as_deserializing();
-    icu_properties::maps::load_line_break(&deser_provider).unwrap()
+    icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
+});
+
+/// The set of Unicode default ignorables.
+static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
+    icu_properties::sets::load_default_ignorable_code_point(&blob().as_deserializing())
+        .unwrap()
 });
 
 /// A line break opportunity.
@@ -62,6 +66,37 @@ pub enum Breakpoint {
     Mandatory,
     /// An opportunity for hyphenating.
     Hyphen,
+}
+
+impl Breakpoint {
+    /// Trim a line before this breakpoint.
+    pub fn trim(self, line: &str) -> &str {
+        // Trim default ignorables.
+        let ignorable = DEFAULT_IGNORABLE_DATA.as_borrowed();
+        let line = line.trim_end_matches(|c| ignorable.contains(c));
+
+        match self {
+            // Trim whitespace.
+            Self::Normal => line.trim_end_matches(char::is_whitespace),
+
+            // Trim linebreaks.
+            Self::Mandatory => {
+                let lb = LINEBREAK_DATA.as_borrowed();
+                line.trim_end_matches(|c| {
+                    matches!(
+                        lb.get(c),
+                        LineBreak::MandatoryBreak
+                            | LineBreak::CarriageReturn
+                            | LineBreak::LineFeed
+                            | LineBreak::NextLine
+                    )
+                })
+            }
+
+            // Trim nothing further.
+            Self::Hyphen => line,
+        }
+    }
 }
 
 /// Breaks the paragraph into lines.
@@ -180,14 +215,11 @@ fn linebreak_optimized_bounded<'a>(
         pred: usize,
         total: Cost,
         line: Line<'a>,
+        end: usize,
     }
 
     // Dynamic programming table.
-    let mut table = vec![Entry {
-        pred: 0,
-        total: 0.0,
-        line: line(engine, p, 0..0, Breakpoint::Mandatory, None),
-    }];
+    let mut table = vec![Entry { pred: 0, total: 0.0, line: Line::empty(), end: 0 }];
 
     let mut active = 0;
     let mut prev_end = 0;
@@ -200,7 +232,7 @@ fn linebreak_optimized_bounded<'a>(
         let mut line_lower_bound = None;
 
         for (pred_index, pred) in table.iter().enumerate().skip(active) {
-            let start = pred.line.end;
+            let start = pred.end;
             let unbreakable = prev_end == start;
 
             // If the minimum cost we've established for the line is already
@@ -221,6 +253,7 @@ fn linebreak_optimized_bounded<'a>(
                 width,
                 &pred.line,
                 &attempt,
+                end,
                 breakpoint,
                 unbreakable,
             );
@@ -263,7 +296,7 @@ fn linebreak_optimized_bounded<'a>(
 
             // If this attempt is better than what we had before, take it!
             if best.as_ref().map_or(true, |best| best.total >= total) {
-                best = Some(Entry { pred: pred_index, total, line: attempt });
+                best = Some(Entry { pred: pred_index, total, line: attempt, end });
             }
         }
 
@@ -282,7 +315,7 @@ fn linebreak_optimized_bounded<'a>(
     let mut idx = table.len() - 1;
 
     // This should only happen if our bound was faulty. Which shouldn't happen!
-    if table[idx].line.end != p.bidi.text.len() {
+    if table[idx].end != p.text.len() {
         #[cfg(debug_assertions)]
         panic!("bounded paragraph layout is incomplete");
 
@@ -340,7 +373,7 @@ fn linebreak_optimized_approximate(
     let mut prev_end = 0;
 
     breakpoints(p, |end, breakpoint| {
-        let at_end = end == p.bidi.text.len();
+        let at_end = end == p.text.len();
 
         // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
@@ -362,7 +395,7 @@ fn linebreak_optimized_approximate(
             // make it the desired width. We trim at the end to not take into
             // account trailing spaces. This is, again, only an approximation of
             // the real behaviour of `line`.
-            let trimmed_end = start + p.bidi.text[start..end].trim_end().len();
+            let trimmed_end = start + p.text[start..end].trim_end().len();
             let line_ratio = raw_ratio(
                 p,
                 width,
@@ -428,8 +461,9 @@ fn linebreak_optimized_approximate(
         idx = table[idx].pred;
     }
 
+    let mut pred = Line::empty();
+    let mut start = 0;
     let mut exact = 0.0;
-    let mut pred = line(engine, p, 0..0, Breakpoint::Mandatory, None);
 
     // The cost that we optimized was only an approximate cost, so the layout we
     // got here is only likely to be good, not guaranteed to be the best. We now
@@ -438,26 +472,36 @@ fn linebreak_optimized_approximate(
     for idx in indices.into_iter().rev() {
         let Entry { end, breakpoint, unbreakable, .. } = table[idx];
 
-        let start = pred.end;
         let attempt = line(engine, p, start..end, breakpoint, Some(&pred));
 
-        let (_, line_cost) =
-            ratio_and_cost(p, metrics, width, &pred, &attempt, breakpoint, unbreakable);
+        let (_, line_cost) = ratio_and_cost(
+            p,
+            metrics,
+            width,
+            &pred,
+            &attempt,
+            end,
+            breakpoint,
+            unbreakable,
+        );
 
-        exact += line_cost;
         pred = attempt;
+        start = end;
+        exact += line_cost;
     }
 
     exact
 }
 
 /// Compute the stretch ratio and cost of a line.
+#[allow(clippy::too_many_arguments)]
 fn ratio_and_cost(
     p: &Preparation,
     metrics: &CostMetrics,
     available_width: Abs,
     pred: &Line,
     attempt: &Line,
+    end: usize,
     breakpoint: Breakpoint,
     unbreakable: bool,
 ) -> (f64, Cost) {
@@ -474,7 +518,7 @@ fn ratio_and_cost(
         metrics,
         breakpoint,
         ratio,
-        attempt.end == p.bidi.text.len(),
+        end == p.text.len(),
         attempt.justify,
         unbreakable,
         pred.dash.is_some() && attempt.dash.is_some(),
@@ -587,7 +631,14 @@ fn raw_cost(
 /// code much simpler and the consumers of this function don't need the
 /// composability and flexibility of external iteration anyway.
 fn breakpoints<'a>(p: &'a Preparation<'a>, mut f: impl FnMut(usize, Breakpoint)) {
-    let text = p.bidi.text;
+    let text = p.text;
+
+    // Single breakpoint at the end for empty text.
+    if text.is_empty() {
+        f(0, Breakpoint::Mandatory);
+        return;
+    }
+
     let hyphenate = p.hyphenate != Some(false);
     let lb = LINEBREAK_DATA.as_borrowed();
     let segmenter = match p.lang {
@@ -747,8 +798,9 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.hyphenate
         .or_else(|| {
-            let shaped = p.find(offset)?.text()?;
-            Some(TextElem::hyphenate_in(shaped.styles))
+            let (_, item) = p.get(offset);
+            let styles = item.text()?.styles;
+            Some(TextElem::hyphenate_in(styles))
         })
         .unwrap_or(false)
 }
@@ -756,8 +808,9 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
 /// The text language at the given offset.
 fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.lang.or_else(|| {
-        let shaped = p.find(offset)?.text()?;
-        Some(TextElem::lang_in(shaped.styles))
+        let (_, item) = p.get(offset);
+        let styles = item.text()?.styles;
+        Some(TextElem::lang_in(styles))
     })?;
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;
@@ -813,17 +866,14 @@ struct Estimates {
 impl Estimates {
     /// Compute estimations for approximate Knuth-Plass layout.
     fn compute(p: &Preparation) -> Self {
-        let cap = p.bidi.text.len();
+        let cap = p.text.len();
 
         let mut widths = CummulativeVec::with_capacity(cap);
         let mut stretchability = CummulativeVec::with_capacity(cap);
         let mut shrinkability = CummulativeVec::with_capacity(cap);
         let mut justifiables = CummulativeVec::with_capacity(cap);
 
-        for item in &p.items {
-            let textual_len = item.textual_len();
-            let after = widths.len() + textual_len;
-
+        for (range, item) in p.items.iter() {
             if let Item::Text(shaped) = item {
                 for g in shaped.glyphs.iter() {
                     let byte_len = g.range.len();
@@ -835,13 +885,13 @@ impl Estimates {
                     justifiables.push(byte_len, g.is_justifiable() as usize);
                 }
             } else {
-                widths.push(textual_len, item.width());
+                widths.push(range.len(), item.natural_width());
             }
 
-            widths.adjust(after);
-            stretchability.adjust(after);
-            shrinkability.adjust(after);
-            justifiables.adjust(after);
+            widths.adjust(range.end);
+            stretchability.adjust(range.end);
+            shrinkability.adjust(range.end);
+            justifiables.adjust(range.end);
         }
 
         Self {
@@ -869,11 +919,6 @@ where
         let mut summed = Vec::with_capacity(capacity);
         summed.push(total);
         Self { total, summed }
-    }
-
-    /// Get the covered byte length.
-    fn len(&self) -> usize {
-        self.summed.len()
     }
 
     /// Adjust to cover the given byte length.
