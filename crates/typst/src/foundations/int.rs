@@ -1,6 +1,7 @@
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
 use ecow::{eco_format, EcoString};
+use typst_macros::Cast;
 
 use crate::diag::StrResult;
 use crate::foundations::{cast, func, repr, scope, ty, Bytes, Repr, Str, Value};
@@ -222,9 +223,7 @@ impl i64 {
     pub fn from_bytes(
         /// The bytes that should be converted to an integer.
         bytes: Bytes,
-        /// Endianness
-        /// - Little endian: the bytes are interpreted from the least significant to the most significant.
-        /// - Big endian: the bytes are interpreted from the most significant to the least significant.
+        /// Endianness of the conversion.
         endianness: Endianness,
     ) -> Result<i64, EcoString> {
         let array: [u8; 8] =
@@ -244,9 +243,7 @@ impl i64 {
     #[func]
     pub fn to_bytes(
         self,
-        /// Endianness
-        /// - Little endian: the bytes are interpreted from the least significant to the most significant.
-        /// - Big endian: the bytes are interpreted from the most significant to the least significant.
+        /// Endianness of the conversion.
         endianness: Endianness,
     ) -> Bytes {
         let array = match endianness {
@@ -263,21 +260,13 @@ impl Repr for i64 {
     }
 }
 
-/// The endianness of a bytes to and from int conversion.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+/// Represents the byte order used for converting integers to bytes and vice versa.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 enum Endianness {
+    /// Big-endian byte order: the highest-value byte is at the beginning of the bytes.
     Big,
+    /// Little-endian byte order: the lowest-value byte is at the beginning of the bytes.
     Little,
-}
-
-cast! {
-    Endianness,
-    v: Str =>
-        match v.as_str() {
-            "big" => Ok(Self::Big),
-            "little" => Ok(Self::Little),
-            _ => Err("invalid endianness"),
-        }?,
 }
 
 /// A value that can be cast to an integer.
