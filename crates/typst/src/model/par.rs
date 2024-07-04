@@ -1,12 +1,12 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
-    Unlabellable,
+    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
+    StyleChain, Unlabellable,
 };
-use crate::introspection::{Locatable, Locator};
+use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
 use crate::layout::{Em, Fragment, Length, Size};
 use crate::realize::StyleVec;
 
@@ -230,5 +230,24 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// A paragraph line.
 /// This element is exclusively used for the line number counter, and cannot
 /// be placed.
-#[elem(title = "Paragraph Line", Locatable)]
+#[elem(title = "Paragraph Line", Construct, Show, Locatable, Count)]
 pub struct ParLine {}
+
+impl Construct for ParLine {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<ParLine> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(Content::empty())
+    }
+}
+
+impl Count for Packed<ParLine> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // The line counter must be updated manually by the root flow
+        None
+    }
+}

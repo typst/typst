@@ -1,4 +1,5 @@
 use super::*;
+use crate::introspection::SplitLocator;
 use crate::layout::{Abs, Frame, Point};
 use crate::utils::Numeric;
 
@@ -11,6 +12,7 @@ pub fn finalize(
     styles: StyleChain,
     region: Size,
     expand: bool,
+    locator: &mut SplitLocator<'_>,
     in_root_flow: bool,
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we should
@@ -29,7 +31,19 @@ pub fn finalize(
     let shrink = ParElem::shrink_in(styles);
     let mut frames: Vec<Frame> = lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y, shrink, in_root_flow))
+        .map(|line| {
+            commit(
+                engine,
+                p,
+                line,
+                width,
+                region.y,
+                shrink,
+                locator,
+                styles,
+                in_root_flow,
+            )
+        })
         .collect::<SourceResult<_>>()?;
 
     // Positive ratios enable prevention, while zero and negative ratios disable
