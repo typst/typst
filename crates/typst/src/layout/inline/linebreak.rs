@@ -689,7 +689,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         // Hyphenate between the last and current breakpoint.
         if hyphenate {
             let mut offset = last;
-            for segment in p.text[last..point].split_word_bounds() {
+            for segment in text[last..point].split_word_bounds() {
                 if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
                     hyphenations(p, &lb, offset, segment, &mut f);
                 }
