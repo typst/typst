@@ -26,8 +26,8 @@ typst-svg = { path = "crates/typst-svg", version = "0.11.0" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.11.0" }
 typst-timing = { path = "crates/typst-timing", version = "0.11.0" }
 typst-utils = { path = "crates/typst-utils", version = "0.11.0" }
-typst-assets = "0.11.0"
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "48a924d9de82b631bc775124a69384c8d860db04" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "4ee794c" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "48a924d" }
 az = "1.2"
 base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
