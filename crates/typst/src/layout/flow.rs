@@ -813,7 +813,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Therefore, the check above ensures no lines too close together
             // will cause too many different line numbers to appear.
             prev_y = Some(line_y);
-            self.layout_line_number()?;
+            self.layout_line_number(line_y)?;
         }
 
         Ok(())
@@ -916,7 +916,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         Ok(())
     }
 
-    fn layout_line_number(&mut self) -> SourceResult<()> {
+    fn layout_line_number(&mut self, y: Abs) -> SourceResult<()> {
         let line_counter = Counter::of(ParLine::elem());
         let mut line_counter_update = line_counter
             .clone()
@@ -950,8 +950,12 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     SequenceElem::new(vec![line_counter_update, line_counter_display])
                         .pack(),
                 )
-                .with_alignment(Smart::Custom(Alignment::START))
-                .with_dx(Rel::new(Ratio::zero(), Length::from(Abs::cm(-1.0)))),
+                .with_alignment(Smart::Custom(Alignment::Both(
+                    super::HAlignment::Start,
+                    super::VAlignment::Top,
+                )))
+                .with_dx(Rel::new(Ratio::zero(), Length::from(Abs::cm(-1.0))))
+                .with_dy(Rel::new(Ratio::zero(), Length::from(y))),
             ),
             self.styles,
         )?;
