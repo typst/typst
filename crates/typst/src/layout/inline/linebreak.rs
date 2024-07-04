@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub};
 
-use icu_properties::maps::CodePointMapData;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::sets::CodePointSetData;
 use icu_properties::LineBreak;
 use icu_provider::AsDeserializingBufferProvider;
@@ -8,6 +8,7 @@ use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
 use once_cell::sync::Lazy;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 use crate::engine::Engine;
@@ -630,7 +631,7 @@ fn raw_cost(
 /// This is an internal instead of an external iterator because it makes the
 /// code much simpler and the consumers of this function don't need the
 /// composability and flexibility of external iteration anyway.
-fn breakpoints<'a>(p: &'a Preparation<'a>, mut f: impl FnMut(usize, Breakpoint)) {
+fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
     let text = p.text;
 
     // Single breakpoint at the end for empty text.
@@ -661,7 +662,7 @@ fn breakpoints<'a>(p: &'a Preparation<'a>, mut f: impl FnMut(usize, Breakpoint))
             }
         }
 
-        // Get the UAX #14 linebreak opportunities.
+        // Get the next UAX #14 linebreak opportunity.
         let Some(point) = iter.next() else { break };
 
         // Skip breakpoint if there is no char before it. icu4x generates one
@@ -686,46 +687,13 @@ fn breakpoints<'a>(p: &'a Preparation<'a>, mut f: impl FnMut(usize, Breakpoint))
         };
 
         // Hyphenate between the last and current breakpoint.
-        'hyphenate: {
-            if !hyphenate {
-                break 'hyphenate;
-            }
-
-            // Extract a hyphenatable "word".
-            let word = &text[last..point].trim_end_matches(|c: char| !c.is_alphabetic());
-            if word.is_empty() {
-                break 'hyphenate;
-            }
-
-            let end = last + word.len();
+        if hyphenate {
             let mut offset = last;
-
-            // Determine the language to hyphenate this word in.
-            let Some(lang) = lang_at(p, last) else { break 'hyphenate };
-
-            for syllable in hypher::hyphenate(word, lang) {
-                // Don't hyphenate after the final syllable.
-                offset += syllable.len();
-                if offset == end {
-                    continue;
+            for segment in text[last..point].split_word_bounds() {
+                if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
+                    hyphenations(p, &lb, offset, segment, &mut f);
                 }
-
-                // Filter out hyphenation opportunities where hyphenation was
-                // actually disabled.
-                if !hyphenate_at(p, offset) {
-                    continue;
-                }
-
-                // Filter out forbidden hyphenation opportunities.
-                if matches!(
-                    syllable.chars().next_back().map(|c| lb.get(c)),
-                    Some(LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ)
-                ) {
-                    continue;
-                }
-
-                // Call `f` for the word-internal hyphenation opportunity.
-                f(offset, Breakpoint::Hyphen);
+                offset += segment.len();
             }
         }
 
@@ -733,6 +701,44 @@ fn breakpoints<'a>(p: &'a Preparation<'a>, mut f: impl FnMut(usize, Breakpoint))
         f(point, breakpoint);
 
         last = point;
+    }
+}
+
+/// Generate breakpoints for hyphenations within a word.
+fn hyphenations(
+    p: &Preparation,
+    lb: &CodePointMapDataBorrowed<LineBreak>,
+    mut offset: usize,
+    word: &str,
+    mut f: impl FnMut(usize, Breakpoint),
+) {
+    let Some(lang) = lang_at(p, offset) else { return };
+    let end = offset + word.len();
+
+    for syllable in hypher::hyphenate(word, lang) {
+        offset += syllable.len();
+
+        // Don't hyphenate after the final syllable.
+        if offset == end {
+            continue;
+        }
+
+        // Filter out hyphenation opportunities where hyphenation was actually
+        // disabled.
+        if !hyphenate_at(p, offset) {
+            continue;
+        }
+
+        // Filter out forbidden hyphenation opportunities.
+        if matches!(
+            syllable.chars().next_back().map(|c| lb.get(c)),
+            Some(LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ)
+        ) {
+            continue;
+        }
+
+        // Call `f` for the word-internal hyphenation opportunity.
+        f(offset, Breakpoint::Hyphen);
     }
 }
 
