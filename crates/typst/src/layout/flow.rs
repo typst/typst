@@ -21,7 +21,7 @@ use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem, Fr,
     Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
 };
-use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine};
+use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
 use crate::utils::Numeric;
 
@@ -819,7 +819,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     /// This should only be run in the root flow.
     fn handle_par_lines(
         &mut self,
-        mut lines: Vec<(Abs, Packed<ParLine>)>,
+        mut lines: Vec<(Abs, Packed<ParLineMarker>)>,
     ) -> SourceResult<()> {
         lines.sort_by_key(|(y, _)| *y);
 
@@ -946,7 +946,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     }
 
     fn layout_line_number(&mut self, y: Abs) -> SourceResult<()> {
-        let line_counter = Counter::of(ParLine::elem());
+        let line_counter = Counter::of(ParLineMarker::elem());
         let mut line_counter_update = line_counter
             .clone()
             .update(Span::detached(), CounterUpdate::Step(NonZeroUsize::ONE));
@@ -1016,7 +1016,7 @@ fn collect_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
 /// On each subframe we encounter, we add that subframe's position to 'prev_y',
 /// until we reach a line's tag, at which point we add the tag's position and finish.
 /// That gives us the relative height of the line within the caller frame.
-fn find_lines(lines: &mut Vec<(Abs, Packed<ParLine>)>, frame: &Frame, prev_y: Abs) {
+fn find_lines(lines: &mut Vec<(Abs, Packed<ParLineMarker>)>, frame: &Frame, prev_y: Abs) {
     for (pos, item) in frame.items() {
         match item {
             FrameItem::Group(group) => find_lines(lines, &group.frame, prev_y + pos.y),
@@ -1025,7 +1025,7 @@ fn find_lines(lines: &mut Vec<(Abs, Packed<ParLine>)>, frame: &Frame, prev_y: Ab
                     .iter()
                     .any(|(_, line)| line.location() == tag.elem.location()) =>
             {
-                let Some(line) = tag.elem.to_packed::<ParLine>() else {
+                let Some(line) = tag.elem.to_packed::<ParLineMarker>() else {
                     continue;
                 };
 

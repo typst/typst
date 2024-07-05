@@ -228,7 +228,7 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// A paragraph line.
 /// This element is exclusively used for the line number counter, and cannot
 /// be placed.
-#[elem(title = "Paragraph Line", Construct, Show, Locatable, Count)]
+#[elem(title = "Paragraph Line", Construct, Locatable, Count)]
 pub struct ParLine {}
 
 impl Construct for ParLine {
@@ -237,13 +237,32 @@ impl Construct for ParLine {
     }
 }
 
-impl Show for Packed<ParLine> {
+impl Count for Packed<ParLine> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // The line counter must be updated manually by the root flow
+        None
+    }
+}
+
+/// A marker used to indicate the presence of a line.
+/// This element is added to each line in a paragraph, and later searched to
+/// find out where to draw line numbers.
+#[elem(Construct, Show, Locatable, Count)]
+pub struct ParLineMarker {}
+
+impl Construct for ParLineMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<ParLineMarker> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
 
-impl Count for Packed<ParLine> {
+impl Count for Packed<ParLineMarker> {
     fn update(&self) -> Option<CounterUpdate> {
         // The line counter must be updated manually by the root flow
         None
