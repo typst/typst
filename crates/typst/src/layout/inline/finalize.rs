@@ -13,7 +13,6 @@ pub fn finalize(
     region: Size,
     expand: bool,
     locator: &mut SplitLocator<'_>,
-    in_root_flow: bool,
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we should
     // expand or there's fractional spacing, fit-to-width otherwise.
@@ -31,19 +30,7 @@ pub fn finalize(
     let shrink = ParElem::shrink_in(styles);
     let mut frames: Vec<Frame> = lines
         .iter()
-        .map(|line| {
-            commit(
-                engine,
-                p,
-                line,
-                width,
-                region.y,
-                shrink,
-                locator,
-                styles,
-                in_root_flow,
-            )
-        })
+        .map(|line| commit(engine, p, line, width, region.y, shrink, locator, styles))
         .collect::<SourceResult<_>>()?;
 
     // Positive ratios enable prevention, while zero and negative ratios disable

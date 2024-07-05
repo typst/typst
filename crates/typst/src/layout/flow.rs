@@ -298,7 +298,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 consecutive,
                 self.regions.base(),
                 self.regions.expand.x,
-                self.root,
             )?
             .into_frames();
 

@@ -170,7 +170,6 @@ impl Packed<ParElem> {
         consecutive: bool,
         region: Size,
         expand: bool,
-        in_root_flow: bool,
     ) -> SourceResult<Fragment> {
         crate::layout::layout_inline(
             &self.children,
@@ -180,7 +179,6 @@ impl Packed<ParElem> {
             consecutive,
             region,
             expand,
-            in_root_flow,
         )
     }
 }

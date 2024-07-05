@@ -418,7 +418,6 @@ pub fn commit(
     shrink: bool,
     locator: &mut SplitLocator<'_>,
     styles: StyleChain,
-    in_root_flow: bool,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
