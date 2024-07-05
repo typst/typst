@@ -17,7 +17,7 @@ use crate::text::TextElem;
 /// ```
 ///
 /// # Predefined Operators { #predefined }
-/// Typst predefines the operators `arccos`, `arcsin`, `arctan`, `arg`, `cos`,
+/// Typst predefines the operators `arccos`, `arcctg`, `arcsin`, `arctan`, `arctg`, `arg`, `cos`,
 /// `cosh`, `cot`, `coth`, `csc`, `csch`, `ctg`, `deg`, `det`, `dim`, `exp`,
 /// `gcd`, `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`, `limsup`,
 /// `ln`, `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sech`, `sin`, `sinc`,
@@ -86,8 +86,10 @@ macro_rules! ops {
 
 ops! {
     arccos,
+    arcctg,
     arcsin,
     arctan,
+    arctg,
     arg,
     cos,
     cosh,
