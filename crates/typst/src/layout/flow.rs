@@ -25,8 +25,6 @@ use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine};
 use crate::realize::StyleVec;
 use crate::utils::Numeric;
 
-use super::{Length, PageElem};
-
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
 /// This element is responsible for layouting both the top-level content flow
@@ -373,10 +371,9 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             if self.root {
                 collect_footnotes(&mut notes, &frame);
 
-                find_lines(&mut lines, &frame);
+                find_lines(&mut lines, &frame, Abs::zero());
                 // Handle on each region
-                self.handle_par_lines(&lines)?;
-                lines.clear();
+                self.handle_par_lines(std::mem::take(&mut lines))?;
             }
 
             if i > 0 {
@@ -471,7 +468,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 self.regions.size.y -= height;
                 if self.root {
                     let mut lines = Vec::new();
-                    find_lines(&mut lines, frame);
+                    find_lines(&mut lines, frame, Abs::zero());
                     if movable {
                         let mut notes = Vec::new();
                         collect_footnotes(&mut notes, frame);
@@ -486,11 +483,11 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                             self.regions.size.y -= height;
                             self.handle_footnotes(&mut notes, true, true)?;
                         }
-                        self.handle_par_lines(&lines)?;
+                        self.handle_par_lines(lines)?;
                         return Ok(());
                     }
 
-                    self.handle_par_lines(&lines)?;
+                    self.handle_par_lines(lines)?;
                 }
             }
             FlowItem::Placed { float: false, .. } => {}
@@ -543,8 +540,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     // line numbers aren't floating placed elements,
                     // so they are out of flow.
                     let mut lines = Vec::new();
-                    find_lines(&mut lines, frame);
-                    self.handle_par_lines(&lines)?;
+                    find_lines(&mut lines, frame, Abs::zero());
+                    self.handle_par_lines(lines)?;
                 }
             }
             FlowItem::LineNumber { .. } => {}
@@ -677,6 +674,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let mut offset = float_top_height;
         let mut float_bottom_offset = Abs::zero();
         let mut footnote_offset = Abs::zero();
+        let mut latest_frame_pos = Point::zero();
 
         // Place all frames.
         for item in self.items.drain(..) {
@@ -695,6 +693,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let y = offset + ruler.position(size.y - used.y);
                     let pos = Point::new(x, y);
                     offset += frame.height();
+                    latest_frame_pos = pos;
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed { frame, x_align, y_align, delta, float, .. } => {
@@ -726,33 +725,16 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let pos = Point::new(x, y)
                         + delta.zip_map(size, Rel::relative_to).to_point();
 
+                    latest_frame_pos = pos;
                     output.push_frame(pos, frame);
                 }
                 FlowItem::LineNumber { frame, y } => {
-                    // TODO: Don't do this
-                    let page_width =
-                        PageElem::width_in(self.styles).unwrap_or(Abs::inf());
-                    let page_height =
-                        PageElem::height_in(self.styles).unwrap_or(Abs::inf());
-                    let page_size = if PageElem::flipped_in(self.styles) {
-                        Size::new(page_height, page_width)
-                    } else {
-                        Size::new(page_width, page_height)
-                    };
-                    let mut min = page_width.min(page_height);
-                    if !min.is_finite() {
-                        min = crate::layout::page::Paper::A4.width();
-                    }
-                    let default_margin = Rel::<Length>::from((2.5 / 21.0) * min);
-                    let margin = PageElem::margin_in(self.styles);
-                    let top_margin = margin
-                        .sides
-                        .top
-                        .and_then(Smart::custom)
-                        .unwrap_or(default_margin)
-                        .resolve(self.styles)
-                        .relative_to(page_size.y);
-                    output.push_frame(Point::new(Abs::cm(-1.0), y - top_margin), frame);
+                    // TODO: Leading offset can vary depending on the paragraph.
+                    // There might be some #set par(leading) under us.
+                    let number_height =
+                        latest_frame_pos.y + y - ParElem::leading_in(*self.styles);
+                    let pos = Point::new(Abs::cm(-1.0), number_height);
+                    output.push_frame(pos, frame);
                 }
                 FlowItem::Footnote(frame) => {
                     let y = size.y - footnote_height + footnote_offset;
@@ -821,22 +803,24 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
     /// Processes all paragraph lines in the frame, displaying line numbers.
     /// This should only be run in the root flow.
-    fn handle_par_lines(&mut self, lines: &[Packed<ParLine>]) -> SourceResult<()> {
-        // TODO: don't do this
-        let mut lines: Vec<Abs> = lines
-            .iter()
-            .map(|line| line.location().unwrap().position(self.engine).point.y)
-            .collect();
-        lines.sort();
+    fn handle_par_lines(
+        &mut self,
+        mut lines: Vec<(Abs, Packed<ParLine>)>,
+    ) -> SourceResult<()> {
+        lines.sort_by_key(|(y, _)| *y);
 
         const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
 
         let mut prev_y = None;
-        for line_y in lines {
+        for (line_y, _) in lines {
             if prev_y
                 .is_some_and(|prev_y| (line_y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
             {
                 // Lines are too close together. Display as the same line number.
+                // TODO: We have to do this at once for all lines in a region.
+                // That is, collect into a per-region vector and then
+                // "deduplicate" the line numbers. Otherwise, this will
+                // deduplicate them only within the same flow item.
                 continue;
             }
 
@@ -1014,18 +998,24 @@ fn collect_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
 }
 
 /// Finds all numbered paragraph lines in the frame.
-fn find_lines(lines: &mut Vec<Packed<ParLine>>, frame: &Frame) {
-    for (_, item) in frame.items() {
+/// The 'prev_y' parameter starts at 0 on the first call to find_lines.
+/// On each subframe we encounter, we add that subframe's position to 'prev_y',
+/// until we reach a line's tag, at which point we add the tag's position and finish.
+/// That gives us the relative height of the line within the caller frame.
+fn find_lines(lines: &mut Vec<(Abs, Packed<ParLine>)>, frame: &Frame, prev_y: Abs) {
+    for (pos, item) in frame.items() {
         match item {
-            FrameItem::Group(group) => find_lines(lines, &group.frame),
+            FrameItem::Group(group) => find_lines(lines, &group.frame, prev_y + pos.y),
             FrameItem::Tag(tag)
-                if !lines.iter().any(|line| line.location() == tag.elem.location()) =>
+                if !lines
+                    .iter()
+                    .any(|(_, line)| line.location() == tag.elem.location()) =>
             {
                 let Some(line) = tag.elem.to_packed::<ParLine>() else {
                     continue;
                 };
 
-                lines.push(line.clone());
+                lines.push((prev_y + pos.y, line.clone()));
             }
             _ => {}
         }
