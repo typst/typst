@@ -25,6 +25,8 @@ use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine};
 use crate::realize::StyleVec;
 use crate::utils::Numeric;
 
+use super::{Length, PageElem};
+
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
 /// This element is responsible for layouting both the top-level content flow
@@ -727,7 +729,30 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     output.push_frame(pos, frame);
                 }
                 FlowItem::LineNumber { frame, y } => {
-                    output.push_frame(Point::new(Abs::cm(-1.0), y), frame);
+                    // TODO: Don't do this
+                    let page_width =
+                        PageElem::width_in(self.styles).unwrap_or(Abs::inf());
+                    let page_height =
+                        PageElem::height_in(self.styles).unwrap_or(Abs::inf());
+                    let page_size = if PageElem::flipped_in(self.styles) {
+                        Size::new(page_height, page_width)
+                    } else {
+                        Size::new(page_width, page_height)
+                    };
+                    let mut min = page_width.min(page_height);
+                    if !min.is_finite() {
+                        min = crate::layout::page::Paper::A4.width();
+                    }
+                    let default_margin = Rel::<Length>::from((2.5 / 21.0) * min);
+                    let margin = PageElem::margin_in(self.styles);
+                    let top_margin = margin
+                        .sides
+                        .top
+                        .and_then(Smart::custom)
+                        .unwrap_or(default_margin)
+                        .resolve(self.styles)
+                        .relative_to(page_size.y);
+                    output.push_frame(Point::new(Abs::cm(-1.0), y - top_margin), frame);
                 }
                 FlowItem::Footnote(frame) => {
                     let y = size.y - footnote_height + footnote_offset;
