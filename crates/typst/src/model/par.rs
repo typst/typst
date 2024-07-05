@@ -3,11 +3,12 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
     StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
 use crate::layout::{Em, Fragment, Length, Size};
+use crate::model::Numbering;
 use crate::realize::StyleVec;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -35,7 +36,7 @@ use crate::realize::StyleVec;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Debug, Construct)]
+#[elem(scope, title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -144,6 +145,12 @@ pub struct ParElem {
     pub children: StyleVec,
 }
 
+#[scope]
+impl ParElem {
+    #[elem]
+    type ParLine;
+}
+
 impl Construct for ParElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -228,8 +235,19 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// A paragraph line.
 /// This element is exclusively used for the line number counter, and cannot
 /// be placed.
-#[elem(title = "Paragraph Line", Construct, Locatable, Count)]
-pub struct ParLine {}
+#[elem(name = "line", title = "Paragraph Line", Construct, Locatable, Count)]
+pub struct ParLine {
+    /// How to number each line. Accepts a
+    /// [numbering pattern or function]($numbering).
+    ///
+    /// ```example
+    /// #set par.line(numbering: "1.")
+    ///
+    /// #lorem(100)
+    /// ```
+    #[ghost]
+    pub numbering: Option<Numbering>,
+}
 
 impl Construct for ParLine {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
@@ -248,7 +266,11 @@ impl Count for Packed<ParLine> {
 /// This element is added to each line in a paragraph, and later searched to
 /// find out where to draw line numbers.
 #[elem(Construct, Show, Locatable, Count)]
-pub struct ParLineMarker {}
+pub struct ParLineMarker {
+    #[internal]
+    #[required]
+    pub numbering: Numbering,
+}
 
 impl Construct for ParLineMarker {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {

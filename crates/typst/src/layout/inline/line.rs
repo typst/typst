@@ -6,7 +6,7 @@ use crate::engine::Engine;
 use crate::foundations::NativeElement;
 use crate::introspection::SplitLocator;
 use crate::layout::{Abs, Axes, Dir, Em, Fr, Frame, FrameItem, Point, Regions};
-use crate::model::ParLineMarker;
+use crate::model::{ParLine, ParLineMarker};
 use crate::text::{Lang, TextElem};
 use crate::utils::Numeric;
 
@@ -493,14 +493,17 @@ pub fn commit(
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
 
-    let par_line = ParLineMarker::new().pack();
-    let par_line_region = Regions::one(Size::new(width, full), Axes::new(true, false));
-    frames.push((
-        offset,
-        par_line
-            .layout(engine, locator.next(&par_line), styles, par_line_region)?
-            .into_frame(),
-    ));
+    if let Some(numbering) = ParLine::numbering_in(styles) {
+        let par_line = ParLineMarker::new(numbering).pack();
+        let par_line_region =
+            Regions::one(Size::new(width, full), Axes::new(true, false));
+        frames.push((
+            offset,
+            par_line
+                .layout(engine, locator.next(&par_line), styles, par_line_region)?
+                .into_frame(),
+        ));
+    }
 
     for item in line.items.iter() {
         let mut push = |offset: &mut Abs, frame: Frame| {

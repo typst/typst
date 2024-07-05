@@ -826,7 +826,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
 
         let mut prev_y = None;
-        for (line_y, _) in lines {
+        for (line_y, line_marker) in lines {
             if prev_y
                 .is_some_and(|prev_y| (line_y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
             {
@@ -842,7 +842,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Therefore, the check above ensures no lines too close together
             // will cause too many different line numbers to appear.
             prev_y = Some(line_y);
-            self.layout_line_number(line_y)?;
+            self.layout_line_number(line_marker.numbering(), line_y)?;
         }
 
         Ok(())
@@ -945,7 +945,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         Ok(())
     }
 
-    fn layout_line_number(&mut self, y: Abs) -> SourceResult<()> {
+    fn layout_line_number(&mut self, numbering: &Numbering, y: Abs) -> SourceResult<()> {
         let line_counter = Counter::of(ParLineMarker::elem());
         let mut line_counter_update = line_counter
             .clone()
@@ -968,7 +968,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             self.engine,
             location,
             *self.styles,
-            &Numbering::Pattern("1".parse().unwrap()),
+            numbering,
         )?;
 
         let line_number =
