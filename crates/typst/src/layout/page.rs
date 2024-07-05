@@ -10,7 +10,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, AutoValue, Cast, Content, Context, Dict, Fold, Func, NativeElement,
-    Packed, Resolve, Smart, StyleChain, Value,
+    Packed, Resolve, Smart, StyleChain, Styles, Value,
 };
 use crate::introspection::{
     Counter, CounterDisplayElem, CounterKey, Locator, ManualPageCounter, SplitLocator,
@@ -395,9 +395,20 @@ impl Packed<PageElem> {
         let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
         regions.root = true;
 
+        let mut applied_style = Styles::new();
+        applied_style.set(PageElem::set_margin(Margin {
+            sides: margin.map(|side| Some(Smart::Custom(side.into()))),
+            two_sided: Some(two_sided),
+        }));
+
         // Layout the child.
         let frames = child
-            .layout(engine, locator.next(&self.span()), styles, regions)?
+            .layout(
+                engine,
+                locator.next(&self.span()),
+                styles.chain(&applied_style),
+                regions,
+            )?
             .into_frames();
 
         Ok(PageLayout {
