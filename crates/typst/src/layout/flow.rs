@@ -674,6 +674,10 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let mut offset = float_top_height;
         let mut float_bottom_offset = Abs::zero();
         let mut footnote_offset = Abs::zero();
+
+        // Keep placed line numbers for deduplication
+        let mut placed_line_numbers: Vec<Abs> = vec![];
+        // Line numbers attach to the previously placed frame
         let mut latest_frame_pos = Point::zero();
 
         // Place all frames.
@@ -733,8 +737,19 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     // There might be some #set par(leading) under us.
                     let number_height =
                         latest_frame_pos.y + y - ParElem::leading_in(*self.styles);
-                    let pos = Point::new(Abs::cm(-1.0), number_height);
-                    output.push_frame(pos, frame);
+
+                    // TODO: Deduplicate this constant
+                    // Actually, we should store the height of each line next to the tag
+                    // Then we deduplicate based on lines being inside others
+                    const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
+
+                    if placed_line_numbers.iter().all(|height| {
+                        (number_height - *height).abs() > LINE_DISTANCE_THRESHOLD
+                    }) {
+                        let pos = Point::new(Abs::cm(-1.0), number_height);
+                        output.push_frame(pos, frame);
+                        placed_line_numbers.push(number_height);
+                    }
                 }
                 FlowItem::Footnote(frame) => {
                     let y = size.y - footnote_height + footnote_offset;
