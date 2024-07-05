@@ -409,6 +409,7 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
 }
 
 /// Commit to a line and build its frame.
+#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
