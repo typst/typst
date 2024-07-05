@@ -57,7 +57,9 @@ pub use typst_syntax as syntax;
 pub use typst_utils as utils;
 
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::ops::{Deref, Range};
+use std::str::FromStr;
 
 use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
@@ -291,6 +293,48 @@ impl<T: World> WorldExt for T {
     }
 }
 
+/// The export target of a compilation, this is used to allow control over export specific features.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ExportTarget {
+    /// The PDF export target, this is the default.
+    #[default]
+    Pdf,
+    /// The SVG export target.
+    Svg,
+    /// The raster export target, this includes all raster targets such as PNG or JPEG.
+    Raster,
+}
+
+impl FromStr for ExportTarget {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "pdf" => ExportTarget::Pdf,
+            "svg" => ExportTarget::Svg,
+            "raster" => ExportTarget::Raster,
+            _ => return Err(()),
+        })
+    }
+}
+
+impl ExportTarget {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ExportTarget::Pdf => "pdf",
+            ExportTarget::Svg => "svg",
+            ExportTarget::Raster => "raster",
+        }
+    }
+}
+
+impl Display for ExportTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.pad(self.as_str())
+    }
+}
+
 /// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
 pub struct Library {
@@ -326,6 +370,7 @@ impl Default for Library {
 #[derive(Debug, Clone, Default)]
 pub struct LibraryBuilder {
     inputs: Option<Dict>,
+    target: Option<ExportTarget>,
 }
 
 impl LibraryBuilder {
@@ -335,20 +380,26 @@ impl LibraryBuilder {
         self
     }
 
+    /// Configure the export target visible through `sys.target`.
+    pub fn with_target(mut self, target: ExportTarget) -> Self {
+        self.target = Some(target);
+        self
+    }
+
     /// Consumes the builder and returns a `Library`.
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs);
+        let global = global(math.clone(), inputs, self.target.unwrap_or_default());
         let std = Value::Module(global.clone());
         Library { global, math, styles: Styles::new(), std }
     }
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict) -> Module {
+fn global(math: Module, inputs: Dict, target: ExportTarget) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global, inputs);
+    self::foundations::define(&mut global, inputs, target);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();
