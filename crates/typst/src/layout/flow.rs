@@ -370,7 +370,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             if self.root {
                 collect_footnotes(&mut notes, &frame);
 
-                find_lines(&mut lines, &frame, Abs::zero());
+                collect_par_lines(&mut lines, &frame, Abs::zero());
                 // Handle on each region
                 self.handle_par_lines(std::mem::take(&mut lines))?;
             }
@@ -467,7 +467,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 self.regions.size.y -= height;
                 if self.root {
                     let mut lines = Vec::new();
-                    find_lines(&mut lines, frame, Abs::zero());
+                    collect_par_lines(&mut lines, frame, Abs::zero());
                     if movable {
                         let mut notes = Vec::new();
                         collect_footnotes(&mut notes, frame);
@@ -539,7 +539,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     // line numbers aren't floating placed elements,
                     // so they are out of flow.
                     let mut lines = Vec::new();
-                    find_lines(&mut lines, frame, Abs::zero());
+                    collect_par_lines(&mut lines, frame, Abs::zero());
                     self.handle_par_lines(lines)?;
                 }
             }
@@ -1011,15 +1011,21 @@ fn collect_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
     }
 }
 
-/// Finds all numbered paragraph lines in the frame.
+/// Collect all numbered paragraph lines in the frame.
 /// The 'prev_y' parameter starts at 0 on the first call to find_lines.
 /// On each subframe we encounter, we add that subframe's position to 'prev_y',
 /// until we reach a line's tag, at which point we add the tag's position and finish.
 /// That gives us the relative height of the line within the caller frame.
-fn find_lines(lines: &mut Vec<(Abs, Packed<ParLineMarker>)>, frame: &Frame, prev_y: Abs) {
+fn collect_par_lines(
+    lines: &mut Vec<(Abs, Packed<ParLineMarker>)>,
+    frame: &Frame,
+    prev_y: Abs,
+) {
     for (pos, item) in frame.items() {
         match item {
-            FrameItem::Group(group) => find_lines(lines, &group.frame, prev_y + pos.y),
+            FrameItem::Group(group) => {
+                collect_par_lines(lines, &group.frame, prev_y + pos.y)
+            }
             FrameItem::Tag(tag)
                 if !lines
                     .iter()
