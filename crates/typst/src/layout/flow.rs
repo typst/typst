@@ -491,7 +491,12 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     self.handle_par_lines(lines)?;
                 }
             }
-            FlowItem::Placed { float: false, .. } => {}
+            FlowItem::Placed { ref frame, float: false, .. } => {
+                // TODO: Double-check whether we want this
+                let mut lines = Vec::new();
+                collect_par_lines(&mut lines, frame, Abs::zero());
+                self.handle_par_lines(lines)?;
+            }
             FlowItem::Placed {
                 ref mut frame,
                 ref mut y_align,
@@ -537,9 +542,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     collect_footnotes(&mut notes, frame);
                     self.try_handle_footnotes(notes)?;
 
-                    // This won't be infinitely recursive as
-                    // line numbers aren't floating placed elements,
-                    // so they are out of flow.
                     let mut lines = Vec::new();
                     collect_par_lines(&mut lines, frame, Abs::zero());
                     self.handle_par_lines(lines)?;
