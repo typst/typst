@@ -15,7 +15,7 @@ use crate::model::{
     Destination, HeadingElem, NumberingPattern, ParElem, ParbreakElem, Refable,
 };
 use crate::syntax::Span;
-use crate::text::{LinebreakElem, LocalName, SpaceElem, TextElem};
+use crate::text::{isolate, LinebreakElem, LocalName, SpaceElem, TextElem};
 use crate::utils::NonZeroExt;
 
 /// A table of contents, figures, or other elements.
@@ -500,18 +500,11 @@ impl Show for Packed<OutlineEntry> {
         };
 
         // The body text remains overridable.
-        seq.push(
-            TextElem::new(
-                match TextElem::dir_in(styles) {
-                    crate::layout::Dir::RTL => "\u{202B}",
-                    _ => "\u{202A}",
-                }
-                .into(),
-            )
-            .pack(),
+        isolate(
+            self.body().clone().linked(Destination::Location(location)),
+            styles,
+            &mut seq,
         );
-        seq.push(self.body().clone().linked(Destination::Location(location)));
-        seq.push(TextElem::new("\u{202C}".into()).pack());
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
