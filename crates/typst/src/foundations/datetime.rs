@@ -3,6 +3,10 @@ use std::hash::Hash;
 use std::ops::{Add, Sub};
 
 use ecow::{eco_format, EcoString, EcoVec};
+use icu_datetime::options::length;
+use icu_datetime::{DateFormatter, DateTimeFormatter, TimeFormatter};
+use icu_locid::Locale;
+use length::Bag;
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{format_description, Month, PrimitiveDateTime};
@@ -33,6 +37,9 @@ use crate::World;
 ///   "y:[year repr:last_two]"
 /// )
 ///
+/// #date.display(locale: "de", date: "full") \
+/// #date.display(locale: "en-u-ca-japanese")
+///
 /// #let time = datetime(
 ///   hour: 18,
 ///   minute: 2,
@@ -43,6 +50,8 @@ use crate::World;
 /// #time.display(
 ///   "h:[hour repr:12][period]"
 /// )
+///
+/// #time.display(locale: "ar", time: "short")
 /// ```
 ///
 /// # Datetime and Duration
@@ -69,9 +78,9 @@ use crate::World;
 ///
 /// # Format
 /// You can specify a customized formatting using the
-/// [`display`]($datetime.display) method. The format of a datetime is
-/// specified by providing _components_ with a specified number of _modifiers_.
-/// A component represents a certain part of the datetime that you want to
+/// [`display`]($datetime.display) method. The format of a datetime is specified
+/// by providing _components_ with a specified number of _modifiers_. A
+/// component represents a certain part of the datetime that you want to
 /// display, and with the help of modifiers you can define how you want to
 /// display that component. In order to display a component, you wrap the name
 /// of the component in square brackets (e.g. `[[year]]` will display the year).
@@ -93,10 +102,7 @@ use crate::World;
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     month is padded.
 ///   - `repr`: Can be either `numerical`, `long` or `short`. Specifies if the
-///     month should be displayed as a number or a word. Unfortunately, when
-///     choosing the word representation, it can currently only display the
-///     English version. In the future, it is planned to support localization.
-/// - `day`: Displays the day of the datetime.
+///     month should be displayed as a number or an English word.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     day is padded.
 /// - `week_number`: Displays the week number of the datetime.
@@ -107,10 +113,10 @@ use crate::World;
 ///      and 53.
 /// - `weekday`: Displays the weekday of the date.
 ///   - `repr` Can be either `long`, `short`, `sunday` or `monday`. In the case
-///     of `long` and `short`, the corresponding English name will be displayed
-///     (same as for the month, other languages are currently not supported). In
-///     the case of `sunday` and `monday`, the numerical value will be displayed
-///     (assuming Sunday and Monday as the first day of the week, respectively).
+///     of `long` and `short`, the corresponding English name will be displayed.
+///     In the case of `sunday` and `monday`, the numerical value will be
+///     displayed (assuming Sunday and Monday as the first day of the week,
+///     respectively).
 ///   - `one_indexed`: Can be either `true` or `false`. Defines whether the
 ///     numerical representation of the week starts with 0 or 1.
 /// - `hour`: Displays the hour of the date.
@@ -133,6 +139,11 @@ use crate::World;
 /// will be stored as a plain date internally, meaning that you cannot use
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
+///
+/// The above format string language only supports English month and weekday
+/// names. For other languages, you can use the `locale` named parameter of
+/// `display` to select a locale, and `date` and `time` named parameters to
+/// customize the length somewhat.
 #[ty(scope, cast)]
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub enum Datetime {
@@ -229,6 +240,84 @@ impl Datetime {
             Datetime::Time(_) => "time",
         }
     }
+
+    /// Display this Datetime in a locale-away manner using ICU.
+    pub fn display_icu(
+        &self,
+        locale: &str,
+        date_length: length::Date,
+        time_length: length::Time,
+    ) -> StrResult<EcoString> {
+        let Ok(locale) = icu_locid::Locale::try_from_bytes(locale.as_bytes()) else {
+            bail!("invalid locale")
+        };
+        match self {
+            Datetime::Datetime(datetime) => {
+                display_icu_datetime(datetime, &locale, date_length, time_length)
+            }
+            Datetime::Date(date) => display_icu_date(date, &locale, date_length),
+            Datetime::Time(time) => display_icu_time(time, &locale, time_length),
+        }
+    }
+}
+
+fn display_icu_datetime(
+    datetime: &time::PrimitiveDateTime,
+    locale: &Locale,
+    date_length: length::Date,
+    time_length: length::Time,
+) -> StrResult<EcoString> {
+    let Ok(datetime) = icu_calendar::DateTime::try_new_iso_datetime(
+        datetime.year(),
+        datetime.month().into(),
+        datetime.day(),
+        datetime.hour(),
+        datetime.minute(),
+        datetime.second(),
+    ) else {
+        bail!("invalid datetime")
+    };
+    let options = Bag::from_date_time_style(date_length, time_length).into();
+    DateTimeFormatter::try_new(&locale.into(), options)
+        .map_err(|err| eco_format!("failed to create DateTimeFormatter: {err}"))?
+        .format_to_string(&datetime.to_any())
+        .map(EcoString::from)
+        .map_err(|err| eco_format!("failed to format DateTime: {err}"))
+}
+
+fn display_icu_date(
+    date: &time::Date,
+    locale: &Locale,
+    date_length: length::Date,
+) -> StrResult<EcoString> {
+    let Ok(date) = icu_calendar::Date::try_new_iso_date(
+        date.year(),
+        date.month().into(),
+        date.day(),
+    ) else {
+        bail!("invalid date")
+    };
+    DateFormatter::try_new_with_length(&locale.into(), date_length)
+        .map_err(|err| eco_format!("failed to create DateFormatter: {err}"))?
+        .format_to_string(&date.to_any())
+        .map(EcoString::from)
+        .map_err(|err| eco_format!("failed to format Date: {err}"))
+}
+
+fn display_icu_time(
+    time: &time::Time,
+    locale: &Locale,
+    time_length: length::Time,
+) -> StrResult<EcoString> {
+    let Ok(time) =
+        icu_calendar::Time::try_new(time.hour(), time.minute(), time.second(), 0)
+    else {
+        bail!("invalid time");
+    };
+    let time_string = TimeFormatter::try_new_with_length(&locale.into(), time_length)
+        .map_err(|err| eco_format!("failed to create TimeFormatter: {err}"))?
+        .format_to_string(&time);
+    Ok(EcoString::from(time_string))
 }
 
 #[scope]
@@ -341,30 +430,52 @@ impl Datetime {
     /// `[[year]-[month]-[day] [hour]:[minute]:[second]]`.
     ///
     /// See the [format syntax]($datetime/#format) for more information.
+    ///
+    /// If you specify `locale`, the `pattern` is ignored, and a different
+    /// algorithm is used to display the datetime in a localized format. You can
+    /// use the `date` and `time` parameters to control the length of the
+    /// output.
     #[func]
     pub fn display(
         &self,
         /// The format used to display the datetime.
         #[default]
         pattern: Smart<DisplayPattern>,
+        /// The locale used to display the datetime. If this is specified,
+        /// `pattern` is ignored and `date` and `time` are used instead.
+        #[named]
+        locale: Option<Str>,
+        /// The length of the localized date. Can be `"full"`, `"long"`,
+        /// `"medium"` or `"short"`. The default is `"medium"`.
+        #[named]
+        #[default(length::Date::Medium)]
+        date: length::Date,
+        /// The length of the localized time. Can be `"medium"` (hour, minute)
+        /// or `"short"` (hour, minute, second).
+        #[named]
+        #[default(length::Time::Medium)]
+        time: length::Time,
     ) -> StrResult<EcoString> {
         let pat = |s| format_description::parse_borrowed::<2>(s).unwrap();
-        let result = match pattern {
-            Smart::Auto => match self {
+        match (pattern, locale) {
+            (_, Some(locale)) => self.display_icu(&locale, date, time),
+            (Smart::Auto, _) => match self {
                 Self::Date(date) => date.format(&pat("[year]-[month]-[day]")),
                 Self::Time(time) => time.format(&pat("[hour]:[minute]:[second]")),
                 Self::Datetime(datetime) => {
                     datetime.format(&pat("[year]-[month]-[day] [hour]:[minute]:[second]"))
                 }
-            },
-
-            Smart::Custom(DisplayPattern(_, format)) => match self {
+            }
+            .map(EcoString::from)
+            .map_err(format_time_format_error),
+            (Smart::Custom(DisplayPattern(_, format)), _) => match self {
                 Self::Date(date) => date.format(&format),
                 Self::Time(time) => time.format(&format),
                 Self::Datetime(datetime) => datetime.format(&format),
-            },
-        };
-        result.map(EcoString::from).map_err(format_time_format_error)
+            }
+            .map(EcoString::from)
+            .map_err(format_time_format_error),
+        }
     }
 
     /// The year if it was specified, or `{none}` for times without a date.
@@ -531,6 +642,30 @@ cast! {
 cast! {
     Month,
     v: u8 => Self::try_from(v).map_err(|_| "month is invalid")?
+}
+
+cast! {
+    length::Date,
+    self => match self {
+        Self::Full => "full".into_value(),
+        Self::Long => "long".into_value(),
+        Self::Short => "short".into_value(),
+        _ => "medium".into_value(),
+    },
+    "full" => Self::Full,
+    "long" => Self::Long,
+    "medium" => Self::Medium,
+    "short" => Self::Short,
+}
+
+cast! {
+    length::Time,
+    self => match self {
+        Self::Short => "short".into_value(),
+        _ => "medium".into_value(),
+    },
+    "medium" => Self::Medium,
+    "short" => Self::Short,
 }
 
 /// Format the `Format` error of the time crate in an appropriate way.
