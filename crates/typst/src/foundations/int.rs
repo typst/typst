@@ -213,8 +213,8 @@ impl i64 {
         }
     }
 
-    /// Converts bytes to an integer.
-    /// Bytes should be 8 bytes (64 bits) in size.
+    /// Converts bytes to an integer. The bytes will be treated as a 64-bit signed integer.
+    /// The bytes should be at most 8 bytes (64 bits) in size to fit in a 64-bit integer, otherwise an error will occur.
     ///
     /// ```example
     /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)), "little")
@@ -226,12 +226,22 @@ impl i64 {
         /// Endianness of the conversion.
         endianness: Endianness,
     ) -> Result<i64, EcoString> {
-        let array: [u8; 8] =
-            bytes.as_ref().try_into().map_err(|_| "Bytes should have size 8")?;
-        match endianness {
-            Endianness::Big => Ok(i64::from_be_bytes(array)),
-            Endianness::Little => Ok(i64::from_le_bytes(array)),
+        if bytes.len() > 8 {
+            return Err("Bytes too large to convert to a 64 bit number".into());
         }
+
+        let mut buf = [0u8; 8];
+        let len = bytes.len();
+
+        match endianness {
+            Endianness::Big => buf[8 - len..].copy_from_slice(bytes.as_ref()),
+            Endianness::Little => buf[..len].copy_from_slice(bytes.as_ref()),
+        }
+
+        Ok(match endianness {
+            Endianness::Big => i64::from_be_bytes(buf),
+            Endianness::Little => i64::from_le_bytes(buf),
+        })
     }
 
     /// Converts an integer to bytes.
