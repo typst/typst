@@ -225,13 +225,13 @@ impl i64 {
         bytes: Bytes,
         /// Endianness of the conversion.
         endianness: Endianness,
-    ) -> Result<i64, EcoString> {
-        if bytes.len() > 8 {
+    ) -> StrResult<i64> {
+        let len = bytes.len();
+        if len > 8 {
             return Err("Bytes too large to convert to a 64 bit number".into());
         }
 
         let mut buf = [0u8; 8];
-        let len = bytes.len();
 
         match endianness {
             Endianness::Big => buf[8 - len..].copy_from_slice(bytes.as_ref()),
@@ -245,22 +245,44 @@ impl i64 {
     }
 
     /// Converts an integer to bytes.
-    /// The integer is converted to 8 bytes or 64 bits in size.
+    /// The integer is converted to a byte array of the specified size and endianness.
     ///
     /// ```example
     /// #array(10000.to-bytes("big"))
+    /// #array(10000.to-bytes("little", 4))
     /// ```
     #[func]
     pub fn to_bytes(
         self,
         /// Endianness of the conversion.
         endianness: Endianness,
+        /// The size in bytes of the resulting bytes (must be at least zero).
+        /// If the integer is too large to fit in the specified size, the conversion will truncate
+        /// the remaining bytes based on the endianness. To keep the same resulting value, if the endianness
+        /// is big-endian, the truncation will happen at the rightmost bytes. Otherwise, if the
+        /// endianness is little-endian, the truncation will happen at the leftmost bytes.
+        #[default(8)]
+        size: usize,
     ) -> Bytes {
         let array = match endianness {
             Endianness::Big => self.to_be_bytes(),
             Endianness::Little => self.to_le_bytes(),
         };
-        Bytes::from(array.to_vec())
+
+        let mut buf = vec![0u8; size];
+
+        match endianness {
+            Endianness::Big => {
+                // Copy the bytes from the array to the buffer, starting from the end of the buffer.
+                buf[size.max(8) - 8..].copy_from_slice(&array[8 - size.min(8)..])
+            }
+            Endianness::Little => {
+                // Copy the bytes from the array to the buffer, starting from the beginning of the buffer.
+                buf[..size.min(8)].copy_from_slice(&array[..size.min(8)])
+            }
+        }
+
+        Bytes::from(buf)
     }
 }
 
