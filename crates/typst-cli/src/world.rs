@@ -208,6 +208,10 @@ impl World for SystemWorld {
         self.fonts[index].get()
     }
 
+    fn is_stdin(&self, id: FileId) -> bool {
+        self.slot(id, |slot| slot.is_stdin())
+    }
+
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = match &self.now {
             Now::Fixed(time) => time,
@@ -304,6 +308,11 @@ impl FileSlot {
             || read(self.id, project_root, package_storage),
             |data, _| Ok(data.into()),
         )
+    }
+
+    /// Return `true` if file ID is `stdin`.
+    fn is_stdin(&self) -> bool {
+        self.id == *STDIN_ID
     }
 }
 

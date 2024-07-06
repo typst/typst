@@ -180,9 +180,9 @@ fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> 
 
 /// The environment in which typesetting occurs.
 ///
-/// All loading functions (`main`, `source`, `file`, `font`) should perform
-/// internal caching so that they are relatively cheap on repeated invocations
-/// with the same argument. [`Source`], [`Bytes`], and [`Font`] are
+/// All loading functions (`main`, `source`, `file`, `font`, `is_stdin`) should
+/// perform internal caching so that they are relatively cheap on repeated
+/// invocations with the same argument. [`Source`], [`Bytes`], and [`Font`] are
 /// all reference-counted and thus cheap to clone.
 ///
 /// The compiler doesn't do the caching itself because the world has much more
@@ -214,6 +214,9 @@ pub trait World: Send + Sync {
 
     /// Try to access the font with the given index in the font book.
     fn font(&self, index: usize) -> Option<Font>;
+
+    /// Try to access the specified file.
+    fn is_stdin(&self, id: FileId) -> bool;
 
     /// Get the current date.
     ///
@@ -256,6 +259,10 @@ macro_rules! delegate_for_ptr {
 
             fn file(&self, id: FileId) -> FileResult<Bytes> {
                 self.deref().file(id)
+            }
+
+            fn is_stdin(&self, id: FileId) -> bool {
+                self.deref().is_stdin(id)
             }
 
             fn font(&self, index: usize) -> Option<Font> {
