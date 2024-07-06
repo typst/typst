@@ -370,11 +370,14 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         for (i, mut frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.
             if self.root {
+                if i > 0 {
+                    // Handle at the end of each region
+                    self.handle_par_lines(std::mem::take(&mut lines))?;
+                }
+
                 collect_footnotes(&mut notes, &frame);
 
                 collect_par_lines(&mut lines, &frame, Abs::zero());
-                // Handle on each region
-                self.handle_par_lines(std::mem::take(&mut lines))?;
             }
 
             if i > 0 {
@@ -387,6 +390,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         }
 
         self.try_handle_footnotes(notes)?;
+        self.handle_par_lines(lines)?;
 
         self.root = is_root;
         self.regions.root = false;
@@ -446,6 +450,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
     /// Layout a finished frame.
     fn handle_item(&mut self, mut item: FlowItem) -> SourceResult<()> {
+        let mut lines = Vec::new();
         match item {
             FlowItem::Absolute(v, weak) => {
                 if weak
@@ -468,7 +473,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 let in_last = self.regions.in_last();
                 self.regions.size.y -= height;
                 if self.root {
-                    let mut lines = Vec::new();
                     collect_par_lines(&mut lines, frame, Abs::zero());
                     if movable {
                         let mut notes = Vec::new();
@@ -487,15 +491,13 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                         self.handle_par_lines(lines)?;
                         return Ok(());
                     }
-
-                    self.handle_par_lines(lines)?;
                 }
             }
             FlowItem::Placed { ref frame, float: false, .. } => {
                 // TODO: Double-check whether we want this
-                let mut lines = Vec::new();
-                collect_par_lines(&mut lines, frame, Abs::zero());
-                self.handle_par_lines(lines)?;
+                if self.root {
+                    collect_par_lines(&mut lines, frame, Abs::zero());
+                }
             }
             FlowItem::Placed {
                 ref mut frame,
@@ -542,9 +544,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     collect_footnotes(&mut notes, frame);
                     self.try_handle_footnotes(notes)?;
 
-                    let mut lines = Vec::new();
                     collect_par_lines(&mut lines, frame, Abs::zero());
-                    self.handle_par_lines(lines)?;
                 }
             }
             FlowItem::LineNumber { .. } => {}
@@ -552,6 +552,15 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         }
 
         self.items.push(item);
+
+        if self.root {
+            // We have to handle lines after pushing the current item.
+            // As an invariant, line numbers always appear after the item
+            // they're attached to in the items vector.
+            // This is needed as the line numbers' positions are relative
+            // to said items' frames.
+            self.handle_par_lines(lines)?;
+        }
         Ok(())
     }
 
