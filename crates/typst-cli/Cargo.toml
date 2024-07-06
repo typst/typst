@@ -85,3 +85,13 @@ vendor-openssl = ["openssl/vendored"]
 
 [lints]
 workspace = true
+
+# The following metadata is used by `cargo-binstall`, and should be synchronized
+# with `.github/workflows/release.yml`.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/typst-{ target }{ archive-suffix }"
+bin-dir = "typst-{ target }/typst{ binary-ext }"
+pkg-fmt = "txz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
