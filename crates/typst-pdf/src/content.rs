@@ -92,7 +92,7 @@ pub struct Builder<'a, R = ()> {
     state: State,
     /// Stack of saved graphic states.
     saves: Vec<State>,
-    /// Whether any stroke or fill was not totally opaque.
+    /// Wheter any stroke or fill was not totally opaque.
     uses_opacities: bool,
     /// All clickable links that are present in this content.
     links: Vec<(Destination, Rect)>,
@@ -344,9 +344,6 @@ pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
-
-        ctx.save_state();
-
         match item {
             FrameItem::Group(group) => write_group(ctx, pos, group),
             FrameItem::Text(text) => write_text(ctx, pos, text),
@@ -355,14 +352,14 @@ pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) {
             FrameItem::Link(dest, size) => write_link(ctx, pos, dest, *size),
             FrameItem::Tag(_) => {}
         }
-
-        ctx.restore_state();
     }
 }
 
 /// Encode a group into the content stream.
 fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
+
+    ctx.save_state();
 
     if group.frame.kind().is_hard() {
         ctx.group_transform(
@@ -383,6 +380,7 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) {
     }
 
     write_frame(ctx, &group.frame);
+    ctx.restore_state();
 }
 
 /// Encode a text run into the content stream.
@@ -676,6 +674,7 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
     let name = eco_format!("Im{index}");
     let w = size.x.to_f32();
     let h = size.y.to_f32();
+    ctx.content.save_state();
     ctx.content.transform([w, 0.0, 0.0, -h, x, y + h]);
 
     if let Some(alt) = image.alt() {
@@ -691,6 +690,8 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
     } else {
         ctx.content.x_object(Name(name.as_bytes()));
     }
+
+    ctx.content.restore_state();
 }
 
 /// Save a link for later writing in the annotations dictionary.
