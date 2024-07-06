@@ -77,14 +77,17 @@ impl MathRun {
                 fragment.set_class(MathClass::Binary);
             }
 
-            // Insert spacing between the last and this item.
-            if let Some(i) = last {
-                if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
-                    resolved.insert(i + 1, s);
+            // Insert spacing between the last and this non-ignorant item.
+            if !fragment.is_ignorant() {
+                if let Some(i) = last {
+                    if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
+                        resolved.insert(i + 1, s);
+                    }
                 }
+
+                last = Some(resolved.len());
             }
 
-            last = Some(resolved.len());
             resolved.push(fragment);
         }
 
