@@ -157,7 +157,9 @@ impl FlowItem {
     /// Out-of-flow items are guaranteed to have a [zero size][Size::zero()].
     fn is_out_of_flow(&self) -> bool {
         match self {
-            Self::Placed { float: false, .. } => true,
+            // TODO: Is it appropriate to bundle line number here?
+            // It is the same as placing something though.
+            Self::Placed { float: false, .. } | Self::LineNumber { .. } => true,
             Self::Frame { frame, .. } => {
                 frame.size().is_zero()
                     && frame.items().all(|(_, item)| {
