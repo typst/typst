@@ -3,7 +3,7 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
@@ -42,7 +42,7 @@ pub trait Reflect {
     /// dynamic checks instead of optimized machine code for each type).
     fn castable(value: &Value) -> bool;
 
-    /// Produce an error message for an inacceptable value type.
+    /// Produce an error message for an unacceptable value type.
     ///
     /// ```ignore
     /// assert_eq!(
@@ -51,7 +51,7 @@ pub trait Reflect {
     /// );
     /// ```
     fn error(found: &Value) -> HintedString {
-        Self::input().error(found).into()
+        Self::input().error(found)
     }
 }
 
@@ -300,7 +300,7 @@ pub enum CastInfo {
 impl CastInfo {
     /// Produce an error message describing what was expected and what was
     /// found.
-    pub fn error(&self, found: &Value) -> EcoString {
+    pub fn error(&self, found: &Value) -> HintedString {
         let mut matching_type = false;
         let mut parts = vec![];
 
@@ -328,13 +328,26 @@ impl CastInfo {
             write!(msg, "{}", found.ty()).unwrap();
         }
 
+        let mut msg: HintedString = msg.into();
+
         if let Value::Int(i) = found {
-            if parts.iter().any(|p| p == "length") && !matching_type {
-                write!(msg, ": a length needs a unit - did you mean {i}pt?").unwrap();
+            if !matching_type && parts.iter().any(|p| p == "length") {
+                msg.hint(eco_format!("a length needs a unit - did you mean {i}pt?"));
+            }
+        } else if let Value::Str(s) = found {
+            if !matching_type && parts.iter().any(|p| p == "label") {
+                if typst_syntax::is_valid_label_literal_id(s) {
+                    msg.hint(eco_format!(
+                        "use `<{s}>` or `label({})` to create a label",
+                        s.repr()
+                    ));
+                } else {
+                    msg.hint(eco_format!("use `label({})` to create a label", s.repr()));
+                }
             }
         }
 
-        msg.into()
+        msg
     }
 
     /// Walk all contained non-union infos.

@@ -49,6 +49,13 @@
 // Error: 2-3 expected function, found string
 #x()
 
+--- call-shadowed-builtin-function ---
+#let image = "image"
+
+// Error: 2-7 expected function, found string
+// Hint: 2-7 use `std.image` to access the shadowed standard library function
+#image("image")
+
 --- call-bad-type-int-expr ---
 #let f(x) = x
 
@@ -80,6 +87,7 @@
 
 --- call-args-bad-token ---
 // Error: 10-12 unexpected end of block comment
+// Hint: 10-12 consider escaping the `*` with a backslash or opening the block comment with `/*`
 #func(a:1*/)
 
 --- call-args-missing-comma ---

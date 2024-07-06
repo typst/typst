@@ -78,7 +78,7 @@ Another text.
 = Heading
 
 --- show-unknown-field ---
-// Error: 25-29 content does not contain field "page"
+// Error: 25-29 heading does not have field "page"
 #show heading: it => it.page
 = Heading
 

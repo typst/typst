@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
-use crate::syntax::package::PackageSpec;
+use crate::syntax::package::{PackageSpec, PackageVersion};
 use crate::syntax::{Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
 
@@ -137,6 +137,15 @@ pub use {
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
+
+/// An output alongside warnings generated while producing it.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Warned<T> {
+    /// The produced output.
+    pub output: T,
+    /// Warnings generated while producing the output.
+    pub warnings: EcoVec<SourceDiagnostic>,
+}
 
 /// An error or warning in a source file.
 ///
@@ -366,13 +375,12 @@ where
     }
 }
 
-impl<T> At<T> for Result<T, HintedString> {
+impl<T> At<T> for HintedStrResult<T> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|err| {
             let mut components = err.0.into_iter();
             let message = components.next().unwrap();
             let diag = SourceDiagnostic::error(span, message).with_hints(components);
-
             eco_vec![diag]
         })
     }
@@ -495,6 +503,8 @@ pub type PackageResult<T> = Result<T, PackageError>;
 pub enum PackageError {
     /// The specified package does not exist.
     NotFound(PackageSpec),
+    /// The specified package found, but the version does not exist.
+    VersionNotFound(PackageSpec, PackageVersion),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
@@ -510,6 +520,13 @@ impl Display for PackageError {
         match self {
             Self::NotFound(spec) => {
                 write!(f, "package not found (searched for {spec})",)
+            }
+            Self::VersionNotFound(spec, latest) => {
+                write!(
+                    f,
+                    "package found, but version {} does not exist (latest is {})",
+                    spec.version, latest,
+                )
             }
             Self::NetworkFailed(Some(err)) => {
                 write!(f, "failed to download package ({err})")

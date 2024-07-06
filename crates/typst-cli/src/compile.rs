@@ -8,8 +8,7 @@ use codespan_reporting::term;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
+use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult, Warned};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, PageRanges};
 use typst::model::Document;
@@ -112,11 +111,9 @@ pub fn compile_once(
         return Ok(());
     }
 
-    let mut tracer = Tracer::new();
-    let result = typst::compile(world, &mut tracer);
-    let warnings = tracer.warnings();
+    let Warned { output, warnings } = typst::compile(world);
 
-    match result {
+    match output {
         // Export the PDF / PNG.
         Ok(document) => {
             export(world, &document, command, watching)?;
@@ -475,14 +472,30 @@ fn write_make_deps(world: &mut SystemWorld, command: &CompileCommand) -> StrResu
 /// Opens the given file using:
 /// - The default file viewer if `open` is `None`.
 /// - The given viewer provided by `open` if it is `Some`.
+///
+/// If the file could not be opened, an error is returned.
 fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+    // Some resource openers require the path to be canonicalized.
+    let path = path
+        .canonicalize()
+        .map_err(|err| eco_format!("failed to canonicalize path ({err})"))?;
     if let Some(app) = open {
-        open::with_in_background(path, app);
+        open::with_detached(&path, app)
+            .map_err(|err| eco_format!("failed to open file with {} ({})", app, err))
     } else {
-        open::that_in_background(path);
+        open::that_detached(&path).map_err(|err| {
+            let openers = open::commands(path)
+                .iter()
+                .map(|command| command.get_program().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(", ");
+            eco_format!(
+                "failed to open file with any of these resource openers: {} ({})",
+                openers,
+                err,
+            )
+        })
     }
-
-    Ok(())
 }
 
 /// Adds useful hints when the main source file couldn't be read

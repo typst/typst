@@ -7,9 +7,10 @@ use crate::foundations::{
     cast, elem, Args, AutoValue, Construct, Content, NativeElement, Packed, Resolve,
     Smart, StyleChain, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, Length, Region, Regions, Rel,
-    Sides, Size, Spacing, VElem,
+    Sides, Size, Spacing,
 };
 use crate::utils::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -120,6 +121,7 @@ impl Packed<BoxElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Frame> {
@@ -140,7 +142,7 @@ impl Packed<BoxElem> {
             // If we have a child, layout it into the body. Boxes are boundaries
             // for gradient relativeness, so we set the `FrameKind` to `Hard`.
             Some(body) => body
-                .layout(engine, styles, pod.into_regions())?
+                .layout(engine, locator, styles, pod.into_regions())?
                 .into_frame()
                 .with_kind(FrameKind::Hard),
         };
@@ -251,6 +253,7 @@ impl InlineElem {
         callback: fn(
             content: &Packed<T>,
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Size,
         ) -> SourceResult<Vec<InlineItem>>,
@@ -264,10 +267,11 @@ impl Packed<InlineElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Vec<InlineItem>> {
-        self.body().call(engine, styles, region)
+        self.body().call(engine, locator, styles, region)
     }
 }
 
@@ -381,8 +385,20 @@ pub struct BlockElem {
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
-    /// The spacing around this block. This is shorthand to set `above` and
-    /// `below` to the same value.
+    /// The spacing around the block. When `{auto}`, inherits the paragraph
+    /// [`spacing`]($par.spacing).
+    ///
+    /// For two adjacent blocks, the larger of the first block's `above` and the
+    /// second block's `below` spacing wins. Moreover, block spacing takes
+    /// precedence over paragraph [`spacing`]($par.spacing).
+    ///
+    /// Note that this is only a shorthand to set `above` and `below` to the
+    /// same value. Since the values for `above` and `below` might differ, a
+    /// [context] block only provides access to `{block.above}` and
+    /// `{block.below}`, not to `{block.spacing}` directly.
+    ///
+    /// This property can be used in combination with a show rule to adjust the
+    /// spacing around arbitrary block-level elements.
     ///
     /// ```example
     /// #set align(center)
@@ -396,35 +412,16 @@ pub struct BlockElem {
     #[default(Em::new(1.2).into())]
     pub spacing: Spacing,
 
-    /// The spacing between this block and its predecessor. Takes precedence
-    /// over `spacing`. Can be used in combination with a show rule to adjust
-    /// the spacing around arbitrary block-level elements.
-    #[external]
-    #[default(Em::new(1.2).into())]
-    pub above: Spacing,
-    #[internal]
+    /// The spacing between this block and its predecessor.
     #[parse(
         let spacing = args.named("spacing")?;
-        args.named("above")?
-            .map(VElem::block_around)
-            .or_else(|| spacing.map(VElem::block_spacing))
+        args.named("above")?.or(spacing)
     )]
-    #[default(VElem::block_spacing(Em::new(1.2).into()))]
-    pub above: VElem,
+    pub above: Smart<Spacing>,
 
-    /// The spacing between this block and its successor. Takes precedence
-    /// over `spacing`.
-    #[external]
-    #[default(Em::new(1.2).into())]
-    pub below: Spacing,
-    #[internal]
-    #[parse(
-        args.named("below")?
-            .map(VElem::block_around)
-            .or_else(|| spacing.map(VElem::block_spacing))
-    )]
-    #[default(VElem::block_spacing(Em::new(1.2).into()))]
-    pub below: VElem,
+    /// The spacing between this block and its successor.
+    #[parse(args.named("below")?.or(spacing))]
+    pub below: Smart<Spacing>,
 
     /// Whether to clip the content inside the block.
     #[default(false)]
@@ -460,6 +457,7 @@ impl BlockElem {
         f: fn(
             content: &Packed<T>,
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Region,
         ) -> SourceResult<Frame>,
@@ -477,6 +475,7 @@ impl BlockElem {
         f: fn(
             content: &Packed<T>,
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment>,
@@ -493,6 +492,7 @@ impl Packed<BlockElem> {
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -530,7 +530,8 @@ impl Packed<BlockElem> {
 
             // If we have content as our body, just layout it.
             Some(BlockChild::Content(body)) => {
-                let mut fragment = body.measure(engine, styles, pod)?;
+                let mut fragment =
+                    body.layout(engine, locator.relayout(), styles, pod)?;
 
                 // If the body is automatically sized and produced more than one
                 // fragment, ensure that the width was consistent across all
@@ -551,11 +552,7 @@ impl Packed<BlockElem> {
                         expand: Axes::new(true, pod.expand.y),
                         ..pod
                     };
-                    fragment = body.layout(engine, styles, pod)?;
-                } else {
-                    // Apply the side effect to turn the `measure` into a
-                    // `layout`.
-                    engine.locator.visit_frames(&fragment);
+                    fragment = body.layout(engine, locator, styles, pod)?;
                 }
 
                 fragment
@@ -565,7 +562,7 @@ impl Packed<BlockElem> {
             // base region, give it that.
             Some(BlockChild::SingleLayouter(callback)) => {
                 let pod = Region::new(pod.base(), pod.expand);
-                callback.call(engine, styles, pod).map(Fragment::frame)?
+                callback.call(engine, locator, styles, pod).map(Fragment::frame)?
             }
 
             // If we have a child that wants to layout with full region access,
@@ -577,7 +574,7 @@ impl Packed<BlockElem> {
             Some(BlockChild::MultiLayouter(callback)) => {
                 let expand = (pod.expand | regions.expand) & pod.size.map(Abs::is_finite);
                 let pod = Regions { expand, ..pod };
-                callback.call(engine, styles, pod)?
+                callback.call(engine, locator, styles, pod)?
             }
         };
 
@@ -913,6 +910,7 @@ mod callbacks {
                         //   private field and `Content`'s `Clone` impl is
                         //   guaranteed to retain the type (if it didn't,
                         //   literally everything would break).
+                        #[allow(clippy::missing_transmute_annotations)]
                         f: unsafe { std::mem::transmute(f) },
                     }
                 }
@@ -927,6 +925,7 @@ mod callbacks {
     callback! {
         InlineCallback = (
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Size,
         ) -> SourceResult<Vec<InlineItem>>
@@ -935,6 +934,7 @@ mod callbacks {
     callback! {
         BlockSingleCallback = (
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             region: Region,
         ) -> SourceResult<Frame>
@@ -943,6 +943,7 @@ mod callbacks {
     callback! {
         BlockMultiCallback = (
             engine: &mut Engine,
+            locator: Locator,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment>

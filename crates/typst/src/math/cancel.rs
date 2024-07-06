@@ -65,13 +65,13 @@ pub struct CancelElem {
 
     /// How much to rotate the cancel line.
     ///
+    /// - If given an angle, the line is rotated by that angle clockwise with
+    ///   respect to the y-axis.
     /// - If `{auto}`, the line assumes the default angle; that is, along the
-    ///   diagonal line of the content box.
-    /// - If given an angle, the line is rotated by that angle clockwise w.r.t
-    ///   the y-axis.
-    /// - If given a function `angle => angle`, the line is rotated by the angle
-    ///   returned by that function. The function receives the default angle as
-    ///   its input.
+    ///   rising diagonal of the content box.
+    /// - If given a function `angle => angle`, the line is rotated, with
+    ///   respect to the y-axis, by the angle returned by that function. The
+    ///   function receives the default angle as its input.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)

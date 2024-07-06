@@ -2255,15 +2255,13 @@ dependencies = [
 
 [[package]]
 name = "subsetter"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
+version = "0.11.0"
+source = "git+https://github.com/typst/subsetter?rev=4e0058b#4e0058b4b9a0948a5f79894111948d95e59ba350"
 
 [[package]]
 name = "svg2pdf"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e31565956eb1dc398c0d9776ee1d1bac4e34759af63dcbe0520df32313a5b53b"
+source = "git+https://github.com/typst/svg2pdf?rev=39f8ad3#39f8ad3b35e14cfcabf3d5d916899f7ac78790f7"
 dependencies = [
  "fontdb",
  "image 0.25.1",
@@ -2600,13 +2598,13 @@ dependencies = [
  "unscanny",
  "usvg",
  "wasmi",
+ "xmlwriter",
 ]
 
 [[package]]
 name = "typst-assets"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f13f85360328da54847dd7fefaf272dfa5b6d1fdeb53f32938924c39bf5b2c6c"
+source = "git+https://github.com/typst/typst-assets?rev=4ee794c#4ee794cf8fb98eb67194e757c9820ab8562d853b"
 
 [[package]]
 name = "typst-cli"
@@ -2657,7 +2655,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.11.0"
-source = "git+https://github.com/typst/typst-dev-assets?rev=ee8ae61cca138dc92f9d818fc7f2fc046d0148c5#ee8ae61cca138dc92f9d818fc7f2fc046d0148c5"
+source = "git+https://github.com/typst/typst-dev-assets?rev=48a924d#48a924d9de82b631bc775124a69384c8d860db04"
 
 [[package]]
 name = "typst-docs"

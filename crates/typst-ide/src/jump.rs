@@ -168,9 +168,17 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! This can be used in a normal test to determine positions:
+    //! ```
+    //! #set page(background: place(
+    //!   dx: 10pt,
+    //!   dy: 10pt,
+    //!   square(size: 2pt, fill: red),
+    //! ))
+    //! ```
+
     use std::num::NonZeroUsize;
 
-    use typst::eval::Tracer;
     use typst::layout::{Abs, Point, Position};
 
     use super::{jump_from_click, jump_from_cursor, Jump};
@@ -200,14 +208,23 @@ mod tests {
     #[track_caller]
     fn test_click(text: &str, click: Point, expected: Option<Jump>) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
-        assert_eq!(jump_from_click(&world, &doc, &doc.pages[0].frame, click), expected);
+        let doc = typst::compile(&world).output.unwrap();
+        let jump = jump_from_click(&world, &doc, &doc.pages[0].frame, click);
+        if let (Some(Jump::Position(pos)), Some(Jump::Position(expected))) =
+            (&jump, &expected)
+        {
+            assert_eq!(pos.page, expected.page);
+            assert_approx_eq!(pos.point.x, expected.point.x);
+            assert_approx_eq!(pos.point.y, expected.point.y);
+        } else {
+            assert_eq!(jump, expected);
+        }
     }
 
     #[track_caller]
     fn test_cursor(text: &str, cursor: usize, expected: Option<Position>) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).unwrap();
+        let doc = typst::compile(&world).output.unwrap();
         let pos = jump_from_cursor(&doc, &world.main, cursor);
         assert_eq!(pos.is_some(), expected.is_some());
         if let (Some(pos), Some(expected)) = (pos, expected) {
@@ -240,5 +257,11 @@ mod tests {
         let s = "*Hello* #box[ABC] World";
         test_cursor(s, 12, None);
         test_cursor(s, 14, pos(1, 37.55, 16.58));
+    }
+
+    #[test]
+    fn test_backlink() {
+        let s = "#footnote[Hi]";
+        test_click(s, point(10.0, 10.0), pos(1, 18.5, 37.1).map(Jump::Position));
     }
 }

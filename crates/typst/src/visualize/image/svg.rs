@@ -12,7 +12,6 @@ use crate::layout::Axes;
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
-use crate::visualize::Image;
 use crate::World;
 
 /// A decoded SVG.
@@ -41,7 +40,7 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        families: &[String],
+        families: &[&str],
     ) -> StrResult<SvgImage> {
         let book = world.book();
         let resolver = Mutex::new(FontResolver::new(world, book, families));
@@ -102,9 +101,10 @@ fn base_options() -> usvg::Options<'static> {
         // Disable usvg's default to "Times New Roman".
         font_family: String::new(),
 
-        // We override the DPI here so that we get the correct the size when
-        // scaling the image to its natural size.
-        dpi: Image::DEFAULT_DPI as f32,
+        // We don't override the DPI here, because we already
+        // force the image into the corresponding DPI by setting
+        // the width and height. Changing the DPI only trips up
+        // the logic in `resvg`.
 
         // Override usvg's resource loading defaults.
         resources_dir: None,
@@ -142,7 +142,7 @@ struct FontResolver<'a> {
     /// The world we use to load fonts.
     world: Tracked<'a, dyn World + 'a>,
     /// The active list of font families at the location of the SVG.
-    families: &'a [String],
+    families: &'a [&'a str],
     /// A mapping from Typst font indices to fontdb IDs.
     to_id: HashMap<usize, Option<fontdb::ID>>,
     /// The reverse mapping.
@@ -156,7 +156,7 @@ impl<'a> FontResolver<'a> {
     fn new(
         world: Tracked<'a, dyn World + 'a>,
         book: &'a FontBook,
-        families: &'a [String],
+        families: &'a [&'a str],
     ) -> Self {
         Self {
             book,
@@ -191,11 +191,11 @@ impl FontResolver<'_> {
         font.families()
             .iter()
             .filter_map(|family| match family {
-                usvg::FontFamily::Named(named) => Some(named),
+                usvg::FontFamily::Named(named) => Some(named.as_str()),
                 // We don't support generic families at the moment.
                 _ => None,
             })
-            .chain(self.families)
+            .chain(self.families.iter().copied())
             .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
             .find_map(|index| self.get_or_load(index, db))
     }

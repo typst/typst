@@ -8,9 +8,9 @@ use crate::foundations::{
     Content, Context, Packed, Recipe, RecipeIndex, Regex, Selector, Show, ShowSet, Style,
     StyleChain, Styles, Synthesize, Transformation,
 };
-use crate::introspection::{Locatable, TagElem};
+use crate::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use crate::text::TextElem;
-use crate::utils::{hash128, SmallBitSet};
+use crate::utils::SmallBitSet;
 
 /// What to do with an element when encountering it during realization.
 struct Verdict<'a> {
@@ -34,6 +34,7 @@ enum ShowStep<'a> {
 /// Processes the given `target` element when encountering it during realization.
 pub fn process(
     engine: &mut Engine,
+    locator: &mut SplitLocator,
     target: &Content,
     styles: StyleChain,
 ) -> SourceResult<Option<Content>> {
@@ -49,7 +50,7 @@ pub fn process(
     // prepare it.
     let mut tag = None;
     if !prepared {
-        tag = prepare(engine, &mut target, &mut map, styles)?;
+        tag = prepare(engine, locator, &mut target, &mut map, styles)?;
     }
 
     // Apply a step, if there is one.
@@ -61,7 +62,7 @@ pub fn process(
             //
             // This way, we can ignore errors that only occur in earlier
             // iterations and also show more useful errors at once.
-            engine.delayed(|engine| show(engine, target, step, styles.chain(&map)))
+            engine.delay(|engine| show(engine, target, step, styles.chain(&map)))
         }
         None => target,
     };
@@ -167,6 +168,7 @@ fn verdict<'a>(
         && map.is_empty()
         && (prepared || {
             target.label().is_none()
+                && target.location().is_none()
                 && !target.can::<dyn ShowSet>()
                 && !target.can::<dyn Locatable>()
                 && !target.can::<dyn Synthesize>()
@@ -181,6 +183,7 @@ fn verdict<'a>(
 /// This is only executed the first time an element is visited.
 fn prepare(
     engine: &mut Engine,
+    locator: &mut SplitLocator,
     target: &mut Content,
     map: &mut Styles,
     styles: StyleChain,
@@ -191,11 +194,14 @@ fn prepare(
     //
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
-    let mut located = target.location().is_some();
-    if !located && (target.can::<dyn Locatable>() || target.label().is_some()) {
-        let location = engine.locator.locate(hash128(&target));
+    let mut key = None;
+    if target.location().is_some() {
+        key = Some(crate::utils::hash128(&target));
+    } else if target.can::<dyn Locatable>() || target.label().is_some() {
+        let hash = crate::utils::hash128(&target);
+        let location = locator.next_location(engine.introspector, hash);
         target.set_location(location);
-        located = true;
+        key = Some(hash);
     }
 
     // Apply built-in show-set rules. User-defined show-set rules are already
@@ -220,7 +226,7 @@ fn prepare(
     // materialization, so that it includes the synthesized fields. Do it before
     // marking as prepared so that show-set rules will apply to this element
     // when queried.
-    let tag = located.then(|| TagElem::packed(target.clone()));
+    let tag = key.map(|key| TagElem::packed(Tag::new(target.clone(), key)));
 
     // Ensure that this preparation only runs once by marking the element as
     // prepared.

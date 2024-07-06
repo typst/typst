@@ -3,6 +3,7 @@ use std::f64::consts::SQRT_2;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, Smart, StyleChain};
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, Corner, Corners, Frame, FrameItem, Length, Point, Ratio,
     Region, Regions, Rel, Sides, Size,
@@ -134,24 +135,29 @@ pub struct RectElem {
 
 impl Show for Packed<RectElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), |elem, engine, styles, region| {
-            layout_shape(
-                engine,
-                styles,
-                region,
-                ShapeKind::Rect,
-                elem.body(styles),
-                elem.fill(styles),
-                elem.stroke(styles),
-                elem.inset(styles),
-                elem.outset(styles),
-                elem.radius(styles),
-                elem.span(),
-            )
-        })
+        Ok(BlockElem::single_layouter(
+            self.clone(),
+            |elem, engine, locator, styles, region| {
+                layout_shape(
+                    engine,
+                    locator,
+                    styles,
+                    region,
+                    ShapeKind::Rect,
+                    elem.body(styles),
+                    elem.fill(styles),
+                    elem.stroke(styles),
+                    elem.inset(styles),
+                    elem.outset(styles),
+                    elem.radius(styles),
+                    elem.span(),
+                )
+            },
+        )
         .with_width(self.width(styles))
         .with_height(self.height(styles))
-        .pack())
+        .pack()
+        .spanned(self.span()))
     }
 }
 
@@ -239,24 +245,29 @@ pub struct SquareElem {
 
 impl Show for Packed<SquareElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), |elem, engine, styles, regions| {
-            layout_shape(
-                engine,
-                styles,
-                regions,
-                ShapeKind::Square,
-                elem.body(styles),
-                elem.fill(styles),
-                elem.stroke(styles),
-                elem.inset(styles),
-                elem.outset(styles),
-                elem.radius(styles),
-                elem.span(),
-            )
-        })
+        Ok(BlockElem::single_layouter(
+            self.clone(),
+            |elem, engine, locator, styles, regions| {
+                layout_shape(
+                    engine,
+                    locator,
+                    styles,
+                    regions,
+                    ShapeKind::Square,
+                    elem.body(styles),
+                    elem.fill(styles),
+                    elem.stroke(styles),
+                    elem.inset(styles),
+                    elem.outset(styles),
+                    elem.radius(styles),
+                    elem.span(),
+                )
+            },
+        )
         .with_width(self.width(styles))
         .with_height(self.height(styles))
-        .pack())
+        .pack()
+        .spanned(self.span()))
     }
 }
 
@@ -316,24 +327,29 @@ pub struct EllipseElem {
 
 impl Show for Packed<EllipseElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), |elem, engine, styles, regions| {
-            layout_shape(
-                engine,
-                styles,
-                regions,
-                ShapeKind::Ellipse,
-                elem.body(styles),
-                elem.fill(styles),
-                elem.stroke(styles).map(|s| Sides::splat(Some(s))),
-                elem.inset(styles),
-                elem.outset(styles),
-                Corners::splat(None),
-                elem.span(),
-            )
-        })
+        Ok(BlockElem::single_layouter(
+            self.clone(),
+            |elem, engine, locator, styles, regions| {
+                layout_shape(
+                    engine,
+                    locator,
+                    styles,
+                    regions,
+                    ShapeKind::Ellipse,
+                    elem.body(styles),
+                    elem.fill(styles),
+                    elem.stroke(styles).map(|s| Sides::splat(Some(s))),
+                    elem.inset(styles),
+                    elem.outset(styles),
+                    Corners::splat(None),
+                    elem.span(),
+                )
+            },
+        )
         .with_width(self.width(styles))
         .with_height(self.height(styles))
-        .pack())
+        .pack()
+        .spanned(self.span()))
     }
 }
 
@@ -418,24 +434,29 @@ pub struct CircleElem {
 
 impl Show for Packed<CircleElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), |elem, engine, styles, regions| {
-            layout_shape(
-                engine,
-                styles,
-                regions,
-                ShapeKind::Circle,
-                elem.body(styles),
-                elem.fill(styles),
-                elem.stroke(styles).map(|s| Sides::splat(Some(s))),
-                elem.inset(styles),
-                elem.outset(styles),
-                Corners::splat(None),
-                elem.span(),
-            )
-        })
+        Ok(BlockElem::single_layouter(
+            self.clone(),
+            |elem, engine, locator, styles, regions| {
+                layout_shape(
+                    engine,
+                    locator,
+                    styles,
+                    regions,
+                    ShapeKind::Circle,
+                    elem.body(styles),
+                    elem.fill(styles),
+                    elem.stroke(styles).map(|s| Sides::splat(Some(s))),
+                    elem.inset(styles),
+                    elem.outset(styles),
+                    Corners::splat(None),
+                    elem.span(),
+                )
+            },
+        )
         .with_width(self.width(styles))
         .with_height(self.height(styles))
-        .pack())
+        .pack()
+        .spanned(self.span()))
     }
 }
 
@@ -444,6 +465,7 @@ impl Show for Packed<CircleElem> {
 #[allow(clippy::too_many_arguments)]
 fn layout_shape(
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     region: Region,
     kind: ShapeKind,
@@ -471,14 +493,16 @@ fn layout_shape(
         }
 
         // Layout the child.
-        frame = child.layout(engine, styles, pod.into_regions())?.into_frame();
+        frame = child
+            .layout(engine, locator.relayout(), styles, pod.into_regions())?
+            .into_frame();
 
         // If the child is a square or circle, relayout with full expansion into
         // square region to make sure the result is really quadratic.
         if kind.is_quadratic() {
             let length = frame.size().max_by_side().min(pod.size.min_by_side());
             let quad_pod = Regions::one(Size::splat(length), Axes::splat(true));
-            frame = child.layout(engine, styles, quad_pod)?.into_frame();
+            frame = child.layout(engine, locator, styles, quad_pod)?.into_frame();
         }
 
         // Apply the inset.

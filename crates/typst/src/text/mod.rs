@@ -111,7 +111,8 @@ pub struct TextElem {
     ///   variable to add directories that should be scanned for fonts. The
     ///   priority is: `--font-paths` > system fonts > embedded fonts. Run
     ///   `typst fonts` to see the fonts that Typst has discovered on your
-    ///   system.
+    ///   system. Note that you can pass the `--ignore-system-fonts` parameter
+    ///   to the CLI to ensure Typst won't search for system fonts.
     ///
     /// ```example
     /// #set text(font: "PT Sans")
@@ -131,7 +132,7 @@ pub struct TextElem {
             let book = engine.world.book();
             for family in &font_list.v {
                 if !book.contains_family(family.as_str()) {
-                    engine.tracer.warn(warning!(
+                    engine.sink.warn(warning!(
                         font_list.span,
                         "unknown font family: {}",
                         family.as_str(),

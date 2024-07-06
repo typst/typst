@@ -50,6 +50,16 @@ It's a #emph[Tree]beard.
 #set text(hyphenate: true)
 #h(6pt) networks, the rest.
 
+--- hyphenate-outside-of-words ---
+// More tests for hyphenation of non-words.
+#set text(hyphenate: true)
+#block(width: 0pt, "doesn't")
+#block(width: 0pt, "(OneNote)")
+#block(width: 0pt, "(present)")
+
+#set text(lang: "de")
+#block(width: 0pt, "(bzw.)")
+
 --- hyphenate-pt-repeat-hyphen-natural-word-breaking ---
 // The word breaker naturally breaks arco-da-velha at arco-/-da-velha,
 // so we shall repeat the hyphen, even that hyphenate is set to false.

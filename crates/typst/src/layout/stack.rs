@@ -6,6 +6,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, NativeElement, Packed, Resolve, Show, StyleChain, StyledElem,
 };
+use crate::introspection::{Locator, SplitLocator};
 use crate::layout::{
     Abs, AlignElem, Axes, Axis, BlockElem, Dir, FixedAlignment, Fr, Fragment, Frame,
     HElem, Point, Regions, Size, Spacing, VElem,
@@ -56,7 +57,9 @@ pub struct StackElem {
 
 impl Show for Packed<StackElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), layout_stack).pack())
+        Ok(BlockElem::multi_layouter(self.clone(), layout_stack)
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -93,10 +96,13 @@ cast! {
 fn layout_stack(
     elem: &Packed<StackElem>,
     engine: &mut Engine,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let mut layouter = StackLayouter::new(elem.span(), elem.dir(styles), regions, styles);
+    let mut layouter =
+        StackLayouter::new(elem.span(), elem.dir(styles), locator, styles, regions);
+
     let axis = layouter.dir.axis();
 
     // Spacing to insert before the next block.
@@ -145,10 +151,12 @@ struct StackLayouter<'a> {
     dir: Dir,
     /// The axis of the stacking direction.
     axis: Axis,
-    /// The regions to layout children into.
-    regions: Regions<'a>,
+    /// Provides unique locations to the stack's children.
+    locator: SplitLocator<'a>,
     /// The inherited styles.
     styles: StyleChain<'a>,
+    /// The regions to layout children into.
+    regions: Regions<'a>,
     /// Whether the stack itself should expand to fill the region.
     expand: Axes<bool>,
     /// The initial size of the current region before we started subtracting.
@@ -179,8 +187,9 @@ impl<'a> StackLayouter<'a> {
     fn new(
         span: Span,
         dir: Dir,
-        mut regions: Regions<'a>,
+        locator: Locator<'a>,
         styles: StyleChain<'a>,
+        mut regions: Regions<'a>,
     ) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
@@ -192,8 +201,9 @@ impl<'a> StackLayouter<'a> {
             span,
             dir,
             axis,
-            regions,
+            locator: locator.split(),
             styles,
+            regions,
             expand,
             initial: regions.size,
             used: GenericSize::zero(),
@@ -247,7 +257,13 @@ impl<'a> StackLayouter<'a> {
         }
         .resolve(styles);
 
-        let fragment = block.layout(engine, styles, self.regions)?;
+        let fragment = block.layout(
+            engine,
+            self.locator.next(&block.span()),
+            styles,
+            self.regions,
+        )?;
+
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

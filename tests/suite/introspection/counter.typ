@@ -76,3 +76,31 @@ At Beta, it was #context {
 // Hint: 2-28 try wrapping this in a `context` expression
 // Hint: 2-28 the `context` expression should wrap everything that depends on this function
 #counter("key").at(<label>)
+
+--- issue-2480-counter-reset ---
+#let q = counter("question")
+#let step-show =  q.step() + q.display("1")
+#let g = grid(step-show, step-show, gutter: 2pt)
+
+#g
+#pagebreak()
+#step-show
+#q.update(10)
+#g
+
+--- issue-2480-counter-reset-2 ---
+#set block(spacing: 3pt)
+#let c = counter("c")
+#let foo() = context {
+  c.step()
+  c.display("1")
+  str(c.get().first())
+}
+
+#foo()
+#block(foo())
+#foo()
+#foo()
+#block(foo())
+#block(foo())
+#foo()

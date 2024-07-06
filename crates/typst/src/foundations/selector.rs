@@ -128,7 +128,7 @@ impl Selector {
             Self::Elem(element, dict) => {
                 target.func() == *element
                     && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
-                        target.get(*id, styles).as_ref() == Some(value)
+                        target.get(*id, styles).as_ref().ok() == Some(value)
                     })
             }
             Self::Label(label) => target.label() == Some(*label),
@@ -277,12 +277,12 @@ impl Repr for Selector {
 
 cast! {
     type Selector,
+    text: EcoString => Self::text(&text)?,
     func: Func => func
         .element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),
-    text: EcoString => Self::text(&text)?,
     regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }

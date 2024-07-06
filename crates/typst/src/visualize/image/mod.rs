@@ -19,6 +19,7 @@ use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
     StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, FixedAlignment, Frame, FrameItem, Length, Point, Region, Rel,
     Size,
@@ -159,7 +160,8 @@ impl Show for Packed<ImageElem> {
         Ok(BlockElem::single_layouter(self.clone(), layout_image)
             .with_width(self.width(styles))
             .with_height(self.height(styles))
-            .pack())
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -174,6 +176,7 @@ impl Figurable for Packed<ImageElem> {}
 fn layout_image(
     elem: &Packed<ImageElem>,
     engine: &mut Engine,
+    _: Locator,
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
@@ -193,7 +196,7 @@ fn layout_image(
         format,
         elem.alt(styles),
         engine.world,
-        &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
+        &families(styles).collect::<Vec<_>>(),
     )
     .at(span)?;
 
@@ -326,6 +329,9 @@ impl Image {
     /// if the image doesn't contain DPI metadata.
     pub const DEFAULT_DPI: f64 = 72.0;
 
+    /// Should always be the same as the default DPI used by usvg.
+    pub const USVG_DEFAULT_DPI: f64 = 96.0;
+
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
@@ -354,7 +360,7 @@ impl Image {
         format: ImageFormat,
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
-        families: &[String],
+        families: &[&str],
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
@@ -404,7 +410,7 @@ impl Image {
     pub fn dpi(&self) -> Option<f64> {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
-            ImageKind::Svg(_) => None,
+            ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
         }
     }
 
