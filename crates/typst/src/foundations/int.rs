@@ -217,6 +217,8 @@ impl i64 {
     /// Converts bytes to an integer. The bytes will be treated as a 64-bit signed integer.
     /// The bytes should be at most 8 bytes (64 bits) in size to fit in a 64-bit integer, otherwise an error will occur.
     ///
+    /// If the signed parameter is true and the most significant bit is set,
+    ///
     /// ```example
     /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)))
     /// #int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big")
@@ -229,6 +231,10 @@ impl i64 {
         #[named]
         #[default(Endianness::Little)]
         endian: Endianness,
+        /// True if the bytes should be treated as signed, false if they should be treated as unsigned.
+        #[named]
+        #[default(true)]
+        signed: bool,
     ) -> StrResult<i64> {
         let len = bytes.len();
         if len > 8 {
@@ -237,9 +243,28 @@ impl i64 {
 
         let mut buf = [0u8; 8];
 
-        match endian {
-            Endianness::Big => buf[8 - len..].copy_from_slice(bytes.as_ref()),
-            Endianness::Little => buf[..len].copy_from_slice(bytes.as_ref()),
+        // `decimal` will hold the part of the buffer that should be filled with the input bytes,
+        // – big-endian: `decimal` will be the rightmost bytes of the buffer.
+        // - little-endian: `decimal` will be the leftmost bytes of the buffer.
+        // `rest` will remain as is or be filled with 0xFF for negative numbers if signed is true.
+        let (rest, decimal) = match endian {
+            Endianness::Big => buf.split_at_mut(8 - len),
+            Endianness::Little => {
+                let (first, second) = buf.split_at_mut(len);
+                (second, first)
+            }
+        };
+
+        decimal.copy_from_slice(bytes.as_ref());
+
+        let has_most_significant_bit_on = match endian {
+            Endianness::Big => decimal[0] & 0b10000000 != 0,
+            Endianness::Little => decimal[len - 1] & 0b10000000 != 0,
+        };
+
+        if signed && has_most_significant_bit_on {
+            // If the number is negative, fill the remaining bytes with 0xFF (two's complement).
+            rest.fill(0xFF);
         }
 
         Ok(match endian {
@@ -267,6 +292,10 @@ impl i64 {
         /// the remaining bytes based on the endianness. To keep the same resulting value, if the endianness
         /// is big-endian, the truncation will happen at the rightmost bytes. Otherwise, if the
         /// endianness is little-endian, the truncation will happen at the leftmost bytes.
+        ///
+        /// Be aware that if the integer is negative and the size is not enough to make the number fit,
+        /// when passing the resulting bytes to `int.from-bytes`, the resulting number might be positive,
+        /// as the most significant bit might not be set to 1.
         #[named]
         #[default(8)]
         size: usize,
@@ -415,4 +444,90 @@ cast! {
         } else {
             "number too large"
         })?,
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn from_bytes() {
+        use super::*;
+
+        assert_eq!(
+            i64::from_bytes(
+                Bytes::from(vec![1, 0, 0, 0, 0, 0, 0, 0]),
+                Endianness::Little,
+                true,
+            ),
+            Ok(1)
+        );
+
+        assert_eq!(
+            i64::from_bytes(
+                Bytes::from(vec![1, 0, 0, 0, 0, 0, 0, 0]),
+                Endianness::Big,
+                true
+            ),
+            Ok(72057594037927936)
+        );
+
+        assert_eq!(
+            i64::from_bytes(
+                Bytes::from(vec![1, 0, 0, 0, 0, 0, 0, 0]),
+                Endianness::Little,
+                false,
+            ),
+            Ok(1)
+        );
+
+        assert_eq!(
+            i64::from_bytes(Bytes::from(vec![255]), Endianness::Big, true),
+            Ok(-1)
+        );
+
+        assert_eq!(
+            i64::from_bytes(Bytes::from(vec![255]), Endianness::Big, false),
+            Ok(255)
+        );
+
+        assert_eq!(
+            i64::from_bytes(
+                (-1000i64).to_bytes(Endianness::Little, 5),
+                Endianness::Little,
+                true
+            ),
+            Ok(-1000)
+        );
+
+        assert_eq!(
+            i64::from_bytes(
+                (-1000i64).to_bytes(Endianness::Big, 5),
+                Endianness::Big,
+                true
+            ),
+            Ok(-1000)
+        );
+
+        assert_eq!(
+            i64::from_bytes(1000i64.to_bytes(Endianness::Big, 5), Endianness::Big, true),
+            Ok(1000)
+        );
+
+        assert_eq!(
+            i64::from_bytes(
+                1000i64.to_bytes(Endianness::Little, 5),
+                Endianness::Little,
+                true
+            ),
+            Ok(1000)
+        );
+
+        assert_eq!(
+            i64::from_bytes(
+                1000i64.to_bytes(Endianness::Little, 5),
+                Endianness::Little,
+                false
+            ),
+            Ok(1000)
+        );
+    }
 }
