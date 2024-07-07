@@ -2,7 +2,8 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{
-    bail, error, At, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint,
+    bail, error, At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
+    Trace, Tracepoint,
 };
 use crate::engine::{Engine, Sink, Traced};
 use crate::eval::{Access, Eval, FlowEvent, Route, Vm};
@@ -35,37 +36,14 @@ impl Eval for ast::FuncCall<'_> {
 
         // Try to evaluate as a call to an associated function or field.
         let (callee, args) = if let ast::Expr::FieldAccess(access) = callee {
-            let target_expr = access.target();
+            let target = access.target();
             let field = access.field();
-            let mut args = args.eval(vm)?.spanned(span);
-
-            // Evaluate the target expression.
-            let target = if is_mutating_method(&field) {
-                match target_expr.access(vm)? {
-                    // Only arrays and dictionaries have mutable methods.
-                    target @ (Value::Array(_) | Value::Dict(_)) => {
-                        let point = || Tracepoint::Call(Some(field.get().clone()));
-                        return call_method_mut(target, &field, args, span).trace(
-                            vm.world(),
-                            point,
-                            span,
-                        );
-                    }
-                    target => target.clone(),
-                }
-            } else {
-                target_expr.eval(vm)?
-            };
-
-            // Handle plugins.
-            if let Value::Plugin(plugin) = &target {
-                let bytes = args.all::<Bytes>()?;
-                args.finish()?;
-                return Ok(plugin.call(&field, bytes).at(span)?.into_value());
+            match eval_method_call(target, field, args, span, vm)? {
+                MethodCall::Normal(callee, args) => (callee, args),
+                MethodCall::Special(value) => return Ok(value),
             }
-
-            eval_callee_args(target, target_expr.span(), field, args)?
         } else {
+            // Function call order: we evaluate the callee before the arguments.
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
@@ -283,7 +261,17 @@ pub(crate) fn call_closure(
     Ok(output)
 }
 
-/// Evaluate the callee and its arguments.
+/// Method calls have some special cases which we convert to values eagerly. Otherwise
+/// this contains the evaluated method to call and the arguments to call with.
+enum MethodCall {
+    Normal(Value, Args),
+    Special(Value),
+}
+
+/// Evaluate a method call's callee and arguments.
+///
+/// This follows the normal function call order: we evaluate the callee before the
+/// arguments.
 ///
 /// Prioritize associated functions on the value's type (i.e., methods) over its fields.
 /// A function call on a field is only allowed for functions, types, modules (because
@@ -293,47 +281,88 @@ pub(crate) fn call_closure(
 /// associated functions would make an addition of a new associated function a breaking
 /// change and prioritizing fields would break associated functions for certain
 /// dictionaries).
-fn eval_callee_args(
-    target: Value,
-    target_span: Span,
-    field: Ident,
-    mut args: Args,
-) -> SourceResult<(Value, Args)> {
-    if let Some(callee) = target.ty().scope().get(&field) {
-        args.insert(0, target_span, target);
-        Ok((callee.clone(), args))
+fn eval_method_call(
+    target_expr: ast::Expr,
+    method: Ident,
+    args: ast::Args,
+    span: Span,
+    vm: &mut Vm,
+) -> SourceResult<MethodCall> {
+    // Evaluate the method's target and overall arguments.
+    let (target, mut args) = if is_mutating_method(&method) {
+        // If `method` looks like a mutating method, we evaluate the arguments first,
+        // because `target_expr.access(vm)` mutably borrows the `vm`, so that we can't
+        // evaluate the arguments after it.
+        let args = args.eval(vm)?.spanned(span);
+        // However, this difference from the normal call order is not observable because
+        // expressions like, i.e. `(1, arr.len(), 2, 3).push(arr.pop())`, evaluate the
+        // target to a temporary which we disallow mutation on (returning an error).
+        // Theoretically this could be observed if a method matching `is_mutating_method`
+        // was added to some type in the future and we didn't update this function.
+        match target_expr.access(vm)? {
+            // Only arrays and dictionaries have mutable methods.
+            target @ (Value::Array(_) | Value::Dict(_)) => {
+                let value = call_method_mut(target, &method, args, span);
+                let point = || Tracepoint::Call(Some(method.get().clone()));
+                return Ok(MethodCall::Special(value.trace(vm.world(), point, span)?));
+            }
+            target => (target.clone(), args),
+        }
+    } else {
+        let target = target_expr.eval(vm)?;
+        let args = args.eval(vm)?.spanned(span);
+        (target, args)
+    };
+
+    if let Value::Plugin(plugin) = &target {
+        // Call plugin methods by converting args to bytes.
+        let bytes = args.all::<Bytes>()?;
+        args.finish()?;
+        let value = plugin.call(&method, bytes).at(span)?.into_value();
+        Ok(MethodCall::Special(value))
+    } else if let Some(callee) = target.ty().scope().get(&method) {
+        args.insert(0, target_expr.span(), target);
+        Ok(MethodCall::Normal(callee.clone(), args))
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
     ) {
-        Ok((target.field(&field).at(field.span())?, args))
+        // Certain value types may have their own ways to access method fields.
+        // e.g. `$arrow.r(v)$`, `func.with(fill: red)`
+        let value = target.field(&method).at(method.span())?;
+        Ok(MethodCall::Normal(value, args))
     } else {
-        let mut error = error!(
-            field.span(),
-            "type {} has no method `{}`",
-            target.ty(),
-            field.as_str(),
-        );
-
-        match target {
-            Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
-                error.hint(eco_format!(
-                    "to call the function stored in the dictionary, surround \
-                        the field access with parentheses, e.g. `(dict.{})(..)`",
-                    field.as_str(),
-                ));
-            }
-            _ if target.field(&field).is_ok() => {
-                error.hint(eco_format!(
-                    "did you mean to access the field `{}`?",
-                    field.as_str(),
-                ));
-            }
-            _ => {}
-        }
-
-        bail!(error)
+        // Otherwise we cannot find any methods to call for this type.
+        bail!(missing_method_error(target, method))
     }
+}
+
+/// Produce an error that the target's type doesn't have this method.
+fn missing_method_error(target: Value, method: Ident) -> SourceDiagnostic {
+    let mut error = error!(
+        method.span(),
+        "type {} has no method `{}`",
+        target.ty(),
+        method.as_str(),
+    );
+
+    match target {
+        Value::Dict(ref dict) if matches!(dict.get(&method), Ok(Value::Func(_))) => {
+            error.hint(eco_format!(
+                "to call the function stored in the dictionary, surround \
+                    the field access with parentheses, e.g. `(dict.{})(..)`",
+                method.as_str(),
+            ));
+        }
+        _ if target.field(&method).is_ok() => {
+            error.hint(eco_format!(
+                "did you mean to access the field `{}`?",
+                method.as_str(),
+            ));
+        }
+        _ => {}
+    }
+    error
 }
 
 /// Check if the expression is in a math context.
