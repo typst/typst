@@ -172,8 +172,8 @@ fn is_exterior_to_quote(c: char) -> bool {
     c.is_whitespace() || is_newline(c)
 }
 
-pub(crate) fn is_directional_control(c: char) -> bool {
-    matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+pub(crate) fn is_ignorable(c: char) -> bool {
+    icu_properties::sets::default_ignorable_code_point().contains(c)
 }
 
 fn is_opening_bracket(c: char) -> bool {
