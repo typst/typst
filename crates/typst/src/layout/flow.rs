@@ -968,15 +968,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let location = self.locator.next_location(self.engine.introspector, update_hash);
         line_counter_update.set_location(location);
 
-        // let locator = self.locator.next(&update_hash);
-        // let counter_update =
-        //     line_counter_update.layout(engine, locator, styles, self.regions)?;
-
-        // let frame;
-        // for subframe in counter_update {
-        //     frame.prepend_frame(Point::zero(), subframe);
-        // }
-
         let line_counter_display = line_counter.display_at_loc(
             self.engine,
             location,
@@ -1025,10 +1016,11 @@ fn collect_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
 }
 
 /// Collect all numbered paragraph lines in the frame.
-/// The 'prev_y' parameter starts at 0 on the first call to find_lines.
+/// The 'prev_y' parameter starts at 0 on the first call to 'collect_par_lines'.
 /// On each subframe we encounter, we add that subframe's position to 'prev_y',
-/// until we reach a line's tag, at which point we add the tag's position and finish.
-/// That gives us the relative height of the line within the caller frame.
+/// until we reach a line's tag, at which point we add the tag's position
+/// and finish. That gives us the relative height of the line from the start of
+/// the initial frame.
 fn collect_par_lines(
     lines: &mut Vec<(Abs, Packed<ParLineMarker>)>,
     frame: &Frame,
