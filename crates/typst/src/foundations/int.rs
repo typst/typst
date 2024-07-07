@@ -218,6 +218,7 @@ impl i64 {
     /// The bytes should be at most 8 bytes (64 bits) in size to fit in a 64-bit integer, otherwise an error will occur.
     ///
     /// If the signed parameter is true and the most significant bit is set,
+    /// the number will be treated as negative, filling the remaining bytes with 0xFF (two's complement).
     ///
     /// ```example
     /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)))
