@@ -116,7 +116,8 @@ impl Show for Packed<TermsElem> {
         let hanging_indent = self.hanging_indent(styles);
         let gutter = self.spacing(styles).unwrap_or_else(|| {
             if self.tight(styles) {
-                ParElem::leading_in(styles).into()
+                // TODO(mgt): fix this
+                ParElem::line_height_in(styles).into()
             } else {
                 ParElem::spacing_in(styles).into()
             }
@@ -149,7 +150,8 @@ impl Show for Packed<TermsElem> {
             .padded(padding);
 
         if self.tight(styles) {
-            let leading = ParElem::leading_in(styles);
+            // TODO(mgt): fix this
+            let leading = ParElem::line_height_in(styles);
             let spacing = VElem::list_attach(leading.into()).pack();
             realized = spacing + realized;
         }

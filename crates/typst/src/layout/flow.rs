@@ -277,7 +277,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     ) -> SourceResult<()> {
         // Fetch properties.
         let align = AlignElem::alignment_in(styles).resolve(styles);
-        let leading = ParElem::leading_in(styles);
+        let line_height = ParElem::line_height_in(styles);
 
         // Layout the paragraph into lines. This only depends on the base size,
         // not on the Y position.
@@ -305,9 +305,14 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
-        // Layout the lines.
-        for (i, mut frame) in lines.into_iter().enumerate() {
+        for (i, mut frame) in lines.clone().into_iter().enumerate() {
             if i > 0 {
+                let leading =
+                    if lines[i - 1].descent().abs() + frame.ascent() > line_height {
+                        Abs::pt(1.0)
+                    } else {
+                        line_height - lines[i - 1].descent().abs() - frame.ascent()
+                    };
                 self.handle_item(FlowItem::Absolute(leading, true))?;
             }
 

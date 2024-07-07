@@ -11,8 +11,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    Length, Regions, Sizing, VAlignment, VElem,
+    Abs, Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter,
+    HAlignment, Length, Regions, Sizing, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -223,7 +223,8 @@ impl Show for Packed<EnumElem> {
             .spanned(self.span());
 
         if self.tight(styles) {
-            let leading = ParElem::leading_in(styles);
+            // TODO(mgt): fix this
+            let leading: Abs = ParElem::line_height_in(styles);
             let spacing = VElem::list_attach(leading.into()).pack();
             realized = spacing + realized;
         }
@@ -246,7 +247,8 @@ fn layout_enum(
     let body_indent = elem.body_indent(styles);
     let gutter = elem.spacing(styles).unwrap_or_else(|| {
         if elem.tight(styles) {
-            ParElem::leading_in(styles).into()
+            // TODO(mgt): fix this
+            ParElem::line_height_in(styles).into()
         } else {
             ParElem::spacing_in(styles).into()
         }

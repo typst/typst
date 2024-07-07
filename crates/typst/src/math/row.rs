@@ -3,16 +3,11 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Resolve, StyleChain};
-use crate::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
-use crate::math::{
-    alignments, scaled_font_size, spacing, EquationElem, FrameFragment, MathContext,
-    MathFragment, MathSize,
-};
+use crate::layout::{Abs, AlignElem, Frame, InlineItem, Point, Size};
+use crate::math::{alignments, spacing, FrameFragment, MathContext, MathFragment};
 use crate::model::ParElem;
 
 use super::fragment::SpacingFragment;
-
-pub const TIGHT_LEADING: Em = Em::new(0.25);
 
 /// A linear collection of [`MathFragment`]s.
 #[derive(Debug, Default, Clone)]
@@ -173,27 +168,31 @@ impl MathRun {
         ctx: &MathContext,
         styles: StyleChain,
     ) -> MathRunFrameBuilder {
+        let _ = ctx;
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
         let alignments = alignments(&rows);
 
-        let leading = if EquationElem::size_in(styles) >= MathSize::Text {
-            ParElem::leading_in(styles)
-        } else {
-            let font_size = scaled_font_size(ctx, styles);
-            TIGHT_LEADING.at(font_size)
-        };
+        let line_height = ParElem::line_height_in(styles);
 
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
         let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
-        for (i, row) in rows.into_iter().enumerate() {
+        for (i, row) in rows.clone().into_iter().enumerate() {
             if i == row_count - 1 && row.0.is_empty() {
                 continue;
             }
 
-            let sub = row.into_line_frame(&alignments.points, LeftRightAlternator::Right);
+            let sub = row
+                .clone()
+                .into_line_frame(&alignments.points, LeftRightAlternator::Right);
             if i > 0 {
+                let leading =
+                    if rows[i - 1].descent().abs() + row.ascent().abs() > line_height {
+                        Abs::pt(1.0)
+                    } else {
+                        line_height - rows[i - 1].descent().abs() - row.ascent().abs()
+                    };
                 size.y += leading;
             }
 

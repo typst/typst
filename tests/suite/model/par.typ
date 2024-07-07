@@ -97,3 +97,10 @@ Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
 --- issue-4278-par-trim-before-equation ---
 #set par(justify: true)
 #lorem(6) aa $a = c + b$
+
+--- par-inline-math-overlap ---
+#lorem(1) $1 / 123456$ #lorem(2) $12345667 / 1 / 1$
+
+#lorem(3) $sum_(x=0)^n$ #lorem(3)
+
+#lorem(3) $display((a+b)/(c+d))$ #lorem(2) $display((a/b+1)/c+1)$ #lorem(7)

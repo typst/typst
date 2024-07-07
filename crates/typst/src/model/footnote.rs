@@ -309,9 +309,9 @@ impl Show for Packed<FootnoteEntry> {
 impl ShowSet for Packed<FootnoteEntry> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let text_size = Em::new(0.85);
-        let leading = Em::new(0.5);
+        let line_height = Em::new(1.158203125);
         let mut out = Styles::new();
-        out.set(ParElem::set_leading(leading.into()));
+        out.set(ParElem::set_line_height(line_height.into()));
         out.set(TextElem::set_size(TextSize(text_size.into())));
         out
     }

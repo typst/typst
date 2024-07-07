@@ -38,7 +38,7 @@ pub fn finalize(
         if frames.len() >= 2 && !frames[1].is_empty() {
             let second = frames.remove(1);
             let first = &mut frames[0];
-            merge(first, second, p.leading);
+            merge(first, second, p.line_height, true);
         }
     }
     if p.costs.widow().get() > 0.0 {
@@ -47,7 +47,7 @@ pub fn finalize(
         if len >= 2 && !frames[len - 2].is_empty() {
             let second = frames.pop().unwrap();
             let first = frames.last_mut().unwrap();
-            merge(first, second, p.leading);
+            merge(first, second, p.line_height, false);
         }
     }
 
@@ -55,9 +55,18 @@ pub fn finalize(
 }
 
 /// Merge two line frames
-fn merge(first: &mut Frame, second: Frame, leading: Abs) {
+fn merge(first: &mut Frame, second: Frame, line_height: Abs, based_on_second: bool) {
+    let leading = if first.descent().abs() + second.ascent().abs() > line_height {
+        Abs::pt(1.0)
+    } else {
+        line_height - first.descent().abs() - second.ascent().abs()
+    };
     let offset = first.height() + leading;
     let total = offset + second.height();
+    let second_baseline = offset + second.baseline();
     first.push_frame(Point::with_y(offset), second);
     first.size_mut().y = total;
+    if based_on_second {
+        first.set_baseline(second_baseline);
+    }
 }
