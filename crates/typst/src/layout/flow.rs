@@ -146,6 +146,9 @@ enum FlowItem {
         clearance: Abs,
     },
     /// A line number, given its vertical distance from the top of the page.
+    /// As an invariant, this item must appear immediately after the item
+    /// whose frame contains the line which has this number, or after other
+    /// line numbers after that item, in the items vector.
     LineNumber { frame: Frame, y: Abs },
     /// A footnote frame (can also be the separator).
     Footnote(Frame),
