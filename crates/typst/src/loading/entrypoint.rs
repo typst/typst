@@ -25,7 +25,7 @@ pub fn entrypoint(
 ) -> Option<String> {
     // let Spanned { v: path, span } = path;
     let file_id = engine.world.main().id();
-    if engine.world.is_stdin(file_id) {
+    if engine.world.main().is_stdin() {
         return None;
     }
     dbg!(&file_id);

@@ -208,10 +208,6 @@ impl World for SystemWorld {
         self.fonts[index].get()
     }
 
-    fn is_stdin(&self, id: FileId) -> bool {
-        self.slot(id, |slot| slot.is_stdin())
-    }
-
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = match &self.now {
             Now::Fixed(time) => time,
@@ -288,11 +284,12 @@ impl FileSlot {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
                 let text = decode_utf8(&data)?;
+                let is_stdin = self.id == *STDIN_ID;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
                     Ok(prev)
                 } else {
-                    Ok(Source::new(self.id, text.into()))
+                    Ok(Source::new(self.id, text.into()).set_is_stdin(is_stdin))
                 }
             },
         )
@@ -308,11 +305,6 @@ impl FileSlot {
             || read(self.id, project_root, package_storage),
             |data, _| Ok(data.into()),
         )
-    }
-
-    /// Return `true` if file ID is `stdin`.
-    fn is_stdin(&self) -> bool {
-        self.id == *STDIN_ID
     }
 }
 

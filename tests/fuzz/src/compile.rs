@@ -55,10 +55,6 @@ impl World for FuzzWorld {
         Some(self.font.clone())
     }
 
-    fn is_stdin(&self, _: FileId) -> bool {
-        false
-    }
-
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         None
     }

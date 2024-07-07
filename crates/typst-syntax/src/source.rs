@@ -27,6 +27,7 @@ struct Repr {
     text: LazyHash<String>,
     root: LazyHash<SyntaxNode>,
     lines: Vec<Line>,
+    is_stdin: bool,
 }
 
 impl Source {
@@ -39,7 +40,22 @@ impl Source {
             lines: lines(&text),
             text: LazyHash::new(text),
             root: LazyHash::new(root),
+            is_stdin: false,
         }))
+    }
+
+    pub fn set_is_stdin(&self, is_stdin: bool) -> Self {
+        Self(Arc::new(Repr {
+            id: self.0.id,
+            lines: self.0.lines.clone(),
+            text: self.0.text.clone(),
+            root: self.0.root.clone(),
+            is_stdin,
+        }))
+    }
+
+    pub fn is_stdin(&self) -> bool {
+        self.0.is_stdin
     }
 
     /// Create a source file without a real id and path, usually for testing.
