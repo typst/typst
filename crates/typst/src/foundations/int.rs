@@ -1,10 +1,11 @@
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
 use ecow::{eco_format, EcoString};
-use typst_macros::Cast;
 
 use crate::diag::StrResult;
-use crate::foundations::{cast, func, repr, scope, ty, Bytes, Repr, Str, Value};
+use crate::foundations::{
+    bail, cast, func, repr, scope, ty, Bytes, Cast, Repr, Str, Value,
+};
 
 /// A whole number.
 ///
@@ -217,28 +218,31 @@ impl i64 {
     /// The bytes should be at most 8 bytes (64 bits) in size to fit in a 64-bit integer, otherwise an error will occur.
     ///
     /// ```example
-    /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)), "little")
+    /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1)))
+    /// #int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big")
     /// ```
     #[func]
     pub fn from_bytes(
         /// The bytes that should be converted to an integer.
         bytes: Bytes,
         /// Endianness of the conversion.
-        endianness: Endianness,
+        #[named]
+        #[default(Endianness::Little)]
+        endian: Endianness,
     ) -> StrResult<i64> {
         let len = bytes.len();
         if len > 8 {
-            return Err("Bytes too large to convert to a 64 bit number".into());
+            bail!("too many bytes to convert to a 64 bit number");
         }
 
         let mut buf = [0u8; 8];
 
-        match endianness {
+        match endian {
             Endianness::Big => buf[8 - len..].copy_from_slice(bytes.as_ref()),
             Endianness::Little => buf[..len].copy_from_slice(bytes.as_ref()),
         }
 
-        Ok(match endianness {
+        Ok(match endian {
             Endianness::Big => i64::from_be_bytes(buf),
             Endianness::Little => i64::from_le_bytes(buf),
         })
@@ -248,30 +252,33 @@ impl i64 {
     /// The integer is converted to a byte array of the specified size and endianness.
     ///
     /// ```example
-    /// #array(10000.to-bytes("big"))
-    /// #array(10000.to-bytes("little", 4))
+    /// #array(10000.to-bytes(endian: "big"))
+    /// #array(10000.to-bytes(size: 4))
     /// ```
     #[func]
     pub fn to_bytes(
         self,
         /// Endianness of the conversion.
-        endianness: Endianness,
+        #[named]
+        #[default(Endianness::Little)]
+        endian: Endianness,
         /// The size in bytes of the resulting bytes (must be at least zero).
         /// If the integer is too large to fit in the specified size, the conversion will truncate
         /// the remaining bytes based on the endianness. To keep the same resulting value, if the endianness
         /// is big-endian, the truncation will happen at the rightmost bytes. Otherwise, if the
         /// endianness is little-endian, the truncation will happen at the leftmost bytes.
+        #[named]
         #[default(8)]
         size: usize,
     ) -> Bytes {
-        let array = match endianness {
+        let array = match endian {
             Endianness::Big => self.to_be_bytes(),
             Endianness::Little => self.to_le_bytes(),
         };
 
         let mut buf = vec![0u8; size];
 
-        match endianness {
+        match endian {
             Endianness::Big => {
                 // Copy the bytes from the array to the buffer, starting from the end of the buffer.
                 buf[size.max(8) - 8..].copy_from_slice(&array[8 - size.min(8)..])
@@ -294,7 +301,7 @@ impl Repr for i64 {
 
 /// Represents the byte order used for converting integers to bytes and vice versa.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-enum Endianness {
+pub enum Endianness {
     /// Big-endian byte order: the highest-value byte is at the beginning of the bytes.
     Big,
     /// Little-endian byte order: the lowest-value byte is at the beginning of the bytes.
