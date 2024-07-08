@@ -83,19 +83,16 @@ impl LayoutMath for Packed<AttachElem> {
             };
         }
 
-        layout_attachments(
-            styles,
-            base,
-            [
-                layout!(tl, sup_style_chain)?,
-                layout!(t, sup_style_chain)?,
-                layout!(tr, sup_style_chain)?,
-                layout!(bl, sub_style_chain)?,
-                layout!(b, sub_style_chain)?,
-                layout!(br, sub_style_chain)?,
-            ],
-            ctx,
-        )
+        let fragments = [
+            layout!(tl, sup_style_chain)?,
+            layout!(t, sup_style_chain)?,
+            layout!(tr, sup_style_chain)?,
+            layout!(bl, sub_style_chain)?,
+            layout!(b, sub_style_chain)?,
+            layout!(br, sub_style_chain)?,
+        ];
+
+        layout_attachments(ctx, styles, base, fragments)
     }
 }
 
@@ -259,10 +256,10 @@ macro_rules! measure {
 
 /// Layout the attachments.
 fn layout_attachments(
+    ctx: &mut MathContext,
     styles: StyleChain,
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
-    ctx: &mut MathContext,
 ) -> SourceResult<()> {
     let (shift_up, shift_down) =
         compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br]);
