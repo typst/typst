@@ -1,8 +1,7 @@
-use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, PdfChunk, Renumber, WithResources};
+use crate::{content, PdfChunk, Renumber, WithResources};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -16,14 +15,14 @@ const OKLAB_A: Name<'static> = Name(b"A");
 const OKLAB_B: Name<'static> = Name(b"B");
 
 // The ICC profiles.
-static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_RGB_V4));
-static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_GREY_V4));
+static SRGB_ICC_DEFLATED: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/srgb_icc_deflated"));
+static GRAY_ICC_DEFLATED: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/gray_icc_deflated"));
 
 // The PostScript functions for color spaces.
-static OKLAB_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
+static OKLAB_DEFLATED: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/oklab_deflated"));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]
@@ -80,7 +79,7 @@ impl ColorSpaces {
         // Write the Oklab function & color space.
         if self.use_oklab {
             chunk
-                .post_script_function(refs.oklab.unwrap(), &OKLAB_DEFLATED)
+                .post_script_function(refs.oklab.unwrap(), OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -89,7 +88,7 @@ impl ColorSpaces {
         // Write the sRGB color space.
         if self.use_srgb {
             chunk
-                .icc_profile(refs.srgb.unwrap(), &SRGB_ICC_DEFLATED)
+                .icc_profile(refs.srgb.unwrap(), SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -98,7 +97,7 @@ impl ColorSpaces {
         // Write the gray color space.
         if self.use_d65_gray {
             chunk
-                .icc_profile(refs.d65_gray.unwrap(), &GRAY_ICC_DEFLATED)
+                .icc_profile(refs.d65_gray.unwrap(), GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -188,28 +187,6 @@ pub fn alloc_color_functions_refs(
     };
 
     (chunk, refs)
-}
-
-/// This function removes comments, line spaces and carriage returns from a
-/// PostScript program. This is necessary to optimize the size of the PDF file.
-fn minify(source: &str) -> String {
-    let mut buf = String::with_capacity(source.len());
-    let mut s = unscanny::Scanner::new(source);
-    while let Some(c) = s.eat() {
-        match c {
-            '%' => {
-                s.eat_until('\n');
-            }
-            c if c.is_whitespace() => {
-                s.eat_whitespace();
-                if buf.ends_with(|c: char| !c.is_whitespace()) {
-                    buf.push(' ');
-                }
-            }
-            _ => buf.push(c),
-        }
-    }
-    buf
 }
 
 /// Encodes the color into four f32s, which can be used in a PDF file.

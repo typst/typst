@@ -14,7 +14,6 @@ readme = { workspace = true }
 
 [dependencies]
 typst = { workspace = true }
-typst-assets = { workspace = true }
 typst-macros = { workspace = true }
 typst-timing = { workspace = true }
 base64 = { workspace = true }
@@ -30,8 +29,12 @@ subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }
 unicode-properties = { workspace = true }
-unscanny = { workspace = true }
 xmp-writer = { workspace = true }
+
+[build-dependencies]
+typst-assets = { workspace = true }
+miniz_oxide = { workspace = true }
+unscanny = { workspace = true }
 
 [lints]
 workspace = true
