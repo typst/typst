@@ -53,7 +53,7 @@ static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
 });
 
 /// The set of Unicode default ignorables.
-static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
+pub static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
     icu_properties::sets::load_default_ignorable_code_point(&blob().as_deserializing())
         .unwrap()
 });

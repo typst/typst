@@ -24,6 +24,7 @@ use crate::layout::{Fragment, Size};
 use crate::model::ParElem;
 use crate::realize::StyleVec;
 use crate::World;
+pub(crate) use linebreak::DEFAULT_IGNORABLE_DATA;
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;

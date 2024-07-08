@@ -5,7 +5,7 @@ use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
 };
-use crate::layout::Dir;
+use crate::layout::{Dir, DEFAULT_IGNORABLE_DATA};
 use crate::syntax::is_newline;
 use crate::text::{Lang, Region};
 
@@ -173,7 +173,7 @@ fn is_exterior_to_quote(c: char) -> bool {
 }
 
 pub(crate) fn is_ignorable(c: char) -> bool {
-    icu_properties::sets::default_ignorable_code_point().contains(c)
+    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
 }
 
 fn is_opening_bracket(c: char) -> bool {
