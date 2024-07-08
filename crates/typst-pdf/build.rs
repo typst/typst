@@ -34,7 +34,7 @@ fn deflate(data: &[u8]) -> Vec<u8> {
 
 fn write_deflated(out_dir: &Path, dest: &str, inflated: &[u8]) {
     let dest_path = out_dir.join(dest);
-    fs::write(&dest_path, deflate(inflated)).expect("write failed");
+    fs::write(dest_path, deflate(inflated)).expect("write failed");
 }
 
 fn main() {
