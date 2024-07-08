@@ -57,14 +57,8 @@ impl LayoutMath for Packed<AttachElem> {
         let sup_style = style_for_superscript(styles);
         let sup_style_chain = styles.chain(&sup_style);
         let tl = self.tl(sup_style_chain);
-        let (tr, primes) = {
-            let tr = self.tr(sup_style_chain);
-            if tr.as_ref().is_some_and(|content| content.is::<PrimesElem>()) {
-                (None, tr)
-            } else {
-                (tr, None)
-            }
-        };
+        let tr = self.tr(sup_style_chain);
+        let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
         let t = self.t(sup_style_chain);
 
         let sub_style = style_for_subscript(styles);
@@ -74,10 +68,11 @@ impl LayoutMath for Packed<AttachElem> {
         let b = self.b(sub_style_chain);
 
         let limits = base.limits().active(styles);
-        let (t, mut tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
-        if let Some(primes) = primes {
-            tr = tr.map_or(Some(primes.clone()), |tr| Some(primes + tr));
-        }
+        let (t, tr) = match (t, tr) {
+            (Some(t), Some(tr)) if primed && !limits => (None, Some(tr + t)),
+            (Some(t), None) if !limits => (None, Some(t)),
+            (t, tr) => (t, tr),
+        };
         let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
 
         macro_rules! layout {
