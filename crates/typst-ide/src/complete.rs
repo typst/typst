@@ -17,8 +17,10 @@ use typst::visualize::Color;
 use typst::World;
 use unscanny::Scanner;
 
-use crate::analyze::{analyze_expr, analyze_import, analyze_labels};
-use crate::{plain_docs_sentence, summarize_font_family};
+use crate::{
+    analyze_expr, analyze_import, analyze_labels, named_items, plain_docs_sentence,
+    summarize_font_family,
+};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -1327,62 +1329,12 @@ impl<'a> CompletionContext<'a> {
     /// Filters the global/math scope with the given filter.
     fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
         let mut defined = BTreeSet::new();
-
-        let mut ancestor = Some(self.leaf.clone());
-        while let Some(node) = &ancestor {
-            let mut sibling = Some(node.clone());
-            while let Some(node) = &sibling {
-                if let Some(v) = node.cast::<ast::LetBinding>() {
-                    for ident in v.kind().bindings() {
-                        defined.insert(ident.get().clone());
-                    }
-                }
-
-                if let Some(v) = node.cast::<ast::ModuleImport>() {
-                    let imports = v.imports();
-                    match imports {
-                        None | Some(ast::Imports::Wildcard) => {
-                            if let Some(value) = node
-                                .children()
-                                .find(|child| child.is::<ast::Expr>())
-                                .and_then(|source| analyze_import(self.world, &source))
-                            {
-                                if imports.is_none() {
-                                    defined.extend(value.name().map(Into::into));
-                                } else if let Some(scope) = value.scope() {
-                                    for (name, _) in scope.iter() {
-                                        defined.insert(name.clone());
-                                    }
-                                }
-                            }
-                        }
-                        Some(ast::Imports::Items(items)) => {
-                            for item in items.iter() {
-                                defined.insert(item.bound_name().get().clone());
-                            }
-                        }
-                    }
-                }
-
-                sibling = node.prev_sibling();
+        named_items(self.world, self.leaf.clone(), |name| {
+            if name.value().as_ref().map_or(true, &filter) {
+                defined.insert(name.name().clone());
             }
-
-            if let Some(parent) = node.parent() {
-                if let Some(v) = parent.cast::<ast::ForLoop>() {
-                    if node.prev_sibling_kind() != Some(SyntaxKind::In) {
-                        let pattern = v.pattern();
-                        for ident in pattern.bindings() {
-                            defined.insert(ident.get().clone());
-                        }
-                    }
-                }
-
-                ancestor = Some(parent.clone());
-                continue;
-            }
-
-            break;
-        }
+            None::<()>
+        });
 
         let in_math = matches!(
             self.leaf.parent_kind(),
