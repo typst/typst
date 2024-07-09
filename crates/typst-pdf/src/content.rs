@@ -197,6 +197,7 @@ impl Builder<'_, ()> {
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
 
+            self.state.external_graphics_state = *graphics_state;
             if graphics_state.uses_opacities() {
                 self.uses_opacities = true;
             }
