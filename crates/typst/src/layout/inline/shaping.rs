@@ -14,7 +14,6 @@ use super::{Item, Range, SpanMapper};
 use crate::engine::Engine;
 use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
-use crate::syntax::Span;
 use crate::text::{
     decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
     TextElem, TextItem,
@@ -27,6 +26,7 @@ use crate::World;
 /// This type contains owned or borrowed shaped text runs, which can be
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
+#[derive(Clone)]
 pub struct ShapedText<'a> {
     /// The start of the text in the full paragraph.
     pub base: usize,
@@ -80,8 +80,6 @@ pub struct ShapedGlyph {
     pub safe_to_break: bool,
     /// The first char in this glyph's cluster.
     pub c: char,
-    /// The source code location of the glyph and its byte offset within it.
-    pub span: (Span, u16),
     /// Whether this glyph is justifiable for CJK scripts.
     pub is_justifiable: bool,
     /// The script of the glyph.
@@ -214,6 +212,7 @@ impl<'a> ShapedText<'a> {
     pub fn build(
         &self,
         engine: &Engine,
+        spans: &SpanMapper,
         justification_ratio: f64,
         extra_justification: Abs,
     ) -> Frame {
@@ -268,7 +267,7 @@ impl<'a> ShapedText<'a> {
                     // We may not be able to reach the offset completely if
                     // it exceeds u16, but better to have a roughly correct
                     // span offset than nothing.
-                    let mut span = shaped.span;
+                    let mut span = spans.span_at(shaped.range.start);
                     span.1 = span.1.saturating_add(span_offset.saturating_as());
 
                     // |<---- a Glyph ---->|
@@ -331,7 +330,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, engine: &Engine) -> (Abs, Abs) {
+    pub fn measure(&self, engine: &Engine) -> (Abs, Abs) {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
@@ -409,12 +408,7 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     ///
     /// The text `range` is relative to the whole paragraph.
-    pub fn reshape(
-        &'a self,
-        engine: &Engine,
-        spans: &SpanMapper,
-        text_range: Range,
-    ) -> ShapedText<'a> {
+    pub fn reshape(&'a self, engine: &Engine, text_range: Range) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             #[cfg(debug_assertions)]
@@ -436,12 +430,21 @@ impl<'a> ShapedText<'a> {
                 engine,
                 text_range.start,
                 text,
-                spans,
                 self.styles,
                 self.dir,
                 self.lang,
                 self.region,
             )
+        }
+    }
+
+    /// Derive an empty text run with the same properties as this one.
+    pub fn empty(&self) -> Self {
+        Self {
+            text: "",
+            width: Abs::zero(),
+            glyphs: Cow::Borrowed(&[]),
+            ..*self
         }
     }
 
@@ -493,7 +496,6 @@ impl<'a> ShapedText<'a> {
                 range,
                 safe_to_break: true,
                 c: '-',
-                span: (Span::detached(), 0),
                 is_justifiable: false,
                 script: Script::Common,
             };
@@ -592,11 +594,11 @@ impl Debug for ShapedText<'_> {
 /// Group a range of text by BiDi level and script, shape the runs and generate
 /// items for them.
 pub fn shape_range<'a>(
-    items: &mut Vec<Item<'a>>,
+    items: &mut Vec<(Range, Item<'a>)>,
     engine: &Engine,
+    text: &'a str,
     bidi: &BidiInfo<'a>,
     range: Range,
-    spans: &SpanMapper,
     styles: StyleChain<'a>,
 ) {
     let script = TextElem::script_in(styles);
@@ -604,17 +606,9 @@ pub fn shape_range<'a>(
     let region = TextElem::region_in(styles);
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped = shape(
-            engine,
-            range.start,
-            &bidi.text[range],
-            spans,
-            styles,
-            dir,
-            lang,
-            region,
-        );
-        items.push(Item::Text(shaped));
+        let shaped =
+            shape(engine, range.start, &text[range.clone()], styles, dir, lang, region);
+        items.push((range, Item::Text(shaped)));
     };
 
     let mut prev_level = BidiLevel::ltr();
@@ -625,14 +619,14 @@ pub fn shape_range<'a>(
     // set (rather than inferred from the glyphs), we keep the script at an
     // unchanging `Script::Unknown` so that only level changes cause breaks.
     for i in range.clone() {
-        if !bidi.text.is_char_boundary(i) {
+        if !text.is_char_boundary(i) {
             continue;
         }
 
         let level = bidi.levels[i];
         let curr_script = match script {
             Smart::Auto => {
-                bidi.text[i..].chars().next().map_or(Script::Unknown, |c| c.script())
+                text[i..].chars().next().map_or(Script::Unknown, |c| c.script())
             }
             Smart::Custom(_) => Script::Unknown,
         };
@@ -668,7 +662,6 @@ fn shape<'a>(
     engine: &Engine,
     base: usize,
     text: &'a str,
-    spans: &SpanMapper,
     styles: StyleChain<'a>,
     dir: Dir,
     lang: Lang,
@@ -677,7 +670,6 @@ fn shape<'a>(
     let size = TextElem::size_in(styles);
     let mut ctx = ShapingContext {
         engine,
-        spans,
         size,
         glyphs: vec![],
         used: vec![],
@@ -717,7 +709,6 @@ fn shape<'a>(
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
     engine: &'a Engine<'v>,
-    spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
     styles: StyleChain<'a>,
@@ -830,7 +821,6 @@ fn shape_segment<'a>(
                 range: start..end,
                 safe_to_break: !info.unsafe_to_break(),
                 c,
-                span: ctx.spans.span_at(start),
                 is_justifiable: is_justifiable(
                     c,
                     script,
@@ -921,7 +911,6 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
             range: start..end,
             safe_to_break: true,
             c,
-            span: ctx.spans.span_at(start),
             is_justifiable: is_justifiable(
                 c,
                 script,

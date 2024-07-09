@@ -49,6 +49,7 @@ use crate::foundations::{
 };
 use crate::introspection::TagElem;
 use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing, VAlignment};
+use crate::realize::Behaviour;
 use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -299,7 +300,7 @@ impl LayoutMath for Content {
         if let Some(elem) = self.to_packed::<TagElem>() {
             let mut frame = Frame::soft(Size::zero());
             frame.push(Point::zero(), FrameItem::Tag(elem.tag.clone()));
-            ctx.push(FrameFragment::new(ctx, styles, frame));
+            ctx.push(FrameFragment::new(ctx, styles, frame).with_ignorant(true));
             return Ok(());
         }
 
@@ -312,7 +313,15 @@ impl LayoutMath for Content {
             let axis = scaled!(ctx, styles, axis_height);
             frame.set_baseline(frame.height() / 2.0 + axis);
         }
-        ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
+
+        ctx.push(
+            FrameFragment::new(ctx, styles, frame)
+                .with_spaced(true)
+                .with_ignorant(matches!(
+                    self.behaviour(),
+                    Behaviour::Invisible | Behaviour::Ignorant
+                )),
+        );
 
         Ok(())
     }
