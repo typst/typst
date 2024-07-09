@@ -151,7 +151,7 @@ impl Definition {
     fn module(module: &Module, span: Span, name_span: Span) -> Self {
         Definition {
             name: module.name().clone(),
-            kind: DefinitionKind::Module(module.clone()),
+            kind: DefinitionKind::Module,
             value: Some(Value::Module(module.clone())),
             span,
             name_span,
@@ -191,9 +191,7 @@ pub enum DefinitionKind {
     ///                span ^^^
     ///           name_span ^^^
     /// ```
-    ///
-    /// Some modules are not associated with a file, like the built-in modules.
-    Module(Module),
+    Module,
     /// ```plain
     /// <foo>
     /// ^^^^^ span

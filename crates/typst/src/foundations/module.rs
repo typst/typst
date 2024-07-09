@@ -92,6 +92,8 @@ impl Module {
     }
 
     /// Access the module's file id.
+    ///
+    /// Some modules are not associated with a file, like the built-in modules.
     pub fn file_id(&self) -> Option<FileId> {
         self.inner.file_id
     }
