@@ -1191,7 +1191,7 @@ impl Color {
                 Color::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
             }
             ColorSpace::Cmyk => Color::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[1])),
+            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[3])),
         })
     }
 
@@ -1721,7 +1721,7 @@ impl Cmyk {
     }
 
     fn from_luma(luma: Luma) -> Self {
-        let l = luma.luma;
+        let l = 1.0 - luma.luma;
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 

@@ -71,6 +71,13 @@ impl MathFragment {
         }
     }
 
+    pub fn is_ignorant(&self) -> bool {
+        match self {
+            Self::Frame(fragment) => fragment.ignorant,
+            _ => false,
+        }
+    }
+
     pub fn class(&self) -> MathClass {
         match self {
             Self::Glyph(glyph) => glyph.class,
@@ -120,17 +127,18 @@ impl MathFragment {
     }
 
     pub fn is_spaced(&self) -> bool {
-        self.class() == MathClass::Fence
-            || match self {
-                MathFragment::Frame(frame) => {
-                    frame.spaced
-                        && matches!(
-                            frame.class,
-                            MathClass::Normal | MathClass::Alphabetic
-                        )
-                }
-                _ => false,
-            }
+        if self.class() == MathClass::Fence {
+            return true;
+        }
+
+        matches!(
+            self,
+            MathFragment::Frame(FrameFragment {
+                spaced: true,
+                class: MathClass::Normal | MathClass::Alphabetic,
+                ..
+            })
+        )
     }
 
     pub fn is_text_like(&self) -> bool {
@@ -440,6 +448,7 @@ pub struct FrameFragment {
     pub italics_correction: Abs,
     pub accent_attach: Abs,
     pub text_like: bool,
+    pub ignorant: bool,
 }
 
 impl FrameFragment {
@@ -458,6 +467,7 @@ impl FrameFragment {
             italics_correction: Abs::zero(),
             accent_attach,
             text_like: false,
+            ignorant: false,
         }
     }
 
@@ -487,6 +497,10 @@ impl FrameFragment {
 
     pub fn with_text_like(self, text_like: bool) -> Self {
         Self { text_like, ..self }
+    }
+
+    pub fn with_ignorant(self, ignorant: bool) -> Self {
+        Self { ignorant, ..self }
     }
 }
 

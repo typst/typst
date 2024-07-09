@@ -52,31 +52,47 @@ pub struct AttachElem {
 impl LayoutMath for Packed<AttachElem> {
     #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
-
-        let layout_attachment =
-            |ctx: &mut MathContext, styles: StyleChain, getter: GetAttachment| {
-                getter(self, styles)
-                    .map(|elem| ctx.layout_into_fragment(&elem, styles))
-                    .transpose()
-            };
-
         let base = ctx.layout_into_fragment(self.base(), styles)?;
 
         let sup_style = style_for_superscript(styles);
-        let tl = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tl)?;
-        let tr = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tr)?;
-        let t = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::t)?;
+        let sup_style_chain = styles.chain(&sup_style);
+        let tl = self.tl(sup_style_chain);
+        let tr = self.tr(sup_style_chain);
+        let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
+        let t = self.t(sup_style_chain);
 
         let sub_style = style_for_subscript(styles);
-        let bl = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::bl)?;
-        let br = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::br)?;
-        let b = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::b)?;
+        let sub_style_chain = styles.chain(&sub_style);
+        let bl = self.bl(sub_style_chain);
+        let br = self.br(sub_style_chain);
+        let b = self.b(sub_style_chain);
 
         let limits = base.limits().active(styles);
-        let (t, tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
+        let (t, tr) = match (t, tr) {
+            (Some(t), Some(tr)) if primed && !limits => (None, Some(tr + t)),
+            (Some(t), None) if !limits => (None, Some(t)),
+            (t, tr) => (t, tr),
+        };
         let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
-        layout_attachments(ctx, styles, base, [tl, t, tr, bl, b, br])
+
+        macro_rules! layout {
+            ($content:ident, $style_chain:ident) => {
+                $content
+                    .map(|elem| ctx.layout_into_fragment(&elem, $style_chain))
+                    .transpose()
+            };
+        }
+
+        let fragments = [
+            layout!(tl, sup_style_chain)?,
+            layout!(t, sup_style_chain)?,
+            layout!(tr, sup_style_chain)?,
+            layout!(bl, sub_style_chain)?,
+            layout!(b, sub_style_chain)?,
+            layout!(br, sub_style_chain)?,
+        ];
+
+        layout_attachments(ctx, styles, base, fragments)
     }
 }
 
