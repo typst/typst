@@ -143,7 +143,7 @@ impl LayoutMath for Packed<PrimesElem> {
                         prime.clone(),
                     )
                 }
-                ctx.push(FrameFragment::new(ctx, styles, frame));
+                ctx.push(FrameFragment::new(ctx, styles, frame).with_text_like(true));
             }
         }
         Ok(())
