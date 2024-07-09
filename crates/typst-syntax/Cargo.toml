@@ -17,14 +17,12 @@ typst-utils = { workspace = true }
 ecow = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
+toml = { workspace = true }
 unicode-ident = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
-
-[dev-dependencies]
-toml = { workspace = true }
 
 [lints]
 workspace = true

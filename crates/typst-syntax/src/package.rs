@@ -26,19 +26,51 @@ pub struct PackageManifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub template: Option<TemplateInfo>,
     /// The tools section for third-party configuration.
-    #[serde(default, skip_serializing)]
-    pub tool: Option<ToolInfo>,
+    #[serde(default)]
+    pub tool: ToolInfo,
     /// All parsed but unknown fields, this can be used for validation.
     #[serde(flatten, skip_serializing)]
     pub unknown_fields: UnknownFields,
 }
 
-/// The `[tool]` key in the manifest.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// The `[tool]` key in the manifest. This field can be used to retrieve
+/// 3rd-party tool configuration.
+///
+// # Examples
+/// ```
+/// # use serde::{Deserialize, Serialize};
+/// # use ecow::EcoString;
+/// # use typst_syntax::package::PackageManifest;
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct MyTool {
+///     key: EcoString,
+/// }
+///
+/// let mut manifest: PackageManifest = toml::from_str(r#"
+///     [package]
+///     name = "package"
+///     version = "0.1.0"
+///     entrypoint = "src/lib.typ"
+///
+///     [tool.my-tool]
+///     key = "value"
+/// "#)?;
+///
+/// let my_tool = manifest
+///     .tool
+///     .sections
+///     .remove("my-tool")
+///     .ok_or("tool.my-tool section missing")?;
+/// let my_tool = MyTool::deserialize(my_tool)?;
+///
+/// assert_eq!(my_tool, MyTool { key: "value".into() });
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ToolInfo {
     /// Any fields parsed in the tool section.
-    #[serde(flatten, skip_serializing)]
-    pub unknown_fields: UnknownFields,
+    #[serde(flatten)]
+    pub sections: BTreeMap<EcoString, toml::Table>,
 }
 
 /// The `[template]` key in the manifest.
@@ -519,10 +551,51 @@ mod tests {
                     unknown_fields: BTreeMap::new(),
                 },
                 template: None,
-                tool: None,
+                tool: ToolInfo { sections: BTreeMap::new() },
                 unknown_fields: BTreeMap::new(),
             })
         );
+    }
+
+    #[test]
+    fn tool_section() {
+        // NOTE: tool section must be table of tables, but we can't easily
+        // compare the error structurally
+        assert!(toml::from_str::<PackageManifest>(
+            r#"
+                [package]
+                name = "package"
+                version = "0.1.0"
+                entrypoint = "src/lib.typ"
+
+                [tool]
+                not-table = "str"
+            "#
+        )
+        .is_err());
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct MyTool {
+            key: EcoString,
+        }
+
+        let mut manifest: PackageManifest = toml::from_str(
+            r#"
+            [package]
+            name = "package"
+            version = "0.1.0"
+            entrypoint = "src/lib.typ"
+
+            [tool.my-tool]
+            key = "value"
+        "#,
+        )
+        .unwrap();
+
+        let my_tool = manifest.tool.sections.remove("my-tool").unwrap();
+        let my_tool = MyTool::deserialize(my_tool).unwrap();
+
+        assert_eq!(my_tool, MyTool { key: "value".into() });
     }
 
     #[test]
