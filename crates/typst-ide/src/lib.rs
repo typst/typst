@@ -96,7 +96,7 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use once_cell::sync::Lazy;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
