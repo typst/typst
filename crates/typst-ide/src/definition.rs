@@ -2,7 +2,7 @@ use ecow::EcoString;
 use typst::foundations::{Label, Module, Selector, Value};
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, FileId, LinkedNode, Side, Source, Span, SyntaxKind};
+use typst::syntax::{ast, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::World;
 
 use crate::{analyze_import, deref_target, named_items, DerefTarget, NamedItem};
@@ -146,10 +146,7 @@ impl Definition {
     fn module(module: &Module) -> Self {
         Definition {
             name: module.name().clone(),
-            kind: match module.file_id() {
-                Some(file_id) => DefinitionKind::ModulePath(file_id),
-                None => DefinitionKind::Module(module.clone()),
-            },
+            kind: DefinitionKind::Module(module.clone()),
             value: Some(Value::Module(module.clone())),
             span: Span::detached(),
             name_span: Span::detached(),
@@ -174,14 +171,6 @@ pub enum DefinitionKind {
     ///     ^^^
     /// ```
     Function,
-    /// ```plain
-    /// import ("fo" + "o.typ")
-    ///          ^^^^^^^^
-    /// ```
-    ///
-    /// IDE will always resolve a path instead of a module whenever possible.
-    /// This allows resolving a module containing errors.
-    ModulePath(FileId),
     /// ```plain
     /// import calc: *
     ///        ^^^^
