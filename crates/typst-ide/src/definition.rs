@@ -32,15 +32,14 @@ pub fn definition(
             return Some(Definition::module(&import_item, path.span(), Span::detached()));
         }
         DerefTarget::Ref(r) => {
-            let ref_node = r.cast::<ast::Ref>()?.target();
-            let sel = Selector::Label(Label::new(ref_node));
+            let label = Label::new(r.cast::<ast::Ref>()?.target());
+            let sel = Selector::Label(label);
             let elem = document?.introspector.query_first(&sel)?;
             let span = elem.span();
-
             return Some(Definition {
                 kind: DefinitionKind::Label,
-                name: r.text().clone(),
-                value: elem.label().map(Value::Label),
+                name: label.as_str().into(),
+                value: Some(Value::Label(label)),
                 span,
                 name_span: Span::detached(),
             });
