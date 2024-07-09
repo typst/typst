@@ -212,39 +212,55 @@ fn find_let_binding(source: &Source, name_span: Span) -> Span {
 
 #[cfg(test)]
 mod tests {
-    use typst::foundations::Value;
-    use typst::syntax::{Side, Span};
+    use std::ops::Range;
 
-    use super::{definition, Definition};
+    use typst::foundations::{IntoValue, Label, NativeElement, Value};
+    use typst::syntax::Side;
+    use typst::WorldExt;
+
+    use super::{definition, DefinitionKind as Kind};
     use crate::tests::TestWorld;
 
-    fn var(text: &str, value: bool) -> Option<Definition> {
-        Some(Definition::item(
-            text.into(),
-            Span::detached(),
-            Span::detached(),
-            if value { Some(Value::Bool(false)) } else { None },
-        ))
-    }
-
-    fn func(text: &str, value: bool) -> Option<Definition> {
-        var(text, value).map(|d| d.with_kind(super::DefinitionKind::Function))
-    }
-
     #[track_caller]
-    fn test(text: &str, cursor: usize, expected: Option<Definition>) {
+    fn test<T>(
+        text: &str,
+        cursor: usize,
+        name: &str,
+        kind: Kind,
+        value: Option<T>,
+        range: Option<Range<usize>>,
+    ) where
+        T: IntoValue,
+    {
         let world = TestWorld::new(text);
         let doc = typst::compile(&world).output.ok();
-        let actual = definition(&world, doc.as_ref(), &world.main, cursor, Side::After);
-        let actual = actual.map(|d| (d.kind, d.name, d.value.is_some()));
-        let expected = expected.map(|d| (d.kind, d.name, d.value.is_some()));
-        assert_eq!(actual, expected);
+        let actual = definition(&world, doc.as_ref(), &world.main, cursor, Side::After)
+            .map(|d| (d.kind, d.name, world.range(d.span), d.value));
+        assert_eq!(
+            actual,
+            Some((kind, name.into(), range, value.map(IntoValue::into_value)))
+        );
     }
 
     #[test]
     fn test_definition() {
-        test("#let x; #x", 9, var("x", false));
-        test("#let x() = {}; #x", 16, func("x", false));
-        test("#table", 1, func("table", true));
+        test("#let x; #x", 9, "x", Kind::Variable, None::<Value>, Some(1..6));
+        test("#let x() = {}; #x", 16, "x", Kind::Function, None::<Value>, Some(1..13));
+        test(
+            "#table",
+            1,
+            "table",
+            Kind::Function,
+            Some(typst::model::TableElem::elem()),
+            None,
+        );
+        test(
+            "#figure[] <hi> See @hi",
+            21,
+            "hi",
+            Kind::Label,
+            Some(Label::new("hi")),
+            Some(1..9),
+        );
     }
 }
