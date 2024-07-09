@@ -773,15 +773,15 @@ impl<'a> LinkedNode<'a> {
         self.parent.as_deref()
     }
 
-    /// Get the first previous (non-trivia if with_trivia = false) sibling node.
-    pub fn prev_sibling(&self, with_trivia: bool) -> Option<Self> {
+    /// Get the first previous non-trivia sibling node.
+    pub fn prev_sibling(&self) -> Option<Self> {
         let parent = self.parent()?;
         let index = self.index.checked_sub(1)?;
         let node = parent.node.children().nth(index)?;
         let offset = self.offset - node.len();
         let prev = Self { node, parent: self.parent.clone(), index, offset };
-        if !with_trivia && prev.kind().is_trivia() {
-            prev.prev_sibling(with_trivia)
+        if prev.kind().is_trivia() {
+            prev.prev_sibling()
         } else {
             Some(prev)
         }
@@ -808,7 +808,7 @@ impl<'a> LinkedNode<'a> {
 
     /// Get the kind of this node's first previous non-trivia sibling.
     pub fn prev_sibling_kind(&self) -> Option<SyntaxKind> {
-        Some(self.prev_sibling(false)?.node.kind())
+        Some(self.prev_sibling()?.node.kind())
     }
 
     /// Get the kind of this node's next non-trivia sibling.
@@ -829,7 +829,7 @@ impl<'a> LinkedNode<'a> {
     /// Get the rightmost non-trivia leaf before this node.
     pub fn prev_leaf(&self) -> Option<Self> {
         let mut node = self.clone();
-        while let Some(prev) = node.prev_sibling(false) {
+        while let Some(prev) = node.prev_sibling() {
             if let Some(leaf) = prev.rightmost_leaf() {
                 return Some(leaf);
             }
@@ -1024,7 +1024,7 @@ mod tests {
         assert_eq!(node.text(), "text");
 
         // Go back to "#set". Skips the space.
-        let prev = node.prev_sibling(false).unwrap();
+        let prev = node.prev_sibling().unwrap();
         assert_eq!(prev.offset(), 1);
         assert_eq!(prev.text(), "set");
     }
