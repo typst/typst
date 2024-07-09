@@ -334,6 +334,13 @@ fn math_completions(ctx: &mut CompletionContext) {
 
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
+    // Used to determine whether trivia nodes are allowed before '.'.
+    // During an inline expression in markup mode trivia nodes exit the inline expression.
+    let in_markup: bool = matches!(
+        ctx.leaf.parent_kind(),
+        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
+    );
+
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
@@ -341,6 +348,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
+        if !in_markup || prev.range().end == ctx.leaf.range().start;
         if prev.is::<ast::Expr>();
         if prev.parent_kind() != Some(SyntaxKind::Markup) ||
            prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
@@ -1431,6 +1439,16 @@ mod tests {
     fn test_autocomplete() {
         test("#i", 2, &["int", "if conditional"], &["foo"]);
         test("#().", 4, &["insert", "remove", "len", "all"], &["foo"]);
+    }
+
+    #[test]
+    fn test_whitespace_in_autocomplete() {
+        //Check that extra space before '.' is handled correctly.
+        test("#() .", 5, &[], &["insert", "remove", "len", "all"]);
+        test("#{() .}", 6, &["insert", "remove", "len", "all"], &["foo"]);
+
+        test("#() .a", 6, &[], &["insert", "remove", "len", "all"]);
+        test("#{() .a}", 7, &["at", "any", "all"], &["foo"]);
     }
 
     #[test]
