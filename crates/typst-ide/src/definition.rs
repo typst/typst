@@ -29,7 +29,7 @@ pub fn definition(
         DerefTarget::IncludePath(path) | DerefTarget::ImportPath(path) => {
             let import_item =
                 analyze_import(world, &path).and_then(|v| v.cast::<Module>().ok())?;
-            return Some(Definition::module(&import_item));
+            return Some(Definition::module(&import_item, path.span(), Span::detached()));
         }
         DerefTarget::Ref(r) => {
             let ref_node = r.cast::<ast::Ref>()?.target();
@@ -76,7 +76,13 @@ pub fn definition(
                         .with_kind(DefinitionKind::Function),
                 )
             }
-            NamedItem::Module(item) => Some(Definition::module(item)),
+            NamedItem::Module(item, site) => Some(Definition::module(
+                item,
+                site.span(),
+                matches!(site.kind(), SyntaxKind::Ident)
+                    .then_some(site.span())
+                    .unwrap_or_else(Span::detached),
+            )),
             NamedItem::Import(name, span, value) => Some(Definition::item(
                 name.clone(),
                 Span::detached(),
@@ -143,13 +149,13 @@ impl Definition {
         }
     }
 
-    fn module(module: &Module) -> Self {
+    fn module(module: &Module, span: Span, name_span: Span) -> Self {
         Definition {
             name: module.name().clone(),
             kind: DefinitionKind::Module(module.clone()),
             value: Some(Value::Module(module.clone())),
-            span: Span::detached(),
-            name_span: Span::detached(),
+            span,
+            name_span,
         }
     }
 
@@ -163,24 +169,36 @@ impl Definition {
 pub enum DefinitionKind {
     /// ```plain
     /// let foo;
-    ///     ^^^
+    /// ^^^^^^^^ span
+    ///     ^^^ name_span
     /// ```
     Variable,
     /// ```plain
     /// let foo(it) = it;
-    ///     ^^^
+    /// ^^^^^^^^^^^^^^^^^ span
+    ///     ^^^ name_span
     /// ```
     Function,
+    /// Case 1
     /// ```plain
-    /// import calc: *
-    ///        ^^^^
+    /// import "foo.typ": *
+    ///        ^^^^^^^^^ span
+    /// name_span is detached
+    /// ```
+    ///
+    /// Case 2
+    /// ```plain
+    /// import "foo.typ" as bar: *
+    ///                span ^^^
+    ///           name_span ^^^
     /// ```
     ///
     /// Some modules are not associated with a file, like the built-in modules.
     Module(Module),
     /// ```plain
     /// <foo>
-    ///  ^^^
+    /// ^^^^^ span
+    /// name_span is detached
     /// ```
     Label,
 }

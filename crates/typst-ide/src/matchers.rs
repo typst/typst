@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::syntax::{ast, LinkedNode, Span, SyntaxKind, SyntaxNode};
 use typst::World;
 
 use crate::analyze_import;
@@ -31,33 +31,67 @@ pub fn named_items<T>(
 
             if let Some(v) = node.cast::<ast::ModuleImport>() {
                 let imports = v.imports();
+                let source = node
+                    .children()
+                    .find(|child| child.is::<ast::Expr>())
+                    .and_then(|source: LinkedNode| {
+                        Some((analyze_import(world, &source)?, source))
+                    });
+                let source = source.as_ref();
+
+                // Seeing the module itself.
+                if let Some((value, source)) = source {
+                    let site = match (imports, v.new_name()) {
+                        // ```plain
+                        // import "foo" as name;
+                        // import "foo" as name: ..;
+                        // ```
+                        (_, Some(name)) => Some(name.to_untyped()),
+                        // ```plain
+                        // import "foo";
+                        // ```
+                        (None, None) => Some(source.get()),
+                        // ```plain
+                        // import "foo": ..;
+                        // ```
+                        (Some(..), None) => None,
+                    };
+
+                    if let Some((site, value)) =
+                        site.zip(value.clone().cast::<Module>().ok())
+                    {
+                        if let Some(res) = recv(NamedItem::Module(&value, site)) {
+                            return Some(res);
+                        }
+                    }
+                }
+
+                // Seeing the imported items.
                 match imports {
-                    None | Some(ast::Imports::Wildcard) => {
-                        if let Some(value) = node
-                            .children()
-                            .find(|child| child.is::<ast::Expr>())
-                            .and_then(|source| analyze_import(world, &source))
-                        {
-                            if imports.is_none() {
-                                if let Ok(value) = value.clone().cast::<Module>() {
-                                    if let Some(res) = recv(NamedItem::Module(&value)) {
-                                        return Some(res);
-                                    }
-                                }
-                            } else if let Some(scope) = value.scope() {
-                                for (name, value) in scope.iter() {
-                                    let item = NamedItem::Import(
-                                        name,
-                                        Span::detached(),
-                                        Some(value),
-                                    );
-                                    if let Some(res) = recv(item) {
-                                        return Some(res);
-                                    }
+                    // ```plain
+                    // import "foo";
+                    // ```
+                    None => {}
+                    // ```plain
+                    // import "foo": *;
+                    // ```
+                    Some(ast::Imports::Wildcard) => {
+                        if let Some(scope) = source.and_then(|(value, _)| value.scope()) {
+                            for (name, value) in scope.iter() {
+                                let item = NamedItem::Import(
+                                    name,
+                                    Span::detached(),
+                                    Some(value),
+                                );
+                                if let Some(res) = recv(item) {
+                                    return Some(res);
                                 }
                             }
                         }
                     }
+                    // ```plain
+                    // import "foo": items;
+                    // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
                             let name = item.bound_name();
@@ -103,7 +137,7 @@ pub enum NamedItem<'a> {
     /// A function item.
     Fn(ast::Ident<'a>),
     /// A (imported) module item.
-    Module(&'a Module),
+    Module(&'a Module, &'a SyntaxNode),
     /// An imported item.
     Import(&'a EcoString, Span, Option<&'a Value>),
 }
@@ -113,7 +147,7 @@ impl<'a> NamedItem<'a> {
         match self {
             NamedItem::Var(ident) => ident.get(),
             NamedItem::Fn(ident) => ident.get(),
-            NamedItem::Module(value) => value.name(),
+            NamedItem::Module(value, _) => value.name(),
             NamedItem::Import(name, _, _) => name,
         }
     }
@@ -121,7 +155,7 @@ impl<'a> NamedItem<'a> {
     pub(crate) fn value(&self) -> Option<Value> {
         match self {
             NamedItem::Var(..) | NamedItem::Fn(..) => None,
-            NamedItem::Module(value) => Some(Value::Module((*value).clone())),
+            NamedItem::Module(value, _) => Some(Value::Module((*value).clone())),
             NamedItem::Import(_, _, value) => value.cloned(),
         }
     }
@@ -187,4 +221,46 @@ pub enum DerefTarget<'a> {
     IncludePath(LinkedNode<'a>),
     /// Any code expression.
     Code(SyntaxKind, LinkedNode<'a>),
+}
+
+#[cfg(test)]
+mod tests {
+    use typst::syntax::{LinkedNode, Side};
+
+    use crate::{named_items, tests::TestWorld};
+
+    #[track_caller]
+    fn has_named_items(text: &str, cursor: usize, containing: &str) -> bool {
+        let world = TestWorld::new(text);
+
+        let src = world.main.clone();
+        let node = LinkedNode::new(src.root());
+        let leaf = node.leaf_at(cursor, Side::After).unwrap();
+
+        let res = named_items(&world, leaf, |s| {
+            if containing == s.name() {
+                return Some(true);
+            }
+
+            None
+        });
+
+        res.unwrap_or_default()
+    }
+
+    #[test]
+    fn test_simple_named_items() {
+        // Has named items
+        assert!(has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "a"));
+        assert!(has_named_items(r#"#let a = 1;#let b = 2;"#, 15, "a"));
+
+        // Doesn't have named items
+        assert!(!has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "b"));
+    }
+
+    #[test]
+    fn test_import_named_items() {
+        // Cannot test much.
+        assert!(has_named_items(r#"#import "foo.typ": a; #(a);"#, 24, "a"));
+    }
 }
