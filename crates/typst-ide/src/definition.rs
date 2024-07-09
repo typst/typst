@@ -1,4 +1,4 @@
-use ecow::{eco_vec, EcoString};
+use ecow::EcoString;
 use typst::foundations::{Label, Module, Selector, Value};
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
@@ -50,9 +50,9 @@ pub fn definition(
         }
     };
 
-    let mut paths = eco_vec![];
+    let mut has_path = false;
     while let Some(node) = use_site.cast::<ast::FieldAccess>() {
-        paths.push(node.field().get().clone());
+        has_path = true;
         use_site = use_site.find(node.target().span())?;
     }
 
@@ -109,13 +109,9 @@ pub fn definition(
         }
 
         None
-    });
+    })?;
 
-    if paths.is_empty() {
-        return src;
-    }
-
-    None
+    (!has_path).then_some(src)
 }
 
 /// A definition of some item.
