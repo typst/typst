@@ -43,8 +43,8 @@ impl World for TestWorld {
         &self.base.book
     }
 
-    fn main(&self) -> Source {
-        self.main.clone()
+    fn main(&self) -> FileId {
+        self.main.id()
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {

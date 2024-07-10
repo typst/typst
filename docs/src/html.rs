@@ -463,8 +463,8 @@ impl World for DocWorld {
         &FONTS.0
     }
 
-    fn main(&self) -> Source {
-        self.0.clone()
+    fn main(&self) -> FileId {
+        self.0.id()
     }
 
     fn source(&self, _: FileId) -> FileResult<Source> {

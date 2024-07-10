@@ -39,8 +39,8 @@ impl World for FuzzWorld {
         &self.book
     }
 
-    fn main(&self) -> Source {
-        self.source.clone()
+    fn main(&self) -> FileId {
+        self.source.id()
     }
 
     fn source(&self, src: FileId) -> FileResult<Source> {

@@ -60,10 +60,12 @@ use std::collections::HashSet;
 use std::ops::{Deref, Range};
 
 use comemo::{Track, Tracked, Validate};
-use ecow::{EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use typst_timing::{timed, TimingScope};
 
-use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult, Warned};
+use crate::diag::{
+    warning, FileError, FileResult, SourceDiagnostic, SourceResult, Warned,
+};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Array, Bytes, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
@@ -107,6 +109,9 @@ fn compile_inner(
 ) -> SourceResult<Document> {
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
+    let main = world
+        .source(world.main())
+        .map_err(|err| hint_invalid_main_file(err, world.main()))?;
 
     // First evaluate the main source file into a module.
     let content = crate::eval::eval(
@@ -114,7 +119,7 @@ fn compile_inner(
         traced,
         sink.track_mut(),
         Route::default().track(),
-        &world.main(),
+        &main,
     )?
     .content();
 
@@ -203,8 +208,8 @@ pub trait World: Send + Sync {
     /// Metadata about all known fonts.
     fn book(&self) -> &LazyHash<FontBook>;
 
-    /// Access the main source file.
-    fn main(&self) -> Source;
+    /// Get the file id of the main source file.
+    fn main(&self) -> FileId;
 
     /// Try to access the specified source file.
     fn source(&self, id: FileId) -> FileResult<Source>;
@@ -246,7 +251,7 @@ macro_rules! delegate_for_ptr {
                 self.deref().book()
             }
 
-            fn main(&self) -> Source {
+            fn main(&self) -> FileId {
                 self.deref().main()
             }
 
@@ -401,4 +406,43 @@ fn prelude(global: &mut Scope) {
     global.define("top", Alignment::TOP);
     global.define("horizon", Alignment::HORIZON);
     global.define("bottom", Alignment::BOTTOM);
+}
+
+/// Adds useful hints when the main source file couldn't be read
+/// and returns the final diagnostic.
+fn hint_invalid_main_file(
+    file_error: FileError,
+    input: FileId,
+) -> EcoVec<SourceDiagnostic> {
+    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
+    let mut diagnostic =
+        SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
+
+    // Attempt to provide helpful hints for UTF-8 errors.
+    // Perhaps the user mistyped the filename.
+    // For example, they could have written "file.pdf" instead of
+    // "file.typ".
+    if is_utf8_error {
+        let path = input.vpath().as_rootless_path();
+        let extension = path.extension();
+
+        if let Some(extension) = extension {
+            if extension == "typ" {
+                // No hints if the file is already a .typ file.
+                // The file is indeed just invalid.
+                return eco_vec![diagnostic];
+            }
+
+            diagnostic.hint(eco_format!(
+                "a file with the `.{}` extension is not usually a Typst file",
+                extension.to_string_lossy()
+            ));
+        };
+
+        if path.with_extension("typ").exists() {
+            diagnostic.hint("check if you meant to use the `.typ` extension instead");
+        }
+    }
+
+    eco_vec![diagnostic]
 }
