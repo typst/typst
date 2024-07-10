@@ -109,9 +109,10 @@ fn compile_inner(
 ) -> SourceResult<Document> {
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
-    let main = world
-        .source(world.main())
-        .map_err(|err| hint_invalid_main_file(err, world.main()))?;
+
+    // Fetch the main source file once.
+    let main = world.main();
+    let main = world.source(main).map_err(|err| hint_invalid_main_file(err, main))?;
 
     // First evaluate the main source file into a module.
     let content = crate::eval::eval(
