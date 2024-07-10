@@ -439,10 +439,6 @@ fn hint_invalid_main_file(
                 extension.to_string_lossy()
             ));
         };
-
-        if path.with_extension("typ").exists() {
-            diagnostic.hint("check if you meant to use the `.typ` extension instead");
-        }
     }
 
     eco_vec![diagnostic]
