@@ -2836,6 +2836,7 @@ dependencies = [
  "ecow",
  "once_cell",
  "serde",
+ "toml",
  "typst-utils",
  "unicode-ident",
  "unicode-math-class",
