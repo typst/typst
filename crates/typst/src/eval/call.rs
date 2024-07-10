@@ -38,9 +38,9 @@ impl Eval for ast::FuncCall<'_> {
         let (callee, args) = if let ast::Expr::FieldAccess(access) = callee {
             let target = access.target();
             let field = access.field();
-            match eval_method_call(target, field, args, span, vm)? {
-                MethodCall::Normal(callee, args) => (callee, args),
-                MethodCall::Special(value) => return Ok(value),
+            match eval_field_call(target, field, args, span, vm)? {
+                FieldCall::Normal(callee, args) => (callee, args),
+                FieldCall::Resolved(value) => return Ok(value),
             }
         } else {
             // Function call order: we evaluate the callee before the arguments.
@@ -261,50 +261,51 @@ pub(crate) fn call_closure(
     Ok(output)
 }
 
-/// Method calls have some special cases which we convert to values eagerly. Otherwise
-/// this contains the evaluated method to call and the arguments to call with.
-enum MethodCall {
+/// This used only as the return value of `eval_field_call`.
+/// - `Normal` means that we have a function to call and the arguments to call it with.
+/// - `Resolved` means that we have already resolved the call and have the value.
+enum FieldCall {
     Normal(Value, Args),
-    Special(Value),
+    Resolved(Value),
 }
 
-/// Evaluate a method call's callee and arguments.
+/// Evaluate a field call's callee and arguments.
 ///
 /// This follows the normal function call order: we evaluate the callee before the
 /// arguments.
 ///
-/// Prioritize associated functions on the value's type (i.e., methods) over its fields.
+/// Prioritize associated functions on the value's type (e.g., methods) over its fields.
 /// A function call on a field is only allowed for functions, types, modules (because
-/// they are scopes), and symbols (because they have modifiers).
+/// they are scopes), and symbols (because they have modifiers or associated functions).
 ///
-/// For dictionaries, it is not allowed because it would be ambiguous (prioritizing
+/// For dictionaries, it is not allowed because it would be ambiguous - prioritizing
 /// associated functions would make an addition of a new associated function a breaking
 /// change and prioritizing fields would break associated functions for certain
-/// dictionaries).
-fn eval_method_call(
+/// dictionaries.
+fn eval_field_call(
     target_expr: ast::Expr,
-    method: Ident,
+    field: Ident,
     args: ast::Args,
     span: Span,
     vm: &mut Vm,
-) -> SourceResult<MethodCall> {
-    // Evaluate the method's target and overall arguments.
-    let (target, mut args) = if is_mutating_method(&method) {
-        // If `method` looks like a mutating method, we evaluate the arguments first,
+) -> SourceResult<FieldCall> {
+    // Evaluate the field-call's target and overall arguments.
+    let (target, mut args) = if is_mutating_method(&field) {
+        // If `field` looks like a mutating method, we evaluate the arguments first,
         // because `target_expr.access(vm)` mutably borrows the `vm`, so that we can't
         // evaluate the arguments after it.
         let args = args.eval(vm)?.spanned(span);
         // However, this difference from the normal call order is not observable because
-        // expressions like, i.e. `(1, arr.len(), 2, 3).push(arr.pop())`, evaluate the
-        // target to a temporary which we disallow mutation on (returning an error).
+        // expressions like `(1, arr.len(), 2, 3).push(arr.pop())` evaluate the target to
+        // a temporary which we disallow mutation on (returning an error).
         // Theoretically this could be observed if a method matching `is_mutating_method`
         // was added to some type in the future and we didn't update this function.
         match target_expr.access(vm)? {
             // Only arrays and dictionaries have mutable methods.
             target @ (Value::Array(_) | Value::Dict(_)) => {
-                let value = call_method_mut(target, &method, args, span);
-                let point = || Tracepoint::Call(Some(method.get().clone()));
-                return Ok(MethodCall::Special(value.trace(vm.world(), point, span)?));
+                let value = call_method_mut(target, &field, args, span);
+                let point = || Tracepoint::Call(Some(field.get().clone()));
+                return Ok(FieldCall::Resolved(value.trace(vm.world(), point, span)?));
             }
             target => (target.clone(), args),
         }
@@ -315,49 +316,45 @@ fn eval_method_call(
     };
 
     if let Value::Plugin(plugin) = &target {
-        // Call plugin methods by converting args to bytes.
+        // Call plugins by converting args to bytes.
         let bytes = args.all::<Bytes>()?;
         args.finish()?;
-        let value = plugin.call(&method, bytes).at(span)?.into_value();
-        Ok(MethodCall::Special(value))
-    } else if let Some(callee) = target.ty().scope().get(&method) {
+        let value = plugin.call(&field, bytes).at(span)?.into_value();
+        Ok(FieldCall::Resolved(value))
+    } else if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
-        Ok(MethodCall::Normal(callee.clone(), args))
+        Ok(FieldCall::Normal(callee.clone(), args))
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
     ) {
         // Certain value types may have their own ways to access method fields.
-        // e.g. `$arrow.r(v)$`, `func.with(fill: red)`
-        let value = target.field(&method).at(method.span())?;
-        Ok(MethodCall::Normal(value, args))
+        // e.g. `$arrow.r(v)$`, `table.cell[..]`
+        let value = target.field(&field).at(field.span())?;
+        Ok(FieldCall::Normal(value, args))
     } else {
-        // Otherwise we cannot find any methods to call for this type.
-        bail!(missing_method_error(target, method))
+        // Otherwise we cannot call this field.
+        bail!(missing_field_call_error(target, field))
     }
 }
 
-/// Produce an error that the target's type doesn't have this method.
-fn missing_method_error(target: Value, method: Ident) -> SourceDiagnostic {
-    let mut error = error!(
-        method.span(),
-        "type {} has no method `{}`",
-        target.ty(),
-        method.as_str(),
-    );
+/// Produce an error when we cannot call the field.
+fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
+    let mut error =
+        error!(field.span(), "type {} has no method `{}`", target.ty(), field.as_str());
 
     match target {
-        Value::Dict(ref dict) if matches!(dict.get(&method), Ok(Value::Func(_))) => {
+        Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
             error.hint(eco_format!(
                 "to call the function stored in the dictionary, surround \
-                    the field access with parentheses, e.g. `(dict.{})(..)`",
-                method.as_str(),
+                the field access with parentheses, e.g. `(dict.{})(..)`",
+                field.as_str(),
             ));
         }
-        _ if target.field(&method).is_ok() => {
+        _ if target.field(&field).is_ok() => {
             error.hint(eco_format!(
                 "did you mean to access the field `{}`?",
-                method.as_str(),
+                field.as_str(),
             ));
         }
         _ => {}
@@ -407,8 +404,7 @@ fn hint_if_shadowed_std(
         let ident = ident.get();
         if vm.scopes.check_std_shadowed(ident) {
             err.hint(eco_format!(
-                "use `std.{}` to access the shadowed standard library function",
-                ident,
+                "use `std.{ident}` to access the shadowed standard library function",
             ));
         }
     }
