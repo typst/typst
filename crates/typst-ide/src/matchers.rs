@@ -77,12 +77,8 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source.and_then(|(value, _)| value.scope()) {
-                            for (name, value) in scope.iter() {
-                                let item = NamedItem::Import(
-                                    name,
-                                    Span::detached(),
-                                    Some(value),
-                                );
+                            for (name, value, span) in scope.iter() {
+                                let item = NamedItem::Import(name, span, Some(value));
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -94,9 +90,17 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
-                            let name = item.bound_name();
+                            let original = item.original_name();
+                            let bound = item.bound_name();
+                            let scope = source.and_then(|(value, _)| value.scope());
+                            let span = scope
+                                .and_then(|s| s.get_span(&original))
+                                .unwrap_or(Span::detached())
+                                .or(bound.span());
+
+                            let value = scope.and_then(|s| s.get(&original));
                             if let Some(res) =
-                                recv(NamedItem::Import(name.get(), name.span(), None))
+                                recv(NamedItem::Import(bound.get(), span, value))
                             {
                                 return Some(res);
                             }
