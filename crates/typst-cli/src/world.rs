@@ -14,11 +14,11 @@ use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
+use typst_kit::fonts::{FontSlot, Fonts};
 use typst_timing::{timed, TimingScope};
 
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
-use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::PackageStorage;
 
 /// Static `FileId` allocated for stdin.
@@ -110,9 +110,9 @@ impl SystemWorld {
             Library::builder().with_inputs(inputs).build()
         };
 
-        let mut searcher = FontSearcher::new();
-        searcher
-            .search(&command.font_args.font_paths, command.font_args.ignore_system_fonts);
+        let fonts = Fonts::searcher()
+            .include_system_fonts(command.font_args.ignore_system_fonts)
+            .search_with(&command.font_args.font_paths);
 
         let now = match command.creation_timestamp {
             Some(time) => Now::Fixed(time),
@@ -126,8 +126,8 @@ impl SystemWorld {
             root,
             main,
             library: LazyHash::new(library),
-            book: LazyHash::new(searcher.book),
-            fonts: searcher.fonts,
+            book: LazyHash::new(fonts.book),
+            fonts: fonts.fonts,
             slots: Mutex::new(HashMap::new()),
             package_storage,
             now,

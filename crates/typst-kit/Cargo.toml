@@ -11,6 +11,19 @@ license = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
+typst = { workspace = true }
+typst-assets = { workspace = true, features = ["fonts"] }
+typst-timing = { workspace = true }
+fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
+
+[features]
+default = []
+
+# Embeds some fonts into the binary:
+# - For text: Linux Libertine, New Computer Modern
+# - For math: New Computer Modern Math
+# - For code: Deja Vu Sans Mono
+embed-fonts = []
 
 [lints]
 workspace = true

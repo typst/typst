@@ -2672,7 +2672,6 @@ dependencies = [
  "ecow",
  "env_proxy",
  "flate2",
- "fontdb",
  "fs_extra",
  "native-tls",
  "notify",
@@ -2694,6 +2693,7 @@ dependencies = [
  "toml",
  "typst",
  "typst-assets",
+ "typst-kit",
  "typst-macros",
  "typst-pdf",
  "typst-render",
@@ -2763,6 +2763,12 @@ dependencies = [
 [[package]]
 name = "typst-kit"
 version = "0.11.0"
+dependencies = [
+ "fontdb",
+ "typst",
+ "typst-assets",
+ "typst-timing",
+]
 
 [[package]]
 name = "typst-macros"
