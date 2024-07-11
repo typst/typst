@@ -290,7 +290,7 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define(key, value);
+        scope.define_spanned(key, value, span);
     }
     crate::eval::eval_string(engine.world, &text, span, mode, scope)
 }

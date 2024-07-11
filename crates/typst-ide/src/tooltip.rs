@@ -126,7 +126,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
 
     let captures = visitor.finish();
     let mut names: Vec<_> =
-        captures.iter().map(|(name, _)| eco_format!("`{name}`")).collect();
+        captures.iter().map(|(name, ..)| eco_format!("`{name}`")).collect();
     if names.is_empty() {
         return None;
     }

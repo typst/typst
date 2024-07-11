@@ -22,9 +22,7 @@ pub fn definition(
     let root = LinkedNode::new(source.root());
     let leaf = root.leaf_at(cursor, side)?;
 
-    let target = deref_target(leaf.clone())?;
-
-    let mut use_site = match target {
+    let mut use_site = match deref_target(leaf.clone())? {
         DerefTarget::VarAccess(node) | DerefTarget::Callee(node) => node,
         DerefTarget::IncludePath(path) | DerefTarget::ImportPath(path) => {
             let import_item =
@@ -82,10 +80,10 @@ pub fn definition(
                     .then_some(site.span())
                     .unwrap_or_else(Span::detached),
             )),
-            NamedItem::Import(name, span, value) => Some(Definition::item(
+            NamedItem::Import(name, name_span, value) => Some(Definition::item(
                 name.clone(),
                 Span::detached(),
-                span,
+                name_span,
                 value.cloned(),
             )),
         }
@@ -99,14 +97,14 @@ pub fn definition(
                 | Some(SyntaxKind::MathFrac)
                 | Some(SyntaxKind::MathAttach)
         );
-        let library = world.library();
 
+        let library = world.library();
         let scope = if in_math { library.math.scope() } else { library.global.scope() };
-        for (item_name, value) in scope.iter() {
+        for (item_name, value, span) in scope.iter() {
             if *item_name == name {
                 return Some(Definition::item(
                     name,
-                    Span::detached(),
+                    span,
                     Span::detached(),
                     Some(value.clone()),
                 ));

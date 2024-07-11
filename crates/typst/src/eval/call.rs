@@ -1,5 +1,5 @@
 use comemo::{Tracked, TrackedMut};
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 
 use crate::diag::{
     bail, error, At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
@@ -442,9 +442,11 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(&ident, Scopes::get),
+            Some(ast::Expr::Ident(ident)) => {
+                self.capture(ident.get(), ident.span(), Scopes::get)
+            }
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(&ident, Scopes::get_in_math)
+                self.capture(ident.get(), ident.span(), Scopes::get_in_math)
             }
 
             // Code and content blocks create a scope.
@@ -552,13 +554,14 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     fn bind(&mut self, ident: ast::Ident) {
-        self.internal.top.define(ident.get().clone(), Value::None);
+        self.internal.top.define_ident(ident, Value::None);
     }
 
     /// Capture a variable if it isn't internal.
     fn capture(
         &mut self,
-        ident: &str,
+        ident: &EcoString,
+        span: Span,
         getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
     ) {
         if self.internal.get(ident).is_err() {
@@ -570,7 +573,12 @@ impl<'a> CapturesVisitor<'a> {
                 return;
             };
 
-            self.captures.define_captured(ident, value.clone(), self.capturer);
+            self.captures.define_captured(
+                ident.clone(),
+                value.clone(),
+                self.capturer,
+                span,
+            );
         }
     }
 }
@@ -593,7 +601,7 @@ mod tests {
         visitor.visit(&root);
 
         let captures = visitor.finish();
-        let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
+        let mut names: Vec<_> = captures.iter().map(|(k, ..)| k).collect();
         names.sort();
 
         assert_eq!(names, result);
