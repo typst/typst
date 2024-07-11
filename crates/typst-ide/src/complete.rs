@@ -386,12 +386,12 @@ fn field_access_completions(
     value: &Value,
     styles: &Option<Styles>,
 ) {
-    for (name, value) in value.ty().scope().iter() {
+    for (name, value, _) in value.ty().scope().iter() {
         ctx.value_completion(Some(name.clone()), value, true, None);
     }
 
     if let Some(scope) = value.scope() {
-        for (name, value) in scope.iter() {
+        for (name, value, _) in scope.iter() {
             ctx.value_completion(Some(name.clone()), value, true, None);
         }
     }
@@ -557,7 +557,7 @@ fn import_item_completions<'a>(
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value) in scope.iter() {
+    for (name, value, _) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
@@ -1345,7 +1345,7 @@ impl<'a> CompletionContext<'a> {
         );
 
         let scope = if in_math { self.math } else { self.global };
-        for (name, value) in scope.iter() {
+        for (name, value, _) in scope.iter() {
             if filter(value) && !defined.contains(name) {
                 self.value_completion(Some(name.clone()), value, parens, None);
             }
