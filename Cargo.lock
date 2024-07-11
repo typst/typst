@@ -2670,14 +2670,11 @@ dependencies = [
  "comemo",
  "dirs",
  "ecow",
- "env_proxy",
- "flate2",
  "fs_extra",
  "native-tls",
  "notify",
  "once_cell",
  "open",
- "openssl",
  "parking_lot",
  "pathdiff",
  "rayon",
@@ -2764,10 +2761,20 @@ dependencies = [
 name = "typst-kit"
 version = "0.11.0"
 dependencies = [
+ "dirs",
+ "ecow",
+ "env_proxy",
+ "flate2",
  "fontdb",
+ "native-tls",
+ "once_cell",
+ "openssl",
+ "tar",
  "typst",
  "typst-assets",
  "typst-timing",
+ "typst-utils",
+ "ureq",
 ]
 
 [[package]]

@@ -15,11 +15,13 @@ use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
 use typst_kit::fonts::{FontSlot, Fonts};
+use typst_kit::package::PackageStorage;
 use typst_timing::{timed, TimingScope};
 
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
-use crate::package::PackageStorage;
+use crate::download::PrintDownload;
+use crate::package;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
@@ -119,8 +121,6 @@ impl SystemWorld {
             None => Now::System(OnceLock::new()),
         };
 
-        let package_storage = PackageStorage::from_args(&command.package_storage_args);
-
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             root,
@@ -129,7 +129,7 @@ impl SystemWorld {
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
             slots: Mutex::new(HashMap::new()),
-            package_storage,
+            package_storage: package::storage(&command.package_storage_args),
             now,
             export_cache: ExportCache::new(),
         })
@@ -378,7 +378,7 @@ fn system_path(
     let buf;
     let mut root = project_root;
     if let Some(spec) = id.package() {
-        buf = package_storage.prepare_package(spec)?;
+        buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
         root = &buf;
     }
 

@@ -14,7 +14,21 @@ readme = { workspace = true }
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+ecow = { workspace = true }
+env_proxy = { workspace = true }
+dirs = { workspace = true }
+flate2 = { workspace = true }
 fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
+native-tls = { workspace = true }
+once_cell = { workspace = true }
+tar = { workspace = true }
+ureq = { workspace = true }
+
+# Explicitly depend on OpenSSL if applicable, so that we can add the
+# `openssl/vendored` feature to it if `vendor-openssl` is enabled.
+[target.'cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "watchos", target_os = "tvos")))'.dependencies]
+openssl = { workspace = true }
 
 [features]
 default = []
@@ -24,6 +38,9 @@ default = []
 # - For math: New Computer Modern Math
 # - For code: Deja Vu Sans Mono
 embed-fonts = []
+
+# Whether to vendor OpenSSL. Not applicable to Windows and macOS builds.
+vendor-openssl = ["openssl/vendored"]
 
 [lints]
 workspace = true

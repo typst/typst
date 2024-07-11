@@ -6,5 +6,11 @@
 //! # Components
 //! - [fonts] contains a default implementation for searching local and system
 //!   installed fonts.
+//! - [download] contains functionality for making simple web requests with
+//!   status reporting, useful for downloading packages from package registires.
+//! - [package] contains package storage and downloading functionality based on
+//!   [download].
 
+pub mod download;
 pub mod fonts;
+pub mod package;
