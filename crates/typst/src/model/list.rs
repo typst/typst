@@ -1,4 +1,5 @@
 use comemo::Track;
+use typst_utils::Numeric;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -8,8 +9,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
-    Regions, Sizing, VAlignment, VElem,
+    BlockElem, Dir, Em, Fragment, HElem, Length, Regions, Sides, StackChild, StackElem,
+    VElem,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -145,7 +146,6 @@ impl Show for Packed<ListElem> {
         let mut realized = BlockElem::multi_layouter(self.clone(), layout_list)
             .pack()
             .spanned(self.span());
-
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
             let spacing = VElem::list_attach(leading.into()).pack();
@@ -176,38 +176,33 @@ fn layout_list(
     });
 
     let Depth(depth) = ListElem::depth_in(styles);
-    let marker = elem
-        .marker(styles)
-        .resolve(engine, styles, depth)?
-        // avoid '#set align' interference with the list
-        .aligned(HAlignment::Start + VAlignment::Top);
+    let marker: Content = elem.marker(styles).resolve(engine, styles, depth)?;
 
-    let mut cells = vec![];
-    let mut locator = locator.split();
-
-    for item in elem.children() {
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            item.body.clone().styled(ListElem::set_depth(Depth(1))),
-            locator.next(&item.body.span()),
-        ));
+    let pad = body_indent + indent; // TODO: plus marker width
+    let unpad =
+        (!body_indent.is_zero()).then(|| HElem::new((-body_indent).into()).pack());
+    let mut children = vec![];
+    for child in elem.children().iter() {
+        let mut seq = vec![];
+        seq.extend(unpad.clone());
+        seq.push(marker.clone());
+        seq.push(HElem::new(elem.body_indent(styles).into()).pack());
+        seq.push(child.body.clone());
+        children.push(StackChild::Block(Content::sequence(seq)));
     }
 
-    let grid = CellGrid::new(
-        Axes::with_x(&[
-            Sizing::Rel(indent.into()),
-            Sizing::Auto,
-            Sizing::Rel(body_indent.into()),
-            Sizing::Auto,
-        ]),
-        Axes::with_y(&[gutter.into()]),
-        cells,
-    );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let mut padding = Sides::default();
+    if TextElem::dir_in(styles) == Dir::LTR {
+        padding.left = pad.into();
+    } else {
+        padding.right = pad.into();
+    }
 
-    layouter.layout(engine)
+    let realized = StackElem::new(children)
+        .with_spacing(Some(gutter.into()))
+        .pack()
+        .padded(padding);
+    realized.layout(engine, locator, styles, regions)
 }
 
 /// A bullet list item.
