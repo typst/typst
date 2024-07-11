@@ -161,7 +161,11 @@ impl MathRun {
         if self.0.len() == 1 {
             self.0.into_iter().next().unwrap()
         } else {
-            FrameFragment::new(ctx, styles, self.into_frame(ctx, styles)).into()
+            let text_like =
+                self.iter().all(|e| e.math_size().is_none() || e.is_text_like());
+            FrameFragment::new(ctx, styles, self.into_frame(ctx, styles))
+                .with_text_like(text_like)
+                .into()
         }
     }
 
