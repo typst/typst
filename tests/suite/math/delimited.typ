@@ -66,3 +66,18 @@ $ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $
 --- issue-4188-lr-corner-brackets ---
 // Test positioning of U+231C to U+231F
 $⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$
+
+--- issue-4433-delimiter-show-rules ---
+#{
+  show "(": it => context it
+  $ (1 / 2) $
+}
+#{
+  show ")": it => context it
+  $ (1 / 2) $
+}
+#{
+  show "(": it => context it
+  show ")": it => context it
+  $ (1 / 2) $
+}

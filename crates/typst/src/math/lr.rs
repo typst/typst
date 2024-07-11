@@ -64,7 +64,25 @@ impl LayoutMath for Packed<LrElem> {
             .relative_to(2.0 * max_extent);
 
         // Scale up fragments at both ends.
-        match fragments.as_mut_slice() {
+        // We calculate the start and end indices; I tried using slices and
+        // `split_{first,last}_mut` instead, but that ran into lifetime issues,
+        // and we need the indices anyway for the `fragments.retain` call.
+        let mut start_idx = 0;
+        let mut end_idx = fragments.len();
+        while start_idx < fragments.len() {
+            if !fragments[start_idx].is_ignorant() {
+                break;
+            }
+            start_idx += 1;
+        }
+        while end_idx > start_idx {
+            if !fragments[end_idx - 1].is_ignorant() {
+                break;
+            }
+            end_idx -= 1;
+        }
+        let fragments_inner = &mut fragments[start_idx..end_idx];
+        match fragments_inner {
             [one] => scale(ctx, styles, one, height, None),
             [first, .., last] => {
                 scale(ctx, styles, first, height, Some(MathClass::Opening));
@@ -74,7 +92,7 @@ impl LayoutMath for Packed<LrElem> {
         }
 
         // Handle MathFragment::Variant fragments that should be scaled up.
-        for fragment in &mut fragments {
+        for fragment in fragments_inner {
             if let MathFragment::Variant(ref mut variant) = fragment {
                 if variant.mid_stretched == Some(false) {
                     variant.mid_stretched = Some(true);
@@ -85,11 +103,10 @@ impl LayoutMath for Packed<LrElem> {
 
         // Remove weak SpacingFragment immediately after the opening or immediately
         // before the closing.
-        let original_len = fragments.len();
         let mut index = 0;
         fragments.retain(|fragment| {
             index += 1;
-            (index != 2 && index + 1 != original_len)
+            (index != start_idx + 2 && index + 1 != end_idx)
                 || !matches!(
                     fragment,
                     MathFragment::Spacing(SpacingFragment { weak: true, .. })
