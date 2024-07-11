@@ -2761,6 +2761,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-kit"
+version = "0.11.0"
+
+[[package]]
 name = "typst-macros"
 version = "0.11.0"
 dependencies = [

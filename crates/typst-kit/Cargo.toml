@@ -1,0 +1,16 @@
+[package]
+name = "typst-kit"
+description = "Common utilities for Typst tooling."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+
+[lints]
+workspace = true
