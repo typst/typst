@@ -349,6 +349,10 @@ fn attach_top_and_bottom(
     t: Option<MathFragment>,
     b: Option<MathFragment>,
 ) -> (Frame, Abs) {
+    if t.is_none() && b.is_none() {
+        return (base.into_frame(), Abs::zero());
+    }
+
     let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
     let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
     let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
@@ -398,6 +402,10 @@ fn compute_shifts_up_and_down(
     base: &MathFragment,
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
+    if [tl, tr, bl, br].iter().all(|e| e.is_none()) {
+        return (Abs::zero(), Abs::zero());
+    }
+
     let sup_shift_up = if EquationElem::cramped_in(styles) {
         scaled!(ctx, styles, superscript_shift_up_cramped)
     } else {
