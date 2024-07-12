@@ -4,6 +4,8 @@
 mod cbor_;
 #[path = "csv.rs"]
 mod csv_;
+#[path = "file-exists.rs"]
+mod file_exists_;
 #[path = "json.rs"]
 mod json_;
 #[path = "read.rs"]
@@ -17,6 +19,7 @@ mod yaml_;
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
+pub use self::file_exists_::*;
 pub use self::json_::*;
 pub use self::read_::*;
 pub use self::toml_::*;
@@ -42,6 +45,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<yaml>();
     global.define_func::<cbor>();
     global.define_func::<xml>();
+    global.define_func::<file_exists>();
 }
 
 /// A value that can be read from a file.
