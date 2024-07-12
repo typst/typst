@@ -261,8 +261,11 @@ fn layout_attachments(
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
 ) -> SourceResult<()> {
-    let (shift_up, shift_down) =
-        compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br]);
+    let (shift_up, shift_down) = if [&tl, &tr, &bl, &br].iter().all(|e| e.is_none()) {
+        (Abs::zero(), Abs::zero())
+    } else {
+        compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br])
+    };
 
     let sup_delta = Abs::zero();
     let sub_delta = -base.italics_correction();
@@ -287,7 +290,11 @@ fn layout_attachments(
     let post_width_max =
         (sup_delta + measure!(tr, width)).max(sub_delta + measure!(br, width));
 
-    let (center_frame, base_offset) = attach_top_and_bottom(ctx, styles, base, t, b);
+    let (center_frame, base_offset) = if t.is_none() && b.is_none() {
+        (base.into_frame(), Abs::zero())
+    } else {
+        attach_top_and_bottom(ctx, styles, base, t, b)
+    };
     if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
         ctx.push(FrameFragment::new(ctx, styles, center_frame).with_class(base_class));
         return Ok(());
@@ -349,10 +356,6 @@ fn attach_top_and_bottom(
     t: Option<MathFragment>,
     b: Option<MathFragment>,
 ) -> (Frame, Abs) {
-    if t.is_none() && b.is_none() {
-        return (base.into_frame(), Abs::zero());
-    }
-
     let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
     let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
     let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
@@ -402,10 +405,6 @@ fn compute_shifts_up_and_down(
     base: &MathFragment,
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
-    if [tl, tr, bl, br].iter().all(|e| e.is_none()) {
-        return (Abs::zero(), Abs::zero());
-    }
-
     let sup_shift_up = if EquationElem::cramped_in(styles) {
         scaled!(ctx, styles, superscript_shift_up_cramped)
     } else {
