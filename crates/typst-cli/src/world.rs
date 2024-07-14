@@ -192,8 +192,8 @@ impl World for SystemWorld {
         &self.book
     }
 
-    fn main(&self) -> Source {
-        self.source(self.main).unwrap()
+    fn main(&self) -> FileId {
+        self.main
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {

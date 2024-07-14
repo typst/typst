@@ -71,6 +71,13 @@ impl MathFragment {
         }
     }
 
+    pub fn is_ignorant(&self) -> bool {
+        match self {
+            Self::Frame(fragment) => fragment.ignorant,
+            _ => false,
+        }
+    }
+
     pub fn class(&self) -> MathClass {
         match self {
             Self::Glyph(glyph) => glyph.class,
@@ -441,6 +448,7 @@ pub struct FrameFragment {
     pub italics_correction: Abs,
     pub accent_attach: Abs,
     pub text_like: bool,
+    pub ignorant: bool,
 }
 
 impl FrameFragment {
@@ -459,6 +467,7 @@ impl FrameFragment {
             italics_correction: Abs::zero(),
             accent_attach,
             text_like: false,
+            ignorant: false,
         }
     }
 
@@ -488,6 +497,10 @@ impl FrameFragment {
 
     pub fn with_text_like(self, text_like: bool) -> Self {
         Self { text_like, ..self }
+    }
+
+    pub fn with_ignorant(self, ignorant: bool) -> Self {
+        Self { ignorant, ..self }
     }
 }
 
