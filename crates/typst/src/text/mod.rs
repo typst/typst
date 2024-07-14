@@ -1302,16 +1302,10 @@ cast! {
 
 /// Pushes `text` wrapped in LRE/RLE + PDF to `out`.
 pub(crate) fn isolate(text: Content, styles: StyleChain, out: &mut Vec<Content>) {
-    out.push(
-        TextElem::new(
-            match TextElem::dir_in(styles) {
-                crate::layout::Dir::RTL => "\u{202B}",
-                _ => "\u{202A}",
-            }
-            .into(),
-        )
-        .pack(),
-    );
+    out.push(TextElem::packed(match TextElem::dir_in(styles) {
+        Dir::RTL => "\u{202B}",
+        _ => "\u{202A}",
+    }));
     out.push(text);
-    out.push(TextElem::new("\u{202C}".into()).pack());
+    out.push(TextElem::packed("\u{202C}"));
 }

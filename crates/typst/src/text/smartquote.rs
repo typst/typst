@@ -5,7 +5,7 @@ use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
 };
-use crate::layout::{Dir, DEFAULT_IGNORABLE_DATA};
+use crate::layout::Dir;
 use crate::syntax::is_newline;
 use crate::text::{Lang, Region};
 
@@ -170,10 +170,6 @@ impl Default for SmartQuoter {
 
 fn is_exterior_to_quote(c: char) -> bool {
     c.is_whitespace() || is_newline(c)
-}
-
-pub(crate) fn is_ignorable(c: char) -> bool {
-    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
 }
 
 fn is_opening_bracket(c: char) -> bool {

@@ -10,7 +10,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::finalize::finalize;
 use self::line::{commit, line, Line};
-use self::linebreak::{linebreak, Breakpoint};
+use self::linebreak::{is_default_ignorable, linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{
     cjk_punct_style, is_of_cj_script, shape_range, ShapedGlyph, ShapedText,
@@ -24,7 +24,6 @@ use crate::layout::{Fragment, Size};
 use crate::model::ParElem;
 use crate::realize::StyleVec;
 use crate::World;
-pub(crate) use linebreak::DEFAULT_IGNORABLE_DATA;
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
