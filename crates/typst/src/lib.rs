@@ -112,7 +112,9 @@ fn compile_inner(
 
     // Fetch the main source file once.
     let main = world.main();
-    let main = world.source(main).map_err(|err| hint_invalid_main_file(err, main))?;
+    let main = world
+        .source(main)
+        .map_err(|err| hint_invalid_main_file(world, err, main))?;
 
     // First evaluate the main source file into a module.
     let content = crate::eval::eval(
@@ -412,6 +414,7 @@ fn prelude(global: &mut Scope) {
 /// Adds useful hints when the main source file couldn't be read
 /// and returns the final diagnostic.
 fn hint_invalid_main_file(
+    world: Tracked<dyn World + '_>,
     file_error: FileError,
     input: FileId,
 ) -> EcoVec<SourceDiagnostic> {
@@ -419,26 +422,35 @@ fn hint_invalid_main_file(
     let mut diagnostic =
         SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
 
-    // Attempt to provide helpful hints for UTF-8 errors.
-    // Perhaps the user mistyped the filename.
-    // For example, they could have written "file.pdf" instead of
-    // "file.typ".
+    // Attempt to provide helpful hints for UTF-8 errors. Perhaps the user
+    // mistyped the filename. For example, they could have written "file.pdf"
+    // instead of "file.typ".
     if is_utf8_error {
-        let path = input.vpath().as_rootless_path();
-        let extension = path.extension();
+        let path = input.vpath();
+        let extension = path.as_rootless_path().extension();
+        if extension.is_some_and(|extension| extension == "typ") {
+            // No hints if the file is already a .typ file.
+            // The file is indeed just invalid.
+            return eco_vec![diagnostic];
+        }
 
-        if let Some(extension) = extension {
-            if extension == "typ" {
-                // No hints if the file is already a .typ file.
-                // The file is indeed just invalid.
-                return eco_vec![diagnostic];
+        match extension {
+            Some(extension) => {
+                diagnostic.hint(eco_format!(
+                    "a file with the `.{}` extension is not usually a Typst file",
+                    extension.to_string_lossy()
+                ));
             }
 
-            diagnostic.hint(eco_format!(
-                "a file with the `.{}` extension is not usually a Typst file",
-                extension.to_string_lossy()
-            ));
+            None => {
+                diagnostic
+                    .hint("a file without an extension is not usually a Typst file");
+            }
         };
+
+        if world.source(input.with_extension("typ")).is_ok() {
+            diagnostic.hint("check if you meant to use the `.typ` extension instead");
+        }
     }
 
     eco_vec![diagnostic]
