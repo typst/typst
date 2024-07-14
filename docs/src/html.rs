@@ -6,7 +6,7 @@ use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
-use typst::diag::{FileResult, StrResult};
+use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -467,8 +467,12 @@ impl World for DocWorld {
         self.0.id()
     }
 
-    fn source(&self, _: FileId) -> FileResult<Source> {
-        Ok(self.0.clone())
+    fn source(&self, id: FileId) -> FileResult<Source> {
+        if id == self.0.id() {
+            Ok(self.0.clone())
+        } else {
+            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+        }
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
