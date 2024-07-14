@@ -159,14 +159,18 @@ impl MathRun {
 
     pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
         if self.0.len() == 1 {
-            self.0.into_iter().next().unwrap()
-        } else {
-            let text_like =
-                self.iter().all(|e| e.math_size().is_none() || e.is_text_like());
-            FrameFragment::new(ctx, styles, self.into_frame(ctx, styles))
-                .with_text_like(text_like)
-                .into()
+            return self.0.into_iter().next().unwrap();
         }
+
+        let text_like = self
+            .iter()
+            // Fragments without a math_size are ignored: the notion of size
+            // do not apply to them, so their text likliness is meaningless.
+            .filter(|e| e.math_size().is_some())
+            .all(|e| e.is_text_like());
+        FrameFragment::new(ctx, styles, self.into_frame(ctx, styles))
+            .with_text_like(text_like)
+            .into()
     }
 
     /// Returns a builder that lays out the [`MathFragment`]s into a possibly
