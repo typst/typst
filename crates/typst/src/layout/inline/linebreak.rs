@@ -953,3 +953,8 @@ where
         }
     }
 }
+
+/// Whether a codepoint is Unicode `Default_Ignorable`.
+pub fn is_default_ignorable(c: char) -> bool {
+    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
+}
