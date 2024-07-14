@@ -85,6 +85,11 @@ impl VirtualPath {
             Self::new(path)
         }
     }
+
+    /// The same path, but with a different extension.
+    pub fn with_extension(&self, extension: &str) -> Self {
+        Self(self.0.with_extension(extension))
+    }
 }
 
 impl Debug for VirtualPath {
