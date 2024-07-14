@@ -49,7 +49,6 @@ pub fn analyze_expr(
 pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
     // Use span in the node for resolving imports with relative paths.
     let source_span = source.span();
-
     let (source, _) = analyze_expr(world, source).into_iter().next()?;
     if source.scope().is_some() {
         return Some(source);
@@ -73,6 +72,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         Scopes::new(Some(world.library())),
         Span::detached(),
     );
+
     typst::eval::import(&mut vm, source, source_span, true)
         .ok()
         .map(Value::Module)

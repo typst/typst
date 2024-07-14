@@ -393,11 +393,6 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continue;
         }
 
-        // Separate primes and superscripts to different attachments.
-        if primed && p.current() == SyntaxKind::Hat {
-            p.wrap(m, SyntaxKind::MathAttach);
-        }
-
         let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
             // No attachments, so we need to wrap primes as attachment.
             if primed {
@@ -429,7 +424,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         math_expr_prec(p, prec, stop);
         math_unparen(p, m2);
 
-        if p.eat_if(SyntaxKind::Underscore) || (!primed && p.eat_if(SyntaxKind::Hat)) {
+        if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
             let m3 = p.marker();
             math_expr_prec(p, prec, SyntaxKind::End);
             math_unparen(p, m3);

@@ -31,7 +31,7 @@ impl Eval for ast::ModuleImport<'_> {
             }
         }
 
-        if let Some(new_name) = &new_name {
+        if let Some(new_name) = new_name {
             if let ast::Expr::Ident(ident) = self.source() {
                 if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
@@ -43,7 +43,7 @@ impl Eval for ast::ModuleImport<'_> {
             }
 
             // Define renamed module on the scope.
-            vm.scopes.top.define(new_name.as_str(), source.clone());
+            vm.scopes.top.define_ident(new_name, source.clone());
         }
 
         let scope = source.scope().unwrap();
@@ -56,8 +56,8 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
             Some(ast::Imports::Wildcard) => {
-                for (var, value) in scope.iter() {
-                    vm.scopes.top.define(var.clone(), value.clone());
+                for (var, value, span) in scope.iter() {
+                    vm.scopes.top.define_spanned(var.clone(), value.clone(), span);
                 }
             }
             Some(ast::Imports::Items(items)) => {

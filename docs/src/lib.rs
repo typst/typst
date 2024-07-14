@@ -44,8 +44,8 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
                 .module()
                 .scope()
                 .iter()
-                .filter(|(_, v)| matches!(v, Value::Func(_)))
-                .map(|(k, _)| k.clone())
+                .filter(|(_, v, _)| matches!(v, Value::Func(_)))
+                .map(|(k, _, _)| k.clone())
                 .collect();
         }
     }
@@ -249,7 +249,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
 
     // Add values and types.
     let scope = module.scope();
-    for (name, value) in scope.iter() {
+    for (name, value, _) in scope.iter() {
         if scope.get_category(name) != Some(category) {
             continue;
         }
@@ -463,7 +463,7 @@ fn casts(
 fn scope_models(resolver: &dyn Resolver, name: &str, scope: &Scope) -> Vec<FuncModel> {
     scope
         .iter()
-        .filter_map(|(_, value)| {
+        .filter_map(|(_, value, _)| {
             let Value::Func(func) = value else { return None };
             Some(func_model(resolver, func, &[name], true))
         })
@@ -649,7 +649,7 @@ fn symbols_page(resolver: &dyn Resolver, parent: &str, group: &GroupData) -> Pag
 /// Produce a symbol list's model.
 fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
-    for (name, value) in group.module().scope().iter() {
+    for (name, value, _) in group.module().scope().iter() {
         let Value::Symbol(symbol) = value else { continue };
         let complete = |variant: &str| {
             if variant.is_empty() {
