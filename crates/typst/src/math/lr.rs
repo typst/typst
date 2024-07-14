@@ -67,21 +67,21 @@ impl LayoutMath for Packed<LrElem> {
         // We calculate the start and end indices; I tried using slices and
         // `split_{first,last}_mut` instead, but that ran into lifetime issues,
         // and we need the indices anyway for the `fragments.retain` call.
-        let mut start_idx = 0;
-        let mut end_idx = fragments.len();
-        while start_idx < fragments.len() {
-            if !fragments[start_idx].is_ignorant() {
-                break;
-            }
-            start_idx += 1;
-        }
-        while end_idx > start_idx {
-            if !fragments[end_idx - 1].is_ignorant() {
+        let start_idx = fragments
+            .iter()
+            .position(|f| !f.is_ignorant())
+            .unwrap_or(fragments.len());
+        let fragments_trailing = &mut fragments[start_idx..];
+        // `fragments_trailing.iter().rposition(|f| !f.is_ignorant()).map_or(0, |i| i + 1)`
+        // doesn’t optimize as well here
+        let mut end_idx = fragments_trailing.len();
+        while end_idx > 0 {
+            if !fragments_trailing[end_idx - 1].is_ignorant() {
                 break;
             }
             end_idx -= 1;
         }
-        let fragments_inner = &mut fragments[start_idx..end_idx];
+        let fragments_inner = &mut fragments_trailing[..end_idx];
         match fragments_inner {
             [one] => scale(ctx, styles, one, height, None),
             [first, .., last] => {
@@ -103,6 +103,7 @@ impl LayoutMath for Packed<LrElem> {
 
         // Remove weak SpacingFragment immediately after the opening or immediately
         // before the closing.
+        end_idx += start_idx;
         let mut index = 0;
         fragments.retain(|fragment| {
             index += 1;
