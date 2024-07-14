@@ -261,8 +261,11 @@ fn layout_attachments(
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
 ) -> SourceResult<()> {
-    let (shift_up, shift_down) =
-        compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br]);
+    let (shift_up, shift_down) = if [&tl, &tr, &bl, &br].iter().all(|e| e.is_none()) {
+        (Abs::zero(), Abs::zero())
+    } else {
+        compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br])
+    };
 
     let sup_delta = Abs::zero();
     let sub_delta = -base.italics_correction();
@@ -287,7 +290,11 @@ fn layout_attachments(
     let post_width_max =
         (sup_delta + measure!(tr, width)).max(sub_delta + measure!(br, width));
 
-    let (center_frame, base_offset) = attach_top_and_bottom(ctx, styles, base, t, b);
+    let (center_frame, base_offset) = if t.is_none() && b.is_none() {
+        (base.into_frame(), Abs::zero())
+    } else {
+        attach_top_and_bottom(ctx, styles, base, t, b)
+    };
     if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
         ctx.push(FrameFragment::new(ctx, styles, center_frame).with_class(base_class));
         return Ok(());
