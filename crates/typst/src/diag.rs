@@ -122,7 +122,7 @@ macro_rules! __warning {
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
-            std::option::Option::Some($crate::diag::CompilerWarning::$id),
+            ::std::option::Option::Some($crate::diag::CompilerWarning::$id),
             $crate::diag::eco_format!($fmt, $($arg),*),
         ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };

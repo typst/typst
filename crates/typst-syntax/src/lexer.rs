@@ -98,12 +98,12 @@ impl Lexer<'_> {
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
     /// Proceed to the next token and return a [`SyntaxNode`] containing it.
-    /// Note the token could be a [trivia](SyntaxKind::is_trivia).
-    /// Also, the syntax node returned might not always be a leaf, but could
-    /// actually come with a subtree (could be an inner node). This happens
-    /// when it is preferred to perform parsing at the character level instead
-    /// of at the token level, as seen, for example, in
-    /// [`decorator`](Lexer::decorator).
+    ///
+    /// Note the token could be a [trivia](SyntaxKind::is_trivia). Also, the
+    /// syntax node returned might not always be a leaf, but could actually
+    /// come with a subtree (could be an inner node). This happens when it is
+    /// preferred to perform parsing at the character level instead of at the
+    /// token level, as seen, for example, in [`decorator`](Lexer::decorator).
     pub fn next(&mut self) -> SyntaxNode {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
@@ -144,17 +144,19 @@ impl Lexer<'_> {
     }
 
     /// Constructs an error node with the given message.
-    /// The node's text is taken from the given start position up to and
+    ///
+    /// The node's inner text is taken from the given start position up to and
     /// including the current cursor position.
     fn emit_error(&self, message: impl Into<EcoString>, start: usize) -> SyntaxNode {
         let text = self.s.from(start);
         SyntaxNode::error(SyntaxError::new(message), text)
     }
 
-    /// Converts a token into a syntax node based on its kind.
-    /// The node's text is taken from the given start position up to and
+    /// Converts a token into a syntax node based on its kind. Produces an
+    /// error node if there are errors.
+    ///
+    /// The node's inner text is taken from the given start position up to and
     /// including the current cursor position.
-    /// Produces an error node if there are errors.
     fn emit_token(&mut self, kind: SyntaxKind, start: usize) -> SyntaxNode {
         let text = self.s.from(start);
         if kind == SyntaxKind::End {
@@ -216,7 +218,8 @@ impl Lexer<'_> {
 /// Decorator lexing and auxiliary methods.
 impl Lexer<'_> {
     /// Lexes and parses a decorator into a complete syntax subtree.
-    /// The lexer is fully responsible by the decorator, as it is simpler to
+    ///
+    /// The lexer is fully responsible for the decorator, as it is simpler to
     /// parse them at the character level, given they follow a very simple
     /// and rigid structure, in the form
     /// `/! decorator-name("string argument1", "string argument2")`
@@ -228,12 +231,12 @@ impl Lexer<'_> {
 
         let current_start = self.s.cursor();
 
-        // Ignore initial non-newline whitespaces
+        // Ignore initial non-newline whitespaces.
         if !self.s.eat_while(is_inline_whitespace).is_empty() {
             subtree.push(self.emit_token(SyntaxKind::Space, current_start));
         }
 
-        // Lex the decorator name
+        // Lex the decorator name.
         let current_start = self.s.cursor();
         if !self.s.eat_if(is_id_start) {
             self.s.eat_until(is_newline);
@@ -246,7 +249,7 @@ impl Lexer<'_> {
         let decorator_name = self.decorator_name(current_start);
         subtree.push(self.emit_token(decorator_name, current_start));
 
-        // Left parenthesis before decorator arguments
+        // Left parenthesis before decorator arguments.
         let current_start = self.s.cursor();
         if !self.s.eat_if('(') {
             self.s.eat_until(is_newline);
@@ -258,10 +261,10 @@ impl Lexer<'_> {
 
         subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
 
-        // Decorator arguments
-        // Keep reading until we find a right parenthesis or newline.
-        // We have to check the newline before eating (through '.peek()') to
-        // ensure it is not considered part of the decorator.
+        // Decorator arguments:
+        // Keep reading until we find a right parenthesis or newline. We have
+        // to check the newline before eating (through '.peek()') to ensure it
+        // is not considered part of the decorator.
         let mut current_start = self.s.cursor();
         let mut expecting_comma = false;
         let mut finished = false;
@@ -317,9 +320,9 @@ impl Lexer<'_> {
     }
 
     /// Lexes a decorator name.
+    ///
     /// A decorator name is an identifier within a specific subset of allowed
-    /// identifiers.
-    /// Currently, `allow` is the only valid decorator name.
+    /// identifiers. Currently, `allow` is the only valid decorator name.
     fn decorator_name(&mut self, start: usize) -> SyntaxKind {
         self.s.eat_while(is_id_continue);
         let ident = self.s.from(start);
@@ -334,6 +337,7 @@ impl Lexer<'_> {
     }
 
     /// Lexes a string in a decorator.
+    ///
     /// Currently, such strings only allow a very restricted set of characters.
     /// These restrictions may be lifted in the future.
     fn decorator_string(&mut self) -> SyntaxKind {
@@ -1075,8 +1079,7 @@ fn count_newlines(text: &str) -> usize {
     newlines
 }
 
-/// Count newlines in text.
-/// Only counts up to 2 newlines.
+/// Count newlines in text. Only counts up to 2 newlines.
 pub(crate) fn count_capped_newlines(text: &str) -> u8 {
     let mut newlines = 0;
     let mut s = Scanner::new(text);

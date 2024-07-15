@@ -107,8 +107,7 @@ impl<'a> Decorator<'a> {
         self.0.cast_first_match().unwrap_or_default()
     }
 
-    /// The decorator's arguments.
-    /// Currently, they are always strings.
+    /// The decorator's arguments. Currently, they are always strings.
     pub fn arguments(self) -> impl DoubleEndedIterator<Item = Str<'a>> {
         self.0.children().filter_map(Str::from_untyped)
     }

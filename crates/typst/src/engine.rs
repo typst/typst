@@ -86,6 +86,7 @@ impl Engine<'_> {
     }
 
     /// Executes some code with a tracepoint for diagnostics.
+    ///
     /// The tracepoint is added to any diagnostics returned by the function,
     /// as well as any warnings emitted by it.
     pub fn tracepoint<F, M, T>(
@@ -187,6 +188,7 @@ impl Sink {
     }
 
     /// Extend the destination sink with the data from the source sink.
+    ///
     /// This calls a tracked function on the destination unless the source
     /// is fully empty (which is usually the case).
     pub fn extend_tracked(destination: &mut TrackedMut<'_, Self>, source: Sink) {
@@ -239,9 +241,8 @@ impl Sink {
             }
 
             let Some(identifier) = &diag.identifier else {
-                // Can't suppress without an identifier.
-                // Therefore, retain the warning.
-                // It is not a duplicate due to the check above.
+                // Can't suppress without an identifier. Therefore, retain the
+                // warning. It is not a duplicate due to the check above.
                 unsuppressed_warning_set.insert(hash);
                 return true;
             };
@@ -282,13 +283,13 @@ impl Sink {
     /// Add a warning.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
         // Check if warning is a duplicate.
+        //
         // Identical warnings with differing tracepoints are considered
         // separate because suppressing the warning through one tracepoint
-        // shouldn't suppress it through the others.
-        // Later, during warning suppression (when calling
-        // `suppress_and_deduplicate_warnings`), we deduplicate without
-        // considering tracepoints, such that, if at least one duplicate wasn't
-        // suppressed, it is raised.
+        // shouldn't suppress it through the others. Later, during warning
+        // suppression (when calling `suppress_and_deduplicate_warnings`), we
+        // deduplicate without considering tracepoints, such that, if at least
+        // one duplicate wasn't suppressed, it is raised.
         let hash = crate::utils::hash128(&(
             &warning.span,
             &warning.identifier,
@@ -308,6 +309,7 @@ impl Sink {
     }
 
     /// Extend from another sink.
+    ///
     /// Using `Sink::extend_tracked` is preferable as it avoids a call to this
     /// function if all arguments are empty, thus avoiding an unnecessary
     /// tracked call in most cases.
@@ -336,10 +338,8 @@ fn check_warning_suppressed(
     world: &dyn World,
     identifier: &diag::Identifier,
 ) -> bool {
-    let Some(file) = span.id() else {
-        // Don't suppress detached warnings.
-        return false;
-    };
+    // Don't suppress detached warnings.
+    let Some(file) = span.id() else { return false };
 
     // The source must exist if a warning occurred in the file,
     // or has a tracepoint in the file.
