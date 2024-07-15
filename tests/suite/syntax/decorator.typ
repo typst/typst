@@ -11,7 +11,7 @@
 
 #{
   /! allow("unnecessary-stars")
-  h(0em)
+  let _ = h(0em)
 }
 
 #let _ = $
