@@ -247,9 +247,9 @@ impl Sink {
                 return true;
             };
 
-            let should_raise = !check_warning_suppressed(diag.span, world, identifier)
+            let should_raise = !is_warning_suppressed(diag.span, world, identifier)
                 && !diag.trace.iter().any(|tracepoint| {
-                    check_warning_suppressed(tracepoint.span, world, identifier)
+                    is_warning_suppressed(tracepoint.span, world, identifier)
                 });
 
             // If this warning wasn't suppressed, any further duplicates (with
@@ -333,17 +333,15 @@ impl Sink {
 /// in. If one of the ancestors of the node where the warning occurred has a
 /// warning suppression decorator sibling right before it suppressing this
 /// particular warning, the warning is considered suppressed.
-fn check_warning_suppressed(
+fn is_warning_suppressed(
     span: Span,
     world: &dyn World,
     identifier: &diag::Identifier,
 ) -> bool {
     // Don't suppress detached warnings.
-    let Some(file) = span.id() else { return false };
-
-    // The source must exist if a warning occurred in the file,
-    // or has a tracepoint in the file.
-    let source = world.source(file).unwrap();
+    let Some(source) = span.id().and_then(|file| world.source(file).ok()) else {
+        return false;
+    };
 
     let search_root = source.find(span);
     let mut searched_node = search_root.as_ref();
