@@ -54,7 +54,11 @@ impl Eval for ast::MathAttach<'_> {
 
         if let Some(expr) = self.top() {
             elem.push_t(Some(expr.eval_display(vm)?));
-        } else if let Some(primes) = self.primes() {
+        }
+
+        // Always attach primes in scripts style (not limits style),
+        // i.e. at the top-right corner.
+        if let Some(primes) = self.primes() {
             elem.push_tr(Some(primes.eval(vm)?));
         }
 

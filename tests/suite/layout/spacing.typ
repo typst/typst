@@ -47,14 +47,14 @@ Totally #h() ignored
 Hello #h(2cm, weak: true)
 
 --- issue-4087 ---
-// weak space at the end of the line would be removed.
+// Weak space at the end of the line is removed.
 This is the first line #h(2cm, weak: true) A new line
 
-// non-weak space would be consume a specified width and push next line.
+// Non-weak space consumes a specified width and pushes to next line.
 This is the first line #h(2cm, weak: false) A new line
 
-// similarly weak space at the beginning of the line would be removed.
-This is the first line\ #h(2cm, weak: true) A new line
+// Similarly, weak space at the beginning of the line is removed.
+This is the first line \ #h(2cm, weak: true) A new line
 
-// non-spacing, on the other hand, is not removed.
-This is the first line\ #h(2cm, weak: false) A new line
+// Non-weak-spacing, on the other hand, is not removed.
+This is the first line \ #h(2cm, weak: false) A new line
