@@ -44,7 +44,7 @@ fn markup(
     let m = p.marker();
     let mut nesting: usize = 0;
     while !p.end() {
-        match p.current_kind() {
+        match p.current() {
             SyntaxKind::LeftBracket => nesting += 1,
             SyntaxKind::RightBracket if nesting > 0 => nesting -= 1,
             _ if stop(p) => break,
@@ -79,10 +79,10 @@ pub(super) fn reparse_markup(
 ) -> Option<Vec<SyntaxNode>> {
     let mut p = Parser::new(text, range.start, LexMode::Markup);
     while !p.end() && p.current_start() < range.end {
-        match p.current_kind() {
+        match p.current() {
             SyntaxKind::LeftBracket => *nesting += 1,
             SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
-            _ if stop(p.current_kind()) => break,
+            _ if stop(p.current()) => break,
             _ => {}
         }
 
@@ -104,7 +104,7 @@ pub(super) fn reparse_markup(
 /// Parses a single markup expression: This includes markup elements like
 /// spaces, text, and headings, and embedded code expressions.
 fn markup_expr(p: &mut Parser, at_start: &mut bool) {
-    match p.current_kind() {
+    match p.current() {
         SyntaxKind::Space
         | SyntaxKind::Parbreak
         | SyntaxKind::LineComment
@@ -257,7 +257,7 @@ fn reference(p: &mut Parser) {
 
 /// Consumes whitespace that does not contain a newline.
 fn whitespace_line(p: &mut Parser) {
-    while !p.newline() && p.current_kind().is_trivia() {
+    while !p.newline() && p.current().is_trivia() {
         p.eat();
     }
 }
@@ -296,7 +296,7 @@ fn math_expr(p: &mut Parser) {
 fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
     let mut continuable = false;
-    match p.current_kind() {
+    match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
             continuable = true;
@@ -396,11 +396,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         // Separate primes and superscripts to different attachments.
-        if primed && p.current_kind() == SyntaxKind::Hat {
+        if primed && p.current() == SyntaxKind::Hat {
             p.wrap(m, SyntaxKind::MathAttach);
         }
 
-        let Some((kind, stop, assoc, mut prec)) = math_op(p.current_kind()) else {
+        let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
             // No attachments, so we need to wrap primes as attachment.
             if primed {
                 p.wrap(m, SyntaxKind::MathAttach);
@@ -668,7 +668,7 @@ fn embedded_code_expr(p: &mut Parser) {
     code_expr_prec(p, true, 0);
 
     // Consume error for things like `#12p` or `#"abc\"`.#
-    if !at && !p.current_kind().is_trivia() && !p.end() {
+    if !at && !p.current().is_trivia() && !p.end() {
         p.unexpected();
     }
 
@@ -687,7 +687,7 @@ fn embedded_code_expr(p: &mut Parser) {
 fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
     let m = p.marker();
     if !atomic && p.at_set(set::UNARY_OP) {
-        let op = ast::UnOp::from_kind(p.current_kind()).unwrap();
+        let op = ast::UnOp::from_kind(p.current()).unwrap();
         p.eat();
         code_expr_prec(p, atomic, op.precedence());
         p.wrap(m, SyntaxKind::Unary);
@@ -717,7 +717,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
         }
 
         let binop = if p.at_set(set::BINARY_OP) {
-            ast::BinOp::from_kind(p.current_kind())
+            ast::BinOp::from_kind(p.current())
         } else if min_prec <= ast::BinOp::NotIn.precedence() && p.eat_if(SyntaxKind::Not)
         {
             if p.at(SyntaxKind::In) {
@@ -756,7 +756,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
 /// composed of.
 fn code_primary(p: &mut Parser, atomic: bool) {
     let m = p.marker();
-    match p.current_kind() {
+    match p.current() {
         SyntaxKind::Ident => {
             p.eat();
             if !atomic && p.at(SyntaxKind::Arrow) {
@@ -814,7 +814,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
 /// Parses a content or code block.
 fn block(p: &mut Parser) {
-    match p.current_kind() {
+    match p.current() {
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftBrace => code_block(p),
         _ => p.expected("block"),
@@ -1005,7 +1005,7 @@ fn module_import(p: &mut Parser) {
 /// Parses items to import from a module: `a, b, c`.
 fn import_items(p: &mut Parser) {
     let m = p.marker();
-    while !p.current_kind().is_terminator() {
+    while !p.current().is_terminator() {
         let item_marker = p.marker();
         if !p.eat_if(SyntaxKind::Ident) {
             p.unexpected();
@@ -1024,7 +1024,7 @@ fn import_items(p: &mut Parser) {
             p.wrap(item_marker, SyntaxKind::RenamedImportItem);
         }
 
-        if !p.current_kind().is_terminator() {
+        if !p.current().is_terminator() {
             p.expect(SyntaxKind::Comma);
         }
     }
@@ -1149,7 +1149,7 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
         state.maybe_just_parens = false;
     }
 
-    while !p.current_kind().is_terminator() {
+    while !p.current().is_terminator() {
         if !p.at_set(set::ARRAY_OR_DICT_ITEM) {
             p.unexpected();
             continue;
@@ -1158,7 +1158,7 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
         array_or_dict_item(p, &mut state);
         state.count += 1;
 
-        if !p.current_kind().is_terminator() && p.expect(SyntaxKind::Comma) {
+        if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
             state.maybe_just_parens = false;
         }
     }
@@ -1249,7 +1249,7 @@ fn args(p: &mut Parser) {
         p.assert(SyntaxKind::LeftParen);
 
         let mut seen = HashSet::new();
-        while !p.current_kind().is_terminator() {
+        while !p.current().is_terminator() {
             if !p.at_set(set::ARG) {
                 p.unexpected();
                 continue;
@@ -1257,7 +1257,7 @@ fn args(p: &mut Parser) {
 
             arg(p, &mut seen);
 
-            if !p.current_kind().is_terminator() {
+            if !p.current().is_terminator() {
                 p.expect(SyntaxKind::Comma);
             }
         }
@@ -1314,7 +1314,7 @@ fn params(p: &mut Parser) {
     let mut seen = HashSet::new();
     let mut sink = false;
 
-    while !p.current_kind().is_terminator() {
+    while !p.current().is_terminator() {
         if !p.at_set(set::PARAM) {
             p.unexpected();
             continue;
@@ -1322,7 +1322,7 @@ fn params(p: &mut Parser) {
 
         param(p, &mut seen, &mut sink);
 
-        if !p.current_kind().is_terminator() {
+        if !p.current().is_terminator() {
             p.expect(SyntaxKind::Comma);
         }
     }
@@ -1371,7 +1371,7 @@ fn pattern<'s>(
     seen: &mut HashSet<&'s str>,
     dupe: Option<&'s str>,
 ) {
-    match p.current_kind() {
+    match p.current() {
         SyntaxKind::Underscore => p.eat(),
         SyntaxKind::LeftParen => destructuring_or_parenthesized(p, reassignment, seen),
         _ => pattern_leaf(p, reassignment, seen, dupe),
@@ -1392,7 +1392,7 @@ fn destructuring_or_parenthesized<'s>(
     p.enter_newline_mode(NewlineMode::Continue);
     p.assert(SyntaxKind::LeftParen);
 
-    while !p.current_kind().is_terminator() {
+    while !p.current().is_terminator() {
         if !p.at_set(set::DESTRUCTURING_ITEM) {
             p.unexpected();
             continue;
@@ -1401,7 +1401,7 @@ fn destructuring_or_parenthesized<'s>(
         destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
         count += 1;
 
-        if !p.current_kind().is_terminator() && p.expect(SyntaxKind::Comma) {
+        if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
             maybe_just_parens = false;
         }
     }
@@ -1467,7 +1467,7 @@ fn pattern_leaf<'s>(
     seen: &mut HashSet<&'s str>,
     dupe: Option<&'s str>,
 ) {
-    if p.current_kind().is_keyword() {
+    if p.current().is_keyword() {
         p.eat_and_get().expected("pattern");
         return;
     } else if !p.at_set(set::PATTERN_LEAF) {
@@ -1564,7 +1564,7 @@ impl<'s> Parser<'s> {
         self.prev_end
     }
 
-    fn current_kind(&self) -> SyntaxKind {
+    fn current(&self) -> SyntaxKind {
         self.current.kind()
     }
 
@@ -1632,7 +1632,7 @@ impl<'s> Parser<'s> {
 
     #[track_caller]
     fn assert(&mut self, kind: SyntaxKind) {
-        assert_eq!(self.current_kind(), kind);
+        assert_eq!(self.current(), kind);
         self.eat();
     }
 
@@ -1741,7 +1741,7 @@ impl<'s> Parser<'s> {
 
     fn skip(&mut self) {
         if self.lexer.mode() != LexMode::Markup {
-            while self.current_kind().is_trivia() {
+            while self.current().is_trivia() {
                 self.save_and_lex();
             }
         }
@@ -1809,7 +1809,7 @@ impl<'s> Parser<'s> {
         let at = self.at(kind);
         if at {
             self.eat();
-        } else if kind == SyntaxKind::Ident && self.current_kind().is_keyword() {
+        } else if kind == SyntaxKind::Ident && self.current().is_keyword() {
             self.trim_errors();
             self.eat_and_get().expected(kind.name());
         } else {
@@ -1855,7 +1855,7 @@ impl<'s> Parser<'s> {
     /// unexpected.
     fn unexpected(&mut self) {
         self.trim_errors();
-        self.balanced &= !self.current_kind().is_grouping();
+        self.balanced &= !self.current().is_grouping();
         self.eat_and_get().unexpected();
     }
 
