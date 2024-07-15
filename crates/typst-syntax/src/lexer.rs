@@ -119,9 +119,10 @@ impl Lexer<'_> {
         let start = self.s.cursor();
         let token = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
-            Some('/') if self.s.eat_if('/') => self.line_comment(),
+            Some('/') if self.s.eat_if('/') => {
+                return self.line_comment_or_decorator(start);
+            }
             Some('/') if self.s.eat_if('*') => self.block_comment(),
-            Some('/') if self.s.eat_if('!') => return self.decorator(start),
             Some('*') if self.s.eat_if('/') => {
                 let kind = self.error("unexpected end of block comment");
                 self.hint(
@@ -184,9 +185,17 @@ impl Lexer<'_> {
         }
     }
 
-    fn line_comment(&mut self) -> SyntaxKind {
+    /// Parses a decorator if the line comment has the form
+    /// `// @something`
+    ///
+    /// Otherwise, parses a regular line comment.
+    fn line_comment_or_decorator(&mut self, start: usize) -> SyntaxNode {
+        self.s.eat_while(is_inline_whitespace);
+        if self.s.eat_if('@') {
+            return self.decorator(start);
+        }
         self.s.eat_until(is_newline);
-        SyntaxKind::LineComment
+        self.emit_token(SyntaxKind::LineComment, start)
     }
 
     fn block_comment(&mut self) -> SyntaxKind {
@@ -274,7 +283,16 @@ impl Lexer<'_> {
                     self.s.eat_while(is_inline_whitespace);
                     SyntaxKind::Space
                 }
-                Some('/') if self.s.eat_if('/') => self.line_comment(),
+                Some('/') if self.s.eat_if('/') => {
+                    let node = self.line_comment_or_decorator(current_start);
+                    if node.kind() == SyntaxKind::Decorator {
+                        self.error("cannot have multiple decorators per line")
+                    } else {
+                        subtree.push(node);
+                        current_start = self.s.cursor();
+                        continue;
+                    }
+                }
                 Some('/') if self.s.eat_if('*') => self.block_comment(),
                 Some(_) if finished => {
                     // After we finished specifying arguments, there must only

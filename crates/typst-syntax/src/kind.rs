@@ -13,7 +13,7 @@ pub enum SyntaxKind {
     LineComment,
     /// A block comment: `/* ... */`.
     BlockComment,
-    /// A decorator: `/! allow("warning")`.
+    /// A decorator: `// @allow("warning")`.
     Decorator,
 
     /// The contents of a file or content block.
@@ -281,7 +281,7 @@ pub enum SyntaxKind {
     /// A destructuring assignment expression: `(x, y) = (1, 2)`.
     DestructAssignment,
 
-    /// A decorator's marker: `/!`.
+    /// A decorator's marker: `// @`.
     DecoratorMarker,
     /// A decorator's name: `allow`.
     DecoratorName,

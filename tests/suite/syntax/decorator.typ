@@ -2,102 +2,115 @@
 
 --- basic-decorators ---
 
-/! allow()
-/! allow("A")
-/! allow("the")
+// @allow()
+// @allow("A")
+// @allow("the")
 
-/! allow("unnecessary-stars")
+// @allow("unnecessary-stars")
 #h(0em)
 
-#{
-  /! allow("unnecessary-stars")
-  let _ = h(0em)
+#let _ = {
+  // @allow("unnecessary-stars")
+  h(0em)
 }
 
 #let _ = $
-  /! allow("unnecessary-stars")
+  // @allow("unnecessary-stars")
   h(#0em)
 $
 
 --- decorator-comments ---
 
-/! allow("abc") // this is ok
+// @allow("abc") // this is ok
 
-/! allow("abc") /* this is ok */
+// @allow("abc") /* this is ok */
 
-/! allow("abc" /* this is ok */, "abc")
+// @allow("abc" /* this is ok */, "abc")
 
-/! allow("abc" /*
+// @allow("abc" /*
 this is ok
 */, "abc")
 
 --- decorator-strings ---
 
-/! allow("@some/thing-there123")
+// @allow("@some/thing-there123")
 
 --- unknown-decorator ---
-// Error: 4-12 invalid decorator name
-// Hint: 4-12 must be 'allow'
-/! whatever()
+// Error: 2:5-2:13 invalid decorator name
+// Hint: 2:5-2:13 must be 'allow'
+
+// @whatever()
 
 --- invalid-decorator-syntax ---
-// Error: 10-11 the character '*' is not valid in a decorator
-/! allow(*)
+// Error: 2:11-2:12 the character '*' is not valid in a decorator
 
-// Error: 10-11 the character '5' is not valid in a decorator
-/! allow(5)
+// @allow(*)
 
-// Error: 4-18 expected identifier
-/! 555!**INVALID!
+// Error: 2:11-2:12 the character '5' is not valid in a decorator
 
-// Error: 9-12 expected opening paren
-/! allow)")
+// @allow(5)
 
-// Error: 10-14 unclosed string
-// Error: 14 expected closing paren
-/! allow("abc
+// Error: 2:5-2:19 expected identifier
 
-// Error: 17-20 expected end of decorator
-/! allow("abc") abc
+// @555!**INVALID!
 
-// Error: 16-21 expected comma
-// Error: 23-26 expected end of decorator
-/! allow("abc" "abc") abc
+// Error: 2:10-2:13 expected opening paren
 
-// Error: 16-21 expected comma
-/! allow("abc" "abc", "abc")
+// @allow)")
 
-// Error: 10-11 unexpected comma
-/! allow(,  "abc", "abc", "abc")
+// Error: 2:11-2:15 unclosed string
+// Error: 2:15 expected closing paren
+
+// @allow("abc
+
+// Error: 2:18-2:21 expected end of decorator
+
+// @allow("abc") abc
+
+// Error: 2:17-2:22 expected comma
+// Error: 2:24-2:27 expected end of decorator
+
+// @allow("abc" "abc") abc
+
+// Error: 2:17-2:22 expected comma
+
+// @allow("abc" "abc", "abc")
+
+// Error: 2:11-2:12 unexpected comma
+
+// @allow(,  "abc", "abc", "abc")
 
 --- invalid-decorator-strings ---
 
-// Error: 10-15 invalid character ' ' in a decorator's string
-/! allow("a b")
+// Error: 2:11-2:16 invalid character ' ' in a decorator's string
 
-// Error: 10-18 invalid character '|' in a decorator's string
-/! allow("aaaaa|")
+// @allow("a b")
+
+// Error: 2:11-2:19 invalid character '|' in a decorator's string
+
+// @allow("aaaaa|")
 
 // TODO: Why does this print / instead of \?
-// Error: 10-18 invalid character '/' in a decorator's string
-/! allow("aaaaa\")
+// Error: 2:11-2:19 invalid character '/' in a decorator's string
+
+// @allow("aaaaa\")
 
 --- allow-suppresses-warns-below ---
 
-/! allow("unnecessary-stars")
+// @allow("unnecessary-stars")
 #[**]
 
-/! allow("unnecessary-stars")
+// @allow("unnecessary-stars")
 #{
   {
     [**]
   }
 }
 
-/**/ /! allow("unnecessary-stars")
+/**/ // @allow("unnecessary-stars")
 #[**]
 
-/! allow("unnecessary-stars")
+// @allow("unnecessary-stars")
 **
 
 --- allow-suppresses-warn-with-tracepoint ---
@@ -109,19 +122,20 @@ this is ok
   f()
 }
 
-/! allow("unknown-font-families")
+// @allow("unknown-font-families")
 #g()
 
 --- allow-suppresses-line-below-but-not-same-line ---
 // Warning: 3-5 no text within stars
 // Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
-#[**] /! allow("unnecessary-stars")
+#[**] // @allow("unnecessary-stars")
 #[**]
 
 --- allow-before-parbreak-doesnt-suppress-warn ---
-// Warning: 3:3-3:5 no text within stars
-// Hint: 3:3-3:5 using multiple consecutive stars (e.g. **) has no additional effect
-/! allow("unnecessary-stars")
+// Warning: 4:3-4:5 no text within stars
+// Hint: 4:3-4:5 using multiple consecutive stars (e.g. **) has no additional effect
+
+// @allow("unnecessary-stars")
 
 #[**]
 
@@ -129,7 +143,7 @@ this is ok
 // Warning: 4:4-4:6 no text within stars
 // Hint: 4:4-4:6 using multiple consecutive stars (e.g. **) has no additional effect
 #{
-  /! allow("unnecessary-stars")
+  // @allow("unnecessary-stars")
 
   [**]
 }
@@ -140,7 +154,7 @@ this is ok
 // Hint: 1-3 using multiple consecutive stars (e.g. **) has no additional effect
 **
 
-/! allow("unnecessary-stars")
+// @allow("unnecessary-stars")
 #h(0em)
 // Warning: 3-5 no text within stars
 // Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
@@ -152,10 +166,10 @@ this is ok
   text(font: "Unbeknownst")[]
 }
 
-/! allow("unknown-font-families")
+// @allow("unknown-font-families")
 #f()
 
-/! allow("unknown-font-families")
+// @allow("unknown-font-families")
 #context {
   text(font: "Unbeknownst")[]
 }
