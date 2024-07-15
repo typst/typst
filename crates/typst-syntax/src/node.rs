@@ -161,7 +161,17 @@ impl SyntaxNode {
             Repr::Leaf(_) | Repr::Error(_) => {
                 crate::lexer::count_capped_newlines(self.text())
             }
-            Repr::Inner(inner) => inner.capped_newlines,
+            Repr::Inner(inner) => {
+                let mut newlines = 0;
+                for child in &inner.children {
+                    newlines += child.capped_newlines();
+                    if newlines >= 2 {
+                        break;
+                    }
+                }
+
+                newlines.min(2)
+            }
         }
     }
 
@@ -398,11 +408,6 @@ struct InnerNode {
     descendants: usize,
     /// Whether this node or any of its children are erroneous.
     erroneous: bool,
-    /// The (capped) amount of newlines in this node's descendants.
-    /// This is solely used to tell whether this node contains 0, 1, 2 or more
-    /// newlines. As such, this number is capped at 2, even though there may be
-    /// more newlines inside this node.
-    capped_newlines: u8,
     /// The upper bound of this node's numbering range.
     upper: u64,
     /// This node's children, losslessly make up this node.
@@ -418,23 +423,17 @@ impl InnerNode {
         let mut len = 0;
         let mut descendants = 1;
         let mut erroneous = false;
-        let mut capped_newlines: u8 = 0;
 
         for child in &children {
             len += child.len();
             descendants += child.descendants();
             erroneous |= child.erroneous();
-
-            if capped_newlines < 2 {
-                capped_newlines = capped_newlines.saturating_add(child.capped_newlines());
-            }
         }
 
         Self {
             kind,
             len,
             span: Span::detached(),
-            capped_newlines: capped_newlines.min(2),
             descendants,
             erroneous,
             upper: 0,
