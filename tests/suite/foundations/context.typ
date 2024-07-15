@@ -66,7 +66,7 @@
 --- context-compatibility-styling ---
 // Warning: 2-53 `style` is deprecated
 // Hint: 2-53 use a `context` expression instead
-// Warning: 18-39 calling `query` with a styles argument is deprecated
+// Warning: 18-39 calling `measure` with a styles argument is deprecated
 // Hint: 18-39 try removing the styles argument
 #style(styles => measure([it], styles).width < 20pt)
 
