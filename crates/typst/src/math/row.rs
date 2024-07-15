@@ -162,12 +162,13 @@ impl MathRun {
             return self.0.into_iter().next().unwrap();
         }
 
+        // Fragments without a math_size are ignored: the notion of size do not
+        // apply to them, so their text-likeness is meaningless.
         let text_like = self
             .iter()
-            // Fragments without a math_size are ignored: the notion of size
-            // do not apply to them, so their text likliness is meaningless.
             .filter(|e| e.math_size().is_some())
             .all(|e| e.is_text_like());
+
         FrameFragment::new(ctx, styles, self.into_frame(ctx, styles))
             .with_text_like(text_like)
             .into()
