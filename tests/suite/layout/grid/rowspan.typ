@@ -163,7 +163,7 @@
 #let count = counter("count")
 #show grid.cell: it => {
   count.step()
-  count.display()
+  context count.display()
 }
 
 #grid(
