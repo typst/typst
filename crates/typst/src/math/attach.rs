@@ -350,7 +350,7 @@ fn layout_attachments(
 }
 
 fn attach_top_and_bottom(
-    ctx: &mut MathContext,
+    ctx: &MathContext,
     styles: StyleChain,
     base: MathFragment,
     t: Option<MathFragment>,
