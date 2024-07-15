@@ -56,7 +56,6 @@ pub use typst_syntax as syntax;
 #[doc(inline)]
 pub use typst_utils as utils;
 
-use std::collections::HashSet;
 use std::ops::{Deref, Range};
 
 use comemo::{Track, Tracked, Validate};
@@ -87,9 +86,9 @@ use crate::visualize::Color;
 pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
     let mut sink = Sink::new();
     let output = compile_inner(world.track(), Traced::default().track(), &mut sink)
-        .map_err(deduplicate);
+        .map_err(diag::deduplicate_errors);
 
-    let warnings = sink.suppress_and_deduplicate_warnings(world);
+    let warnings = sink.finish_warnings(world);
     Warned { output, warnings }
 }
 
@@ -176,16 +175,6 @@ fn compile_inner(
     }
 
     Ok(document)
-}
-
-/// Deduplicate diagnostics.
-fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-    let mut unique = HashSet::new();
-    diags.retain(|diag| {
-        let hash = crate::utils::hash128(&(&diag.span, &diag.message));
-        unique.insert(hash)
-    });
-    diags
 }
 
 /// The environment in which typesetting occurs.

@@ -1,5 +1,6 @@
 //! Diagnostics.
 
+use std::collections::HashSet;
 use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -10,7 +11,7 @@ use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
 use crate::syntax::package::{PackageSpec, PackageVersion};
-use crate::syntax::{Span, Spanned, SyntaxError};
+use crate::syntax::{ast, Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -474,6 +475,118 @@ impl<T> Hint<T> for HintedStrResult<T> {
             error
         })
     }
+}
+
+/// Deduplicate errors based on their spans and messages.
+pub fn deduplicate_errors(
+    mut errors: EcoVec<SourceDiagnostic>,
+) -> EcoVec<SourceDiagnostic> {
+    let mut unique = HashSet::new();
+    errors.retain(|error| {
+        debug_assert!(error.severity == Severity::Error);
+        let hash = crate::utils::hash128(&(&error.span, &error.message));
+        unique.insert(hash)
+    });
+    errors
+}
+
+/// Apply warning suppression, deduplication, and return the remaining
+/// warnings.
+///
+/// We deduplicate warnings which are identical modulo tracepoints.
+/// This is so we can attempt to suppress each tracepoint separately,
+/// without having one suppression discard all other attempts of raising
+/// this same warning through a different set of tracepoints.
+///
+/// For example, calling the same function twice but suppressing a warning
+/// on the first call shouldn't suppress on the second, so each set of
+/// tracepoints for a particular warning matters. If at least one instance
+/// of a warning isn't suppressed, the warning will be returned, and the
+/// remaining duplicates are discarded.
+pub fn deduplicate_and_suppress_warnings(
+    warnings: &mut EcoVec<SourceDiagnostic>,
+    world: &dyn World,
+) {
+    let mut unsuppressed = HashSet::<u128>::default();
+
+    // Only retain warnings which weren't locally suppressed where they
+    // were emitted or at any of their tracepoints.
+    warnings.retain(|diag| {
+        debug_assert!(diag.severity == Severity::Warning);
+        let hash = crate::utils::hash128(&(&diag.span, &diag.identifier, &diag.message));
+        if unsuppressed.contains(&hash) {
+            // This warning - with the same span, identifier and message -
+            // was already raised and not suppressed before, with a
+            // different set of tracepoints. Therefore, we should not raise
+            // it again, and checking for suppression is unnecessary.
+            return false;
+        }
+
+        let Some(identifier) = &diag.identifier else {
+            // Can't suppress without an identifier. Therefore, retain the
+            // warning. It is not a duplicate due to the check above.
+            unsuppressed.insert(hash);
+            return true;
+        };
+
+        let should_raise = !is_warning_suppressed(diag.span, world, identifier)
+            && !diag.trace.iter().any(|tracepoint| {
+                is_warning_suppressed(tracepoint.span, world, identifier)
+            });
+
+        // If this warning wasn't suppressed, any further duplicates (with
+        // different tracepoints) should be removed.
+        should_raise && unsuppressed.insert(hash)
+    });
+}
+
+/// Checks if a given warning is suppressed given one span it has a tracepoint
+/// in. If one of the ancestors of the node where the warning occurred has a
+/// warning suppression decorator sibling right before it suppressing this
+/// particular warning, the warning is considered suppressed.
+fn is_warning_suppressed(span: Span, world: &dyn World, identifier: &Identifier) -> bool {
+    // Don't suppress detached warnings.
+    let Some(source) = span.id().and_then(|file| world.source(file).ok()) else {
+        return false;
+    };
+
+    let search_root = source.find(span);
+    let mut searched_node = search_root.as_ref();
+
+    // Walk the parent nodes to check for a warning suppression in the
+    // previous line.
+    while let Some(node) = searched_node {
+        let mut searched_decorator = node.prev_attached_decorator();
+        while let Some(sibling) = searched_decorator {
+            let decorator = sibling.cast::<ast::Decorator>().unwrap();
+            if check_decorator_suppresses_warning(decorator, identifier) {
+                return true;
+            }
+            searched_decorator = sibling.prev_attached_decorator();
+        }
+        searched_node = node.parent();
+    }
+
+    false
+}
+
+/// Checks if an 'allow' decorator would cause a warning with a particular
+/// identifier to be suppressed.
+fn check_decorator_suppresses_warning(
+    decorator: ast::Decorator,
+    warning: &Identifier,
+) -> bool {
+    if decorator.name().as_str() != "allow" {
+        return false;
+    }
+
+    for argument in decorator.arguments() {
+        if warning.name() == argument.get() {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// A result type with a file-related error.

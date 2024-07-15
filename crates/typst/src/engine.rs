@@ -10,7 +10,7 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterato
 use crate::diag::{self, SourceDiagnostic, SourceResult, Trace, Tracepoint};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
-use crate::syntax::{ast, FileId, Span};
+use crate::syntax::{FileId, Span};
 use crate::World;
 
 /// Holds all data needed during compilation.
@@ -115,9 +115,9 @@ impl Engine<'_> {
             route: route.clone(),
         };
 
-        // Trace errors immediately, followed by warnings on the sink.
+        // Trace errors and warnings on the sink immediately.
         let call_result = f(&mut engine).trace(world, make_point, span);
-        sink.trace_warnings(world, make_point, span);
+        sink.warnings = std::mem::take(&mut sink.warnings).trace(world, make_point, span);
 
         // Push the accumulated warnings and other fields back to the
         // original sink after we have modified them. This is needed so the
@@ -208,68 +208,10 @@ impl Sink {
         self.values
     }
 
-    /// Apply warning suppression, deduplication, and return the remaining
-    /// warnings.
-    ///
-    /// We deduplicate warnings which are identical modulo tracepoints.
-    /// This is so we can attempt to suppress each tracepoint separately,
-    /// without having one suppression discard all other attempts of raising
-    /// this same warning through a different set of tracepoints.
-    ///
-    /// For example, calling the same function twice but suppressing a warning
-    /// on the first call shouldn't suppress on the second, so each set of
-    /// tracepoints for a particular warning matters. If at least one instance
-    /// of a warning isn't suppressed, the warning will be returned, and the
-    /// remaining duplicates are discarded.
-    pub fn suppress_and_deduplicate_warnings(
-        mut self,
-        world: &dyn World,
-    ) -> EcoVec<SourceDiagnostic> {
-        let mut unsuppressed_warning_set = HashSet::<u128>::default();
-
-        // Only retain warnings which weren't locally suppressed where they
-        // were emitted or at any of their tracepoints.
-        self.warnings.retain(|diag| {
-            let hash =
-                crate::utils::hash128(&(&diag.span, &diag.identifier, &diag.message));
-            if unsuppressed_warning_set.contains(&hash) {
-                // This warning - with the same span, identifier and message -
-                // was already raised and not suppressed before, with a
-                // different set of tracepoints. Therefore, we should not raise
-                // it again, and checking for suppression is unnecessary.
-                return false;
-            }
-
-            let Some(identifier) = &diag.identifier else {
-                // Can't suppress without an identifier. Therefore, retain the
-                // warning. It is not a duplicate due to the check above.
-                unsuppressed_warning_set.insert(hash);
-                return true;
-            };
-
-            let should_raise = !is_warning_suppressed(diag.span, world, identifier)
-                && !diag.trace.iter().any(|tracepoint| {
-                    is_warning_suppressed(tracepoint.span, world, identifier)
-                });
-
-            // If this warning wasn't suppressed, any further duplicates (with
-            // different tracepoints) should be removed.
-            should_raise && unsuppressed_warning_set.insert(hash)
-        });
-
+    /// Deduplicates and suppresses the stored warnings before returning them.
+    pub fn finish_warnings(mut self, world: &dyn World) -> EcoVec<SourceDiagnostic> {
+        diag::deduplicate_and_suppress_warnings(&mut self.warnings, world);
         self.warnings
-    }
-
-    /// Adds a tracepoint to all warnings outside the given span.
-    pub fn trace_warnings<F>(
-        &mut self,
-        world: Tracked<dyn World + '_>,
-        make_point: F,
-        span: Span,
-    ) where
-        F: Fn() -> Tracepoint,
-    {
-        self.warnings = std::mem::take(&mut self.warnings).trace(world, make_point, span);
     }
 }
 
@@ -327,57 +269,6 @@ impl Sink {
             self.values.extend(values.into_iter().take(remaining));
         }
     }
-}
-
-/// Checks if a given warning is suppressed given one span it has a tracepoint
-/// in. If one of the ancestors of the node where the warning occurred has a
-/// warning suppression decorator sibling right before it suppressing this
-/// particular warning, the warning is considered suppressed.
-fn is_warning_suppressed(
-    span: Span,
-    world: &dyn World,
-    identifier: &diag::Identifier,
-) -> bool {
-    // Don't suppress detached warnings.
-    let Some(source) = span.id().and_then(|file| world.source(file).ok()) else {
-        return false;
-    };
-
-    let search_root = source.find(span);
-    let mut searched_node = search_root.as_ref();
-
-    // Walk the parent nodes to check for a warning suppression in the
-    // previous line.
-    while let Some(node) = searched_node {
-        let mut searched_decorator = node.prev_attached_decorator();
-        while let Some(sibling) = searched_decorator {
-            let decorator = sibling.cast::<ast::Decorator>().unwrap();
-            if check_decorator_suppresses_warning(decorator, identifier) {
-                return true;
-            }
-            searched_decorator = sibling.prev_attached_decorator();
-        }
-        searched_node = node.parent();
-    }
-
-    false
-}
-
-fn check_decorator_suppresses_warning(
-    decorator: ast::Decorator,
-    warning: &diag::Identifier,
-) -> bool {
-    if decorator.name().as_str() != "allow" {
-        return false;
-    }
-
-    for argument in decorator.arguments() {
-        if warning.name() == argument.get() {
-            return true;
-        }
-    }
-
-    false
 }
 
 /// The route the engine took during compilation. This is used to detect
