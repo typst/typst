@@ -338,10 +338,6 @@ fn register_gradient(
     ctx.resources.gradients.insert(pdf_gradient)
 }
 
-fn u16_to_be(x: &u16) -> u16 {
-    x.to_be()
-}
-
 /// Writes a single Coons Patch as defined in the PDF specification
 /// to a binary vec.
 ///
@@ -394,17 +390,16 @@ fn write_patch(
         p1, p1, p2, p2, cp1, cp2, p3, p3, p1, p1, p1, p1,
     ]));
 
-    let colors = [
-        c0.iter().map(u16_to_be),
-        c0.iter().map(u16_to_be),
-        c1.iter().map(u16_to_be),
-        c1.iter().map(u16_to_be)
-    ];
-
     // Push the colors.
+    // TODO: check if it is correct
     // TODO: find a better solution
-    unsafe {
-        target.extend_from_slice(colors.align_to::<u8>().1);
+    for x in c0 {
+        target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
+        target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
+    }
+    for x in c1 {
+        target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
+        target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
     }
 }
 
