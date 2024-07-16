@@ -393,7 +393,7 @@ impl ColorSpaceExt for ColorSpace {
         let [x, y, z, a] = self.encode(color);
 
         match self {
-            ColorSpace::Oklab | ColorSpace::Oklch | ColorSpace::Hsl | ColorSpace::Hsv | ColorSpace::Cmyk => vec![
+            ColorSpace::Cmyk => vec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),
