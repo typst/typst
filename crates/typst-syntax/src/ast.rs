@@ -97,7 +97,7 @@ impl<'a> AnnotationName<'a> {
 }
 
 node! {
-    /// An annotation: `/! allow("warning")`.
+    /// An annotation: `// @allow("warning")`.
     Annotation
 }
 

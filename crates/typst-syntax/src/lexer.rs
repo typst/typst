@@ -231,7 +231,7 @@ impl Lexer<'_> {
     /// The lexer is fully responsible for the annotation, as it is simpler to
     /// parse them at the character level, given they follow a very simple
     /// and rigid structure, in the form
-    /// `/! annotation-name("string argument1", "string argument2")`
+    /// `// @annotation-name("string argument1", "string argument2")`
     /// with optional whitespaces and comments between arguments.
     fn annotation(&mut self, start: usize) -> SyntaxNode {
         // Start by lexing the marker.
