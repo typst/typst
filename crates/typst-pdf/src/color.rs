@@ -399,14 +399,12 @@ impl ColorSpaceExt for ColorSpace {
                 U::quantize(z, [range[4], range[5]]),
                 U::quantize(a, [range[6], range[7]]),
             ],
-            ColorSpace::D65Gray => vec![
-                U::quantize(x, [range[0], range[1]]),
-            ],
+            ColorSpace::D65Gray => vec![U::quantize(x, [range[0], range[1]])],
             _ => vec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),
-            ]
+            ],
         }
     }
 }

@@ -146,8 +146,7 @@ pub fn write_gradients(
                         .bits_per_flag(8)
                         .shading_type(StreamShadingType::CoonsPatch)
                         .decode([
-                            0.0, 1.0, 0.0, 1.0,
-                            range[0], range[1], range[2], range[3],
+                            0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
                             range[4], range[5], range[6], range[7],
                         ])
                         .anti_alias(gradient.anti_alias())
@@ -395,11 +394,12 @@ fn write_patch(
         p1, p1, p2, p2, cp1, cp2, p3, p3, p1, p1, p1, p1,
     ]));
 
-    let colors =
-        [c0.iter().map(u16_to_be),
-         c0.iter().map(u16_to_be),
-         c1.iter().map(u16_to_be),
-         c1.iter().map(u16_to_be)];
+    let colors = [
+        c0.iter().map(u16_to_be),
+        c0.iter().map(u16_to_be),
+        c1.iter().map(u16_to_be),
+        c1.iter().map(u16_to_be)
+    ];
 
     // Push the colors.
     // TODO: find a better solution
