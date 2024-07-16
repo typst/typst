@@ -396,15 +396,15 @@ fn write_patch(
     ]));
 
     let colors =
-        [c0.into_iter().map(u16_to_be),
-         c0.into_iter().map(u16_to_be),
-         c1.into_iter().map(u16_to_be),
-         c1.into_iter().map(u16_to_be)];
+        [c0.iter().map(u16_to_be),
+         c0.iter().map(u16_to_be),
+         c1.iter().map(u16_to_be),
+         c1.iter().map(u16_to_be)];
 
     // Push the colors.
     // TODO: find a better solution
     unsafe {
-        target.extend_from_slice(&colors.align_to::<u8>().1);
+        target.extend_from_slice(colors.align_to::<u8>().1);
     }
 }
 
