@@ -390,13 +390,25 @@ impl ColorSpaceExt for ColorSpace {
 
     fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3] {
         let range = self.range();
-        let [x, y, z, _] = self.encode(color);
+        let [x, y, z, a] = self.encode(color);
 
-        [
-            U::quantize(x, [range[0], range[1]]),
-            U::quantize(y, [range[2], range[3]]),
-            U::quantize(z, [range[4], range[5]]),
-        ]
+        // TODO: check and complete
+        match self {
+            ColorSpace::Cmyk => [
+                U::quantize(x, [range[0], range[1]]),
+                U::quantize(y, [range[2], range[3]]),
+                U::quantize(z, [range[4], range[5]]),
+                U::quantize(a, [range[4], range[5]]), // Not sure about this
+            ]n
+            ColorSpace::D65Gray => [
+                U::quantize(x, [range[0], range[1]]), // Not sure about thie
+            ]
+            _ => [
+                U::quantize(x, [range[0], range[1]]),
+                U::quantize(y, [range[2], range[3]]),
+                U::quantize(z, [range[4], range[5]]),
+            ]
+        }
     }
 }
 
