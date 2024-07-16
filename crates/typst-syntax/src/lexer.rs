@@ -255,8 +255,8 @@ impl Lexer<'_> {
             return SyntaxNode::inner(SyntaxKind::Annotation, subtree);
         }
 
-        let annotation_name = self.annotation_name(current_start);
-        subtree.push(self.emit_token(annotation_name, current_start));
+        let name = self.annotation_name(current_start);
+        subtree.push(self.emit_token(name, current_start));
 
         // Left parenthesis before annotation arguments.
         let current_start = self.s.cursor();

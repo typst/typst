@@ -544,7 +544,7 @@ pub fn deduplicate_and_suppress_warnings(
 /// in. If one of the ancestors of the node where the warning occurred has a
 /// warning suppression annotation sibling right before it suppressing this
 /// particular warning, the warning is considered suppressed.
-fn is_warning_suppressed(span: Span, world: &dyn World, identifier: &Identifier) -> bool {
+fn is_warning_suppressed(span: Span, world: &dyn World, warning: &Identifier) -> bool {
     // Don't suppress detached warnings.
     let Some(source) = span.id().and_then(|file| world.source(file).ok()) else {
         return false;
@@ -559,7 +559,7 @@ fn is_warning_suppressed(span: Span, world: &dyn World, identifier: &Identifier)
         let mut searched_annotation = node.prev_attached_annotation();
         while let Some(sibling) = searched_annotation {
             let annotation = sibling.cast::<ast::Annotation>().unwrap();
-            if check_annotation_suppresses_warning(annotation, identifier) {
+            if check_annotation_suppresses_warning(annotation, warning) {
                 return true;
             }
             searched_annotation = sibling.prev_attached_annotation();
