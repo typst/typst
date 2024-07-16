@@ -7,23 +7,23 @@
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 
-use typst_syntax::Span;
-use typst_utils::NonZeroExt;
-
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Args, Construct, Content, NativeElement, Packed, Resolve, SequenceElem, Smart,
     StyleChain,
 };
-use crate::introspection::{Counter, CounterUpdate, Locator, SplitLocator, Tag, TagElem};
+use crate::introspection::{
+    Counter, CounterDisplayElem, CounterUpdate, Locator, SplitLocator, Tag, TagElem,
+};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem, Fr,
     Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
-use crate::utils::Numeric;
+use crate::syntax::Span;
+use crate::utils::{NonZeroExt, Numeric};
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
@@ -107,6 +107,12 @@ struct FootnoteConfig {
     gap: Abs,
 }
 
+/// Information needed to generate a line number.
+struct CollectedParLine {
+    y: Abs,
+    marker: Packed<ParLineMarker>,
+}
+
 /// A prepared item in a flow layout.
 #[derive(Debug)]
 enum FlowItem {
@@ -145,11 +151,6 @@ enum FlowItem {
         /// and in-flow content. Only relevant if `float` is `true`.
         clearance: Abs,
     },
-    /// A line number, given its vertical distance from the top of the page.
-    /// As an invariant, this item must appear immediately after the item
-    /// whose frame contains the line which has this number, or after other
-    /// line numbers after that item, in the items vector.
-    LineNumber { frame: Frame, y: Abs },
     /// A footnote frame (can also be the separator).
     Footnote(Frame),
 }
@@ -162,7 +163,7 @@ impl FlowItem {
         match self {
             // TODO: Is it appropriate to bundle line number here?
             // It is the same as placing something though.
-            Self::Placed { float: false, .. } | Self::LineNumber { .. } => true,
+            Self::Placed { float: false, .. } => true,
             Self::Frame { frame, .. } => {
                 frame.size().is_zero()
                     && frame.items().all(|(_, item)| {
@@ -369,18 +370,10 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         )?;
 
         let mut notes = Vec::new();
-        let mut lines = Vec::new();
         for (i, mut frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.
             if self.root {
-                if i > 0 {
-                    // Handle at the end of each region
-                    self.handle_par_lines(std::mem::take(&mut lines))?;
-                }
-
                 collect_footnotes(&mut notes, &frame);
-
-                collect_par_lines(&mut lines, &frame, Abs::zero());
             }
 
             if i > 0 {
@@ -393,7 +386,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         }
 
         self.try_handle_footnotes(notes)?;
-        self.handle_par_lines(lines)?;
 
         self.root = is_root;
         self.regions.root = false;
@@ -453,7 +445,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
     /// Layout a finished frame.
     fn handle_item(&mut self, mut item: FlowItem) -> SourceResult<()> {
-        let mut lines = Vec::new();
         match item {
             FlowItem::Absolute(v, weak) => {
                 if weak
@@ -475,33 +466,24 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
                 let in_last = self.regions.in_last();
                 self.regions.size.y -= height;
-                if self.root {
-                    collect_par_lines(&mut lines, frame, Abs::zero());
-                    if movable {
-                        let mut notes = Vec::new();
-                        collect_footnotes(&mut notes, frame);
-                        self.items.push(item);
+                if self.root && movable {
+                    let mut notes = Vec::new();
+                    collect_footnotes(&mut notes, frame);
+                    self.items.push(item);
 
-                        // When we are already in_last, we can directly force the
-                        // footnotes.
-                        if !self.handle_footnotes(&mut notes, true, in_last)? {
-                            let item = self.items.pop();
-                            self.finish_region(false)?;
-                            self.items.extend(item);
-                            self.regions.size.y -= height;
-                            self.handle_footnotes(&mut notes, true, true)?;
-                        }
-                        self.handle_par_lines(lines)?;
-                        return Ok(());
+                    // When we are already in_last, we can directly force the
+                    // footnotes.
+                    if !self.handle_footnotes(&mut notes, true, in_last)? {
+                        let item = self.items.pop();
+                        self.finish_region(false)?;
+                        self.items.extend(item);
+                        self.regions.size.y -= height;
+                        self.handle_footnotes(&mut notes, true, true)?;
                     }
+                    return Ok(());
                 }
             }
-            FlowItem::Placed { ref frame, float: false, .. } => {
-                // TODO: Double-check whether we want this
-                if self.root {
-                    collect_par_lines(&mut lines, frame, Abs::zero());
-                }
-            }
+            FlowItem::Placed { float: false, .. } => {}
             FlowItem::Placed {
                 ref mut frame,
                 ref mut y_align,
@@ -546,24 +528,12 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let mut notes = vec![];
                     collect_footnotes(&mut notes, frame);
                     self.try_handle_footnotes(notes)?;
-
-                    collect_par_lines(&mut lines, frame, Abs::zero());
                 }
             }
-            FlowItem::LineNumber { .. } => {}
             FlowItem::Footnote(_) => {}
         }
 
         self.items.push(item);
-
-        if self.root {
-            // We have to handle lines after pushing the current item.
-            // As an invariant, line numbers always appear after the item
-            // they're attached to in the items vector.
-            // This is needed as the line numbers' positions are relative
-            // to said items' frames.
-            self.handle_par_lines(lines)?;
-        }
         Ok(())
     }
 
@@ -662,8 +632,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     first_footnote = false;
                     used.x.set_max(frame.width());
                 }
-                // Line numbers are absolutely positioned
-                FlowItem::LineNumber { .. } => {}
             }
         }
         used.y += footnote_height + float_top_height + float_bottom_height;
@@ -690,10 +658,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let mut float_bottom_offset = Abs::zero();
         let mut footnote_offset = Abs::zero();
 
-        // Keep placed line numbers for deduplication
-        let mut placed_line_numbers: Vec<Abs> = vec![];
-        // Line numbers attach to the previously placed frame
-        let mut latest_frame_pos = Point::zero();
+        let mut lines: Vec<CollectedParLine> = vec![];
 
         // Place all frames.
         for item in self.items.drain(..) {
@@ -712,7 +677,28 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let y = offset + ruler.position(size.y - used.y);
                     let pos = Point::new(x, y);
                     offset += frame.height();
-                    latest_frame_pos = pos;
+
+                    // TODO: Right now, this is generating duplicate line
+                    // numbers for columns, since there are two root flows:
+                    // one for the whole page, containing just the `columns`,
+                    // and the one inside the columns element. This doesn't
+                    // happen for footnotes because the columns are laid out as
+                    // a block with `rootable` set to true, which is explicitly
+                    // checked for in `handle_block`, where footnotes are
+                    // normally collected. We can't check this property here,
+                    // in `finish_region`, since the block was already laid out
+                    // into frames. We'd have to go back to collecting par
+                    // lines before `finish_region`, or rework `rootable`.
+                    if self.root {
+                        collect_par_lines(
+                            &mut lines,
+                            &frame,
+                            pos,
+                            Abs::zero(),
+                            self.styles,
+                        );
+                    }
+
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed { frame, x_align, y_align, delta, float, .. } => {
@@ -744,27 +730,17 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let pos = Point::new(x, y)
                         + delta.zip_map(size, Rel::relative_to).to_point();
 
-                    latest_frame_pos = pos;
-                    output.push_frame(pos, frame);
-                }
-                FlowItem::LineNumber { frame, y } => {
-                    // TODO: Leading offset can vary depending on the paragraph.
-                    // There might be some #set par(leading) under us.
-                    let number_height =
-                        latest_frame_pos.y + y - ParElem::leading_in(*self.styles);
-
-                    // TODO: Deduplicate this constant
-                    // Actually, we should store the height of each line next to the tag
-                    // Then we deduplicate based on lines being inside others
-                    const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
-
-                    if placed_line_numbers.iter().all(|height| {
-                        (number_height - *height).abs() > LINE_DISTANCE_THRESHOLD
-                    }) {
-                        let pos = Point::new(Abs::cm(-1.0), number_height);
-                        output.push_frame(pos, frame);
-                        placed_line_numbers.push(number_height);
+                    if self.root {
+                        collect_par_lines(
+                            &mut lines,
+                            &frame,
+                            pos,
+                            Abs::zero(),
+                            self.styles,
+                        );
                     }
+
+                    output.push_frame(pos, frame);
                 }
                 FlowItem::Footnote(frame) => {
                     let y = size.y - footnote_height + footnote_offset;
@@ -772,6 +748,38 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     output.push_frame(Point::with_y(y), frame);
                 }
             }
+        }
+
+        // Prepare to sort, deduplicate and layout line numbers.
+        //
+        // We do this after placing all frames since they might not necessarily
+        // be ordered by height (e.g. you can have a `place(bottom)` followed
+        // by a paragraph, but the paragraph appears at the top), so we buffer
+        // all line numbers to later sort and deduplicate them based on how
+        // close they are to each other.
+        lines.sort_by_key(|line| line.y);
+
+        // TODO: Consider real line height
+        // Actually, we should store the height of each line next to the tag
+        // Then we deduplicate based on lines being inside others
+        const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
+
+        let mut prev_y = None;
+        for line in lines {
+            if prev_y
+                .is_some_and(|prev_y| (line.y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
+            {
+                // Lines are too close together. Display as the same line number.
+                continue;
+            }
+
+            // Note that line.y > prev_y due to sorting.
+            // Therefore, the check above ensures no lines too close together
+            // will cause too many different line numbers to appear.
+            prev_y = Some(line.y);
+            let number = self.layout_line_number(line.marker.numbering())?;
+            let number_pos = Point::new(Abs::cm(-1.0), line.y);
+            output.push_frame(number_pos, number);
         }
 
         if force && !self.pending_tags.is_empty() {
@@ -828,39 +836,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             self.finish_region(false)?;
             self.handle_footnotes(&mut notes, false, true)?;
         }
-        Ok(())
-    }
-
-    /// Processes all paragraph lines in the frame, displaying line numbers.
-    /// This should only be run in the root flow.
-    fn handle_par_lines(
-        &mut self,
-        mut lines: Vec<(Abs, Packed<ParLineMarker>)>,
-    ) -> SourceResult<()> {
-        lines.sort_by_key(|(y, _)| *y);
-
-        const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
-
-        let mut prev_y = None;
-        for (line_y, line_marker) in lines {
-            if prev_y
-                .is_some_and(|prev_y| (line_y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
-            {
-                // Lines are too close together. Display as the same line number.
-                // TODO: We have to do this at once for all lines in a region.
-                // That is, collect into a per-region vector and then
-                // "deduplicate" the line numbers. Otherwise, this will
-                // deduplicate them only within the same flow item.
-                continue;
-            }
-
-            // Note that line_y > prev_y due to sorting.
-            // Therefore, the check above ensures no lines too close together
-            // will cause too many different line numbers to appear.
-            prev_y = Some(line_y);
-            self.layout_line_number(line_marker.numbering(), line_y)?;
-        }
-
         Ok(())
     }
 
@@ -961,30 +936,28 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         Ok(())
     }
 
-    fn layout_line_number(&mut self, numbering: &Numbering, y: Abs) -> SourceResult<()> {
-        let line_counter = Counter::of(ParLineMarker::elem());
-        let mut line_counter_update = line_counter
+    /// Layout a line number with the given numbering.
+    ///
+    /// Produces a counter update and counter display with counter key
+    /// `ParLineMarker`. We use `ParLineMarker` as it is an element which is
+    /// not exposed to the user, as we don't want to expose the line number
+    /// counter at the moment, given that its semantics are inconsistent with
+    /// that of normal counters (the counter is updated based on height and not
+    /// on frame order / layer). When we find a solution to this, we should
+    /// switch to a counter on `ParLine` instead, thus exposing the counter as
+    /// `counter(par.line)` to the user.
+    fn layout_line_number(&mut self, numbering: &Numbering) -> SourceResult<Frame> {
+        let counter = Counter::of(ParLineMarker::elem());
+        let counter_update = counter
             .clone()
             .update(Span::detached(), CounterUpdate::Step(NonZeroUsize::ONE));
-
-        let update_hash = crate::utils::hash128(&line_counter_update);
-        let location = self.locator.next_location(self.engine.introspector, update_hash);
-        line_counter_update.set_location(location);
-
-        let line_counter_display = line_counter.display_at_loc(
-            self.engine,
-            location,
-            *self.styles,
-            numbering,
-        )?;
-
-        let line_number =
-            SequenceElem::new(vec![line_counter_update, line_counter_display]);
-
-        let locator = self.locator.next(&line_number);
+        let counter_display =
+            CounterDisplayElem::new(counter, Smart::Custom(numbering.clone()), false);
+        let number = SequenceElem::new(vec![counter_update, counter_display.pack()]);
+        let locator = self.locator.next(&number);
 
         // TODO: infinite region?
-        let frame = line_number
+        let frame = number
             .pack()
             .layout(
                 self.engine,
@@ -994,9 +967,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             )?
             .into_frame();
 
-        self.handle_item(FlowItem::LineNumber { frame, y })?;
-
-        Ok(())
+        Ok(frame)
     }
 }
 
@@ -1025,25 +996,31 @@ fn collect_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
 /// and finish. That gives us the relative height of the line from the start of
 /// the initial frame.
 fn collect_par_lines(
-    lines: &mut Vec<(Abs, Packed<ParLineMarker>)>,
+    lines: &mut Vec<CollectedParLine>,
     frame: &Frame,
+    frame_pos: Point,
     prev_y: Abs,
+    styles: &StyleChain,
 ) {
     for (pos, item) in frame.items() {
         match item {
             FrameItem::Group(group) => {
-                collect_par_lines(lines, &group.frame, prev_y + pos.y)
+                collect_par_lines(lines, &group.frame, frame_pos, prev_y + pos.y, styles)
             }
-            FrameItem::Tag(tag)
-                if !lines
-                    .iter()
-                    .any(|(_, line)| line.location() == tag.elem.location()) =>
-            {
-                let Some(line) = tag.elem.to_packed::<ParLineMarker>() else {
+
+            // Unlike footnotes, we don't need to guard against duplicate tags
+            // here, since we already deduplicate line markers based on their
+            // height later on, in `finish_region`.
+            FrameItem::Tag(tag) => {
+                let Some(marker) = tag.elem.to_packed::<ParLineMarker>() else {
                     continue;
                 };
 
-                lines.push((prev_y + pos.y, line.clone()));
+                // TODO: Leading offset can vary depending on the paragraph.
+                // There might be some #set par(leading) under us.
+                let y = frame_pos.y + prev_y + pos.y - ParElem::leading_in(*styles);
+
+                lines.push(CollectedParLine { y, marker: marker.clone() });
             }
             _ => {}
         }
