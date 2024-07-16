@@ -343,8 +343,8 @@ fn register_gradient(
 ///
 /// Structure:
 ///  - flag: `u8`
-///  - points: `[u16; 24]`
-///  - colors: `[u16; 12]`
+///  - points: `[u16; 3]`
+///  - colors: `[u16; 3]`
 fn write_patch(
     target: &mut Vec<u8>,
     t: f32,
@@ -452,8 +452,8 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
                 &mut vertices,
                 t0.get() as f32,
                 t1.get() as f32,
-                encode_space.convert(c0),
-                encode_space.convert(c1),
+                encode_space.convert(c0).try_into().unwrap(), // TODO: find a better solution
+                encode_space.convert(c1).try_into().unwrap(), // TODO: find a better solution
                 angle,
             );
             continue;
@@ -483,8 +483,8 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
                 &mut vertices,
                 t_x as f32,
                 t_next as f32,
-                encode_space.convert(c),
-                encode_space.convert(c_next),
+                encode_space.convert(c).try_into().unwrap(), // TODO: find a better solution
+                encode_space.convert(c_next).try_into().unwrap(), // TODO: find a better solution
                 angle,
             );
 

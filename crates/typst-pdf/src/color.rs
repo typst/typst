@@ -380,7 +380,7 @@ pub(super) trait ColorSpaceExt {
     fn range(self) -> [f32; 6];
 
     /// Converts a color to the color space.
-    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3];
+    fn convert<U: QuantizedColor>(self, color: Color) -> Vec<U>;
 }
 
 impl ColorSpaceExt for ColorSpace {
@@ -388,22 +388,22 @@ impl ColorSpaceExt for ColorSpace {
         [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
     }
 
-    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3] {
+    fn convert<U: QuantizedColor>(self, color: Color) -> Vec<U> {
         let range = self.range();
         let [x, y, z, a] = self.encode(color);
 
         // TODO: check and complete
         match self {
-            ColorSpace::Cmyk => [
+            ColorSpace::Cmyk => vec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),
                 U::quantize(a, [range[4], range[5]]), // Not sure about this
-            ]n
-            ColorSpace::D65Gray => [
+            ],
+            ColorSpace::D65Gray => vec![
                 U::quantize(x, [range[0], range[1]]), // Not sure about thie
-            ]
-            _ => [
+            ],
+            _ => vec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),
