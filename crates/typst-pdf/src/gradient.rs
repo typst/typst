@@ -146,8 +146,9 @@ pub fn write_gradients(
                         .bits_per_flag(8)
                         .shading_type(StreamShadingType::CoonsPatch)
                         .decode([
-                            0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                            range[4], range[5],
+                            0.0, 1.0, 0.0, 1.0,
+                            range[0], range[1], range[2], range[3],
+                            range[4], range[5], range[6], range[7],
                         ])
                         .anti_alias(gradient.anti_alias())
                         .filter(Filter::FlateDecode);
@@ -338,6 +339,10 @@ fn register_gradient(
     ctx.resources.gradients.insert(pdf_gradient)
 }
 
+fn u16_to_be(x: &u16) -> u16 {
+    x.to_be()
+}
+
 /// Writes a single Coons Patch as defined in the PDF specification
 /// to a binary vec.
 ///
@@ -349,8 +354,8 @@ fn write_patch(
     target: &mut Vec<u8>,
     t: f32,
     t1: f32,
-    c0: [u16; 3],
-    c1: [u16; 3],
+    c0: &[u16],
+    c1: &[u16],
     angle: Angle,
 ) {
     let theta = -TAU * t + angle.to_rad() as f32 + PI;
@@ -391,10 +396,16 @@ fn write_patch(
     ]));
 
     let colors =
-        [c0.map(u16::to_be), c0.map(u16::to_be), c1.map(u16::to_be), c1.map(u16::to_be)];
+        [c0.into_iter().map(u16_to_be),
+         c0.into_iter().map(u16_to_be),
+         c1.into_iter().map(u16_to_be),
+         c1.into_iter().map(u16_to_be)];
 
     // Push the colors.
-    target.extend_from_slice(bytemuck::cast_slice(&colors));
+    // TODO: find a better solution
+    unsafe {
+        target.extend_from_slice(&colors.align_to::<u8>().1);
+    }
 }
 
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {
@@ -452,8 +463,8 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
                 &mut vertices,
                 t0.get() as f32,
                 t1.get() as f32,
-                encode_space.convert(c0).try_into().unwrap(), // TODO: find a better solution
-                encode_space.convert(c1).try_into().unwrap(), // TODO: find a better solution
+                &encode_space.convert(c0),
+                &encode_space.convert(c1),
                 angle,
             );
             continue;
@@ -483,8 +494,8 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
                 &mut vertices,
                 t_x as f32,
                 t_next as f32,
-                encode_space.convert(c).try_into().unwrap(), // TODO: find a better solution
-                encode_space.convert(c_next).try_into().unwrap(), // TODO: find a better solution
+                &encode_space.convert(c),
+                &encode_space.convert(c_next),
                 angle,
             );
 

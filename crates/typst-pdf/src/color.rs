@@ -377,31 +377,30 @@ impl PaintEncode for Color {
 /// Extra color space functions.
 pub(super) trait ColorSpaceExt {
     /// Returns the range of the color space.
-    fn range(self) -> [f32; 6];
+    fn range(self) -> [f32; 8];
 
     /// Converts a color to the color space.
     fn convert<U: QuantizedColor>(self, color: Color) -> Vec<U>;
 }
 
 impl ColorSpaceExt for ColorSpace {
-    fn range(self) -> [f32; 6] {
-        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
+    fn range(self) -> [f32; 8] {
+        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0] // Not sure about that
     }
 
     fn convert<U: QuantizedColor>(self, color: Color) -> Vec<U> {
         let range = self.range();
         let [x, y, z, a] = self.encode(color);
 
-        // TODO: check and complete
         match self {
-            ColorSpace::Cmyk => vec![
+            ColorSpace::Oklab | ColorSpace::Oklch | ColorSpace::Hsl | ColorSpace::Hsv | ColorSpace::Cmyk => vec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),
-                U::quantize(a, [range[4], range[5]]), // Not sure about this
+                U::quantize(a, [range[6], range[7]]),
             ],
             ColorSpace::D65Gray => vec![
-                U::quantize(x, [range[0], range[1]]), // Not sure about thie
+                U::quantize(x, [range[0], range[1]]),
             ],
             _ => vec![
                 U::quantize(x, [range[0], range[1]]),
