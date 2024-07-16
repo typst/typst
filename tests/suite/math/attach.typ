@@ -128,3 +128,9 @@ $integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 // Test default of limit attachments on large operators at display size only
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+
+--- math-attach-long-attachment ---
+// Test the base can be stretched as needed to accommodate the long attachments.
+$ a_i &= b_i stretch(equiv)^(k = 0)_(forall i) c_i \
+      &stretch(=, width: #150%)^(forall i)_"Chern-Weil" d_i \
+      & -> x_i stretch(->, width: #150%) x_i $

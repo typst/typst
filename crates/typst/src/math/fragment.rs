@@ -117,6 +117,13 @@ impl MathFragment {
         }
     }
 
+    pub fn set_stretch(&mut self, stretch: bool) {
+        match self {
+            Self::Glyph(glyph) => glyph.stretch = stretch,
+            _ => {}
+        }
+    }
+
     pub fn set_limits(&mut self, limits: Limits) {
         match self {
             Self::Glyph(glyph) => glyph.limits = limits,
@@ -176,6 +183,13 @@ impl MathFragment {
         }
     }
 
+    pub fn stretch(&self) -> bool {
+        match self {
+            MathFragment::Glyph(glyph) => glyph.stretch,
+            _ => false,
+        }
+    }
+
     pub fn limits(&self) -> Limits {
         match self {
             MathFragment::Glyph(glyph) => glyph.limits,
@@ -231,6 +245,7 @@ pub struct GlyphFragment {
     pub dests: SmallVec<[Destination; 1]>,
     pub hidden: bool,
     pub limits: Limits,
+    pub stretch: bool,
 }
 
 impl GlyphFragment {
@@ -280,6 +295,7 @@ impl GlyphFragment {
             ascent: Abs::zero(),
             descent: Abs::zero(),
             limits: Limits::for_char(c),
+            stretch: false,
             italics_correction: Abs::zero(),
             accent_attach: Abs::zero(),
             class,

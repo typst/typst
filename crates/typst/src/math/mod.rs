@@ -167,6 +167,7 @@ pub fn module() -> Module {
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
     math.define_elem::<AttachElem>();
+    math.define_elem::<StretchElem>();
     math.define_elem::<ScriptsElem>();
     math.define_elem::<LimitsElem>();
     math.define_elem::<AccentElem>();
