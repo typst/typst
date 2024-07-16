@@ -95,6 +95,11 @@ this is ok
 
 // @allow("aaaaa\")
 
+--- invalid-decorator-in-decorator ---
+// Error: 2:18-2:34 cannot have multiple decorators per line
+
+// @allow("aaa") // @allow("bbb")
+
 --- allow-suppresses-warns-below ---
 
 // @allow("unnecessary-stars")
