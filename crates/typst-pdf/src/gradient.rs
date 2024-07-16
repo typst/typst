@@ -395,10 +395,14 @@ fn write_patch(
     // TODO: find a better solution
     for x in c0 {
         target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
+    }
+    for x in c0 {
         target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
     }
     for x in c1 {
         target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
+    }
+    for x in c1 {
         target.extend_from_slice(&[(x >> 255) as u8, (x & 255) as u8]);
     }
 }
