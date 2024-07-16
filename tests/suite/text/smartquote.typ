@@ -69,6 +69,11 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 "'test' statement" \
 "statement 'test'"
 
+--- smartquote-with-embedding-chars ---
+#set text(lang: "fr")
+"#"\u{202A}"bonjour#"\u{202C}"" \
+#"\u{202A}""bonjour"#"\u{202C}"
+
 --- smartquote-custom ---
 // Use language quotes for missing keys, allow partial reset
 #set smartquote(quotes: "«»")

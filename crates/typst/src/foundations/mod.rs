@@ -49,7 +49,7 @@ pub use self::float::*;
 pub use self::func::*;
 pub use self::int::*;
 pub use self::label::*;
-pub use self::methods::*;
+pub(crate) use self::methods::*;
 pub use self::module::*;
 pub use self::none::*;
 pub use self::plugin::*;
@@ -290,7 +290,7 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define(key, value);
+        scope.define_spanned(key, value, span);
     }
     crate::eval::eval_string(engine.world, &text, span, mode, scope)
 }

@@ -53,7 +53,7 @@ tar = { workspace = true }
 tempfile = { workspace = true }
 toml = { workspace = true }
 ureq = { workspace = true }
-xz2 = { workspace = true, optional = true, features = ["static"] }
+xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
 # Explicitly depend on OpenSSL if applicable, so that we can add the

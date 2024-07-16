@@ -92,7 +92,7 @@ pub struct Builder<'a, R = ()> {
     state: State,
     /// Stack of saved graphic states.
     saves: Vec<State>,
-    /// Wheter any stroke or fill was not totally opaque.
+    /// Whether any stroke or fill was not totally opaque.
     uses_opacities: bool,
     /// All clickable links that are present in this content.
     links: Vec<(Destination, Rect)>,
@@ -129,7 +129,7 @@ struct State {
     /// The color space of the current fill paint.
     fill_space: Option<Name<'static>>,
     /// The current external graphic state.
-    external_graphics_state: Option<ExtGState>,
+    external_graphics_state: ExtGState,
     /// The current stroke paint.
     stroke: Option<FixedStroke>,
     /// The color space of the current stroke paint.
@@ -148,7 +148,7 @@ impl State {
             font: None,
             fill: None,
             fill_space: None,
-            external_graphics_state: None,
+            external_graphics_state: ExtGState::default(),
             stroke: None,
             stroke_space: None,
             text_rendering_mode: TextRenderingMode::Fill,
@@ -191,12 +191,13 @@ impl Builder<'_, ()> {
     }
 
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
-        let current_state = self.state.external_graphics_state.as_ref();
-        if current_state != Some(graphics_state) {
+        let current_state = &self.state.external_graphics_state;
+        if current_state != graphics_state {
             let index = self.resources.ext_gs.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
 
+            self.state.external_graphics_state = *graphics_state;
             if graphics_state.uses_opacities() {
                 self.uses_opacities = true;
             }
@@ -204,27 +205,25 @@ impl Builder<'_, ()> {
     }
 
     fn set_opacities(&mut self, stroke: Option<&FixedStroke>, fill: Option<&Paint>) {
-        let stroke_opacity = stroke
-            .map(|stroke| {
-                let color = match &stroke.paint {
-                    Paint::Solid(color) => *color,
-                    Paint::Gradient(_) | Paint::Pattern(_) => return 255,
-                };
+        let get_opacity = |paint: &Paint| {
+            let color = match paint {
+                Paint::Solid(color) => *color,
+                Paint::Gradient(_) | Paint::Pattern(_) => return 255,
+            };
 
-                color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
-            })
-            .unwrap_or(255);
-        let fill_opacity = fill
-            .map(|paint| {
-                let color = match paint {
-                    Paint::Solid(color) => *color,
-                    Paint::Gradient(_) | Paint::Pattern(_) => return 255,
-                };
+            color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
+        };
 
-                color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
-            })
-            .unwrap_or(255);
+        let stroke_opacity = stroke.map_or(255, |stroke| get_opacity(&stroke.paint));
+        let fill_opacity = fill.map_or(255, get_opacity);
         self.set_external_graphics_state(&ExtGState { stroke_opacity, fill_opacity });
+    }
+
+    fn reset_opacities(&mut self) {
+        self.set_external_graphics_state(&ExtGState {
+            stroke_opacity: 255,
+            fill_opacity: 255,
+        });
     }
 
     pub fn transform(&mut self, transform: Transform) {
@@ -542,6 +541,8 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
 
     let mut last_font = None;
 
+    ctx.reset_opacities();
+
     ctx.content.begin_text();
     ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
     // So that the next call to ctx.set_font() will change the font to one that
@@ -670,6 +671,8 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
         }
         image
     });
+
+    ctx.reset_opacities();
 
     let name = eco_format!("Im{index}");
     let w = size.x.to_f32();
