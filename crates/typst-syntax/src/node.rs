@@ -818,15 +818,15 @@ impl<'a> LinkedNode<'a> {
         }
     }
 
-    /// Get the first sibling decorator node at the line above this node.
-    /// This is done by moving backwards, checking for decorators, until we hit
+    /// Get the first sibling annotation node at the line above this node.
+    /// This is done by moving backwards, checking for annotations, until we hit
     /// a second newline (that is, we only check, at most, the line before this
     /// node).
-    pub fn prev_attached_decorator(&self) -> Option<Self> {
+    pub fn prev_attached_annotation(&self) -> Option<Self> {
         let mut cursor = self.prev_sibling_inner()?;
         let mut newlines = cursor.capped_newlines();
         while newlines < 2 {
-            if cursor.kind() == SyntaxKind::Decorator {
+            if cursor.kind() == SyntaxKind::Annotation {
                 return Some(cursor);
             }
 
@@ -834,8 +834,8 @@ impl<'a> LinkedNode<'a> {
             newlines += cursor.capped_newlines();
         }
 
-        // Decorators are attached if they're in the previous line.
-        // If we counted at least two newlines, no decorators are attached to
+        // Annotations are attached if they're in the previous line.
+        // If we counted at least two newlines, no annotations are attached to
         // this node.
         None
     }

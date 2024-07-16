@@ -103,7 +103,7 @@ impl Lexer<'_> {
     /// syntax node returned might not always be a leaf, but could actually
     /// come with a subtree (could be an inner node). This happens when it is
     /// preferred to perform parsing at the character level instead of at the
-    /// token level, as seen, for example, in [`decorator`](Lexer::decorator).
+    /// token level, as seen, for example, in [`annotation`](Lexer::annotation).
     pub fn next(&mut self) -> SyntaxNode {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
@@ -120,7 +120,7 @@ impl Lexer<'_> {
         let token = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => {
-                return self.line_comment_or_decorator(start);
+                return self.line_comment_or_annotation(start);
             }
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -185,14 +185,14 @@ impl Lexer<'_> {
         }
     }
 
-    /// Parses a decorator if the line comment has the form
+    /// Parses an annotation if the line comment has the form
     /// `// @something`
     ///
     /// Otherwise, parses a regular line comment.
-    fn line_comment_or_decorator(&mut self, start: usize) -> SyntaxNode {
+    fn line_comment_or_annotation(&mut self, start: usize) -> SyntaxNode {
         self.s.eat_while(is_inline_whitespace);
         if self.s.eat_if('@') {
-            return self.decorator(start);
+            return self.annotation(start);
         }
         self.s.eat_until(is_newline);
         self.emit_token(SyntaxKind::LineComment, start)
@@ -224,18 +224,18 @@ impl Lexer<'_> {
     }
 }
 
-/// Decorator lexing and auxiliary methods.
+/// Annotation lexing and auxiliary methods.
 impl Lexer<'_> {
-    /// Lexes and parses a decorator into a complete syntax subtree.
+    /// Lexes and parses an annotation into a complete syntax subtree.
     ///
-    /// The lexer is fully responsible for the decorator, as it is simpler to
+    /// The lexer is fully responsible for the annotation, as it is simpler to
     /// parse them at the character level, given they follow a very simple
     /// and rigid structure, in the form
-    /// `/! decorator-name("string argument1", "string argument2")`
+    /// `/! annotation-name("string argument1", "string argument2")`
     /// with optional whitespaces and comments between arguments.
-    fn decorator(&mut self, start: usize) -> SyntaxNode {
+    fn annotation(&mut self, start: usize) -> SyntaxNode {
         // Start by lexing the marker.
-        let marker = self.emit_token(SyntaxKind::DecoratorMarker, start);
+        let marker = self.emit_token(SyntaxKind::AnnotationMarker, start);
         let mut subtree = vec![marker];
 
         let current_start = self.s.cursor();
@@ -245,35 +245,35 @@ impl Lexer<'_> {
             subtree.push(self.emit_token(SyntaxKind::Space, current_start));
         }
 
-        // Lex the decorator name.
+        // Lex the annotation name.
         let current_start = self.s.cursor();
         if !self.s.eat_if(is_id_start) {
             self.s.eat_until(is_newline);
             subtree.push(self.emit_error("expected identifier", current_start));
 
-            // Return a single error node until the end of the decorator.
-            return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
+            // Return a single error node until the end of the annotation.
+            return SyntaxNode::inner(SyntaxKind::Annotation, subtree);
         }
 
-        let decorator_name = self.decorator_name(current_start);
-        subtree.push(self.emit_token(decorator_name, current_start));
+        let annotation_name = self.annotation_name(current_start);
+        subtree.push(self.emit_token(annotation_name, current_start));
 
-        // Left parenthesis before decorator arguments.
+        // Left parenthesis before annotation arguments.
         let current_start = self.s.cursor();
         if !self.s.eat_if('(') {
             self.s.eat_until(is_newline);
             subtree.push(self.emit_error("expected opening paren", current_start));
 
-            // Return a single error node until the end of the decorator.
-            return SyntaxNode::inner(SyntaxKind::Decorator, subtree);
+            // Return a single error node until the end of the annotation.
+            return SyntaxNode::inner(SyntaxKind::Annotation, subtree);
         }
 
         subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
 
-        // Decorator arguments:
+        // Annotation arguments:
         // Keep reading until we find a right parenthesis or newline. We have
         // to check the newline before eating (through '.peek()') to ensure it
-        // is not considered part of the decorator.
+        // is not considered part of the annotation.
         let mut current_start = self.s.cursor();
         let mut expecting_comma = false;
         let mut finished = false;
@@ -284,9 +284,9 @@ impl Lexer<'_> {
                     SyntaxKind::Space
                 }
                 Some('/') if self.s.eat_if('/') => {
-                    let node = self.line_comment_or_decorator(current_start);
-                    if node.kind() == SyntaxKind::Decorator {
-                        self.error("cannot have multiple decorators per line")
+                    let node = self.line_comment_or_annotation(current_start);
+                    if node.kind() == SyntaxKind::Annotation {
+                        self.error("cannot have multiple annotations per line")
                     } else {
                         subtree.push(node);
                         current_start = self.s.cursor();
@@ -298,7 +298,7 @@ impl Lexer<'_> {
                     // After we finished specifying arguments, there must only
                     // be whitespaces until the line ends.
                     self.s.eat_until(char::is_whitespace);
-                    self.error("expected end of decorator")
+                    self.error("expected end of annotation")
                 }
                 Some('"') if expecting_comma => {
                     self.s.eat_until(|c| c == ',' || c == ')' || is_newline(c));
@@ -306,7 +306,7 @@ impl Lexer<'_> {
                 }
                 Some('"') => {
                     expecting_comma = true;
-                    self.decorator_string()
+                    self.annotation_string()
                 }
                 Some(',') if expecting_comma => {
                     expecting_comma = false;
@@ -318,7 +318,7 @@ impl Lexer<'_> {
                     SyntaxKind::RightParen
                 }
                 Some(c) => self.error(eco_format!(
-                    "the character '{c}' is not valid in a decorator"
+                    "the character '{c}' is not valid in an annotation"
                 )),
                 None => break,
             };
@@ -334,34 +334,34 @@ impl Lexer<'_> {
             subtree.push(self.emit_error("expected closing paren", self.s.cursor()));
         }
 
-        SyntaxNode::inner(SyntaxKind::Decorator, subtree)
+        SyntaxNode::inner(SyntaxKind::Annotation, subtree)
     }
 
-    /// Lexes a decorator name.
+    /// Lexes an annotation name.
     ///
-    /// A decorator name is an identifier within a specific subset of allowed
-    /// identifiers. Currently, `allow` is the only valid decorator name.
-    fn decorator_name(&mut self, start: usize) -> SyntaxKind {
+    /// An annotation name is an identifier within a specific subset of allowed
+    /// identifiers. Currently, `allow` is the only valid annotation name.
+    fn annotation_name(&mut self, start: usize) -> SyntaxKind {
         self.s.eat_while(is_id_continue);
         let ident = self.s.from(start);
 
         if ident == "allow" {
-            SyntaxKind::DecoratorName
+            SyntaxKind::AnnotationName
         } else {
-            let error = self.error(eco_format!("invalid decorator name"));
+            let error = self.error(eco_format!("invalid annotation name"));
             self.hint("must be 'allow'");
             error
         }
     }
 
-    /// Lexes a string in a decorator.
+    /// Lexes a string in an annotation.
     ///
     /// Currently, such strings only allow a very restricted set of characters.
     /// These restrictions may be lifted in the future.
-    fn decorator_string(&mut self) -> SyntaxKind {
-        // TODO: Allow more characters in decorators' strings, perhaps allowing
+    fn annotation_string(&mut self) -> SyntaxKind {
+        // TODO: Allow more characters in annotations' strings, perhaps allowing
         // newlines somehow.
-        // Could perhaps use one //! per line so we can break a decorator into
+        // Could perhaps use one //! per line so we can break an annotation into
         // multiple lines in a sensible way.
         let start = self.s.cursor();
         self.s.eat_while(|c| !is_newline(c) && c != '"');
@@ -371,9 +371,9 @@ impl Lexer<'_> {
             return self.error("unclosed string");
         }
 
-        if let Some(c) = content.chars().find(|c| !is_valid_in_decorator_string(*c)) {
+        if let Some(c) = content.chars().find(|c| !is_valid_in_annotation_string(*c)) {
             return self
-                .error(eco_format!("invalid character '{c}' in a decorator's string"));
+                .error(eco_format!("invalid character '{c}' in an annotation's string"));
         }
 
         SyntaxKind::Str
@@ -1160,9 +1160,9 @@ fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
 }
 
-/// Whether a character can be part of a string in a decorator.
+/// Whether a character can be part of a string in an annotation.
 #[inline]
-fn is_valid_in_decorator_string(c: char) -> bool {
+fn is_valid_in_annotation_string(c: char) -> bool {
     is_id_continue(c) || c == '@' || c == '/'
 }
 

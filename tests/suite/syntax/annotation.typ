@@ -1,6 +1,6 @@
-// Test decorators.
+// Test annotations.
 
---- basic-decorators ---
+--- basic-annotations ---
 
 // @allow()
 // @allow("A")
@@ -19,7 +19,7 @@
   h(#0em)
 $
 
---- decorator-comments ---
+--- annotation-comments ---
 
 // @allow("abc") // this is ok
 
@@ -31,22 +31,22 @@ $
 this is ok
 */, "abc")
 
---- decorator-strings ---
+--- annotation-strings ---
 
 // @allow("@some/thing-there123")
 
---- unknown-decorator ---
-// Error: 2:5-2:13 invalid decorator name
+--- unknown-annotation ---
+// Error: 2:5-2:13 invalid annotation name
 // Hint: 2:5-2:13 must be 'allow'
 
 // @whatever()
 
---- invalid-decorator-syntax ---
-// Error: 2:11-2:12 the character '*' is not valid in a decorator
+--- invalid-annotation-syntax ---
+// Error: 2:11-2:12 the character '*' is not valid in an annotation
 
 // @allow(*)
 
-// Error: 2:11-2:12 the character '5' is not valid in a decorator
+// Error: 2:11-2:12 the character '5' is not valid in an annotation
 
 // @allow(5)
 
@@ -63,12 +63,12 @@ this is ok
 
 // @allow("abc
 
-// Error: 2:18-2:21 expected end of decorator
+// Error: 2:18-2:21 expected end of annotation
 
 // @allow("abc") abc
 
 // Error: 2:17-2:22 expected comma
-// Error: 2:24-2:27 expected end of decorator
+// Error: 2:24-2:27 expected end of annotation
 
 // @allow("abc" "abc") abc
 
@@ -80,23 +80,23 @@ this is ok
 
 // @allow(,  "abc", "abc", "abc")
 
---- invalid-decorator-strings ---
+--- invalid-annotation-strings ---
 
-// Error: 2:11-2:16 invalid character ' ' in a decorator's string
+// Error: 2:11-2:16 invalid character ' ' in an annotation's string
 
 // @allow("a b")
 
-// Error: 2:11-2:19 invalid character '|' in a decorator's string
+// Error: 2:11-2:19 invalid character '|' in an annotation's string
 
 // @allow("aaaaa|")
 
 // TODO: Why does this print / instead of \?
-// Error: 2:11-2:19 invalid character '/' in a decorator's string
+// Error: 2:11-2:19 invalid character '/' in an annotation's string
 
 // @allow("aaaaa\")
 
---- invalid-decorator-in-decorator ---
-// Error: 2:18-2:34 cannot have multiple decorators per line
+--- invalid-annotation-in-annotation ---
+// Error: 2:18-2:34 cannot have multiple annotations per line
 
 // @allow("aaa") // @allow("bbb")
 

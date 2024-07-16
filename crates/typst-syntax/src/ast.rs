@@ -81,33 +81,33 @@ impl<'a> Markup<'a> {
 }
 
 node! {
-    DecoratorName
+    AnnotationName
 }
 
-impl<'a> DecoratorName<'a> {
-    /// Get the decorator name.
+impl<'a> AnnotationName<'a> {
+    /// Get the annotation name.
     pub fn get(self) -> &'a EcoString {
         self.0.text()
     }
 
-    /// Get the decorator name as a string slice.
+    /// Get the annotation name as a string slice.
     pub fn as_str(self) -> &'a str {
         self.get()
     }
 }
 
 node! {
-    /// A decorator: `/! allow("warning")`.
-    Decorator
+    /// An annotation: `/! allow("warning")`.
+    Annotation
 }
 
-impl<'a> Decorator<'a> {
-    /// The name of the decorator, e.g. `allow`.
-    pub fn name(self) -> DecoratorName<'a> {
+impl<'a> Annotation<'a> {
+    /// The name of the annotation, e.g. `allow`.
+    pub fn name(self) -> AnnotationName<'a> {
         self.0.cast_first_match().unwrap_or_default()
     }
 
-    /// The decorator's arguments. Currently, they are always strings.
+    /// The annotation's arguments. Currently, they are always strings.
     pub fn arguments(self) -> impl DoubleEndedIterator<Item = Str<'a>> {
         self.0.children().filter_map(Str::from_untyped)
     }

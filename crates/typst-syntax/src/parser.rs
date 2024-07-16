@@ -109,7 +109,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Parbreak
         | SyntaxKind::LineComment
         | SyntaxKind::BlockComment
-        | SyntaxKind::Decorator => {
+        | SyntaxKind::Annotation => {
             p.eat();
             return;
         }

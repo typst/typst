@@ -542,7 +542,7 @@ pub fn deduplicate_and_suppress_warnings(
 
 /// Checks if a given warning is suppressed given one span it has a tracepoint
 /// in. If one of the ancestors of the node where the warning occurred has a
-/// warning suppression decorator sibling right before it suppressing this
+/// warning suppression annotation sibling right before it suppressing this
 /// particular warning, the warning is considered suppressed.
 fn is_warning_suppressed(span: Span, world: &dyn World, identifier: &Identifier) -> bool {
     // Don't suppress detached warnings.
@@ -556,13 +556,13 @@ fn is_warning_suppressed(span: Span, world: &dyn World, identifier: &Identifier)
     // Walk the parent nodes to check for a warning suppression in the
     // previous line.
     while let Some(node) = searched_node {
-        let mut searched_decorator = node.prev_attached_decorator();
-        while let Some(sibling) = searched_decorator {
-            let decorator = sibling.cast::<ast::Decorator>().unwrap();
-            if check_decorator_suppresses_warning(decorator, identifier) {
+        let mut searched_annotation = node.prev_attached_annotation();
+        while let Some(sibling) = searched_annotation {
+            let annotation = sibling.cast::<ast::Annotation>().unwrap();
+            if check_annotation_suppresses_warning(annotation, identifier) {
                 return true;
             }
-            searched_decorator = sibling.prev_attached_decorator();
+            searched_annotation = sibling.prev_attached_annotation();
         }
         searched_node = node.parent();
     }
@@ -570,17 +570,17 @@ fn is_warning_suppressed(span: Span, world: &dyn World, identifier: &Identifier)
     false
 }
 
-/// Checks if an 'allow' decorator would cause a warning with a particular
+/// Checks if an 'allow' annotation would cause a warning with a particular
 /// identifier to be suppressed.
-fn check_decorator_suppresses_warning(
-    decorator: ast::Decorator,
+fn check_annotation_suppresses_warning(
+    annotation: ast::Annotation,
     warning: &Identifier,
 ) -> bool {
-    if decorator.name().as_str() != "allow" {
+    if annotation.name().as_str() != "allow" {
         return false;
     }
 
-    for argument in decorator.arguments() {
+    for argument in annotation.arguments() {
         if warning.name() == argument.get() {
             return true;
         }
