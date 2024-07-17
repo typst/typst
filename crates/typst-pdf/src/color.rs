@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
 use typst::visualize::{Color, ColorSpace, Paint};
+use smallvec::{SmallVec, smallvec};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
 
@@ -377,30 +378,34 @@ impl PaintEncode for Color {
 /// Extra color space functions.
 pub(super) trait ColorSpaceExt {
     /// Returns the range of the color space.
-    fn range(self) -> [f32; 8];
+    fn range(self) -> SmallVec<[f32; 4]>;
 
     /// Converts a color to the color space.
-    fn convert<U: QuantizedColor>(self, color: Color) -> Vec<U>;
+    fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]>;
 }
 
 impl ColorSpaceExt for ColorSpace {
-    fn range(self) -> [f32; 8] {
-        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0] // Not sure about that
+    fn range(self) -> SmallVec<[f32; 4]> {
+        match self {
+            ColorSpace::Cmyk => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::D65Gray => smallvec![0.0, 1.0],
+            _ => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        }
     }
 
-    fn convert<U: QuantizedColor>(self, color: Color) -> Vec<U> {
+    fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]> {
         let range = self.range();
         let [x, y, z, a] = self.encode(color);
 
         match self {
-            ColorSpace::Cmyk => vec![
+            ColorSpace::Cmyk => smallvec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),
                 U::quantize(a, [range[6], range[7]]),
             ],
-            ColorSpace::D65Gray => vec![U::quantize(x, [range[0], range[1]])],
-            _ => vec![
+            ColorSpace::D65Gray => smallvec![U::quantize(x, [range[0], range[1]])],
+            _ => smallvec![
                 U::quantize(x, [range[0], range[1]]),
                 U::quantize(y, [range[2], range[3]]),
                 U::quantize(z, [range[4], range[5]]),

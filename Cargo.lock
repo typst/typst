@@ -2783,6 +2783,7 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
+ "smallvec",
  "subsetter",
  "svg2pdf",
  "ttf-parser",

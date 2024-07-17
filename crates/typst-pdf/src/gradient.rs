@@ -140,17 +140,38 @@ pub fn write_gradients(
                     );
 
                     let range = color_space.range();
-                    stream_shading
-                        .bits_per_coordinate(16)
-                        .bits_per_component(16)
-                        .bits_per_flag(8)
-                        .shading_type(StreamShadingType::CoonsPatch)
-                        .decode([
-                            0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                            range[4], range[5], range[6], range[7],
-                        ])
-                        .anti_alias(gradient.anti_alias())
-                        .filter(Filter::FlateDecode);
+                    match color_space {
+                        ColorSpace::Cmyk => stream_shading
+                            .bits_per_coordinate(16)
+                            .bits_per_component(16)
+                            .bits_per_flag(8)
+                            .shading_type(StreamShadingType::CoonsPatch)
+                            .decode([
+                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
+                                range[4], range[5], range[6], range[7],
+                            ])
+                            .anti_alias(gradient.anti_alias())
+                            .filter(Filter::FlateDecode),
+                        ColorSpace::D65Gray => stream_shading
+                            .bits_per_coordinate(16)
+                            .bits_per_component(16)
+                            .bits_per_flag(8)
+                            .shading_type(StreamShadingType::CoonsPatch)
+                            .decode([0.0, 1.0, 0.0, 1.0, range[0], range[1]])
+                            .anti_alias(gradient.anti_alias())
+                            .filter(Filter::FlateDecode),
+                        _ => stream_shading
+                            .bits_per_coordinate(16)
+                            .bits_per_component(16)
+                            .bits_per_flag(8)
+                            .shading_type(StreamShadingType::CoonsPatch)
+                            .decode([
+                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
+                                range[4], range[5],
+                            ])
+                            .anti_alias(gradient.anti_alias())
+                            .filter(Filter::FlateDecode),
+                    };
 
                     stream_shading.finish();
 
@@ -393,18 +414,12 @@ fn write_patch(
     // Push the colors.
     // TODO: check if it is correct
     // TODO: find a better solution
-    for x in c0 {
-        target.extend_from_slice(&[(x >> 8) as u8, (x & 255) as u8]);
-    }
-    for x in c0 {
-        target.extend_from_slice(&[(x >> 8) as u8, (x & 255) as u8]);
-    }
-    for x in c1 {
-        target.extend_from_slice(&[(x >> 8) as u8, (x & 255) as u8]);
-    }
-    for x in c1 {
-        target.extend_from_slice(&[(x >> 8) as u8, (x & 255) as u8]);
-    }
+    let c0_be: Vec<u8> = c0.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
+    let c1_be: Vec<u8> = c1.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
+    target.extend_from_slice(&c0_be);
+    target.extend_from_slice(&c0_be);
+    target.extend_from_slice(&c1_be);
+    target.extend_from_slice(&c1_be);
 }
 
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {
