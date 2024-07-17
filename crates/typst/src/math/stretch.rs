@@ -39,9 +39,9 @@ fn stretch_glyph(
     short_fall: Abs,
     horizontal: bool,
 ) -> VariantFragment {
-    let short_target = target - short_fall;
     // If the base glyph is good enough, use it.
     let advance = if horizontal { base.width } else { base.height() };
+    let short_target = target - short_fall;
     if short_target <= advance {
         return base.into_variant();
     }
