@@ -385,7 +385,7 @@ pub(super) trait ColorSpaceExt {
 }
 
 impl ColorSpaceExt for ColorSpace {
-    fn range(self) -> SmallVec<[f32; 4]> {
+    fn range(self) -> SmallVec<[f32; 8]> {
         match self {
             ColorSpace::Cmyk => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
             ColorSpace::D65Gray => smallvec![0.0, 1.0],
