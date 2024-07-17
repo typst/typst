@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
@@ -413,15 +414,19 @@ fn write_patch(
 
     // Push the colors.
     // TODO: check if it is correct
-    // TODO: find a better solution
-    let c0_be: Vec<u8> =
-        c0.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
-    let c1_be: Vec<u8> =
-        c1.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
-    target.extend_from_slice(&c0_be);
-    target.extend_from_slice(&c0_be);
-    target.extend_from_slice(&c1_be);
-    target.extend_from_slice(&c1_be);
+    target.extend_from_slice(
+        &c0.iter()
+            .flat_map(|arg0: &u16| u16::to_be_bytes(*arg0))
+            .cycle()
+            .take(4 * c0.len())
+            .chain(
+                c1.iter()
+                    .flat_map(|arg0: &u16| u16::to_be_bytes(*arg0))
+                    .cycle()
+                    .take(4 * c1.len()),
+            )
+            .collect::<SmallVec<[u8; 32]>>(),
+    );
 }
 
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {
