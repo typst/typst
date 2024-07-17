@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
-use smallvec::{smallVec, Smallvec};
+use smallvec::{smallvec, SmallVec};
 use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
