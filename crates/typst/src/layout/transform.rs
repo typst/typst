@@ -1,12 +1,11 @@
 use std::ops::Div;
 
-use once_cell::unsync;
-use typst_macros::cast;
+use once_cell::unsync::Lazy;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
+    cast, elem, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
 };
 use crate::introspection::Locator;
 use crate::layout::{
@@ -247,11 +246,8 @@ fn layout_scale(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let align = elem.origin(styles).resolve(styles);
-
-    let scale = elem.resolve_scale(engine, locator.relayout(), region.size, styles)?;
-
     // Compute the new region's approximate size.
+    let scale = elem.resolve_scale(engine, locator.relayout(), region.size, styles)?;
     let size = region.size.zip_map(scale, |r, s| s.of(r)).map(Abs::abs);
 
     measure_and_layout(
@@ -262,7 +258,7 @@ fn layout_scale(
         styles,
         elem.body(),
         Transform::scale(scale.x, scale.y),
-        align,
+        elem.origin(styles).resolve(styles),
         elem.reflow(styles),
     )
 }
@@ -282,11 +278,6 @@ impl Packed<ScaleElem> {
         container: Size,
         styles: StyleChain,
     ) -> SourceResult<Axes<Ratio>> {
-        let size = unsync::Lazy::<SourceResult<Size>, _>::new(|| {
-            let pod = Regions::one(container, Axes::splat(false));
-            let frame = self.body().layout(engine, locator, styles, pod)?.into_frame();
-            SourceResult::Ok(frame.size())
-        });
         fn resolve_axis(
             axis: Smart<ScaleAmount>,
             body: impl Fn() -> SourceResult<Abs>,
@@ -303,25 +294,32 @@ impl Packed<ScaleElem> {
                 }),
             })
         }
+
+        let size = Lazy::new(|| {
+            let pod = Regions::one(container, Axes::splat(false));
+            let frame = self.body().layout(engine, locator, styles, pod)?.into_frame();
+            SourceResult::Ok(frame.size())
+        });
+
         let x = resolve_axis(
             self.x(styles),
             || size.as_ref().map(|size| size.x).map_err(Clone::clone),
             styles,
         )?;
+
         let y = resolve_axis(
             self.y(styles),
             || size.as_ref().map(|size| size.y).map_err(Clone::clone),
             styles,
         )?;
+
         match (x, y) {
             (Smart::Auto, Smart::Auto) => {
                 bail!(self.span(), "x and y cannot both be auto")
             }
-            (Smart::Custom(x_ratio), Smart::Custom(y_ratio)) => {
-                Ok(Axes::new(x_ratio, y_ratio))
-            }
-            (Smart::Auto, Smart::Custom(ratio)) | (Smart::Custom(ratio), Smart::Auto) => {
-                Ok(Axes::splat(ratio))
+            (Smart::Custom(x), Smart::Custom(y)) => Ok(Axes::new(x, y)),
+            (Smart::Auto, Smart::Custom(v)) | (Smart::Custom(v), Smart::Auto) => {
+                Ok(Axes::splat(v))
             }
         }
     }
