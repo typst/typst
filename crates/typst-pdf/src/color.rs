@@ -378,7 +378,7 @@ impl PaintEncode for Color {
 /// Extra color space functions.
 pub(super) trait ColorSpaceExt {
     /// Returns the range of the color space.
-    fn range(self) -> SmallVec<[f32; 4]>;
+    fn range(self) -> SmallVec<[f32; 8]>;
 
     /// Converts a color to the color space.
     fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]>;
