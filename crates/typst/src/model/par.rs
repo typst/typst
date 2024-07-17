@@ -263,7 +263,8 @@ impl Count for Packed<ParLine> {
 }
 
 /// A marker used to indicate the presence of a line.
-/// This element is added to each line in a paragraph, and later searched to
+///
+/// This element is added to each line in a paragraph and later searched to
 /// find out where to draw line numbers.
 #[elem(Construct, Show, Locatable, Count)]
 pub struct ParLineMarker {
