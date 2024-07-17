@@ -233,7 +233,8 @@ pub struct ParbreakElem {}
 impl Unlabellable for Packed<ParbreakElem> {}
 
 /// A paragraph line.
-/// This element is exclusively used for the line number counter, and cannot
+///
+/// This element is exclusively used for line number configuration and cannot
 /// be placed.
 #[elem(name = "line", title = "Paragraph Line", Construct, Locatable, Count)]
 pub struct ParLine {
