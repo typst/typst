@@ -128,6 +128,12 @@ enum FlowItem {
         align: Axes<FixedAlignment>,
         /// Whether the frame sticks to the item after it (for orphan prevention).
         sticky: bool,
+        /// Whether the frame comes from a rootable block, which may be laid
+        /// out as a root flow and thus display its own line numbers.
+        /// Therefore, we do not display line numbers for these frames.
+        ///
+        /// Currently, this is only used by columns.
+        rootable: bool,
         /// Whether the frame is movable; that is, kept together with its
         /// footnotes.
         ///
@@ -329,6 +335,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 frame,
                 align,
                 sticky: false,
+                rootable: false,
                 movable: true,
             })?;
         }
@@ -346,12 +353,13 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         // Fetch properties.
         let sticky = block.sticky(styles);
         let align = AlignElem::alignment_in(styles).resolve(styles);
+        let rootable = block.rootable(styles);
 
         // If the block is "rootable" it may host footnotes. In that case, we
         // defer rootness to it temporarily. We disable our own rootness to
         // prevent duplicate footnotes.
         let is_root = self.root;
-        if is_root && block.rootable(styles) {
+        if is_root && rootable {
             self.root = false;
             self.regions.root = true;
         }
@@ -382,7 +390,13 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
             self.drain_tag(&mut frame);
             frame.post_process(styles);
-            self.handle_item(FlowItem::Frame { frame, align, sticky, movable: false })?;
+            self.handle_item(FlowItem::Frame {
+                frame,
+                align,
+                sticky,
+                rootable,
+                movable: false,
+            })?;
         }
 
         self.try_handle_footnotes(notes)?;
@@ -671,25 +685,17 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let length = v.share(fr, remaining);
                     offset += length;
                 }
-                FlowItem::Frame { frame, align, .. } => {
+                FlowItem::Frame { frame, align, rootable, .. } => {
                     ruler = ruler.max(align.y);
                     let x = align.x.position(size.x - frame.width());
                     let y = offset + ruler.position(size.y - used.y);
                     let pos = Point::new(x, y);
                     offset += frame.height();
 
-                    // TODO: Right now, this is generating duplicate line
-                    // numbers for columns, since there are two root flows:
-                    // one for the whole page, containing just the `columns`,
-                    // and the one inside the columns element. This doesn't
-                    // happen for footnotes because the columns are laid out as
-                    // a block with `rootable` set to true, which is explicitly
-                    // checked for in `handle_block`, where footnotes are
-                    // normally collected. We can't check this property here,
-                    // in `finish_region`, since the block was already laid out
-                    // into frames. We'd have to go back to collecting par
-                    // lines before `finish_region`, or rework `rootable`.
-                    if self.root {
+                    // Do not display line numbers for frames coming from
+                    // rootable blocks as they will display their own line
+                    // numbers when laid out as a root flow themselves.
+                    if self.root && !rootable {
                         collect_par_lines(
                             &mut lines,
                             &frame,
