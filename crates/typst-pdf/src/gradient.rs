@@ -364,8 +364,8 @@ fn register_gradient(
 ///
 /// Structure:
 ///  - flag: `u8`
-///  - points: `[u16; 3]`
-///  - colors: `[u16; 3]`
+///  - points: `[u16; 32]`
+///  - colors: `[u16; 16]`
 fn write_patch(
     target: &mut Vec<u8>,
     t: f32,
