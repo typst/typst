@@ -1105,6 +1105,7 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
         if p.current() != SyntaxKind::Arrow {
             return;
         }
+        p.eat();
         code_expr(p);
         p.wrap(m, SyntaxKind::Closure);
     } else if p.at(SyntaxKind::Eq) && kind != SyntaxKind::Parenthesized {
@@ -1113,6 +1114,7 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
         if p.current() != SyntaxKind::Eq {
             return;
         }
+        p.eat();
         code_expr(p);
         p.wrap(m, SyntaxKind::DestructAssignment);
     } else {
