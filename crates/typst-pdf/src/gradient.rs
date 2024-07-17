@@ -147,8 +147,8 @@ pub fn write_gradients(
                             .bits_per_flag(8)
                             .shading_type(StreamShadingType::CoonsPatch)
                             .decode([
-                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                                range[4], range[5], range[6], range[7],
+                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
+                                range[3], range[4], range[5], range[6], range[7],
                             ])
                             .anti_alias(gradient.anti_alias())
                             .filter(Filter::FlateDecode),
@@ -166,8 +166,8 @@ pub fn write_gradients(
                             .bits_per_flag(8)
                             .shading_type(StreamShadingType::CoonsPatch)
                             .decode([
-                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                                range[4], range[5],
+                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
+                                range[3], range[4], range[5],
                             ])
                             .anti_alias(gradient.anti_alias())
                             .filter(Filter::FlateDecode),
@@ -414,8 +414,10 @@ fn write_patch(
     // Push the colors.
     // TODO: check if it is correct
     // TODO: find a better solution
-    let c0_be: Vec<u8> = c0.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
-    let c1_be: Vec<u8> = c1.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
+    let c0_be: Vec<u8> =
+        c0.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
+    let c1_be: Vec<u8> =
+        c1.iter().flat_map(|x| [(x >> 8) as u8, (x & 255) as u8]).collect();
     target.extend_from_slice(&c0_be);
     target.extend_from_slice(&c0_be);
     target.extend_from_slice(&c1_be);
