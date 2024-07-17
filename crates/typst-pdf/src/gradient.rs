@@ -1,4 +1,4 @@
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
@@ -141,38 +141,26 @@ pub fn write_gradients(
                     );
 
                     let range = color_space.range();
-                    match color_space {
-                        ColorSpace::Cmyk => stream_shading
-                            .bits_per_coordinate(16)
-                            .bits_per_component(16)
-                            .bits_per_flag(8)
-                            .shading_type(StreamShadingType::CoonsPatch)
-                            .decode([
+                    stream_shading
+                        .bits_per_coordinate(16)
+                        .bits_per_component(16)
+                        .bits_per_flag(8)
+                        .shading_type(StreamShadingType::CoonsPatch)
+                        .decode(match color_space {
+                            ColorSpace::Cmyk => SmallVec::<[f32; 12]>::from_buf([
                                 0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
                                 range[3], range[4], range[5], range[6], range[7],
-                            ])
-                            .anti_alias(gradient.anti_alias())
-                            .filter(Filter::FlateDecode),
-                        ColorSpace::D65Gray => stream_shading
-                            .bits_per_coordinate(16)
-                            .bits_per_component(16)
-                            .bits_per_flag(8)
-                            .shading_type(StreamShadingType::CoonsPatch)
-                            .decode([0.0, 1.0, 0.0, 1.0, range[0], range[1]])
-                            .anti_alias(gradient.anti_alias())
-                            .filter(Filter::FlateDecode),
-                        _ => stream_shading
-                            .bits_per_coordinate(16)
-                            .bits_per_component(16)
-                            .bits_per_flag(8)
-                            .shading_type(StreamShadingType::CoonsPatch)
-                            .decode([
+                            ]),
+                            ColorSpace::D65Gray => {
+                                smallvec![0.0, 1.0, 0.0, 1.0, range[0], range[1]]
+                            }
+                            _ => smallvec![
                                 0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
                                 range[3], range[4], range[5],
-                            ])
-                            .anti_alias(gradient.anti_alias())
-                            .filter(Filter::FlateDecode),
-                    };
+                            ],
+                        })
+                        .anti_alias(gradient.anti_alias())
+                        .filter(Filter::FlateDecode);
 
                     stream_shading.finish();
 
