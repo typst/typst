@@ -581,7 +581,7 @@ pub fn commit(
         let tag = Tag::new(par_line, hash);
         let mut frame = Frame::soft(Size::zero());
         frame.push(Point::zero(), FrameItem::Tag(tag));
-        output.push_frame(Point::new(offset, Abs::zero()), frame);
+        output.push_frame(Point::new(offset, top - frame.baseline()), frame);
     }
 
     Ok(output)

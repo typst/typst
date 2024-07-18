@@ -968,18 +968,19 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let number = SequenceElem::new(vec![counter_update, counter_display.pack()]);
         let locator = self.locator.next(&number);
 
-        let frame = number
+        let mut frame = number
             .pack()
             .layout(
                 self.engine,
                 locator,
                 *self.styles,
-                Regions::one(
-                    Axes::new(Abs::inf(), *marker.line_height()),
-                    Axes::new(false, true),
-                ),
+                Regions::one(Axes::splat(Abs::inf()), Axes::splat(false)),
             )?
             .into_frame();
+
+        // Ensure the baseline of the line number aligns with the line's own
+        // baseline.
+        frame.translate(Point::with_y(-frame.baseline()));
 
         Ok(frame)
     }
