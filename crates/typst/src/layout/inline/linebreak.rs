@@ -655,9 +655,9 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         let (head, tail) = text.split_at(last);
         if head.ends_with("://") || tail.starts_with("www.") {
             let (link, _) = link_prefix(tail);
-            let end = last + link.len();
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
-            while iter.peek().is_some_and(|&p| p < end) {
+            last += link.len();
+            while iter.peek().is_some_and(|&p| p < last) {
                 iter.next();
             }
         }
@@ -687,19 +687,17 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         };
 
         // Hyphenate between the last and current breakpoint.
-        if hyphenate {
-            let mut offset = last;
+        if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
                 if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
-                    hyphenations(p, &lb, offset, segment, &mut f);
+                    hyphenations(p, &lb, last, segment, &mut f);
                 }
-                offset += segment.len();
+                last += segment.len();
             }
         }
 
         // Call `f` for the UAX #14 break opportunity.
         f(point, breakpoint);
-
         last = point;
     }
 }
