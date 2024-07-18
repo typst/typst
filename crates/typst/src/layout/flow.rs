@@ -20,7 +20,7 @@ use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem, Fr,
     Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
 };
-use crate::model::{FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLineMarker};
+use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
 use crate::syntax::Span;
 use crate::utils::{NonZeroExt, Numeric};
@@ -783,7 +783,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Therefore, the check above ensures no lines too close together
             // will cause too many different line numbers to appear.
             prev_y = Some(line.y);
-            let number = self.layout_line_number(line.marker.numbering())?;
+            let number = self.layout_line_number(line.marker)?;
             let number_pos = Point::new(Abs::cm(-1.0), line.y);
             output.push_frame(number_pos, number);
         }
@@ -952,24 +952,32 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     /// on frame order / layer). When we find a solution to this, we should
     /// switch to a counter on `ParLine` instead, thus exposing the counter as
     /// `counter(par.line)` to the user.
-    fn layout_line_number(&mut self, numbering: &Numbering) -> SourceResult<Frame> {
+    fn layout_line_number(
+        &mut self,
+        marker: Packed<ParLineMarker>,
+    ) -> SourceResult<Frame> {
         let counter = Counter::of(ParLineMarker::elem());
         let counter_update = counter
             .clone()
             .update(Span::detached(), CounterUpdate::Step(NonZeroUsize::ONE));
-        let counter_display =
-            CounterDisplayElem::new(counter, Smart::Custom(numbering.clone()), false);
+        let counter_display = CounterDisplayElem::new(
+            counter,
+            Smart::Custom(marker.numbering().clone()),
+            false,
+        );
         let number = SequenceElem::new(vec![counter_update, counter_display.pack()]);
         let locator = self.locator.next(&number);
 
-        // TODO: infinite region?
         let frame = number
             .pack()
             .layout(
                 self.engine,
                 locator,
                 *self.styles,
-                Regions::one(Axes::splat(Abs::inf()), Axes::splat(false)),
+                Regions::one(
+                    Axes::new(Abs::inf(), *marker.line_height()),
+                    Axes::new(false, true),
+                ),
             )?
             .into_frame();
 

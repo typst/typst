@@ -7,7 +7,7 @@ use crate::foundations::{
     StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
-use crate::layout::{Em, Fragment, Length, Size};
+use crate::layout::{Abs, Em, Fragment, Length, Size};
 use crate::model::Numbering;
 use crate::realize::StyleVec;
 
@@ -272,6 +272,10 @@ pub struct ParLineMarker {
     #[internal]
     #[required]
     pub numbering: Numbering,
+
+    #[internal]
+    #[required]
+    pub line_height: Abs,
 }
 
 impl Construct for ParLineMarker {

@@ -560,7 +560,7 @@ pub fn commit(
     }
 
     if let Some(numbering) = ParLine::numbering_in(styles) {
-        let mut par_line = ParLineMarker::new(numbering).pack();
+        let mut par_line = ParLineMarker::new(numbering, size.y).pack();
 
         // Elements in tags must have a location for introspection to work.
         // We do the work here instead of going through all of the realization
