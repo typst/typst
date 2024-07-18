@@ -1022,9 +1022,19 @@ fn collect_par_lines(
                     continue;
                 };
 
-                // TODO: Leading offset can vary depending on the paragraph.
-                // There might be some #set par(leading) under us.
-                let y = frame_pos.y + prev_y + pos.y - ParElem::leading_in(*styles);
+                // 1. 'prev_y' is the accumulated relative height from the top
+                // of the frame we're searching so far;
+                // 2. 'prev_y + pos.y' gives us the final relative height of
+                // the line we just found from the top of the initial frame;
+                // 3. 'frame_pos.y' is the height of the initial frame relative
+                // to the root flow (and thus its absolute 'y');
+                // 4. Therefore, 'y' will be the line's absolute 'y' in the
+                // page based on its marker's position, and thus the 'y' we
+                // should use for line numbers. In particular, this represents
+                // the 'y' at the top of the line, due to the marker placement
+                // logic within the 'line::commit()' function in the 'inline'
+                // module.
+                let y = frame_pos.y + prev_y + pos.y;
 
                 lines.push(CollectedParLine { y, marker: marker.clone() });
             }
