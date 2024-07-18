@@ -49,6 +49,7 @@ pub fn module() -> Module {
     scope.define_func::<div_euclid>();
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
+    scope.define_func::<norm>();
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
@@ -906,6 +907,31 @@ pub fn quo(
     }
 
     Ok(floor(dividend.apply2(divisor.v, Div::div, Div::div)))
+}
+
+/// Calculates the euclidean norm of a sequence of numbers.
+///
+/// ```example
+/// #calc.norm(1, 2, -3, 0.5)
+/// ```
+#[func]
+pub fn norm(
+    /// The callsite span.
+    span: Span,
+    /// The sequence of numbers from which to calculate the norm.
+    /// Must not be empty.
+    #[variadic]
+    values: Vec<Spanned<Num>>,
+) -> SourceResult<f64> {
+    let mut sum = 0f64;
+    if values.is_empty() {
+        bail!(span, "expected at least one value");
+    }
+
+    for Spanned { v, span: _ } in values {
+        sum += v.float().powi(2)
+    }
+    Ok(sum.sqrt())
 }
 
 /// A value which can be passed to functions that work with integers and floats.

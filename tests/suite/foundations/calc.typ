@@ -259,3 +259,10 @@
 --- calc-max-uncomparable ---
 // Error: 16-19 cannot compare 1pt with 1em
 #calc.max(1em, 1pt)
+
+--- calc-norm ---
+#test(calc.norm(1, 2, -3, 0.5), calc.sqrt(14.25))
+
+--- calc-norm-nothing ---
+// Error: 2-13 expected at least one value
+#calc.norm()
