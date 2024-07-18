@@ -1,4 +1,3 @@
-use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
@@ -146,19 +145,7 @@ pub fn write_gradients(
                         .bits_per_component(16)
                         .bits_per_flag(8)
                         .shading_type(StreamShadingType::CoonsPatch)
-                        .decode(match color_space {
-                            ColorSpace::Cmyk => SmallVec::<[f32; 12]>::from_buf([
-                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
-                                range[3], range[4], range[5], range[6], range[7],
-                            ]),
-                            ColorSpace::D65Gray => {
-                                smallvec![0.0, 1.0, 0.0, 1.0, range[0], range[1]]
-                            }
-                            _ => smallvec![
-                                0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2],
-                                range[3], range[4], range[5],
-                            ],
-                        })
+                        .decode([0.0, 1.0, 0.0, 1.0].into_iter().chain(range))
                         .anti_alias(gradient.anti_alias())
                         .filter(Filter::FlateDecode);
 
@@ -353,8 +340,8 @@ fn register_gradient(
 ///
 /// Structure:
 ///  - flag: `u8`
-///  - points: `[u16; 32]`
-///  - colors: `[u16; 16]`
+///  - points: `[u16; 24]`
+///  - colors: `[u16; 4*N]` (N = number of components)
 fn write_patch(
     target: &mut Vec<u8>,
     t: f32,
@@ -401,20 +388,12 @@ fn write_patch(
     ]));
 
     // Push the colors.
-    // TODO: check if it is correct
-    target.extend_from_slice(
-        &c0.iter()
-            .flat_map(|arg0: &u16| u16::to_be_bytes(*arg0))
-            .cycle()
-            .take(4 * c0.len())
-            .chain(
-                c1.iter()
-                    .flat_map(|arg0: &u16| u16::to_be_bytes(*arg0))
-                    .cycle()
-                    .take(4 * c1.len()),
-            )
-            .collect::<SmallVec<[u8; 32]>>(),
-    );
+    let colors = [c0, c0, c1, c1]
+        .into_iter()
+        .flat_map(|c| c.iter().copied().map(u16::to_be_bytes))
+        .flatten();
+
+    target.extend(colors);
 }
 
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {

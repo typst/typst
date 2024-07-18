@@ -377,40 +377,38 @@ impl PaintEncode for Color {
 
 /// Extra color space functions.
 pub(super) trait ColorSpaceExt {
+    // TODO: replace with a version returning a &'static [f32]
     /// Returns the range of the color space.
     fn range(self) -> SmallVec<[f32; 8]>;
+    //fn range(self) -> &'static [f32];
 
     /// Converts a color to the color space.
     fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]>;
 }
 
 impl ColorSpaceExt for ColorSpace {
+    // TODO: replace with a version returning a &'static [f32]
     fn range(self) -> SmallVec<[f32; 8]> {
         match self {
             ColorSpace::Cmyk => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
             ColorSpace::D65Gray => smallvec![0.0, 1.0],
             _ => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         }
+        // match self {
+        //     ColorSpace::Cmyk => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        //     ColorSpace::D65Gray => &[0.0, 1.0],
+        //     _ => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        // }
     }
 
     fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]> {
-        let range = self.range();
-        let [x, y, z, a] = self.encode(color);
+        let components = self.encode(color);
 
-        match self {
-            ColorSpace::Cmyk => smallvec![
-                U::quantize(x, [range[0], range[1]]),
-                U::quantize(y, [range[2], range[3]]),
-                U::quantize(z, [range[4], range[5]]),
-                U::quantize(a, [range[6], range[7]]),
-            ],
-            ColorSpace::D65Gray => smallvec![U::quantize(x, [range[0], range[1]])],
-            _ => smallvec![
-                U::quantize(x, [range[0], range[1]]),
-                U::quantize(y, [range[2], range[3]]),
-                U::quantize(z, [range[4], range[5]]),
-            ],
-        }
+        self.range()
+            .chunks(2)
+            .zip(components)
+            .map(|(range, component)| U::quantize(component, [range[0], range[1]]))
+            .collect()
     }
 }
 
