@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub};
 
+use az::SaturatingAs;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::sets::CodePointSetData;
 use icu_properties::LineBreak;
@@ -21,10 +22,15 @@ use crate::text::{Lang, TextElem};
 type Cost = f64;
 
 // Cost parameters.
-const DEFAULT_HYPH_COST: Cost = 0.5;
-const DEFAULT_RUNT_COST: Cost = 0.5;
-const CONSECUTIVE_DASH_COST: Cost = 0.3;
-const MAX_COST: Cost = 1_000_000.0;
+//
+// We choose higher costs than the Knuth-Plass paper (which would be 50) because
+// it hyphenates way to eagerly in Typst otherwise. Could be related to the
+// ratios coming out differently since Typst doesn't have the concept of glue,
+// so things work a bit differently.
+const DEFAULT_HYPH_COST: Cost = 135.0;
+const DEFAULT_RUNT_COST: Cost = 100.0;
+
+// Other parameters.
 const MIN_RATIO: f64 = -1.0;
 const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
@@ -65,8 +71,9 @@ pub enum Breakpoint {
     Normal,
     /// A mandatory breakpoint (after '\n' or at the end of the text).
     Mandatory,
-    /// An opportunity for hyphenating.
-    Hyphen,
+    /// An opportunity for hyphenating and how many chars are before/after it
+    /// in the word.
+    Hyphen(u8, u8),
 }
 
 impl Breakpoint {
@@ -95,8 +102,13 @@ impl Breakpoint {
             }
 
             // Trim nothing further.
-            Self::Hyphen => line,
+            Self::Hyphen(..) => line,
         }
+    }
+
+    /// Whether this is a hyphen breakpoint.
+    pub fn is_hyphen(self) -> bool {
+        matches!(self, Self::Hyphen(..))
     }
 }
 
@@ -254,7 +266,6 @@ fn linebreak_optimized_bounded<'a>(
                 width,
                 &pred.line,
                 &attempt,
-                end,
                 breakpoint,
                 unbreakable,
             );
@@ -374,8 +385,6 @@ fn linebreak_optimized_approximate(
     let mut prev_end = 0;
 
     breakpoints(p, |end, breakpoint| {
-        let at_end = end == p.text.len();
-
         // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
         for (pred_index, pred) in table.iter().enumerate().skip(active) {
@@ -384,13 +393,12 @@ fn linebreak_optimized_approximate(
 
             // Whether the line is justified. This is not 100% accurate w.r.t
             // to line()'s behaviour, but good enough.
-            let justify = p.justify && !at_end && breakpoint != Breakpoint::Mandatory;
+            let justify = p.justify && breakpoint != Breakpoint::Mandatory;
 
             // We don't really know whether the line naturally ends with a dash
             // here, so we can miss that case, but it's ok, since all of this
             // just an estimate.
-            let consecutive_dash =
-                pred.breakpoint == Breakpoint::Hyphen && breakpoint == Breakpoint::Hyphen;
+            let consecutive_dash = pred.breakpoint.is_hyphen() && breakpoint.is_hyphen();
 
             // Estimate how much the line's spaces would need to be stretched to
             // make it the desired width. We trim at the end to not take into
@@ -401,7 +409,7 @@ fn linebreak_optimized_approximate(
                 p,
                 width,
                 estimates.widths.estimate(start..trimmed_end)
-                    + if breakpoint == Breakpoint::Hyphen {
+                    + if breakpoint.is_hyphen() {
                         metrics.approx_hyphen_width
                     } else {
                         Abs::zero()
@@ -416,7 +424,6 @@ fn linebreak_optimized_approximate(
                 metrics,
                 breakpoint,
                 line_ratio,
-                at_end,
                 justify,
                 unbreakable,
                 consecutive_dash,
@@ -474,17 +481,8 @@ fn linebreak_optimized_approximate(
         let Entry { end, breakpoint, unbreakable, .. } = table[idx];
 
         let attempt = line(engine, p, start..end, breakpoint, Some(&pred));
-
-        let (_, line_cost) = ratio_and_cost(
-            p,
-            metrics,
-            width,
-            &pred,
-            &attempt,
-            end,
-            breakpoint,
-            unbreakable,
-        );
+        let (_, line_cost) =
+            ratio_and_cost(p, metrics, width, &pred, &attempt, breakpoint, unbreakable);
 
         pred = attempt;
         start = end;
@@ -502,7 +500,6 @@ fn ratio_and_cost(
     available_width: Abs,
     pred: &Line,
     attempt: &Line,
-    end: usize,
     breakpoint: Breakpoint,
     unbreakable: bool,
 ) -> (f64, Cost) {
@@ -519,7 +516,6 @@ fn ratio_and_cost(
         metrics,
         breakpoint,
         ratio,
-        end == p.text.len(),
         attempt.justify,
         unbreakable,
         pred.dash.is_some() && attempt.dash.is_some(),
@@ -569,57 +565,64 @@ fn raw_ratio(
 }
 
 /// Compute the cost of a line given raw metrics.
-#[allow(clippy::too_many_arguments)]
+///
+/// This mostly follows the formula in the Knuth-Plass paper, but there are some
+/// adjustments.
 fn raw_cost(
     metrics: &CostMetrics,
     breakpoint: Breakpoint,
     ratio: f64,
-    at_end: bool,
     justify: bool,
     unbreakable: bool,
     consecutive_dash: bool,
     approx: bool,
 ) -> Cost {
-    // Determine the cost of the line.
-    let mut cost = if ratio < metrics.min_ratio(approx) {
+    // Determine the stretch/shrink cost of the line.
+    let badness = if ratio < metrics.min_ratio(approx) {
         // Overfull line always has maximum cost.
-        MAX_COST
-    } else if breakpoint == Breakpoint::Mandatory || at_end {
-        // - If ratio < 0, we always need to shrink the line (even the last one).
-        // - If ratio > 0, we need to stretch the line only when it is justified
-        //   (last line is not justified by default even if `p.justify` is true).
-        if ratio < 0.0 || (ratio > 0.0 && justify) {
-            ratio.powi(3).abs()
-        } else {
-            0.0
-        }
+        1_000_000.0
+    } else if justify || ratio < 0.0 {
+        // If the line shall be justified or needs shrinking, it has normal
+        // badness with cost 100|ratio|^3. We limit the ratio to 10 as to not
+        // get to close to our maximum cost.
+        100.0 * ratio.abs().min(10.0).powi(3)
     } else {
-        // Normal line with cost of |ratio^3|.
-        ratio.powi(3).abs()
+        // If the line shouldn't be justified and doesn't need shrink, we don't
+        // pay any cost.
+        0.0
     };
 
-    // Penalize runts (lone words in the last line).
-    if unbreakable && at_end {
-        cost += metrics.runt_cost;
+    // Compute penalties.
+    let mut penalty = 0.0;
+
+    // Penalize runts (lone words before a mandatory break / at the end).
+    if unbreakable && breakpoint == Breakpoint::Mandatory {
+        penalty += metrics.runt_cost;
     }
 
     // Penalize hyphenation.
-    if breakpoint == Breakpoint::Hyphen {
-        cost += metrics.hyph_cost;
+    if let Breakpoint::Hyphen(l, r) = breakpoint {
+        // We penalize hyphenations close to the edges of the word (< LIMIT
+        // chars) extra. For each step of distance from the limit, we add 15%
+        // to the cost.
+        const LIMIT: u8 = 5;
+        let steps = LIMIT.saturating_sub(l) + LIMIT.saturating_sub(r);
+        let extra = 0.15 * steps as f64;
+        penalty += (1.0 + extra) * metrics.hyph_cost;
     }
 
-    // In the Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
-    // where r is the ratio, p=50 is the penalty, and a=3000 is
-    // consecutive the penalty. We divide the whole formula by 10,
-    // resulting (0.01 + |r|^3 + p)^2 + a, where p=0.5 and a=0.3
-    let mut cost = (0.01 + cost).powi(2);
-
-    // Penalize two consecutive dashes (not necessarily hyphens) extra.
+    // Penalize two consecutive dashes extra (not necessarily hyphens).
+    // Knuth-Plass does this separately after the squaring, with a higher cost,
+    // but I couldn't find any explanation as to why.
     if consecutive_dash {
-        cost += CONSECUTIVE_DASH_COST;
+        penalty += metrics.hyph_cost;
     }
 
-    cost
+    // From the Knuth-Plass Paper: $ (1 + beta_j + pi_j)^2 $.
+    //
+    // We add one to minimize the number of lines when everything else is more
+    // or less equal.
+    (1.0 + badness + penalty).powi(2)
 }
 
 /// Calls `f` for all possible points in the text where lines can broken.
@@ -711,10 +714,13 @@ fn hyphenations(
     mut f: impl FnMut(usize, Breakpoint),
 ) {
     let Some(lang) = lang_at(p, offset) else { return };
+    let count = word.chars().count();
     let end = offset + word.len();
 
+    let mut chars = 0;
     for syllable in hypher::hyphenate(word, lang) {
         offset += syllable.len();
+        chars += syllable.chars().count();
 
         // Don't hyphenate after the final syllable.
         if offset == end {
@@ -735,8 +741,12 @@ fn hyphenations(
             continue;
         }
 
+        // Determine the number of codepoints before and after the hyphenation.
+        let l = chars.saturating_as::<u8>();
+        let r = (count - chars).saturating_as::<u8>();
+
         // Call `f` for the word-internal hyphenation opportunity.
-        f(offset, Breakpoint::Hyphen);
+        f(offset, Breakpoint::Hyphen(l, r));
     }
 }
 
@@ -825,9 +835,9 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
 struct CostMetrics {
     min_ratio: f64,
     min_approx_ratio: f64,
+    approx_hyphen_width: Abs,
     hyph_cost: Cost,
     runt_cost: Cost,
-    approx_hyphen_width: Abs,
 }
 
 impl CostMetrics {
@@ -837,10 +847,11 @@ impl CostMetrics {
             // When justifying, we may stretch spaces below their natural width.
             min_ratio: if p.justify { MIN_RATIO } else { 0.0 },
             min_approx_ratio: if p.justify { MIN_APPROX_RATIO } else { 0.0 },
-            hyph_cost: DEFAULT_HYPH_COST * p.costs.hyphenation().get(),
-            runt_cost: DEFAULT_RUNT_COST * p.costs.runt().get(),
             // Approximate hyphen width for estimates.
             approx_hyphen_width: Em::new(0.33).at(p.size),
+            // Costs.
+            hyph_cost: DEFAULT_HYPH_COST * p.costs.hyphenation().get(),
+            runt_cost: DEFAULT_RUNT_COST * p.costs.runt().get(),
         }
     }
 
