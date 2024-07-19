@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
+use smallvec::SmallVec;
+
 use ecow::eco_format;
 use pdf_writer::{
     types::{ColorSpaceOperand, FunctionShadingType},
@@ -145,7 +147,11 @@ pub fn write_gradients(
                         .bits_per_component(16)
                         .bits_per_flag(8)
                         .shading_type(StreamShadingType::CoonsPatch)
-                        .decode([0.0, 1.0, 0.0, 1.0].into_iter().chain(range))
+                        .decode([0.0, 1.0, 0.0, 1.0].into_iter().chain(SmallVec::<
+                            [f32; 8],
+                        >::from_slice(
+                            range
+                        )))
                         .anti_alias(gradient.anti_alias())
                         .filter(Filter::FlateDecode);
 
@@ -213,7 +219,7 @@ fn shading_function(
     chunk
         .stitching_function(function)
         .domain([0.0, 1.0])
-        .range(color_space.range())
+        .range(SmallVec::<[f32; 8]>::from_slice(color_space.range()))
         .functions(functions)
         .bounds(bounds)
         .encode(encode);
@@ -232,7 +238,7 @@ fn single_gradient(
     let reference = chunk.alloc();
     chunk
         .exponential_function(reference)
-        .range(color_space.range())
+        .range(SmallVec::<[f32; 8]>::from_slice(color_space.range()))
         .c0(color_space.convert(first_color))
         .c1(color_space.convert(second_color))
         .domain([0.0, 1.0])

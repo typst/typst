@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
@@ -377,28 +377,20 @@ impl PaintEncode for Color {
 
 /// Extra color space functions.
 pub(super) trait ColorSpaceExt {
-    // TODO: replace with a version returning a &'static [f32]
     /// Returns the range of the color space.
-    fn range(self) -> SmallVec<[f32; 8]>;
-    //fn range(self) -> &'static [f32];
+    fn range(self) -> &'static [f32];
 
     /// Converts a color to the color space.
     fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]>;
 }
 
 impl ColorSpaceExt for ColorSpace {
-    // TODO: replace with a version returning a &'static [f32]
-    fn range(self) -> SmallVec<[f32; 8]> {
+    fn range(self) -> &'static [f32] {
         match self {
-            ColorSpace::Cmyk => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-            ColorSpace::D65Gray => smallvec![0.0, 1.0],
-            _ => smallvec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Cmyk => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::D65Gray => &[0.0, 1.0],
+            _ => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         }
-        // match self {
-        //     ColorSpace::Cmyk => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        //     ColorSpace::D65Gray => &[0.0, 1.0],
-        //     _ => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-        // }
     }
 
     fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]> {
