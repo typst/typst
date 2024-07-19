@@ -7,7 +7,7 @@ use crate::foundations::{
     StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
-use crate::layout::{Em, Fragment, Length, Size};
+use crate::layout::{Em, FixedAlignment, Fragment, HAlignment, Length, Size};
 use crate::model::Numbering;
 use crate::realize::StyleVec;
 
@@ -242,12 +242,30 @@ pub struct ParLine {
     /// [numbering pattern or function]($numbering).
     ///
     /// ```example
-    /// #set par.line(numbering: "1.")
+    /// #set par.line(numbering: "1")
     ///
-    /// #lorem(100)
+    /// Roses are red. \
+    /// Violets are blue. \
+    /// Typst is awesome.
     /// ```
     #[ghost]
     pub numbering: Option<Numbering>,
+
+    /// The alignment of line numbers associated with each line.
+    ///
+    /// The default of `auto` will provide a smart default where numbers grow
+    /// horizontally away from the text, considering the margin they're in and
+    /// the current text direction.
+    ///
+    /// ```example
+    /// #set par.line(numbering: "I", number-align: left)
+    ///
+    /// Hello world! \
+    /// Today is a beautiful day \
+    /// For exploring the world.
+    /// ```
+    #[ghost]
+    pub number_align: Smart<HAlignment>,
 }
 
 impl Construct for ParLine {
@@ -272,6 +290,10 @@ pub struct ParLineMarker {
     #[internal]
     #[required]
     pub numbering: Numbering,
+
+    #[internal]
+    #[required]
+    pub number_align: FixedAlignment,
 }
 
 impl Construct for ParLineMarker {

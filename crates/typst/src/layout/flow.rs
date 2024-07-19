@@ -770,6 +770,11 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         // Then we deduplicate based on lines being inside others
         const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
 
+        // Buffer line number frames so we can align them horizontally later
+        // before placing, based on the width of the largest line number.
+        let mut line_numbers = vec![];
+        // Used for horizontal alignment.
+        let mut max_number_width = Abs::zero();
         let mut prev_y = None;
         for line in lines {
             if prev_y
@@ -783,9 +788,22 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Therefore, the check above ensures no lines too close together
             // will cause too many different line numbers to appear.
             prev_y = Some(line.y);
+            let number_align = *line.marker.number_align();
             let number = self.layout_line_number(line.marker)?;
             let number_pos = Point::new(Abs::cm(-1.0), line.y);
-            output.push_frame(number_pos, number);
+            max_number_width.set_max(number.width());
+            line_numbers.push((number_pos, number, number_align));
+        }
+
+        for (mut pos, number, align) in line_numbers {
+            // Move the line number backwards the more aligned to the left it
+            // is, instead of moving to the right when it's right aligned. We
+            // do it this way, without fully overriding the 'x' coordinate, to
+            // preserve the original clearance between the line numbers and the
+            // text.
+            pos.x -= max_number_width - align.position(max_number_width - number.width());
+
+            output.push_frame(pos, number);
         }
 
         if force && !self.pending_tags.is_empty() {
@@ -942,7 +960,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         Ok(())
     }
 
-    /// Layout a line number with the given numbering.
+    /// Layout the line number associated with the given line marker.
     ///
     /// Produces a counter update and counter display with counter key
     /// `ParLineMarker`. We use `ParLineMarker` as it is an element which is
