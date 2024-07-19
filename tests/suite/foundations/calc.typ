@@ -262,7 +262,25 @@
 
 --- calc-norm ---
 #test(calc.norm(1, 2, -3, 0.5), calc.sqrt(14.25))
+#test(calc.norm(3cm, 4cm), 5cm)
+#test(calc.norm(3em, 4em), 5em)
 
---- calc-norm-nothing ---
-// Error: 2-13 expected at least one value
-#calc.norm()
+--- calc-norm-expect-number ---
+// Error: 15-18 expected a number
+#calc.norm(1, 1in)
+
+--- calc-norm-expect-abs ---
+// Error: 17-20 expected an absolute length
+#calc.norm(1in, 2em)
+
+--- calc-norm-expect-em ---
+// Error: 17-20 expected an em
+#calc.norm(1em, 2in)
+
+--- calc-norm-expect-abs-or-em ---
+// Error: 12-19 expected an absolute length or em
+#calc.norm(1cm+1em)
+
+--- calc-norm-expect-number-or-length ---
+// Error: 12-15 expected a number or length
+#calc.norm(10%)

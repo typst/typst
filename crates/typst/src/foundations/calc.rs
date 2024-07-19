@@ -4,10 +4,12 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::ops::{Div, Rem};
 
+use crate::utils::Numeric;
+
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::eval::ops;
 use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
-use crate::layout::{Angle, Fr, Length, Ratio};
+use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
 
 /// A module with calculation definitions.
@@ -909,29 +911,61 @@ pub fn quo(
     Ok(floor(dividend.apply2(divisor.v, Div::div, Div::div)))
 }
 
-/// Calculates the euclidean norm of a sequence of numbers.
+/// Calculates the euclidean norm of a sequence of values.
 ///
 /// ```example
 /// #calc.norm(1, 2, -3, 0.5)
+/// #calc.norm(1in, 2cm)
+/// #calc.norm(3em, 4em)
 /// ```
 #[func]
 pub fn norm(
-    /// The callsite span.
-    span: Span,
-    /// The sequence of numbers from which to calculate the norm.
+    /// The sequence of values from which to calculate the norm.
     /// Must not be empty.
     #[variadic]
-    values: Vec<Spanned<Num>>,
-) -> SourceResult<f64> {
-    let mut sum = 0f64;
-    if values.is_empty() {
-        bail!(span, "expected at least one value");
+    values: Vec<Spanned<Value>>,
+) -> SourceResult<Value> {
+    let mut sum = 0.0;
+    if let Some(Spanned { v, span }) = values.first() {
+        match v {
+            Value::Int(_) | Value::Float(_) => {
+                for Spanned { v, span } in values {
+                    match v {
+                        Value::Int(n) => sum += (n as f64).powi(2),
+                        Value::Float(n) => sum += n.powi(2),
+                        _ => bail!(span, "expected a number"),
+                    }
+                }
+                Ok(Value::Float(sum.sqrt()))
+            }
+            Value::Length(Length { em, .. }) if em.is_zero() => {
+                for Spanned { v, span } in values {
+                    match v {
+                        Value::Length(Length { abs, em }) if em.is_zero() => {
+                            sum += abs.to_raw().powi(2)
+                        }
+                        _ => bail!(span, "expected an absolute length"),
+                    }
+                }
+                Ok(Value::Length(Length { abs: Abs::raw(sum.sqrt()), em: Em::zero() }))
+            }
+            Value::Length(Length { abs, .. }) if abs.is_zero() => {
+                for Spanned { v, span } in values {
+                    match v {
+                        Value::Length(Length { abs, em }) if abs.is_zero() => {
+                            sum += em.get().powi(2)
+                        }
+                        _ => bail!(span, "expected an em"),
+                    }
+                }
+                Ok(Value::Length(Length { abs: Abs::zero(), em: Em::new(sum.sqrt()) }))
+            }
+            Value::Length(_) => bail!(*span, "expected an absolute length or em"),
+            _ => bail!(*span, "expected a number or length"),
+        }
+    } else {
+        Ok(Value::Float(0.0))
     }
-
-    for Spanned { v, span: _ } in values {
-        sum += v.float().powi(2)
-    }
-    Ok(sum.sqrt())
 }
 
 /// A value which can be passed to functions that work with integers and floats.
