@@ -21,8 +21,15 @@ use crate::text::{Lang, TextElem};
 type Cost = f64;
 
 // Cost parameters.
-const DEFAULT_HYPH_COST: Cost = 50.0;
-const DEFAULT_RUNT_COST: Cost = 50.0;
+//
+// We choose higher costs than the Knuth-Plass paper (which would be 50) because
+// it hyphenates way to eagerly in Typst otherwise. Could be related to the
+// ratios coming out differently since Typst doesn't have the concept of glue,
+// so things work a bit differently.
+const DEFAULT_HYPH_COST: Cost = 150.0;
+const DEFAULT_RUNT_COST: Cost = 150.0;
+
+// Other parameters.
 const MIN_RATIO: f64 = -1.0;
 const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
@@ -581,7 +588,6 @@ fn raw_cost(
 
     // Compute penalties.
     let mut penalty = 0.0;
-    let mut flagged_penalty = 0.0;
 
     // Penalize runts (lone words before a mandatory break / at the end).
     if unbreakable && breakpoint == Breakpoint::Mandatory {
@@ -594,12 +600,17 @@ fn raw_cost(
     }
 
     // Penalize two consecutive dashes extra (not necessarily hyphens).
+    // Knuth-Plass does this separately after the squaring, with a higher cost,
+    // but I couldn't find any explanation as to why.
     if consecutive_dash {
-        flagged_penalty += 3000.0;
+        penalty += metrics.hyph_cost;
     }
 
-    // From the Knuth Paper: (1 + beta_j + pi_j)^2 + alpha_j
-    (1.0 + badness + penalty).powi(2) + flagged_penalty
+    // From the Knuth Paper: $ (1 + beta_j + pi_j)^2 $.
+    //
+    // We add one to minimize the number of lines when everything else is more
+    // or less equal.
+    (1.0 + badness + penalty).powi(2)
 }
 
 /// Calls `f` for all possible points in the text where lines can broken.
