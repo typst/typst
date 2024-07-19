@@ -696,13 +696,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     // rootable blocks as they will display their own line
                     // numbers when laid out as a root flow themselves.
                     if self.root && !rootable {
-                        collect_par_lines(
-                            &mut lines,
-                            &frame,
-                            pos,
-                            Abs::zero(),
-                            self.styles,
-                        );
+                        collect_par_lines(&mut lines, &frame, pos, Abs::zero());
                     }
 
                     output.push_frame(pos, frame);
@@ -737,13 +731,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                         + delta.zip_map(size, Rel::relative_to).to_point();
 
                     if self.root {
-                        collect_par_lines(
-                            &mut lines,
-                            &frame,
-                            pos,
-                            Abs::zero(),
-                            self.styles,
-                        );
+                        collect_par_lines(&mut lines, &frame, pos, Abs::zero());
                     }
 
                     output.push_frame(pos, frame);
@@ -1033,12 +1021,11 @@ fn collect_par_lines(
     frame: &Frame,
     frame_pos: Point,
     prev_y: Abs,
-    styles: &StyleChain,
 ) {
     for (pos, item) in frame.items() {
         match item {
             FrameItem::Group(group) => {
-                collect_par_lines(lines, &group.frame, frame_pos, prev_y + pos.y, styles)
+                collect_par_lines(lines, &group.frame, frame_pos, prev_y + pos.y)
             }
 
             // Unlike footnotes, we don't need to guard against duplicate tags
