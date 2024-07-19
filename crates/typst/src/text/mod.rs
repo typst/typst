@@ -512,11 +512,6 @@ pub struct TextElem {
     /// default of `auto`, prevents them. More nuanced cost specification for
     /// these modifications is planned for the future.)
     ///
-    /// The default costs are an acceptable balance, but some may find that it
-    /// hyphenates or avoids runs too eagerly, breaking the flow of dense prose.
-    /// A cost of 600% (six times the normal cost) may work better for such
-    /// contexts.
-    ///
     /// ```example
     /// #set text(hyphenate: true, size: 11.4pt)
     /// #set par(justify: true)
