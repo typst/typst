@@ -264,6 +264,7 @@
 #test(calc.norm(1, 2, -3, 0.5), calc.sqrt(14.25))
 #test(calc.norm(3cm, 4cm), 5cm)
 #test(calc.norm(3em, 4em), 5em)
+#test(calc.norm(), 0)
 
 --- calc-norm-expect-number ---
 // Error: 15-18 expected a number
