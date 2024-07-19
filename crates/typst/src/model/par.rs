@@ -7,7 +7,9 @@ use crate::foundations::{
     StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
-use crate::layout::{Em, FixedAlignment, Fragment, HAlignment, Length, Size};
+use crate::layout::{
+    Em, FixedAlignment, Fragment, HAlignment, Length, OuterHAlignment, Size,
+};
 use crate::model::Numbering;
 use crate::realize::StyleVec;
 
@@ -266,6 +268,19 @@ pub struct ParLine {
     /// ```
     #[ghost]
     pub number_align: Smart<HAlignment>,
+
+    /// The margin at which the line numbers for each line appear.
+    ///
+    /// ```example
+    /// #set par.line(numbering: "1", number-margin: right)
+    ///
+    /// = Report
+    /// - Brightness: Dark, yet darker
+    /// - Readings: Negative
+    /// ```
+    #[ghost]
+    #[default(OuterHAlignment::Start)]
+    pub number_margin: OuterHAlignment,
 }
 
 impl Construct for ParLine {
@@ -294,6 +309,10 @@ pub struct ParLineMarker {
     #[internal]
     #[required]
     pub number_align: FixedAlignment,
+
+    #[internal]
+    #[required]
+    pub number_margin: FixedAlignment,
 }
 
 impl Construct for ParLineMarker {

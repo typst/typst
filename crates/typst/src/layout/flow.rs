@@ -777,19 +777,35 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // will cause too many different line numbers to appear.
             prev_y = Some(line.y);
             let number_align = *line.marker.number_align();
+            let number_margin = *line.marker.number_margin();
+            // TODO: Clearance argument
+            let number_clearance = Abs::cm(1.0);
             let number = self.layout_line_number(line.marker)?;
-            let number_pos = Point::new(Abs::cm(-1.0), line.y);
+            let number_x = match number_margin {
+                FixedAlignment::Start => -number_clearance,
+                FixedAlignment::End => size.x + number_clearance,
+                // Shouldn't be specifiable by the user due to 'OuterHAlignment'.
+                FixedAlignment::Center => unreachable!(),
+            };
+            let number_pos = Point::new(number_x, line.y);
             max_number_width.set_max(number.width());
-            line_numbers.push((number_pos, number, number_align));
+            line_numbers.push((number_pos, number, number_align, number_margin));
         }
 
-        for (mut pos, number, align) in line_numbers {
-            // Move the line number backwards the more aligned to the left it
-            // is, instead of moving to the right when it's right aligned. We
-            // do it this way, without fully overriding the 'x' coordinate, to
-            // preserve the original clearance between the line numbers and the
-            // text.
-            pos.x -= max_number_width - align.position(max_number_width - number.width());
+        for (mut pos, number, align, margin) in line_numbers {
+            if matches!(margin, FixedAlignment::Start) {
+                // Move the line number backwards the more aligned to the left it
+                // is, instead of moving to the right when it's right aligned. We
+                // do it this way, without fully overriding the 'x' coordinate, to
+                // preserve the original clearance between the line numbers and the
+                // text.
+                pos.x -=
+                    max_number_width - align.position(max_number_width - number.width());
+            } else {
+                // Move the line number forwards when aligned to the right.
+                // Leave as is when aligned to the left.
+                pos.x += align.position(max_number_width - number.width());
+            }
 
             output.push_frame(pos, number);
         }

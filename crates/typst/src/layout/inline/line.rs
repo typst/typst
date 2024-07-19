@@ -544,11 +544,12 @@ pub fn commit(
     }
 
     if let Some(numbering) = ParLine::numbering_in(styles) {
-        // TODO: Consider number margin + text direction
         let number_align = ParLine::number_align_in(styles)
             .unwrap_or(HAlignment::End)
             .resolve(styles);
-        let mut par_line = ParLineMarker::new(numbering, number_align).pack();
+        let number_margin = ParLine::number_margin_in(styles).resolve(styles);
+        let mut par_line =
+            ParLineMarker::new(numbering, number_align, number_margin).pack();
 
         // Elements in tags must have a location for introspection to work.
         // We do the work here instead of going through all of the realization
