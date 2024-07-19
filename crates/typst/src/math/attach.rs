@@ -1,11 +1,11 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, Smart, StyleChain};
 use crate::layout::{Abs, Frame, Length, Point, Rel, Size};
 use crate::math::{
-    style_for_subscript, style_for_superscript, EquationElem, FrameFragment, LayoutMath,
-    MathContext, MathFragment, MathSize, Scaled,
+    style_for_subscript, style_for_superscript, EquationElem, FrameFragment,
+    GlyphFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled,
 };
 use crate::text::TextElem;
 
@@ -91,17 +91,10 @@ impl LayoutMath for Packed<AttachElem> {
         }
 
         let [t, b] = [layout!(t, sup_style_chain)?, layout!(b, sub_style_chain)?];
-        if base.stretch() {
-            let max_width = measure!(t, width).max(measure!(b, width)).max(base.width());
-            if max_width > base.width() {
-                if let MathFragment::Glyph(glyph) = base {
-                    base = MathFragment::Variant(glyph.stretch_horizontal(
-                        ctx,
-                        max_width,
-                        Abs::zero(),
-                    ));
-                }
-            }
+        if let Some(stretch) = base.stretch() {
+            let relative_to_width =
+                measure!(t, width).max(measure!(b, width)).max(stretch.from);
+            base = stretch_fragment(ctx, styles, stretch, relative_to_width, base);
         }
 
         let fragments = [
@@ -174,9 +167,9 @@ impl LayoutMath for Packed<PrimesElem> {
 /// Stretches a base to accommodate wide top or bottom attachments.
 ///
 /// ```example
-/// $ p_i(i) stretch(=)^"Self-evident"_(forall i) 2^i $
-/// $ q_i(i) stretch(->, width: 200%)^(forall i) 2^i $
-/// $ r_i(i) stretch(->, width: 200%) 2^i $
+/// $ H stretch(=)^"define" U + p V $
+/// $ P => Q stretch(=>, width: #200%) R $
+/// $ V stretch(->, width: #(100% + 1.5em))^("surjection") ZZ $
 /// ```
 #[elem(LayoutMath)]
 pub struct StretchElem {
@@ -189,11 +182,21 @@ pub struct StretchElem {
     pub width: Smart<Rel<Length>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct StretchInfo {
+    from: Abs,
+    to: Smart<Rel<Length>>,
+}
+
 impl LayoutMath for Packed<StretchElem> {
     #[typst_macros::time(name = "math.stretch", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
-        fragment.set_stretch(true);
+        let stretch = StretchInfo { from: fragment.width(), to: self.width(styles) };
+        fragment.set_stretch(Some(stretch));
+
+        fragment = stretch_fragment(ctx, styles, stretch, fragment.width(), fragment);
+
         ctx.push(fragment);
         Ok(())
     }
@@ -511,4 +514,34 @@ fn compute_shifts_up_and_down(
 /// Determines if the character is one of a variety of integral signs
 fn is_integral_char(c: char) -> bool {
     ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
+}
+
+fn stretch_fragment(
+    ctx: &mut MathContext,
+    styles: StyleChain,
+    stretch: StretchInfo,
+    relative_to_width: Abs,
+    fragment: MathFragment,
+) -> MathFragment {
+    let glyph = match &fragment {
+        MathFragment::Glyph(glyph) => glyph.clone(),
+        MathFragment::Variant(variant) => {
+            GlyphFragment::new(ctx, styles, variant.c, variant.span)
+        }
+        _ => return fragment,
+    };
+
+    let mut new = MathFragment::Variant(
+        glyph.stretch_horizontal(
+            ctx,
+            stretch
+                .to
+                .unwrap_or(Rel::one())
+                .resolve(styles)
+                .relative_to(relative_to_width),
+            Abs::zero(),
+        ),
+    );
+    new.set_stretch(Some(stretch));
+    new
 }

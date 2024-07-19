@@ -192,6 +192,7 @@ fn assemble(
         math_size: base.math_size,
         span: base.span,
         limits: base.limits,
+        stretch: None,
         mid_stretched: None,
     }
 }

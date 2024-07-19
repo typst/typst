@@ -10,7 +10,7 @@ use crate::layout::{
     Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size, VAlignment,
 };
 use crate::math::{
-    scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled,
+    scaled_font_size, EquationElem, Limits, MathContext, MathSize, Scaled, StretchInfo,
 };
 use crate::model::{Destination, LinkElem};
 use crate::syntax::Span;
@@ -117,9 +117,10 @@ impl MathFragment {
         }
     }
 
-    pub fn set_stretch(&mut self, stretch: bool) {
+    pub fn set_stretch(&mut self, stretch: Option<StretchInfo>) {
         match self {
             Self::Glyph(glyph) => glyph.stretch = stretch,
+            Self::Variant(variant) => variant.stretch = stretch,
             _ => {}
         }
     }
@@ -183,10 +184,11 @@ impl MathFragment {
         }
     }
 
-    pub fn stretch(&self) -> bool {
+    pub fn stretch(&self) -> Option<StretchInfo> {
         match self {
             MathFragment::Glyph(glyph) => glyph.stretch,
-            _ => false,
+            MathFragment::Variant(variant) => variant.stretch,
+            _ => None,
         }
     }
 
@@ -245,7 +247,7 @@ pub struct GlyphFragment {
     pub dests: SmallVec<[Destination; 1]>,
     pub hidden: bool,
     pub limits: Limits,
-    pub stretch: bool,
+    pub stretch: Option<StretchInfo>,
 }
 
 impl GlyphFragment {
@@ -295,7 +297,7 @@ impl GlyphFragment {
             ascent: Abs::zero(),
             descent: Abs::zero(),
             limits: Limits::for_char(c),
-            stretch: false,
+            stretch: None,
             italics_correction: Abs::zero(),
             accent_attach: Abs::zero(),
             class,
@@ -359,6 +361,7 @@ impl GlyphFragment {
             math_size: self.math_size,
             span: self.span,
             limits: self.limits,
+            stretch: None,
             frame: self.into_frame(),
             mid_stretched: None,
         }
@@ -427,6 +430,7 @@ pub struct VariantFragment {
     pub math_size: MathSize,
     pub span: Span,
     pub limits: Limits,
+    pub stretch: Option<StretchInfo>,
     pub mid_stretched: Option<bool>,
 }
 

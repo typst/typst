@@ -131,6 +131,15 @@ $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
 
 --- math-attach-long-attachment ---
 // Test the base can be stretched as needed to accommodate the long attachments.
-$ a_i &= b_i stretch(equiv)^(k = 0)_(forall i) c_i \
-      &stretch(=, width: #150%)^(forall i)_"Chern-Weil" d_i \
-      & -> x_i stretch(->, width: #150%) x_i $
+// Note not all glyphs support this; it depends on the font data.
+#set text(size: 8pt)
+
+$ P &= Q
+    stretch(=)^(k = 0)_(forall i) R
+    stretch(=, width: #150%)^(k = 0)_(forall i) S \
+  P &equiv Q
+    stretch(equiv)^(forall i)_"Chern-Weil" R
+    stretch(equiv, width: #150%)^(forall i)_"Chern-Weil" S \
+  P &-> Q
+    stretch(->) R // Not stretched: no width specifid and no attachments
+    stretch(->, width: #150%) S $
