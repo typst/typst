@@ -2790,7 +2790,6 @@ dependencies = [
  "typst-assets",
  "typst-macros",
  "typst-timing",
- "unicode-properties",
  "unscanny",
  "xmp-writer",
 ]
