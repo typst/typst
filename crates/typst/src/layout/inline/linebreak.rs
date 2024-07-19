@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub};
 
+use az::SaturatingAs;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::sets::CodePointSetData;
 use icu_properties::LineBreak;
@@ -26,8 +27,8 @@ type Cost = f64;
 // it hyphenates way to eagerly in Typst otherwise. Could be related to the
 // ratios coming out differently since Typst doesn't have the concept of glue,
 // so things work a bit differently.
-const DEFAULT_HYPH_COST: Cost = 150.0;
-const DEFAULT_RUNT_COST: Cost = 150.0;
+const DEFAULT_HYPH_COST: Cost = 135.0;
+const DEFAULT_RUNT_COST: Cost = 100.0;
 
 // Other parameters.
 const MIN_RATIO: f64 = -1.0;
@@ -70,8 +71,9 @@ pub enum Breakpoint {
     Normal,
     /// A mandatory breakpoint (after '\n' or at the end of the text).
     Mandatory,
-    /// An opportunity for hyphenating.
-    Hyphen,
+    /// An opportunity for hyphenating and how many chars are before/after it
+    /// in the word.
+    Hyphen(u8, u8),
 }
 
 impl Breakpoint {
@@ -100,8 +102,13 @@ impl Breakpoint {
             }
 
             // Trim nothing further.
-            Self::Hyphen => line,
+            Self::Hyphen(..) => line,
         }
+    }
+
+    /// Whether this is a hyphen breakpoint.
+    pub fn is_hyphen(self) -> bool {
+        matches!(self, Self::Hyphen(..))
     }
 }
 
@@ -391,8 +398,7 @@ fn linebreak_optimized_approximate(
             // We don't really know whether the line naturally ends with a dash
             // here, so we can miss that case, but it's ok, since all of this
             // just an estimate.
-            let consecutive_dash =
-                pred.breakpoint == Breakpoint::Hyphen && breakpoint == Breakpoint::Hyphen;
+            let consecutive_dash = pred.breakpoint.is_hyphen() && breakpoint.is_hyphen();
 
             // Estimate how much the line's spaces would need to be stretched to
             // make it the desired width. We trim at the end to not take into
@@ -403,7 +409,7 @@ fn linebreak_optimized_approximate(
                 p,
                 width,
                 estimates.widths.estimate(start..trimmed_end)
-                    + if breakpoint == Breakpoint::Hyphen {
+                    + if breakpoint.is_hyphen() {
                         metrics.approx_hyphen_width
                     } else {
                         Abs::zero()
@@ -595,8 +601,14 @@ fn raw_cost(
     }
 
     // Penalize hyphenation.
-    if breakpoint == Breakpoint::Hyphen {
-        penalty += metrics.hyph_cost;
+    if let Breakpoint::Hyphen(l, r) = breakpoint {
+        // We penalize hyphenations close to the edges of the word (< LIMIT
+        // chars) extra. For each step of distance from the limit, we add 15%
+        // to the cost.
+        const LIMIT: u8 = 5;
+        let steps = LIMIT.saturating_sub(l) + LIMIT.saturating_sub(r);
+        let extra = 0.15 * steps as f64;
+        penalty += (1.0 + extra) * metrics.hyph_cost;
     }
 
     // Penalize two consecutive dashes extra (not necessarily hyphens).
@@ -702,10 +714,13 @@ fn hyphenations(
     mut f: impl FnMut(usize, Breakpoint),
 ) {
     let Some(lang) = lang_at(p, offset) else { return };
+    let count = word.chars().count();
     let end = offset + word.len();
 
+    let mut chars = 0;
     for syllable in hypher::hyphenate(word, lang) {
         offset += syllable.len();
+        chars += syllable.chars().count();
 
         // Don't hyphenate after the final syllable.
         if offset == end {
@@ -726,8 +741,12 @@ fn hyphenations(
             continue;
         }
 
+        // Determine the number of codepoints before and after the hyphenation.
+        let l = chars.saturating_as::<u8>();
+        let r = (count - chars).saturating_as::<u8>();
+
         // Call `f` for the word-internal hyphenation opportunity.
-        f(offset, Breakpoint::Hyphen);
+        f(offset, Breakpoint::Hyphen(l, r));
     }
 }
 
