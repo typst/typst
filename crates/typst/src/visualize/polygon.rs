@@ -36,7 +36,8 @@ pub struct PolygonElem {
 
     /// The rule used to fill the polygon.
     /// Defaults to `non-zero`.
-    pub fill_rule: Smart<FillRule>,
+    #[default(FillRule::default())]
+    pub fill_rule: FillRule,
 
     /// How to [stroke] the polygon. This can be:
     ///
@@ -75,7 +76,8 @@ impl PolygonElem {
 
         /// The rule used to fill the polygon.
         #[named]
-        fill_rule: Option<Smart<FillRule>>,
+        #[default(FillRule::default())]
+        fill_rule: FillRule,
 
         /// How to stroke the polygon. See the general
         /// [polygon's documentation]($polygon.stroke) for more details.
@@ -122,9 +124,7 @@ impl PolygonElem {
         if let Some(fill) = fill {
             elem.push_fill(fill);
         }
-        if let Some(fill_rule) = fill_rule {
-            elem.push_fill_rule(fill_rule)
-        }
+        elem.push_fill_rule(fill_rule);
         if let Some(stroke) = stroke {
             elem.push_stroke(stroke);
         }
@@ -169,10 +169,7 @@ fn layout_polygon(
 
     // Prepare fill and stroke.
     let fill = elem.fill(styles);
-    let fill_rule = match elem.fill_rule(styles) {
-        Smart::Auto => FillRule::default(),
-        Smart::Custom(rule) => rule,
-    };
+    let fill_rule = elem.fill_rule.unwrap_or_default();
     let stroke = match elem.stroke(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,

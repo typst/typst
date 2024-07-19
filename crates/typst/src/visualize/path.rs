@@ -37,7 +37,8 @@ pub struct PathElem {
 
     /// The rule used to fill the path.
     /// Defaults to `non-zero`.
-    pub fill_rule: Smart<FillRule>,
+    #[default(FillRule::default())]
+    pub fill_rule: FillRule,
 
     /// How to [stroke] the path. This can be:
     ///
@@ -148,10 +149,7 @@ fn layout_path(
 
     // Prepare fill and stroke.
     let fill = elem.fill(styles);
-    let fill_rule = match elem.fill_rule(styles) {
-        Smart::Auto => FillRule::default(),
-        Smart::Custom(rule) => rule,
-    };
+    let fill_rule = elem.fill_rule.unwrap_or_default();
     let stroke = match elem.stroke(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
