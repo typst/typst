@@ -458,6 +458,12 @@ fn layout_mat_body(
     gap: Axes<Rel<Abs>>,
     span: Span,
 ) -> SourceResult<Frame> {
+    let ncols = rows.first().map_or(0, |row| row.len());
+    let nrows = rows.len();
+    if ncols == 0 || nrows == 0 {
+        return Ok(Frame::soft(Size::zero()));
+    }
+
     let gap = gap.zip_map(ctx.regions.base(), Rel::relative_to);
     let half_gap = gap * 0.5;
 
@@ -482,12 +488,6 @@ fn layout_mat_body(
         }
         _ => (AugmentOffsets::default(), AugmentOffsets::default(), default_stroke),
     };
-
-    let ncols = rows.first().map_or(0, |row| row.len());
-    let nrows = rows.len();
-    if ncols == 0 || nrows == 0 {
-        return Ok(Frame::soft(Size::zero()));
-    }
 
     // Before the full matrix body can be laid out, the
     // individual cells must first be independently laid out
