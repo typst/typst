@@ -618,7 +618,7 @@ fn raw_cost(
         penalty += metrics.hyph_cost;
     }
 
-    // From the Knuth Paper: $ (1 + beta_j + pi_j)^2 $.
+    // From the Knuth-Plass Paper: $ (1 + beta_j + pi_j)^2 $.
     //
     // We add one to minimize the number of lines when everything else is more
     // or less equal.
