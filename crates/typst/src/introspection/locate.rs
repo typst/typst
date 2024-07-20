@@ -1,6 +1,6 @@
 use comemo::{Track, Tracked};
 
-use crate::diag::{HintedStrResult, SourceResult};
+use crate::diag::{warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, Content, Context, Func, LocatableSelector, NativeElement, Packed,
@@ -29,11 +29,12 @@ use crate::syntax::Span;
 ///
 /// # Compatibility
 /// In Typst 0.10 and lower, the `locate` function took a closure that made the
-/// current location in the document available (like [`here`] does now).
-/// Compatibility with the old way will remain for a while to give package
-/// authors time to upgrade. To that effect, `locate` detects whether it
-/// received a selector or a user-defined function and adjusts its semantics
-/// accordingly. This behaviour will be removed in the future.
+/// current location in the document available (like [`here`] does now). This
+/// usage pattern is deprecated. Compatibility with the old way will remain for
+/// a while to give package authors time to upgrade. To that effect, `locate`
+/// detects whether it received a selector or a user-defined function and
+/// adjusts its semantics accordingly. This behaviour will be removed in the
+/// future.
 #[func(contextual)]
 pub fn locate(
     /// The engine.
@@ -56,6 +57,11 @@ pub fn locate(
             LocateOutput::Location(selector.resolve_unique(engine.introspector, context)?)
         }
         LocateInput::Func(func) => {
+            engine.sink.warn(warning!(
+                span, "`locate` with callback function is deprecated";
+                hint: "use a `context` expression instead"
+            ));
+
             LocateOutput::Content(LocateElem::new(func).pack().spanned(span))
         }
     })
