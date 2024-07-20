@@ -921,7 +921,7 @@ pub fn quo(
 #[func]
 pub fn norm(
     /// The sequence of values from which to calculate the norm.
-    /// Must not be empty.
+    /// Returns `0.0` if empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
