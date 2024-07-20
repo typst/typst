@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 
 use ecow::{eco_format, EcoString};
 use ttf_parser::OutlineBuilder;
-use typst::foundations::{Repr, Smart};
+use typst::foundations::Repr;
 use typst::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
 use typst::utils::hash128;
 use typst::visualize::{Color, Gradient, Paint, Pattern, RatioOrAngle};
@@ -25,7 +25,7 @@ impl SVGRenderer {
     ) -> String {
         let mut xml = XmlWriter::new(xmlwriter::Options::default());
         std::mem::swap(&mut self.xml, &mut xml);
-        self.render_frame(state, ts, frame, &Smart::Custom(None));
+        self.render_frame(state, ts, frame);
         std::mem::swap(&mut self.xml, &mut xml);
         xml.end_document()
     }
@@ -386,7 +386,7 @@ impl SVGRenderer {
             // Render the frame.
             let state = State::new(size, Transform::identity());
             let ts = Transform::identity();
-            self.render_frame(state, ts, pattern.frame(), &Smart::Custom(None));
+            self.render_frame(state, ts, pattern.frame());
 
             self.xml.end_element();
         }

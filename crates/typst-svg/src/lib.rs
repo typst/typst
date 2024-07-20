@@ -29,7 +29,7 @@ pub fn svg(page: &Page) -> String {
     renderer.write_header(page.frame.size());
 
     let state = State::new(page.frame.size(), Transform::identity());
-    renderer.render_frame(state, Transform::identity(), &page.frame, &page.fill);
+    renderer.render_page(state, Transform::identity(), page);
     renderer.finalize()
 }
 
@@ -58,7 +58,7 @@ pub fn svg_merged(document: &Document, padding: Abs) -> String {
     for page in &document.pages {
         let ts = Transform::translate(x, y);
         let state = State::new(page.frame.size(), Transform::identity());
-        renderer.render_frame(state, ts, &page.frame, &page.fill);
+        renderer.render_page(state, ts, &page);
         y += page.frame.height() + padding;
     }
 
@@ -177,21 +177,15 @@ impl SVGRenderer {
         self.xml.write_attribute("xmlns:h5", "http://www.w3.org/1999/xhtml");
     }
 
-    /// Render a frame with the given transform.
-    fn render_frame(
-        &mut self,
-        state: State,
-        ts: Transform,
-        frame: &Frame,
-        background: &Smart<Option<Paint>>,
-    ) {
+    /// Render a page with the given transform.
+    fn render_page(&mut self, state: State, ts: Transform, page: &Page) {
         let rect_with_background = |background: &Paint| Shape {
-            geometry: Geometry::Rect(frame.size()),
+            geometry: Geometry::Rect(page.frame.size()),
             fill: Some(background.clone()),
             stroke: None,
         };
 
-        let rect = match &background {
+        let rect = match &page.fill {
             // SVG export defaults to white background.
             Smart::Auto => Some(rect_with_background(&Color::WHITE.into())),
             Smart::Custom(None) => None,
@@ -202,6 +196,11 @@ impl SVGRenderer {
             self.render_shape(state, &rect);
         }
 
+        self.render_frame(state, ts, &page.frame);
+    }
+
+    /// Render a frame with the given transform.
+    fn render_frame(&mut self, state: State, ts: Transform, frame: &Frame) {
         self.xml.start_element("g");
         if !ts.is_identity() {
             self.xml.write_attribute("transform", &SvgMatrix(ts));
@@ -260,7 +259,7 @@ impl SVGRenderer {
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
-        self.render_frame(state, group.transform, &group.frame, &Smart::Custom(None));
+        self.render_frame(state, group.transform, &group.frame);
         self.xml.end_element();
     }
 

@@ -6,12 +6,9 @@ use pdf_writer::{
     Filter, Name, Rect, Ref,
 };
 
+use typst::layout::{Abs, Ratio, Transform};
 use typst::utils::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
-use typst::{
-    foundations::Smart,
-    layout::{Abs, Ratio, Transform},
-};
 
 use crate::{color::PaintEncode, resources::Remapper, Resources, WithGlobalRefs};
 use crate::{content, resources::ResourcesRefs};
@@ -106,12 +103,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(
-        &mut patterns.resources,
-        pattern.frame(),
-        &Smart::Custom(Option::None),
-        None,
-    );
+    let content = content::build(&mut patterns.resources, pattern.frame(), None, None);
 
     let pdf_pattern = PdfPattern {
         transform,
