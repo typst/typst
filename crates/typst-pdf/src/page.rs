@@ -12,8 +12,8 @@ use typst::layout::{Abs, Page};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
+use crate::Resources;
 use crate::{content, AbsExt, PdfChunk, WithDocument, WithRefs, WithResources};
-use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
@@ -51,9 +51,6 @@ pub fn traverse_pages(
             pages.push(Some(encoded));
         }
     }
-
-    improve_glyph_sets(&mut resources.glyph_sets);
-    improve_glyph_sets(&mut resources.color_glyph_sets);
 
     (PdfChunk::new(), (pages, resources))
 }
