@@ -954,7 +954,7 @@ pub fn pnorm(
                         _ => bail!(span, "expected a number"),
                     }
                 }
-                Ok(Value::Float(sum.sqrt()))
+                Ok(Value::Float(sum.powf(1.0 / p.float())))
             }
             Value::Length(Length { em, .. }) if em.is_zero() => {
                 for Spanned { v, span } in values {
@@ -965,7 +965,10 @@ pub fn pnorm(
                         _ => bail!(span, "expected an absolute length"),
                     }
                 }
-                Ok(Value::Length(Length { abs: Abs::raw(sum.sqrt()), em: Em::zero() }))
+                Ok(Value::Length(Length {
+                    abs: Abs::raw(sum.powf(1.0 / p.float())),
+                    em: Em::zero(),
+                }))
             }
             Value::Length(Length { abs, .. }) if abs.is_zero() => {
                 for Spanned { v, span } in values {
@@ -976,7 +979,10 @@ pub fn pnorm(
                         _ => bail!(span, "expected an em"),
                     }
                 }
-                Ok(Value::Length(Length { abs: Abs::zero(), em: Em::new(sum.sqrt()) }))
+                Ok(Value::Length(Length {
+                    abs: Abs::zero(),
+                    em: Em::new(sum.powf(1.0 / p.float())),
+                }))
             }
             Value::Length(_) => bail!(*span, "expected an absolute length or em"),
             _ => bail!(*span, "expected a number or length"),

@@ -265,7 +265,7 @@
 #test(calc.norm2(3cm, 4cm), 5cm)
 #test(calc.norm2(3em, 4em), 5em)
 #test(calc.norm2(), 0)
-#test(calc.pnorm(3, 1, 2), 3)
+#test(calc.pnorm(3, 1, 2), calc.pow(9, 1/3))
 
 --- calc-norm-expect-number ---
 // Error: 16-19 expected a number
