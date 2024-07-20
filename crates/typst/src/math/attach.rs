@@ -22,7 +22,6 @@ macro_rules! measure {
 ///   Pi, t: alpha, b: beta,
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
-/// $ sum_(i=0)^oo a_k^i = k $
 /// ```
 #[elem(LayoutMath)]
 pub struct AttachElem {
