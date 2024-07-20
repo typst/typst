@@ -35,8 +35,7 @@ pub struct PolygonElem {
     pub fill: Option<Paint>,
 
     /// The rule used to fill the polygon.
-    /// Defaults to `non-zero`.
-    #[default(FillRule::default())]
+    #[default]
     pub fill_rule: FillRule,
 
     /// How to [stroke] the polygon. This can be:
@@ -73,11 +72,6 @@ impl PolygonElem {
         /// [polygon's documentation]($polygon.fill) for more details.
         #[named]
         fill: Option<Option<Paint>>,
-
-        /// The rule used to fill the polygon.
-        #[named]
-        #[default(FillRule::default())]
-        fill_rule: FillRule,
 
         /// How to stroke the polygon. See the general
         /// [polygon's documentation]($polygon.stroke) for more details.
@@ -124,7 +118,6 @@ impl PolygonElem {
         if let Some(fill) = fill {
             elem.push_fill(fill);
         }
-        elem.push_fill_rule(fill_rule);
         if let Some(stroke) = stroke {
             elem.push_stroke(stroke);
         }

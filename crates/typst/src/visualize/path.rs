@@ -36,8 +36,7 @@ pub struct PathElem {
     pub fill: Option<Paint>,
 
     /// The rule used to fill the path.
-    /// Defaults to `non-zero`.
-    #[default(FillRule::default())]
+    #[default]
     pub fill_rule: FillRule,
 
     /// How to [stroke] the path. This can be:
