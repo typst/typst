@@ -91,6 +91,11 @@ impl FileId {
         Self::new(self.package().cloned(), self.vpath().join(path))
     }
 
+    /// The same file location, but with a different extension.
+    pub fn with_extension(&self, extension: &str) -> Self {
+        Self::new(self.package().cloned(), self.vpath().with_extension(extension))
+    }
+
     /// Construct from a raw number.
     pub(crate) const fn from_raw(v: u16) -> Self {
         Self(v)

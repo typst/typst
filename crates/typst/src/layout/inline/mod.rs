@@ -9,8 +9,8 @@ use comemo::{Track, Tracked, TrackedMut};
 
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::finalize::finalize;
-use self::line::{commit, line, Dash, Line};
-use self::linebreak::{linebreak, Breakpoint};
+use self::line::{commit, line, Line};
+use self::linebreak::{is_default_ignorable, linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{
     cjk_punct_style, is_of_cj_script, shape_range, ShapedGlyph, ShapedText,

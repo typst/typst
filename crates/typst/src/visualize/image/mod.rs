@@ -196,7 +196,7 @@ fn layout_image(
         format,
         elem.alt(styles),
         engine.world,
-        &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
+        &families(styles).collect::<Vec<_>>(),
     )
     .at(span)?;
 
@@ -360,7 +360,7 @@ impl Image {
         format: ImageFormat,
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
-        families: &[String],
+        families: &[&str],
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {

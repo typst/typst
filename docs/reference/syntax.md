@@ -120,7 +120,7 @@ a table listing all syntax that is available in code mode:
 | Named function           | `{let f(x) = 2 * x}`          | [Function]($function)              |
 | Set rule                 | `{set text(14pt)}`            | [Styling]($styling/#set-rules)     |
 | Set-if rule              | `{set text(..) if .. }`       | [Styling]($styling/#set-rules)     |
-| Show-set rule            | `{show par: set block(..)}`   | [Styling]($styling/#show-rules)    |
+| Show-set rule            | `{show heading: set block(..)}` | [Styling]($styling/#show-rules)  |
 | Show rule with function  | `{show raw: it => {..}}`      | [Styling]($styling/#show-rules)    |
 | Show-everything rule     | `{show: columns.with(2)}`     | [Styling]($styling/#show-rules)    |
 | Context expression       | `{context text.lang}`         | [Context]($context)                |

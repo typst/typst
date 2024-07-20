@@ -83,6 +83,15 @@ impl Span {
         self.0.get() & ((1 << Self::BITS) - 1)
     }
 
+    /// Return `other` if `self` is detached and `self` otherwise.
+    pub fn or(self, other: Self) -> Self {
+        if self.is_detached() {
+            other
+        } else {
+            self
+        }
+    }
+
     /// Resolve a file location relative to this span's source.
     pub fn resolve_path(self, path: &str) -> Result<FileId, EcoString> {
         let Some(file) = self.id() else {

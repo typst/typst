@@ -54,3 +54,8 @@ $ A = 1 $ <eq2>
 // Error: 1-7 label occurs in the document and its bibliography
 @arrgh
 #bibliography("/assets/bib/works.bib")
+
+--- issue-4536-non-whitespace-before-ref ---
+// Test reference with non-whitespace before it.
+#figure[] <1>
+#test([(#ref(<1>))], [(@1)])

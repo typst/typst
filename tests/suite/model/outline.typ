@@ -176,3 +176,10 @@ Ok ...
 // Error: 2-55 heading must have a location
 // Hint: 2-55 try using a query or a show rule to customize the outline.entry instead
 #outline.entry(1, heading[Hello], [World!], none, [1])
+
+--- issue-4476-rtl-title-ending-in-ltr-text ---
+#set text(lang: "he")
+#outline()
+
+= הוקוס Pocus
+= זוהי כותרת שתורגמה על ידי מחשב
