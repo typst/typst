@@ -21,7 +21,7 @@
 --- pattern-relative-self ---
 // Test with relative set to `"self"`
 #let pat(..args) = pattern(size: (30pt, 30pt), ..args)[
-  #set line(stroke: white)
+  #set line(stroke: green)
   #place(top + left, line(start: (0%, 0%), end: (100%, 100%), stroke: 1pt))
   #place(top + left, line(start: (0%, 100%), end: (100%, 0%), stroke: 1pt))
 ]
@@ -31,7 +31,7 @@
   width: 100%,
   height: 100%,
   fill: pat(relative: "self"),
-  stroke: 1pt + white,
+  stroke: 1pt + green,
 )
 
 --- pattern-relative-parent ---
