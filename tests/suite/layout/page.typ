@@ -68,6 +68,12 @@
 #text(15pt, font: "Roboto", fill: white, smallcaps[Typst])
 #page(width: 40pt, fill: auto, margin: (top: 10pt, rest: auto))[Hi]
 
+--- page-fill-none ---
+// Test disabling page fill.
+// The PNG is filled with black anyway due to the test runner.
+#set page(fill: none)
+#rect(fill: green)
+
 --- page-margin-uniform ---
 // Set all margins at once.
 #[

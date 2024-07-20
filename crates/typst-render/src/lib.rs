@@ -42,13 +42,11 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
 }
 
 /// Export a document with potentially multiple pages into a single raster image.
-///
-/// The gap will be added between the individual frames.
 pub fn render_merged(
     document: &Document,
     pixel_per_pt: f32,
     gap: Abs,
-    gap_fill: Color,
+    fill: Option<Color>,
 ) -> sk::Pixmap {
     let pixmaps: Vec<_> =
         document.pages.iter().map(|page| render(page, pixel_per_pt)).collect();
@@ -59,7 +57,9 @@ pub fn render_merged(
         + gap * pixmaps.len().saturating_sub(1) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(paint::to_sk_color(gap_fill));
+    if let Some(fill) = fill {
+        canvas.fill(paint::to_sk_color(fill));
+    }
 
     let mut y = 0;
     for pixmap in pixmaps {
