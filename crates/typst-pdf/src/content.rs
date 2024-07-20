@@ -36,6 +36,7 @@ use crate::{deflate_deferred, AbsExt, EmExt};
 pub fn build(
     resources: &mut Resources<()>,
     frame: &Frame,
+    fill: Option<Paint>,
     color_glyph_width: Option<f32>,
 ) -> Encoded {
     let size = frame.size();
@@ -52,6 +53,11 @@ pub fn build(
             // Also move the origin to the top left corner
             .post_concat(Transform::translate(Abs::zero(), size.y)),
     );
+
+    if let Some(fill) = fill {
+        let shape = Geometry::Rect(frame.size()).filled(fill);
+        write_shape(&mut ctx, Point::zero(), &shape);
+    }
 
     // Encode the frame into the content stream.
     write_frame(&mut ctx, frame);
