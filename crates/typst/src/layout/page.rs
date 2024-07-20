@@ -24,7 +24,7 @@ use crate::layout::{
 use crate::model::Numbering;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric, Scalar};
-use crate::visualize::Paint;
+use crate::visualize::{Color, Paint};
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -178,12 +178,20 @@ pub struct PageElem {
     #[default(NonZeroUsize::ONE)]
     pub columns: NonZeroUsize,
 
-    /// The page's background color.
+    /// The page's background fill.
     ///
-    /// This instructs the printer to color the complete page with the given
-    /// color. If you are considering larger production runs, it may be more
-    /// environmentally friendly and cost-effective to source pre-dyed pages and
-    /// not set this property.
+    /// Setting this to something non-transparent instructs the printer to color
+    /// the complete page. If you are considering larger production runs, it may
+    /// be more environmentally friendly and cost-effective to source pre-dyed
+    /// pages and not set this property.
+    ///
+    /// When set to `{none}`, the background becomes transparent. Note that PDF
+    /// pages will still appear with a (usually white) background in viewers,
+    /// but they are conceptually transparent. (If you print them, no color is
+    /// used for the background.)
+    ///
+    /// The default of `{auto}` results in `{none}` for PDF output, and
+    /// `{white}` for PNG and SVG.
     ///
     /// ```example
     /// #set page(fill: rgb("444352"))
@@ -191,7 +199,7 @@ pub struct PageElem {
     /// *Dark mode enabled.*
     /// ```
     #[borrowed]
-    pub fill: Option<Paint>,
+    pub fill: Smart<Option<Paint>>,
 
     /// How to [number]($numbering) the pages.
     ///
@@ -555,13 +563,10 @@ impl PageLayout<'_> {
                 }
             }
 
-            if let Some(fill) = fill {
-                frame.fill(fill.clone());
-            }
-
             page_counter.visit(engine, &frame)?;
             pages.push(Page {
                 frame,
+                fill: fill.clone(),
                 numbering: numbering.clone(),
                 number: page_counter.logical(),
             });
@@ -578,11 +583,36 @@ impl PageLayout<'_> {
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
+    /// How the page is filled.
+    ///
+    /// - When `None`, the background is transparent.
+    /// - When `Auto`, the background is transparent for PDF and white
+    ///   for raster and SVG targets.
+    ///
+    /// Exporters should access the resolved value of this property through
+    /// `fill_or_transparent()` or `fill_or_white()`.
+    pub fill: Smart<Option<Paint>>,
     /// The page's numbering.
     pub numbering: Option<Numbering>,
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
     pub number: usize,
+}
+
+impl Page {
+    /// Get the configured background or `None` if it is `Auto`.
+    ///
+    /// This is used in PDF export.
+    pub fn fill_or_transparent(&self) -> Option<Paint> {
+        self.fill.clone().unwrap_or(None)
+    }
+
+    /// Get the configured background or white if it is `Auto`.
+    ///
+    /// This is used in raster and SVG export.
+    pub fn fill_or_white(&self) -> Option<Paint> {
+        self.fill.clone().unwrap_or_else(|| Some(Color::WHITE.into()))
+    }
 }
 
 /// Specification of the page's margins.

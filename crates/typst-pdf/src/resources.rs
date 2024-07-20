@@ -77,11 +77,16 @@ pub struct Resources<R = Ref> {
     pub languages: BTreeMap<Lang, usize>,
 
     /// For each font a mapping from used glyphs to their text representation.
-    /// May contain multiple chars in case of ligatures or similar things. The
-    /// same glyph can have a different text representation within one document,
-    /// then we just save the first one. The resulting strings are used for the
-    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
-    /// cmap. This is important for copy-paste and searching.
+    /// This is used for the PDF's /ToUnicode map, and important for copy-paste
+    /// and searching.
+    ///
+    /// Note that the text representation may contain multiple chars in case of
+    /// ligatures or similar things, and it may have no entry in the font's cmap
+    /// (or only a private-use codepoint), like the “Th” in Linux Libertine.
+    ///
+    /// A glyph may have multiple entries in the font's cmap, and even the same
+    /// glyph can have a different text representation within one document.
+    /// But /ToUnicode does not support that, so we just save the first occurrence.
     pub glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     /// Same as `glyph_sets`, but for color fonts.
     pub color_glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,

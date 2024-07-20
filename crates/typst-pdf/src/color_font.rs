@@ -243,7 +243,7 @@ impl ColorFontMap<()> {
             let width =
                 font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
             let instructions =
-                content::build(&mut self.resources, &frame, Some(width as f32));
+                content::build(&mut self.resources, &frame, None, Some(width as f32));
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
