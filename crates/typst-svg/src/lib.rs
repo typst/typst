@@ -10,13 +10,12 @@ use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
 use ttf_parser::OutlineBuilder;
-use typst::foundations::Smart;
 use typst::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::Document;
 use typst::utils::hash128;
-use typst::visualize::{Color, Geometry, Gradient, Pattern};
+use typst::visualize::{Geometry, Gradient, Pattern};
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, PatternRef, SVGSubGradient};
@@ -58,7 +57,7 @@ pub fn svg_merged(document: &Document, padding: Abs) -> String {
     for page in &document.pages {
         let ts = Transform::translate(x, y);
         let state = State::new(page.frame.size(), Transform::identity());
-        renderer.render_page(state, ts, &page);
+        renderer.render_page(state, ts, page);
         y += page.frame.height() + padding;
     }
 
@@ -179,14 +178,7 @@ impl SVGRenderer {
 
     /// Render a page with the given transform.
     fn render_page(&mut self, state: State, ts: Transform, page: &Page) {
-        let fill = match &page.fill {
-            // SVG export defaults to white background.
-            Smart::Auto => Some(Color::WHITE.into()),
-            Smart::Custom(None) => None,
-            Smart::Custom(Some(paint)) => Some(paint.clone()),
-        };
-
-        if let Some(fill) = fill {
+        if let Some(fill) = page.fill_or_white() {
             let shape = Geometry::Rect(page.frame.size()).filled(fill);
             self.render_shape(state, &shape);
         }

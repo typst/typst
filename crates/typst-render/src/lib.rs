@@ -6,7 +6,6 @@ mod shape;
 mod text;
 
 use tiny_skia as sk;
-use typst::foundations::Smart;
 use typst::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Size, Transform,
 };
@@ -28,14 +27,7 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
 
-    let fill = match &page.fill {
-        // PNG export defaults to white background.
-        Smart::Auto => Some(Color::WHITE.into()),
-        Smart::Custom(None) => None,
-        Smart::Custom(Some(paint)) => Some(paint.clone()),
-    };
-
-    if let Some(fill) = fill {
+    if let Some(fill) = page.fill_or_white() {
         if let Paint::Solid(color) = fill {
             canvas.fill(paint::to_sk_color(color));
         } else {

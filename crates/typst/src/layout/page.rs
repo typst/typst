@@ -24,7 +24,7 @@ use crate::layout::{
 use crate::model::Numbering;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric, Scalar};
-use crate::visualize::Paint;
+use crate::visualize::{Color, Paint};
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -585,15 +585,34 @@ pub struct Page {
     pub frame: Frame,
     /// How the page is filled.
     ///
-    /// - When `None`, the background should be transparent.
-    /// - When `Auto`, the background should be transparent in PDF and white in
-    ///   image (PNG and SVG) export.
+    /// - When `None`, the background is transparent.
+    /// - When `Auto`, the background is transparent for PDF and white
+    ///   for raster and SVG targets.
+    ///
+    /// Exporters should access the resolved value of this property through
+    /// `fill_or_transparent()` or `fill_or_white()`.
     pub fill: Smart<Option<Paint>>,
     /// The page's numbering.
     pub numbering: Option<Numbering>,
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
     pub number: usize,
+}
+
+impl Page {
+    /// Get the configured background or `None` if it is `Auto`.
+    ///
+    /// This is used in PDF export.
+    pub fn fill_or_transparent(&self) -> Option<Paint> {
+        self.fill.clone().unwrap_or(None)
+    }
+
+    /// Get the configured background or white if it is `Auto`.
+    ///
+    /// This is used in raster and SVG export.
+    pub fn fill_or_white(&self) -> Option<Paint> {
+        self.fill.clone().unwrap_or_else(|| Some(Color::WHITE.into()))
+    }
 }
 
 /// Specification of the page's margins.

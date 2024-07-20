@@ -6,11 +6,11 @@ use pdf_writer::{
     types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle},
     Filter, Finish, Name, Rect, Ref, Str,
 };
+use typst::foundations::Label;
 use typst::introspection::Location;
-use typst::layout::Abs;
+use typst::layout::{Abs, Page};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
-use typst::{foundations::Label, layout::Page};
 
 use crate::{content, AbsExt, PdfChunk, WithDocument, WithRefs, WithResources};
 use crate::{font::improve_glyph_sets, Resources};
@@ -33,7 +33,7 @@ pub fn traverse_pages(
             pages.push(None);
             skipped_pages += 1;
         } else {
-            let mut encoded = construct_page(&mut resources, &page);
+            let mut encoded = construct_page(&mut resources, page);
             encoded.label = page
                 .numbering
                 .as_ref()
@@ -61,9 +61,7 @@ pub fn traverse_pages(
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
 fn construct_page(out: &mut Resources<()>, page: &Page) -> EncodedPage {
-    // The background defaults to transparent (`None`) in PDFs.
-    let fill = page.fill.clone().unwrap_or(None);
-    let content = content::build(out, &page.frame, fill, None);
+    let content = content::build(out, &page.frame, page.fill_or_transparent(), None);
     EncodedPage { content, label: None }
 }
 
