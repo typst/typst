@@ -10,12 +10,13 @@ use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
 use ttf_parser::OutlineBuilder;
+use typst::foundations::Smart;
 use typst::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::Document;
 use typst::utils::hash128;
-use typst::visualize::{Gradient, Pattern};
+use typst::visualize::{Color, Geometry, Gradient, Paint, Pattern, Shape};
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, PatternRef, SVGSubGradient};
@@ -23,12 +24,12 @@ use crate::text::RenderedGlyph;
 
 /// Export a frame into a SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(frame: &Frame) -> String {
+pub fn svg(page: &Page) -> String {
     let mut renderer = SVGRenderer::new();
-    renderer.write_header(frame.size());
+    renderer.write_header(page.frame.size());
 
-    let state = State::new(frame.size(), Transform::identity());
-    renderer.render_frame(state, Transform::identity(), frame);
+    let state = State::new(page.frame.size(), Transform::identity());
+    renderer.render_frame(state, Transform::identity(), &page.frame, &page.fill);
     renderer.finalize()
 }
 
@@ -57,7 +58,7 @@ pub fn svg_merged(document: &Document, padding: Abs) -> String {
     for page in &document.pages {
         let ts = Transform::translate(x, y);
         let state = State::new(page.frame.size(), Transform::identity());
-        renderer.render_frame(state, ts, &page.frame);
+        renderer.render_frame(state, ts, &page.frame, &page.fill);
         y += page.frame.height() + padding;
     }
 
@@ -177,7 +178,30 @@ impl SVGRenderer {
     }
 
     /// Render a frame with the given transform.
-    fn render_frame(&mut self, state: State, ts: Transform, frame: &Frame) {
+    fn render_frame(
+        &mut self,
+        state: State,
+        ts: Transform,
+        frame: &Frame,
+        background: &Smart<Option<Paint>>,
+    ) {
+        let rect_with_background = |background: &Paint| Shape {
+            geometry: Geometry::Rect(frame.size()),
+            fill: Some(background.clone()),
+            stroke: None,
+        };
+
+        let rect = match &background {
+            // SVG export defaults to white background.
+            Smart::Auto => Some(rect_with_background(&Color::WHITE.into())),
+            Smart::Custom(None) => None,
+            Smart::Custom(Some(paint)) => Some(rect_with_background(paint)),
+        };
+
+        if let Some(rect) = rect {
+            self.render_shape(state, &rect);
+        }
+
         self.xml.start_element("g");
         if !ts.is_identity() {
             self.xml.write_attribute("transform", &SvgMatrix(ts));
@@ -236,7 +260,7 @@ impl SVGRenderer {
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
-        self.render_frame(state, group.transform, &group.frame);
+        self.render_frame(state, group.transform, &group.frame, &Smart::Custom(None));
         self.xml.end_element();
     }
 

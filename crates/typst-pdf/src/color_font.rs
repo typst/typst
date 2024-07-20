@@ -13,6 +13,7 @@ use pdf_writer::Filter;
 use pdf_writer::{types::UnicodeCmap, Finish, Name, Rect, Ref};
 use ttf_parser::name_id;
 
+use typst::foundations::Smart;
 use typst::layout::Em;
 use typst::text::{color::frame_for_glyph, Font};
 
@@ -242,8 +243,12 @@ impl ColorFontMap<()> {
             let frame = frame_for_glyph(font, gid);
             let width =
                 font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
-            let instructions =
-                content::build(&mut self.resources, &frame, Some(width as f32));
+            let instructions = content::build(
+                &mut self.resources,
+                &frame,
+                &Smart::Custom(Option::None),
+                Some(width as f32),
+            );
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 

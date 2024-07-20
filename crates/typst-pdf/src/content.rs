@@ -9,14 +9,15 @@ use pdf_writer::{
     types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
     Content, Finish, Name, Rect, Str,
 };
-use typst::layout::{
-    Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
-};
 use typst::model::Destination;
 use typst::text::{color::is_color_glyph, Font, TextItem, TextItemView};
 use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
+};
+use typst::{
+    foundations::Smart,
+    layout::{Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform},
 };
 
 use crate::color_font::ColorFontMap;
@@ -36,6 +37,7 @@ use crate::{deflate_deferred, AbsExt, EmExt};
 pub fn build(
     resources: &mut Resources<()>,
     frame: &Frame,
+    background: &Smart<Option<Paint>>,
     color_glyph_width: Option<f32>,
 ) -> Encoded {
     let size = frame.size();
@@ -54,7 +56,7 @@ pub fn build(
     );
 
     // Encode the frame into the content stream.
-    write_frame(&mut ctx, frame);
+    write_frame(&mut ctx, frame, background);
 
     Encoded {
         size,
@@ -339,7 +341,25 @@ impl Builder<'_, ()> {
 }
 
 /// Encode a frame into the content stream.
-pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) {
+pub(crate) fn write_frame(
+    ctx: &mut Builder,
+    frame: &Frame,
+    background: &Smart<Option<Paint>>,
+) {
+    match background {
+        // The background defaults to transparent in PDFs.
+        Smart::Auto | Smart::Custom(Option::None) => {}
+        Smart::Custom(background) => {
+            let shape = Shape {
+                geometry: Geometry::Rect(frame.size()),
+                fill: background.clone(),
+                stroke: None,
+            };
+
+            write_shape(ctx, Point::zero(), &shape);
+        }
+    }
+
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
@@ -378,7 +398,7 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) {
         ctx.content.end_path();
     }
 
-    write_frame(ctx, &group.frame);
+    write_frame(ctx, &group.frame, &Smart::Custom(Option::None));
     ctx.restore_state();
 }
 
