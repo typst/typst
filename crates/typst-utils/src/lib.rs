@@ -6,6 +6,7 @@ pub mod fat;
 mod macros;
 mod bitset;
 mod deferred;
+pub mod format;
 mod hash;
 mod pico;
 mod scalar;
