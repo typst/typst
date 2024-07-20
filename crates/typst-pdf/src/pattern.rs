@@ -103,7 +103,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(&mut patterns.resources, pattern.frame(), None);
+    let content = content::build(&mut patterns.resources, pattern.frame(), None, None);
 
     let pdf_pattern = PdfPattern {
         transform,
