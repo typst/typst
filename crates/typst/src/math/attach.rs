@@ -530,17 +530,17 @@ fn stretch_fragment(
         _ => return fragment,
     };
 
-    let mut new = MathFragment::Variant(
-        glyph.stretch_horizontal(
-            ctx,
-            stretch
-                .to
-                .unwrap_or(Rel::one())
-                .resolve(styles)
-                .relative_to(relative_to_width),
-            Abs::zero(),
-        ),
+    let variant = glyph.stretch_horizontal(
+        ctx,
+        stretch
+            .to
+            .unwrap_or(Rel::one())
+            .resolve(styles)
+            .relative_to(relative_to_width),
+        Abs::zero(),
     );
+
+    let mut new = MathFragment::Variant(variant);
     new.set_stretch(Some(stretch));
     new
 }
