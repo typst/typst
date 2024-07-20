@@ -28,16 +28,18 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
 
-    // Render the background, if any.
-    match &page.fill {
-        // Raster export defaults to white background.
-        Smart::Auto => canvas.fill(sk::Color::WHITE),
-        Smart::Custom(None) => {}
-        Smart::Custom(Some(Paint::Solid(color))) => {
-            canvas.fill(paint::to_sk_color(*color));
-        }
-        Smart::Custom(Some(paint)) => {
-            let rect = Geometry::Rect(page.frame.size()).filled(paint.clone());
+    let fill = match &page.fill {
+        // PNG export defaults to white background.
+        Smart::Auto => Some(Color::WHITE.into()),
+        Smart::Custom(None) => None,
+        Smart::Custom(Some(paint)) => Some(paint.clone()),
+    };
+
+    if let Some(fill) = fill {
+        if let Paint::Solid(color) = fill {
+            canvas.fill(paint::to_sk_color(color));
+        } else {
+            let rect = Geometry::Rect(page.frame.size()).filled(fill);
             shape::render_shape(&mut canvas, state, &rect);
         }
     }

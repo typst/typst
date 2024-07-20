@@ -16,7 +16,7 @@ use typst::layout::{
 };
 use typst::model::Document;
 use typst::utils::hash128;
-use typst::visualize::{Color, Geometry, Gradient, Paint, Pattern, Shape};
+use typst::visualize::{Color, Geometry, Gradient, Pattern};
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, PatternRef, SVGSubGradient};
@@ -179,21 +179,16 @@ impl SVGRenderer {
 
     /// Render a page with the given transform.
     fn render_page(&mut self, state: State, ts: Transform, page: &Page) {
-        let rect_with_background = |background: &Paint| Shape {
-            geometry: Geometry::Rect(page.frame.size()),
-            fill: Some(background.clone()),
-            stroke: None,
-        };
-
-        let rect = match &page.fill {
+        let fill = match &page.fill {
             // SVG export defaults to white background.
-            Smart::Auto => Some(rect_with_background(&Color::WHITE.into())),
+            Smart::Auto => Some(Color::WHITE.into()),
             Smart::Custom(None) => None,
-            Smart::Custom(Some(paint)) => Some(rect_with_background(paint)),
+            Smart::Custom(Some(paint)) => Some(paint.clone()),
         };
 
-        if let Some(rect) = rect {
-            self.render_shape(state, &rect);
+        if let Some(fill) = fill {
+            let shape = Geometry::Rect(page.frame.size()).filled(fill);
+            self.render_shape(state, &shape);
         }
 
         self.render_frame(state, ts, &page.frame);

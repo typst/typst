@@ -61,7 +61,8 @@ pub fn traverse_pages(
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
 fn construct_page(out: &mut Resources<()>, page: &Page) -> EncodedPage {
-    let fill = page.fill.clone().unwrap_or_default();
+    // The background defaults to transparent (`None`) in PDFs.
+    let fill = page.fill.clone().unwrap_or(None);
     let content = content::build(out, &page.frame, fill, None);
     EncodedPage { content, label: None }
 }
