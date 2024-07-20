@@ -1,5 +1,3 @@
-use typst_utils::Numeric;
-
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -10,6 +8,7 @@ use crate::layout::{
     Abs, Alignment, Angle, Axes, BlockElem, FixedAlignment, Frame, HAlignment, Length,
     Point, Ratio, Region, Regions, Rel, Size, VAlignment,
 };
+use crate::utils::Numeric;
 
 /// Moves content without affecting layout.
 ///
@@ -151,11 +150,11 @@ fn layout_rotate(
     let align = elem.origin(styles).resolve(styles);
 
     // Compute the new region's approximate size.
-    let (_, mut size) = compute_bounding_box(region.size, Transform::rotate(-angle));
-
-    if !region.size.x.is_finite() || !region.size.y.is_finite() {
-        size = Size::new(Abs::inf(), Abs::inf());
-    }
+    let size = if region.size.is_finite() {
+        compute_bounding_box(region.size, Transform::rotate(-angle)).1
+    } else {
+        Size::splat(Abs::inf())
+    };
 
     measure_and_layout(
         engine,
@@ -452,9 +451,9 @@ fn measure_and_layout(
 /// Computes the bounding box and offset of a transformed area.
 fn compute_bounding_box(size: Size, ts: Transform) -> (Point, Size) {
     let top_left = Point::zero().transform_inf(ts);
-    let top_right = Point::new(size.x, Abs::zero()).transform_inf(ts);
-    let bottom_left = Point::new(Abs::zero(), size.y).transform_inf(ts);
-    let bottom_right = Point::new(size.x, size.y).transform_inf(ts);
+    let top_right = Point::with_x(size.x).transform_inf(ts);
+    let bottom_left = Point::with_y(size.y).transform_inf(ts);
+    let bottom_right = size.to_point().transform_inf(ts);
 
     // We first compute the new bounding box of the rotated area.
     let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);
