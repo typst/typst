@@ -918,6 +918,7 @@ pub fn quo(
 /// #calc.norm2(1, 2, -3, 0.5)
 /// #calc.norm2(1in, 2cm)
 /// #calc.norm2(3em, 4em)
+/// ```
 #[func(title = "Euclidean Norm")]
 pub fn norm2(
     /// The sequence of values from which to calculate the euclidean norm.
