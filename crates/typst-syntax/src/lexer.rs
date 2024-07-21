@@ -186,7 +186,7 @@ impl Lexer<'_> {
 impl Lexer<'_> {
     fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
-            '\\' => self.backslash(),
+            '\\' => self.backslash(SyntaxKind::Escape),
             '`' => self.raw(),
             'h' if self.s.eat_if("ttp://") => self.link(),
             'h' if self.s.eat_if("ttps://") => self.link(),
@@ -226,7 +226,7 @@ impl Lexer<'_> {
         }
     }
 
-    fn backslash(&mut self) -> SyntaxKind {
+    fn backslash(&mut self, escape_kind: SyntaxKind) -> SyntaxKind {
         if self.s.eat_if("u{") {
             let hex = self.s.eat_while(char::is_ascii_alphanumeric);
             if !self.s.eat_if('}') {
@@ -241,14 +241,14 @@ impl Lexer<'_> {
                 return self.error(eco_format!("invalid Unicode codepoint: {}", hex));
             }
 
-            return SyntaxKind::Escape;
+            return escape_kind;
         }
 
         if self.s.done() || self.s.at(char::is_whitespace) {
             SyntaxKind::Linebreak
         } else {
             self.s.eat();
-            SyntaxKind::Escape
+            escape_kind
         }
     }
 
@@ -514,7 +514,7 @@ impl Lexer<'_> {
 impl Lexer<'_> {
     fn math(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
-            '\\' => self.backslash(),
+            '\\' => self.backslash(SyntaxKind::MathEscape),
             '"' => self.string(),
 
             '-' if self.s.eat_if(">>") => SyntaxKind::MathShorthand,
