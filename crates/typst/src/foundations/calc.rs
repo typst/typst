@@ -964,7 +964,10 @@ pub fn pnorm(
                             sum += abs.to_raw().powf(p.float())
                         }
                         _ => {
-                            bail!(span, "expected an absolute length"; hint: "use `to-absolute()` to convert to an absolute length")
+                            bail!(
+                                span, "expected an absolute length";
+                                hint: "use `to-absolute()` to convert to an absolute length"
+                            )
                         }
                     }
                 }
