@@ -273,6 +273,7 @@
 
 --- calc-norm-expect-abs ---
 // Error: 18-21 expected an absolute length
+// Hint: 18-21 use `to-absolute()` to convert to an absolute length
 #calc.norm2(1in, 2em)
 
 --- calc-norm-expect-em ---
@@ -281,6 +282,7 @@
 
 --- calc-norm-expect-abs-or-em ---
 // Error: 13-20 expected an absolute length or em
+// Hint: 13-20 use `to-absolute()` to convert to an absolute length
 #calc.norm2(1cm+1em)
 
 --- calc-norm-expect-number-or-length ---

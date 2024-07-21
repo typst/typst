@@ -963,7 +963,7 @@ pub fn pnorm(
                         Value::Length(Length { abs, em }) if em.is_zero() => {
                             sum += abs.to_raw().powf(p.float())
                         }
-                        _ => bail!(span, "expected an absolute length"),
+                        _ => bail!(span, "expected an absolute length"; hint: "use `to-absolute()` to convert to an absolute length"),
                     }
                 }
                 Ok(Value::Length(Length {
@@ -985,7 +985,7 @@ pub fn pnorm(
                     em: Em::new(sum.powf(1.0 / p.float())),
                 }))
             }
-            Value::Length(_) => bail!(*span, "expected an absolute length or em"),
+            Value::Length(_) => bail!(*span, "expected an absolute length or em"; hint: "use `to-absolute()` to convert to an absolute length"),
             _ => bail!(*span, "expected a number or length"),
         }
     } else {
