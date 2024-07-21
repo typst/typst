@@ -4,13 +4,12 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::ops::{Div, Rem};
 
-use crate::utils::Numeric;
-
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::eval::ops;
 use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
+use crate::utils::Numeric;
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -991,7 +990,9 @@ pub fn pnorm(
                 }))
             }
             Value::Length(_) => {
-                bail!(*span, "expected an absolute length or em"; hint: "use `to-absolute()` to convert to an absolute length")
+                bail!(
+                    *span, "expected an absolute length or em"; 
+                    hint: "use `to-absolute()` to convert to an absolute length")
             }
             _ => bail!(*span, "expected a number or length"),
         }
