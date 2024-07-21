@@ -18,6 +18,15 @@ impl Eval for ast::Math<'_> {
     }
 }
 
+impl Eval for ast::MathText<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        // TODO: Update to new element type
+        Ok(TextElem::packed(self.get().clone()))
+    }
+}
+
 impl Eval for ast::MathIdent<'_> {
     type Output = Value;
 
