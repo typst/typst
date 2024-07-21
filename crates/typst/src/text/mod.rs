@@ -512,11 +512,6 @@ pub struct TextElem {
     /// default of `auto`, prevents them. More nuanced cost specification for
     /// these modifications is planned for the future.)
     ///
-    /// The default costs are an acceptable balance, but some may find that it
-    /// hyphenates or avoids runs too eagerly, breaking the flow of dense prose.
-    /// A cost of 600% (six times the normal cost) may work better for such
-    /// contexts.
-    ///
     /// ```example
     /// #set text(hyphenate: true, size: 11.4pt)
     /// #set par(justify: true)
@@ -1298,4 +1293,14 @@ cast! {
         v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
         ret
     },
+}
+
+/// Pushes `text` wrapped in LRE/RLE + PDF to `out`.
+pub(crate) fn isolate(text: Content, styles: StyleChain, out: &mut Vec<Content>) {
+    out.push(TextElem::packed(match TextElem::dir_in(styles) {
+        Dir::RTL => "\u{202B}",
+        _ => "\u{202A}",
+    }));
+    out.push(text);
+    out.push(TextElem::packed("\u{202C}"));
 }

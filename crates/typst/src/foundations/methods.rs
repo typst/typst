@@ -1,27 +1,8 @@
 //! Handles special built-in methods on values.
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{Args, Array, Dict, Str, Type, Value};
+use crate::foundations::{Args, Str, Type, Value};
 use crate::syntax::Span;
-
-/// List the available methods for a type and whether they take arguments.
-pub fn mutable_methods_on(ty: Type) -> &'static [(&'static str, bool)] {
-    if ty == Type::of::<Array>() {
-        &[
-            ("first", false),
-            ("last", false),
-            ("at", true),
-            ("pop", false),
-            ("push", true),
-            ("insert", true),
-            ("remove", true),
-        ]
-    } else if ty == Type::of::<Dict>() {
-        &[("at", true), ("insert", true), ("remove", true)]
-    } else {
-        &[]
-    }
-}
 
 /// Whether a specific method is mutating.
 pub(crate) fn is_mutating_method(method: &str) -> bool {

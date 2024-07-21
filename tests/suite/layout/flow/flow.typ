@@ -65,3 +65,10 @@
 
 = Heading
 #lorem(6)
+
+--- issue-3355-metadata-weak-spacing ---
+#set page(height: 50pt)
+#block(width: 100%, height: 30pt, fill: aqua)
+#metadata(none)
+#v(10pt, weak: true)
+Hi

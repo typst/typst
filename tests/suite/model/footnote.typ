@@ -187,3 +187,7 @@ B #footnote[b]
 #set page(height: 50pt)
 #footnote[A]
 #footnote[B]
+
+--- issue-4454-footnote-ref-numbering ---
+// Test that footnote references are numbered correctly.
+A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.

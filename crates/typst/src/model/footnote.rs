@@ -93,6 +93,15 @@ impl FootnoteElem {
         Self::new(FootnoteBody::Reference(label))
     }
 
+    /// Creates a new footnote referencing the footnote with the specified label,
+    /// with the other fields from the current footnote cloned.
+    pub fn into_ref(&self, label: Label) -> Self {
+        Self {
+            body: FootnoteBody::Reference(label),
+            ..self.clone()
+        }
+    }
+
     /// Tests if this footnote is a reference to another footnote.
     pub fn is_ref(&self) -> bool {
         matches!(self.body(), FootnoteBody::Reference(_))

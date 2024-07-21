@@ -29,7 +29,6 @@ pdf-writer = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }
-unicode-properties = { workspace = true }
 unscanny = { workspace = true }
 xmp-writer = { workspace = true }
 

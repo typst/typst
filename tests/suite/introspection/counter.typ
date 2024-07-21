@@ -79,7 +79,7 @@ At Beta, it was #context {
 
 --- issue-2480-counter-reset ---
 #let q = counter("question")
-#let step-show =  q.step() + q.display("1")
+#let step-show =  q.step() + context q.display("1")
 #let g = grid(step-show, step-show, gutter: 2pt)
 
 #g

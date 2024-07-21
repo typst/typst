@@ -18,9 +18,9 @@ use crate::realize::StyleVec;
 ///
 /// # Example
 /// ```example
-/// #show par: set block(spacing: 0.65em)
 /// #set par(
 ///   first-line-indent: 1em,
+///   spacing: 0.65em,
 ///   justify: true,
 /// )
 ///
@@ -115,8 +115,7 @@ pub struct ParElem {
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
     /// the [paragraph spacing]($block.spacing) to the [`leading`]($par.leading)
-    /// when using this property (e.g. using
-    /// `[#show par: set block(spacing: 0.65em)]`).
+    /// when using this property (e.g. using `[#set par(spacing: 0.65em)]`).
     #[ghost]
     pub first_line_indent: Length,
 

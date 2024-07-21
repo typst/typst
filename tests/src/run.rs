@@ -359,13 +359,8 @@ fn render(document: &Document, pixel_per_pt: f32) -> sk::Pixmap {
     }
 
     let gap = Abs::pt(1.0);
-    let mut pixmap = typst_render::render_merged(
-        document,
-        pixel_per_pt,
-        Color::WHITE,
-        gap,
-        Color::BLACK,
-    );
+    let mut pixmap =
+        typst_render::render_merged(document, pixel_per_pt, gap, Some(Color::BLACK));
 
     let gap = (pixel_per_pt * gap.to_pt() as f32).round();
 

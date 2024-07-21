@@ -6,7 +6,6 @@ use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::visualize::Color;
 use typst::{Library, World};
 
 struct FuzzWorld {
@@ -39,16 +38,20 @@ impl World for FuzzWorld {
         &self.book
     }
 
-    fn main(&self) -> Source {
-        self.source.clone()
+    fn main(&self) -> FileId {
+        self.source.id()
     }
 
-    fn source(&self, src: FileId) -> FileResult<Source> {
-        Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
+    fn source(&self, id: FileId) -> FileResult<Source> {
+        if id == self.source.id() {
+            Ok(self.source.clone())
+        } else {
+            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+        }
     }
 
-    fn file(&self, src: FileId) -> FileResult<Bytes> {
-        Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
     }
 
     fn font(&self, _: usize) -> Option<Font> {
@@ -64,7 +67,7 @@ fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(text);
     if let Ok(document) = typst::compile(&world).output {
         if let Some(page) = document.pages.first() {
-            std::hint::black_box(typst_render::render(&page.frame, 1.0, Color::WHITE));
+            std::hint::black_box(typst_render::render(page, 1.0));
         }
     }
     comemo::evict(10);

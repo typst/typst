@@ -238,7 +238,7 @@ fn convert_outline_glyph_to_path(
 /// Convert a bitmap glyph to an encoded image URL.
 #[comemo::memoize]
 fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64, f64)> {
-    let raster = font.ttf().glyph_raster_image(id, std::u16::MAX)?;
+    let raster = font.ttf().glyph_raster_image(id, u16::MAX)?;
     if raster.format != ttf_parser::RasterImageFormat::PNG {
         return None;
     }

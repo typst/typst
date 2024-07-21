@@ -1,7 +1,7 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, warning, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
@@ -325,13 +325,19 @@ impl State {
         context: Tracked<Context>,
         /// The callsite span.
         span: Span,
-        /// _Compatibility:_ This argument only exists for compatibility with
-        /// Typst 0.10 and lower and shouldn't be used anymore.
+        /// _Compatibility:_ This argument is deprecated. It only exists for
+        /// compatibility with Typst 0.10 and lower and shouldn't be used
+        /// anymore.
         #[default]
         location: Option<Location>,
     ) -> SourceResult<Value> {
         if location.is_none() {
             context.location().at(span)?;
+        } else {
+            engine.sink.warn(warning!(
+                span, "calling `state.final` with a location is deprecated";
+                hint: "try removing the location argument"
+            ));
         }
 
         let sequence = self.sequence(engine)?;
@@ -365,6 +371,8 @@ impl State {
     #[func]
     pub fn display(
         self,
+        /// The engine.
+        engine: &mut Engine,
         /// The span of the `display` call.
         span: Span,
         /// A function which receives the value of the state and can return
@@ -373,6 +381,11 @@ impl State {
         #[default]
         func: Option<Func>,
     ) -> Content {
+        engine.sink.warn(warning!(
+            span, "`state.display` is deprecated";
+            hint: "use `state.get` in a `context` expression instead"
+        ));
+
         StateDisplayElem::new(self, func).pack().spanned(span)
     }
 }

@@ -116,6 +116,6 @@ impl Tag {
 
 impl Debug for Tag {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Tag({:?})", self.elem)
+        write!(f, "Tag({:?})", self.elem.elem().name())
     }
 }

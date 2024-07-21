@@ -78,3 +78,22 @@ Welcome \ here. Does this work well?
 #set text(dir: rtl)
 لآن وقد أظلم الليل وبدأت النجوم
 تنضخ وجه الطبيعة التي أعْيَتْ من طول ما انبعثت في النهار
+
+--- par-trailing-whitespace ---
+// Ensure that trailing whitespace layouts as intended.
+#box(fill: aqua, " ")
+
+--- par-empty-metadata ---
+// Check that metadata still works in a zero length paragraph.
+#block(height: 0pt)[#""#metadata(false)<hi>]
+#context test(query(<hi>).first().value, false)
+
+--- par-metadata-after-trimmed-space ---
+// Ensure that metadata doesn't prevent trailing spaces from being trimmed.
+#set par(justify: true, linebreaks: "simple")
+#set text(hyphenate: false)
+Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
+
+--- issue-4278-par-trim-before-equation ---
+#set par(justify: true)
+#lorem(6) aa $a = c + b$

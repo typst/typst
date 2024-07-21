@@ -123,7 +123,7 @@ impl SmartQuoter {
 
     /// Process the last seen character.
     pub fn last(&mut self, c: char, is_quote: bool) {
-        self.expect_opening = is_ignorable(c) || is_opening_bracket(c);
+        self.expect_opening = is_exterior_to_quote(c) || is_opening_bracket(c);
         self.last_num = c.is_numeric();
         if !is_quote {
             self.prev_quote_type = None;
@@ -150,7 +150,7 @@ impl SmartQuoter {
             self.prev_quote_type = Some(double);
             quotes.open(double)
         } else if self.quote_depth > 0
-            && (peeked.is_ascii_punctuation() || is_ignorable(peeked))
+            && (peeked.is_ascii_punctuation() || is_exterior_to_quote(peeked))
         {
             self.quote_depth -= 1;
             quotes.close(double)
@@ -168,7 +168,7 @@ impl Default for SmartQuoter {
     }
 }
 
-fn is_ignorable(c: char) -> bool {
+fn is_exterior_to_quote(c: char) -> bool {
     c.is_whitespace() || is_newline(c)
 }
 

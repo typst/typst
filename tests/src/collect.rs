@@ -48,7 +48,11 @@ impl FilePos {
 
 impl Display for FilePos {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.path.display(), self.line)
+        if self.line > 0 {
+            write!(f, "{}:{}", self.path.display(), self.line)
+        } else {
+            write!(f, "{}", self.path.display())
+        }
     }
 }
 

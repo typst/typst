@@ -282,17 +282,17 @@
   rows: (auto, 2em, auto, auto),
   table.header(
     [eeec],
-    table.cell(rowspan: 2, count.step() + count.display()),
+    table.cell(rowspan: 2, count.step() + context count.display()),
   ),
   [d],
   block(width: 5em, fill: yellow, lorem(7)),
   [d],
   table.footer(
     [eeec],
-    table.cell(rowspan: 2, count.step() + count.display()),
+    table.cell(rowspan: 2, count.step() + context count.display()),
   )
 )
-#count.display()
+#context count.display()
 
 --- grid-nested-with-footers ---
 // Nested table with footer should repeat both footers

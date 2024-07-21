@@ -127,7 +127,7 @@ impl Bytes {
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
-    /// Extracts a subslice of the bytes. Fails with an error if the start or
+    /// Extracts a subslice of the bytes. Fails with an error if the start or end
     /// index is out of bounds.
     #[func]
     pub fn slice(

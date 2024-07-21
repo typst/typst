@@ -47,7 +47,7 @@ impl<'a> Vm<'a> {
         if self.inspected == Some(var.span()) {
             self.trace(value.clone());
         }
-        self.scopes.top.define(var.get().clone(), value);
+        self.scopes.top.define_ident(var, value);
     }
 
     /// Trace a value.

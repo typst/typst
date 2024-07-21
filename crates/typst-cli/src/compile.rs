@@ -5,16 +5,15 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, FileError, Severity, SourceDiagnostic, StrResult, Warned};
+use typst::diag::{bail, Severity, SourceDiagnostic, StrResult, Warned};
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Frame, PageRanges};
+use typst::layout::{Frame, Page, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
-use typst::visualize::Color;
-use typst::{World, WorldExt};
+use typst::WorldExt;
 
 use crate::args::{
     CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
@@ -94,21 +93,6 @@ pub fn compile_once(
     let start = std::time::Instant::now();
     if watching {
         Status::Compiling.print(command).unwrap();
-    }
-
-    if let Err(errors) = world
-        .source(world.main())
-        .map_err(|err| hint_invalid_main_file(err, &command.common.input))
-    {
-        set_failed();
-        if watching {
-            Status::Error.print(command).unwrap();
-        }
-
-        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
-            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
-
-        return Ok(());
     }
 
     let Warned { output, warnings } = typst::compile(world);
@@ -284,7 +268,7 @@ fn export_image(
                 Output::Stdout => Output::Stdout,
             };
 
-            export_image_page(command, &page.frame, &output, fmt)?;
+            export_image_page(command, page, &output, fmt)?;
             Ok(())
         })
         .collect::<Result<Vec<()>, EcoString>>()?;
@@ -324,13 +308,13 @@ mod output_template {
 /// Export single image.
 fn export_image_page(
     command: &CompileCommand,
-    frame: &Frame,
+    page: &Page,
     output: &Output,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let pixmap = typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
+            let pixmap = typst_render::render(page, command.ppi / 72.0);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
@@ -339,7 +323,7 @@ fn export_image_page(
                 .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
         }
         ImageExportFormat::Svg => {
-            let svg = typst_svg::svg(frame);
+            let svg = typst_svg::svg(page);
             output
                 .write(svg.as_bytes())
                 .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
@@ -472,60 +456,30 @@ fn write_make_deps(world: &mut SystemWorld, command: &CompileCommand) -> StrResu
 /// Opens the given file using:
 /// - The default file viewer if `open` is `None`.
 /// - The given viewer provided by `open` if it is `Some`.
+///
+/// If the file could not be opened, an error is returned.
 fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+    // Some resource openers require the path to be canonicalized.
+    let path = path
+        .canonicalize()
+        .map_err(|err| eco_format!("failed to canonicalize path ({err})"))?;
     if let Some(app) = open {
-        open::with_in_background(path, app);
+        open::with_detached(&path, app)
+            .map_err(|err| eco_format!("failed to open file with {} ({})", app, err))
     } else {
-        open::that_in_background(path);
+        open::that_detached(&path).map_err(|err| {
+            let openers = open::commands(path)
+                .iter()
+                .map(|command| command.get_program().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(", ");
+            eco_format!(
+                "failed to open file with any of these resource openers: {} ({})",
+                openers,
+                err,
+            )
+        })
     }
-
-    Ok(())
-}
-
-/// Adds useful hints when the main source file couldn't be read
-/// and returns the final diagnostic.
-fn hint_invalid_main_file(
-    file_error: FileError,
-    input: &Input,
-) -> EcoVec<SourceDiagnostic> {
-    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
-    let mut diagnostic =
-        SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
-
-    // Attempt to provide helpful hints for UTF-8 errors.
-    // Perhaps the user mistyped the filename.
-    // For example, they could have written "file.pdf" instead of
-    // "file.typ".
-    if is_utf8_error {
-        if let Input::Path(path) = input {
-            let extension = path.extension();
-            if extension.is_some_and(|extension| extension == "typ") {
-                // No hints if the file is already a .typ file.
-                // The file is indeed just invalid.
-                return eco_vec![diagnostic];
-            }
-
-            match extension {
-                Some(extension) => {
-                    diagnostic.hint(eco_format!(
-                        "a file with the `.{}` extension is not usually a Typst file",
-                        extension.to_string_lossy()
-                    ));
-                }
-
-                None => {
-                    diagnostic
-                        .hint("a file without an extension is not usually a Typst file");
-                }
-            };
-
-            if path.with_extension("typ").exists() {
-                diagnostic.hint("check if you meant to use the `.typ` extension instead");
-            }
-        }
-    }
-
-    eco_vec![diagnostic]
 }
 
 /// Print diagnostic messages to the terminal.

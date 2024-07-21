@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use clap::builder::ValueParser;
+use clap::builder::{TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
 
@@ -77,7 +77,7 @@ pub struct CompileCommand {
     /// must be present if the source document renders to multiple pages. Use `{p}` for page
     /// numbers, `{0p}` for zero padded page numbers and `{t}` for page count. For example,
     /// `page-{0p}-of-{t}.png` creates `page-01-of-10.png`, `page-02-of-10.png` and so on.
-    #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
+    #[clap(required_if_eq("input", "-"), value_parser = make_output_value_parser())]
     pub output: Option<Output>,
 
     /// Which pages to export. When unspecified, all document pages are exported.
@@ -100,9 +100,11 @@ pub struct CompileCommand {
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
-    /// Opens the output file using the default viewer after compilation.
-    /// Ignored if output is stdout
-    #[arg(long = "open")]
+    /// Opens the output file with the default viewer or a specific program after
+    /// compilation
+    ///
+    /// Ignored if output is stdout.
+    #[arg(long = "open", value_name = "VIEWER")]
     pub open: Option<Option<String>>,
 
     /// The PPI (pixels per inch) to use for PNG export
@@ -175,7 +177,7 @@ pub enum SerializationFormat {
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
     /// Path to input Typst file. Use `-` to read input from stdin
-    #[clap(value_parser = input_value_parser)]
+    #[clap(value_parser = make_input_value_parser())]
     pub input: Input,
 
     /// Configures the project root (for absolute paths)
@@ -277,26 +279,30 @@ impl Display for Output {
 }
 
 /// The clap value parser used by `SharedArgs.input`
-fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
-    if value.is_empty() {
-        Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
-    } else if value == "-" {
-        Ok(Input::Stdin)
-    } else {
-        Ok(Input::Path(value.into()))
-    }
+fn make_input_value_parser() -> impl TypedValueParser<Value = Input> {
+    clap::builder::OsStringValueParser::new().try_map(|value| {
+        if value.is_empty() {
+            Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+        } else if value == "-" {
+            Ok(Input::Stdin)
+        } else {
+            Ok(Input::Path(value.into()))
+        }
+    })
 }
 
 /// The clap value parser used by `CompileCommand.output`
-fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
-    // Empty value also handled by clap for `Option<Output>`
-    if value.is_empty() {
-        Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
-    } else if value == "-" {
-        Ok(Output::Stdout)
-    } else {
-        Ok(Output::Path(value.into()))
-    }
+fn make_output_value_parser() -> impl TypedValueParser<Value = Output> {
+    clap::builder::OsStringValueParser::new().try_map(|value| {
+        // Empty value also handled by clap for `Option<Output>`
+        if value.is_empty() {
+            Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+        } else if value == "-" {
+            Ok(Output::Stdout)
+        } else {
+            Ok(Output::Path(value.into()))
+        }
+    })
 }
 
 /// Parses key/value pairs split by the first equal sign.

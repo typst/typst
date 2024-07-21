@@ -1,9 +1,10 @@
 use comemo::Tracked;
 
-use crate::diag::HintedStrResult;
+use crate::diag::{warning, HintedStrResult};
 use crate::engine::Engine;
 use crate::foundations::{func, Array, Context, LocatableSelector, Value};
 use crate::introspection::Location;
+use crate::syntax::Span;
 
 /// Finds elements in the document.
 ///
@@ -141,6 +142,8 @@ pub fn query(
     engine: &mut Engine,
     /// The callsite context.
     context: Tracked<Context>,
+    /// The span of the `query` call.
+    span: Span,
     /// Can be
     /// - an element function like a `heading` or `figure`,
     /// - a `{<label>}`,
@@ -149,13 +152,18 @@ pub fn query(
     ///
     /// Only [locatable]($location/#locatable) element functions are supported.
     target: LocatableSelector,
-    /// _Compatibility:_ This argument only exists for compatibility with
-    /// Typst 0.10 and lower and shouldn't be used anymore.
+    /// _Compatibility:_ This argument is deprecated. It only exists for
+    /// compatibility with Typst 0.10 and lower and shouldn't be used anymore.
     #[default]
     location: Option<Location>,
 ) -> HintedStrResult<Array> {
     if location.is_none() {
         context.introspect()?;
+    } else {
+        engine.sink.warn(warning!(
+            span, "calling `query` with a location is deprecated";
+            hint: "try removing the location argument"
+        ));
     }
 
     let vec = engine.introspector.query(&target.0);

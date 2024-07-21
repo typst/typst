@@ -177,8 +177,8 @@ impl Show for Packed<RefElem> {
 
         let elem = elem.at(span)?;
 
-        if elem.func() == FootnoteElem::elem() {
-            return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+        if let Some(footnote) = elem.to_packed::<FootnoteElem>() {
+            return Ok(footnote.into_ref(target).pack().spanned(span));
         }
 
         let elem = elem.clone();

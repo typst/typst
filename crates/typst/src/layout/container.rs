@@ -910,6 +910,7 @@ mod callbacks {
                         //   private field and `Content`'s `Clone` impl is
                         //   guaranteed to retain the type (if it didn't,
                         //   literally everything would break).
+                        #[allow(clippy::missing_transmute_annotations)]
                         f: unsafe { std::mem::transmute(f) },
                     }
                 }

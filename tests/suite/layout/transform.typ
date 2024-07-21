@@ -74,7 +74,7 @@ Hello #rotated[World]!\
 Hello #rotated[World]!
 
 --- transform-scale ---
-// Test that scaling impact layout.
+// Test that scaling impacts layout.
 #set page(width: 200pt)
 #set text(size: 32pt)
 #let scaled(body) = box(scale(
@@ -104,3 +104,14 @@ Hello #scaled[World]!\
 
 #set scale(reflow: true)
 Hello #scaled[World]!
+
+--- transform-scale-abs-and-auto ---
+// Test scaling by absolute lengths and auto.
+#set page(width: 200pt, height: 200pt)
+#let cylinder = image("/assets/images/cylinder.svg")
+
+#cylinder
+#scale(x: 100pt, y: 50pt, reflow: true, cylinder)
+#scale(x: auto, y: 50pt, reflow: true, cylinder)
+#scale(x: 100pt, y: auto, reflow: true, cylinder)
+#scale(x: 150%, y: auto, reflow: true, cylinder)

@@ -1,6 +1,6 @@
 use comemo::Tracked;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{warning, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     dict, func, Content, Context, Dict, Resolve, Smart, StyleChain, Styles,
@@ -76,13 +76,19 @@ pub fn measure(
     height: Smart<Length>,
     /// The content whose size to measure.
     content: Content,
-    /// _Compatibility:_ This argument only exists for compatibility with
-    /// Typst 0.10 and lower and shouldn't be used anymore.
+    /// _Compatibility:_ This argument is deprecated. It only exists for
+    /// compatibility with Typst 0.10 and lower and shouldn't be used anymore.
     #[default]
     styles: Option<Styles>,
 ) -> SourceResult<Dict> {
     let styles = match &styles {
-        Some(styles) => StyleChain::new(styles),
+        Some(styles) => {
+            engine.sink.warn(warning!(
+                span, "calling `measure` with a styles argument is deprecated";
+                hint: "try removing the styles argument"
+            ));
+            StyleChain::new(styles)
+        }
         None => context.styles().at(span)?,
     };
 

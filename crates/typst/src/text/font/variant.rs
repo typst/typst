@@ -110,7 +110,7 @@ impl FontWeight {
     /// Create a font weight from a number between 100 and 900, clamping it if
     /// necessary.
     pub fn from_number(weight: u16) -> Self {
-        Self(weight.max(100).min(900))
+        Self(weight.clamp(100, 900))
     }
 
     /// The number between 100 and 900.
@@ -120,7 +120,7 @@ impl FontWeight {
 
     /// Add (or remove) weight, saturating at the boundaries of 100 and 900.
     pub fn thicken(self, delta: i16) -> Self {
-        Self((self.0 as i16).saturating_add(delta).max(100).min(900) as u16)
+        Self((self.0 as i16).saturating_add(delta).clamp(100, 900) as u16)
     }
 
     /// The absolute number distance between this and another font weight.
@@ -219,7 +219,7 @@ impl FontStretch {
     /// Create a font stretch from a ratio between 0.5 and 2.0, clamping it if
     /// necessary.
     pub fn from_ratio(ratio: Ratio) -> Self {
-        Self((ratio.get().max(0.5).min(2.0) * 1000.0) as u16)
+        Self((ratio.get().clamp(0.5, 2.0) * 1000.0) as u16)
     }
 
     /// Create a font stretch from an OpenType-style number between 1 and 9,

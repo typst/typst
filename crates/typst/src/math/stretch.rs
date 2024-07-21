@@ -39,7 +39,13 @@ fn stretch_glyph(
     short_fall: Abs,
     horizontal: bool,
 ) -> VariantFragment {
+    // If the base glyph is good enough, use it.
+    let advance = if horizontal { base.width } else { base.height() };
     let short_target = target - short_fall;
+    if short_target <= advance {
+        return base.into_variant();
+    }
+
     let mut min_overlap = Abs::zero();
     let construction = ctx
         .table
@@ -54,12 +60,6 @@ fn stretch_glyph(
             .get(base.id)
         })
         .unwrap_or(GlyphConstruction { assembly: None, variants: LazyArray16::new(&[]) });
-
-    // If the base glyph is good enough, use it.
-    let advance = if horizontal { base.width } else { base.height() };
-    if short_target <= advance {
-        return base.into_variant();
-    }
 
     // Search for a pre-made variant with a good advance.
     let mut best_id = base.id;

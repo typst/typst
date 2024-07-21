@@ -95,7 +95,7 @@ pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>)
                     svg_chunk.renumber_into(&mut chunk.chunk, |old| {
                         *map.entry(old).or_insert_with(|| chunk.alloc.bump())
                     });
-                    out.insert(image.clone(), map[&id]);
+                    out.insert(image.clone(), map[id]);
                 }
             }
         }

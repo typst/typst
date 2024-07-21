@@ -782,7 +782,7 @@ impl<T: NativeElement> Packed<T> {
             // Safety:
             // - We have checked the type.
             // - Packed<T> is repr(transparent).
-            return Some(unsafe { std::mem::transmute(content) });
+            return Some(unsafe { std::mem::transmute::<&Content, &Packed<T>>(content) });
         }
         None
     }
@@ -793,7 +793,9 @@ impl<T: NativeElement> Packed<T> {
             // Safety:
             // - We have checked the type.
             // - Packed<T> is repr(transparent).
-            return Some(unsafe { std::mem::transmute(content) });
+            return Some(unsafe {
+                std::mem::transmute::<&mut Content, &mut Packed<T>>(content)
+            });
         }
         None
     }
@@ -804,7 +806,7 @@ impl<T: NativeElement> Packed<T> {
             // Safety:
             // - We have checked the type.
             // - Packed<T> is repr(transparent).
-            return Ok(unsafe { std::mem::transmute(content) });
+            return Ok(unsafe { std::mem::transmute::<Content, Packed<T>>(content) });
         }
         Err(content)
     }
