@@ -261,30 +261,30 @@
 #calc.max(1em, 1pt)
 
 --- calc-norm ---
-#test(calc.norm2(1, 2, -3, 0.5), calc.sqrt(14.25))
-#test(calc.norm2(3cm, 4cm), 5cm)
-#test(calc.norm2(3em, 4em), 5em)
-#test(calc.norm2(), 0)
-#test(calc.pnorm(3, 1, 2), calc.pow(9, 1/3))
+#test(calc.norm(1, 2, -3, 0.5), calc.sqrt(14.25))
+#test(calc.norm(3cm, 4cm), 5cm)
+#test(calc.norm(3em, 4em), 5em)
+#test(calc.norm(), 0)
+#test(calc.norm(p: 3, 1, 2), calc.pow(9, 1/3))
 
 --- calc-norm-expect-number ---
-// Error: 16-19 expected a number
-#calc.norm2(1, 1in)
+// Error: 15-18 expected a number
+#calc.norm(1, 1in)
 
 --- calc-norm-expect-abs ---
-// Error: 18-21 expected an absolute length
-// Hint: 18-21 use `to-absolute()` to convert to an absolute length
-#calc.norm2(1in, 2em)
+// Error: 17-20 expected an absolute length
+// Hint: 17-20 use `to-absolute()` to convert to an absolute length
+#calc.norm(1in, 2em)
 
 --- calc-norm-expect-em ---
-// Error: 18-21 expected an em
-#calc.norm2(1em, 2in)
+// Error: 17-20 expected an em
+#calc.norm(1em, 2in)
 
 --- calc-norm-expect-abs-or-em ---
-// Error: 13-20 expected an absolute length or em
-// Hint: 13-20 use `to-absolute()` to convert to an absolute length
-#calc.norm2(1cm+1em)
+// Error: 12-19 expected an absolute length or em
+// Hint: 12-19 use `to-absolute()` to convert to an absolute length
+#calc.norm(1cm+1em)
 
 --- calc-norm-expect-number-or-length ---
-// Error: 13-16 expected a number or length
-#calc.norm2(10%)
+// Error: 12-15 expected a number or length
+#calc.norm(10%)

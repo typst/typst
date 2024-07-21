@@ -50,8 +50,7 @@ pub fn module() -> Module {
     scope.define_func::<div_euclid>();
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
-    scope.define_func::<norm2>();
-    scope.define_func::<pnorm>();
+    scope.define_func::<norm>();
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
@@ -911,32 +910,18 @@ pub fn quo(
     Ok(floor(dividend.apply2(divisor.v, Div::div, Div::div)))
 }
 
-/// Calculates the euclidean norm of a sequence of values.
-///
-/// ```example
-/// #calc.norm2(1, 2, -3, 0.5)
-/// #calc.norm2(1in, 2cm)
-/// #calc.norm2(3em, 4em)
-/// ```
-#[func(title = "Euclidean Norm")]
-pub fn norm2(
-    /// The sequence of values from which to calculate the euclidean norm.
-    #[variadic]
-    values: Vec<Spanned<Value>>,
-) -> SourceResult<Value> {
-    pnorm(Num::Int(2), values)
-}
-
 /// Calculates the p-norm of a sequence of values.
 ///
 /// ```example
-/// #calc.pnorm(2, 1, 2, -3, 0.5)
-/// #calc.pnorm(3, 1in, 2cm)
-/// #calc.pnorm(1.5, 3em, 4em)
+/// #calc.norm(1, 2, -3, 0.5)
+/// #calc.norm(p: 3, 1in, 2cm)
+/// #calc.norm(3em, 4em)
 /// ```
 #[func(title = "P-Norm")]
-pub fn pnorm(
+pub fn norm(
     /// The p value to calculate the p-norm of.
+    #[named]
+    #[default(Num::Int(2))]
     p: Num,
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.
