@@ -75,6 +75,8 @@ pub enum SyntaxKind {
     Math,
     /// An identifier in math: `pi`.
     MathIdent,
+    /// An escape sequence in math: `\$`.
+    MathEscape,
     /// A shorthand for a unicode codepoint in math: `a <= b`.
     MathShorthand,
     /// An alignment point in math: `&`.
@@ -402,6 +404,7 @@ impl SyntaxKind {
             Self::Equation => "equation",
             Self::Math => "math",
             Self::MathIdent => "math identifier",
+            Self::MathEscape => "escape sequence",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
             Self::MathDelimited => "delimited math",

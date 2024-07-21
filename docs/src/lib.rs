@@ -679,8 +679,8 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
             list.push(SymbolModel {
                 name: complete(variant),
-                markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
-                math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
+                markup_shorthand: shorthand(typst::syntax::ast::Shorthand::MARKUP),
+                math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH),
                 codepoint: c as _,
                 accent: typst::math::Accent::combine(c).is_some(),
                 alternates: symbol

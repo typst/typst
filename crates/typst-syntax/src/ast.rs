@@ -125,8 +125,6 @@ pub enum Expr<'a> {
     Math(Math<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
-    /// A shorthand for a unicode codepoint in math: `a <= b`.
-    MathShorthand(MathShorthand<'a>),
     /// An alignment point in math: `&`.
     MathAlignPoint(MathAlignPoint<'a>),
     /// Matched delimiters in math: `[x + y]`.
@@ -234,7 +232,10 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Equation => node.cast().map(Self::Equation),
             SyntaxKind::Math => node.cast().map(Self::Math),
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
-            SyntaxKind::MathShorthand => node.cast().map(Self::MathShorthand),
+            // `MathEscape` and `MathShorthand` have a `from_math` function to
+            // determine their actual kind.
+            SyntaxKind::MathEscape => Some(Self::Escape(Escape(node))),
+            SyntaxKind::MathShorthand => Some(Self::Shorthand(Shorthand(node))),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
             SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
@@ -298,7 +299,6 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Equation(v) => v.to_untyped(),
             Self::Math(v) => v.to_untyped(),
             Self::MathIdent(v) => v.to_untyped(),
-            Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
             Self::MathDelimited(v) => v.to_untyped(),
             Self::MathAttach(v) => v.to_untyped(),
@@ -444,6 +444,11 @@ impl Escape<'_> {
             s.eat().unwrap_or_default()
         }
     }
+
+    /// Whether this element came from math or markup.
+    pub fn from_math(&self) -> bool {
+        self.0.kind() == SyntaxKind::MathEscape
+    }
 }
 
 node! {
@@ -454,7 +459,7 @@ node! {
 
 impl Shorthand<'_> {
     /// A list of all shorthands in markup mode.
-    pub const LIST: &'static [(&'static str, char)] = &[
+    pub const MARKUP: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("~", '\u{00A0}'),
         ("-", '\u{2212}'), // Only before a digit
@@ -463,13 +468,60 @@ impl Shorthand<'_> {
         ("-?", '\u{00AD}'),
     ];
 
+    /// A list of all shorthands in math mode.
+    pub const MATH: &'static [(&'static str, char)] = &[
+        ("...", '…'),
+        ("-", '−'),
+        ("*", '∗'),
+        ("~", '∼'),
+        ("!=", '≠'),
+        (":=", '≔'),
+        ("::=", '⩴'),
+        ("=:", '≕'),
+        ("<<", '≪'),
+        ("<<<", '⋘'),
+        (">>", '≫'),
+        (">>>", '⋙'),
+        ("<=", '≤'),
+        (">=", '≥'),
+        ("->", '→'),
+        ("-->", '⟶'),
+        ("|->", '↦'),
+        (">->", '↣'),
+        ("->>", '↠'),
+        ("<-", '←'),
+        ("<--", '⟵'),
+        ("<-<", '↢'),
+        ("<<-", '↞'),
+        ("<->", '↔'),
+        ("<-->", '⟷'),
+        ("~>", '⇝'),
+        ("~~>", '⟿'),
+        ("<~", '⇜'),
+        ("<~~", '⬳'),
+        ("=>", '⇒'),
+        ("|=>", '⤇'),
+        ("==>", '⟹'),
+        ("<==", '⟸'),
+        ("<=>", '⇔'),
+        ("<==>", '⟺'),
+        ("[|", '⟦'),
+        ("|]", '⟧'),
+        ("||", '‖'),
+    ];
+
     /// Get the shorthanded character.
     pub fn get(self) -> char {
         let text = self.0.text();
-        Self::LIST
-            .iter()
+        let list = if self.from_math() { Self::MATH } else { Self::MARKUP };
+        list.iter()
             .find(|&&(s, _)| s == text)
             .map_or_else(char::default, |&(_, c)| c)
+    }
+
+    /// Whether this element came from math or markup.
+    pub fn from_math(&self) -> bool {
+        self.0.kind() == SyntaxKind::MathShorthand
     }
 }
 
@@ -730,64 +782,6 @@ impl Deref for MathIdent<'_> {
     /// may need to use [`get()`](Self::get) instead in some situations.
     fn deref(&self) -> &Self::Target {
         self.as_str()
-    }
-}
-
-node! {
-    /// A shorthand for a unicode codepoint in math: `a <= b`.
-    MathShorthand
-}
-
-impl MathShorthand<'_> {
-    /// A list of all shorthands in math mode.
-    pub const LIST: &'static [(&'static str, char)] = &[
-        ("...", '…'),
-        ("-", '−'),
-        ("*", '∗'),
-        ("~", '∼'),
-        ("!=", '≠'),
-        (":=", '≔'),
-        ("::=", '⩴'),
-        ("=:", '≕'),
-        ("<<", '≪'),
-        ("<<<", '⋘'),
-        (">>", '≫'),
-        (">>>", '⋙'),
-        ("<=", '≤'),
-        (">=", '≥'),
-        ("->", '→'),
-        ("-->", '⟶'),
-        ("|->", '↦'),
-        (">->", '↣'),
-        ("->>", '↠'),
-        ("<-", '←'),
-        ("<--", '⟵'),
-        ("<-<", '↢'),
-        ("<<-", '↞'),
-        ("<->", '↔'),
-        ("<-->", '⟷'),
-        ("~>", '⇝'),
-        ("~~>", '⟿'),
-        ("<~", '⇜'),
-        ("<~~", '⬳'),
-        ("=>", '⇒'),
-        ("|=>", '⤇'),
-        ("==>", '⟹'),
-        ("<==", '⟸'),
-        ("<=>", '⇔'),
-        ("<==>", '⟺'),
-        ("[|", '⟦'),
-        ("|]", '⟧'),
-        ("||", '‖'),
-    ];
-
-    /// Get the shorthanded character.
-    pub fn get(self) -> char {
-        let text = self.0.text();
-        Self::LIST
-            .iter()
-            .find(|&&(s, _)| s == text)
-            .map_or_else(char::default, |&(_, c)| c)
     }
 }
 

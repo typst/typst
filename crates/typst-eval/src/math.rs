@@ -1,6 +1,6 @@
 use ecow::eco_format;
 use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Content, NativeElement, Symbol, Value};
+use typst_library::foundations::{Content, NativeElement, Value};
 use typst_library::math::{
     AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem,
 };
@@ -25,14 +25,6 @@ impl Eval for ast::MathIdent<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.get_in_math(&self).cloned().at(self.span())
-    }
-}
-
-impl Eval for ast::MathShorthand<'_> {
-    type Output = Value;
-
-    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::single(self.get())))
     }
 }
 
