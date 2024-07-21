@@ -123,6 +123,8 @@ pub enum Expr<'a> {
     Equation(Equation<'a>),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math<'a>),
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
+    MathText(MathText<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
     /// A shorthand for a unicode codepoint in math: `a <= b`.
@@ -233,6 +235,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::TermItem => node.cast().map(Self::Term),
             SyntaxKind::Equation => node.cast().map(Self::Equation),
             SyntaxKind::Math => node.cast().map(Self::Math),
+            SyntaxKind::MathText => node.cast().map(Self::MathText),
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
             SyntaxKind::MathShorthand => node.cast().map(Self::MathShorthand),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
@@ -297,6 +300,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Term(v) => v.to_untyped(),
             Self::Equation(v) => v.to_untyped(),
             Self::Math(v) => v.to_untyped(),
+            Self::MathText(v) => v.to_untyped(),
             Self::MathIdent(v) => v.to_untyped(),
             Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
@@ -703,6 +707,34 @@ impl<'a> Math<'a> {
     /// The expressions the mathematical content consists of.
     pub fn exprs(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
         self.0.children().filter_map(Expr::cast_with_space)
+    }
+}
+
+node! {
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
+    MathText
+}
+
+/// The underlying text kind.
+pub enum MathTextKind<'a> {
+    Character(char),
+    Number(&'a EcoString),
+}
+
+impl<'a> MathText<'a> {
+    /// Return the underlying text.
+    pub fn get(self) -> MathTextKind<'a> {
+        let text = self.0.text();
+        let mut chars = text.chars();
+        let c = chars.next().unwrap();
+        if c.is_numeric() {
+            // Numbers are potentially grouped as multiple characters. This is
+            // done in `Lexer::math_text()`.
+            MathTextKind::Number(text)
+        } else {
+            assert!(chars.next().is_none());
+            MathTextKind::Character(c)
+        }
     }
 }
 

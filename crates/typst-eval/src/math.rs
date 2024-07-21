@@ -5,7 +5,7 @@ use typst_library::math::{
     AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode, MathTextKind};
 
 use crate::{Eval, Vm};
 
@@ -17,6 +17,18 @@ impl Eval for ast::Math<'_> {
                 .map(|expr| expr.eval_display(vm))
                 .collect::<SourceResult<Vec<_>>>()?,
         ))
+    }
+}
+
+impl Eval for ast::MathText<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        match self.get() {
+            // TODO: change to `SymbolElem` when added
+            MathTextKind::Character(c) => Ok(Value::Symbol(Symbol::single(c)).display()),
+            MathTextKind::Number(text) => Ok(TextElem::packed(text.clone())),
+        }
     }
 }
 

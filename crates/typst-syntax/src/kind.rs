@@ -75,6 +75,8 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
+    MathText,
     /// An identifier in math: `pi`.
     MathIdent,
     /// A shorthand for a unicode codepoint in math: `a <= b`.
@@ -408,6 +410,7 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
+            Self::MathText => "math text",
             Self::MathIdent => "math identifier",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",

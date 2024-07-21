@@ -171,6 +171,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Equation => None,
 
         SyntaxKind::Math => None,
+        SyntaxKind::MathText => None,
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
