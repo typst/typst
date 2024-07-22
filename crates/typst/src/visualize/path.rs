@@ -148,7 +148,7 @@ fn layout_path(
 
     // Prepare fill and stroke.
     let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule.unwrap_or_default();
+    let fill_rule = elem.fill_rule(styles);
     let stroke = match elem.stroke(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
