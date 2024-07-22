@@ -5,7 +5,7 @@ use ttf_parser::OutlineBuilder;
 use typst::foundations::Repr;
 use typst::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
 use typst::utils::hash128;
-use typst::visualize::{Color, Gradient, Paint, Pattern, RatioOrAngle};
+use typst::visualize::{Color, FillRule, Gradient, Paint, Pattern, RatioOrAngle};
 use xmlwriter::XmlWriter;
 
 use crate::{Id, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
@@ -31,7 +31,13 @@ impl SVGRenderer {
     }
 
     /// Write a fill attribute.
-    pub(super) fn write_fill(&mut self, fill: &Paint, size: Size, ts: Transform) {
+    pub(super) fn write_fill(
+        &mut self,
+        fill: &Paint,
+        fill_rule: FillRule,
+        size: Size,
+        ts: Transform,
+    ) {
         match fill {
             Paint::Solid(color) => self.xml.write_attribute("fill", &color.encode()),
             Paint::Gradient(gradient) => {
@@ -42,6 +48,10 @@ impl SVGRenderer {
                 let id = self.push_pattern(pattern, size, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
+        }
+        match fill_rule {
+            FillRule::NonZero => self.xml.write_attribute("fill-rule", "nonzero"),
+            FillRule::EvenOdd => self.xml.write_attribute("fill-rule", "evenodd"),
         }
     }
 

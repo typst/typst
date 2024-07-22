@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use native_tls::{Certificate, TlsConnector};
-use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use ureq::Response;
 
 use crate::terminal;
@@ -16,13 +16,22 @@ use crate::terminal;
 /// Keep track of this many download speed samples.
 const SPEED_SAMPLES: usize = 5;
 
-/// Lazily loads a custom CA certificate if present, but if there's an error
-/// loading certificate, it just uses the default configuration.
-static CERT: Lazy<Option<Certificate>> = Lazy::new(|| {
-    let path = crate::ARGS.cert.as_ref()?;
-    let pem = std::fs::read(path).ok()?;
-    Certificate::from_pem(&pem).ok()
-});
+/// Load a certificate from the file system if the `--cert` argument or
+/// `TYPST_CERT` environment variable is present. The certificate is cached for
+/// efficiency.
+///
+/// - Returns `None` if `--cert` and `TYPST_CERT` are not set.
+/// - Returns `Some(Ok(cert))` if the certificate was loaded successfully.
+/// - Returns `Some(Err(err))` if an error occurred while loading the certificate.
+fn cert() -> Option<Result<&'static Certificate, io::Error>> {
+    static CERT: OnceCell<Certificate> = OnceCell::new();
+    crate::ARGS.cert.as_ref().map(|path| {
+        CERT.get_or_try_init(|| {
+            let pem = std::fs::read(path)?;
+            Certificate::from_pem(&pem).map_err(io::Error::other)
+        })
+    })
+}
 
 /// Download binary data and display its progress.
 #[allow(clippy::result_large_err)]
@@ -49,8 +58,8 @@ pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
     }
 
     // Apply a custom CA certificate if present.
-    if let Some(cert) = &*CERT {
-        tls.add_root_certificate(cert.clone());
+    if let Some(cert) = cert() {
+        tls.add_root_certificate(cert?.clone());
     }
 
     // Configure native TLS.

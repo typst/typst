@@ -12,7 +12,6 @@ use subsetter::GlyphRemapper;
 use ttf_parser::{name_id, GlyphId, Tag};
 use typst::text::Font;
 use typst::utils::SliceExt;
-use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use crate::{deflate, EmExt, PdfChunk, WithGlobalRefs};
 
@@ -224,38 +223,6 @@ pub(crate) fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
         hash /= BASE;
     }
     std::str::from_utf8(&letter).unwrap().into()
-}
-
-/// For glyphs that have codepoints mapping to them in the font's cmap table, we
-/// prefer them over pre-existing text mappings from the document. Only things
-/// that don't have a corresponding codepoint (or only a private-use one) like
-/// the "Th" in Linux Libertine get the text of their first occurrences in the
-/// document instead.
-///
-/// This function replaces as much copepoints from the document with ones from
-/// the cmap table as possible.
-pub fn improve_glyph_sets(glyph_sets: &mut HashMap<Font, BTreeMap<u16, EcoString>>) {
-    for (font, glyph_set) in glyph_sets {
-        let ttf = font.ttf();
-
-        for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
-            if !subtable.is_unicode() {
-                continue;
-            }
-
-            subtable.codepoints(|n| {
-                let Some(c) = std::char::from_u32(n) else { return };
-                if c.general_category() == GeneralCategory::PrivateUse {
-                    return;
-                }
-
-                let Some(GlyphId(g)) = ttf.glyph_index(c) else { return };
-                if glyph_set.contains_key(&g) {
-                    glyph_set.insert(g, c.into());
-                }
-            });
-        }
-    }
 }
 
 /// Create a compressed `/ToUnicode` CMap.

@@ -49,7 +49,7 @@ pub use self::float::*;
 pub use self::func::*;
 pub use self::int::*;
 pub use self::label::*;
-pub use self::methods::*;
+pub(crate) use self::methods::*;
 pub use self::module::*;
 pub use self::none::*;
 pub use self::plugin::*;

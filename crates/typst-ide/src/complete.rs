@@ -5,8 +5,8 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
-    NoneValue, Repr, Scope, StyleChain, Styles, Type, Value,
+    fields_on, format_str, repr, AutoValue, CastInfo, Func, Label, NoneValue, Repr,
+    Scope, StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
 use typst::syntax::{
@@ -394,19 +394,6 @@ fn field_access_completions(
         for (name, value, _) in scope.iter() {
             ctx.value_completion(Some(name.clone()), value, true, None);
         }
-    }
-
-    for &(method, args) in mutable_methods_on(value.ty()) {
-        ctx.completions.push(Completion {
-            kind: CompletionKind::Func,
-            label: method.into(),
-            apply: Some(if args {
-                eco_format!("{method}(${{}})")
-            } else {
-                eco_format!("{method}()${{}}")
-            }),
-            detail: None,
-        })
     }
 
     for &field in fields_on(value.ty()) {
@@ -1394,7 +1381,7 @@ mod tests {
     }
 
     #[test]
-    fn test_whitespace_in_autocomplete() {
+    fn test_autocomplete_whitespace() {
         //Check that extra space before '.' is handled correctly.
         test("#() .", 5, &[], &["insert", "remove", "len", "all"]);
         test("#{() .}", 6, &["insert", "remove", "len", "all"], &["foo"]);
@@ -1404,10 +1391,16 @@ mod tests {
     }
 
     #[test]
-    fn test_before_window_char_boundary() {
+    fn test_autocomplete_before_window_char_boundary() {
         // Check that the `before_window` doesn't slice into invalid byte
         // boundaries.
         let s = "😀😀     #text(font: \"\")";
         test(s, s.len() - 2, &[], &[]);
+    }
+
+    #[test]
+    fn test_autocomplete_mutable_method() {
+        let s = "#{ let x = (1, 2, 3); x. }";
+        test(s, s.len() - 2, &["at", "push", "pop"], &[]);
     }
 }

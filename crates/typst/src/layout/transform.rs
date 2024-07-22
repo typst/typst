@@ -1,13 +1,18 @@
-use crate::diag::SourceResult;
+use std::ops::Div;
+
+use once_cell::unsync::Lazy;
+
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
+    cast, elem, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
 };
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Alignment, Angle, Axes, BlockElem, FixedAlignment, Frame, HAlignment, Length,
     Point, Ratio, Region, Regions, Rel, Size, VAlignment,
 };
+use crate::utils::Numeric;
 
 /// Moves content without affecting layout.
 ///
@@ -149,12 +154,11 @@ fn layout_rotate(
     let align = elem.origin(styles).resolve(styles);
 
     // Compute the new region's approximate size.
-    let size = region
-        .size
-        .to_point()
-        .transform_inf(Transform::rotate(angle))
-        .map(Abs::abs)
-        .to_size();
+    let size = if region.size.is_finite() {
+        compute_bounding_box(region.size, Transform::rotate(-angle)).1
+    } else {
+        Size::splat(Abs::inf())
+    };
 
     measure_and_layout(
         engine,
@@ -188,15 +192,15 @@ pub struct ScaleElem {
         let all = args.find()?;
         args.named("x")?.or(all)
     )]
-    #[default(Ratio::one())]
-    pub x: Ratio,
+    #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
+    pub x: Smart<ScaleAmount>,
 
     /// The vertical scaling factor.
     ///
     /// The body will be mirrored vertically if the parameter is negative.
     #[parse(args.named("y")?.or(all))]
-    #[default(Ratio::one())]
-    pub y: Ratio,
+    #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
+    pub y: Smart<ScaleAmount>,
 
     /// The origin of the transformation.
     ///
@@ -242,12 +246,12 @@ fn layout_scale(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let sx = elem.x(styles);
-    let sy = elem.y(styles);
-    let align = elem.origin(styles).resolve(styles);
-
     // Compute the new region's approximate size.
-    let size = region.size.zip_map(Axes::new(sx, sy), |r, s| s.of(r)).map(Abs::abs);
+    let scale = elem.resolve_scale(engine, locator.relayout(), region.size, styles)?;
+    let size = region
+        .size
+        .zip_map(scale, |r, s| if r.is_finite() { Ratio::new(1.0 / s).of(r) } else { r })
+        .map(Abs::abs);
 
     measure_and_layout(
         engine,
@@ -256,10 +260,82 @@ fn layout_scale(
         size,
         styles,
         elem.body(),
-        Transform::scale(sx, sy),
-        align,
+        Transform::scale(scale.x, scale.y),
+        elem.origin(styles).resolve(styles),
         elem.reflow(styles),
     )
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+enum ScaleAmount {
+    Ratio(Ratio),
+    Length(Length),
+}
+
+impl Packed<ScaleElem> {
+    /// Resolves scale parameters, preserving aspect ratio if one of the scales is set to `auto`.
+    fn resolve_scale(
+        &self,
+        engine: &mut Engine,
+        locator: Locator,
+        container: Size,
+        styles: StyleChain,
+    ) -> SourceResult<Axes<Ratio>> {
+        fn resolve_axis(
+            axis: Smart<ScaleAmount>,
+            body: impl Fn() -> SourceResult<Abs>,
+            styles: StyleChain,
+        ) -> SourceResult<Smart<Ratio>> {
+            Ok(match axis {
+                Smart::Auto => Smart::Auto,
+                Smart::Custom(amt) => Smart::Custom(match amt {
+                    ScaleAmount::Ratio(ratio) => ratio,
+                    ScaleAmount::Length(length) => {
+                        let length = length.resolve(styles);
+                        Ratio::new(length.div(body()?))
+                    }
+                }),
+            })
+        }
+
+        let size = Lazy::new(|| {
+            let pod = Regions::one(container, Axes::splat(false));
+            let frame = self.body().layout(engine, locator, styles, pod)?.into_frame();
+            SourceResult::Ok(frame.size())
+        });
+
+        let x = resolve_axis(
+            self.x(styles),
+            || size.as_ref().map(|size| size.x).map_err(Clone::clone),
+            styles,
+        )?;
+
+        let y = resolve_axis(
+            self.y(styles),
+            || size.as_ref().map(|size| size.y).map_err(Clone::clone),
+            styles,
+        )?;
+
+        match (x, y) {
+            (Smart::Auto, Smart::Auto) => {
+                bail!(self.span(), "x and y cannot both be auto")
+            }
+            (Smart::Custom(x), Smart::Custom(y)) => Ok(Axes::new(x, y)),
+            (Smart::Auto, Smart::Custom(v)) | (Smart::Custom(v), Smart::Auto) => {
+                Ok(Axes::splat(v))
+            }
+        }
+    }
+}
+
+cast! {
+    ScaleAmount,
+    self => match self {
+        ScaleAmount::Ratio(ratio) => ratio.into_value(),
+        ScaleAmount::Length(length) => length.into_value(),
+    },
+    ratio: Ratio => ScaleAmount::Ratio(ratio),
+    length: Length => ScaleAmount::Length(length),
 }
 
 /// A scale-skew-translate transformation.
@@ -416,7 +492,7 @@ fn measure_and_layout(
             .pre_concat(Transform::translate(-x, -y));
 
         // Compute the bounding box and offset and wrap in a new frame.
-        let (offset, size) = compute_bounding_box(&frame, ts);
+        let (offset, size) = compute_bounding_box(frame.size(), ts);
         frame.transform(ts);
         frame.translate(offset);
         frame.set_size(size);
@@ -439,20 +515,20 @@ fn measure_and_layout(
     }
 }
 
-/// Computes the bounding box and offset of a transformed frame.
-fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
+/// Computes the bounding box and offset of a transformed area.
+fn compute_bounding_box(size: Size, ts: Transform) -> (Point, Size) {
     let top_left = Point::zero().transform_inf(ts);
-    let top_right = Point::new(frame.width(), Abs::zero()).transform_inf(ts);
-    let bottom_left = Point::new(Abs::zero(), frame.height()).transform_inf(ts);
-    let bottom_right = Point::new(frame.width(), frame.height()).transform_inf(ts);
+    let top_right = Point::with_x(size.x).transform_inf(ts);
+    let bottom_left = Point::with_y(size.y).transform_inf(ts);
+    let bottom_right = size.to_point().transform_inf(ts);
 
-    // We first compute the new bounding box of the rotated frame.
+    // We first compute the new bounding box of the rotated area.
     let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);
     let min_y = top_left.y.min(top_right.y).min(bottom_left.y).min(bottom_right.y);
     let max_x = top_left.x.max(top_right.x).max(bottom_left.x).max(bottom_right.x);
     let max_y = top_left.y.max(top_right.y).max(bottom_left.y).max(bottom_right.y);
 
-    // Then we compute the new size of the frame.
+    // Then we compute the new size of the area.
     let width = max_x - min_x;
     let height = max_y - min_y;
 
