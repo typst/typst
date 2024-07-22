@@ -258,63 +258,40 @@ impl Lexer<'_> {
         let name = self.annotation_name(current_start);
         subtree.push(self.emit_token(name, current_start));
 
-        // Left parenthesis before annotation arguments.
+        // Optional left parenthesis before annotation arguments.
         let current_start = self.s.cursor();
-        if !self.s.eat_if('(') {
-            self.s.eat_until(is_newline);
-            subtree.push(self.emit_error("expected opening paren", current_start));
+        let has_opening_paren = self.s.eat_if('(');
 
-            // Return a single error node until the end of the annotation.
-            return SyntaxNode::inner(SyntaxKind::Annotation, subtree);
+        if has_opening_paren {
+            subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
         }
 
-        subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
-
         // Annotation arguments:
-        // Keep reading until we find a right parenthesis or newline. We have
-        // to check the newline before eating (through '.peek()') to ensure it
-        // is not considered part of the annotation.
+        // Keep reading until we find a right parenthesis (if we got a left
+        // parenthesis) or newline. We have to check the newline before eating
+        // (through '.peek()') to ensure it is not considered part of the
+        // annotation.
         let mut current_start = self.s.cursor();
-        let mut expecting_comma = false;
-        let mut finished = false;
+        let mut found_closing_paren = false;
         while !self.s.at(is_newline) {
             let token = match self.s.eat() {
                 Some(c) if c.is_whitespace() => {
                     self.s.eat_while(is_inline_whitespace);
                     SyntaxKind::Space
                 }
-                Some('/') if self.s.eat_if('/') => {
-                    let node = self.line_comment_or_annotation(current_start);
-                    if node.kind() == SyntaxKind::Annotation {
-                        self.error("cannot have multiple annotations per line")
-                    } else {
-                        subtree.push(node);
-                        current_start = self.s.cursor();
-                        continue;
-                    }
-                }
-                Some('/') if self.s.eat_if('*') => self.block_comment(),
-                Some(_) if finished => {
+                Some(_) if found_closing_paren => {
                     // After we finished specifying arguments, there must only
                     // be whitespaces until the line ends.
                     self.s.eat_until(char::is_whitespace);
                     self.error("expected end of annotation")
                 }
-                Some('"') if expecting_comma => {
-                    self.s.eat_until(|c| c == ',' || c == ')' || is_newline(c));
-                    self.error("expected comma")
+                Some(c) if is_id_start(c) => {
+                    self.s.eat_while(is_id_continue);
+                    SyntaxKind::Ident
                 }
-                Some('"') => {
-                    expecting_comma = true;
-                    self.annotation_string()
-                }
-                Some(',') if expecting_comma => {
-                    expecting_comma = false;
-                    SyntaxKind::Comma
-                }
-                Some(',') => self.error("unexpected comma"),
-                Some(')') => {
-                    finished = true;
+                Some('"') => self.annotation_string(),
+                Some(')') if has_opening_paren => {
+                    found_closing_paren = true;
                     SyntaxKind::RightParen
                 }
                 Some(c) => self.error(eco_format!(
@@ -330,7 +307,7 @@ impl Lexer<'_> {
         }
 
         // Right parenthesis (covered above)
-        if !finished {
+        if has_opening_paren && !found_closing_paren {
             subtree.push(self.emit_error("expected closing paren", self.s.cursor()));
         }
 
@@ -361,7 +338,7 @@ impl Lexer<'_> {
     fn annotation_string(&mut self) -> SyntaxKind {
         // TODO: Allow more characters in annotations' strings, perhaps allowing
         // newlines somehow.
-        // Could perhaps use one //! per line so we can break an annotation into
+        // Could perhaps use one // per line so we can break an annotation into
         // multiple lines in a sensible way.
         let start = self.s.cursor();
         self.s.eat_while(|c| !is_newline(c) && c != '"');
