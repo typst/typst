@@ -919,6 +919,8 @@ pub fn quo(
 /// ```
 #[func(title = "P-Norm")]
 pub fn norm(
+    /// The callsite span.
+    span: Span,
     /// The p value to calculate the p-norm of.
     #[named]
     #[default(Num::Int(2))]
@@ -926,28 +928,32 @@ pub fn norm(
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.
     #[variadic]
-    values: Vec<Spanned<Value>>,
+    values: Vec<Spanned<LengthLike>>,
 ) -> SourceResult<Value> {
+    if p.float() <= 0.0 {
+        bail!(span, "p must be greater than zero");
+    }
+
     let mut sum = 0.0;
     let Some(Spanned { v, span }) = values.first() else {
         return Ok(Value::Float(0.0));
     };
     match v {
-        Value::Int(_) | Value::Float(_) => {
+        LengthLike::Int(_) | LengthLike::Float(_) => {
             for Spanned { v, span } in values {
                 match v {
-                    Value::Int(n) => sum += (n as f64).powf(p.float()),
-                    Value::Float(n) => sum += n.powf(p.float()),
+                    LengthLike::Int(n) => sum += (n as f64).abs().powf(p.float()),
+                    LengthLike::Float(n) => sum += n.abs().powf(p.float()),
                     _ => bail!(span, "expected a number"),
                 }
             }
             Ok(Value::Float(sum.powf(1.0 / p.float())))
         }
-        Value::Length(Length { em, .. }) if em.is_zero() => {
+        LengthLike::Length(Length { em, .. }) if em.is_zero() => {
             for Spanned { v, span } in values {
                 match v {
-                    Value::Length(Length { abs, em }) if em.is_zero() => {
-                        sum += abs.to_raw().powf(p.float())
+                    LengthLike::Length(Length { abs, em }) if em.is_zero() => {
+                        sum += abs.to_raw().abs().powf(p.float())
                     }
                     _ => {
                         bail!(
@@ -962,11 +968,11 @@ pub fn norm(
                 em: Em::zero(),
             }))
         }
-        Value::Length(Length { abs, .. }) if abs.is_zero() => {
+        LengthLike::Length(Length { abs, .. }) if abs.is_zero() => {
             for Spanned { v, span } in values {
                 match v {
-                    Value::Length(Length { abs, em }) if abs.is_zero() => {
-                        sum += em.get().powf(p.float())
+                    LengthLike::Length(Length { abs, em }) if abs.is_zero() => {
+                        sum += em.get().abs().powf(p.float())
                     }
                     _ => bail!(span, "expected an em"),
                 }
@@ -976,12 +982,12 @@ pub fn norm(
                 em: Em::new(sum.powf(1.0 / p.float())),
             }))
         }
-        Value::Length(_) => {
+        _ => {
             bail!(
-                    *span, "expected an absolute length or em"; 
-                    hint: "use `to-absolute()` to convert to an absolute length")
+                *span, "expected an absolute length or em";
+                hint: "use `to-absolute()` to convert to an absolute length"
+            )
         }
-        _ => bail!(*span, "expected a number or length"),
     }
 }
 
@@ -1048,6 +1054,19 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Angle => Self::Angle(v),
+}
+
+pub enum LengthLike {
+    Int(i64),
+    Float(f64),
+    Length(Length),
+}
+
+cast! {
+    LengthLike,
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Float(v),
+    v: Length => Self::Length(v),
 }
 
 /// The error message when the result is too large to be represented.

@@ -265,7 +265,7 @@
 #test(calc.norm(3cm, 4cm), 5cm)
 #test(calc.norm(3em, 4em), 5em)
 #test(calc.norm(), 0)
-#test(calc.norm(p: 3, 1, 2), calc.pow(9, 1/3))
+#test(calc.norm(p: 3, 1, -2), calc.pow(9, 1/3))
 
 --- calc-norm-expect-number ---
 // Error: 15-18 expected a number
@@ -286,5 +286,9 @@
 #calc.norm(1cm+1em)
 
 --- calc-norm-expect-number-or-length ---
-// Error: 12-15 expected a number or length
+// Error: 12-15 expected integer, float, or length, found ratio
 #calc.norm(10%)
+
+--- calc-norm-negative-p ---
+// Error: 2-21 p must be greater than zero
+#calc.norm(p: -1, 1)
