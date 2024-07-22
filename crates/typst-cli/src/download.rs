@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::Lazy;
+use typst_utils::format;
 use ureq::Response;
 
 use crate::terminal;
@@ -165,8 +166,9 @@ impl RemoteReader {
 
         let total_downloaded = as_bytes_unit(self.total_downloaded);
         let speed_h = as_throughput_unit(speed);
-        let elapsed =
-            time_suffix(Instant::now().saturating_duration_since(self.start_time));
+        let elapsed = format::elapsed_time(
+            &Instant::now().saturating_duration_since(self.start_time),
+        );
 
         match self.content_len {
             Some(content_len) => {
@@ -174,11 +176,11 @@ impl RemoteReader {
                 let remaining = content_len - self.total_downloaded;
 
                 let download_size = as_bytes_unit(content_len);
-                let eta = time_suffix(Duration::from_secs(if speed == 0 {
-                    0
-                } else {
-                    (remaining / speed) as u64
-                }));
+                let eta = format::eta_time(
+                    &Duration::from_secs(
+                        if speed == 0 { 0 } else { (remaining / speed) as u64 }
+                    )
+                );
                 writeln!(
                     terminal::out(),
                     "{total_downloaded} / {download_size} ({percent:3.0} %) {speed_h} in {elapsed} ETA: {eta}",

@@ -17,6 +17,7 @@ use crate::compile::compile_once;
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
+use typst_utils::format;
 
 /// Execute a watching compilation command.
 pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
@@ -297,10 +298,13 @@ impl Status {
     fn message(&self) -> String {
         match self {
             Self::Compiling => "compiling ...".into(),
-            Self::Success(duration) => format!("compiled successfully in {duration:.2?}"),
-            Self::PartialSuccess(duration) => {
-                format!("compiled with warnings in {duration:.2?}")
+            Self::Success(duration) => {
+                format!("compiled successfully in {}", format::compilation_time(duration))
             }
+            Self::PartialSuccess(duration) => format!(
+                "compiled with warnings in {}",
+                format::compilation_time(duration)
+            ),
             Self::Error => "compiled with errors".into(),
         }
     }
