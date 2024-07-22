@@ -1,6 +1,6 @@
+use arrayvec::ArrayVec;
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
-use smallvec::SmallVec;
 use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
@@ -381,19 +381,24 @@ pub(super) trait ColorSpaceExt {
     fn range(self) -> &'static [f32];
 
     /// Converts a color to the color space.
-    fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]>;
+    fn convert<U: QuantizedColor>(self, color: Color) -> ArrayVec<U, 4>;
 }
 
 impl ColorSpaceExt for ColorSpace {
     fn range(self) -> &'static [f32] {
         match self {
-            ColorSpace::Cmyk => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
             ColorSpace::D65Gray => &[0.0, 1.0],
-            _ => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Oklab => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Oklch => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::LinearRgb => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Srgb => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Cmyk => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Hsl => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Hsv => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
         }
     }
 
-    fn convert<U: QuantizedColor>(self, color: Color) -> SmallVec<[U; 4]> {
+    fn convert<U: QuantizedColor>(self, color: Color) -> ArrayVec<U, 4> {
         let components = self.encode(color);
 
         self.range()

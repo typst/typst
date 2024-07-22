@@ -2774,6 +2774,7 @@ dependencies = [
 name = "typst-pdf"
 version = "0.11.0"
 dependencies = [
+ "arrayvec",
  "base64",
  "bytemuck",
  "comemo",
@@ -2783,7 +2784,6 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
- "smallvec",
  "subsetter",
  "svg2pdf",
  "ttf-parser",
