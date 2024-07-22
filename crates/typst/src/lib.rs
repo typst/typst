@@ -161,7 +161,9 @@ fn compile_inner(
 
         if iter >= 5 {
             sink.warn(warning!(
-                Span::detached(), NonConvergingLayout, "layout did not converge within 5 attempts";
+                Span::detached(),
+                id: "non-converging-layout",
+                message: "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
             break;

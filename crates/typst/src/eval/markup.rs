@@ -136,7 +136,9 @@ impl Eval for ast::Strong<'_> {
             vm.engine
                 .sink
                 .warn(warning!(
-                    self.span(), UnnecessaryStars, "no text within stars";
+                    self.span(),
+                    id: "unnecessary-stars",
+                    message: "no text within stars";
                     hint: "using multiple consecutive stars (e.g. **) has no additional effect",
                 ));
         }
@@ -154,7 +156,9 @@ impl Eval for ast::Emph<'_> {
             vm.engine
                 .sink
                 .warn(warning!(
-                    self.span(), UnnecessaryUnderscores, "no text within underscores";
+                    self.span(),
+                    id: "unnecessary-underscores",
+                    message: "no text within underscores";
                     hint: "using multiple consecutive underscores (e.g. __) has no additional effect"
                 ));
         }

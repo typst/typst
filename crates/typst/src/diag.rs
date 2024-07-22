@@ -9,6 +9,7 @@ use std::string::FromUtf8Error;
 
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
+use typst_utils::PicoStr;
 
 use crate::syntax::package::{PackageSpec, PackageVersion};
 use crate::syntax::{ast, Span, Spanned, SyntaxError};
@@ -116,14 +117,14 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr,
-        $id:ident,
-        $fmt:literal $(, $arg:expr)*
+        id: $id:expr,
+        message: $fmt:literal $(, $arg:expr)*
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
         $(,)?
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
-            ::std::option::Option::Some($crate::diag::CompilerWarning::$id),
+            $id,
             $crate::diag::eco_format!($fmt, $($arg),*),
         ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
@@ -161,7 +162,9 @@ pub struct SourceDiagnostic {
     /// The span of the relevant node in the source code.
     pub span: Span,
     /// The identifier for this diagnostic.
-    pub identifier: Option<Identifier>,
+    ///
+    /// Currently, this field is only used by warnings.
+    pub identifier: Option<PicoStr>,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
@@ -196,13 +199,13 @@ impl SourceDiagnostic {
     /// Create a new, bare warning.
     pub fn warning(
         span: Span,
-        identifier: Option<CompilerWarning>,
+        identifier: impl Into<PicoStr>,
         message: impl Into<EcoString>,
     ) -> Self {
         Self {
             severity: Severity::Warning,
             span,
-            identifier: identifier.map(Identifier::Warn),
+            identifier: Some(identifier.into()),
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -236,49 +239,6 @@ impl From<SyntaxError> for SourceDiagnostic {
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
-        }
-    }
-}
-
-/// The identifier of a [`SourceDiagnostic`].
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum Identifier {
-    /// Identifier for a built-in compiler warning.
-    Warn(CompilerWarning),
-    /// Identifier for a warning raised by a package.
-    User(EcoString),
-}
-
-/// Built-in compiler warnings.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum CompilerWarning {
-    UnnecessaryImportRenaming,
-    UnnecessaryStars,
-    UnnecessaryUnderscores,
-    NonConvergingLayout,
-    UnknownFontFamilies,
-}
-
-impl CompilerWarning {
-    /// The name of the warning as a string, following the format of diagnostic
-    /// identifiers.
-    pub const fn name(&self) -> &'static str {
-        match self {
-            CompilerWarning::UnnecessaryImportRenaming => "unnecessary-import-renaming",
-            CompilerWarning::UnnecessaryStars => "unnecessary-stars",
-            CompilerWarning::UnnecessaryUnderscores => "unnecessary-underscores",
-            CompilerWarning::NonConvergingLayout => "non-converging-layout",
-            CompilerWarning::UnknownFontFamilies => "unknown-font-families",
-        }
-    }
-}
-
-impl Identifier {
-    /// The identifier's name, e.g. 'unnecessary-stars'.
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Warn(warning_identifier) => warning_identifier.name(),
-            Self::User(user_identifier) => user_identifier,
         }
     }
 }
@@ -529,6 +489,7 @@ pub fn deduplicate_and_suppress_warnings(
             return true;
         };
 
+        let identifier = identifier.resolve();
         let should_raise = !is_warning_suppressed(diag.span, world, identifier)
             && !diag.trace.iter().any(|tracepoint| {
                 is_warning_suppressed(tracepoint.span, world, identifier)
@@ -544,7 +505,7 @@ pub fn deduplicate_and_suppress_warnings(
 /// in. If one of the ancestors of the node where the warning occurred has a
 /// warning suppression annotation sibling right before it suppressing this
 /// particular warning, the warning is considered suppressed.
-fn is_warning_suppressed(span: Span, world: &dyn World, warning: &Identifier) -> bool {
+fn is_warning_suppressed(span: Span, world: &dyn World, warning: &str) -> bool {
     // Don't suppress detached warnings.
     let Some(source) = span.id().and_then(|file| world.source(file).ok()) else {
         return false;
@@ -574,14 +535,14 @@ fn is_warning_suppressed(span: Span, world: &dyn World, warning: &Identifier) ->
 /// identifier to be suppressed.
 fn check_annotation_suppresses_warning(
     annotation: ast::Annotation,
-    warning: &Identifier,
+    warning: &str,
 ) -> bool {
     if annotation.name().as_str() != "allow" {
         return false;
     }
 
     for argument in annotation.arguments() {
-        if warning.name() == argument.get() {
+        if warning == argument.get() {
             return true;
         }
     }

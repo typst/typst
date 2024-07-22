@@ -134,8 +134,8 @@ pub struct TextElem {
                 if !book.contains_family(family.as_str()) {
                     engine.sink.warn(warning!(
                         font_list.span,
-                        UnknownFontFamilies,
-                        "unknown font family: {}",
+                        id: "unknown-font-families",
+                        message: "unknown font family: {}",
                         family.as_str(),
                     ));
                 }
