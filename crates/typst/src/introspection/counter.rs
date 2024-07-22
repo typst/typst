@@ -465,7 +465,9 @@ impl Counter {
             self.display_impl(engine, loc, numbering, both, context.styles().ok())
         } else {
             engine.sink.warn(warning!(
-                span, "`counter.display` without context is deprecated";
+                span,
+                id: "deprecated",
+                message: "`counter.display` without context is deprecated";
                 hint: "use it in a `context` expression instead"
             ));
 
@@ -523,7 +525,9 @@ impl Counter {
             context.location().at(span)?;
         } else {
             engine.sink.warn(warning!(
-                span, "calling `counter.final` with a location is deprecated";
+                span,
+                id: "deprecated",
+                message: "calling `counter.final` with a location is deprecated";
                 hint: "try removing the location argument"
             ));
         }

@@ -335,7 +335,9 @@ impl State {
             context.location().at(span)?;
         } else {
             engine.sink.warn(warning!(
-                span, "calling `state.final` with a location is deprecated";
+                span,
+                id: "deprecated",
+                message: "calling `state.final` with a location is deprecated";
                 hint: "try removing the location argument"
             ));
         }
@@ -382,7 +384,9 @@ impl State {
         func: Option<Func>,
     ) -> Content {
         engine.sink.warn(warning!(
-            span, "`state.display` is deprecated";
+            span,
+            id: "deprecated",
+            message: "`state.display` is deprecated";
             hint: "use `state.get` in a `context` expression instead"
         ));
 

@@ -161,7 +161,9 @@ pub fn query(
         context.introspect()?;
     } else {
         engine.sink.warn(warning!(
-            span, "calling `query` with a location is deprecated";
+            span,
+            id: "deprecated",
+            message: "calling `query` with a location is deprecated";
             hint: "try removing the location argument"
         ));
     }

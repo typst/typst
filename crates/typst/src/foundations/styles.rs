@@ -46,7 +46,9 @@ pub fn style(
     func: Func,
 ) -> Content {
     engine.sink.warn(warning!(
-        span, "`style` is deprecated";
+        span,
+        id: "deprecated",
+        message: "`style` is deprecated";
         hint: "use a `context` expression instead"
     ));
 

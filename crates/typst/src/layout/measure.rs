@@ -84,7 +84,9 @@ pub fn measure(
     let styles = match &styles {
         Some(styles) => {
             engine.sink.warn(warning!(
-                span, "calling `measure` with a styles argument is deprecated";
+                span,
+                id: "deprecated",
+                message: "calling `measure` with a styles argument is deprecated";
                 hint: "try removing the styles argument"
             ));
             StyleChain::new(styles)
