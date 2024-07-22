@@ -2,34 +2,43 @@
 
 --- basic-annotations ---
 
-// @allow()
-// @allow("A")
-// @allow("the")
+// @allow
+// @allow identifier
+// @allow "quoted"
+// @allow("parenthesized")
 
-// @allow("unnecessary-stars")
+// @allow unnecessary-stars
 #h(0em)
 
 #let _ = {
-  // @allow("unnecessary-stars")
+  // @allow unnecessary-stars
   h(0em)
 }
 
 #let _ = $
-  // @allow("unnecessary-stars")
+  // @allow unnecessary-stars
   h(#0em)
 $
 
 --- annotation-comments ---
+// Error: 2:17-2:18 the character '/' is not valid in an annotation
+// Error: 2:18-2:19 the character '/' is not valid in an annotation
 
-// @allow("abc") // this is ok
+// @allow "abc" // comment
 
-// @allow("abc") /* this is ok */
+// Error: 2:17-2:18 the character '/' is not valid in an annotation
+// Error: 2:18-2:19 the character '*' is not valid in an annotation
+// Error: 2:28-2:29 the character '*' is not valid in an annotation
+// Error: 2:29-2:30 the character '/' is not valid in an annotation
 
-// @allow("abc" /* this is ok */, "abc")
+// @allow "abc" /* comment */
 
-// @allow("abc" /*
-this is ok
-*/, "abc")
+// Error: 2:17-2:18 the character '/' is not valid in an annotation
+// Error: 2:18-2:19 the character '*' is not valid in an annotation
+// Error: 2:28-2:29 the character '*' is not valid in an annotation
+// Error: 2:29-2:30 the character '/' is not valid in an annotation
+
+// @allow "abc" /* comment */ "abc"
 
 --- annotation-strings ---
 
@@ -39,22 +48,23 @@ this is ok
 // Error: 2:5-2:13 invalid annotation name
 // Hint: 2:5-2:13 must be 'allow'
 
-// @whatever()
+// @whatever A
 
 --- invalid-annotation-syntax ---
 // Error: 2:11-2:12 the character '*' is not valid in an annotation
 
-// @allow(*)
+// @allow *
 
 // Error: 2:11-2:12 the character '5' is not valid in an annotation
 
-// @allow(5)
+// @allow 5
 
 // Error: 2:5-2:19 expected identifier
 
 // @555!**INVALID!
 
-// Error: 2:10-2:13 expected opening paren
+// Error: 2:10-2:11 the character ')' is not valid in an annotation
+// Error: 2:11-2:13 unclosed string
 
 // @allow)")
 
@@ -63,59 +73,54 @@ this is ok
 
 // @allow("abc
 
-// Error: 2:18-2:21 expected end of annotation
+// Error: 2:16-2:19 expected end of annotation
 
-// @allow("abc") abc
+// @allow(abc) abc
 
-// Error: 2:17-2:22 expected comma
-// Error: 2:24-2:27 expected end of annotation
+// Error: 2:18-2:19 the character ',' is not valid in an annotation
 
-// @allow("abc" "abc") abc
-
-// Error: 2:17-2:22 expected comma
-
-// @allow("abc" "abc", "abc")
-
-// Error: 2:11-2:12 unexpected comma
-
-// @allow(,  "abc", "abc", "abc")
+// @allow(abc abc, "abc")
 
 --- invalid-annotation-strings ---
 
 // Error: 2:11-2:16 invalid character ' ' in an annotation's string
 
-// @allow("a b")
+// @allow "a b"
 
 // Error: 2:11-2:19 invalid character '|' in an annotation's string
 
-// @allow("aaaaa|")
+// @allow "aaaaa|"
 
 // TODO: Why does this print / instead of \?
 // Error: 2:11-2:19 invalid character '/' in an annotation's string
 
-// @allow("aaaaa\")
+// @allow "aaaaa\"
 
 --- invalid-annotation-in-annotation ---
-// Error: 2:18-2:34 cannot have multiple annotations per line
+// Error: 2:17-2:18 the character '/' is not valid in an annotation
+// Error: 2:18-2:19 the character '/' is not valid in an annotation
+// Error: 2:20-2:21 the character '@' is not valid in an annotation
+// Error: 2:26-2:27 the character '(' is not valid in an annotation
+// Error: 2:32-2:33 the character ')' is not valid in an annotation
 
-// @allow("aaa") // @allow("bbb")
+// @allow "aaa" // @allow("bbb")
 
 --- allow-suppresses-warns-below ---
 
-// @allow("unnecessary-stars")
+// @allow unnecessary-stars
 #[**]
 
-// @allow("unnecessary-stars")
+// @allow unnecessary-stars
 #{
   {
     [**]
   }
 }
 
-/**/ // @allow("unnecessary-stars")
+/**/ // @allow unnecessary-stars
 #[**]
 
-// @allow("unnecessary-stars")
+// @allow unnecessary-stars
 **
 
 --- allow-suppresses-warn-with-tracepoint ---
@@ -127,20 +132,20 @@ this is ok
   f()
 }
 
-// @allow("unknown-font-families")
+// @allow unknown-font-families
 #g()
 
 --- allow-suppresses-line-below-but-not-same-line ---
 // Warning: 3-5 no text within stars
 // Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
-#[**] // @allow("unnecessary-stars")
+#[**] // @allow unnecessary-stars
 #[**]
 
 --- allow-before-parbreak-doesnt-suppress-warn ---
 // Warning: 4:3-4:5 no text within stars
 // Hint: 4:3-4:5 using multiple consecutive stars (e.g. **) has no additional effect
 
-// @allow("unnecessary-stars")
+// @allow unnecessary-stars
 
 #[**]
 
@@ -148,7 +153,7 @@ this is ok
 // Warning: 4:4-4:6 no text within stars
 // Hint: 4:4-4:6 using multiple consecutive stars (e.g. **) has no additional effect
 #{
-  // @allow("unnecessary-stars")
+  // @allow unnecessary-stars
 
   [**]
 }
@@ -159,7 +164,7 @@ this is ok
 // Hint: 1-3 using multiple consecutive stars (e.g. **) has no additional effect
 **
 
-// @allow("unnecessary-stars")
+// @allow unnecessary-stars
 #h(0em)
 // Warning: 3-5 no text within stars
 // Hint: 3-5 using multiple consecutive stars (e.g. **) has no additional effect
@@ -171,10 +176,10 @@ this is ok
   text(font: "Unbeknownst")[]
 }
 
-// @allow("unknown-font-families")
+// @allow unknown-font-families
 #f()
 
-// @allow("unknown-font-families")
+// @allow unknown-font-families
 #context {
   text(font: "Unbeknownst")[]
 }
