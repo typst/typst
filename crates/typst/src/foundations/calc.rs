@@ -929,60 +929,59 @@ pub fn norm(
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
     let mut sum = 0.0;
-    if let Some(Spanned { v, span }) = values.first() {
-        match v {
-            Value::Int(_) | Value::Float(_) => {
-                for Spanned { v, span } in values {
-                    match v {
-                        Value::Int(n) => sum += (n as f64).powf(p.float()),
-                        Value::Float(n) => sum += n.powf(p.float()),
-                        _ => bail!(span, "expected a number"),
+    let Some(Spanned { v, span }) = values.first() else {
+        return Ok(Value::Float(0.0));
+    };
+    match v {
+        Value::Int(_) | Value::Float(_) => {
+            for Spanned { v, span } in values {
+                match v {
+                    Value::Int(n) => sum += (n as f64).powf(p.float()),
+                    Value::Float(n) => sum += n.powf(p.float()),
+                    _ => bail!(span, "expected a number"),
+                }
+            }
+            Ok(Value::Float(sum.powf(1.0 / p.float())))
+        }
+        Value::Length(Length { em, .. }) if em.is_zero() => {
+            for Spanned { v, span } in values {
+                match v {
+                    Value::Length(Length { abs, em }) if em.is_zero() => {
+                        sum += abs.to_raw().powf(p.float())
+                    }
+                    _ => {
+                        bail!(
+                            span, "expected an absolute length";
+                            hint: "use `to-absolute()` to convert to an absolute length"
+                        )
                     }
                 }
-                Ok(Value::Float(sum.powf(1.0 / p.float())))
             }
-            Value::Length(Length { em, .. }) if em.is_zero() => {
-                for Spanned { v, span } in values {
-                    match v {
-                        Value::Length(Length { abs, em }) if em.is_zero() => {
-                            sum += abs.to_raw().powf(p.float())
-                        }
-                        _ => {
-                            bail!(
-                                span, "expected an absolute length";
-                                hint: "use `to-absolute()` to convert to an absolute length"
-                            )
-                        }
+            Ok(Value::Length(Length {
+                abs: Abs::raw(sum.powf(1.0 / p.float())),
+                em: Em::zero(),
+            }))
+        }
+        Value::Length(Length { abs, .. }) if abs.is_zero() => {
+            for Spanned { v, span } in values {
+                match v {
+                    Value::Length(Length { abs, em }) if abs.is_zero() => {
+                        sum += em.get().powf(p.float())
                     }
+                    _ => bail!(span, "expected an em"),
                 }
-                Ok(Value::Length(Length {
-                    abs: Abs::raw(sum.powf(1.0 / p.float())),
-                    em: Em::zero(),
-                }))
             }
-            Value::Length(Length { abs, .. }) if abs.is_zero() => {
-                for Spanned { v, span } in values {
-                    match v {
-                        Value::Length(Length { abs, em }) if abs.is_zero() => {
-                            sum += em.get().powf(p.float())
-                        }
-                        _ => bail!(span, "expected an em"),
-                    }
-                }
-                Ok(Value::Length(Length {
-                    abs: Abs::zero(),
-                    em: Em::new(sum.powf(1.0 / p.float())),
-                }))
-            }
-            Value::Length(_) => {
-                bail!(
+            Ok(Value::Length(Length {
+                abs: Abs::zero(),
+                em: Em::new(sum.powf(1.0 / p.float())),
+            }))
+        }
+        Value::Length(_) => {
+            bail!(
                     *span, "expected an absolute length or em"; 
                     hint: "use `to-absolute()` to convert to an absolute length")
-            }
-            _ => bail!(*span, "expected a number or length"),
         }
-    } else {
-        Ok(Value::Float(0.0))
+        _ => bail!(*span, "expected a number or length"),
     }
 }
 
