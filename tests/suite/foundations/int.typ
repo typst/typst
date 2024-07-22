@@ -38,6 +38,24 @@
 #test(int(10.0).signum(), 1)
 #test(int(-10.0).signum(), -1)
 
+--- int-from-and-to-bytes ---
+// Test `int.from-bytes` and `int.to-bytes`.
+#test(int.from-bytes(bytes(())), 0)
+#test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "little", signed: true), 1)
+#test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big", signed: true), 72057594037927936)
+#test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "little", signed: false), 1)
+#test(int.from-bytes(bytes((255,)), endian: "big", signed: true), -1)
+#test(int.from-bytes(bytes((255,)), endian: "big", signed: false), 255)
+#test(int.from-bytes((-1000).to-bytes(endian: "big", size: 5), endian: "big", signed: true), -1000)
+#test(int.from-bytes((-1000).to-bytes(endian: "little", size: 5), endian: "little", signed: true), -1000)
+#test(int.from-bytes(1000.to-bytes(endian: "big", size: 5), endian: "big", signed: true), 1000)
+#test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: true), 1000)
+#test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: false), 1000)
+
+--- int-from-and-to-bytes-too-many ---
+// Error: 2-34 too many bytes to convert to a 64 bit number
+#int.from-bytes(bytes((0,) * 16))
+
 --- int-repr ---
 // Test the `repr` function with integers.
 #repr(12) \
