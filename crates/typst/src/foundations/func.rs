@@ -81,9 +81,9 @@ pub use typst_macros::func;
 /// body evaluates to the result of joining all expressions preceding the
 /// `return`.
 ///
-/// Functions that don't return any meaningful value return the [`none`]($none) value.
-/// Their return type is not explicitly specified in their documentation.
-/// Example of this is [`array.push`]($array.push).
+/// Functions that don't return any meaningful value return [`none`] instead.
+/// The return type of such functions is not explicitly specified in the
+/// documentation. (An example of this is [`array.push`]).
 ///
 /// ```example
 /// #let alert(body, fill: red) = {
