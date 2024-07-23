@@ -80,10 +80,7 @@ impl Introspector {
 
                     // Build the label cache.
                     for label in tag.elem.labels() {
-                        self.labels
-                            .entry(label.clone())
-                            .or_default()
-                            .push(self.elems.len() - 1);
+                        self.labels.entry(*label).or_default().push(self.elems.len() - 1);
                     }
                 }
                 _ => {}

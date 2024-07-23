@@ -89,19 +89,20 @@ pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, 
 
     // Labels in the document.
     for elem in document.introspector.all() {
-        let Some(label) = elem.label() else { continue };
-        let details = elem
-            .get_by_name("caption")
-            .or_else(|_| elem.get_by_name("body"))
-            .ok()
-            .and_then(|field| match field {
-                Value::Content(content) => Some(content),
-                _ => None,
-            })
-            .as_ref()
-            .unwrap_or(elem)
-            .plain_text();
-        output.push((label, Some(details)));
+        for label in elem.labels() {
+            let details = elem
+                .get_by_name("caption")
+                .or_else(|_| elem.get_by_name("body"))
+                .ok()
+                .and_then(|field| match field {
+                    Value::Content(content) => Some(content),
+                    _ => None,
+                })
+                .as_ref()
+                .unwrap_or(elem)
+                .plain_text();
+            output.push((*label, Some(details)));
+        }
     }
 
     let split = output.len();
