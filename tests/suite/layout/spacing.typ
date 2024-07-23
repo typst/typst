@@ -34,7 +34,7 @@ Totally #h() ignored
   h(1em)
   counter(heading).update(4)
   [Hello ]
-  counter(heading).display()
+  context counter(heading).display()
 }
 
 --- trim-weak-space-line-beginning ---

@@ -6,7 +6,7 @@ use ttf_parser::GlyphId;
 use typst::layout::{Abs, Point, Ratio, Size, Transform};
 use typst::text::{Font, TextItem};
 use typst::utils::hash128;
-use typst::visualize::{Image, Paint, RasterFormat, RelativeTo};
+use typst::visualize::{FillRule, Image, Paint, RasterFormat, RelativeTo};
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
@@ -138,6 +138,7 @@ impl SVGRenderer {
         self.xml.write_attribute_fmt("x", format_args!("{x_offset}"));
         self.write_fill(
             &text.fill,
+            FillRule::default(),
             Size::new(Abs::pt(width), Abs::pt(height)),
             self.text_paint_transform(state, &text.fill),
         );
