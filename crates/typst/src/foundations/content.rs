@@ -9,7 +9,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
-use smallvec::smallvec;
+use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
@@ -83,7 +83,7 @@ pub struct Content {
 #[derive(Hash)]
 struct Inner<T: ?Sized + 'static> {
     /// An optional label attached to the element.
-    label: Option<Label>,
+    labels: SmallVec<[Label; 1]>,
     /// The element's location which identifies it in the layouted output.
     location: Option<Location>,
     /// Manages the element during realization.
@@ -100,7 +100,7 @@ impl Content {
     pub fn new<T: NativeElement>(elem: T) -> Self {
         Self {
             inner: Arc::new(Inner {
-                label: None,
+                labels: SmallVec::new(),
                 location: None,
                 lifecycle: SmallBitSet::new(),
                 elem: elem.into(),
@@ -132,20 +132,20 @@ impl Content {
         self
     }
 
-    /// Get the label of the content.
-    pub fn label(&self) -> Option<Label> {
-        self.inner.label
+    /// Get the labels of the content.
+    pub fn labels(&self) -> &[Label] {
+        &self.inner.labels
     }
 
     /// Attach a label to the content.
     pub fn labelled(mut self, label: Label) -> Self {
-        self.set_label(label);
+        self.add_label(label);
         self
     }
 
-    /// Set the label of the content.
-    pub fn set_label(&mut self, label: Label) {
-        self.make_mut().label = Some(label);
+    /// Adds a label to the content.
+    pub fn add_label(&mut self, label: Label) {
+        self.make_mut().labels.push(label);
     }
 
     /// Assigns a location to the content.
@@ -202,7 +202,8 @@ impl Content {
         styles: Option<StyleChain>,
     ) -> Result<Value, FieldAccessError> {
         if id == 255 {
-            if let Some(label) = self.label() {
+            // TODO: expose multiple labels
+            if let Some(label) = self.labels().first() {
                 return Ok(label.into_value());
             }
         }
@@ -218,7 +219,8 @@ impl Content {
     /// instead.
     pub fn get_by_name(&self, name: &str) -> Result<Value, FieldAccessError> {
         if name == "label" {
-            if let Some(label) = self.label() {
+            // TODO: expose multiple labels
+            if let Some(label) = self.labels().first() {
                 return Ok(label.into_value());
             }
         }
@@ -549,7 +551,8 @@ impl Content {
         field: Str,
     ) -> bool {
         if field.as_str() == "label" {
-            return self.label().is_some();
+            // TODO: this should always return true for the `.labels` field
+            return !self.labels().is_empty();
         }
 
         let Some(id) = self.elem().field_id(&field) else {
@@ -587,7 +590,8 @@ impl Content {
     #[func]
     pub fn fields(&self) -> Dict {
         let mut dict = self.inner.elem.fields();
-        if let Some(label) = self.label() {
+        // TODO: expose multiple labels
+        if let Some(label) = self.labels().first() {
             dict.insert("label".into(), label.into_value());
         }
         dict
@@ -732,7 +736,7 @@ impl<T: NativeElement> Bounds for T {
     fn dyn_clone(&self, inner: &Inner<dyn Bounds>, span: Span) -> Content {
         Content {
             inner: Arc::new(Inner {
-                label: inner.label,
+                labels: inner.labels.clone(),
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
                 elem: LazyHash::reuse(self.clone(), &inner.elem),
@@ -833,8 +837,8 @@ impl<T: NativeElement> Packed<T> {
     }
 
     /// Accesses the label of the element.
-    pub fn label(&self) -> Option<Label> {
-        self.0.label()
+    pub fn labels(&self) -> &[Label] {
+        self.0.labels()
     }
 
     /// Accesses the location of the element.

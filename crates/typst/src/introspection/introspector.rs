@@ -79,8 +79,11 @@ impl Introspector {
                     self.keys.entry(tag.key).or_default().push(loc);
 
                     // Build the label cache.
-                    if let Some(label) = tag.elem.label() {
-                        self.labels.entry(label).or_default().push(self.elems.len() - 1);
+                    for label in tag.elem.labels() {
+                        self.labels
+                            .entry(label.clone())
+                            .or_default()
+                            .push(self.elems.len() - 1);
                     }
                 }
                 _ => {}

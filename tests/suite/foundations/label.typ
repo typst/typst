@@ -74,3 +74,11 @@ _Visible_
 // Hint: 7-7 labels can only be applied in markup mode
 // Hint: 7-7 try wrapping your code in a markup block (`[ ]`)
 #{ [A] <a> }
+
+--- label-multiple-per-object ---
+// Test that multiple labels can be attached to an element.
+#set heading(numbering: "1.")
+= Hello <a> <b>
+
+@b
+@a
