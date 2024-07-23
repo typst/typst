@@ -283,7 +283,7 @@ impl Lexer<'_> {
                     // After we finished specifying arguments, there must only
                     // be whitespaces until the line ends.
                     self.s.eat_until(char::is_whitespace);
-                    self.error("expected end of annotation")
+                    self.error("unexpected characters after end of annotation")
                 }
                 Some(c) if is_id_start(c) => {
                     self.s.eat_while(is_id_continue);
@@ -294,9 +294,32 @@ impl Lexer<'_> {
                     found_closing_paren = true;
                     SyntaxKind::RightParen
                 }
-                Some(c) => self.error(eco_format!(
-                    "the character '{c}' is not valid in an annotation"
-                )),
+                // Explicitly detect comments for more helpful errors
+                Some('/') if self.s.at(['/', '*']) => {
+                    if self.s.eat() == Some('*') {
+                        // Found a block comment. Advance until the next
+                        // newline or '*/' just for a more accurate error span.
+                        while !self.s.eat_if("*/") && !self.s.at(is_newline) {
+                            self.s.eat();
+                        }
+                    } else {
+                        self.s.eat_until(is_newline);
+                    }
+                    self.error(eco_format!("unexpected comment inside annotation"))
+                }
+                Some(_) => {
+                    self.s.eat_until(|c: char| {
+                        c.is_whitespace() || has_opening_paren && c == ')'
+                    });
+                    self.error(eco_format!(
+                        "expected identifier{} in annotation",
+                        if has_opening_paren {
+                            ", string or closing paren"
+                        } else {
+                            " or string"
+                        }
+                    ))
+                }
                 None => break,
             };
 
@@ -308,7 +331,12 @@ impl Lexer<'_> {
 
         // Right parenthesis (covered above)
         if has_opening_paren && !found_closing_paren {
-            subtree.push(self.emit_error("expected closing paren", self.s.cursor()));
+            subtree.push(
+                self.emit_error(
+                    "expected closing paren after annotation",
+                    self.s.cursor(),
+                ),
+            );
         }
 
         SyntaxNode::inner(SyntaxKind::Annotation, subtree)

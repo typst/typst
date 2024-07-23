@@ -21,28 +21,21 @@
 $
 
 --- annotation-comments ---
-// Error: 2:17-2:18 the character '/' is not valid in an annotation
-// Error: 2:18-2:19 the character '/' is not valid in an annotation
+// Error: 2:17-2:27 unexpected comment inside annotation
 
 // @allow "abc" // comment
 
-// Error: 2:17-2:18 the character '/' is not valid in an annotation
-// Error: 2:18-2:19 the character '*' is not valid in an annotation
-// Error: 2:28-2:29 the character '*' is not valid in an annotation
-// Error: 2:29-2:30 the character '/' is not valid in an annotation
+// Error: 2:17-2:30 unexpected comment inside annotation
 
 // @allow "abc" /* comment */
 
-// Error: 2:17-2:18 the character '/' is not valid in an annotation
-// Error: 2:18-2:19 the character '*' is not valid in an annotation
-// Error: 2:28-2:29 the character '*' is not valid in an annotation
-// Error: 2:29-2:30 the character '/' is not valid in an annotation
+// Error: 2:17-2:30 unexpected comment inside annotation
 
 // @allow "abc" /* comment */ "abc"
 
 --- annotation-strings ---
 
-// @allow("@some/thing-there123")
+// @allow "@some/thing-there123"
 
 --- unknown-annotation ---
 // Error: 2:5-2:13 invalid annotation name
@@ -51,11 +44,11 @@ $
 // @whatever A
 
 --- invalid-annotation-syntax ---
-// Error: 2:11-2:12 the character '*' is not valid in an annotation
+// Error: 2:11-2:12 expected identifier or string in annotation
 
 // @allow *
 
-// Error: 2:11-2:12 the character '5' is not valid in an annotation
+// Error: 2:11-2:12 expected identifier or string in annotation
 
 // @allow 5
 
@@ -63,21 +56,20 @@ $
 
 // @555!**INVALID!
 
-// Error: 2:10-2:11 the character ')' is not valid in an annotation
-// Error: 2:11-2:13 unclosed string
+// Error: 2:10-2:13 expected identifier or string in annotation
 
 // @allow)")
 
 // Error: 2:11-2:15 unclosed string
-// Error: 2:15 expected closing paren
+// Error: 2:15 expected closing paren after annotation
 
 // @allow("abc
 
-// Error: 2:16-2:19 expected end of annotation
+// Error: 2:16-2:19 unexpected characters after end of annotation
 
 // @allow(abc) abc
 
-// Error: 2:18-2:19 the character ',' is not valid in an annotation
+// Error: 2:18-2:19 expected identifier, string or closing paren in annotation
 
 // @allow(abc abc, "abc")
 
@@ -97,11 +89,7 @@ $
 // @allow "aaaaa\"
 
 --- invalid-annotation-in-annotation ---
-// Error: 2:17-2:18 the character '/' is not valid in an annotation
-// Error: 2:18-2:19 the character '/' is not valid in an annotation
-// Error: 2:20-2:21 the character '@' is not valid in an annotation
-// Error: 2:26-2:27 the character '(' is not valid in an annotation
-// Error: 2:32-2:33 the character ')' is not valid in an annotation
+// Error: 2:17-2:33 unexpected comment inside annotation
 
 // @allow "aaa" // @allow("bbb")
 
