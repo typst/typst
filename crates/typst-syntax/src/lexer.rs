@@ -270,9 +270,17 @@ impl Lexer<'_> {
         // Keep reading until we find a right parenthesis (if we got a left
         // parenthesis) or newline. We have to check the newline before eating
         // (through '.peek()') to ensure it is not considered part of the
-        // annotation.
+        // annotation. Newlines are exceptionally allowed inside an annotation
+        // if arguments are surrounded by parentheses.
+        //
+        // Each argument may be either an identifier or a string, and arguments
+        // are separated by spaces. Any other characters are invalid.
         let mut found_closing_paren = false;
-        while !self.s.at(is_newline) {
+        while !self.s.at(is_newline)
+            || has_opening_paren
+                && !found_closing_paren
+                && self.eat_annotation_linebreak(&mut subtree)
+        {
             let current_start = self.s.cursor();
             let token = match self.s.eat() {
                 Some(c) if c.is_whitespace() => {
@@ -380,6 +388,30 @@ impl Lexer<'_> {
         }
 
         SyntaxKind::Str
+    }
+
+    /// Expects an annotation continuation in the next line, indicated by a
+    /// leading comment marker ('//'). If the marker is not present, the
+    /// annotation is considered invalid and interrupted.
+    fn eat_annotation_linebreak(&mut self, subtree: &mut Vec<SyntaxNode>) -> bool {
+        let start = self.s.cursor();
+        self.s.eat_newline();
+        self.s.eat_while(is_inline_whitespace);
+        if self.s.at("//") {
+            subtree.push(self.emit_token(SyntaxKind::Space, start));
+
+            let marker_start = self.s.cursor();
+            self.s.eat();
+            self.s.eat();
+            subtree.push(self.emit_token(SyntaxKind::AnnotationMarker, marker_start));
+
+            true
+        } else {
+            // No annotation continuation marker on the next line, so we
+            // interrupt the annotation.
+            self.s.jump(start);
+            false
+        }
     }
 }
 

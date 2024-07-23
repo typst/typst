@@ -20,6 +20,14 @@
   h(#0em)
 $
 
+--- multiline-annotations ---
+
+// @allow(
+//   unnecessary-stars
+//   "string"
+// )
+#[**]
+
 --- annotation-comments ---
 // Error: 2:17-2:27 unexpected comment inside annotation
 
@@ -64,6 +72,12 @@ $
 // Error: 2:15 expected closing paren after annotation
 
 // @allow("abc
+
+// Error: 4:12 expected closing paren after annotation
+
+// @allow(
+//   ident1
+//   ident2
 
 // Error: 2:16-2:19 unexpected characters after end of annotation
 
