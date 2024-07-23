@@ -12,8 +12,12 @@ a vs #text(alternates: true)[a] \
 ß vs #text(stylistic-set: 5)[ß]
 
 --- text-ligatures ---
-// Test ligatures.
-fi vs. #text(ligatures: false)[No fi]
+// Test text turning off (standard) ligatures of the font.
+#text(ligatures: false)[fi Qu] vs fi Qu \
+// Test text turning on historical ligatures of the font.
+abstract vs #text(historical-ligatures: true)[abstract] \
+// Test text turning on discretionary ligatures of the font.
+waltz vs #text(discretionary-ligatures: true)[waltz]
 
 --- text-number-type ---
 // Test number type.
@@ -34,7 +38,7 @@ fi vs. #text(ligatures: false)[No fi]
 1/2 vs. #text(fractions: true)[1/2]
 
 --- text-features ---
-// Test raw features.
+// Test raw features array or dictionary.
 #text(features: ("smcp",))[Smcp] \
 fi vs. #text(features: (liga: 0))[No fi]
 

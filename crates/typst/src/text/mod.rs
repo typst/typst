@@ -1179,7 +1179,7 @@ pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     if TextElem::historical_ligatures_in(styles) {
-        feat(b"hilg", 1);
+        feat(b"hlig", 1);
     }
 
     match TextElem::number_type_in(styles) {
