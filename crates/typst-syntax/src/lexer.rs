@@ -271,9 +271,9 @@ impl Lexer<'_> {
         // parenthesis) or newline. We have to check the newline before eating
         // (through '.peek()') to ensure it is not considered part of the
         // annotation.
-        let mut current_start = self.s.cursor();
         let mut found_closing_paren = false;
         while !self.s.at(is_newline) {
+            let current_start = self.s.cursor();
             let token = match self.s.eat() {
                 Some(c) if c.is_whitespace() => {
                     self.s.eat_while(is_inline_whitespace);
@@ -325,8 +325,6 @@ impl Lexer<'_> {
 
             let node = self.emit_token(token, current_start);
             subtree.push(node);
-
-            current_start = self.s.cursor();
         }
 
         // Right parenthesis (covered above)

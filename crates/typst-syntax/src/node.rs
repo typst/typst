@@ -825,19 +825,23 @@ impl<'a> LinkedNode<'a> {
     pub fn prev_attached_annotation(&self) -> Option<Self> {
         let mut cursor = self.prev_sibling_inner()?;
         let mut newlines = cursor.capped_newlines();
-        while newlines < 2 {
-            if cursor.kind() == SyntaxKind::Annotation {
-                return Some(cursor);
+        while cursor.kind() != SyntaxKind::Annotation {
+            if newlines >= 2 {
+                // Annotations are attached if they're in the previous line.
+                // If we counted at least two newlines without finding an
+                // annotation, no annotations are attached to this node.
+                //
+                // Note that this check is only run if the latest node was not
+                // an annotation, otherwise annotations with multiple lines
+                // would always be rejected.
+                return None;
             }
 
             cursor = cursor.prev_sibling_inner()?;
             newlines += cursor.capped_newlines();
         }
 
-        // Annotations are attached if they're in the previous line.
-        // If we counted at least two newlines, no annotations are attached to
-        // this node.
-        None
+        Some(cursor)
     }
 
     /// Get the next non-trivia sibling node.
