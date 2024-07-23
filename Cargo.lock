@@ -2774,6 +2774,7 @@ dependencies = [
 name = "typst-pdf"
 version = "0.11.0"
 dependencies = [
+ "arrayvec",
  "base64",
  "bytemuck",
  "comemo",

@@ -26,6 +26,7 @@ indexmap = { workspace = true }
 miniz_oxide = { workspace = true }
 once_cell = { workspace = true }
 pdf-writer = { workspace = true }
+arrayvec = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }

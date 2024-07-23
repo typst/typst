@@ -1,3 +1,4 @@
+use arrayvec::ArrayVec;
 use once_cell::sync::Lazy;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
 use typst::visualize::{Color, ColorSpace, Paint};
@@ -377,26 +378,34 @@ impl PaintEncode for Color {
 /// Extra color space functions.
 pub(super) trait ColorSpaceExt {
     /// Returns the range of the color space.
-    fn range(self) -> [f32; 6];
+    fn range(self) -> &'static [f32];
 
     /// Converts a color to the color space.
-    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3];
+    fn convert<U: QuantizedColor>(self, color: Color) -> ArrayVec<U, 4>;
 }
 
 impl ColorSpaceExt for ColorSpace {
-    fn range(self) -> [f32; 6] {
-        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
+    fn range(self) -> &'static [f32] {
+        match self {
+            ColorSpace::D65Gray => &[0.0, 1.0],
+            ColorSpace::Oklab => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Oklch => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::LinearRgb => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Srgb => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Cmyk => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Hsl => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            ColorSpace::Hsv => &[0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        }
     }
 
-    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3] {
-        let range = self.range();
-        let [x, y, z, _] = self.encode(color);
+    fn convert<U: QuantizedColor>(self, color: Color) -> ArrayVec<U, 4> {
+        let components = self.encode(color);
 
-        [
-            U::quantize(x, [range[0], range[1]]),
-            U::quantize(y, [range[2], range[3]]),
-            U::quantize(z, [range[4], range[5]]),
-        ]
+        self.range()
+            .chunks(2)
+            .zip(components)
+            .map(|(range, component)| U::quantize(component, [range[0], range[1]]))
+            .collect()
     }
 }
 
