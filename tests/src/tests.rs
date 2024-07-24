@@ -2,6 +2,7 @@
 
 mod args;
 mod collect;
+mod constants;
 mod custom;
 mod logger;
 mod run;
@@ -21,24 +22,12 @@ use crate::logger::Logger;
 /// The parsed command line arguments.
 static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
-/// The directory where the test suite is located.
-const SUITE_PATH: &str = "tests/suite";
-
-/// The directory where the full test results are stored.
-const STORE_PATH: &str = "tests/store";
-
-/// The directory where the reference images are stored.
-const REF_PATH: &str = "tests/ref";
-
-/// The maximum size of reference images that aren't marked as `// LARGE`.
-const REF_LIMIT: usize = 20 * 1024;
-
 fn main() {
     setup();
 
     match &ARGS.command {
         None => test(),
-        Some(Command::Clean) => std::fs::remove_dir_all(STORE_PATH).unwrap(),
+        Some(Command::Clean) => std::fs::remove_dir_all(constants::STORE_PATH).unwrap(),
     }
 }
 
@@ -49,7 +38,7 @@ fn setup() {
 
     // Create the storage.
     for ext in ["render", "pdf", "svg"] {
-        std::fs::create_dir_all(Path::new(STORE_PATH).join(ext)).unwrap();
+        std::fs::create_dir_all(Path::new(constants::STORE_PATH).join(ext)).unwrap();
     }
 
     // Set up the thread pool.

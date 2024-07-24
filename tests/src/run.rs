@@ -220,7 +220,7 @@ impl<'a> Runner<'a> {
                 let opts = oxipng::Options::max_compression();
                 let data = pixmap.encode_png().unwrap();
                 let ref_data = oxipng::optimize_from_memory(&data, &opts).unwrap();
-                if !self.test.large && ref_data.len() > crate::REF_LIMIT {
+                if !self.test.large && ref_data.len() > crate::constants::REF_LIMIT {
                     log!(self, "reference image would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
