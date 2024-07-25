@@ -10,13 +10,13 @@ mod arenas;
 mod behaviour;
 mod process;
 
-use once_cell::unsync::Lazy;
 
 pub use self::arenas::Arenas;
 pub use self::behaviour::{Behave, BehavedBuilder, Behaviour, StyleVec};
 pub use self::process::process;
 
 use std::mem;
+use std::cell::LazyCell;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
@@ -410,7 +410,7 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        let par_spacing = Lazy::new(|| {
+        let par_spacing = LazyCell::new(|| {
             arenas.store(VElem::par_spacing(ParElem::spacing_in(styles).into()).pack())
         });
 

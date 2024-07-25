@@ -1,5 +1,5 @@
 use arrayvec::ArrayVec;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
 use typst::visualize::{Color, ColorSpace, Paint};
 
@@ -17,14 +17,14 @@ const OKLAB_A: Name<'static> = Name(b"A");
 const OKLAB_B: Name<'static> = Name(b"B");
 
 // The ICC profiles.
-static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_RGB_V4));
-static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_GREY_V4));
+static SRGB_ICC_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(typst_assets::icc::S_RGB_V4));
+static GRAY_ICC_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(typst_assets::icc::S_GREY_V4));
 
 // The PostScript functions for color spaces.
-static OKLAB_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
+static OKLAB_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]

@@ -1,14 +1,14 @@
 use std::io::{self, IsTerminal, Write};
+use std::sync::LazyLock;
 
 use codespan_reporting::term::termcolor;
-use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};
 
 use crate::ARGS;
 
 /// Returns a handle to the optionally colored terminal output.
 pub fn out() -> TermOut {
-    static OUTPUT: Lazy<TermOutInner> = Lazy::new(TermOutInner::new);
+    static OUTPUT: LazyLock<TermOutInner> = LazyLock::new(TermOutInner::new);
     TermOut { inner: &OUTPUT }
 }
 

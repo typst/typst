@@ -1,13 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use std::sync::RwLock;
-
-use once_cell::sync::Lazy;
+use std::sync::{LazyLock, RwLock};
 
 /// The global string interner.
-static INTERNER: Lazy<RwLock<Interner>> =
-    Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() }));
+static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
+    RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() })
+});
 
 /// A string interner.
 struct Interner {

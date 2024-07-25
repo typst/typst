@@ -97,7 +97,7 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
     use typst::layout::{Abs, Margin, PageElem};
@@ -118,14 +118,14 @@ mod tests {
         /// This is cheap because the shared base for all test runs is lazily
         /// initialized just once.
         pub fn new(text: &str) -> Self {
-            static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
+            static BASE: LazyLock<TestBase> = LazyLock::new(TestBase::default);
             let main = Source::detached(text);
             Self { main, base: &*BASE }
         }
 
         /// The ID of the main file in a `TestWorld`.
         pub fn main_id() -> FileId {
-            static ID: Lazy<FileId> = Lazy::new(|| Source::detached("").id());
+            static ID: LazyLock<FileId> = LazyLock::new(|| Source::detached("").id());
             *ID
         }
     }
