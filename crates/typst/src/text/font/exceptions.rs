@@ -323,12 +323,12 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .family("Latin Modern Sans 12"),
     "LMSans17-Oblique" => Exception::new()
         .family("Latin Modern Sans 17"),
-    // STKaiti is a set of Kai fonts on Mac systems. However, their weight values
-    // need to be corrected according to their PostScript names.
-    "STKaitiSC-Regular" => Exception::new().family("Kaiti SC").weight(400),
-    "STKaitiTC-Regular" => Exception::new().family("Kaiti TC").weight(400),
-    "STKaitiSC-Bold" => Exception::new().family("Kaiti SC").weight(700),
-    "STKaitiTC-Bold" => Exception::new().family("Kaiti TC").weight(700),
-    "STKaitiSC-Black" => Exception::new().family("Kaiti SC").weight(900),
-    "STKaitiTC-Black" => Exception::new().family("Kaiti TC").weight(900),
+    // STKaiti is a set of Kai fonts. Their weight values need to be corrected
+    // according to their PostScript names.
+    "STKaitiSC-Regular" => Exception::new().weight(400),
+    "STKaitiTC-Regular" => Exception::new().weight(400),
+    "STKaitiSC-Bold" => Exception::new().weight(700),
+    "STKaitiTC-Bold" => Exception::new().weight(700),
+    "STKaitiSC-Black" => Exception::new().weight(900),
+    "STKaitiTC-Black" => Exception::new().weight(900),
 };
