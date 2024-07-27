@@ -4,7 +4,7 @@ use ecow::eco_format;
 use pdf_writer::{
     types::Direction, writers::PageLabel, Finish, Name, Pdf, Ref, Str, TextStr,
 };
-use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
+use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
 use typst::foundations::{Datetime, Smart};
 use typst::layout::Dir;
@@ -13,11 +13,31 @@ use typst::text::Lang;
 use crate::WithEverything;
 use crate::{hash_base64, outline, page::PdfPageLabel};
 
+#[derive(Debug, Clone, Copy)]
+pub struct Timestamp {
+    // The timestamp in UTC.
+    pub datetime: Datetime,
+    // The local timezone minus the UTC, in hour and remaining minutes. If None,
+    // the PDF timestamp will not have a timezone suffix.
+    pub timezone_offset: Option<(i8, u8)>,
+}
+
+impl Timestamp {
+    pub fn new(datetime: Datetime) -> Self {
+        Self { datetime, timezone_offset: None }
+    }
+    pub fn with_timezone_offset(self, seconds: i32) -> Option<Self> {
+        let hour: i8 = (seconds / 3600).try_into().ok()?;
+        let minute: u8 = (seconds.abs() % 3600).try_into().ok()?;
+        Some(Self { timezone_offset: Some((hour, minute)), ..self })
+    }
+}
+
 /// Write the document catalog.
 pub fn write_catalog(
     ctx: WithEverything,
     ident: Smart<&str>,
-    timestamp: Option<Datetime>,
+    timestamp: Option<Timestamp>,
     pdf: &mut Pdf,
     alloc: &mut Ref,
 ) {
@@ -83,16 +103,9 @@ pub fn write_catalog(
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.date.unwrap_or(timestamp) {
-        let tz = ctx.document.date.is_auto();
-        if let Some(pdf_date) = pdf_date(date, tz) {
-            info.creation_date(pdf_date);
-            info.modified_date(pdf_date);
-        }
-        if let Some(xmp_date) = xmp_date(date, tz) {
-            xmp.create_date(xmp_date);
-            xmp.modify_date(xmp_date);
-        }
+    if let Some((pdf_date, xmp_date)) = generate_writer_date(timestamp) {
+        info.creation_date(pdf_date).modified_date(pdf_date);
+        xmp.create_date(xmp_date).modify_date(xmp_date);
     }
 
     info.finish();
@@ -230,8 +243,11 @@ pub(crate) fn write_page_labels(
     result
 }
 
-/// Converts a datetime to a pdf-writer date.
-fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
+/// Converts a timestamp to a pdf-writer date and a xmp-writer date.
+fn generate_writer_date(
+    timestamp: Option<Timestamp>,
+) -> Option<(pdf_writer::Date, xmp_writer::DateTime)> {
+    let Timestamp { datetime, timezone_offset } = timestamp?;
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut pdf_date = pdf_writer::Date::new(year);
@@ -256,23 +272,26 @@ fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
         pdf_date = pdf_date.second(s);
     }
 
-    if tz {
-        pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0);
+    if let Some((hour, minute)) = timezone_offset {
+        pdf_date = pdf_date.utc_offset_hour(hour).utc_offset_minute(minute);
     }
 
-    Some(pdf_date)
-}
-
-/// Converts a datetime to an xmp-writer datetime.
-fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
-    let year = datetime.year().filter(|&y| y >= 0)? as u16;
-    Some(DateTime {
+    let xmp_date = xmp_writer::DateTime {
         year,
         month: datetime.month(),
         day: datetime.day(),
         hour: datetime.hour(),
         minute: datetime.minute(),
         second: datetime.second(),
-        timezone: if tz { Some(Timezone::Utc) } else { None },
-    })
+        timezone: match timezone_offset {
+            Some((0, 0)) => Some(xmp_writer::Timezone::Utc),
+            Some((hour, minute)) => Some(xmp_writer::Timezone::Local {
+                hour,
+                minute: minute.try_into().ok()?,
+            }),
+            None => None,
+        },
+    };
+
+    Some((pdf_date, xmp_date))
 }

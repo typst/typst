@@ -14,6 +14,7 @@ use typst::layout::{Frame, Page, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
+use typst_pdf::Timestamp;
 
 use crate::args::{
     CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
@@ -164,11 +165,14 @@ fn export(
 
 /// Export to a PDF.
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    let timestamp = convert_datetime(
-        command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
+    let pdf_timestamp =
+        make_pdf_timestamp(document.date, command.common.creation_timestamp);
+    let buffer = typst_pdf::pdf(
+        document,
+        Smart::Auto,
+        pdf_timestamp,
+        command.exported_page_ranges(),
     );
-    let exported_page_ranges = command.exported_page_ranges();
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
     command
         .output()
         .write(&buffer)
@@ -176,15 +180,46 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     Ok(())
 }
 
-/// Convert [`chrono::DateTime`] to [`Datetime`]
-fn convert_datetime(date_time: chrono::DateTime<chrono::Utc>) -> Option<Datetime> {
+/// Generate the timestamp and the timezone offset according to the
+/// preference stack:
+/// * (a) the timestamp or none, specified by document.date,
+/// * (b) if (a) is auto, the timestamp provided through the CLI command,
+/// * (c) if (b) is absent, the current timestamp from chrono::Local().
+///
+/// Notes: document.date do not have a timezone info, so the resulting
+/// timestamps do not have timezone; the datetime from the CLI command is
+/// parsed from a UNIX timestamp and it assumed the UTC timezone.
+fn make_pdf_timestamp(
+    document_date_config: Smart<Option<Datetime>>,
+    command_override: Option<chrono::DateTime<chrono::Utc>>,
+) -> Option<Timestamp> {
+    match document_date_config {
+        Smart::Custom(None) => None,
+        Smart::Custom(Some(datetime)) => Some(Timestamp::new(datetime)),
+        Smart::Auto => match command_override.and_then(chrono_to_datetime) {
+            Some(datetime) => Timestamp::new(datetime).with_timezone_offset(0),
+            None => {
+                let now = chrono::Local::now();
+                let datetime = chrono_to_datetime(now)?;
+                let offset = now.offset().local_minus_utc();
+                Timestamp::new(datetime).with_timezone_offset(offset)
+            }
+        },
+    }
+}
+
+/// Convert [`chrono::DateTime`] to Typst's [`Datetime`]. In the unlikely
+/// event of numeric overflow, return `None`.
+fn chrono_to_datetime<Tz: chrono::TimeZone>(
+    chrono_datetime: chrono::DateTime<Tz>,
+) -> Option<Datetime> {
     Datetime::from_ymd_hms(
-        date_time.year(),
-        date_time.month().try_into().ok()?,
-        date_time.day().try_into().ok()?,
-        date_time.hour().try_into().ok()?,
-        date_time.minute().try_into().ok()?,
-        date_time.second().try_into().ok()?,
+        chrono_datetime.year(),
+        chrono_datetime.month().try_into().ok()?,
+        chrono_datetime.day().try_into().ok()?,
+        chrono_datetime.hour().try_into().ok()?,
+        chrono_datetime.minute().try_into().ok()?,
+        chrono_datetime.second().try_into().ok()?,
     )
 }
 
