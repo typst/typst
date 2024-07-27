@@ -232,9 +232,9 @@ pub fn to_sk_paint<'a>(
             *pixmap = Some(Arc::new(canvas));
 
             let offset = match relative {
-                RelativeTo::Self_ => gradient_map
-                    .map(|(offset, _)| -offset)
-                    .unwrap_or_default(),
+                RelativeTo::Self_ => {
+                    gradient_map.map(|(offset, _)| -offset).unwrap_or_default()
+                }
                 RelativeTo::Parent => Point::zero(),
             };
 
