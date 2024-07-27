@@ -190,13 +190,13 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
 /// timestamps do not have timezone; the datetime from the CLI command is
 /// parsed from a UNIX timestamp and it assumed the UTC timezone.
 fn make_pdf_timestamp(
-    document_date_config: Smart<Option<Datetime>>,
-    command_override: Option<chrono::DateTime<chrono::Utc>>,
+    document_datetime: Smart<Option<Datetime>>,
+    command_datetime: Option<chrono::DateTime<chrono::Utc>>,
 ) -> Option<Timestamp> {
-    match document_date_config {
+    match document_datetime {
         Smart::Custom(None) => None,
         Smart::Custom(Some(datetime)) => Some(Timestamp::new(datetime)),
-        Smart::Auto => match command_override.and_then(chrono_to_datetime) {
+        Smart::Auto => match command_datetime.and_then(chrono_to_datetime) {
             Some(datetime) => Timestamp::new(datetime).with_timezone_offset(0),
             None => {
                 let now = chrono::Local::now();

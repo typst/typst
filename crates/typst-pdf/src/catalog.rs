@@ -13,12 +13,10 @@ use typst::text::Lang;
 use crate::WithEverything;
 use crate::{hash_base64, outline, page::PdfPageLabel};
 
-#[derive(Debug, Clone, Copy)]
 pub struct Timestamp {
-    // The timestamp in UTC.
     pub datetime: Datetime,
-    // The local timezone minus the UTC, in hour and remaining minutes. If None,
-    // the PDF timestamp will not have a timezone suffix.
+    // The local timezone minus the UTC, in hours and remaining minutes. If None,
+    // the PDF timestamps will not have a timezone suffix.
     pub timezone_offset: Option<(i8, u8)>,
 }
 
