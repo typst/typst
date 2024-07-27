@@ -185,6 +185,12 @@ pub fn to_sk_paint<'a>(
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
+
+            let gradient_map = match relative {
+                RelativeTo::Self_ => gradient_map,
+                RelativeTo::Parent => None,
+            };
+
             let width =
                 (container_size.x.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
             let height =
