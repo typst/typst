@@ -23,7 +23,7 @@ fn format_dhms(days: u16, hours: u8, minutes: u8, seconds: u8) -> String {
 }
 
 /// Format string starting with number of days and going bigger from there.
-fn time_as_seconds(duration: &Duration) -> String {
+fn time_starting_with_seconds(duration: &Duration) -> String {
     let (days, hours, minutes, seconds, _, _) = get_duration_parts(duration);
     format_dhms(days, hours, minutes, seconds)
 }
@@ -31,7 +31,7 @@ fn time_as_seconds(duration: &Duration) -> String {
 /// Format string starting with number of milliseconds and going bigger from there.
 /// `precision` is how many digits of microseconds from left will be preserved.
 /// Note that this function will always remove all trailing zeros for microseconds.
-fn time_as_ms_with_precision(duration: &Duration, precision: usize) -> String {
+fn time_starting_with_ms_with_precision(duration: &Duration, precision: usize) -> String {
     let digits = precision;
     let (d, h, m, s, ms, mcs) = get_duration_parts(duration);
     let mcs_digits = {
@@ -43,7 +43,6 @@ fn time_as_ms_with_precision(duration: &Duration, precision: usize) -> String {
         println!("after {mcs}");
         mcs.to_string().len()
     };
-    dbg!(digits, mcs, mcs_digits);
     let ms = format!(
         "{1:.0$} ms",
         if mcs != 0 { min(digits, mcs_digits) } else { 0 },
@@ -56,15 +55,15 @@ fn time_as_ms_with_precision(duration: &Duration, precision: usize) -> String {
 }
 
 fn time_as_ms(duration: &Duration) -> String {
-    time_as_ms_with_precision(duration, 2)
+    time_starting_with_ms_with_precision(duration, 2)
 }
 
 pub fn elapsed_time(duration: &Duration) -> String {
-    time_as_seconds(duration)
+    time_starting_with_seconds(duration)
 }
 
 pub fn eta_time(duration: &Duration) -> String {
-    time_as_seconds(duration)
+    time_starting_with_seconds(duration)
 }
 
 pub fn compilation_time(duration: &Duration) -> String {
@@ -75,58 +74,66 @@ pub fn compilation_time(duration: &Duration) -> String {
 mod tests {
     use super::*;
 
+    fn duration_milli_micro(milliseconds: u16, microseconds: u16) -> Duration {
+        let microseconds = microseconds as u64;
+        let milliseconds = 1000 * milliseconds as u64;
+        Duration::from_micros(milliseconds + microseconds)
+    }
+
     #[test]
-    fn test_time_as_seconds() {
-        fn assert(left: &str, right: Duration) {
-            assert_eq!(left, time_as_seconds(&right))
+    fn test_time_starting_with_seconds() {
+        let f = |duration| time_starting_with_seconds(&duration);
+        fn duration(days: u16, hours: u8, minutes: u8, seconds: u8) -> Duration {
+            let seconds = seconds as u64;
+            let minutes = 60 * minutes as u64;
+            let hours = 60 * 60 * hours as u64;
+            let days = 24 * 60 * 60 * days as u64;
+            Duration::from_secs(days + hours + minutes + seconds)
         }
-        assert(" 0 s", Duration::from_secs(0));
-        assert("59 s", Duration::from_secs(59));
-        assert(" 1 m 12 s", Duration::from_secs(60 + 12));
-        assert("59 m  0 s", Duration::from_secs(60 * 59));
-        assert(" 5 h  1 m  2 s", Duration::from_secs(60 * 60 * 5 + 60 + 2));
+        assert_eq!(" 0 s", &f(duration(0, 0, 0, 0)));
+        assert_eq!("59 s", &f(duration(0, 0, 0, 59)));
+        assert_eq!(" 1 m 12 s", &f(duration(0, 0, 1, 12)));
+        assert_eq!("59 m  0 s", &f(duration(0, 0, 59, 0)));
+        assert_eq!(" 5 h  1 m  2 s", &f(duration(0, 5, 1, 2)));
+        assert_eq!("  1 d  0 h  0 m  0 s", &f(duration(1, 0, 0, 0)));
+        assert_eq!(" 69 d  0 h  0 m  0 s", &f(duration(69, 0, 0, 0)));
+        assert_eq!("100 d 10 h 10 m 10 s", &f(duration(100, 10, 10, 10)));
     }
 
     #[test]
     fn test_time_as_ms_with_precision_1() {
-        fn assert(left: &str, right: Duration) {
-            assert_eq!(left, time_as_ms_with_precision(&right, 1))
-        }
-        assert("123.5 ms", Duration::from_micros(123456));
-        assert("123.5 ms", Duration::from_micros(123455));
-        assert("123.4 ms", Duration::from_micros(123445));
-        assert("123.4 ms", Duration::from_micros(123440));
-        assert("123.1 ms", Duration::from_micros(123100));
-        assert("123 ms", Duration::from_micros(123000));
+        let f = |duration| time_starting_with_ms_with_precision(&duration, 1);
+        let duration = duration_milli_micro;
+        assert_eq!("123.5 ms", &f(duration(123, 456)));
+        assert_eq!("123.5 ms", &f(duration(123, 455)));
+        assert_eq!("123.4 ms", &f(duration(123, 445)));
+        assert_eq!("123.4 ms", &f(duration(123, 440)));
+        assert_eq!("123.1 ms", &f(duration(123, 100)));
+        assert_eq!("123 ms", &f(duration(123, 0)));
     }
 
     #[test]
     fn test_time_as_ms_with_precision_2() {
-        fn assert(left: &str, right: Duration) {
-            assert_eq!(left, time_as_ms_with_precision(&right, 2))
-        }
-        assert("123.46 ms", Duration::from_micros(123456));
-        assert("123.46 ms", Duration::from_micros(123455));
-        assert("123.45 ms", Duration::from_micros(123454));
-        assert("123.45 ms", Duration::from_micros(123450));
-        assert("123.1 ms", Duration::from_micros(123100));
-        assert("123 ms", Duration::from_micros(123000));
-        // assert(
-        //     format!("{:?}", Duration::from_micros(123000)).as_str(),
-        //     Duration::from_micros(123000),
-        // );
+        let f = |duration| time_starting_with_ms_with_precision(&duration, 2);
+        let duration = duration_milli_micro;
+        assert_eq!("123.46 ms", &f(duration(123, 456)));
+        assert_eq!("123.46 ms", &f(duration(123, 455)));
+        assert_eq!("123.45 ms", &f(duration(123, 454)));
+        assert_eq!("123.45 ms", &f(duration(123, 450)));
+        assert_eq!("123.1 ms", &f(duration(123, 100)));
+        assert_eq!("123 ms", &f(duration(123, 0)));
+        // assert_eq!(format!("{:?}", &f(duration(123, 0))).as_str(), &f(duration(123, 0)));
     }
 
     #[test]
     fn test_time_as_ms_with_precision_3() {
-        fn assert(left: &str, right: Duration) {
-            assert_eq!(left, time_as_ms_with_precision(&right, 3))
-        }
-        assert("123.456 ms", Duration::from_micros(123456));
-        assert("123.455 ms", Duration::from_micros(123455));
-        assert("123.454 ms", Duration::from_micros(123454));
-        assert("123.45 ms", Duration::from_micros(123450));
-        assert("123.1 ms", Duration::from_micros(123100));
-        assert("123 ms", Duration::from_micros(123000));
+        let f = |duration| time_starting_with_ms_with_precision(&duration, 3);
+        let duration = duration_milli_micro;
+        assert_eq!("123.456 ms", &f(duration(123, 456)));
+        assert_eq!("123.455 ms", &f(duration(123, 455)));
+        assert_eq!("123.454 ms", &f(duration(123, 454)));
+        assert_eq!("123.45 ms", &f(duration(123, 450)));
+        assert_eq!("123.1 ms", &f(duration(123, 100)));
+        assert_eq!("123 ms", &f(duration(123, 0)));
     }
 }
