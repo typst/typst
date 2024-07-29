@@ -165,7 +165,7 @@ $ x_1^i x_2^lambda x_2^(2alpha) x_2^(k+1) x_2^(-p_(-1)) x_j^gamma \
 $ attach(a^b, b: c) quad
   attach(attach(attach(attach(attach(attach(sum, tl: 1), t: 2), tr: 3), br: 4), b: 5), bl: 6) $
 
-#let a0 = math.attach(math.alpha, b: [0])
+#let a0 = math.attach(math.alpha, b: $0$)
 #let a1 = $alpha^1$
 #let a2 = $attach(a1, bl: 3)$
 

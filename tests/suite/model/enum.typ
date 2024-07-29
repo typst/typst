@@ -111,7 +111,9 @@ a + 0.
 --- enum-numbering-closure-nested-complex ---
 // Test numbering with closure and nested lists.
 #set text(font: "New Computer Modern")
-#set enum(numbering: (..args) => math.mat(args.pos()), full: true)
+#set enum(full: true, numbering: (..args) => {
+  math.mat(args.pos().map(str).map(math.var))
+})
 + A
   + B
   + C

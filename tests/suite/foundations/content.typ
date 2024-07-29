@@ -83,7 +83,7 @@
   [With ]
   vars
     .pairs()
-    .map(p => $#p.first() = #p.last()$)
+    .map(((name, value)) => $var(name) = value$)
     .join(", ", last: " and ")
   [ we have:]
   $ equation = result $

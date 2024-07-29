@@ -63,8 +63,8 @@ $ ext(bar.v) quad ext(bar.v.double) quad
 // Test stretch when base is given with shorthand.
 $stretch(||, size: #2em)$
 $stretch(\(, size: #2em)$
-$stretch("⟧", size: #2em)$
-$stretch("|", size: #2em)$
+$stretch(⟧, size: #2em)$
+$stretch(|, size: #2em)$
 $stretch(->, size: #2em)$
 $stretch(↣, size: #2em)$
 
