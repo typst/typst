@@ -537,17 +537,8 @@ fn check_annotation_suppresses_warning(
     annotation: ast::Annotation,
     warning: &str,
 ) -> bool {
-    if annotation.name().as_str() != "allow" {
-        return false;
-    }
-
-    for argument in annotation.arguments() {
-        if warning == argument.get() {
-            return true;
-        }
-    }
-
-    false
+    annotation.name().as_str() == "allow"
+        && annotation.arguments().any(|arg| arg.get() == warning)
 }
 
 /// A result type with a file-related error.

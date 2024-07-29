@@ -359,9 +359,10 @@ impl Lexer<'_> {
         if ident == "allow" {
             SyntaxKind::AnnotationName
         } else {
-            let error = self.error(eco_format!("invalid annotation name"));
+            self.error(eco_format!("invalid annotation name"));
             self.hint("must be 'allow'");
-            error
+
+            SyntaxKind::Error
         }
     }
 
