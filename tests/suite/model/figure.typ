@@ -178,6 +178,21 @@ We can clearly see that @fig-cylinder and
 // Error: 31-38 expected `top` or `bottom`, found horizon
 #set figure.caption(position: horizon)
 
+--- figure-caption-extended ---
+#outline(target: figure)
+#figure(rect(), caption: (
+  document: [For document],
+  outline: [For outline],
+))
+
+--- figure-caption-extended-bad ---
+// Error: 24-48 dictionary does not contain key "document"
+#figure(none, caption: (outline: [For outline]))
+
+--- figure-caption-extended-fallback ---
+#let fig = figure(none, caption: (document: [For document]))
+#test(fig.caption.body.outline, [For document])
+
 --- figure-localization-fr ---
 // Test French
 #set text(lang: "fr")

@@ -1,6 +1,8 @@
 use crate::diag::{warning, SourceResult};
 use crate::eval::{Eval, Vm};
-use crate::foundations::{Content, Label, NativeElement, Smart, Unlabellable, Value};
+use crate::foundations::{
+    Content, Label, NativeElement, Packed, Smart, Unlabellable, Value,
+};
 use crate::math::EquationElem;
 use crate::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -213,7 +215,7 @@ impl Eval for ast::Heading<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let depth = self.depth();
         let body = self.body().eval(vm)?;
-        Ok(HeadingElem::new(body).with_depth(depth).pack())
+        Ok(HeadingElem::new(Packed::new(body.into())).with_depth(depth).pack())
     }
 }
 

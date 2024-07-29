@@ -155,7 +155,10 @@
 == I
 
 #let test-selector(selector, ref) = context {
-  test(query(selector).map(e => e.body), ref)
+  test(query(selector).map(e => {
+    if e.func() == heading { e.body.document }
+    else { e.body }
+  }), ref)
 }
 
 // Test `or`.

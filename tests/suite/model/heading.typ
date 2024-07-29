@@ -78,3 +78,22 @@ Not in heading
 // Error: 1:20-1:26 cannot reference heading without numbering
 // Hint: 1:20-1:26 you can enable heading numbering with `#set heading(numbering: "1.")`
 Can not be used as @intro
+
+--- heading-extended-body ---
+#outline()
+#heading((
+  document: [In Document],
+  outline: [In Outline]
+))
+
+--- heading-extended-body-bad ---
+// Error: 10-33 dictionary does not contain key "document"
+#heading((outline: [In Outline]))
+
+--- heading-extended-body-fallback ---
+#let h = heading((
+  document: [In Document],
+  outline: [In Outline]
+))
+
+#test(h.body.bookmark, "In Outline")

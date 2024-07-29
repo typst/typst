@@ -48,7 +48,7 @@ In #context counter(heading).display()
 #heading(numbering: "I.")[Delta]
 
 At Beta, it was #context {
-  let it = query(heading).find(it => it.body == [Beta])
+  let it = query(heading).find(it => it.body.document == [Beta])
   numbering(it.numbering, ..counter(heading).at(it.location()))
 }
 

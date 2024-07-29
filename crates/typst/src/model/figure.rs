@@ -17,7 +17,9 @@ use crate::layout::{
     AlignElem, Alignment, BlockChild, BlockElem, Em, HAlignment, Length, OuterVAlignment,
     PlaceElem, VAlignment, VElem,
 };
-use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
+use crate::model::{
+    Numbering, NumberingPattern, Outlinable, OutlinedContent, Refable, Supplement,
+};
 use crate::text::{Lang, Region, TextElem};
 use crate::utils::NonZeroExt;
 use crate::visualize::ImageElem;
@@ -392,7 +394,7 @@ impl Outlinable for Packed<FigureElem> {
             return Ok(None);
         };
 
-        let mut realized = caption.body().clone();
+        let mut realized = caption.body().outline().clone();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(Some(counter)),
@@ -415,7 +417,7 @@ impl Outlinable for Packed<FigureElem> {
 
             let separator = caption.get_separator(StyleChain::default());
 
-            realized = supplement + numbers + separator + caption.body();
+            realized = supplement + numbers + separator + realized;
         }
 
         Ok(Some(realized))
@@ -502,7 +504,7 @@ pub struct FigureCaption {
     /// )
     /// ```
     #[required]
-    pub body: Content,
+    pub body: Packed<OutlinedContent>,
 
     /// The figure's supplement.
     #[synthesized]
@@ -559,7 +561,7 @@ impl Synthesize for Packed<FigureCaption> {
 impl Show for Packed<FigureCaption> {
     #[typst_macros::time(name = "figure.caption", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body().clone();
+        let mut realized = self.body().document().clone();
 
         if let (
             Some(Some(mut supplement)),
@@ -585,7 +587,8 @@ impl Show for Packed<FigureCaption> {
 
 cast! {
     FigureCaption,
-    v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
+    v: OutlinedContent => Self::new(Packed::new(v)),
+    v: Content => v.unpack::<Self>().map_err(|_| "expected `figure.caption` element")?,
 }
 
 /// The `kind` parameter of a [`FigureElem`].

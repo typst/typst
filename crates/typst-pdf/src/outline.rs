@@ -186,7 +186,7 @@ fn write_outline_item(
     }
 
     let body = node.element.body();
-    outline.title(TextStr(body.plain_text().trim()));
+    outline.title(TextStr(body.bookmark().trim()));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
