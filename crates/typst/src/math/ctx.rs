@@ -7,7 +7,7 @@ use ttf_parser::math::MathValue;
 use ttf_parser::opentype_layout::LayoutTable;
 use ttf_parser::GlyphId;
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -18,7 +18,7 @@ use crate::layout::{
 };
 use crate::math::{
     scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
-    LayoutMath, MathFragment, MathRun, MathSize, THICK,
+    LayoutMath, MathFragment, MathRun, MathSize, VarElem, THICK,
 };
 use crate::realize::{realize, Arenas, RealizationKind};
 use crate::syntax::{is_newline, Span};
@@ -226,7 +226,7 @@ impl MathContext<'_, '_, '_> {
                 }
             }
         } else if let Some(elem) = elem.to_packed::<TextElem>() {
-            let fragment = self.layout_text(elem, styles)?;
+            let fragment = self.layout_text(elem.text(), elem.span(), styles)?;
             self.push(fragment);
         } else if let Some(boxed) = elem.to_packed::<BoxElem>() {
             let frame = self.layout_box(boxed, styles)?;
@@ -281,102 +281,212 @@ impl MathContext<'_, '_, '_> {
             self.region,
         )
     }
+}
 
-    /// Layout the given [`TextElem`] into a [`MathFragment`].
-    fn layout_text(
+/// Used to determine how to render text in a math variable.
+#[derive(Debug)]
+enum GlyphOrRun {
+    Glyph(GlyphFragment),
+    Num(EcoString),
+    Text(EcoString),
+}
+
+impl MathContext<'_, '_, '_> {
+    /// Layout a [`VarElem`] into a [`MathFragment`].
+    pub fn layout_math_variable(
         &mut self,
-        elem: &Packed<TextElem>,
+        elem: &Packed<VarElem>,
         styles: StyleChain,
-    ) -> SourceResult<MathFragment> {
-        let text = elem.text();
+    ) -> SourceResult<()> {
+        let mut chars = elem.text().graphemes(true).peekable();
         let span = elem.span();
-        let mut chars = text.chars();
-        let math_size = EquationElem::size_in(styles);
-        let fragment = if let Some(mut glyph) = chars
-            .next()
-            .filter(|_| chars.next().is_none())
-            .map(|c| styled_char(styles, c, true))
-            .and_then(|c| GlyphFragment::try_new(self, styles, c, span))
-        {
-            // A single letter that is available in the math font.
-            match math_size {
-                MathSize::Script => {
-                    glyph.make_scriptsize(self);
-                }
-                MathSize::ScriptScript => {
-                    glyph.make_scriptscriptsize(self);
-                }
-                _ => (),
-            }
-
-            if glyph.class == MathClass::Large {
-                let mut variant = if math_size == MathSize::Display {
-                    let height = scaled!(self, styles, display_operator_min_height)
-                        .max(SQRT_2 * glyph.height());
-                    glyph.stretch_vertical(self, height, Abs::zero())
-                } else {
-                    glyph.into_variant()
-                };
-                // TeXbook p 155. Large operators are always vertically centered on the axis.
-                variant.center_on_axis(self);
-                variant.into()
-            } else {
-                glyph.into()
-            }
-        } else if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
-            // Numbers aren't that difficult.
-            let mut fragments = vec![];
-            for c in text.chars() {
-                let c = styled_char(styles, c, false);
-                fragments.push(GlyphFragment::new(self, styles, c, span).into());
-            }
-            let frame = MathRun::new(fragments).into_frame(self, styles);
-            FrameFragment::new(self, styles, frame).with_text_like(true).into()
-        } else {
-            let local = [
-                TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
-                TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-                TextElem::set_size(TextSize(scaled_font_size(self, styles).into())),
-            ]
-            .map(|p| p.wrap());
-
-            // Anything else is handled by Typst's standard text layout.
-            let styles = styles.chain(&local);
-            let text: EcoString =
-                text.chars().map(|c| styled_char(styles, c, false)).collect();
-            if text.contains(is_newline) {
-                let mut fragments = vec![];
-                for (i, piece) in text.split(is_newline).enumerate() {
-                    if i != 0 {
-                        fragments.push(MathFragment::Linebreak);
-                    }
-                    if !piece.is_empty() {
-                        fragments
-                            .push(self.layout_complex_text(piece, span, styles)?.into());
-                    }
-                }
-                let mut frame = MathRun::new(fragments).into_frame(self, styles);
-                let axis = scaled!(self, styles, axis_height);
-                frame.set_baseline(frame.height() / 2.0 + axis);
-                FrameFragment::new(self, styles, frame).into()
-            } else {
-                self.layout_complex_text(&text, span, styles)?.into()
-            }
-        };
-        Ok(fragment)
+        while let Some(glyph_or_run) = self.next_glyph_or_run(&mut chars, span, styles) {
+            let fragment = match glyph_or_run {
+                GlyphOrRun::Glyph(glyph) => self.layout_single_glyph(glyph, styles),
+                GlyphOrRun::Num(text) => self.layout_number_run(text, span, styles),
+                GlyphOrRun::Text(text) => self.layout_text(&text, span, styles)?,
+            };
+            self.push(fragment);
+        }
+        Ok(())
     }
 
-    /// Layout the given text string into a [`FrameFragment`].
-    fn layout_complex_text(
+    /// Determine the next element to layout by iterating over graphemes in the
+    /// text. This function is heavily coupled with the previous rendering
+    /// system, and should likely be thrown-out or refactored when things are
+    /// updated.
+    ///
+    /// This code also currently deserves a good refactoring, but I do think
+    /// that it is likely correct as-is. A first step would be changing the
+    /// `.next().unwrap()` calls but I'm too lazy for right now.
+    ///
+    /// We have to iterate over graphemes because otherwise emojis and other
+    /// things break. But the common case of single characters is what the old
+    /// code was written against and I don't know enough unicode to write this
+    /// properly.
+    fn next_glyph_or_run(
+        &mut self,
+        graphemes: &mut std::iter::Peekable<Graphemes>,
+        span: Span,
+        styles: StyleChain,
+    ) -> Option<GlyphOrRun> {
+        let grapheme = graphemes.next()?;
+        fn is_digit(grapheme: &str) -> bool {
+            let mut chars = grapheme.chars();
+            // TODO: try using a filter call?
+            match chars.next() {
+                Some(c) => c.is_ascii_digit() && chars.next().is_none(),
+                None => false,
+            }
+        }
+        // The `peek().is_some()` is because this function used to have
+        // different behavior for numbers with only a single digit vs numbers
+        // with multiple digits. This should probably change in the future, but
+        // will slightly alter many tests.
+        if is_digit(grapheme) && graphemes.peek().is_some() {
+            // TODO: start number run.
+            let mut number_run = EcoString::new();
+            let c = grapheme.chars().next().unwrap();
+            let styled = styled_char(styles, c, false);
+            number_run.push(styled);
+            let mut already_dotted = false;
+            // Note that this is meant to match how the lexer parses numbers in
+            // math into single MathText elements.
+            while let Some(grapheme) =
+                graphemes.next_if(|g| is_digit(g) || (*g == "." && !already_dotted))
+            {
+                if grapheme == "." {
+                    already_dotted = true;
+                }
+                let c = grapheme.chars().next().unwrap();
+                let styled = styled_char(styles, c, false);
+                number_run.push(styled);
+            }
+            Some(GlyphOrRun::Num(number_run))
+        } else if let Some(glyph) = if grapheme.chars().count() == 1 {
+            let c = grapheme.chars().next().unwrap();
+            let styled = styled_char(styles, c, true); // auto italics are applied here.
+            GlyphFragment::try_new(self, styles, styled, span)
+        } else {
+            None
+        } {
+            // Ugh this block is horrible.
+            Some(GlyphOrRun::Glyph(glyph))
+        } else {
+            let mut text_run = EcoString::new();
+            text_run.push_str(grapheme);
+            while let Some(grapheme) = graphemes.next_if(|grapheme| {
+                if grapheme.chars().count() == 1 {
+                    let c = grapheme.chars().next().unwrap();
+                    GlyphFragment::try_new(self, styles, c, span)
+                } else {
+                    None
+                }
+                .is_none()
+            }) {
+                text_run.push_str(grapheme);
+            }
+            Some(GlyphOrRun::Text(text_run))
+        }
+    }
+
+    /// Layout a single letter that was available in the math font.
+    fn layout_single_glyph(
+        &mut self,
+        mut glyph: GlyphFragment,
+        styles: StyleChain,
+    ) -> MathFragment {
+        let math_size = EquationElem::size_in(styles);
+        match math_size {
+            MathSize::Script => glyph.make_scriptsize(self),
+            MathSize::ScriptScript => glyph.make_scriptscriptsize(self),
+            _ => {}
+        }
+
+        if glyph.class == MathClass::Large {
+            let mut variant = if math_size == MathSize::Display {
+                let height = scaled!(self, styles, display_operator_min_height)
+                    .max(SQRT_2 * glyph.height());
+                glyph.stretch_vertical(self, height, Abs::zero())
+            } else {
+                glyph.into_variant()
+            };
+            // TeXbook p 155. Large operators are always vertically centered on
+            // the axis.
+            variant.center_on_axis(self);
+            variant.into()
+        } else {
+            glyph.into()
+        }
+    }
+
+    /// Layout a run of numbers from a [`VarElem`].
+    ///
+    /// May include a single dot character, i.e. '3.1415'.
+    fn layout_number_run(
+        &mut self,
+        text: EcoString,
+        span: Span,
+        styles: StyleChain,
+    ) -> MathFragment {
+        let mut fragments = vec![];
+        for c in text.chars() {
+            let c = styled_char(styles, c, false);
+            fragments.push(GlyphFragment::new(self, styles, c, span).into());
+        }
+        let frame = MathRun::new(fragments).into_frame(self, styles);
+        let fragment = FrameFragment::new(self, styles, frame).with_text_like(true);
+        fragment.into()
+    }
+
+    /// Layout a [`TextElem`] into a [`MathFragment`].
+    pub fn layout_text(
         &mut self,
         text: &str,
         span: Span,
         styles: StyleChain,
-    ) -> SourceResult<FrameFragment> {
+    ) -> SourceResult<MathFragment> {
+        let local = [
+            TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
+            TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+            TextElem::set_size(TextSize(scaled_font_size(self, styles).into())),
+        ]
+        .map(|p| p.wrap());
+
+        let styles = styles.chain(&local);
+        let text: EcoString =
+            text.chars().map(|c| styled_char(styles, c, false)).collect();
+        if text.contains(is_newline) {
+            let mut fragments = vec![];
+            for (i, piece) in text.split(is_newline).enumerate() {
+                if i != 0 {
+                    fragments.push(MathFragment::Linebreak);
+                }
+                if !piece.is_empty() {
+                    fragments.push(self.layout_text_run(piece, span, styles)?);
+                }
+            }
+            let mut frame = MathRun::new(fragments).into_frame(self, styles);
+            let axis = scaled!(self, styles, axis_height);
+            frame.set_baseline(frame.height() / 2.0 + axis);
+            Ok(FrameFragment::new(self, styles, frame).into())
+        } else {
+            self.layout_text_run(&text, span, styles)
+        }
+    }
+
+    /// Layout a text string into a [`MathFragment`] by deferring to the
+    /// standard text layout system.
+    fn layout_text_run(
+        &mut self,
+        text: &str,
+        span: Span,
+        styles: StyleChain,
+    ) -> SourceResult<MathFragment> {
         // There isn't a natural width for a paragraph in a math environment;
         // because it will be placed somewhere probably not at the left margin
-        // it will overflow. So emulate an `hbox` instead and allow the paragraph
-        // to extend as far as needed.
+        // it will overflow. So emulate an `hbox` instead and allow the
+        // paragraph to extend as far as needed.
         let spaced = text.graphemes(true).nth(1).is_some();
         let elem = TextElem::packed(text).spanned(span);
         let frame = crate::layout::layout_inline(
@@ -393,7 +503,8 @@ impl MathContext<'_, '_, '_> {
         Ok(FrameFragment::new(self, styles, frame)
             .with_class(MathClass::Alphabetic)
             .with_text_like(true)
-            .with_spaced(spaced))
+            .with_spaced(spaced)
+            .into())
     }
 }
 

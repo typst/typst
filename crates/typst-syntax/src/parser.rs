@@ -332,9 +332,17 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
-        SyntaxKind::Escape | SyntaxKind::Str => {
+
+        SyntaxKind::Str => {
             continuable = true;
             p.eat();
+        }
+
+        SyntaxKind::Escape => {
+            continuable = true;
+            // Hack to allow escapes to know if they were parsed in math or not.
+            p.convert(SyntaxKind::MathText);
+            p.wrap(m, SyntaxKind::Escape);
         }
 
         SyntaxKind::Root => {

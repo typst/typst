@@ -123,7 +123,7 @@ pub enum Expr<'a> {
     Equation(Equation<'a>),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math<'a>),
-    /// A lone text fragment in math: `x`, `e`, `25`, `=`, `|`, `[`, `:`.
+    /// A lone text fragment in math: `x`, `e`, `25`, `3.1514`, `=`, `|`, `[`, `:`.
     MathText(MathText<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
@@ -436,7 +436,12 @@ node! {
 impl Escape<'_> {
     /// Get the escaped character.
     pub fn get(self) -> char {
-        let mut s = Scanner::new(self.0.text());
+        let text = if self.from_math() {
+            self.0.cast_first_match::<MathText>().unwrap().get()
+        } else {
+            self.0.text()
+        };
+        let mut s = Scanner::new(text);
         s.expect('\\');
         if s.eat_if("u{") {
             let hex = s.eat_while(char::is_ascii_hexdigit);
@@ -447,6 +452,10 @@ impl Escape<'_> {
         } else {
             s.eat().unwrap_or_default()
         }
+    }
+
+    pub fn from_math(&self) -> bool {
+        !self.0.is_leaf()
     }
 }
 
@@ -711,7 +720,7 @@ impl<'a> Math<'a> {
 }
 
 node! {
-    /// A lone text fragment in math: `x`, `e`, `25`, `=`, `|`, `[`, `:`.
+    /// A lone text fragment in math: `x`, `e`, `25`, `3.1514`, `=`, `|`, `[`, `:`.
     MathText
 }
 

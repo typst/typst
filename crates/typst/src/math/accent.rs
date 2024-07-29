@@ -5,9 +5,8 @@ use crate::foundations::{
 use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     style_cramped, FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment,
-    Scaled,
+    Scaled, VarElem,
 };
-use crate::text::TextElem;
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
@@ -208,7 +207,7 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to_packed::<TextElem>() {
+    v: Content => match v.to_packed::<VarElem>() {
         Some(elem) => Value::Str(elem.text().clone().into()).cast()?,
         None => bail!("expected text"),
     },

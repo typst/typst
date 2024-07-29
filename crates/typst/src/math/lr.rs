@@ -5,8 +5,9 @@ use crate::foundations::{
     elem, func, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
 use crate::layout::{Abs, Em, Length, Rel};
-use crate::math::{GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled};
-use crate::text::TextElem;
+use crate::math::{
+    GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled, VarElem,
+};
 
 use super::delimiter_alignment;
 
@@ -28,7 +29,7 @@ pub struct LrElem {
         let mut body = Content::empty();
         for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
             if i > 0 {
-                body += TextElem::packed(',');
+                body += VarElem::packed(',');
             }
             body += arg;
         }
@@ -254,9 +255,9 @@ fn delimited(
 ) -> Content {
     let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
-        TextElem::packed(left),
+        VarElem::packed(left),
         body,
-        TextElem::packed(right),
+        VarElem::packed(right),
     ]));
     // Push size only if size is provided
     if let Some(size) = size {
