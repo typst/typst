@@ -535,6 +535,10 @@ fn layout_realized(
         layout_h(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<TextElem>() {
         self::text::layout_text(elem, ctx, styles)?;
+    } else if let Some(elem) = elem.to_packed::<VarElem>() {
+        let text_elem = TextElem::new(elem.text.clone());
+        let packed = Packed::new(text_elem);
+        self::text::layout_text(&packed, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
         layout_box(elem, ctx, styles)?;
     } else if elem.is::<AlignPointElem>() {

@@ -19,6 +19,7 @@ use crate::foundations::{
     Styles, Symbol, Type, Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
+use crate::math::VarElem;
 use crate::text::{RawContent, RawElem, TextElem};
 use crate::visualize::{Color, Gradient, Tiling};
 
@@ -209,7 +210,13 @@ impl Value {
             Self::Decimal(v) => TextElem::packed(eco_format!("{v}")),
             Self::Str(v) => TextElem::packed(v),
             Self::Version(v) => TextElem::packed(eco_format!("{v}")),
-            Self::Symbol(v) => TextElem::packed(v.get()),
+            Self::Symbol(v) => {
+                if v.from_math() {
+                    VarElem::packed(v.get())
+                } else {
+                    TextElem::packed(v.get())
+                }
+            }
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
             _ => RawElem::new(RawContent::Text(self.repr()))
@@ -656,7 +663,11 @@ primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
-    Symbol(v) => TextElem::packed(v.get()),
+    Symbol(v) => if v.from_math() {
+        VarElem::packed(v.get())
+    } else {
+        TextElem::packed(v.get())
+    },
     Str(v) => TextElem::packed(v)
 }
 primitive! { Styles: "styles", Styles }

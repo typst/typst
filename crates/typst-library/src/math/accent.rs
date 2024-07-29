@@ -1,8 +1,7 @@
 use crate::diag::bail;
 use crate::foundations::{cast, elem, func, Content, NativeElement, Value};
 use crate::layout::{Length, Rel};
-use crate::math::Mathy;
-use crate::text::TextElem;
+use crate::math::{Mathy, VarElem};
 
 /// Attaches an accent to a base.
 ///
@@ -142,7 +141,7 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to_packed::<TextElem>() {
+    v: Content => match v.to_packed::<VarElem>() {
         Some(elem) => Value::Str(elem.text.clone().into()).cast()?,
         None => bail!("expected text"),
     },

@@ -42,7 +42,7 @@ use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as
 /// ```
 #[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Symbol(Repr);
+pub struct Symbol(Repr, bool); // The bool is whether this came from the `math` module.
 
 /// The internal representation.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -67,21 +67,37 @@ enum List {
 impl Symbol {
     /// Create a new symbol from a single character.
     pub const fn single(c: char) -> Self {
-        Self(Repr::Single(c))
+        Self(Repr::Single(c), false)
+    }
+
+    /// Create a symbol for a single character in the AST like a
+    /// shorthand/escape, potentially from math text.
+    pub const fn ast_char(c: char, math: bool) -> Self {
+        Self(Repr::Single(c), math)
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
     pub const fn list(list: &'static [(&'static str, char)]) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Complex(list))
+        Self(Repr::Complex(list), false)
     }
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
     pub fn runtime(list: Box<[(EcoString, char)]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Modified(Arc::new((List::Runtime(list), EcoString::new()))))
+        Self(Repr::Modified(Arc::new((List::Runtime(list), EcoString::new()))), false)
+    }
+
+    /// Clones self and sets the `from_math` value to true for any/all
+    /// [`SymChar`]s.
+    pub fn for_math(self) -> Self {
+        Self(self.0, true)
+    }
+
+    pub fn from_math(&self) -> bool {
+        self.1
     }
 
     /// Get the symbol's character.

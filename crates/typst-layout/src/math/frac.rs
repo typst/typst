@@ -8,7 +8,7 @@ use typst_syntax::Span;
 
 use super::{
     style_for_denominator, style_for_numerator, FrameFragment, GlyphFragment,
-    MathContext, DELIM_SHORT_FALL,
+    MathContext, VarElem, DELIM_SHORT_FALL,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -80,7 +80,7 @@ fn layout_frac_like(
     let denom = ctx.layout_into_frame(
         &Content::sequence(
             // Add a comma between each element.
-            denom.iter().flat_map(|a| [TextElem::packed(','), a.clone()]).skip(1),
+            denom.iter().flat_map(|a| [VarElem::packed(','), a.clone()]).skip(1),
         ),
         styles.chain(&denom_style),
     )?;
@@ -121,6 +121,7 @@ fn layout_frac_like(
             FrameItem::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(
                     FixedStroke::from_pair(
+                        // TODO: convert this to VarElem??
                         TextElem::fill_in(styles).as_decoration(),
                         thickness,
                     ),

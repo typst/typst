@@ -2,7 +2,7 @@ use ecow::EcoString;
 
 use crate::foundations::{elem, Content, NativeElement, Scope};
 use crate::layout::HElem;
-use crate::math::{upright, Mathy, THIN};
+use crate::math::{upright, Mathy, VarElem, THIN};
 use crate::text::TextElem;
 
 /// A text operator in an equation.
@@ -38,6 +38,8 @@ macro_rules! ops {
                 let operator = EcoString::from(ops!(@name $name $(: $value)?));
                 math.define(
                     stringify!($name),
+                    // Note: This _should_ be a `TextElem` (not `VarElem`) if
+                    // we're following Latex.
                     OpElem::new(TextElem::new(operator).into())
                         .with_limits(ops!(@limit $($tts)*))
                         .pack()
@@ -46,7 +48,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + upright(TextElem::packed(d))
+                    + upright(VarElem::packed(d))
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

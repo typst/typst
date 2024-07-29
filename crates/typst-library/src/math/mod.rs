@@ -11,6 +11,7 @@ mod op;
 mod root;
 mod style;
 mod underover;
+mod var;
 
 pub use self::accent::{Accent, AccentElem};
 pub use self::attach::*;
@@ -23,6 +24,7 @@ pub use self::op::*;
 pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
+pub use self::var::*;
 
 use typst_utils::singleton;
 use unicode_math_class::MathClass;
@@ -152,6 +154,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.category(MATH);
     math.define_elem::<EquationElem>();
+    math.define_elem::<VarElem>();
     math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();

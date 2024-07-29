@@ -182,7 +182,7 @@ $ mat(#"code"; "wins") $
     ,   /**/  ;/**/)$, "arguments(([],), ([], []))")
 
 --- math-call-empty-args-non-func ---
-// Trailing commas and empty args introduce blank content in math
+// Trailing commas and empty args introduce blank content in math.
 $ sin(,x,y,,,) $
 // with whitespace/trivia:
 $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
@@ -200,14 +200,14 @@ $ sin(1) $
 $ sin(#1) $
 
 --- math-call-pass-to-box ---
-// When passing to a function, we lose the italic styling if we wrap the content
-// in a non-math function unless it's already nested in some math element (lr,
-// attach, etc.)
-//
-// This is not good, so this test should fail and be updated once it is fixed.
+// This test was fixed by PR 4638 adding math.var! See there for details.
+
+// When passing to a function, we used to lose the italic styling if the content
+// was wrapped in a non-math function (i.e. box) unless it was already nested in
+// some math element (lr, attach, etc.)
 #let id(body) = body
-#let bx(body) = box(body, stroke: blue+0.5pt, inset: (x:2pt, y:3pt))
 #let eq(body) = math.equation(body)
+#let bx(body) = box(body, stroke: blue+0.5pt, inset: (x:2pt, y:3pt))
 $
      x y   &&quad     x (y z)   &quad     x y^z  \
   id(x y)  &&quad  id(x (y z))  &quad  id(x y^z) \

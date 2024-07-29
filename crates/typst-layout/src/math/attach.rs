@@ -2,9 +2,8 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
 use typst_library::math::{
-    AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
+    AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem, VarElem,
 };
-use typst_library::text::TextElem;
 use typst_utils::OptionExt;
 
 use super::{
@@ -104,13 +103,13 @@ pub fn layout_primes(
                 4 => '⁗',
                 _ => unreachable!(),
             };
-            let f = ctx.layout_into_fragment(&TextElem::packed(c), styles)?;
+            let f = ctx.layout_into_fragment(&VarElem::packed(c), styles)?;
             ctx.push(f);
         }
         count => {
             // Custom amount of primes
             let prime =
-                ctx.layout_into_fragment(&TextElem::packed('′'), styles)?.into_frame();
+                ctx.layout_into_fragment(&VarElem::packed('′'), styles)?.into_frame();
             let width = prime.width() * (count + 1) as f64 / 2.0;
             let mut frame = Frame::soft(Size::new(width, prime.height()));
             frame.set_baseline(prime.ascent());
