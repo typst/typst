@@ -16,7 +16,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, Recipe, RecipeIndex, Selector,
     SequenceElem, Show, ShowSet, Style, StyleChain, StyleVec, StyledElem, Styles,
-    Synthesize, Transformation,
+    SymbolElem, Synthesize, Transformation,
 };
 use typst_library::html::{tag, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
@@ -221,13 +221,19 @@ impl<'a, 'x, 'y, 'z, 's> Grouped<'a, 'x, 'y, 'z, 's> {
 /// Handles an arbitrary piece of content during realization.
 fn visit<'a>(
     s: &mut State<'a, '_, '_, '_>,
-    content: &'a Content,
+    mut content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     // Tags can always simply be pushed.
     if content.is::<TagElem>() {
         s.sink.push((content, styles));
         return Ok(());
+    }
+
+    if let Some(elem) = content.to_packed::<SymbolElem>() {
+        // This is a hack to avoid affecting layout that will be replaced in a
+        // later commit.
+        content = Box::leak(Box::new(TextElem::packed(elem.text.to_string())));
     }
 
     // Transformations for math content based on the realization kind. Needs
