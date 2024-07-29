@@ -4,107 +4,202 @@ use ecow::{eco_vec, EcoString};
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, StyleVec};
 use typst_library::layout::{Abs, Size};
-use typst_library::math::{EquationElem, MathSize, MathVariant};
+use typst_library::math::{EquationElem, MathSize, MathVariant, VarElem};
 use typst_library::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
 use typst_syntax::{is_newline, Span};
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
 use super::{FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun};
 
-/// Lays out a [`TextElem`].
-pub fn layout_text(
-    elem: &Packed<TextElem>,
+/// Layout a [`VarElem`] into a [`MathFragment`].
+#[typst_macros::time(name = "math.var", span = elem.span())]
+pub fn layout_math_variable(
+    elem: &Packed<VarElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let text = &elem.text;
+    // Iterate over graphemes to avoid breaking emojis etc.
+    let mut graphemes = elem.text.graphemes(true).peekable();
     let span = elem.span();
-    let mut chars = text.chars();
-    let math_size = EquationElem::size_in(styles);
-    let mut dtls = ctx.dtls_table.is_some();
-    let fragment: MathFragment = if let Some(mut glyph) = chars
-        .next()
-        .filter(|_| chars.next().is_none())
-        .map(|c| dtls_char(c, &mut dtls))
-        .map(|c| styled_char(styles, c, true))
-        .and_then(|c| GlyphFragment::try_new(ctx, styles, c, span))
-    {
-        // A single letter that is available in the math font.
-        if dtls {
-            glyph.make_dotless_form(ctx);
-        }
-
-        match math_size {
-            MathSize::Script => {
-                glyph.make_script_size(ctx);
-            }
-            MathSize::ScriptScript => {
-                glyph.make_script_script_size(ctx);
-            }
-            _ => (),
-        }
-
-        if glyph.class == MathClass::Large {
-            let mut variant = if math_size == MathSize::Display {
-                let height = scaled!(ctx, styles, display_operator_min_height)
-                    .max(SQRT_2 * glyph.height());
-                glyph.stretch_vertical(ctx, height, Abs::zero())
-            } else {
-                glyph.into_variant()
-            };
-            // TeXbook p 155. Large operators are always vertically centered on the axis.
-            variant.center_on_axis(ctx);
-            variant.into()
+    while let Some(grapheme) = graphemes.next() {
+        // Determine the next text item to layout. This is heavily coupled
+        // with the previous layout organization and should likely be
+        // refactored when things are updated.
+        let fragment = if let Some(num_run) = try_number_run(grapheme, &mut graphemes) {
+            layout_number_run(ctx, num_run, span, styles).into()
+        } else if let Some((glyph, dtls)) = try_glyph(ctx, grapheme, span, styles) {
+            layout_single_glyph(ctx, glyph, dtls, styles)
         } else {
-            glyph.into()
-        }
-    } else if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        // Numbers aren't that difficult.
-        let mut fragments = vec![];
-        for c in text.chars() {
-            let c = styled_char(styles, c, false);
-            fragments.push(GlyphFragment::new(ctx, styles, c, span).into());
-        }
-        let frame = MathRun::new(fragments).into_frame(styles);
-        FrameFragment::new(styles, frame).with_text_like(true).into()
-    } else {
-        let local = [
-            TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
-            TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-        ]
-        .map(|p| p.wrap());
-
-        // Anything else is handled by Typst's standard text layout.
-        let styles = styles.chain(&local);
-        let text: EcoString =
-            text.chars().map(|c| styled_char(styles, c, false)).collect();
-        if text.contains(is_newline) {
-            let mut fragments = vec![];
-            for (i, piece) in text.split(is_newline).enumerate() {
-                if i != 0 {
-                    fragments.push(MathFragment::Linebreak);
-                }
-                if !piece.is_empty() {
-                    fragments.push(layout_complex_text(piece, ctx, span, styles)?.into());
-                }
-            }
-            let mut frame = MathRun::new(fragments).into_frame(styles);
-            let axis = scaled!(ctx, styles, axis_height);
-            frame.set_baseline(frame.height() / 2.0 + axis);
-            FrameFragment::new(styles, frame).into()
-        } else {
-            layout_complex_text(&text, ctx, span, styles)?.into()
-        }
-    };
-
-    ctx.push(fragment);
+            let text: String = std::iter::once(grapheme)
+                .chain(std::iter::from_fn(|| {
+                    graphemes.next_if(|g| try_glyph(ctx, g, span, styles).is_none())
+                }))
+                .collect(); // TODO: EcoString can't collect &str iter.
+            layout_text(&text, ctx, span, styles)?.into()
+        };
+        ctx.push(fragment);
+    }
     Ok(())
 }
 
-/// Layout the given text string into a [`FrameFragment`].
+/// Check that a grapheme is a single character style-able in the math font.
+fn try_glyph(
+    ctx: &MathContext,
+    grapheme: &str,
+    span: Span,
+    styles: StyleChain,
+) -> Option<(GlyphFragment, bool)> {
+    let mut chars = grapheme.chars();
+    let c = chars.next()?;
+    if chars.next().is_some() {
+        // Note: I'm Not certain that this is proper for all languages.
+        None // Disallow multiple character graphemes.
+    } else {
+        // Style the character before we check the math font.
+        let mut dtls = ctx.dtls_table.is_some();
+        let c = dtls_char(c, &mut dtls);
+        let styled = styled_char(styles, c, true); // Note: applies auto italics
+        let glyph = GlyphFragment::try_new(ctx, styles, styled, span);
+        glyph.map(|g| (g, dtls))
+    }
+}
+
+/// Layout a single letter that was available in the math font.
+fn layout_single_glyph(
+    ctx: &mut MathContext,
+    mut glyph: GlyphFragment,
+    dtls: bool,
+    styles: StyleChain,
+) -> MathFragment {
+    let math_size = EquationElem::size_in(styles);
+    if dtls {
+        glyph.make_dotless_form(ctx);
+    }
+
+    match math_size {
+        MathSize::Script => {
+            glyph.make_script_size(ctx);
+        }
+        MathSize::ScriptScript => {
+            glyph.make_script_script_size(ctx);
+        }
+        _ => {}
+    }
+
+    if glyph.class == MathClass::Large {
+        let mut variant = if math_size == MathSize::Display {
+            let height = scaled!(ctx, styles, display_operator_min_height)
+                .max(SQRT_2 * glyph.height());
+            glyph.stretch_vertical(ctx, height, Abs::zero())
+        } else {
+            glyph.into_variant()
+        };
+        // TeXbook p 155. Large operators are always vertically centered on the
+        // axis.
+        variant.center_on_axis(ctx);
+        variant.into()
+    } else {
+        glyph.into()
+    }
+}
+
+/// Returns a string of of ascii digits plus dots if there is a run of two
+/// or more characters. Runs have at least one ascii digit and at most one
+/// dot.
+///
+/// This is meant to match how the lexer parses numbers in math into single
+/// `MathText` elements.
+fn try_number_run(
+    grapheme: &str,
+    graphemes: &mut std::iter::Peekable<Graphemes>,
+) -> Option<EcoString> {
+    fn digit_or_dot(grapheme: &str, dotted: bool) -> Option<char> {
+        let mut chars = grapheme.chars();
+        let c = chars.next()?;
+        if (c.is_ascii_digit() || (c == '.' && !dotted)) && chars.next().is_none() {
+            Some(c)
+        } else {
+            None
+        }
+    }
+    let c = digit_or_dot(grapheme, false)?;
+    let mut dotted = c == '.';
+    let mut number_run = EcoString::new();
+    number_run.push(c);
+    // Peek so we don't update the iterator if not actually a number run.
+    while let Some(c) = graphemes.peek().and_then(|g| digit_or_dot(g, dotted)) {
+        let _ = graphemes.next();
+        dotted |= c == '.';
+        number_run.push(c);
+    }
+    if number_run.len() == 1 {
+        // Note: This handles edge cases like "." and "..". Be careful if
+        // changing.
+        None
+    } else {
+        Some(number_run)
+    }
+}
+
+/// Layout a run of numbers from a [`VarElem`].
+///
+/// May include a single dot character, i.e. '3.1415'.
+fn layout_number_run(
+    ctx: &mut MathContext,
+    text: EcoString,
+    span: Span,
+    styles: StyleChain,
+) -> FrameFragment {
+    let mut fragments = vec![];
+    for c in text.chars() {
+        let c = styled_char(styles, c, false);
+        fragments.push(GlyphFragment::new(ctx, styles, c, span).into());
+    }
+    let frame = MathRun::new(fragments).into_frame(styles);
+    FrameFragment::new(styles, frame).with_text_like(true)
+}
+
+/// Layout a [`TextElem`] into a [`MathFragment`].
+pub fn layout_text(
+    text: &str,
+    ctx: &mut MathContext,
+    span: Span,
+    styles: StyleChain,
+) -> SourceResult<FrameFragment> {
+    let local = [
+        TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
+        TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+    ]
+    .map(|p| p.wrap());
+
+    let styles = styles.chain(&local);
+    let text: EcoString = text.chars().map(|c| styled_char(styles, c, false)).collect();
+    if text.contains(is_newline) {
+        let mut fragments = vec![];
+        for (i, piece) in text.split(is_newline).enumerate() {
+            if i != 0 {
+                fragments.push(MathFragment::Linebreak);
+            }
+            if !piece.is_empty() {
+                fragments.push(layout_complex_text(piece, ctx, span, styles)?.into());
+            }
+        }
+
+        let mut frame = MathRun::new(fragments).into_frame(styles);
+        let axis = scaled!(ctx, styles, axis_height);
+        frame.set_baseline(frame.height() / 2.0 + axis);
+        Ok(FrameFragment::new(styles, frame))
+    } else {
+
+        layout_complex_text(&text, ctx, span, styles)
+    }
+}
+
+/// Layout a text string into a [`FrameFragment`] by deferring to the
+/// standard text layout system.
 fn layout_complex_text(
     text: &str,
     ctx: &mut MathContext,

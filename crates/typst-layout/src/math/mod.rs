@@ -506,6 +506,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         let outer = styles;
         for (elem, styles) in pairs {
             // Hack because the font is fixed in math.
+            // TODO: This area might have an issue?
             if styles != outer && TextElem::font_in(styles) != TextElem::font_in(outer) {
                 let frame = layout_external(elem, self, styles)?;
                 self.push(FrameFragment::new(styles, frame).with_spaced(true));
@@ -534,11 +535,10 @@ fn layout_realized(
     } else if let Some(elem) = elem.to_packed::<HElem>() {
         layout_h(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<TextElem>() {
-        self::text::layout_text(elem, ctx, styles)?;
+        let fragment = self::text::layout_text(&elem.text, ctx, elem.span(), styles)?;
+        ctx.push(fragment);
     } else if let Some(elem) = elem.to_packed::<VarElem>() {
-        let text_elem = TextElem::new(elem.text.clone());
-        let packed = Packed::new(text_elem);
-        self::text::layout_text(&packed, ctx, styles)?;
+        self::text::layout_math_variable(elem, ctx, styles)?
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
         layout_box(elem, ctx, styles)?;
     } else if elem.is::<AlignPointElem>() {
