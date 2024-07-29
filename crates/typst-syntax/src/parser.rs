@@ -327,14 +327,23 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 None | Some(MathClass::Alphabetic)
             );
             if !maybe_delimited(p) {
-                p.eat();
+                eat_math_maybe_shorthand(p, m);
             }
         }
 
         SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
-        SyntaxKind::Escape | SyntaxKind::Str => {
+
+        SyntaxKind::Str => {
             continuable = true;
             p.eat();
+        }
+
+        SyntaxKind::Escape => {
+            continuable = true;
+            // Hack to allow escapes to know if they were parsed in math or not. See
+            // `eat_math_maybe_shorthand` below.
+            p.convert(SyntaxKind::MathText);
+            p.wrap(m, SyntaxKind::Escape);
         }
 
         SyntaxKind::Root => {
@@ -446,12 +455,13 @@ fn maybe_delimited(p: &mut Parser) -> bool {
 
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
-    p.eat();
+    eat_math_maybe_shorthand(p, m);
     let m2 = p.marker();
     while !p.end() && !p.at(SyntaxKind::Dollar) {
         if math_class(p.current_text()) == Some(MathClass::Closing) {
             p.wrap(m2, SyntaxKind::Math);
-            p.eat();
+            let m3 = p.marker();
+            eat_math_maybe_shorthand(p, m3);
             p.wrap(m, SyntaxKind::MathDelimited);
             return;
         }
@@ -464,6 +474,18 @@ fn math_delimited(p: &mut Parser) {
     }
 
     p.wrap(m, SyntaxKind::Math);
+}
+
+/// This is a hack that works with the AST to allow shorthand and escape elements to know
+/// whether they come from a math context so eval can create their symbols with the right
+/// context.
+fn eat_math_maybe_shorthand(p: &mut Parser, m: Marker) {
+    if p.at(SyntaxKind::Shorthand) {
+        p.convert(SyntaxKind::MathText);
+        p.wrap(m, SyntaxKind::Shorthand);
+    } else {
+        p.eat();
+    }
 }
 
 fn math_unparen(p: &mut Parser, m: Marker) {

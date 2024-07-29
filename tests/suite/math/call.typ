@@ -11,11 +11,11 @@ $ pi(a,b,) $
 --- math-call-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a)$, "([a])")
-#check($args(a,)$, "([a])")
-#check($args(a,b)$, "([a], [b])")
-#check($args(a,b,)$, "([a], [b])")
-#check($args(,a,b,,,)$, "([], [a], [b], [], [])")
+#check($args(a)$, "(var(text: \"a\"))")
+#check($args(a,)$, "(var(text: \"a\"))")
+#check($args(a,b)$, "(var(text: \"a\"), var(text: \"b\"))")
+#check($args(a,b,)$, "(var(text: \"a\"), var(text: \"b\"))")
+#check($args(,a,b,,,)$, "([], var(text: \"a\"), var(text: \"b\"), [], [])")
 
 --- math-call-2d-non-func ---
 // Error: 6-7 expected content, found array
@@ -31,18 +31,31 @@ $ mat(#"code"; "wins") $
 --- math-call-2d-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a;b)$, "(([a],), ([b],))")
-#check($args(a,b;c)$, "(([a], [b]), ([c],))")
-#check($args(a,b;c,d;e,f)$, "(([a], [b]), ([c], [d]), ([e], [f]))")
+#check($args(a;b)$, "((var(text: \"a\"),), (var(text: \"b\"),))")
+#check($args(a,b;c)$, "(
+  (var(text: \"a\"), var(text: \"b\")),
+  (var(text: \"c\"),),
+)")
+#check($args(a,b;c,d;e,f)$, "(
+  (var(text: \"a\"), var(text: \"b\")),
+  (var(text: \"c\"), var(text: \"d\")),
+  (var(text: \"e\"), var(text: \"f\")),
+)")
 
 --- math-call-2d-repr-structure ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args( a; b; )$, "(([a],), ([b],))")
-#check($args(a;  ; c)$, "(([a],), ([],), ([c],))")
-#check($args(a b,/**/; b)$, "((sequence([a], [ ], [b]), []), ([b],))")
-#check($args(a/**/b, ; b)$, "((sequence([a], [b]), []), ([b],))")
-#check($args( ;/**/a/**/b/**/; )$, "(([],), (sequence([a], [b]),))")
+#check($args( a; b; )$, "((var(text: \"a\"),), (var(text: \"b\"),))")
+#check($args(a;  ; c)$, "((var(text: \"a\"),), ([],), (var(text: \"c\"),))")
+#check($args(a b,/**/; b)$, "(
+  (sequence(var(text: \"a\"), [ ], var(text: \"b\")), []),
+  (var(text: \"b\"),),
+)")
+#check($args(a/**/b, ; b)$, "(
+  (sequence(var(text: \"a\"), var(text: \"b\")), []),
+  (var(text: \"b\"),),
+)")
+#check($args( ;/**/a/**/b/**/; )$, "(([],), (sequence(var(text: \"a\"), var(text: \"b\")),))")
 #check($args( ; , ; )$, "(([],), ([], []))")
 #check($args(/**/; // funky whitespace/trivia
     ,   /**/  ;/**/)$, "(([],), ([], []))")
@@ -56,9 +69,9 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 --- math-call-empty-args-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(,x,,y,,)$, "([], [x], [], [y], [])")
+#check($args(,x,,y,,)$, "([], var(text: \"x\"), [], var(text: \"y\"), [])")
 // with whitespace/trivia:
-#check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "([], [x], [], [y], [], [])")
+#check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "([], var(text: \"x\"), [], var(text: \"y\"), [], [])")
 
 --- math-call-value-non-func ---
 $ sin(1) $

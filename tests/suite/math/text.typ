@@ -27,9 +27,9 @@ A large number: $e^(e^(e^(e)))$.
 
 --- math-optical-size-primes ---
 //  Test prime/double prime via scriptsize
-#let prime = [ \u{2032} ]
-#let dprime = [ \u{2033} ]
-#let tprime = [ \u{2034} ]
+#let prime = math.var("\u{2032}")
+#let dprime = math.var("\u{2033}")
+#let tprime = math.var("\u{2034}")
 $ y^dprime-2y^prime + y = 0 $
 $y^dprime-2y^prime + y = 0$
 $ y^tprime_3 + g^(prime 2) $
