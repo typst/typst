@@ -91,7 +91,7 @@ impl Symbol {
         Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))), false)
     }
 
-    /// Clones self and sets the `from_math` value to true for any/all [`SymChars`]s.
+    /// Clones self and sets the `from_math` value to true for any/all [`SymChar`]s.
     pub fn clone_for_math(&self) -> Self {
         Self(self.0.clone(), true)
     }

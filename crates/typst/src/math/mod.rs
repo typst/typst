@@ -220,7 +220,7 @@ pub fn module() -> Module {
 /// Layout for math elements.
 ///
 /// All math elements implement this trait directly, and we supply defaults for other
-/// types in the Content impl below. This is called into by EquationElem in its [`Show`]
+/// types in the Content impl below. This is called into by EquationElem in its `Show`
 /// implementation when layouting and generally starts the math layout process.
 pub trait LayoutMath {
     /// Layout the element, producing fragment in the context.
