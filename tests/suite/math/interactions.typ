@@ -102,7 +102,7 @@ and #hide[$ f(x) := x^2 $]
 }
 #let baz(..sink) = {
   // Return an equation piece built by joining arrays
-  sink.pos().map(x => $hat(#x)$).join(sym.and)
+  sink.pos().map(x => $hat(#x)$).join($and$)
 }
 
 Inline $2 foo(alpha, (M+foo(a, b)))$.
