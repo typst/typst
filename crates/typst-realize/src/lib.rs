@@ -23,7 +23,7 @@ use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
-use typst_library::math::{EquationElem, Mathy};
+use typst_library::math::{EquationElem, Mathy, VarElem};
 use typst_library::model::{
     CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
     ParElem, ParbreakElem, TermsElem,
@@ -295,11 +295,11 @@ fn visit_math_rules<'a>(
         // In normal realization, we apply regex show rules to consecutive
         // textual elements via `TEXTUAL` grouping. However, in math, this is
         // not desirable, so we just do it on a per-element basis.
-        if let Some(elem) = content.to_packed::<TextElem>() {
-            if let Some(m) = find_regex_match_in_str(&elem.text, styles) {
-                visit_regex_match(s, &[(content, styles)], m)?;
-                return Ok(true);
-            }
+        if let Some((Some(m), tt)) =
+            access_textual_content(content, |text| find_regex_match_in_str(text, styles))
+        {
+            visit_regex_match(s, &[(content, styles)], m, tt)?;
+            return Ok(true);
         }
     } else {
         // Transparently wrap mathy content into equations.
@@ -798,6 +798,7 @@ static TEXTUAL: GroupingRule = GroupingRule {
         elem == TextElem::elem()
             || elem == LinebreakElem::elem()
             || elem == SmartQuoteElem::elem()
+        // TODO: Should `VarElem` be added here?
     },
     inner: |content| content.elem() == SpaceElem::elem(),
     // Any kind of style interrupts this kind of grouping since regex show
@@ -977,7 +978,7 @@ fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
         collapse_spaces(&mut s.sink, start);
         let elems = s.store_slice(&s.sink[start..]);
         s.sink.truncate(start);
-        visit_regex_match(s, &elems, m)?;
+        visit_regex_match(s, &elems, m, TextType::Text)?;
         return Ok(true);
     }
 
@@ -1107,6 +1108,26 @@ fn find_regex_match_in_str<'a>(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextType {
+    Text,
+    Var,
+}
+
+fn access_textual_content<T>(
+    content: &Content,
+    func: impl Fn(&str) -> T,
+) -> Option<(T, TextType)> {
+    #[allow(clippy::manual_map)]
+    if let Some(elem) = content.to_packed::<TextElem>() {
+        Some((func(&elem.text), TextType::Text))
+    } else if let Some(elem) = content.to_packed::<VarElem>() {
+        Some((func(&elem.text), TextType::Var))
+    } else {
+        None
+    }
+}
+
 /// Visit a match of a regular expression.
 ///
 /// This first revisits all elements before the match, potentially slicing up
@@ -1116,9 +1137,13 @@ fn visit_regex_match<'a>(
     s: &mut State<'a, '_, '_, '_>,
     elems: &[Pair<'a>],
     m: RegexMatch<'a>,
+    tt: TextType,
 ) -> SourceResult<()> {
     let match_range = m.offset..m.offset + m.text.len();
-    let piece = TextElem::packed(m.text);
+    let piece = match tt {
+        TextType::Text => TextElem::packed(m.text),
+        TextType::Var => VarElem::packed(m.text),
+    };
     let context = Context::new(None, Some(m.styles));
     let output = m.recipe.apply(s.engine, context.track(), piece)?;
 
@@ -1141,11 +1166,26 @@ fn visit_regex_match<'a>(
             continue;
         }
 
-        // At this point, we can have a `TextElem`, `SpaceElem`,
+        // At this point, we can have a `TextElem`, `VarElem`, `SpaceElem`,
         // `LinebreakElem`, or `SmartQuoteElem`. We now determine the range of
         // the element.
-        let len = content.to_packed::<TextElem>().map_or(1, |elem| elem.text.len());
+        let (len, elem_tt) = access_textual_content(content, |text| text.len())
+            .unwrap_or((1, TextType::Text));
         let elem_range = cursor..cursor + len;
+
+        // TODO: I'm not sure if this is really correct, but it might be?
+        let replace_textual_range = |range: std::ops::Range<usize>| match elem_tt {
+            TextType::Text => {
+                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
+                elem.text = elem.text[range].into();
+                elem.pack()
+            }
+            TextType::Var => {
+                let mut elem = content.to_packed::<VarElem>().unwrap().clone();
+                elem.text = elem.text[range].into();
+                elem.pack()
+            }
+        };
 
         // If the element starts before the start of match, visit it fully or
         // sliced.
@@ -1153,9 +1193,10 @@ fn visit_regex_match<'a>(
             if elem_range.end <= match_range.start {
                 visit(s, content, styles)?;
             } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
-                elem.text = elem.text[..match_range.start - elem_range.start].into();
-                visit(s, s.store(elem.pack()), styles)?;
+                // TODO: Double check these ranges.
+                let range = 0..match_range.start - elem_range.start;
+                let elem = replace_textual_range(range);
+                visit(s, s.store(elem), styles)?;
             }
         }
 
@@ -1170,9 +1211,10 @@ fn visit_regex_match<'a>(
             if elem_range.start >= match_range.end {
                 visit(s, content, styles)?;
             } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
-                elem.text = elem.text[match_range.end - elem_range.start..].into();
-                visit(s, s.store(elem.pack()), styles)?;
+                // TODO: Double check these ranges.
+                let range = match_range.end - elem_range.start..len;
+                let elem = replace_textual_range(range);
+                visit(s, s.store(elem), styles)?;
             }
         }
 
