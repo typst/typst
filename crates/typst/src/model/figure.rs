@@ -136,6 +136,10 @@ pub struct FigureElem {
     pub placement: Option<Smart<VAlignment>>,
 
     /// The figure's caption.
+    ///
+    /// If passed as a dictionary, it must contain the key `document` and can
+    /// optionally contain the key `outline` to set a different caption for the
+    /// outline of figures.
     pub caption: Option<Packed<FigureCaption>>,
 
     /// The kind of figure this is.

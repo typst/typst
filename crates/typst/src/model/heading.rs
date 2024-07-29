@@ -180,6 +180,10 @@ pub struct HeadingElem {
     pub hanging_indent: Smart<Length>,
 
     /// The heading's title.
+    ///
+    /// If passed as a dictionary, it must contain the key `document` and can
+    /// optionally contain the keys `outline` and `bookmark` to customize the
+    /// title in the outline and PDF bookmark, respectively.
     #[required]
     pub body: Packed<OutlinedContent>,
 }
