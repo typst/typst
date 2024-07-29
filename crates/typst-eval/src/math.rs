@@ -2,9 +2,8 @@ use ecow::eco_format;
 use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Content, NativeElement, Value};
 use typst_library::math::{
-    AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem,
+    AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem, VarElem,
 };
-use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{Eval, Vm};
@@ -24,8 +23,7 @@ impl Eval for ast::MathText<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        // TODO: Use `VarElem` here.
-        Ok(TextElem::packed(self.get().clone()))
+        Ok(VarElem::packed(self.get().clone()))
     }
 }
 
@@ -103,7 +101,7 @@ impl Eval for ast::MathRoot<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
+        let index = self.index().map(|i| VarElem::packed(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok(RootElem::new(radicand).with_index(index).pack())
     }
