@@ -42,3 +42,15 @@ A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 // Error: 2:2-2:13 repeat with no size restrictions
 #set page(width: auto)
 #repeat(".")
+
+--- repeat-gap ---
+// Test repeat with custom gap.
+#repeat(rect(width: 2em, height: 1em), gap: 1em)
+
+--- repeat-gap-align ---
+// Test repeat with custom gap and alignment.
+#set align(center)
+A#box(width: 1fr, repeat(rect(width: 2em, height: 1em), gap: 1em))B
+
+#set align(right)
+A#box(width: 1fr, repeat(rect(width: 3em, height: 1em), gap: 0pt))B
