@@ -195,26 +195,6 @@ impl RemoteReader {
     }
 }
 
-/// Append a unit-of-time suffix.
-fn time_suffix(duration: Duration) -> String {
-    let secs = duration.as_secs();
-    match format_dhms(secs) {
-        (0, 0, 0, s) => format!("{s:2.0}s"),
-        (0, 0, m, s) => format!("{m:2.0}m {s:2.0}s"),
-        (0, h, m, s) => format!("{h:2.0}h {m:2.0}m {s:2.0}s"),
-        (d, h, m, s) => format!("{d:3.0}d {h:2.0}h {m:2.0}m {s:2.0}s"),
-    }
-}
-
-/// Format the total amount of seconds into the amount of days, hours, minutes
-/// and seconds.
-fn format_dhms(sec: u64) -> (u64, u8, u8, u8) {
-    let (mins, sec) = (sec / 60, (sec % 60) as u8);
-    let (hours, mins) = (mins / 60, (mins % 60) as u8);
-    let (days, hours) = (hours / 24, (hours % 24) as u8);
-    (days, hours, mins, sec)
-}
-
 /// Format a given size as a unit of time. Setting `include_suffix` to true
 /// appends a '/s' (per second) suffix.
 fn as_bytes_unit(size: usize) -> String {
@@ -231,7 +211,7 @@ fn as_bytes_unit(size: usize) -> String {
     } else if size >= KI {
         format!("{:5.1} KiB", size / KI)
     } else {
-        format!("{size:3.0} B")
+        format!("{size:3} B")
     }
 }
 
