@@ -548,8 +548,14 @@ pub fn commit(
             .unwrap_or(HAlignment::End)
             .resolve(styles);
         let number_margin = ParLine::number_margin_in(styles).resolve(styles);
+
+        // Delay resolving the number clearance until line numbers are laid out
+        // to avoid inconsistent spacing depending on varying font size.
+        let number_clearance = ParLine::number_clearance_in(styles);
+
         let mut par_line =
-            ParLineMarker::new(numbering, number_align, number_margin).pack();
+            ParLineMarker::new(numbering, number_align, number_margin, number_clearance)
+                .pack();
 
         // Elements in tags must have a location for introspection to work.
         // We do the work here instead of going through all of the realization

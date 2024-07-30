@@ -778,8 +778,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             prev_y = Some(line.y);
             let number_align = *line.marker.number_align();
             let number_margin = *line.marker.number_margin();
-            // TODO: Clearance argument
-            let number_clearance = Abs::cm(1.0);
+            let number_clearance = line.marker.number_clearance().resolve(*self.styles);
             let number = self.layout_line_number(line.marker)?;
             let number_x = match number_margin {
                 FixedAlignment::Start => -number_clearance,
