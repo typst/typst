@@ -7,6 +7,7 @@ use crate::introspection::Locator;
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, Fragment, Frame, Length, Point, Regions, Size,
 };
+use crate::model::ParElem;
 use crate::utils::Numeric;
 
 /// Repeats content to the available space.
@@ -14,7 +15,7 @@ use crate::utils::Numeric;
 /// This can be useful when implementing a custom index, reference, or outline.
 ///
 /// Space may be inserted between the instances of the body parameter, so be
-/// sure to adjust the [`gap`]($repeat.gap) parameter to account for this.
+/// sure to adjust the [`justify`]($repeat.justify) parameter accordingly.
 ///
 /// Errors if there no bounds on the available space, as it would create
 /// infinite content.
@@ -37,11 +38,15 @@ pub struct RepeatElem {
     pub body: Content,
 
     /// The gap between each instance of the body.
-    ///
-    /// If set to `{auto}`, the gap will be calculated automatically to fill
-    /// the available space with as many instances as possible.
     #[default]
-    pub gap: Smart<Length>,
+    pub gap: Length,
+
+    /// Whether to increase the gap between instances to completely fill the
+    /// available space.
+    ///
+    /// When `{auto}`, inherits the paragraph's [`justify`]($par.justify).
+    #[default(Smart::Custom(true))]
+    pub justify: Smart<bool>,
 }
 
 impl Show for Packed<RepeatElem> {
@@ -69,39 +74,32 @@ fn layout_repeat(
         bail!(elem.span(), "repeat with no size restrictions");
     }
 
-    let fill = regions.size.x;
-    let width = piece.width();
-    let gap = elem.gap(styles).resolve(styles);
-
-    let (count, remaining, apart) = match gap {
-        Smart::Custom(apart) => {
-            let count = ((fill + apart) / (width + apart)).floor();
-            let remaining = (fill + apart) % (width + apart);
-            (count, remaining, apart)
-        }
-        Smart::Auto => {
-            let count = (fill / width).floor();
-            let remaining = fill % width;
-            let apart = remaining / (count - 1.0);
-            (count, remaining, apart)
-        },
-    };
-
     let mut frame = Frame::soft(size);
     if piece.has_baseline() {
         frame.set_baseline(piece.baseline());
     }
 
+    let mut gap = elem.gap(styles).resolve(styles);
+    let fill = regions.size.x;
+    let width = piece.width();
+    let count = ((fill + gap) / (width + gap)).floor();
+    let remaining = (fill + gap) % (width + gap);
+
+    let justify = elem.justify(styles).unwrap_or_else(|| ParElem::justify_in(styles));
+    if justify {
+        gap += remaining / (count - 1.0);
+    }
+
     let align = AlignElem::alignment_in(styles).resolve(styles);
     let mut offset = Abs::zero();
-    if count == 1.0 || gap.is_custom() {
+    if count == 1.0 || !justify {
         offset += align.x.position(remaining);
     }
 
     if width > Abs::zero() {
         for _ in 0..(count as usize).min(1000) {
             frame.push_frame(Point::with_x(offset), piece.clone());
-            offset += piece.width() + apart;
+            offset += piece.width() + gap;
         }
     }
 

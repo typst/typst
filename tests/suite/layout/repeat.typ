@@ -45,12 +45,15 @@ A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 
 --- repeat-gap ---
 // Test repeat with custom gap.
-#repeat(rect(width: 2em, height: 1em), gap: 1em)
-
---- repeat-gap-align ---
-// Test repeat with custom gap and alignment.
-#set align(center)
 A#box(width: 1fr, repeat(rect(width: 2em, height: 1em), gap: 1em))B
 
+--- repeat-no-justify ---
+// Test repeat with disabled justification.
+#set repeat(justify: false)
+A#box(width: 1fr, repeat(rect(width: 2em, height: 1em), gap: 1em))B
+
+--- repeat-no-justify-align ---
+// Test repeat with alignment and disabled justification.
+#set repeat(justify: false)
 #set align(right)
-A#box(width: 1fr, repeat(rect(width: 3em, height: 1em), gap: 0pt))B
+A#box(width: 1fr, repeat(rect(width: 2em, height: 1em), gap: 1em))B
