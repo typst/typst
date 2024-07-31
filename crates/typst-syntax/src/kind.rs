@@ -73,7 +73,7 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
-    /// A lone text fragment in math: `x`, `e`, `25`, `3.1514`, `=`, `|`, `[`, `:`.
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
     MathText,
     /// An identifier in math: `pi`.
     MathIdent,

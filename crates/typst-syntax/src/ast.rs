@@ -123,7 +123,7 @@ pub enum Expr<'a> {
     Equation(Equation<'a>),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math<'a>),
-    /// A lone text fragment in math: `x`, `e`, `25`, `3.1514`, `=`, `|`, `[`, `:`.
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
     MathText(MathText<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
@@ -720,7 +720,7 @@ impl<'a> Math<'a> {
 }
 
 node! {
-    /// A lone text fragment in math: `x`, `e`, `25`, `3.1514`, `=`, `|`, `[`, `:`.
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
     MathText
 }
 
