@@ -1,10 +1,12 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::{thread::sleep, time::Duration};
 
 use crate::args::PackageStorageArgs;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
+use fd_lock::RwLock;
 use once_cell::sync::OnceCell;
 use termcolor::WriteColor;
 use typst::diag::{bail, PackageError, PackageResult, StrResult};
@@ -42,7 +44,8 @@ impl PackageStorage {
 
     /// Make a package available in the on-disk cache.
     pub fn prepare_package(&self, spec: &PackageSpec) -> PackageResult<PathBuf> {
-        let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
+        let deepest_dir = spec.version;
+        let subdir = format!("{}/{}/{}", spec.namespace, spec.name, deepest_dir);
 
         if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);
@@ -53,6 +56,64 @@ impl PackageStorage {
 
         if let Some(cache_dir) = &self.package_cache_path {
             let dir = cache_dir.join(&subdir);
+            let parent_dir = dir.parent().unwrap();
+            let file_locking_err = |string| {
+                move |err| PackageError::FileLocking(eco_format!("{string}: {err}"))
+            };
+
+            let lock_file_path = parent_dir.join(format!(".{deepest_dir}.lock"));
+            let remove_lock = || {
+                fs::remove_file(&lock_file_path)
+                    .map_err(file_locking_err("failed to remove lock file"))
+            };
+            if !parent_dir.exists() {
+                fs::create_dir_all(parent_dir)
+                    .map_err(file_locking_err("failed to create parent directories"))?;
+            }
+            // https://github.com/yoshuawuyts/fd-lock/issues/28#issuecomment-2264180893
+            // File::create(&lock_file_path).unwrap();
+            // let file = match File::open(lock_file_path.as_path()) {
+            let file = fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                // .read(true) // to test the error
+                .open(lock_file_path.as_path())
+                .map_err(file_locking_err("failed to open lock file"))?;
+            let lock_file_path = format!(
+                "~{}",
+                lock_file_path.to_string_lossy().strip_prefix(env!("HOME")).unwrap()
+            );
+            // let mut lock_file = RwLock::new(file.try_clone().unwrap());
+            let mut lock_file = RwLock::new(file);
+            let try_lock = lock_file.try_write();
+            let _lock = match try_lock {
+                Ok(lock) => {
+                    println!("acquired the lock file {lock_file_path:?}");
+                    lock
+                }
+                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                    drop(try_lock);
+                    println!("couldn't aquire the lock file {lock_file_path:?}");
+                    lock_file
+                        .write()
+                        .map_err(file_locking_err("failed to aquire lock file"))?
+                    // Additional cool/user-friendly logs:
+                    // let _write_lock = lock_file.write().unwrap();
+                    // println!("checking if package already exists");
+                    // if dir.exists() {
+                    //     println!("it does! no need to download and unpack");
+                    //     return Ok(dir);
+                    // } else {
+                    //     println!("waited to aquire the file lock and the other instance wasn't able to download it :/");
+                    //     todo!()
+                    // }
+                }
+                Err(err) => {
+                    return Err(file_locking_err("failed to aquire lock file")(err))
+                }
+            };
+
             if dir.exists() {
                 return Ok(dir);
             }
@@ -60,6 +121,11 @@ impl PackageStorage {
             // Download from network if it doesn't exist yet.
             if spec.namespace == "preview" {
                 self.download_package(spec, &dir)?;
+                // https://github.com/yoshuawuyts/fd-lock/issues/28#issuecomment-2264180893
+                // drop(lock);
+                // remove_file(&lock_file_path).unwrap();
+                remove_lock()?;
+                println!("dropped the lock file {lock_file_path:?}");
                 if dir.exists() {
                     return Ok(dir);
                 }
@@ -130,6 +196,8 @@ impl PackageStorage {
             }
         };
 
+        println!("unpacking the archive...");
+        sleep(Duration::from_secs(5));
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
         tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
             fs::remove_dir_all(package_dir).ok();
