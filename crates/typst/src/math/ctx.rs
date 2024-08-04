@@ -1,4 +1,5 @@
 use std::f64::consts::SQRT_2;
+use std::iter;
 
 use ecow::{eco_vec, EcoString};
 use rustybuzz::Feature;
@@ -283,14 +284,6 @@ impl MathContext<'_, '_, '_> {
     }
 }
 
-/// Used to determine how to render text in a math variable.
-#[derive(Debug)]
-enum GlyphOrRun {
-    Glyph(GlyphFragment),
-    Num(EcoString),
-    Text(EcoString),
-}
-
 impl MathContext<'_, '_, '_> {
     /// Layout a [`VarElem`] into a [`MathFragment`].
     pub fn layout_math_variable(
@@ -298,95 +291,105 @@ impl MathContext<'_, '_, '_> {
         elem: &Packed<VarElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let mut chars = elem.text().graphemes(true).peekable();
+        // Iterate over graphemes to avoid breaking emojis etc.
+        let mut graphemes = elem.text().graphemes(true).peekable();
         let span = elem.span();
-        while let Some(glyph_or_run) = self.next_glyph_or_run(&mut chars, span, styles) {
-            let fragment = match glyph_or_run {
-                GlyphOrRun::Glyph(glyph) => self.layout_single_glyph(glyph, styles),
-                GlyphOrRun::Num(text) => self.layout_number_run(text, span, styles),
-                GlyphOrRun::Text(text) => self.layout_text(&text, span, styles)?,
+        while let Some(grapheme) = graphemes.next() {
+            // Determine the next text item to layout. This is heavily coupled
+            // with the previous layout organization and should likely be
+            // refactored when things are updated.
+            let fragment = if let Some(number_run) =
+                Self::try_number_run(grapheme, &mut graphemes)
+            {
+                self.layout_number_run(number_run, span, styles)
+            } else if let Some(glyph) = self.try_glyph(grapheme, span, styles) {
+                self.layout_single_glyph(glyph, styles)
+            } else {
+                let text: String = iter::once(grapheme)
+                    .chain(iter::from_fn(|| {
+                        graphemes.next_if(|g| self.try_glyph(g, span, styles).is_none())
+                    }))
+                    .collect(); // TODO: EcoString can't collect &str iter.
+                self.layout_text(&text, span, styles)?
             };
             self.push(fragment);
         }
         Ok(())
     }
 
-    /// Determine the next element to layout by iterating over graphemes in the
-    /// text. This function is heavily coupled with the previous rendering
-    /// system, and should likely be thrown-out or refactored when things are
-    /// updated.
+    /// Returns a string of of ascii digits plus dots if there is a run of two
+    /// or more characters. Runs have at least one ascii digit and at most one
+    /// dot.
     ///
-    /// This code also currently deserves a good refactoring, but I do think
-    /// that it is likely correct as-is. A first step would be changing the
-    /// `.next().unwrap()` calls but I'm too lazy for right now.
-    ///
-    /// We have to iterate over graphemes because otherwise emojis and other
-    /// things break. But the common case of single characters is what the old
-    /// code was written against and I don't know enough unicode to write this
-    /// properly.
-    fn next_glyph_or_run(
-        &mut self,
-        graphemes: &mut std::iter::Peekable<Graphemes>,
-        span: Span,
-        styles: StyleChain,
-    ) -> Option<GlyphOrRun> {
-        let grapheme = graphemes.next()?;
-        fn is_digit(grapheme: &str) -> bool {
+    /// This is meant to match how the lexer parses numbers in math into single
+    /// MathText elements.
+    fn try_number_run(
+        grapheme: &str,
+        graphemes: &mut iter::Peekable<Graphemes>,
+    ) -> Option<EcoString> {
+        fn digit_or_dot(grapheme: &str, dotted: bool) -> Option<char> {
             let mut chars = grapheme.chars();
-            // TODO: try using a filter call?
-            match chars.next() {
-                Some(c) => c.is_ascii_digit() && chars.next().is_none(),
-                None => false,
+            let c = chars.next()?;
+            if (c.is_ascii_digit() || (c == '.' && !dotted)) && chars.next().is_none() {
+                Some(c)
+            } else {
+                None
             }
         }
-        // The `peek().is_some()` is because this function used to have
-        // different behavior for numbers with only a single digit vs numbers
-        // with multiple digits. This should probably change in the future, but
-        // will slightly alter many tests.
-        if is_digit(grapheme) && graphemes.peek().is_some() {
-            // TODO: start number run.
-            let mut number_run = EcoString::new();
-            let c = grapheme.chars().next().unwrap();
-            let styled = styled_char(styles, c, false);
-            number_run.push(styled);
-            let mut already_dotted = false;
-            // Note that this is meant to match how the lexer parses numbers in
-            // math into single MathText elements.
-            while let Some(grapheme) =
-                graphemes.next_if(|g| is_digit(g) || (*g == "." && !already_dotted))
-            {
-                if grapheme == "." {
-                    already_dotted = true;
-                }
-                let c = grapheme.chars().next().unwrap();
-                let styled = styled_char(styles, c, false);
-                number_run.push(styled);
-            }
-            Some(GlyphOrRun::Num(number_run))
-        } else if let Some(glyph) = if grapheme.chars().count() == 1 {
-            let c = grapheme.chars().next().unwrap();
-            let styled = styled_char(styles, c, true); // auto italics are applied here.
-            GlyphFragment::try_new(self, styles, styled, span)
-        } else {
+        let c = digit_or_dot(grapheme, false)?;
+        let mut dotted = c == '.';
+        let mut number_run = EcoString::new();
+        number_run.push(c);
+        // Peek so we don't update the iterator it's not actually a number run.
+        while let Some(Some(c)) = graphemes.peek().map(|g| digit_or_dot(*g, dotted)) {
+            let _ = graphemes.next();
+            dotted |= c == '.';
+            number_run.push(c);
+        }
+        if number_run.len() == 1 {
+            // Note: This handles edge cases like "." and "..". Be careful if
+            // changing.
             None
-        } {
-            // Ugh this block is horrible.
-            Some(GlyphOrRun::Glyph(glyph))
         } else {
-            let mut text_run = EcoString::new();
-            text_run.push_str(grapheme);
-            while let Some(grapheme) = graphemes.next_if(|grapheme| {
-                if grapheme.chars().count() == 1 {
-                    let c = grapheme.chars().next().unwrap();
-                    GlyphFragment::try_new(self, styles, c, span)
-                } else {
-                    None
-                }
-                .is_none()
-            }) {
-                text_run.push_str(grapheme);
-            }
-            Some(GlyphOrRun::Text(text_run))
+            Some(number_run)
+        }
+    }
+
+    /// Layout a run of numbers from a [`VarElem`].
+    ///
+    /// May include a single dot character, i.e. '3.1415'.
+    fn layout_number_run(
+        &mut self,
+        text: EcoString,
+        span: Span,
+        styles: StyleChain,
+    ) -> MathFragment {
+        let mut fragments = vec![];
+        for c in text.chars() {
+            let c = styled_char(styles, c, false);
+            fragments.push(GlyphFragment::new(self, styles, c, span).into());
+        }
+        let frame = MathRun::new(fragments).into_frame(self, styles);
+        let fragment = FrameFragment::new(self, styles, frame).with_text_like(true);
+        fragment.into()
+    }
+
+    /// Check that a grapheme is a single character style-able in the math font.
+    fn try_glyph(
+        &self,
+        grapheme: &str,
+        span: Span,
+        styles: StyleChain,
+    ) -> Option<GlyphFragment> {
+        let mut chars = grapheme.chars();
+        let c = chars.next()?;
+        if chars.next().is_some() {
+            // Note: I'm Not certain that this is proper for all languages.
+            None // Disallow multiple character graphemes.
+        } else {
+            // Style the character before we check the math font.
+            let styled = styled_char(styles, c, true); // Note: applies auto italics
+            GlyphFragment::try_new(self, styles, styled, span)
         }
     }
 
@@ -418,25 +421,6 @@ impl MathContext<'_, '_, '_> {
         } else {
             glyph.into()
         }
-    }
-
-    /// Layout a run of numbers from a [`VarElem`].
-    ///
-    /// May include a single dot character, i.e. '3.1415'.
-    fn layout_number_run(
-        &mut self,
-        text: EcoString,
-        span: Span,
-        styles: StyleChain,
-    ) -> MathFragment {
-        let mut fragments = vec![];
-        for c in text.chars() {
-            let c = styled_char(styles, c, false);
-            fragments.push(GlyphFragment::new(self, styles, c, span).into());
-        }
-        let frame = MathRun::new(fragments).into_frame(self, styles);
-        let fragment = FrameFragment::new(self, styles, frame).with_text_like(true);
-        fragment.into()
     }
 
     /// Layout a [`TextElem`] into a [`MathFragment`].
