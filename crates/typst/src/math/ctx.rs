@@ -263,7 +263,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let mut number_run = EcoString::new();
         number_run.push(c);
         // Peek so we don't update the iterator if this isn't actually a number run.
-        while let Some(Some(c)) = graphemes.peek().map(|g| digit_or_dot(*g, dotted)) {
+        while let Some(Some(c)) = graphemes.peek().map(|g| digit_or_dot(g, dotted)) {
             let _ = graphemes.next();
             dotted |= c == '.';
             number_run.push(c);
