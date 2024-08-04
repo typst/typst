@@ -1,5 +1,5 @@
-use std::iter;
 use std::f64::consts::SQRT_2;
+use std::iter;
 
 use ecow::{eco_vec, EcoString};
 use rustybuzz::Feature;
