@@ -105,6 +105,18 @@ impl Selector {
         Ok(Self::Regex(Regex::new(&regex::escape(text)).unwrap()))
     }
 
+    /// Create a selector out of a symbol element. Uses normal regex for non-math and an
+    /// element selector for math symbols.
+    pub fn symbol(symbol: Symbol) -> StrResult<Self> {
+        let text: EcoString = symbol.get().into();
+        if symbol.from_math() {
+            Ok(select_where!(crate::math::VarElem, Text => text))
+        } else {
+            let regex = Regex::new(&regex::escape(&text)).unwrap();
+            Ok(Self::Regex(regex))
+        }
+    }
+
     /// Define a regex selector.
     pub fn regex(regex: Regex) -> StrResult<Self> {
         if regex.as_str().is_empty() {
@@ -273,6 +285,7 @@ impl Repr for Selector {
 
 cast! {
     type Selector,
+    symbol: Symbol => Self::symbol(symbol)?, // Note: `symbol` must come before `text`.
     text: EcoString => Self::text(&text)?,
     func: Func => func
         .element()
