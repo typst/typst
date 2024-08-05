@@ -15,7 +15,7 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
-use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
 use crate::World;
@@ -372,6 +372,8 @@ impl Counter {
                     FigureElem::numbering_in(styles).clone()
                 } else if func == EquationElem::elem() {
                     EquationElem::numbering_in(styles).clone()
+                } else if func == FootnoteElem::elem() {
+                    Some(FootnoteElem::numbering_in(styles).clone())
                 } else {
                     None
                 }
