@@ -1113,6 +1113,7 @@ impl StylisticSets {
 cast! {
     StylisticSets,
     self => self.into_array().into_value(),
+    _: NoneValue => Self(0),
     v: i64 => match v {
         1 ..= 20 => Self(1 << (v as u32)),
         _ => bail!("stylistic set must be between 1 and 20"),
