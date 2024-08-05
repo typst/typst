@@ -373,7 +373,7 @@ impl Counter {
                 } else if func == EquationElem::elem() {
                     EquationElem::numbering_in(styles).clone()
                 } else if func == FootnoteElem::elem() {
-                    FootnoteElem::numbering_in(styles).clone().into()
+                    Some(FootnoteElem::numbering_in(styles).clone())
                 } else {
                     None
                 }
