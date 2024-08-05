@@ -56,7 +56,11 @@ impl PackageStorage {
 
         if let Some(cache_dir) = &self.package_cache_path {
             let dir = cache_dir.join(&subdir);
+            if dir.exists() {
+                return Ok(dir);
+            }
             let parent_dir = dir.parent().unwrap();
+
             let file_locking_err = |string| {
                 move |err| PackageError::FileLocking(eco_format!("{string}: {err}"))
             };
@@ -89,15 +93,26 @@ impl PackageStorage {
             let try_lock = lock_file.try_write();
             let _lock = match try_lock {
                 Ok(lock) => {
-                    println!("acquired the lock file {lock_file_path:?}");
+                    eprintln!("[tmp] acquired the lock file {lock_file_path:?}");
                     lock
                 }
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
                     drop(try_lock);
-                    println!("couldn't aquire the lock file {lock_file_path:?}");
-                    lock_file
+                    eprintln!("[tmp] couldn't aquire the lock file {lock_file_path:?}");
+                    eprintln!("Waiting for another instance to finish installing the package...");
+                    let lock = lock_file
                         .write()
-                        .map_err(file_locking_err("failed to aquire lock file"))?
+                        .map_err(file_locking_err("failed to aquire lock file"))?;
+
+                    // If other instance successfully installed a package after
+                    // waiting for the lock, then there is nothing left to do.
+                    if dir.exists() {
+                        eprintln!("[tmp] dropped the lock file {lock_file_path:?}");
+                        return Ok(dir);
+                    }
+
+                    eprintln!("Another instance failed to install the package, trying it again.");
+                    lock
                     // Additional cool/user-friendly logs:
                     // let _write_lock = lock_file.write().unwrap();
                     // println!("checking if package already exists");
@@ -114,10 +129,6 @@ impl PackageStorage {
                 }
             };
 
-            if dir.exists() {
-                return Ok(dir);
-            }
-
             // Download from network if it doesn't exist yet.
             if spec.namespace == "preview" {
                 self.download_package(spec, &dir)?;
@@ -125,7 +136,7 @@ impl PackageStorage {
                 // drop(lock);
                 // remove_file(&lock_file_path).unwrap();
                 remove_lock()?;
-                println!("dropped the lock file {lock_file_path:?}");
+                eprintln!("[tmp] dropped the lock file {lock_file_path:?}");
                 if dir.exists() {
                     return Ok(dir);
                 }
@@ -196,7 +207,7 @@ impl PackageStorage {
             }
         };
 
-        println!("unpacking the archive...");
+        eprintln!("[tmp] unpacking the archive...");
         sleep(Duration::from_secs(5));
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
         tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
