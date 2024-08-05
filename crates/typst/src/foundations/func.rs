@@ -24,7 +24,7 @@ pub use typst_macros::func;
 /// Additionally, you can pass any number of trailing content blocks arguments
 /// to a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
-/// arguments. The former are identified by position and type, while the later
+/// arguments. The former are identified by position and type, while the latter
 /// are written as `name: value`.
 ///
 /// Within math mode, function calls have special behaviour. See the
