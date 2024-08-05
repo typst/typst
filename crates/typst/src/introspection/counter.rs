@@ -688,6 +688,7 @@ impl CounterState {
         while self.0.len() < level {
             self.0.push(0);
         }
+
         self.0[level - 1] = self.0[level - 1].saturating_add(by);
         self.0.truncate(level);
     }
