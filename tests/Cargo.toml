@@ -11,6 +11,11 @@ name = "tests"
 path = "src/tests.rs"
 harness = false
 
+[[bench]]
+name = "benches"
+path = "src/benches.rs"
+harness = false
+
 [dependencies]
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
@@ -21,6 +26,7 @@ typst-svg = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+iai-callgrind = { workspace = true }
 once_cell = { workspace = true }
 oxipng = { workspace = true }
 parking_lot = { workspace = true }

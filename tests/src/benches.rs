@@ -1,9 +1,8 @@
-//! Typst's test runner.
+//! Typst's benchmark runner.
 
 mod args;
 mod collect;
 mod constants;
-mod custom;
 mod logger;
 mod run;
 mod world;
@@ -12,9 +11,11 @@ use std::path::Path;
 use std::time::Duration;
 
 use clap::Parser;
+use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::hint::black_box;
 
 use crate::args::{CliArguments, Command};
 use crate::logger::Logger;
@@ -26,7 +27,7 @@ fn main() {
     setup();
 
     match &ARGS.command {
-        None => test(),
+        None => bench(),
         Some(Command::Clean) => std::fs::remove_dir_all(constants::STORE_PATH).unwrap(),
     }
 }
@@ -50,7 +51,7 @@ fn setup() {
     }
 }
 
-fn test() {
+fn bench() {
     let (tests, skipped) = crate::collect::collect_or_exit();
 
     let selected = tests.len();
@@ -85,7 +86,7 @@ fn test() {
         // to `typst::utils::Deferred` yielding.
         tests.iter().par_bridge().for_each(|test| {
             logger.lock().start(test);
-            let result = std::panic::catch_unwind(|| run::run(test));
+            let result = std::panic::catch_unwind(|| run::bench(test));
             logger.lock().end(test, result);
         });
 

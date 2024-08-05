@@ -18,6 +18,20 @@ pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
     Collector::new().collect()
 }
 
+/// Like [`collect`], but prints all errors and exits if this didn’t succeed.
+pub fn collect_or_exit() -> (Vec<Test>, usize) {
+    match crate::collect::collect() {
+        Ok(output) => output,
+        Err(errors) => {
+            eprintln!("failed to collect tests");
+            for error in errors {
+                eprintln!("❌ {error}");
+            }
+            std::process::exit(1);
+        }
+    }
+}
+
 /// A single test.
 pub struct Test {
     pub pos: FilePos,
