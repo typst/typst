@@ -39,8 +39,8 @@ use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
-    StyleChain,
+    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Repr, Resolve,
+    Scope, Set, Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
@@ -566,13 +566,22 @@ pub struct TextElem {
     #[ghost]
     pub alternates: bool,
 
-    /// Which stylistic set to apply. Font designers can categorize alternative
+    /// Which stylistic sets to apply. Font designers can categorize alternative
     /// glyphs forms into stylistic sets. As this value is highly font-specific,
-    /// you need to consult your font to know which sets are available. When set
-    /// to an integer between `{1}` and `{20}`, enables the corresponding
-    /// OpenType font feature from `ss01`, ..., `ss20`.
+    /// you need to consult your font to know which sets are available.
+    ///
+    /// This can be set to an integer or an array of integers, all
+    /// of which must be between `{1}` and `{20}`, enabling the
+    /// corresponding OpenType feature(s) from `ss01` to `ss20`.
+    /// Setting this to `none` will disable all stylistic sets.
+    ///
+    /// ```
+    /// #set text(font: "IBM Plex Serif")
+    /// ß vs #text(stylistic-set: 5)[ß] \
+    /// 10 years ago vs #text(stylistic-set: (1, 2, 3))[10 years ago]
+    /// ```
     #[ghost]
-    pub stylistic_set: Option<StylisticSet>,
+    pub stylistic_set: StylisticSets,
 
     /// Whether standard ligatures are active.
     ///
@@ -1059,28 +1068,44 @@ impl Resolve for Hyphenate {
     }
 }
 
-/// A stylistic set in a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct StylisticSet(u8);
+/// A set of stylistic sets to enable.
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
+pub struct StylisticSets(u32);
 
-impl StylisticSet {
-    /// Create a new set, clamping to 1-20.
-    pub fn new(index: u8) -> Self {
-        Self(index.clamp(1, 20))
+impl StylisticSets {
+    /// Converts this set into a Typst array of values.
+    pub fn into_array(self) -> Array {
+        self.sets().map(IntoValue::into_value).collect()
     }
 
-    /// Get the value, guaranteed to be 1-20.
-    pub fn get(self) -> u8 {
-        self.0
+    /// Returns whether this set contains a particular stylistic set.
+    pub fn has(self, ss: u8) -> bool {
+        self.0 & (1 << (ss as u32)) != 0
+    }
+
+    /// Returns an iterator over all stylistic sets to enable.
+    pub fn sets(self) -> impl Iterator<Item = u8> {
+        (1..=20).filter(move |i| self.has(*i))
     }
 }
 
 cast! {
-    StylisticSet,
-    self => self.0.into_value(),
+    StylisticSets,
+    self => self.into_array().into_value(),
+    _: NoneValue => Self(0),
     v: i64 => match v {
-        1 ..= 20 => Self::new(v as u8),
+        1 ..= 20 => Self(1 << (v as u32)),
         _ => bail!("stylistic set must be between 1 and 20"),
+    },
+    v: Vec<i64> => {
+        let mut flags = 0;
+        for i in v {
+            match i {
+                1 ..= 20 => flags |= 1 << (i as u32),
+                _ => bail!("stylistic set must be between 1 and 20"),
+            }
+        }
+        Self(flags)
     },
 }
 
@@ -1145,7 +1170,7 @@ impl Fold for FontFeatures {
 /// Collect the OpenType features to apply.
 pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
-    let mut feat = |tag, value| {
+    let mut feat = |tag: &[u8; 4], value: u32| {
         tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
     };
 
@@ -1163,9 +1188,8 @@ pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"salt", 1);
     }
 
-    let storage;
-    if let Some(set) = TextElem::stylistic_set_in(styles) {
-        storage = [b's', b's', b'0' + set.get() / 10, b'0' + set.get() % 10];
+    for set in TextElem::stylistic_set_in(styles).sets() {
+        let storage = [b's', b's', b'0' + set / 10, b'0' + set % 10];
         feat(&storage, 1);
     }
 
