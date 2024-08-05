@@ -572,7 +572,8 @@ pub struct TextElem {
     ///
     /// This can be set to an integer or an array of integers, all
     /// of which must be between `{1}` and `{20}`, enabling the
-    /// corresponding OpenType feature from `ss01` to `ss20`.
+    /// corresponding OpenType feature(s) from `ss01` to `ss20`.
+    /// Setting this to `none` will disable all stylistic sets.
     ///
     /// ```
     /// #set text(font: "IBM Plex Serif")
@@ -1067,18 +1068,22 @@ impl Resolve for Hyphenate {
     }
 }
 
+/// A set of stylistic sets to enable.
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
 
 impl StylisticSets {
+    /// Converts this set into a Typst array of values.
     pub fn into_array(self) -> Array {
         self.sets().map(IntoValue::into_value).collect()
     }
 
+    /// Returns whether this set contains a particular stylistic set.
     pub fn has(self, ss: u8) -> bool {
         self.0 & (1 << (ss as u32)) != 0
     }
 
+    /// Returns an iterator over all stylistic sets to enable.
     pub fn sets(self) -> impl Iterator<Item = u8> {
         (1..=20).filter(move |i| self.has(*i))
     }
