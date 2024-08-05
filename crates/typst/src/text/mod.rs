@@ -452,7 +452,7 @@ pub struct TextElem {
     /// If you set this to `rtl` and experience bugs or in some way bad looking
     /// output, please do get in touch with us through the
     /// [contact form](https://typst.app/contact) or our
-    /// [Discord server]($community/#discord)!
+    /// [Discord server](https://discord.gg/2uDybryKPe)!
     ///
     /// ```example
     /// #set text(dir: rtl)
