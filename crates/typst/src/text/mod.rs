@@ -37,6 +37,7 @@ use ttf_parser::{Rect, Tag};
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
+use crate::foundations::IntoValue;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
     Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
@@ -566,13 +567,21 @@ pub struct TextElem {
     #[ghost]
     pub alternates: bool,
 
-    /// Which stylistic set to apply. Font designers can categorize alternative
+    /// Which stylistic sets to apply. Font designers can categorize alternative
     /// glyphs forms into stylistic sets. As this value is highly font-specific,
-    /// you need to consult your font to know which sets are available. When set
-    /// to an integer between `{1}` and `{20}`, enables the corresponding
-    /// OpenType font feature from `ss01`, ..., `ss20`.
+    /// you need to consult your font to know which sets are available.
+    ///
+    /// This can be set to an integer or an array of integers, all
+    /// of which must be between `{1}` and `{20}`, enabling the
+    /// corresponding OpenType feature from `ss01` to `ss20`.
+    ///
+    /// ```
+    /// #set text(font: "IBM Plex Serif")
+    /// ß vs #text(stylistic-set: 5)[ß] \
+    /// 10 years ago vs #text(stylistic-set: (1, 2, 3))[10 years ago]
+    /// ```
     #[ghost]
-    pub stylistic_set: Option<StylisticSet>,
+    pub stylistic_set: StylisticSets,
 
     /// Whether standard ligatures are active.
     ///
@@ -1084,6 +1093,42 @@ cast! {
     },
 }
 
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
+pub struct StylisticSets(u32);
+
+impl StylisticSets {
+    pub fn into_array(self) -> Array {
+        self.sets().map(IntoValue::into_value).collect()
+    }
+
+    pub fn has(self, ss: u8) -> bool {
+        self.0 & (1 << (ss as u32)) != 0
+    }
+
+    pub fn sets(self) -> impl Iterator<Item = u8> {
+        (1..=20).filter(move |i| self.has(*i))
+    }
+}
+
+cast! {
+    StylisticSets,
+    self => self.into_array().into_value(),
+    v: i64 => match v {
+        1 ..= 20 => Self(1 << (v as u32)),
+        _ => bail!("stylistic set must be between 1 and 20"),
+    },
+    v: Vec<i64> => {
+        let mut flags = 0;
+        for i in v {
+            match i {
+                1 ..= 20 => flags |= 1 << (i as u32),
+                _ => bail!("stylistic set must be between 1 and 20"),
+            }
+        }
+        Self(flags)
+    },
+}
+
 /// Which kind of numbers / figures to select.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum NumberType {
@@ -1145,7 +1190,7 @@ impl Fold for FontFeatures {
 /// Collect the OpenType features to apply.
 pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
-    let mut feat = |tag, value| {
+    let mut feat = |tag: &[u8; 4], value: u32| {
         tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
     };
 
@@ -1163,9 +1208,8 @@ pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"salt", 1);
     }
 
-    let storage;
-    if let Some(set) = TextElem::stylistic_set_in(styles) {
-        storage = [b's', b's', b'0' + set.get() / 10, b'0' + set.get() % 10];
+    for set in TextElem::stylistic_set_in(styles).sets() {
+        let storage = [b's', b's', b'0' + set / 10, b'0' + set % 10];
         feat(&storage, 1);
     }
 
