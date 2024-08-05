@@ -685,14 +685,12 @@ impl CounterState {
     pub fn step(&mut self, level: NonZeroUsize, by: usize) {
         let level = level.get();
 
-        if self.0.len() >= level {
-            self.0[level - 1] = self.0[level - 1].saturating_add(by);
-            self.0.truncate(level);
+        while self.0.len() < level {
+            self.0.push(0);
         }
 
-        while self.0.len() < level {
-            self.0.push(1);
-        }
+        self.0[level - 1] = self.0[level - 1].saturating_add(by);
+        self.0.truncate(level);
     }
 
     /// Get the first number of the state.
