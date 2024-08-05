@@ -10,11 +10,12 @@ use typst::syntax::package::{
 };
 
 use crate::args::InitCommand;
-use crate::package::PackageStorage;
+use crate::download::PrintDownload;
+use crate::package;
 
 /// Execute an initialization command.
 pub fn init(command: &InitCommand) -> StrResult<()> {
-    let package_storage = PackageStorage::from_args(&command.package_storage_args);
+    let package_storage = package::storage(&command.package_storage_args);
 
     // Parse the package specification. If the user didn't specify the version,
     // we try to figure it out automatically by downloading the package index
@@ -28,7 +29,8 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
     })?;
 
     // Find or download the package.
-    let package_path = package_storage.prepare_package(&spec)?;
+    let package_path =
+        package_storage.prepare_package(&spec, &mut PrintDownload(&spec))?;
 
     // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;
