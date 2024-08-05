@@ -397,9 +397,10 @@ fn layout_underoverspreader(
     let glyph = GlyphFragment::new(ctx, styles, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
-    let mut rows = vec![MathRun::new(vec![body])];
+    let mut rows = vec![];
     let baseline = match position {
         Position::Under => {
+            rows.push(MathRun::new(vec![body]));
             rows.push(stretched.into());
             if let Some(annotation) = annotation {
                 let under_style = style_for_subscript(styles);
@@ -409,12 +410,13 @@ fn layout_underoverspreader(
             0
         }
         Position::Over => {
-            rows.insert(0, stretched.into());
             if let Some(annotation) = annotation {
                 let over_style = style_for_superscript(styles);
                 let annotation_styles = styles.chain(&over_style);
-                rows.insert(0, ctx.layout_into_run(annotation, annotation_styles)?);
+                rows.push(ctx.layout_into_run(annotation, annotation_styles)?);
             }
+            rows.push(stretched.into());
+            rows.push(MathRun::new(vec![body]));
             rows.len() - 1
         }
     };
