@@ -44,7 +44,7 @@ waltz vs #text(discretionary-ligatures: true)[waltz]
 fi vs. #text(features: (liga: 0))[No fi]
 
 --- text-stylistic-set-bad-type ---
-// Error: 26-31 expected integer or array, found boolean
+// Error: 26-31 expected none, integer, or array, found boolean
 #set text(stylistic-set: false)
 
 --- text-stylistic-set-out-of-bounds ---

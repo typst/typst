@@ -37,11 +37,10 @@ use ttf_parser::{Rect, Tag};
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::IntoValue;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, NativeElement, Never, Packed, PlainText, Repr, Resolve, Scope, Set, Smart,
-    StyleChain,
+    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Repr, Resolve,
+    Scope, Set, Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
