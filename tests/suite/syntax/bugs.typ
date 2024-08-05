@@ -13,6 +13,7 @@
 // Hint: 3:2-3:5 keyword `let` is not allowed as an identifier; try `let_` instead
 // Error: 4:3-4:4 unexpected equals sign
 // Error: 4:5-4:6 unclosed delimiter
+// Error: 4:6 expected equals sign
 #import (hntle-clues: *
 #import "/util.typ": qrlink
 #let auton(
