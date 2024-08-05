@@ -172,7 +172,7 @@ typst help watch
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant
-preview, you can also check out [Typst's free web app.][app]
+preview, you can also check out [Typst's free web app][app].
 
 ## Community
 The main place where the community gathers is our [Discord server][discord].
