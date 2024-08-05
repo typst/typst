@@ -1068,31 +1068,6 @@ impl Resolve for Hyphenate {
     }
 }
 
-/// A stylistic set in a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct StylisticSet(u8);
-
-impl StylisticSet {
-    /// Create a new set, clamping to 1-20.
-    pub fn new(index: u8) -> Self {
-        Self(index.clamp(1, 20))
-    }
-
-    /// Get the value, guaranteed to be 1-20.
-    pub fn get(self) -> u8 {
-        self.0
-    }
-}
-
-cast! {
-    StylisticSet,
-    self => self.0.into_value(),
-    v: i64 => match v {
-        1 ..= 20 => Self::new(v as u8),
-        _ => bail!("stylistic set must be between 1 and 20"),
-    },
-}
-
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
 
