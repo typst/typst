@@ -12,6 +12,7 @@ use typst::visualize::Color;
 use typst::WorldExt;
 
 use crate::collect::{FileSize, NoteKind, Test};
+use crate::constants;
 use crate::world::TestWorld;
 
 /// Runs a single test.
@@ -144,8 +145,9 @@ impl<'a> Runner<'a> {
 
     /// Check that the document output is correct.
     fn check_document(&mut self, document: Option<&Document>) {
-        let live_path = format!("{}/render/{}.png", crate::STORE_PATH, self.test.name);
-        let ref_path = format!("{}/{}.png", crate::REF_PATH, self.test.name);
+        let live_path =
+            format!("{}/render/{}.png", constants::STORE_PATH, self.test.name);
+        let ref_path = format!("{}/{}.png", constants::REF_PATH, self.test.name);
         let has_ref = Path::new(&ref_path).exists();
 
         let Some(document) = document else {
@@ -185,14 +187,16 @@ impl<'a> Runner<'a> {
 
         // Write PDF if requested.
         if crate::ARGS.pdf() {
-            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
+            let pdf_path =
+                format!("{}/pdf/{}.pdf", constants::STORE_PATH, self.test.name);
             let pdf = typst_pdf::pdf(document, Smart::Auto, None, None);
             std::fs::write(pdf_path, pdf).unwrap();
         }
 
         // Write SVG if requested.
         if crate::ARGS.svg() {
-            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, self.test.name);
+            let svg_path =
+                format!("{}/svg/{}.svg", constants::STORE_PATH, self.test.name);
             let svg = typst_svg::svg_merged(document, Abs::pt(5.0));
             std::fs::write(svg_path, svg).unwrap();
         }
@@ -220,9 +224,9 @@ impl<'a> Runner<'a> {
                 let opts = oxipng::Options::max_compression();
                 let data = pixmap.encode_png().unwrap();
                 let ref_data = oxipng::optimize_from_memory(&data, &opts).unwrap();
-                if !self.test.large && ref_data.len() > crate::constants::REF_LIMIT {
+                if !self.test.large && ref_data.len() > constants::REF_LIMIT {
                     log!(self, "reference image would exceed maximum size");
-                    log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
+                    log!(self, "  maximum   | {}", FileSize(constants::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
                     log!(self, "please try to minimize the size of the test (smaller pages, less text, etc.)");
                     log!(self, "if you think the test cannot be reasonably minimized, mark it as `// LARGE`");
