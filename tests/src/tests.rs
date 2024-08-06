@@ -1,26 +1,13 @@
 //! Typst's test runner.
 
-mod args;
-mod collect;
-mod constants;
-mod custom;
-mod logger;
-mod run;
-mod world;
-
 use std::path::Path;
 use std::time::Duration;
 
-use clap::Parser;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rayon::iter::{ParallelBridge, ParallelIterator};
-
-use crate::args::{CliArguments, Command};
-use crate::logger::Logger;
-
-/// The parsed command line arguments.
-static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
+use typst_tests::args::Command;
+use typst_tests::logger::Logger;
+use typst_tests::{constants, run, ARGS};
 
 fn main() {
     setup();
@@ -51,7 +38,7 @@ fn setup() {
 }
 
 fn test() {
-    let (tests, skipped) = crate::collect::collect_or_exit();
+    let (tests, skipped) = typst_tests::collect::collect_or_exit();
 
     let selected = tests.len();
     if ARGS.list {

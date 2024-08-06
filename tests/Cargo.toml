@@ -6,14 +6,20 @@ authors = { workspace = true }
 edition = { workspace = true }
 publish = false
 
+[lib]
+crate-type = ["lib"]
+
+[[bin]]
+name = "prepare-benches"
+path = "src/benches.rs"
+
 [[test]]
 name = "tests"
 path = "src/tests.rs"
 harness = false
 
 [[bench]]
-name = "benches"
-path = "src/benches.rs"
+name = "tests"
 harness = false
 
 [dependencies]
@@ -23,6 +29,7 @@ typst-dev-assets = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
+base64 = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

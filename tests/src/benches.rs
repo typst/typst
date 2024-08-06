@@ -1,31 +1,17 @@
 //! Typst's benchmark runner.
 
-mod args;
-mod collect;
-mod constants;
-mod logger;
-mod run;
-mod world;
-
+use base64::Engine;
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
-use std::time::Duration;
-
-use clap::Parser;
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
-use rayon::iter::{ParallelBridge, ParallelIterator};
-
-use crate::args::{CliArguments, Command};
-use crate::logger::Logger;
-
-/// The parsed command line arguments.
-static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
+use typst_tests::args::Command;
+use typst_tests::{constants, ARGS};
 
 fn main() {
     setup();
 
     match &ARGS.command {
-        None => bench(),
+        None => prepare_benches(),
         Some(Command::Clean) => std::fs::remove_dir_all(constants::STORE_PATH).unwrap(),
     }
 }
@@ -49,8 +35,8 @@ fn setup() {
     }
 }
 
-fn bench() {
-    let (tests, skipped) = crate::collect::collect_or_exit();
+fn prepare_benches() {
+    let (tests, skipped) = typst_tests::collect::collect_or_exit();
 
     let selected = tests.len();
     if ARGS.list {
@@ -60,39 +46,17 @@ fn bench() {
         eprintln!("{selected} selected, {skipped} skipped");
         return;
     } else if selected == 0 {
-        eprintln!("no test selected");
+        eprintln!("no benches selected");
         return;
     }
 
-    // Run the tests.
-    let logger = Mutex::new(Logger::new(selected, skipped));
-    std::thread::scope(|scope| {
-        let logger = &logger;
-        let (sender, receiver) = std::sync::mpsc::channel();
-
-        // Regularly refresh the logger in case we make no progress.
-        scope.spawn(move || {
-            while receiver.recv_timeout(Duration::from_millis(500)).is_err() {
-                logger.lock().refresh();
-            }
-        });
-
-        // Run the tests.
-        //
-        // We use `par_bridge` instead of `par_iter` because the former
-        // results in a stack overflow during PDF export. Probably related
-        // to `typst::utils::Deferred` yielding.
-        tests.iter().par_bridge().for_each(|test| {
-            logger.lock().start(test);
-            let result = std::panic::catch_unwind(|| run::run(test));
-            logger.lock().end(test, result);
-        });
-
-        sender.send(()).unwrap();
-    });
-
-    let passed = logger.into_inner().finish();
-    if !passed {
-        std::process::exit(1);
+    // Prepare the benchmarks.
+    let mut out_file = File::create("tests/store/fixtures").unwrap();
+    let mut source_base64 = String::new();
+    for test in &tests {
+        source_base64.clear();
+        base64::engine::general_purpose::STANDARD
+            .encode_string(test.source.text(), &mut source_base64);
+        writeln!(out_file, "{} {}", test.name, source_base64).unwrap();
     }
 }
