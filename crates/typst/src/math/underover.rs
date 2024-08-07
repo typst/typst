@@ -67,7 +67,7 @@ fn layout_underoverline(
     span: Span,
     position: Position,
 ) -> SourceResult<()> {
-    let (extra_height, content, line_pos, content_pos, baseline, bar_height);
+    let (extra_height, content, line_pos, content_pos, baseline, bar_height, line_width);
     match position {
         Position::Under => {
             let sep = scaled!(ctx, styles, underbar_extra_descender);
@@ -79,7 +79,9 @@ fn layout_underoverline(
 
             line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
             content_pos = Point::zero();
-            baseline = content.ascent()
+            baseline = content.ascent();
+
+            line_width = content.width() - content.italics_correction();
         }
         Position::Over => {
             let sep = scaled!(ctx, styles, overbar_extra_ascender);
@@ -93,6 +95,8 @@ fn layout_underoverline(
             line_pos = Point::with_y(sep + bar_height / 2.0);
             content_pos = Point::with_y(extra_height);
             baseline = content.ascent() + extra_height;
+
+            line_width = content.width();
         }
     }
 
@@ -109,7 +113,7 @@ fn layout_underoverline(
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(width)).stroked(FixedStroke {
+            Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
                 paint: TextElem::fill_in(styles).as_decoration(),
                 thickness: bar_height,
                 ..FixedStroke::default()
