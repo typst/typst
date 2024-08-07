@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::layout::Dir;
 use crate::syntax::is_newline;
-use crate::text::{Lang, Region};
+use crate::text::Locale;
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -131,12 +131,12 @@ impl SmartQuoter {
     }
 
     /// Process and substitute a quote.
-    pub fn quote<'a>(
+    pub fn quote(
         &mut self,
-        quotes: &SmartQuotes<'a>,
+        quotes: &SmartQuotes,
         double: bool,
         peeked: Option<char>,
-    ) -> &'a str {
+    ) -> EcoString {
         let peeked = peeked.unwrap_or(' ');
         let mut expect_opening = self.expect_opening;
         if let Some(prev_double) = self.prev_quote_type.take() {
@@ -177,80 +177,68 @@ fn is_opening_bracket(c: char) -> bool {
 }
 
 /// Decides which quotes to substitute smart quotes with.
-pub struct SmartQuotes<'s> {
+pub struct SmartQuotes {
     /// The opening single quote.
-    pub single_open: &'s str,
+    pub single_open: EcoString,
     /// The closing single quote.
-    pub single_close: &'s str,
+    pub single_close: EcoString,
     /// The opening double quote.
-    pub double_open: &'s str,
+    pub double_open: EcoString,
     /// The closing double quote.
-    pub double_close: &'s str,
+    pub double_close: EcoString,
 }
 
-impl<'s> SmartQuotes<'s> {
+impl SmartQuotes {
     /// Create a new `Quotes` struct with the given quotes, optionally falling
     /// back to the defaults for a language and region.
-    ///
-    /// The language should be specified as an all-lowercase ISO 639-1 code, the
-    /// region as an all-uppercase ISO 3166-alpha2 code.
-    ///
-    /// Currently, the supported languages are: English, Czech, Danish, German,
-    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin, Lithuanian,
-    /// Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish, Swedish, French,
-    /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
-    /// Norwegian.
-    ///
-    /// For unknown languages, the English quotes are used as fallback.
     pub fn new(
-        quotes: &'s Smart<SmartQuoteDict>,
-        lang: Lang,
-        region: Option<Region>,
+        quotes: Smart<&SmartQuoteDict>,
+        locale: Locale,
         alternative: bool,
     ) -> Self {
-        let region = region.as_ref().map(Region::as_str);
-
-        let default = ("‘", "’", "“", "”");
-        let low_high = ("‚", "‘", "„", "“");
-
-        let (single_open, single_close, double_open, double_close) = match lang.as_str() {
-            "de" if matches!(region, Some("CH" | "LI")) => match alternative {
-                false => ("‹", "›", "«", "»"),
-                true => low_high,
-            },
-            "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
-            "cs" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
-            "da" => ("‘", "’", "“", "”"),
-            "fr" | "ru" if alternative => default,
-            "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
-            "fi" | "sv" if alternative => ("’", "’", "»", "»"),
-            "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
-            "it" if alternative => default,
-            "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
-            "it" | "la" => ("“", "”", "«", "»"),
-            "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
-            "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
-            "no" | "nb" | "nn" if alternative => low_high,
-            "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
-            "gr" => ("‘", "’", "«", "»"),
-            _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
-            _ => default,
+        let keys = if alternative {
+            [
+                "alternate_opening_single_quote",
+                "alternate_closing_single_quote",
+                "alternate_opening_double_quote",
+                "alternate_closing_double_quote",
+            ]
+        } else {
+            [
+                "opening_single_quote",
+                "closing_single_quote",
+                "opening_double_quote",
+                "closing_double_quote",
+            ]
         };
 
-        fn inner_or_default<'s>(
-            quotes: Smart<&'s SmartQuoteDict>,
-            f: impl FnOnce(&'s SmartQuoteDict) -> Smart<&'s SmartQuoteSet>,
-            default: [&'s str; 2],
-        ) -> [&'s str; 2] {
+        let [single_open, single_close, double_open, double_close] = keys.map(|key| {
+            locale.optional_localized_str(key).unwrap_or_else(|| {
+                if locale.dir() == Dir::RTL {
+                    if key.contains("opening") {
+                        locale.localized_str(&key.replace("opening", "closing"))
+                    } else {
+                        locale.localized_str(&key.replace("closing", "opening"))
+                    }
+                } else {
+                    locale.localized_str(key)
+                }
+            })
+        });
+
+        fn inner_or_default(
+            quotes: Smart<&SmartQuoteDict>,
+            f: impl FnOnce(&SmartQuoteDict) -> Smart<&SmartQuoteSet>,
+            default: [EcoString; 2],
+        ) -> [EcoString; 2] {
             match quotes.and_then(f) {
                 Smart::Auto => default,
                 Smart::Custom(SmartQuoteSet { open, close }) => {
-                    [open, close].map(|s| s.as_str())
+                    [open.clone(), close.clone()]
                 }
             }
         }
 
-        let quotes = quotes.as_ref();
         let [single_open, single_close] =
             inner_or_default(quotes, |q| q.single.as_ref(), [single_open, single_close]);
         let [double_open, double_close] =
@@ -265,38 +253,38 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// The opening quote.
-    pub fn open(&self, double: bool) -> &'s str {
+    pub fn open(&self, double: bool) -> EcoString {
         if double {
-            self.double_open
+            self.double_open.clone()
         } else {
-            self.single_open
+            self.single_open.clone()
         }
     }
 
     /// The closing quote.
-    pub fn close(&self, double: bool) -> &'s str {
+    pub fn close(&self, double: bool) -> EcoString {
         if double {
-            self.double_close
+            self.double_close.clone()
         } else {
-            self.single_close
+            self.single_close.clone()
         }
     }
 
     /// Which character should be used as a prime.
-    pub fn prime(&self, double: bool) -> &'static str {
+    pub fn prime(&self, double: bool) -> EcoString {
         if double {
-            "″"
+            "″".into()
         } else {
-            "′"
+            "′".into()
         }
     }
 
     /// Which character should be used as a fallback quote.
-    pub fn fallback(&self, double: bool) -> &'static str {
+    pub fn fallback(&self, double: bool) -> EcoString {
         if double {
-            "\""
+            "\"".into()
         } else {
-            "’"
+            "’".into()
         }
     }
 }
