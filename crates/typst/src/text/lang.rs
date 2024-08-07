@@ -1,12 +1,12 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use crate::diag::Hint;
-use ecow::{eco_format, EcoString};
-
 use crate::foundations::{cast, StyleChain};
 use crate::layout::Dir;
 use crate::text::TextElem;
+use ecow::{eco_format, EcoString};
 
 macro_rules! translation {
     ($lang:literal) => {
@@ -185,6 +185,93 @@ cast! {
     string: EcoString => Self::from_str(&string)?,
 }
 
+/// A [natural language](Lang) and an optional [region](Region).
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Locale(Lang, Option<Region>);
+
+impl Locale {
+    pub fn locale_in(styles: StyleChain) -> Self {
+        Self(TextElem::lang_in(styles), TextElem::region_in(styles))
+    }
+
+    /// Creates a new locale with the same language, but no region.
+    pub const fn without_region(&self) -> Self {
+        Self(self.0, None)
+    }
+
+    pub const fn lang(&self) -> Lang {
+        self.0
+    }
+
+    pub const fn region(&self) -> Option<Region> {
+        self.1
+    }
+
+    pub const fn has_region(&self) -> bool {
+        self.region().is_some()
+    }
+
+    pub fn dir(&self) -> Dir {
+        self.lang().dir()
+    }
+
+    /// Returns the code of the locale.
+    pub fn code(&self) -> EcoString {
+        let mut code = EcoString::from(self.lang().as_str());
+        if let Some(region) = self.region() {
+            code.push('-');
+            code.push_str(region.as_str())
+        }
+        code
+    }
+
+    /// Retrieves the localized string for a given locale. If no fitting string
+    /// exists for the given locale, returns [`None`].
+    #[comemo::memoize]
+    pub fn optional_localized_str(self, key: &str) -> Option<EcoString> {
+        let lang_region_bundle = parse_language_bundle(self).unwrap();
+        if let Some(str) = lang_region_bundle.get(key) {
+            return Some(str.clone());
+        }
+
+        if self.has_region() {
+            let lang_bundle = parse_language_bundle(self.without_region()).unwrap();
+            if let Some(str) = lang_bundle.get(key) {
+                return Some(str.clone());
+            }
+        }
+
+        None
+    }
+
+    /// Retrieves the localized string for a given locale. Silently falls back
+    /// to English if no fitting string exists for the given locale. Panics if
+    /// no fitting string exists in both given locale, and English.
+    #[comemo::memoize]
+    pub fn localized_str(self, key: &str) -> EcoString {
+        if let Some(str) = self.optional_localized_str(key) {
+            return str;
+        }
+        let english_bundle = parse_language_bundle(Self::default()).unwrap();
+        english_bundle.get(key).unwrap().clone()
+    }
+}
+
+impl Default for Locale {
+    fn default() -> Self {
+        Self(Lang::ENGLISH, None)
+    }
+}
+
+impl Display for Locale {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self.region() {
+            None => write!(f, "{}", self.lang().as_str()),
+            Some(region) => write!(f, "{}-{}", self.lang().as_str(), region.as_str()),
+        }
+    }
+}
+
 /// An ISO 15924-type script identifier.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct WritingScript([u8; 4], u8);
@@ -229,75 +316,86 @@ pub trait LocalName {
     /// The key of an element in order to get its localized name.
     const KEY: &'static str;
 
-    /// Get the name in the given language and (optionally) region.
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
-        localized_str(lang, region, Self::KEY)
+    /// Get the name in the given locale.
+    fn local_name(locale: Locale) -> EcoString {
+        locale.localized_str(Self::KEY)
     }
 
     /// Gets the local name from the style chain.
-    fn local_name_in(styles: StyleChain) -> &'static str
+    fn local_name_in(styles: StyleChain) -> EcoString
     where
         Self: Sized,
     {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+        Self::local_name(Locale::locale_in(styles))
     }
-}
-
-/// Retrieves the localized string for a given language and region.
-/// Silently falls back to English if no fitting string exists for
-/// the given language + region. Panics if no fitting string exists
-/// in both given language + region and English.
-#[comemo::memoize]
-pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static str {
-    let lang_region_bundle = parse_language_bundle(lang, region).unwrap();
-    if let Some(str) = lang_region_bundle.get(key) {
-        return str;
-    }
-    let lang_bundle = parse_language_bundle(lang, None).unwrap();
-    if let Some(str) = lang_bundle.get(key) {
-        return str;
-    }
-    let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
-    english_bundle.get(key).unwrap()
 }
 
 /// Parses the translation file for a given language and region.
 /// Only returns an error if the language file is malformed.
 #[comemo::memoize]
 fn parse_language_bundle(
-    lang: Lang,
-    region: Option<Region>,
-) -> Result<HashMap<&'static str, &'static str>, &'static str> {
-    let language_tuple = TRANSLATIONS.iter().find(|it| it.0 == lang_str(lang, region));
+    locale: Locale,
+) -> Result<HashMap<&'static str, EcoString>, String> {
+    let language_tuple = TRANSLATIONS.iter().find(|it| it.0 == locale.code());
     let Some((_lang_name, language_file)) = language_tuple else {
         return Ok(HashMap::new());
     };
 
     let mut bundle = HashMap::new();
-    let lines = language_file.trim().lines();
+    let lines = language_file.lines();
     for line in lines {
-        if line.trim().starts_with('#') {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let (key, val) = line
-            .split_once('=')
-            .ok_or("malformed translation file: line without \"=\"")?;
+
+        let (key, val) = line.split_once('=').ok_or_else(|| {
+            format!("malformed translation file for {locale}: line without \"=\"")
+        })?;
+
         let (key, val) = (key.trim(), val.trim());
         if val.is_empty() {
-            return Err("malformed translation file: empty translation value");
+            return Err(format!(
+                "malformed translation file for {locale}: empty translation value for \"{key}\"",
+            ));
         }
-        let duplicate = bundle.insert(key.trim(), val.trim());
+
+        let parsed_value = if val.contains('\\') {
+            let mut suffix = val;
+            let mut v = EcoString::new();
+            while let Some((left, right)) = suffix.split_once('\\') {
+                v.push_str(left);
+                if right.starts_with('\\') {
+                    v.push('\\');
+                    suffix = right.get(1..).unwrap();
+                } else if right.starts_with("u{") {
+                    let (codepoint, remainder) = right.get(2..).unwrap().split_once('}').ok_or_else(|| {
+                        format!("malformed translation file for {locale}: invalid escape sequence in value for {key}")
+                    })?;
+                    let parsed_codepoint = u32::from_str_radix(codepoint, 16).map_err(|_| {
+                        format!("malformed translation file for {locale}: invalid codepoint in value for {key} \"{codepoint}\"")
+                    })?;
+                    v.push(char::from_u32(parsed_codepoint).ok_or_else(|| {
+                        format!("malformed translation file for {locale}: invalid codepoint in value for {key} \"{codepoint}\"")
+                    })?);
+                    suffix = remainder;
+                } else {
+                    return Err(format!("malformed translation file for {locale}: invalid escape sequence in value for {key}"));
+                }
+            }
+            v + suffix
+        } else {
+            val.into()
+        };
+
+        let duplicate = bundle.insert(key, parsed_value);
         if duplicate.is_some() {
-            return Err("malformed translation file: duplicate key");
+            return Err(format!(
+                "malformed translation file for {locale}: duplicate key \"{key}\"",
+            ));
         }
     }
     Ok(bundle)
-}
-
-/// Convert language + region to a string to be able to get a file name.
-fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
-    EcoString::from(lang.as_str())
-        + region.map_or_else(EcoString::new, |r| EcoString::from("-") + r.as_str())
 }
 
 #[cfg(test)]

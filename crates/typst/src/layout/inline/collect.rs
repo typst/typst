@@ -8,7 +8,7 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::{
-    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    LinebreakElem, Locale, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
 };
 use crate::utils::Numeric;
 
@@ -192,9 +192,8 @@ pub fn collect<'a>(
             let double = elem.double(styles);
             if elem.enabled(styles) {
                 let quotes = SmartQuotes::new(
-                    elem.quotes(styles),
-                    TextElem::lang_in(styles),
-                    TextElem::region_in(styles),
+                    elem.quotes(styles).as_ref(),
+                    Locale::locale_in(styles),
                     elem.alternative(styles),
                 );
                 let peeked = iter.peek().and_then(|(child, _)| {
@@ -216,7 +215,7 @@ pub fn collect<'a>(
                 });
 
                 let quote = collector.quoter.quote(&quotes, double, peeked);
-                collector.push_quote(quote, styles);
+                collector.push_quote(&quote, styles);
             } else {
                 collector.push_text(if double { "\"" } else { "'" }, styles);
             }
