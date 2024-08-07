@@ -2,7 +2,9 @@ use std::f64::consts::SQRT_2;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Packed, Show, Smart, StyleChain};
+use crate::foundations::{
+    elem, Cast, Content, NativeElement, Packed, Show, Smart, StyleChain,
+};
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, Corner, Corners, Frame, FrameItem, Length, Point, Ratio,
@@ -583,8 +585,20 @@ pub struct Shape {
     pub geometry: Geometry,
     /// The shape's background fill.
     pub fill: Option<Paint>,
+    /// The shape's fill rule.
+    pub fill_rule: FillRule,
     /// The shape's border stroke.
     pub stroke: Option<FixedStroke>,
+}
+
+/// A path filling rule.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum FillRule {
+    /// Specifies that "inside" is computed by a non-zero sum of signed edge crossings.
+    #[default]
+    NonZero,
+    /// Specifies that "inside" is computed by an odd number of edge crossings.
+    EvenOdd,
 }
 
 /// A shape's geometry.
@@ -601,12 +615,22 @@ pub enum Geometry {
 impl Geometry {
     /// Fill the geometry without a stroke.
     pub fn filled(self, fill: Paint) -> Shape {
-        Shape { geometry: self, fill: Some(fill), stroke: None }
+        Shape {
+            geometry: self,
+            fill: Some(fill),
+            fill_rule: FillRule::default(),
+            stroke: None,
+        }
     }
 
     /// Stroke the geometry without a fill.
     pub fn stroked(self, stroke: FixedStroke) -> Shape {
-        Shape { geometry: self, fill: None, stroke: Some(stroke) }
+        Shape {
+            geometry: self,
+            fill: None,
+            fill_rule: FillRule::default(),
+            stroke: Some(stroke),
+        }
     }
 
     /// The bounding box of the geometry.
@@ -641,7 +665,12 @@ pub(crate) fn ellipse(
     path.cubic_to(point(rx, my), point(mx, ry), point(z, ry));
     path.cubic_to(point(-mx, ry), point(-rx, my), point(-rx, z));
 
-    Shape { geometry: Geometry::Path(path), stroke, fill }
+    Shape {
+        geometry: Geometry::Path(path),
+        stroke,
+        fill,
+        fill_rule: FillRule::default(),
+    }
 }
 
 /// Creates a new rectangle as a path.
@@ -704,7 +733,12 @@ fn simple_rect(
     fill: Option<Paint>,
     stroke: Option<FixedStroke>,
 ) -> Vec<Shape> {
-    vec![Shape { geometry: Geometry::Rect(size), fill, stroke }]
+    vec![Shape {
+        geometry: Geometry::Rect(size),
+        fill,
+        stroke,
+        fill_rule: FillRule::default(),
+    }]
 }
 
 fn corners_control_points(
@@ -779,6 +813,7 @@ fn segmented_rect(
         res.push(Shape {
             geometry: Geometry::Path(path),
             fill: Some(fill),
+            fill_rule: FillRule::default(),
             stroke: None,
         });
         stroke_insert += 1;
@@ -916,6 +951,7 @@ fn stroke_segment(
         geometry: Geometry::Path(path),
         stroke: Some(stroke),
         fill: None,
+        fill_rule: FillRule::default(),
     }
 }
 
@@ -1014,6 +1050,7 @@ fn fill_segment(
         geometry: Geometry::Path(path),
         stroke: None,
         fill: Some(stroke.paint.clone()),
+        fill_rule: FillRule::default(),
     }
 }
 

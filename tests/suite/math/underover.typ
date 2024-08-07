@@ -19,3 +19,17 @@ $ x = overbracket(
 $ underbracket([1, 2/3], "relevant stuff")
           arrow.l.r.double.long
   overbracket([4/5,6], "irrelevant stuff") $
+
+--- math-underover-parens ---
+// Test parentheses.
+$ overparen(
+  underparen(x + y, "long comment"),
+  1 + 2 + ... + 5  
+) $
+
+--- math-underover-shells ---
+// Test tortoise shell brackets.
+$ undershell(
+  1 + overshell(2 + ..., x + y),
+  "all stuff"
+) $

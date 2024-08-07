@@ -196,7 +196,7 @@ impl<'s> SmartQuotes<'s> {
     /// region as an all-uppercase ISO 3166-alpha2 code.
     ///
     /// Currently, the supported languages are: English, Czech, Danish, German,
-    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Lithuanian,
+    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin, Lithuanian,
     /// Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish, Swedish, French,
     /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
     /// Norwegian.
@@ -225,6 +225,9 @@ impl<'s> SmartQuotes<'s> {
             "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
             "fi" | "sv" if alternative => ("’", "’", "»", "»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
+            "it" if alternative => default,
+            "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
+            "it" | "la" => ("“", "”", "«", "»"),
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,

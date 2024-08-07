@@ -18,7 +18,7 @@ use crate::symbols::Symbol;
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::utils::Numeric;
-use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
+use crate::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape, Stroke};
 
 use super::delimiter_alignment;
 
@@ -597,6 +597,7 @@ fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> Fr
         Shape {
             geometry: line_geom,
             fill: None,
+            fill_rule: FillRule::default(),
             stroke: Some(stroke),
         },
         span,

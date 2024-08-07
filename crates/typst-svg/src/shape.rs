@@ -17,6 +17,7 @@ impl SVGRenderer {
         if let Some(paint) = &shape.fill {
             self.write_fill(
                 paint,
+                shape.fill_rule,
                 self.shape_fill_size(state, paint, shape),
                 self.shape_paint_transform(state, paint, shape),
             );

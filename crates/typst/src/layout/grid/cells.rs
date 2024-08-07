@@ -1223,7 +1223,7 @@ impl<'a> CellGrid<'a> {
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
     /// the returned position, due to how the grid is built.
     /// - If the entry at the given position is a cell, returns the given
-    /// position.
+    ///   position.
     /// - If it is a merged cell, returns the parent cell's position.
     /// - If it is a gutter cell, returns None.
     #[track_caller]

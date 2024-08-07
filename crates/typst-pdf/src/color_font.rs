@@ -305,7 +305,7 @@ impl<'a, R> Iterator for ColorFontMapIter<'a, R> {
 
 /// A set of at most 256 glyphs (a limit imposed on Type3 fonts by the PDF
 /// specification) that represents a part of a TTF font.
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ColorFontSlice {
     /// The original TTF font.
     pub font: Font,

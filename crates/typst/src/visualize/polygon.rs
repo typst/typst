@@ -9,7 +9,7 @@ use crate::introspection::Locator;
 use crate::layout::{Axes, BlockElem, Em, Frame, FrameItem, Length, Point, Region, Rel};
 use crate::syntax::Span;
 use crate::utils::Numeric;
-use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
+use crate::visualize::{FillRule, FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 
 /// A closed polygon.
 ///
@@ -32,10 +32,11 @@ pub struct PolygonElem {
     ///
     /// When setting a fill, the default stroke disappears. To create a
     /// rectangle with both fill and stroke, you have to configure both.
-    ///
-    /// Currently all polygons are filled according to the
-    /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
+
+    /// The rule used to fill the polygon.
+    #[default]
+    pub fill_rule: FillRule,
 
     /// How to [stroke] the polygon. This can be:
     ///
@@ -161,6 +162,7 @@ fn layout_polygon(
 
     // Prepare fill and stroke.
     let fill = elem.fill(styles);
+    let fill_rule = elem.fill_rule(styles);
     let stroke = match elem.stroke(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
@@ -175,7 +177,12 @@ fn layout_polygon(
     }
     path.close_path();
 
-    let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
+    let shape = Shape {
+        geometry: Geometry::Path(path),
+        stroke,
+        fill,
+        fill_rule,
+    };
     frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
     Ok(frame)
 }

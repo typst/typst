@@ -101,10 +101,32 @@
   center + top,
   square(
     size: 50pt,
-    stroke: 5pt + pattern(
+    fill: pattern(
       size: (5pt, 5pt),
       align(horizon + center, circle(fill: blue, radius: 2.5pt))
+    ),
+    stroke: 7.5pt + pattern(
+      size: (5pt, 5pt),
+      align(horizon + center, circle(fill: red, radius: 2.5pt))
     )
+  )
+)
+
+--- pattern-stroke-relative-parent ---
+// Test pattern on strokes with relative set to `"parent"`
+// The pattern on the circle should align with the pattern on the square.
+#align(
+  center + top,
+  block(
+    width: 50pt,
+    height: 50pt,
+    fill: pattern(size: (5pt, 5pt), circle(radius: 2.5pt, fill: blue)),
+    align(center + horizon, circle(
+      radius: 15pt,
+      stroke: 7.5pt + pattern(
+        size: (5pt, 5pt), circle(radius: 2.5pt, fill: red), relative: "parent"
+      ),
+    ))
   )
 )
 

@@ -3,7 +3,9 @@ use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
+use crate::foundations::{
+    bail, cast, func, repr, scope, ty, Bytes, Cast, Repr, Str, Value,
+};
 
 /// A whole number.
 ///
@@ -145,7 +147,6 @@ impl i64 {
     #[func(title = "Bitwise Left Shift")]
     pub fn bit_lshift(
         self,
-
         /// The amount of bits to shift. Must not be negative.
         shift: u32,
     ) -> StrResult<i64> {
@@ -168,7 +169,6 @@ impl i64 {
     #[func(title = "Bitwise Right Shift")]
     pub fn bit_rshift(
         self,
-
         /// The amount of bits to shift. Must not be negative.
         ///
         /// Shifts larger than 63 are allowed and will cause the return value to
@@ -178,7 +178,6 @@ impl i64 {
         /// just applying this operation multiple times. Therefore, the shift will
         /// always succeed.
         shift: u32,
-
         /// Toggles whether a logical (unsigned) right shift should be performed
         /// instead of arithmetic right shift.
         /// If this is `true`, negative operands will not preserve their sign bit,
@@ -214,12 +213,141 @@ impl i64 {
             self >> shift
         }
     }
+
+    /// Converts bytes to an integer.
+    ///
+    /// ```example
+    /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1))) \
+    /// #int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big")
+    /// ```
+    #[func]
+    pub fn from_bytes(
+        /// The bytes that should be converted to an integer.
+        ///
+        /// Must be of length at most 8 so that the result fits into a 64-bit
+        /// signed integer.
+        bytes: Bytes,
+        /// The endianness of the conversion.
+        #[named]
+        #[default(Endianness::Little)]
+        endian: Endianness,
+        /// Whether the bytes should be treated as a signed integer. If this is
+        /// `{true}` and the most significant bit is set, the resulting number
+        /// will negative.
+        #[named]
+        #[default(true)]
+        signed: bool,
+    ) -> StrResult<i64> {
+        let len = bytes.len();
+        if len == 0 {
+            return Ok(0);
+        } else if len > 8 {
+            bail!("too many bytes to convert to a 64 bit number");
+        }
+
+        // `decimal` will hold the part of the buffer that should be filled with
+        // the input bytes, `rest` will remain as is or be filled with 0xFF for
+        // negative numbers if signed is true.
+        //
+        // – big-endian: `decimal` will be the rightmost bytes of the buffer.
+        // - little-endian: `decimal` will be the leftmost bytes of the buffer.
+        let mut buf = [0u8; 8];
+        let (rest, decimal) = match endian {
+            Endianness::Big => buf.split_at_mut(8 - len),
+            Endianness::Little => {
+                let (first, second) = buf.split_at_mut(len);
+                (second, first)
+            }
+        };
+
+        decimal.copy_from_slice(bytes.as_ref());
+
+        // Perform sign-extension if necessary.
+        if signed {
+            let most_significant_byte = match endian {
+                Endianness::Big => decimal[0],
+                Endianness::Little => decimal[len - 1],
+            };
+
+            if most_significant_byte & 0b1000_0000 != 0 {
+                rest.fill(0xFF);
+            }
+        }
+
+        Ok(match endian {
+            Endianness::Big => i64::from_be_bytes(buf),
+            Endianness::Little => i64::from_le_bytes(buf),
+        })
+    }
+
+    /// Converts an integer to bytes.
+    ///
+    /// ```example
+    /// #array(10000.to-bytes(endian: "big")) \
+    /// #array(10000.to-bytes(size: 4))
+    /// ```
+    #[func]
+    pub fn to_bytes(
+        self,
+        /// The endianness of the conversion.
+        #[named]
+        #[default(Endianness::Little)]
+        endian: Endianness,
+        /// The size in bytes of the resulting bytes (must be at least zero). If
+        /// the integer is too large to fit in the specified size, the
+        /// conversion will truncate the remaining bytes based on the
+        /// endianness. To keep the same resulting value, if the endianness is
+        /// big-endian, the truncation will happen at the rightmost bytes.
+        /// Otherwise, if the endianness is little-endian, the truncation will
+        /// happen at the leftmost bytes.
+        ///
+        /// Be aware that if the integer is negative and the size is not enough
+        /// to make the number fit, when passing the resulting bytes to
+        /// `int.from-bytes`, the resulting number might be positive, as the
+        /// most significant bit might not be set to 1.
+        #[named]
+        #[default(8)]
+        size: usize,
+    ) -> Bytes {
+        let array = match endian {
+            Endianness::Big => self.to_be_bytes(),
+            Endianness::Little => self.to_le_bytes(),
+        };
+
+        let mut buf = vec![0u8; size];
+        match endian {
+            Endianness::Big => {
+                // Copy the bytes from the array to the buffer, starting from
+                // the end of the buffer.
+                let buf_start = size.saturating_sub(8);
+                let array_start = 8usize.saturating_sub(size);
+                buf[buf_start..].copy_from_slice(&array[array_start..])
+            }
+            Endianness::Little => {
+                // Copy the bytes from the array to the buffer, starting from
+                // the beginning of the buffer.
+                let end = size.min(8);
+                buf[..end].copy_from_slice(&array[..end])
+            }
+        }
+
+        Bytes::from(buf)
+    }
 }
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
         eco_format!("{:?}", self)
     }
+}
+
+/// Represents the byte order used for converting integers to bytes and vice versa.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum Endianness {
+    /// Big-endian byte order: the highest-value byte is at the beginning of the bytes.
+    Big,
+    /// Little-endian byte order: the lowest-value byte is at the beginning of the bytes.
+    Little,
 }
 
 /// A value that can be cast to an integer.

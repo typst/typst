@@ -176,6 +176,10 @@ pub fn module() -> Module {
     math.define_elem::<OverbraceElem>();
     math.define_elem::<UnderbracketElem>();
     math.define_elem::<OverbracketElem>();
+    math.define_elem::<UnderparenElem>();
+    math.define_elem::<OverparenElem>();
+    math.define_elem::<UndershellElem>();
+    math.define_elem::<OvershellElem>();
     math.define_elem::<CancelElem>();
     math.define_elem::<FracElem>();
     math.define_elem::<BinomElem>();

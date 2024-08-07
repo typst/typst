@@ -33,6 +33,23 @@ use crate::text::Case;
 ///   1, 2, 3,
 /// )
 /// ```
+///
+/// # Numbering patterns and numbering functions
+/// There are multiple instances where you can provide a numbering pattern or
+/// function in Typst. For example, when defining how to number
+/// [headings]($heading) or [figures]($figure). Every time, the expected format
+/// is the same as the one described below for the
+/// [`numbering`]($numbering.numbering) parameter.
+///
+/// The following example illustrates that a numbering function is just a
+/// regular [function] that accepts numbers and returns [`content`].
+/// ```example
+/// #let unary(.., last) = "|" * last
+/// #set heading(numbering: unary)
+/// = First heading
+/// = Second heading
+/// = Third heading
+/// ```
 #[func]
 pub fn numbering(
     /// The engine.

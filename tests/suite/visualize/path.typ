@@ -1,10 +1,10 @@
 // Test paths.
 
 --- path ---
-#set page(height: 200pt, width: 200pt)
+#set page(height: 300pt, width: 200pt)
 #table(
   columns: (1fr, 1fr),
-  rows: (1fr, 1fr),
+  rows: (1fr, 1fr, 1fr),
   align: center + horizon,
   path(
     fill: red,
@@ -36,6 +36,26 @@
     (0pt,  30pt),
     (30pt, 30pt),
     (15pt, 0pt),
+  ),
+  path(
+    fill: red,
+    fill-rule: "non-zero",
+    closed: true,
+    (25pt, 0pt),
+    (10pt, 50pt),
+    (50pt, 20pt),
+    (0pt, 20pt),
+    (40pt, 50pt),
+  ),
+  path(
+    fill: red,
+    fill-rule: "even-odd",
+    closed: true,
+    (25pt, 0pt),
+    (10pt, 50pt),
+    (50pt, 20pt),
+    (0pt, 20pt),
+    (40pt, 50pt),
   ),
 )
 

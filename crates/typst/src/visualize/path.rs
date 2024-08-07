@@ -10,7 +10,7 @@ use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, Frame, FrameItem, Length, Point, Region, Rel, Size,
 };
-use crate::visualize::{FixedStroke, Geometry, Paint, Shape, Stroke};
+use crate::visualize::{FillRule, FixedStroke, Geometry, Paint, Shape, Stroke};
 
 use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 
@@ -33,10 +33,11 @@ pub struct PathElem {
     ///
     /// When setting a fill, the default stroke disappears. To create a
     /// rectangle with both fill and stroke, you have to configure both.
-    ///
-    /// Currently all paths are filled according to the [non-zero winding
-    /// rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
+
+    /// The rule used to fill the path.
+    #[default]
+    pub fill_rule: FillRule,
 
     /// How to [stroke] the path. This can be:
     ///
@@ -147,6 +148,7 @@ fn layout_path(
 
     // Prepare fill and stroke.
     let fill = elem.fill(styles);
+    let fill_rule = elem.fill_rule(styles);
     let stroke = match elem.stroke(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
@@ -154,7 +156,12 @@ fn layout_path(
     };
 
     let mut frame = Frame::soft(size);
-    let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
+    let shape = Shape {
+        geometry: Geometry::Path(path),
+        stroke,
+        fill,
+        fill_rule,
+    };
     frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
     Ok(frame)
 }

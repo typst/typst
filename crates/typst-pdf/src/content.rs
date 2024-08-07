@@ -16,7 +16,8 @@ use typst::model::Destination;
 use typst::text::{color::is_color_glyph, Font, TextItem, TextItemView};
 use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
-    FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
+    FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem,
+    Shape,
 };
 
 use crate::color_font::ColorFontMap;
@@ -636,11 +637,13 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
         }
     }
 
-    match (&shape.fill, stroke) {
-        (None, None) => unreachable!(),
-        (Some(_), None) => ctx.content.fill_nonzero(),
-        (None, Some(_)) => ctx.content.stroke(),
-        (Some(_), Some(_)) => ctx.content.fill_nonzero_and_stroke(),
+    match (&shape.fill, &shape.fill_rule, stroke) {
+        (None, _, None) => unreachable!(),
+        (Some(_), FillRule::NonZero, None) => ctx.content.fill_nonzero(),
+        (Some(_), FillRule::EvenOdd, None) => ctx.content.fill_even_odd(),
+        (None, _, Some(_)) => ctx.content.stroke(),
+        (Some(_), FillRule::NonZero, Some(_)) => ctx.content.fill_nonzero_and_stroke(),
+        (Some(_), FillRule::EvenOdd, Some(_)) => ctx.content.fill_even_odd_and_stroke(),
     };
 }
 

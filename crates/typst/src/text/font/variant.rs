@@ -79,6 +79,8 @@ impl From<usvg::FontStyle> for FontStyle {
 #[serde(transparent)]
 pub struct FontWeight(pub(super) u16);
 
+/// Font weight names and numbers.
+/// See `<https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-weight#common_weight_name_mapping>`
 impl FontWeight {
     /// Thin weight (100).
     pub const THIN: Self = Self(100);

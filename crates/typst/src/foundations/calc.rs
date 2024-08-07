@@ -728,7 +728,7 @@ pub fn clamp(
 ///
 /// ```example
 /// #calc.min(1, -3, -5, 20, 3, 6) \
-/// #calc.min("typst", "in", "beta")
+/// #calc.min("typst", "is", "cool")
 /// ```
 #[func(title = "Minimum")]
 pub fn min(
@@ -746,7 +746,7 @@ pub fn min(
 ///
 /// ```example
 /// #calc.max(1, -3, -5, 20, 3, 6) \
-/// #calc.max("typst", "in", "beta")
+/// #calc.max("typst", "is", "cool")
 /// ```
 #[func(title = "Maximum")]
 pub fn max(
