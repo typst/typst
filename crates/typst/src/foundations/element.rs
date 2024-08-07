@@ -14,7 +14,7 @@ use crate::foundations::{
     cast, Args, Content, Dict, FieldAccessError, Func, ParamInfo, Repr, Scope, Selector,
     StyleChain, Styles, Value,
 };
-use crate::text::{Lang, Region};
+use crate::text::Locale;
 use crate::utils::Static;
 
 #[doc(inline)]
@@ -133,8 +133,8 @@ impl Element {
     }
 
     /// The element's local name, if any.
-    pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
-        (self.0).0.local_name.map(|f| f(lang, region))
+    pub fn local_name(&self, locale: Locale) -> Option<EcoString> {
+        (self.0).0.local_name.map(|f| f(locale))
     }
 }
 
@@ -292,7 +292,7 @@ pub struct NativeElementData {
     /// Get the field with the given ID in the presence of styles (see [`Fields`]).
     pub field_from_styles: fn(u8, StyleChain) -> Result<Value, FieldAccessError>,
     /// Gets the localized name for this element (see [`LocalName`][crate::text::LocalName]).
-    pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
+    pub local_name: Option<fn(Locale) -> EcoString>,
     pub scope: Lazy<Scope>,
     /// A list of parameter information for each field.
     pub params: Lazy<Vec<ParamInfo>>,

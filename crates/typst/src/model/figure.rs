@@ -18,7 +18,7 @@ use crate::layout::{
     PlaceElem, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{Lang, Locale, Region, TextElem};
 use crate::utils::NonZeroExt;
 use crate::visualize::ImageElem;
 
@@ -246,12 +246,9 @@ impl Synthesize for Packed<FigureElem> {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
-                    FigureKind::Elem(func) => func
-                        .local_name(
-                            TextElem::lang_in(styles),
-                            TextElem::region_in(styles),
-                        )
-                        .map(TextElem::packed),
+                    FigureKind::Elem(func) => {
+                        func.local_name(Locale::locale_in(styles)).map(TextElem::packed)
+                    }
                     FigureKind::Name(_) => None,
                 };
 
