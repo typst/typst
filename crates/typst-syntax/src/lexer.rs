@@ -19,6 +19,9 @@ pub(super) struct Lexer<'s> {
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
+    ///
+    /// This is present to increase convenience when returning an error by avoiding the
+    /// need to manually return an error from most lexer functions.
     error: Option<SyntaxError>,
 }
 
@@ -91,14 +94,14 @@ impl<'s> Lexer<'s> {
         self.s.jump(index);
     }
 
+    /// The current string from `start` to the cursor.
+    pub fn from(&self, start: usize) -> &'s str {
+        self.s.from(start)
+    }
+
     /// Whether the last token contained a newline.
     pub fn newline(&self) -> bool {
         self.newline
-    }
-
-    /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<SyntaxError> {
-        self.error.take()
     }
 }
 
@@ -119,20 +122,22 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
-    /// token could be a [trivia](SyntaxKind::is_trivia).
-    pub fn next(&mut self) -> SyntaxKind {
+    /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.
+    /// Note the token could be a [trivia](SyntaxKind::is_trivia).
+    pub fn next(&mut self) -> (SyntaxKind, Option<SyntaxError>) {
         if self.mode == LexMode::Raw {
-            let Some((kind, end)) = self.raw.pop() else {
-                return SyntaxKind::End;
+            let kind = if let Some((kind, end)) = self.raw.pop() {
+                self.s.jump(end);
+                kind
+            } else {
+                SyntaxKind::End
             };
-            self.s.jump(end);
-            return kind;
+            return (kind, None);
         }
 
         let prev_newline = self.newline;
         self.newline = false;
-        self.error = None;
+        assert_eq!(self.error, None);
         let start = self.s.cursor();
         let kind = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
@@ -179,7 +184,7 @@ impl Lexer<'_> {
             // Maybe instead store some kind of "while trivia" info about any recent
             // trivia between this and the previous token?
         };
-        kind
+        (kind, self.error.take())
     }
 
     /// Eat whitespace characters greedily.
