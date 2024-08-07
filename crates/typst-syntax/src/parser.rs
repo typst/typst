@@ -1480,7 +1480,7 @@ fn pattern_leaf<'s>(
     dupe: Option<&'s str>,
 ) {
     if p.current().is_keyword() {
-        p.eat_and_get().expected("pattern");
+        p.eat_as_expecting(Some("pattern"));
         return;
     } else if !p.at_set(set::PATTERN_LEAF) {
         p.expected("pattern");
@@ -1665,15 +1665,6 @@ impl<'s> Parser<'s> {
     /// Note: this might be a 'fake' end due to the NewlineMode in Code mode.
     fn end(&self) -> bool {
         self.at(SyntaxKind::End)
-    }
-
-    /// Eat the current node, but return a mutable reference for easy conversion to an
-    /// expected/unexpected error node.
-    #[track_caller]
-    fn eat_and_get(&mut self) -> &mut SyntaxNode {
-        let offset = self.nodes.len();
-        self.eat();
-        &mut self.nodes[offset]
     }
 
     /// Eats if at `kind`. Returns true if eaten.
@@ -1863,12 +1854,24 @@ impl<'s> Parser<'s> {
             self.eat();
         } else if kind == SyntaxKind::Ident && self.current.kind.is_keyword() {
             self.trim_errors();
-            self.eat_and_get().expected(kind.name());
+            self.eat_as_expecting(Some(kind.name()));
         } else {
             self.balanced &= !kind.is_grouping();
             self.expected(kind.name());
         }
         at
+    }
+
+    /// Eat the current node and convert to expected or unexpected for Some/None expected.
+    #[track_caller]
+    fn eat_as_expecting(&mut self, expected: Option<&str>) {
+        let offset = self.nodes.len();
+        self.eat();
+        if let Some(thing) = expected {
+            self.nodes[offset].expected(thing);
+        } else {
+            self.nodes[offset].unexpected();
+        }
     }
 
     /// Consume the given closing delimiter or produce an error for the matching
@@ -1908,7 +1911,7 @@ impl<'s> Parser<'s> {
     fn unexpected(&mut self) {
         self.trim_errors();
         self.balanced &= !self.current.kind.is_grouping();
-        self.eat_and_get().unexpected();
+        self.eat_as_expecting(None);
     }
 
     /// Remove trailing errors with zero length.
