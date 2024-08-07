@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -57,6 +57,23 @@ pub(super) enum LexMode {
     Raw,
 }
 
+/// A single parsed Token, potentially an error.
+#[derive(Clone)]
+pub struct Token<'s> {
+    pub kind: SyntaxKind,
+    pub text: &'s str,
+    pub lex_error: Option<SyntaxError>,
+}
+
+/// The starting point of any trivia (whitespace/comments) preceding the current token.
+#[derive(Clone)]
+pub struct TriviaStart {
+    /// Number of preceding trivia `nodes` (for avoiding trivia when wrapping).
+    pub num: usize,
+    /// Offset into `text` of the trivia start (for moving the lexer's cursor back).
+    pub offset: usize,
+}
+
 impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode and a prefix to offset column
     /// calculations.
@@ -78,9 +95,6 @@ impl<'s> Lexer<'s> {
     /// Change the lexing mode.
     pub fn set_mode(&mut self, mode: LexMode) {
         self.mode = mode;
-        // TODO: Removing this doesn't fail any existing tests, but it feels like it might
-        // be a footgun otherwise?
-        self.newline = false;
     }
 
     /// The index in the string at which the last token ends and next token
@@ -92,11 +106,6 @@ impl<'s> Lexer<'s> {
     /// Jump to the given index in the string.
     pub fn jump(&mut self, index: usize) {
         self.s.jump(index);
-    }
-
-    /// The current string from `start` to the cursor.
-    pub fn from(&self, start: usize) -> &'s str {
-        self.s.from(start)
     }
 
     /// Whether the last token contained a newline.
@@ -121,26 +130,49 @@ impl Lexer<'_> {
 }
 
 /// Shared methods with all [`LexMode`].
-impl Lexer<'_> {
+impl<'s> Lexer<'s> {
+    /// Move the lexer forward to return the next token and, in Math/Code mode, lex past
+    /// any trivia tokens, pushing them into `nodes`.
+    ///
+    /// Note: This cannot be a function of self since it's needed for initializization.
+    pub fn lex_past_trivia(
+        &mut self,
+        nodes: &mut Vec<SyntaxNode>,
+    ) -> (Token<'s>, Option<TriviaStart>) {
+        let mut start = self.cursor();
+        let mut kind = self.next();
+        let mut triv = TriviaStart { num: 0, offset: start };
+
+        if self.mode != LexMode::Markup {
+            // Skip past any trivia at the start when in Math/Code mode.
+            while kind.is_trivia() {
+                nodes.push(SyntaxNode::leaf(kind, self.s.from(start)));
+                start = self.cursor();
+                kind = self.next();
+                triv.num += 1;
+            }
+        }
+        let prev_trivia = if triv.num != 0 { Some(triv) } else { None };
+        let lex_error = self.error.take();
+        (Token { kind, text: self.s.from(start), lex_error }, prev_trivia)
+    }
+
     /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.
     /// Note the token could be a [trivia](SyntaxKind::is_trivia).
-    pub fn next(&mut self) -> (SyntaxKind, Option<SyntaxError>) {
+    pub fn next(&mut self) -> SyntaxKind {
         if self.mode == LexMode::Raw {
-            let kind = if let Some((kind, end)) = self.raw.pop() {
+            if let Some((kind, end)) = self.raw.pop() {
                 self.s.jump(end);
-                kind
+                return kind;
             } else {
-                SyntaxKind::End
-            };
-            return (kind, None);
+                return SyntaxKind::End;
+            }
         }
-
-        let prev_newline = self.newline;
-        self.newline = false;
         assert_eq!(self.error, None);
         let start = self.s.cursor();
+        let mut newlines = 0; // Make it explicit where newline counting happens.
         let kind = match self.s.eat() {
-            Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+            Some(c) if is_space(c, self.mode) => self.whitespace(start, c, &mut newlines),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -157,8 +189,8 @@ impl Lexer<'_> {
                 LexMode::Math => self.math(start, c),
                 LexMode::Code(mode) => match mode {
                     // Code mode might produce false `SyntaxKind::End` tokens on newlines.
-                    NewlineMode::Stop if prev_newline => SyntaxKind::End,
-                    NewlineMode::MaybeContinue if prev_newline => {
+                    NewlineMode::Stop if self.newline => SyntaxKind::End,
+                    NewlineMode::MaybeContinue if self.newline => {
                         // Lookahead at the next token before lexing to avoid entering
                         // an invalid state somehow.
                         let mut lookahead = self.clone();
@@ -174,29 +206,25 @@ impl Lexer<'_> {
 
             None => SyntaxKind::End,
         };
-        // Preserve `self.newline` when in MaybeContinue mode and parsing trivia.
-        if matches!(self.mode, LexMode::Code(NewlineMode::MaybeContinue))
-            && kind.is_trivia()
-        {
-            self.newline = self.newline || prev_newline;
-            // TODO: I'm not sure about this block, feels uglier than it should be?
-            // also maybe add more comments to self.newline's description?
-            // Maybe instead store some kind of "while trivia" info about any recent
-            // trivia between this and the previous token?
+        use NewlineMode::MaybeContinue;
+        if matches!(self.mode, LexMode::Code(MaybeContinue)) && kind.is_trivia() {
+            // Preserve `self.newline` when in MaybeContinue mode and parsing trivia.
+            self.newline = self.newline || newlines > 0;
+        } else {
+            self.newline = newlines > 0;
         };
-        (kind, self.error.take())
+        kind
     }
 
     /// Eat whitespace characters greedily.
-    fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
+    fn whitespace(&mut self, start: usize, c: char, newlines: &mut usize) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
-        let newlines = match c {
+        *newlines = match c {
             ' ' if more.is_empty() => 0,
             _ => count_newlines(self.s.from(start)),
         };
 
-        self.newline = newlines > 0;
-        if self.mode == LexMode::Markup && newlines >= 2 {
+        if self.mode == LexMode::Markup && *newlines >= 2 {
             SyntaxKind::Parbreak
         } else {
             SyntaxKind::Space
