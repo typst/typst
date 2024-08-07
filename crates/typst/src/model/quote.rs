@@ -8,7 +8,7 @@ use crate::layout::{
     Alignment, BlockChild, BlockElem, Em, HElem, PadElem, Spacing, VElem,
 };
 use crate::model::{CitationForm, CiteElem};
-use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
+use crate::text::{Locale, SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
 /// Displays a quote alongside an optional attribution.
 ///
@@ -160,9 +160,8 @@ impl Show for Packed<QuoteElem> {
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
             let quotes = SmartQuotes::new(
-                SmartQuoteElem::quotes_in(styles),
-                TextElem::lang_in(styles),
-                TextElem::region_in(styles),
+                SmartQuoteElem::quotes_in(styles).as_ref(),
+                Locale::locale_in(styles),
                 SmartQuoteElem::alternative_in(styles),
             );
 

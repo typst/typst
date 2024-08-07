@@ -14,14 +14,18 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 35] = [
+const TRANSLATIONS: [(&str, &str); 43] = [
     translation!("ar"),
+    translation!("bs"),
     translation!("ca"),
     translation!("cs"),
     translation!("da"),
     translation!("de"),
+    translation!("de-CH"),
+    translation!("de-LI"),
     translation!("en"),
     translation!("es"),
+    translation!("es-ES"),
     translation!("et"),
     translation!("fi"),
     translation!("fr"),
@@ -32,14 +36,18 @@ const TRANSLATIONS: [(&str, &str); 35] = [
     translation!("it"),
     translation!("ja"),
     translation!("la"),
+    translation!("lt"),
+    translation!("lv"),
     translation!("nb"),
     translation!("nl"),
     translation!("nn"),
+    translation!("no"),
     translation!("pl"),
     translation!("pt-PT"),
     translation!("pt"),
     translation!("ro"),
     translation!("ru"),
+    translation!("sk"),
     translation!("sl"),
     translation!("sq"),
     translation!("sr"),

@@ -5,3 +5,12 @@ bibliography = Bibliographie
 heading = Chapitre
 outline = Table des matières
 raw = Liste
+
+opening_single_quote = ‹\u{a0}
+closing_single_quote = \u{a0}›
+opening_double_quote = «\u{a0}
+closing_double_quote = \u{a0}»
+alternate_opening_single_quote = ‘
+alternate_closing_single_quote = ’
+alternate_opening_double_quote = “
+alternate_closing_double_quote = ”

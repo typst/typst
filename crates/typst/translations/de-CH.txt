@@ -1,13 +1,5 @@
-figure = Figur
-table = Tabell
-equation = Likning
-bibliography = Bibliografi
-heading = Kapittel
-outline = Innhald
-raw = Utskrift
-
-opening_single_quote = ’
-closing_single_quote = ’
+opening_single_quote = ‹
+closing_single_quote = ›
 opening_double_quote = «
 closing_double_quote = »
 alternate_opening_single_quote = ‚
