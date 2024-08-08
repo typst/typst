@@ -97,6 +97,8 @@ pub enum Expr<'a> {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand(Shorthand<'a>),
+    /// A shorthand for a unicode codepoint in math: `a <= b`.
+    MathShorthand(MathShorthand<'a>),
     /// A smart quote: `'` or `"`.
     SmartQuote(SmartQuote<'a>),
     /// Strong content: `*Strong*`.
@@ -218,6 +220,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Text => node.cast().map(Self::Text),
             SyntaxKind::Escape => node.cast().map(Self::Escape),
             SyntaxKind::Shorthand => node.cast().map(Self::Shorthand),
+            SyntaxKind::MathShorthand => node.cast().map(Self::MathShorthand),
             SyntaxKind::SmartQuote => node.cast().map(Self::SmartQuote),
             SyntaxKind::Strong => node.cast().map(Self::Strong),
             SyntaxKind::Emph => node.cast().map(Self::Emph),
@@ -281,6 +284,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Parbreak(v) => v.to_untyped(),
             Self::Escape(v) => v.to_untyped(),
             Self::Shorthand(v) => v.to_untyped(),
+            Self::MathShorthand(v) => v.to_untyped(),
             Self::SmartQuote(v) => v.to_untyped(),
             Self::Strong(v) => v.to_untyped(),
             Self::Emph(v) => v.to_untyped(),
@@ -450,7 +454,7 @@ node! {
 
 impl Shorthand<'_> {
     /// A list of all shorthands in markup mode.
-    pub const MARKUP_LIST: &'static [(&'static str, char)] = &[
+    pub const LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("~", '\u{00A0}'),
         ("-", '\u{2212}'), // Only before a digit
@@ -459,12 +463,29 @@ impl Shorthand<'_> {
         ("-?", '\u{00AD}'),
     ];
 
+    /// Get the shorthanded character.
+    pub fn get(self) -> char {
+        let text = self.0.text();
+        Self::LIST
+            .iter()
+            .find(|&&(s, _)| s == text)
+            .map_or_else(char::default, |&(_, c)| c)
+    }
+}
+
+node! {
+    /// A shorthand for a unicode codepoint in math: `a <= b`.
+    MathShorthand
+}
+
+impl MathShorthand<'_> {
     /// A list of all shorthands in math mode.
-    pub const MATH_LIST: &'static [(&'static str, char)] = &[
+    pub const LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
-        ("-", '\u{2212}'),
+        ("-", '−'),
         ("'", '′'),
         ("*", '∗'),
+        ("~", '∼'),
         ("!=", '≠'),
         (":=", '≔'),
         ("::=", '⩴'),
@@ -504,7 +525,8 @@ impl Shorthand<'_> {
     /// Get the shorthanded character.
     pub fn get(self) -> char {
         let text = self.0.text();
-        (Self::MARKUP_LIST.iter().chain(Self::MATH_LIST))
+        Self::LIST
+            .iter()
             .find(|&&(s, _)| s == text)
             .map_or_else(char::default, |&(_, c)| c)
     }

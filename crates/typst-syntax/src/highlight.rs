@@ -149,6 +149,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Parbreak => None,
         SyntaxKind::Escape => Some(Tag::Escape),
         SyntaxKind::Shorthand => Some(Tag::Escape),
+        SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::SmartQuote => None,
         SyntaxKind::Strong => Some(Tag::Strong),
         SyntaxKind::Emph => Some(Tag::Emph),

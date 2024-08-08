@@ -81,6 +81,7 @@ impl Eval for ast::Expr<'_> {
             Self::Parbreak(v) => v.eval(vm).map(Value::Content),
             Self::Escape(v) => v.eval(vm),
             Self::Shorthand(v) => v.eval(vm),
+            Self::MathShorthand(v) => v.eval(vm),
             Self::SmartQuote(v) => v.eval(vm).map(Value::Content),
             Self::Strong(v) => v.eval(vm).map(Value::Content),
             Self::Emph(v) => v.eval(vm).map(Value::Content),

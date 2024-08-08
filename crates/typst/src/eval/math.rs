@@ -4,6 +4,7 @@ use crate::diag::{At, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{Content, NativeElement, Value};
 use crate::math::{AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem};
+use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
 
@@ -95,6 +96,14 @@ impl Eval for ast::MathRoot<'_> {
         let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok(RootElem::new(radicand).with_index(index).pack())
+    }
+}
+
+impl Eval for ast::MathShorthand<'_> {
+    type Output = Value;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Symbol(Symbol::single(self.get().into())))
     }
 }
 

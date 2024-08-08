@@ -30,6 +30,8 @@ pub enum SyntaxKind {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand,
+    /// A shorthand for a unicode codepoint in math: `a <= b`.
+    MathShorthand,
     /// A smart quote: `'` or `"`.
     SmartQuote,
     /// Strong content: `*Strong*`.
@@ -378,6 +380,7 @@ impl SyntaxKind {
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",
             Self::Shorthand => "shorthand",
+            Self::MathShorthand => "math shorthand",
             Self::SmartQuote => "smart quote",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
