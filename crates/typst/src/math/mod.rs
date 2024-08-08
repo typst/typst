@@ -22,6 +22,7 @@ mod spacing;
 mod stretch;
 mod style;
 mod underover;
+mod var;
 
 pub use self::accent::{Accent, AccentElem};
 pub use self::align::*;
@@ -36,6 +37,7 @@ pub use self::op::*;
 pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
+pub use self::var::*;
 
 use self::ctx::*;
 use self::fragment::*;
@@ -163,6 +165,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.category(MATH);
     math.define_elem::<EquationElem>();
+    math.define_elem::<VarElem>();
     math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
@@ -212,13 +215,17 @@ pub fn module() -> Module {
     op::define(&mut math);
     spacing::define(&mut math);
     for (name, symbol) in crate::symbols::SYM {
-        math.define(*name, symbol.clone());
+        math.define(*name, symbol.clone_for_math());
     }
 
     Module::new("math", math)
 }
 
 /// Layout for math elements.
+///
+/// All math elements implement this trait directly, and we supply defaults for other
+/// types in the Content impl below. This is called into by EquationElem in its `Show`
+/// implementation when layouting and generally starts the math layout process.
 pub trait LayoutMath {
     /// Layout the element, producing fragment in the context.
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()>;
@@ -290,7 +297,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(elem) = self.to_packed::<TextElem>() {
-            let fragment = ctx.layout_text(elem, styles)?;
+            let fragment = ctx.layout_text(elem.text(), elem.span(), styles)?;
             ctx.push(fragment);
             return Ok(());
         }
@@ -308,6 +315,7 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
+        // Catch-all for elements which define LayoutMath themselves
         if let Some(elem) = self.with::<dyn LayoutMath>() {
             return elem.layout_math(ctx, styles);
         }

@@ -26,16 +26,16 @@ $  e^(e^(e^(e))) $
 A large number: $e^(e^(e^(e)))$.
 
 --- math-optical-size-primes ---
-//  Test prime/double prime via scriptsize
-#let prime = [ \u{2032} ]
-#let dprime = [ \u{2033} ]
-#let tprime = [ \u{2034} ]
+// Test prime/double prime via scriptsize.
+#let prime = $\u{2032}$
+#let dprime = $\u{2033}$
+#let tprime = $\u{2034}$
 $ y^dprime-2y^prime + y = 0 $
 $y^dprime-2y^prime + y = 0$
 $ y^tprime_3 + g^(prime 2) $
 
 --- math-optical-size-prime-large-operator ---
-// Test prime superscript on large symbol
+// Test prime superscript on large symbol.
 $ scripts(sum_(k in NN))^prime 1/k^2 $
 $sum_(k in NN)^prime 1/k^2$
 

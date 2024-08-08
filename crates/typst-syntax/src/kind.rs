@@ -73,6 +73,8 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
+    MathText,
     /// An identifier in math: `pi`.
     MathIdent,
     /// An alignment point in math: `&`.
@@ -399,6 +401,7 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
+            Self::MathText => "math text",
             Self::MathIdent => "math identifier",
             Self::MathAlignPoint => "math alignment point",
             Self::MathDelimited => "delimited math",

@@ -3,7 +3,7 @@ use crate::foundations::{elem, Content, Packed, StyleChain, Value};
 use crate::layout::{Em, Frame, FrameItem, Point, Size};
 use crate::math::{
     scaled_font_size, style_for_denominator, style_for_numerator, FrameFragment,
-    GlyphFragment, LayoutMath, MathContext, Scaled, DELIM_SHORT_FALL,
+    GlyphFragment, LayoutMath, MathContext, Scaled, VarElem, DELIM_SHORT_FALL,
 };
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
@@ -124,7 +124,7 @@ fn layout(
     let denom = ctx.layout_into_frame(
         &Content::sequence(
             // Add a comma between each element.
-            denom.iter().flat_map(|a| [TextElem::packed(','), a.clone()]).skip(1),
+            denom.iter().flat_map(|a| [VarElem::packed(','), a.clone()]).skip(1),
         ),
         styles.chain(&denom_style),
     )?;

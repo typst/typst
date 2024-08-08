@@ -299,19 +299,21 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         SyntaxKind::MathIdent => {
             continuable = true;
             p.eat();
-            while p.directly_at(SyntaxKind::Text) && p.current_text() == "." && {
+            while p.directly_at(SyntaxKind::MathText) && p.current_text() == "." && {
                 let mut copy = p.lexer.clone();
                 let start = copy.cursor();
                 let next = copy.next();
                 let end = copy.cursor();
-                matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
+                matches!(next, SyntaxKind::MathIdent | SyntaxKind::MathText)
                     && is_ident(&p.text[start..end])
             } {
                 p.convert(SyntaxKind::Dot);
                 p.convert(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
-            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
+            if min_prec < 3
+                && p.directly_at(SyntaxKind::MathText)
+                && p.current_text() == "("
             {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
@@ -319,20 +321,29 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        SyntaxKind::Text | SyntaxKind::Shorthand => {
+        SyntaxKind::MathText | SyntaxKind::Shorthand => {
             continuable = matches!(
                 math_class(p.current_text()),
                 None | Some(MathClass::Alphabetic)
             );
             if !maybe_delimited(p) {
-                p.eat();
+                eat_math_maybe_shorthand(p, m);
             }
         }
 
         SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
-        SyntaxKind::Escape | SyntaxKind::Str => {
+
+        SyntaxKind::Str => {
             continuable = true;
             p.eat();
+        }
+
+        SyntaxKind::Escape => {
+            continuable = true;
+            // Hack to allow escapes to know if they were parsed in math or not. See
+            // `eat_math_maybe_shorthand` below.
+            p.convert(SyntaxKind::MathText);
+            p.wrap(m, SyntaxKind::Escape);
         }
 
         SyntaxKind::Root => {
@@ -372,7 +383,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut primed = false;
 
     while !p.end() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
+        if p.directly_at(SyntaxKind::MathText) && p.current_text() == "!" {
             p.eat();
             p.wrap(m, SyntaxKind::Math);
             continue;
@@ -444,12 +455,13 @@ fn maybe_delimited(p: &mut Parser) -> bool {
 
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
-    p.eat();
+    eat_math_maybe_shorthand(p, m);
     let m2 = p.marker();
     while !p.end() && !p.at(SyntaxKind::Dollar) {
         if math_class(p.current_text()) == Some(MathClass::Closing) {
             p.wrap(m2, SyntaxKind::Math);
-            p.eat();
+            let m3 = p.marker();
+            eat_math_maybe_shorthand(p, m3);
             p.wrap(m, SyntaxKind::MathDelimited);
             return;
         }
@@ -462,6 +474,18 @@ fn math_delimited(p: &mut Parser) {
     }
 
     p.wrap(m, SyntaxKind::Math);
+}
+
+/// This is a hack that works with the AST to allow shorthand and escape elements to know
+/// whether they come from a math context so eval can create their symbols with the right
+/// context.
+fn eat_math_maybe_shorthand(p: &mut Parser, m: Marker) {
+    if p.at(SyntaxKind::Shorthand) {
+        p.convert(SyntaxKind::MathText);
+        p.wrap(m, SyntaxKind::Shorthand);
+    } else {
+        p.eat();
+    }
 }
 
 fn math_unparen(p: &mut Parser, m: Marker) {
@@ -522,7 +546,7 @@ fn math_args(p: &mut Parser) {
 
     while !p.end() && !p.at(SyntaxKind::Dollar) {
         if namable
-            && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
+            && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::MathText))
             && p.text[p.current_end()..].starts_with(':')
         {
             p.convert(SyntaxKind::Ident);
@@ -579,7 +603,7 @@ fn math_args(p: &mut Parser) {
         p.wrap(array, SyntaxKind::Array);
     }
 
-    if p.at(SyntaxKind::Text) && p.current_text() == ")" {
+    if p.at(SyntaxKind::MathText) && p.current_text() == ")" {
         p.convert(SyntaxKind::RightParen);
     } else {
         p.expected("closing paren");
