@@ -133,8 +133,6 @@ impl Lexer<'_> {
 impl<'s> Lexer<'s> {
     /// Move the lexer forward to return the next token and, in Math/Code mode, lex past
     /// any trivia tokens, pushing them into `nodes`.
-    ///
-    /// Note: This cannot be a function of self since it's needed for initializization.
     pub fn lex_past_trivia(
         &mut self,
         nodes: &mut Vec<SyntaxNode>,

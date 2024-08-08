@@ -177,16 +177,14 @@ fn emph(p: &mut Parser) {
 /// Parses raw text with optional syntax highlighting: `` `...` ``.
 fn raw(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Raw);
-    p.assert(SyntaxKind::RawDelim);
-
-    // Eats until the closing delimiter.
-    while !p.end() && !p.at(SyntaxKind::RawDelim) {
-        p.eat();
-    }
-
-    p.expect(SyntaxKind::RawDelim);
-    p.exit();
+    p.enter_mode(LexMode::Raw, |p| {
+        p.assert(SyntaxKind::RawDelim);
+        // Eats until the closing delimiter.
+        while !p.end() && !p.at(SyntaxKind::RawDelim) {
+            p.eat();
+        }
+        p.expect(SyntaxKind::RawDelim);
+    });
     p.wrap(m, SyntaxKind::Raw);
 }
 
@@ -263,11 +261,11 @@ fn whitespace_line(p: &mut Parser) {
 /// Parses a mathematical equation: `$x$`, `$ x^2 $`.
 fn equation(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Math);
-    p.assert(SyntaxKind::Dollar);
-    math(p, |p| p.at(SyntaxKind::Dollar));
-    p.expect_closing_delimiter(m, SyntaxKind::Dollar);
-    p.exit();
+    p.enter_mode(LexMode::Math, |p| {
+        p.assert(SyntaxKind::Dollar);
+        math(p, |p| p.at(SyntaxKind::Dollar));
+        p.expect_closing_delimiter(m, SyntaxKind::Dollar);
+    });
     p.wrap(m, SyntaxKind::Equation);
 }
 
@@ -622,21 +620,20 @@ fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
 /// Parses a sequence of code expressions.
 fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     while !p.end() && !stop(p) {
-        p.enter(LexMode::Code(NewlineMode::MaybeContinue));
-
-        let at_expr = p.at_set(set::CODE_EXPR);
-        if at_expr {
-            code_expr(p);
-            if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
-                p.expected("semicolon or line break");
-                if p.at(SyntaxKind::Label) {
-                    p.hint("labels can only be applied in markup mode");
-                    p.hint("try wrapping your code in a markup block (`[ ]`)");
+        let mut at_expr: bool = false;
+        p.enter_mode(LexMode::Code(NewlineMode::MaybeContinue), |p| {
+            at_expr = p.at_set(set::CODE_EXPR);
+            if at_expr {
+                code_expr(p);
+                if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
+                    p.expected("semicolon or line break");
+                    if p.at(SyntaxKind::Label) {
+                        p.hint("labels can only be applied in markup mode");
+                        p.hint("try wrapping your code in a markup block (`[ ]`)");
+                    }
                 }
             }
-        }
-
-        p.exit();
+        });
         if !at_expr && !p.end() {
             p.unexpected();
         }
@@ -650,33 +647,30 @@ fn code_expr(p: &mut Parser) {
 
 /// Parses a code expression embedded in markup or math.
 fn embedded_code_expr(p: &mut Parser) {
-    p.enter(LexMode::Code(NewlineMode::Stop));
-    p.assert(SyntaxKind::Hash);
-    if p.had_trivia() {
-        // Embedded code expressions must not have trivia immediately after the hash.
-        // Ex:`#/**/var`, `# var` are both invalid.
-        p.expected("expression");
-        p.exit();
-        return;
-    }
+    p.enter_mode(LexMode::Code(NewlineMode::Stop), |p| {
+        p.assert(SyntaxKind::Hash);
+        if p.had_trivia() {
+            // Embedded code expressions must not have trivia immediately after the hash.
+            // Ex:`#/**/var`, `# var` are both invalid.
+            p.expected("expression");
+            return;
+        }
+        let stmt = p.at_set(set::STMT);
+        let at = p.at_set(set::ATOMIC_CODE_EXPR);
+        code_expr_prec(p, true, 0);
 
-    let stmt = p.at_set(set::STMT);
-    let at = p.at_set(set::ATOMIC_CODE_EXPR);
-    code_expr_prec(p, true, 0);
+        // Consume error for things like `#12p` or `#"abc\"`.#
+        if !at && !p.current().is_trivia() && !p.end() {
+            p.unexpected();
+        }
 
-    // Consume error for things like `#12p` or `#"abc\"`.#
-    if !at && !p.current().is_trivia() && !p.end() {
-        p.unexpected();
-    }
+        let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
+            && p.eat_if(SyntaxKind::Semicolon);
 
-    let semi =
-        (stmt || p.directly_at(SyntaxKind::Semicolon)) && p.eat_if(SyntaxKind::Semicolon);
-
-    if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
-        p.expected("semicolon or line break");
-    }
-
-    p.exit();
+        if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
+            p.expected("semicolon or line break");
+        }
+    });
 }
 
 /// Parses a code expression with at least the given precedence.
@@ -834,22 +828,22 @@ fn code_block(p: &mut Parser) {
         .add(SyntaxKind::RightParen);
 
     let m = p.marker();
-    p.enter(LexMode::Code(NewlineMode::Continue));
-    p.assert(SyntaxKind::LeftBrace);
-    code(p, |p| p.at_set(END));
-    p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
-    p.exit();
+    p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
+        p.assert(SyntaxKind::LeftBrace);
+        code(p, |p| p.at_set(END));
+        p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
+    });
     p.wrap(m, SyntaxKind::CodeBlock);
 }
 
 /// Parses a content block: `[*Hi* there!]`.
 fn content_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Markup);
-    p.assert(SyntaxKind::LeftBracket);
-    markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
-    p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
-    p.exit();
+    p.enter_mode(LexMode::Markup, |p| {
+        p.assert(SyntaxKind::LeftBracket);
+        markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
+        p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
+    });
     p.wrap(m, SyntaxKind::ContentBlock);
 }
 
@@ -993,14 +987,12 @@ fn module_import(p: &mut Parser) {
 
     if p.eat_if(SyntaxKind::Colon) {
         if p.at(SyntaxKind::LeftParen) {
-            let m1 = p.marker();
-            p.enter_newline_mode(NewlineMode::Continue);
-            p.assert(SyntaxKind::LeftParen);
-
-            import_items(p);
-
-            p.expect_closing_delimiter(m1, SyntaxKind::RightParen);
-            p.exit_newline_mode();
+            p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
+                let m1 = p.marker();
+                p.assert(SyntaxKind::LeftParen);
+                import_items(p);
+                p.expect_closing_delimiter(m1, SyntaxKind::RightParen);
+            });
         } else if !p.eat_if(SyntaxKind::Star) {
             import_items(p);
         }
@@ -1146,37 +1138,36 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
 /// - a dictionary: `(thickness: 3pt, pattern: dashed)`.
 fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
     let m = p.marker();
-    p.enter(LexMode::Code(NewlineMode::Continue));
-    p.assert(SyntaxKind::LeftParen);
-
     let mut state = GroupState {
         count: 0,
         maybe_just_parens: true,
         kind: None,
         seen: HashSet::new(),
     };
+    p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
+        p.assert(SyntaxKind::LeftParen);
 
-    if p.eat_if(SyntaxKind::Colon) {
-        state.kind = Some(SyntaxKind::Dict);
-        state.maybe_just_parens = false;
-    }
-
-    while !p.current().is_terminator() {
-        if !p.at_set(set::ARRAY_OR_DICT_ITEM) {
-            p.unexpected();
-            continue;
-        }
-
-        array_or_dict_item(p, &mut state);
-        state.count += 1;
-
-        if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+        if p.eat_if(SyntaxKind::Colon) {
+            state.kind = Some(SyntaxKind::Dict);
             state.maybe_just_parens = false;
         }
-    }
 
-    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.exit();
+        while !p.current().is_terminator() {
+            if !p.at_set(set::ARRAY_OR_DICT_ITEM) {
+                p.unexpected();
+                continue;
+            }
+
+            array_or_dict_item(p, &mut state);
+            state.count += 1;
+
+            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+                state.maybe_just_parens = false;
+            }
+        }
+
+        p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    });
 
     let kind = if state.maybe_just_parens && state.count == 1 {
         SyntaxKind::Parenthesized
@@ -1257,25 +1248,24 @@ fn args(p: &mut Parser) {
     let m = p.marker();
     if p.at(SyntaxKind::LeftParen) {
         let m2 = p.marker();
-        p.enter(LexMode::Code(NewlineMode::Continue));
-        p.assert(SyntaxKind::LeftParen);
+        p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
+            p.assert(SyntaxKind::LeftParen);
 
-        let mut seen = HashSet::new();
-        while !p.current().is_terminator() {
-            if !p.at_set(set::ARG) {
-                p.unexpected();
-                continue;
+            let mut seen = HashSet::new();
+            while !p.current().is_terminator() {
+                if !p.at_set(set::ARG) {
+                    p.unexpected();
+                    continue;
+                }
+
+                arg(p, &mut seen);
+
+                if !p.current().is_terminator() {
+                    p.expect(SyntaxKind::Comma);
+                }
             }
-
-            arg(p, &mut seen);
-
-            if !p.current().is_terminator() {
-                p.expect(SyntaxKind::Comma);
-            }
-        }
-
-        p.expect_closing_delimiter(m2, SyntaxKind::RightParen);
-        p.exit();
+            p.expect_closing_delimiter(m2, SyntaxKind::RightParen);
+        });
     }
 
     while p.directly_at(SyntaxKind::LeftBracket) {
@@ -1320,27 +1310,27 @@ fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
 /// Parses a closure's parameters: `(x, y)`.
 fn params(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Code(NewlineMode::Continue));
-    p.assert(SyntaxKind::LeftParen);
+    p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
+        p.assert(SyntaxKind::LeftParen);
 
-    let mut seen = HashSet::new();
-    let mut sink = false;
+        let mut seen = HashSet::new();
+        let mut sink = false;
 
-    while !p.current().is_terminator() {
-        if !p.at_set(set::PARAM) {
-            p.unexpected();
-            continue;
+        while !p.current().is_terminator() {
+            if !p.at_set(set::PARAM) {
+                p.unexpected();
+                continue;
+            }
+
+            param(p, &mut seen, &mut sink);
+
+            if !p.current().is_terminator() {
+                p.expect(SyntaxKind::Comma);
+            }
         }
 
-        param(p, &mut seen, &mut sink);
-
-        if !p.current().is_terminator() {
-            p.expect(SyntaxKind::Comma);
-        }
-    }
-
-    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.exit();
+        p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    });
     p.wrap(m, SyntaxKind::Params);
 }
 
@@ -1401,25 +1391,25 @@ fn destructuring_or_parenthesized<'s>(
     let mut maybe_just_parens = true;
 
     let m = p.marker();
-    p.enter(LexMode::Code(NewlineMode::Continue));
-    p.assert(SyntaxKind::LeftParen);
+    p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
+        p.assert(SyntaxKind::LeftParen);
 
-    while !p.current().is_terminator() {
-        if !p.at_set(set::DESTRUCTURING_ITEM) {
-            p.unexpected();
-            continue;
+        while !p.current().is_terminator() {
+            if !p.at_set(set::DESTRUCTURING_ITEM) {
+                p.unexpected();
+                continue;
+            }
+
+            destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
+            count += 1;
+
+            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+                maybe_just_parens = false;
+            }
         }
 
-        destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
-        count += 1;
-
-        if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
-            maybe_just_parens = false;
-        }
-    }
-
-    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.exit();
+        p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    });
 
     if maybe_just_parens && count == 1 && !sink {
         p.wrap(m, SyntaxKind::Parenthesized);
@@ -1510,18 +1500,23 @@ fn pattern_leaf<'s>(
     }
 }
 
-/// Manages parsing of a stream of tokens into a tree of SyntaxNodes.
+/// Manages parsing a stream of tokens into a tree of SyntaxNodes.
 ///
-/// This acts like a bottom-up (shift-reduce) parser, where we investigate a current token
-/// and either:
-/// 1. Eat (shift) another token, putting `current` into the `nodes` vector.
-/// 2. Wrap (reduce) the nodes up to a marker (excluding `current`) into a corresponding
-///    SyntaxKind.
+/// The implementation presents an interface that investigates a `current` token and can
+/// take one of the following actions:
+/// 1. Eat a token, placing `current` into the `nodes` vector as a `LeafNode` and
+///    preparing a new `current` by calling into the lexer.
+/// 2. Wrap nodes from a marker to the end of `nodes` (excluding `current`) into an
+///    `InnerNode` of a specific SyntaxKind.
+/// 3. Produce or convert nodes into an `ErrorNode` when something expected is missing or
+///    something unexpected is found.
 ///
-/// In the end we have a nested tree of SyntaxNodes as a Concrete Syntax Tree. This will
-/// have all irrelevant tokens (whitespace, comments, code parens, commas in function
-/// args, etc) removed when interpreted as an Abstract Syntax Tree for evaluation. The
-/// Concrete Syntax Tree is important for IDE features and highlighting.
+/// Overall the Parser produces a nested tree of SyntaxNodes as a *Concrete* Syntax Tree.
+/// The raw Concrete Syntax Tree should contain the entire source text, and is used as-is
+/// for e.g. syntax highlighting and IDE features. In `ast.rs` the CST is interpreted as a
+/// lazy view over an *Abstract* Syntax Tree. The AST module skips over irrelevant tokens
+/// -- whitespace, comments, code parens, commas in function args, etc. -- as it iterates
+/// through the tree.
 struct Parser<'s> {
     /// The entire source text, shared with the lexer, usually accessed via usize offset.
     text: &'s str,
@@ -1540,11 +1535,8 @@ struct Parser<'s> {
     /// Nodes representing the structural syntax tree of anything previously parsed. Does
     /// include the nodes from `prev_trivia`, but does not include `current`
     nodes: Vec<SyntaxNode>,
-    /// The stack of our lexer modes, these are pushed and popped by the `enter()` and
-    /// `exit()` functions when we switch modes.
-    modes: Vec<LexMode>,
-    /// Stored parser checkpoints at a given text index for efficient math paren-expr
-    /// parsing, see comments in `expr_with_paren` (also known as packrat parsing).
+    /// Parser checkpoints for a given text index. Used for efficient parser backtracking
+    /// similar to packrat parsing. See comments above in [`expr_with_paren`].
     memo: HashMap<usize, (Range<usize>, Checkpoint<'s>)>,
     /// The stored parse results at each checkpoint.
     memo_arena: Vec<SyntaxNode>,
@@ -1569,8 +1561,6 @@ struct Checkpoint<'s> {
 
 impl<'s> Parser<'s> {
     /// Create a new parser starting at the given text offset and lexer mode.
-    ///
-    /// TODO idea: why not just pass in text with the offset already? (i.e. text[offset..]?)
     fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
@@ -1583,7 +1573,6 @@ impl<'s> Parser<'s> {
             prev_trivia,
             balanced: true,
             nodes,
-            modes: vec![],
             memo: HashMap::new(),
             memo_arena: vec![],
         }
@@ -1694,7 +1683,6 @@ impl<'s> Parser<'s> {
 
     /// The column of the current node.
     fn column(&self, at: usize) -> usize {
-        // TODO idea: keep track of current column in the parser to make this faster?
         self.text[..at].chars().rev().take_while(|&c| !is_newline(c)).count()
     }
 
@@ -1741,17 +1729,18 @@ impl<'s> Parser<'s> {
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
     }
 
-    /// Change to the given LexMode and push the previous mode onto a stack.
-    fn enter(&mut self, mode: LexMode) {
-        self.modes.push(self.lexer.mode());
+    /// Parse within a given Lexer mode, exiting and re-lexing if necessary. This is
+    /// effectively using the call stack as a stack of lexer modes, but is safer and more
+    /// ergonomic than a manual stack.
+    ///
+    /// Note that this leaves the current node the same on entry, but subsequent nodes
+    /// will use the new lexer mode, and on exit we will re-lex if the mode changed.
+    fn enter_mode(&mut self, mode: LexMode, func: impl FnOnce(&mut Parser<'s>)) {
+        let prev_mode = self.lexer.mode();
         self.lexer.set_mode(mode);
-    }
-
-    /// Pop the previous LexMode off the stack and re-lex the current token if needed.
-    fn exit(&mut self) {
-        let mode = self.modes.pop().unwrap();
-        if mode != self.lexer.mode() {
-            self.lexer.set_mode(mode);
+        func(self);
+        self.lexer.set_mode(prev_mode);
+        if mode != prev_mode {
             self.re_lex();
         }
     }
