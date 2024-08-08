@@ -39,6 +39,11 @@ impl SyntaxNode {
         Self(Repr::Error(Arc::new(ErrorNode::new(error, text))))
     }
 
+    /// Create a new end node. It is only used to terminate the token stream.
+    pub const fn end() -> Self {
+        Self::placeholder(SyntaxKind::End)
+    }
+
     /// Create a dummy node of the given kind.
     ///
     /// Panics if `kind` is `SyntaxKind::Error`.
@@ -145,6 +150,28 @@ impl SyntaxNode {
             Repr::Leaf(_) => false,
             Repr::Inner(inner) => inner.erroneous,
             Repr::Error(_) => true,
+        }
+    }
+
+    /// The amount of newlines in this node or its descendants, capped at 2,
+    /// that is, a return value of 2 means that the total amount of newlines
+    /// may be 2 or larger.
+    pub fn capped_newlines(&self) -> u8 {
+        match &self.0 {
+            Repr::Leaf(_) | Repr::Error(_) => {
+                crate::lexer::count_capped_newlines(self.text())
+            }
+            Repr::Inner(inner) => {
+                let mut newlines = 0;
+                for child in &inner.children {
+                    newlines += child.capped_newlines();
+                    if newlines >= 2 {
+                        break;
+                    }
+                }
+
+                newlines.min(2)
+            }
         }
     }
 
@@ -773,18 +800,48 @@ impl<'a> LinkedNode<'a> {
         self.parent.as_deref()
     }
 
-    /// Get the first previous non-trivia sibling node.
-    pub fn prev_sibling(&self) -> Option<Self> {
+    fn prev_sibling_inner(&self) -> Option<Self> {
         let parent = self.parent()?;
         let index = self.index.checked_sub(1)?;
         let node = parent.node.children().nth(index)?;
         let offset = self.offset - node.len();
-        let prev = Self { node, parent: self.parent.clone(), index, offset };
+        Some(Self { node, parent: self.parent.clone(), index, offset })
+    }
+
+    /// Get the first previous non-trivia sibling node.
+    pub fn prev_sibling(&self) -> Option<Self> {
+        let prev = self.prev_sibling_inner()?;
         if prev.kind().is_trivia() {
             prev.prev_sibling()
         } else {
             Some(prev)
         }
+    }
+
+    /// Get the first sibling annotation node at the line above this node.
+    /// This is done by moving backwards, checking for annotations, until we hit
+    /// a second newline (that is, we only check, at most, the line before this
+    /// node).
+    pub fn prev_attached_annotation(&self) -> Option<Self> {
+        let mut cursor = self.prev_sibling_inner()?;
+        let mut newlines = cursor.capped_newlines();
+        while cursor.kind() != SyntaxKind::Annotation {
+            if newlines >= 2 {
+                // Annotations are attached if they're in the previous line.
+                // If we counted at least two newlines without finding an
+                // annotation, no annotations are attached to this node.
+                //
+                // Note that this check is only run if the latest node was not
+                // an annotation, otherwise annotations with multiple lines
+                // would always be rejected.
+                return None;
+            }
+
+            cursor = cursor.prev_sibling_inner()?;
+            newlines += cursor.capped_newlines();
+        }
+
+        Some(cursor)
     }
 
     /// Get the next non-trivia sibling node.

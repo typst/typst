@@ -58,7 +58,9 @@ pub fn locate(
         }
         LocateInput::Func(func) => {
             engine.sink.warn(warning!(
-                span, "`locate` with callback function is deprecated";
+                span,
+                id: "deprecated",
+                message: "`locate` with callback function is deprecated";
                 hint: "use a `context` expression instead"
             ));
 

@@ -80,6 +80,68 @@ impl<'a> Markup<'a> {
     }
 }
 
+node! {
+    AnnotationName
+}
+
+impl<'a> AnnotationName<'a> {
+    /// Get the annotation name.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+
+    /// Get the annotation name as a string slice.
+    pub fn as_str(self) -> &'a str {
+        self.get()
+    }
+}
+
+node! {
+    /// An annotation: `// @allow("warning")`.
+    Annotation
+}
+
+impl<'a> Annotation<'a> {
+    /// The name of the annotation, e.g. `allow`.
+    pub fn name(self) -> AnnotationName<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The annotation's arguments, which are always either identifiers or
+    /// strings.
+    pub fn arguments(self) -> impl DoubleEndedIterator<Item = AnnotationArg<'a>> {
+        self.0.children().filter_map(AnnotationArg::from_untyped)
+    }
+}
+
+/// An annotation argument, which always corresponds to a simple string, which,
+/// however, may be abbreviated and specified as a valid identifier directly.
+pub enum AnnotationArg<'a> {
+    /// An identifier specified directly, without quotes.
+    Ident(Ident<'a>),
+    /// A string specified with double quotes.
+    Str(Str<'a>),
+}
+
+impl<'a> AnnotationArg<'a> {
+    /// Casts an untyped node to an annotation argument, if possible.
+    pub fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Ident => node.cast().map(Self::Ident),
+            SyntaxKind::Str => node.cast().map(Self::Str),
+            _ => Option::None,
+        }
+    }
+
+    /// Gets the text specified for this argument.
+    pub fn get(self) -> EcoString {
+        match self {
+            Self::Ident(ident) => ident.get().clone(),
+            Self::Str(str) => str.get(),
+        }
+    }
+}
+
 /// An expression in markup, math or code.
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum Expr<'a> {

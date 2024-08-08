@@ -108,7 +108,8 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::Space
         | SyntaxKind::Parbreak
         | SyntaxKind::LineComment
-        | SyntaxKind::BlockComment => {
+        | SyntaxKind::BlockComment
+        | SyntaxKind::Annotation => {
             p.eat();
             return;
         }
@@ -202,7 +203,8 @@ fn heading(p: &mut Parser) {
     whitespace_line(p);
     markup(p, false, usize::MAX, |p| {
         p.at_set(END)
-            && (!p.at(SyntaxKind::Space) || p.lexer.clone().next() == SyntaxKind::Label)
+            && (!p.at(SyntaxKind::Space)
+                || p.lexer.clone().next().kind() == SyntaxKind::Label)
     });
     p.wrap(m, SyntaxKind::Heading);
 }
@@ -304,7 +306,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 let start = copy.cursor();
                 let next = copy.next();
                 let end = copy.cursor();
-                matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
+                matches!(next.kind(), SyntaxKind::MathIdent | SyntaxKind::Text)
                     && is_ident(&p.text[start..end])
             } {
                 p.convert(SyntaxKind::Dot);
@@ -696,8 +698,8 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
-        let at_field_or_method =
-            p.directly_at(SyntaxKind::Dot) && p.lexer.clone().next() == SyntaxKind::Ident;
+        let at_field_or_method = p.directly_at(SyntaxKind::Dot)
+            && p.lexer.clone().next().kind() == SyntaxKind::Ident;
 
         if atomic && !at_field_or_method {
             break;
@@ -1501,7 +1503,7 @@ struct Parser<'s> {
     lexer: Lexer<'s>,
     prev_end: usize,
     current_start: usize,
-    current: SyntaxKind,
+    current: SyntaxNode,
     balanced: bool,
     nodes: Vec<SyntaxNode>,
     modes: Vec<LexMode>,
@@ -1529,7 +1531,7 @@ struct Checkpoint<'s> {
     lexer: Lexer<'s>,
     prev_end: usize,
     current_start: usize,
-    current: SyntaxKind,
+    current: SyntaxNode,
     nodes: usize,
 }
 
@@ -1562,7 +1564,7 @@ impl<'s> Parser<'s> {
     }
 
     fn current(&self) -> SyntaxKind {
-        self.current
+        self.current.kind()
     }
 
     fn current_start(&self) -> usize {
@@ -1578,11 +1580,11 @@ impl<'s> Parser<'s> {
     }
 
     fn at(&self, kind: SyntaxKind) -> bool {
-        self.current == kind
+        self.current.kind() == kind
     }
 
     fn at_set(&self, set: SyntaxSet) -> bool {
-        set.contains(self.current)
+        set.contains(self.current.kind())
     }
 
     fn end(&self) -> bool {
@@ -1590,20 +1592,18 @@ impl<'s> Parser<'s> {
     }
 
     fn directly_at(&self, kind: SyntaxKind) -> bool {
-        self.current == kind && self.prev_end == self.current_start
+        self.current.kind() == kind && self.prev_end == self.current_start
     }
 
     fn eat(&mut self) {
-        self.save();
-        self.lex();
+        self.save_and_lex();
         self.skip();
     }
 
     #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
         let offset = self.nodes.len();
-        self.save();
-        self.lex();
+        self.save_and_lex();
         self.skip();
         &mut self.nodes[offset]
     }
@@ -1631,12 +1631,12 @@ impl<'s> Parser<'s> {
 
     #[track_caller]
     fn assert(&mut self, kind: SyntaxKind) {
-        assert_eq!(self.current, kind);
+        assert_eq!(self.current(), kind);
         self.eat();
     }
 
     fn convert(&mut self, kind: SyntaxKind) {
-        self.current = kind;
+        self.current.convert_to_kind(kind);
         self.eat();
     }
 
@@ -1725,7 +1725,7 @@ impl<'s> Parser<'s> {
             lexer: self.lexer.clone(),
             prev_end: self.prev_end,
             current_start: self.current_start,
-            current: self.current,
+            current: self.current.clone(),
             nodes: self.nodes.len(),
         }
     }
@@ -1740,9 +1740,8 @@ impl<'s> Parser<'s> {
 
     fn skip(&mut self) {
         if self.lexer.mode() != LexMode::Markup {
-            while self.current.is_trivia() {
-                self.save();
-                self.lex();
+            while self.current().is_trivia() {
+                self.save_and_lex();
             }
         }
     }
@@ -1758,26 +1757,25 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn save(&mut self) {
-        let text = self.current_text();
-        if self.at(SyntaxKind::Error) {
-            let error = self.lexer.take_error().unwrap();
-            self.nodes.push(SyntaxNode::error(error, text));
-        } else {
-            self.nodes.push(SyntaxNode::leaf(self.current, text));
-        }
+    fn save_and_lex(&mut self) {
+        // Replace 'current' with a placeholder node until we lex.
+        let current = std::mem::replace(&mut self.current, SyntaxNode::end());
 
-        if self.lexer.mode() == LexMode::Markup || !self.current.is_trivia() {
+        if self.lexer.mode() == LexMode::Markup || !current.kind().is_trivia() {
             self.prev_end = self.current_end();
         }
+
+        self.nodes.push(current);
+
+        self.lex();
     }
 
     fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
         loop {
             let next = lexer.next();
             // Loop is terminatable, because SyntaxKind::End is not a trivia.
-            if !next.is_trivia() {
-                break next;
+            if !next.kind().is_trivia() {
+                break next.kind();
             }
         }
     }
@@ -1799,7 +1797,7 @@ impl<'s> Parser<'s> {
                 None => false,
             }
         {
-            self.current = SyntaxKind::End;
+            self.current = SyntaxNode::end();
         }
     }
 }
@@ -1810,7 +1808,7 @@ impl<'s> Parser<'s> {
         let at = self.at(kind);
         if at {
             self.eat();
-        } else if kind == SyntaxKind::Ident && self.current.is_keyword() {
+        } else if kind == SyntaxKind::Ident && self.current().is_keyword() {
             self.trim_errors();
             self.eat_and_get().expected(kind.name());
         } else {
@@ -1856,7 +1854,7 @@ impl<'s> Parser<'s> {
     /// unexpected.
     fn unexpected(&mut self) {
         self.trim_errors();
-        self.balanced &= !self.current.is_grouping();
+        self.balanced &= !self.current().is_grouping();
         self.eat_and_get().unexpected();
     }
 

@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -75,7 +75,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<SyntaxError> {
+    fn take_error(&mut self) -> Option<SyntaxError> {
         self.error.take()
     }
 }
@@ -97,23 +97,31 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
-    /// token could be a [trivia](SyntaxKind::is_trivia).
-    pub fn next(&mut self) -> SyntaxKind {
+    /// Proceed to the next token and return a [`SyntaxNode`] containing it.
+    ///
+    /// Note the token could be a [trivia](SyntaxKind::is_trivia). Also, the
+    /// syntax node returned might not always be a leaf, but could actually
+    /// come with a subtree (could be an inner node). This happens when it is
+    /// preferred to perform parsing at the character level instead of at the
+    /// token level, as seen, for example, in [`annotation`](Lexer::annotation).
+    pub fn next(&mut self) -> SyntaxNode {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
-                return SyntaxKind::End;
+                return SyntaxNode::end();
             };
+            let start = self.s.cursor();
             self.s.jump(end);
-            return kind;
+            return self.emit_token(kind, start);
         }
 
         self.newline = false;
         self.error = None;
         let start = self.s.cursor();
-        match self.s.eat() {
+        let token = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
-            Some('/') if self.s.eat_if('/') => self.line_comment(),
+            Some('/') if self.s.eat_if('/') => {
+                return self.line_comment_or_annotation(start);
+            }
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
                 let kind = self.error("unexpected end of block comment");
@@ -123,7 +131,6 @@ impl Lexer<'_> {
                 );
                 kind
             }
-
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
@@ -132,6 +139,33 @@ impl Lexer<'_> {
             },
 
             None => SyntaxKind::End,
+        };
+
+        self.emit_token(token, start)
+    }
+
+    /// Constructs an error node with the given message.
+    ///
+    /// The node's inner text is taken from the given start position up to and
+    /// including the current cursor position.
+    fn emit_error(&self, message: impl Into<EcoString>, start: usize) -> SyntaxNode {
+        let text = self.s.from(start);
+        SyntaxNode::error(SyntaxError::new(message), text)
+    }
+
+    /// Converts a token into a syntax node based on its kind. Produces an
+    /// error node if there are errors.
+    ///
+    /// The node's inner text is taken from the given start position up to and
+    /// including the current cursor position.
+    fn emit_token(&mut self, kind: SyntaxKind, start: usize) -> SyntaxNode {
+        let text = self.s.from(start);
+        if kind == SyntaxKind::End {
+            SyntaxNode::end()
+        } else if let Some(error) = self.take_error() {
+            SyntaxNode::error(error, text)
+        } else {
+            SyntaxNode::leaf(kind, text)
         }
     }
 
@@ -151,9 +185,17 @@ impl Lexer<'_> {
         }
     }
 
-    fn line_comment(&mut self) -> SyntaxKind {
+    /// Parses an annotation if the line comment has the form
+    /// `// @something`
+    ///
+    /// Otherwise, parses a regular line comment.
+    fn line_comment_or_annotation(&mut self, start: usize) -> SyntaxNode {
+        self.s.eat_while(is_inline_whitespace);
+        if self.s.eat_if('@') {
+            return self.annotation(start);
+        }
         self.s.eat_until(is_newline);
-        SyntaxKind::LineComment
+        self.emit_token(SyntaxKind::LineComment, start)
     }
 
     fn block_comment(&mut self) -> SyntaxKind {
@@ -179,6 +221,198 @@ impl Lexer<'_> {
         }
 
         SyntaxKind::BlockComment
+    }
+}
+
+/// Annotation lexing and auxiliary methods.
+impl Lexer<'_> {
+    /// Lexes and parses an annotation into a complete syntax subtree.
+    ///
+    /// The lexer is fully responsible for the annotation, as it is simpler to
+    /// parse them at the character level, given they follow a very simple
+    /// and rigid structure, in the form
+    /// `// @annotation-name("string argument1", "string argument2")`
+    /// with optional whitespaces and comments between arguments.
+    fn annotation(&mut self, start: usize) -> SyntaxNode {
+        // Start by lexing the marker.
+        let marker = self.emit_token(SyntaxKind::AnnotationMarker, start);
+        let mut subtree = vec![marker];
+
+        let current_start = self.s.cursor();
+
+        // Ignore initial non-newline whitespaces.
+        if !self.s.eat_while(is_inline_whitespace).is_empty() {
+            subtree.push(self.emit_token(SyntaxKind::Space, current_start));
+        }
+
+        // Lex the annotation name.
+        let current_start = self.s.cursor();
+        if !self.s.eat_if(is_id_start) {
+            self.s.eat_until(is_newline);
+            subtree.push(self.emit_error("expected identifier", current_start));
+
+            // Return a single error node until the end of the annotation.
+            return SyntaxNode::inner(SyntaxKind::Annotation, subtree);
+        }
+
+        let name = self.annotation_name(current_start);
+        subtree.push(self.emit_token(name, current_start));
+
+        // Optional left parenthesis before annotation arguments.
+        let current_start = self.s.cursor();
+        let has_opening_paren = self.s.eat_if('(');
+
+        if has_opening_paren {
+            subtree.push(self.emit_token(SyntaxKind::LeftParen, current_start));
+        }
+
+        // Annotation arguments:
+        // Keep reading until we find a right parenthesis (if we got a left
+        // parenthesis) or newline. We have to check the newline before eating
+        // (through '.peek()') to ensure it is not considered part of the
+        // annotation. Newlines are exceptionally allowed inside an annotation
+        // if arguments are surrounded by parentheses.
+        //
+        // Each argument may be either an identifier or a string, and arguments
+        // are separated by spaces. Any other characters are invalid.
+        let mut found_closing_paren = false;
+        while !self.s.at(is_newline)
+            || has_opening_paren
+                && !found_closing_paren
+                && self.eat_annotation_linebreak(&mut subtree)
+        {
+            let current_start = self.s.cursor();
+            let token = match self.s.eat() {
+                Some(c) if c.is_whitespace() => {
+                    self.s.eat_while(is_inline_whitespace);
+                    SyntaxKind::Space
+                }
+                Some(_) if found_closing_paren => {
+                    // After we finished specifying arguments, there must only
+                    // be whitespaces until the line ends.
+                    self.s.eat_until(char::is_whitespace);
+                    self.error("unexpected characters after end of annotation")
+                }
+                Some(c) if is_id_start(c) => {
+                    self.s.eat_while(is_id_continue);
+                    SyntaxKind::Ident
+                }
+                Some('"') => self.annotation_string(),
+                Some(')') if has_opening_paren => {
+                    found_closing_paren = true;
+                    SyntaxKind::RightParen
+                }
+                // Explicitly detect comments for more helpful errors
+                Some('/') if self.s.at(['/', '*']) => {
+                    if self.s.eat() == Some('*') {
+                        // Found a block comment. Advance until the next
+                        // newline or '*/' just for a more accurate error span.
+                        while !self.s.eat_if("*/") && !self.s.at(is_newline) {
+                            self.s.eat();
+                        }
+                    } else {
+                        self.s.eat_until(is_newline);
+                    }
+                    self.error(eco_format!("unexpected comment inside annotation"))
+                }
+                Some(_) => {
+                    self.s.eat_until(|c: char| {
+                        c.is_whitespace() || has_opening_paren && c == ')'
+                    });
+                    self.error(eco_format!(
+                        "expected identifier{} in annotation",
+                        if has_opening_paren {
+                            ", string or closing paren"
+                        } else {
+                            " or string"
+                        }
+                    ))
+                }
+                None => break,
+            };
+
+            let node = self.emit_token(token, current_start);
+            subtree.push(node);
+        }
+
+        // Right parenthesis (covered above)
+        if has_opening_paren && !found_closing_paren {
+            subtree.push(
+                self.emit_error(
+                    "expected closing paren after annotation",
+                    self.s.cursor(),
+                ),
+            );
+        }
+
+        SyntaxNode::inner(SyntaxKind::Annotation, subtree)
+    }
+
+    /// Lexes an annotation name.
+    ///
+    /// An annotation name is an identifier within a specific subset of allowed
+    /// identifiers. Currently, `allow` is the only valid annotation name.
+    fn annotation_name(&mut self, start: usize) -> SyntaxKind {
+        self.s.eat_while(is_id_continue);
+        let ident = self.s.from(start);
+
+        if ident == "allow" {
+            SyntaxKind::AnnotationName
+        } else {
+            self.error(eco_format!("invalid annotation name"));
+            self.hint("must be 'allow'");
+
+            SyntaxKind::Error
+        }
+    }
+
+    /// Lexes a string in an annotation.
+    ///
+    /// Currently, such strings only allow a very restricted set of characters.
+    /// These restrictions may be lifted in the future.
+    fn annotation_string(&mut self) -> SyntaxKind {
+        // TODO: Allow more characters in annotations' strings, perhaps allowing
+        // newlines somehow.
+        // Could perhaps use one // per line so we can break an annotation into
+        // multiple lines in a sensible way.
+        let start = self.s.cursor();
+        self.s.eat_while(|c| !is_newline(c) && c != '"');
+
+        let content = self.s.from(start);
+        if !self.s.eat_if('"') {
+            return self.error("unclosed string");
+        }
+
+        if let Some(c) = content.chars().find(|c| !is_valid_in_annotation_string(*c)) {
+            return self
+                .error(eco_format!("invalid character '{c}' in an annotation's string"));
+        }
+
+        SyntaxKind::Str
+    }
+
+    /// Expects an annotation continuation in the next line, indicated by a
+    /// leading comment marker ('//'). If the marker is not present, the
+    /// annotation is considered invalid and interrupted.
+    fn eat_annotation_linebreak(&mut self, subtree: &mut Vec<SyntaxNode>) -> bool {
+        let start = self.s.cursor();
+        self.s.eat_newline();
+        self.s.eat_while(is_inline_whitespace);
+        if self.s.at("//") {
+            subtree.push(self.emit_token(SyntaxKind::Space, start));
+
+            let marker_start = self.s.cursor();
+            self.s.eat();
+            self.s.eat();
+            subtree.push(self.emit_token(SyntaxKind::AnnotationMarker, marker_start));
+
+            true
+        } else {
+            // No annotation continuation marker on the next line, so we
+            // interrupt the annotation.
+            self.s.jump(start);
+            false
+        }
     }
 }
 
@@ -805,6 +1039,13 @@ fn is_space(character: char, mode: LexMode) -> bool {
     }
 }
 
+/// Whether a character is a whitespace but not interpreted as a newline by
+/// Typst.
+#[inline]
+pub fn is_inline_whitespace(character: char) -> bool {
+    character.is_whitespace() && !is_newline(character)
+}
+
 /// Whether a character is interpreted as a newline by Typst.
 #[inline]
 pub fn is_newline(character: char) -> bool {
@@ -892,6 +1133,24 @@ fn count_newlines(text: &str) -> usize {
     newlines
 }
 
+/// Count newlines in text. Only counts up to 2 newlines.
+pub(crate) fn count_capped_newlines(text: &str) -> u8 {
+    let mut newlines = 0;
+    let mut s = Scanner::new(text);
+    while let Some(c) = s.eat() {
+        if is_newline(c) {
+            if c == '\r' {
+                s.eat_if('\n');
+            }
+            newlines += 1;
+            if newlines == 2 {
+                break;
+            }
+        }
+    }
+    newlines
+}
+
 /// Whether a string is a valid Typst identifier.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
@@ -935,6 +1194,12 @@ fn is_math_id_continue(c: char) -> bool {
 #[inline]
 fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
+}
+
+/// Whether a character can be part of a string in an annotation.
+#[inline]
+fn is_valid_in_annotation_string(c: char) -> bool {
+    is_id_continue(c) || c == '@' || c == '/'
 }
 
 /// Returns true if this string is valid in a label literal.
