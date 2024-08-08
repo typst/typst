@@ -39,6 +39,7 @@ ciborium = "0.2.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
+cms = "0.2.3"
 ctrlc = "3.4.1"
 codespan-reporting = "0.11"
 comemo = "0.4"
@@ -78,16 +79,19 @@ pathdiff = "0.2"
 pdf-writer = "0.10.0"
 phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.4"
+pkcs8 = { version = "0.10.2", features = ["pkcs5", "encryption"] }
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
 pulldown-cmark = "0.9"
 quote = "1"
 qcms = "0.3.0"
+rand = "0.8.5"
 rayon = "1.7.0"
 regex = "1"
 resvg = { version = "0.42", default-features = false, features = ["raster-images"] }
 roxmltree = "0.20"
+rsa = "0.9.6"
 rustybuzz = "0.14"
 same-file = "1"
 self-replace = "1.3.7"
@@ -95,6 +99,7 @@ semver = "1"
 serde = { version = "1.0.184", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+sha2 = { version = "0.10.8", featurs = ["oid"] }
 shell-escape = "0.1.5"
 siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
@@ -126,6 +131,7 @@ xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xmp-writer = "0.2"
 xz2 = { version = "0.1", features = ["static"] }
+x509-cert = "0.2.5"
 yaml-front-matter = "0.1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
@@ -142,3 +148,6 @@ strip = true
 [workspace.lints.clippy]
 uninlined_format_args = "warn"
 blocks_in_conditions = "allow"
+
+[patch.crates-io]
+pdf-writer = { path = "../pdf-writer" }

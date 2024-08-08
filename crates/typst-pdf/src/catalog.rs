@@ -10,17 +10,17 @@ use typst::foundations::{Datetime, Smart};
 use typst::layout::Dir;
 use typst::text::Lang;
 
-use crate::WithEverything;
 use crate::{hash_base64, outline, page::PdfPageLabel};
+use crate::{signature, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
     ctx: WithEverything,
     ident: Smart<&str>,
     timestamp: Option<Datetime>,
-    pdf: &mut Pdf,
+    mut pdf: Pdf,
     alloc: &mut Ref,
-) {
+) -> Vec<u8> {
     let lang = ctx
         .resources
         .languages
@@ -35,10 +35,10 @@ pub fn write_catalog(
     };
 
     // Write the outline tree.
-    let outline_root_id = outline::write_outline(pdf, alloc, &ctx);
+    let outline_root_id = outline::write_outline(&mut pdf, alloc, &ctx);
 
     // Write the page labels.
-    let page_labels = write_page_labels(pdf, alloc, &ctx);
+    let page_labels = write_page_labels(&mut pdf, alloc, &ctx);
 
     // Write the document information.
     let info_ref = alloc.bump();
@@ -132,6 +132,9 @@ pub fn write_catalog(
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
+    // Prepare digital signatures
+    let (signature_range, signature_form_ref) = signature::prepare(alloc, &mut pdf);
+
     // Write the document catalog.
     let catalog_ref = alloc.bump();
     let mut catalog = pdf.catalog(catalog_ref);
@@ -167,7 +170,11 @@ pub fn write_catalog(
         catalog.lang(TextStr(lang.as_str()));
     }
 
+    catalog.insert(Name(b"AcroForm")).primitive(signature_form_ref);
+
     catalog.finish();
+
+    signature::write(signature_range, pdf.finish())
 }
 
 /// Write the page labels.

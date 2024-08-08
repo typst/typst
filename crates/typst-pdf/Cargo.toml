@@ -17,8 +17,10 @@ typst = { workspace = true }
 typst-assets = { workspace = true }
 typst-macros = { workspace = true }
 typst-timing = { workspace = true }
+arrayvec = { workspace = true }
 base64 = { workspace = true }
 bytemuck = { workspace = true }
+cms = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
@@ -26,7 +28,10 @@ indexmap = { workspace = true }
 miniz_oxide = { workspace = true }
 once_cell = { workspace = true }
 pdf-writer = { workspace = true }
-arrayvec = { workspace = true }
+pkcs8 = { workspace = true, features = ["pkcs5", "encryption"] }
+rand = { workspace = true }
+rsa = { workspace = true }
+sha2 = { workspace = true, features = ["oid"] }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }

@@ -13,6 +13,7 @@ mod outline;
 mod page;
 mod pattern;
 mod resources;
+mod signature;
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -348,10 +349,9 @@ impl<S> PdfBuilder<S> {
         process: P,
     ) -> Vec<u8>
     where
-        P: Fn(S, Smart<&str>, Option<Datetime>, &mut Pdf, &mut Ref),
+        P: Fn(S, Smart<&str>, Option<Datetime>, Pdf, &mut Ref) -> Vec<u8>,
     {
-        process(self.state, ident, timestamp, &mut self.pdf, &mut self.alloc);
-        self.pdf.finish()
+        process(self.state, ident, timestamp, self.pdf, &mut self.alloc)
     }
 }
 
