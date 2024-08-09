@@ -145,9 +145,10 @@ pub struct RawElem {
     /// The language to syntax-highlight in.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
-    /// `{"typ"}` and `{"typc"}` tags for
-    /// [Typst markup]($reference/syntax/#markup) and
-    /// [Typst code]($reference/syntax/#code), respectively.
+    /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for
+    /// [Typst markup]($reference/syntax/#markup),
+    /// [Typst code]($reference/syntax/#code), and
+    /// [Typst math]($reference/syntax/#math), respectively.
     ///
     /// ````example
     /// ```typ
@@ -288,7 +289,11 @@ impl RawElem {
                     syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
                 )
             })
-            .chain([("Typst", vec!["typ"]), ("Typst (code)", vec!["typc"])])
+            .chain([
+                ("Typst", vec!["typ"]),
+                ("Typst (code)", vec!["typc"]),
+                ("Typst (math)", vec!["typm"]),
+            ])
             .collect()
     }
 }
@@ -344,11 +349,12 @@ impl Packed<RawElem> {
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
-        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc" | "typm")) {
             let text =
                 lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
+                Some("typm") => syntax::parse_math(&text),
                 _ => syntax::parse(&text),
             };
 

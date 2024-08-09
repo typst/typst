@@ -585,6 +585,10 @@ if true {
 }
 ```
 
+--- issue-4662-math-mode-language-for-raw ---
+// Test lang: "typm" syntax highlighting without enclosing dollar signs
+#raw("pi^2", lang: "typm")
+
 --- issue-2259-raw-color-overwrite ---
 // Test that the color of a raw block is not overwritten
 #show raw: set text(fill: blue)
