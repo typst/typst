@@ -297,11 +297,13 @@ fn layout_table(
             repeat: header.repeat(styles),
             span: header.span(),
             items: header.children().iter().map(resolve_item),
+            align: header.align(styles),
         },
         TableChild::Footer(footer) => ResolvableGridChild::Footer {
             repeat: footer.repeat(styles),
             span: footer.span(),
             items: footer.children().iter().map(resolve_item),
+            align: footer.align(styles),
         },
         TableChild::Item(item) => ResolvableGridChild::Item(item.to_resolvable(styles)),
     });
@@ -530,6 +532,27 @@ pub struct TableHeader {
     #[default(true)]
     pub repeat: bool,
 
+    /// How to align the cells' content.
+    ///
+    /// This can either be a single alignment, an array of alignments
+    /// (corresponding to each column) or a function that returns an alignment.
+    /// The function receives the cells' column and row indices, starting from
+    /// zero. If set to `{auto}`, the outer alignment is used.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (left, center, right),
+    ///   table.header(
+    ///     align: (right, center, left),
+    ///     [1], [2], [3],
+    ///   ),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
+    pub align: Celled<Smart<Alignment>>,
+
     /// The cells and lines within the header.
     #[variadic]
     pub children: Vec<TableItem>,
@@ -548,6 +571,27 @@ pub struct TableFooter {
     /// Whether this footer should be repeated across pages.
     #[default(true)]
     pub repeat: bool,
+
+    /// How to align the cells' content.
+    ///
+    /// This can either be a single alignment, an array of alignments
+    /// (corresponding to each column) or a function that returns an alignment.
+    /// The function receives the cells' column and row indices, starting from
+    /// zero. If set to `{auto}`, the outer alignment is used.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (left, center, right),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    ///   table.footer(
+    ///     align: (right, center, left),
+    ///     [1], [2], [3],
+    ///   ),
+    /// )
+    /// ```
+    pub align: Celled<Smart<Alignment>>,
 
     /// The cells and lines within the footer.
     #[variadic]

@@ -280,8 +280,8 @@ pub enum ResolvableGridItem<T: ResolvableCell> {
 
 /// Any grid child, which can be either a header or an item.
 pub enum ResolvableGridChild<T: ResolvableCell, I> {
-    Header { repeat: bool, span: Span, items: I },
-    Footer { repeat: bool, span: Span, items: I },
+    Header { repeat: bool, span: Span, items: I, align: Celled<Smart<Alignment>> },
+    Footer { repeat: bool, span: Span, items: I, align: Celled<Smart<Alignment>> },
     Item(ResolvableGridItem<T>),
 }
 
@@ -466,9 +466,11 @@ impl<'a> CellGrid<'a> {
             let mut start_new_row = false;
             let mut first_index_of_top_hlines = usize::MAX;
             let mut first_index_of_non_top_hlines = usize::MAX;
+            // Alignment of header or footer
+            let mut item_align = Celled::Value(Smart::Auto);
 
             let (header_footer_items, simple_item) = match child {
-                ResolvableGridChild::Header { repeat, span, items, .. } => {
+                ResolvableGridChild::Header { repeat, span, items, align, .. } => {
                     if header.is_some() {
                         bail!(span, "cannot have more than one header");
                     }
@@ -476,6 +478,7 @@ impl<'a> CellGrid<'a> {
                     is_header = true;
                     child_span = span;
                     repeat_header = repeat;
+                    item_align = align;
 
                     // If any cell in the header is automatically positioned,
                     // have it skip to the next row. This is to avoid having a
@@ -491,7 +494,7 @@ impl<'a> CellGrid<'a> {
 
                     (Some(items), None)
                 }
-                ResolvableGridChild::Footer { repeat, span, items, .. } => {
+                ResolvableGridChild::Footer { repeat, span, items, align, .. } => {
                     if footer.is_some() {
                         bail!(span, "cannot have more than one footer");
                     }
@@ -499,6 +502,7 @@ impl<'a> CellGrid<'a> {
                     is_footer = true;
                     child_span = span;
                     repeat_footer = repeat;
+                    item_align = align;
 
                     // If any cell in the footer is automatically positioned,
                     // have it skip to the next row. This is to avoid having a
@@ -680,11 +684,16 @@ impl<'a> CellGrid<'a> {
 
                 // Let's resolve the cell so it can determine its own fields
                 // based on its final position.
+                let cell_align = match Celled::resolve(&item_align, engine, styles, x, y)?
+                {
+                    Smart::Custom(v) => Smart::Custom(v),
+                    Smart::Auto => align.resolve(engine, styles, x, y)?,
+                };
                 let cell = cell.resolve_cell(
                     x,
                     y,
                     &fill.resolve(engine, styles, x, y)?,
-                    align.resolve(engine, styles, x, y)?,
+                    cell_align,
                     inset.resolve(engine, styles, x, y)?,
                     stroke.resolve(engine, styles, x, y)?,
                     resolve_breakable(y, rowspan),
