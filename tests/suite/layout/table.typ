@@ -188,6 +188,23 @@
   table.footer(it),
 )
 
+--- table-header-and-footer-align ---
+
+#table(
+  columns: 3,
+  align: (left, center, right),
+  table.header(
+    align: (right, center, left),
+    [1], [2], [3],
+  ),
+  [Hello], [Hello], [Hello],
+  [A], [B], [C],
+  table.footer(
+    align: (right, center, left),
+    [1], [2], [3],
+  ),
+)
+
 --- table-cell-override ---
 // Cell override
 #table(
