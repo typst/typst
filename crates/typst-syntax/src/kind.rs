@@ -30,8 +30,6 @@ pub enum SyntaxKind {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand,
-    /// A shorthand for a unicode codepoint in math: `a <= b`.
-    MathShorthand,
     /// A smart quote: `'` or `"`.
     SmartQuote,
     /// Strong content: `*Strong*`.
@@ -77,6 +75,8 @@ pub enum SyntaxKind {
     Math,
     /// An identifier in math: `pi`.
     MathIdent,
+    /// A shorthand for a unicode codepoint in math: `a <= b`.
+    MathShorthand,
     /// An alignment point in math: `&`.
     MathAlignPoint,
     /// Matched delimiters in math: `[x + y]`.
@@ -380,7 +380,6 @@ impl SyntaxKind {
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",
             Self::Shorthand => "shorthand",
-            Self::MathShorthand => "math shorthand",
             Self::SmartQuote => "smart quote",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
@@ -403,6 +402,7 @@ impl SyntaxKind {
             Self::Equation => "equation",
             Self::Math => "math",
             Self::MathIdent => "math identifier",
+            Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",

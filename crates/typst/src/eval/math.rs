@@ -27,6 +27,14 @@ impl Eval for ast::MathIdent<'_> {
     }
 }
 
+impl Eval for ast::MathShorthand<'_> {
+    type Output = Value;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Symbol(Symbol::single(self.get().into())))
+    }
+}
+
 impl Eval for ast::MathAlignPoint<'_> {
     type Output = Content;
 
@@ -96,14 +104,6 @@ impl Eval for ast::MathRoot<'_> {
         let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok(RootElem::new(radicand).with_index(index).pack())
-    }
-}
-
-impl Eval for ast::MathShorthand<'_> {
-    type Output = Value;
-
-    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::single(self.get().into())))
     }
 }
 
