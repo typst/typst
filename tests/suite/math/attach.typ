@@ -128,3 +128,21 @@ $integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 // Test default of limit attachments on large operators at display size only
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+
+--- math-attach-long-attachment ---
+// Test the base can be stretched as needed to accommodate the long attachments.
+// Note not all glyphs support this; it depends on the font data.
+#set text(size: 8pt)
+
+$ P &= Q
+    stretch(=)^(k = 0)_(forall i) R
+    stretch(=, width: #150%)^(k = 0)_(forall i) S
+    stretch(=, width: #2mm)^(k = 0)_(forall i) T
+    stretch(=, width: #1.2em)^(k = 0)_(forall i) U \
+  P &equiv Q
+    stretch(equiv)^(forall i)_"Chern-Weil" R
+    stretch(equiv, width: #(120% + 2mm))^(forall i)_"Chern-Weil" S \
+  P &-> Q
+    stretch(->) R // Not stretched: no width specifid and no attachments
+    stretch(->, width: #200%) S
+    stretch(->, width: #50%)^"epimorphism" T $
