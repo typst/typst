@@ -1,6 +1,8 @@
 use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -209,6 +211,26 @@ impl Repr for Alignment {
             Self::V(v) => v.repr(),
             Self::Both(h, v) => eco_format!("{} + {}", h.repr(), v.repr()),
         }
+    }
+}
+
+impl Serialize for Alignment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let size = 2 + if matches!(self, Self::Both(..)) { 1 } else { 0 };
+        let mut map_ser = serializer.serialize_map(Some(size))?;
+        map_ser.serialize_entry("type", "alignment")?;
+        match self {
+            Self::H(h) => map_ser.serialize_entry("horizontal", &h.repr())?,
+            Self::V(v) => map_ser.serialize_entry("vertical", &v.repr())?,
+            Self::Both(h, v) => {
+                map_ser.serialize_entry("horizontal", &h.repr())?;
+                map_ser.serialize_entry("vertical", &v.repr())?;
+            }
+        }
+        map_ser.end()
     }
 }
 

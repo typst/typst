@@ -1,12 +1,13 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 
-use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
-
 use crate::diag::StrResult;
 use crate::foundations::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
 use crate::utils::Static;
+use ecow::{eco_format, EcoString};
+use once_cell::sync::Lazy;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 #[rustfmt::skip]
 #[doc(inline)]
@@ -149,6 +150,18 @@ impl Debug for Type {
 impl Repr for Type {
     fn repr(&self) -> EcoString {
         self.long_name().into()
+    }
+}
+
+impl Serialize for Type {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "type")?;
+        map_ser.serialize_entry("name", self.short_name())?;
+        map_ser.end()
     }
 }
 

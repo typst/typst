@@ -3,6 +3,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ecow::{eco_format, EcoString};
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::foundations::{cast, ty, Fold, Repr, Resolve, StyleChain};
 use crate::layout::{Abs, Em, Length, Ratio};
@@ -101,6 +103,19 @@ impl<T: Numeric + Debug> Debug for Rel<T> {
 impl<T: Numeric + Repr> Repr for Rel<T> {
     fn repr(&self) -> EcoString {
         eco_format!("{} + {}", self.rel.repr(), self.abs.repr())
+    }
+}
+
+impl<T: Numeric + Serialize> Serialize for Rel<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(3))?;
+        map_ser.serialize_entry("type", "relative")?;
+        map_ser.serialize_entry("rel", &self.rel)?;
+        map_ser.serialize_entry("abs", &self.abs)?;
+        map_ser.end()
     }
 }
 

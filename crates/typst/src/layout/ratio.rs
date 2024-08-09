@@ -2,6 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::EcoString;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use crate::foundations::{repr, ty, Repr};
 use crate::utils::{Numeric, Scalar};
@@ -77,6 +79,18 @@ impl Debug for Ratio {
 impl Repr for Ratio {
     fn repr(&self) -> EcoString {
         repr::format_float_with_unit(self.get() * 100.0, "%")
+    }
+}
+
+impl Serialize for Ratio {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "ratio")?;
+        map_ser.serialize_entry("value", &self.get())?;
+        map_ser.end()
     }
 }
 

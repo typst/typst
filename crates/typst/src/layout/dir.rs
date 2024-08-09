@@ -1,7 +1,8 @@
-use ecow::EcoString;
-
 use crate::foundations::{func, scope, ty, Repr};
 use crate::layout::{Axis, Side};
+use ecow::EcoString;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 /// The four directions into which content can be laid out.
 ///
@@ -128,5 +129,17 @@ impl Repr for Dir {
             Self::TTB => "ttb".into(),
             Self::BTT => "btt".into(),
         }
+    }
+}
+
+impl Serialize for Dir {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(2))?;
+        map_ser.serialize_entry("type", "direction")?;
+        map_ser.serialize_entry("value", &self.repr())?;
+        map_ser.end()
     }
 }
