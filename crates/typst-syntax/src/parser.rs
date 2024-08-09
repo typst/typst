@@ -1102,13 +1102,17 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
     if p.at(SyntaxKind::Arrow) {
         p.restore(checkpoint);
         params(p);
-        p.assert(SyntaxKind::Arrow);
+        if !p.expect(SyntaxKind::Arrow) {
+            return;
+        }
         code_expr(p);
         p.wrap(m, SyntaxKind::Closure);
     } else if p.at(SyntaxKind::Eq) && kind != SyntaxKind::Parenthesized {
         p.restore(checkpoint);
         destructuring_or_parenthesized(p, true, &mut HashSet::new());
-        p.assert(SyntaxKind::Eq);
+        if !p.expect(SyntaxKind::Eq) {
+            return;
+        }
         code_expr(p);
         p.wrap(m, SyntaxKind::DestructAssignment);
     } else {
