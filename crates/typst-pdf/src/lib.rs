@@ -20,7 +20,7 @@ use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
 use pdf_writer::{Chunk, Pdf, Ref};
-use typst::foundations::{Datetime, Smart};
+use typst::foundations::Smart;
 use typst::layout::{Abs, Em, PageRanges, Transform};
 use typst::model::Document;
 use typst::text::Font;
@@ -41,6 +41,8 @@ use crate::resources::{
     alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
 };
 
+pub use crate::catalog::Timestamp;
+
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
@@ -57,9 +59,8 @@ use crate::resources::{
 /// hash of the document's title and author is used instead (which is reasonably
 /// unique and stable).
 ///
-/// The `timestamp`, if given, is expected to be the creation date of the
-/// document as a UTC datetime. It will only be used if `set document(date: ..)`
-/// is `auto`.
+/// The `timestamp`, if given, is expected to be the creation datetime of the
+/// document.
 ///
 /// The `page_ranges` option specifies which ranges of pages should be exported
 /// in the PDF. When `None`, all pages should be exported.
@@ -67,7 +68,7 @@ use crate::resources::{
 pub fn pdf(
     document: &Document,
     ident: Smart<&str>,
-    timestamp: Option<Datetime>,
+    timestamp: Option<Timestamp>,
     page_ranges: Option<PageRanges>,
 ) -> Vec<u8> {
     PdfBuilder::new(document, page_ranges)
@@ -344,11 +345,11 @@ impl<S> PdfBuilder<S> {
     fn export_with<P>(
         mut self,
         ident: Smart<&str>,
-        timestamp: Option<Datetime>,
+        timestamp: Option<Timestamp>,
         process: P,
     ) -> Vec<u8>
     where
-        P: Fn(S, Smart<&str>, Option<Datetime>, &mut Pdf, &mut Ref),
+        P: Fn(S, Smart<&str>, Option<Timestamp>, &mut Pdf, &mut Ref),
     {
         process(self.state, ident, timestamp, &mut self.pdf, &mut self.alloc);
         self.pdf.finish()
