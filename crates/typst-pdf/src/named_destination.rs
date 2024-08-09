@@ -46,7 +46,11 @@ pub fn write_named_destinations(
         .introspector
         .query(&HeadingElem::elem().select())
         .iter()
-        .filter_map(|elem| elem.location().zip(elem.label()))
+        .flat_map(|elem| {
+            elem.location().into_iter().flat_map(|loc| {
+                elem.labels().iter().cloned().map(move |label| (loc, label))
+            })
+        })
         .filter(|&(_, label)| seen.insert(label))
         .collect();
 

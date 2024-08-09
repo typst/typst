@@ -131,7 +131,7 @@ impl Selector {
                         target.get(*id, styles).as_ref().ok() == Some(value)
                     })
             }
-            Self::Label(label) => target.label() == Some(*label),
+            Self::Label(label) => target.labels().iter().any(|l| l == label),
             Self::Regex(regex) => target
                 .to_packed::<TextElem>()
                 .is_some_and(|elem| regex.is_match(elem.text())),

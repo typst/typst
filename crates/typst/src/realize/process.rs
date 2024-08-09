@@ -167,7 +167,7 @@ fn verdict<'a>(
     if step.is_none()
         && map.is_empty()
         && (prepared || {
-            target.label().is_none()
+            target.labels().is_empty()
                 && target.location().is_none()
                 && !target.can::<dyn ShowSet>()
                 && !target.can::<dyn Locatable>()
@@ -197,7 +197,7 @@ fn prepare(
     let mut key = None;
     if target.location().is_some() {
         key = Some(crate::utils::hash128(&target));
-    } else if target.can::<dyn Locatable>() || target.label().is_some() {
+    } else if target.can::<dyn Locatable>() || !target.labels().is_empty() {
         let hash = crate::utils::hash128(&target);
         let location = locator.next_location(engine.introspector, hash);
         target.set_location(location);
