@@ -33,7 +33,8 @@ use crate::layout::{
     Sizing, TrackSizings, VElem,
 };
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
+    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem,
+    OutlinedContent, ParElem,
 };
 
 use crate::syntax::{Span, Spanned};
@@ -105,7 +106,7 @@ pub struct BibliographyElem {
     /// The bibliography's heading will not be numbered by default, but you can
     /// force it to be with a show-set rule:
     /// `{show bibliography: set heading(numbering: "1.")}`
-    pub title: Smart<Option<Content>>,
+    pub title: Smart<Option<Packed<OutlinedContent>>>,
 
     /// Whether to include all works from the given bibliography files, even
     /// those that weren't cited in the document.
@@ -213,7 +214,11 @@ impl Show for Packed<BibliographyElem> {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles).unwrap_or_else(|| {
-            Some(TextElem::packed(Self::local_name_in(styles)).spanned(self.span()))
+            Some(Packed::new(
+                TextElem::packed(Self::local_name_in(styles))
+                    .spanned(self.span())
+                    .into(),
+            ))
         }) {
             seq.push(
                 HeadingElem::new(title)

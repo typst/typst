@@ -10,7 +10,9 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
 use crate::layout::{Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Regions};
-use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::model::{
+    Numbering, Outlinable, OutlinedContent, ParElem, Refable, Supplement,
+};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 use crate::utils::NonZeroExt;
 
@@ -178,8 +180,12 @@ pub struct HeadingElem {
     pub hanging_indent: Smart<Length>,
 
     /// The heading's title.
+    ///
+    /// If passed as a dictionary, it must contain the key `document` and can
+    /// optionally contain the keys `outline` and `bookmark` to customize the
+    /// title in the outline and PDF bookmark, respectively.
     #[required]
-    pub body: Content,
+    pub body: Packed<OutlinedContent>,
 }
 
 impl HeadingElem {
@@ -218,7 +224,7 @@ impl Show for Packed<HeadingElem> {
         const SPACING_TO_NUMBERING: Em = Em::new(0.3);
 
         let span = self.span();
-        let mut realized = self.body().clone();
+        let mut realized = self.body().document().clone();
 
         let hanging_indent = self.hanging_indent(styles);
         let mut indent = match hanging_indent {
@@ -322,7 +328,7 @@ impl Outlinable for Packed<HeadingElem> {
             return Ok(None);
         }
 
-        let mut content = self.body().clone();
+        let mut content = self.body().outline().clone();
         if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
             let numbers = Counter::of(HeadingElem::elem()).display_at_loc(
                 engine,

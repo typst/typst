@@ -2,11 +2,12 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use comemo::Track;
+use ecow::EcoString;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Context, Func, LocatableSelector,
+    cast, elem, scope, select_where, Content, Context, Dict, Func, LocatableSelector,
     NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
@@ -73,7 +74,7 @@ pub struct OutlineElem {
     /// The outline's heading will not be numbered by default, but you can
     /// force it to be with a show-set rule:
     /// `{show outline: set heading(numbering: "1.")}`
-    pub title: Smart<Option<Content>>,
+    pub title: Smart<Option<Packed<OutlinedContent>>>,
 
     /// The type of element to include in the outline.
     ///
@@ -193,7 +194,11 @@ impl Show for Packed<OutlineElem> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles).unwrap_or_else(|| {
-            Some(TextElem::packed(Self::local_name_in(styles)).spanned(self.span()))
+            Some(Packed::new(
+                TextElem::packed(Self::local_name_in(styles))
+                    .spanned(self.span())
+                    .into(),
+            ))
         }) {
             seq.push(
                 HeadingElem::new(title)
@@ -526,5 +531,52 @@ impl Show for Packed<OutlineEntry> {
         seq.push(page);
 
         Ok(Content::sequence(seq))
+    }
+}
+
+/// An element allowing different content to be shown in the document, in the
+/// outline, and in the PDF bookmark.
+#[elem(Show)]
+pub struct OutlinedContent {
+    /// The content to show by default throughout the document.
+    #[required]
+    pub document: Content,
+
+    /// The content to show in the outline.
+    #[required]
+    pub outline: Content,
+
+    /// The text to show in the PDF bookmark.
+    #[required]
+    pub bookmark: EcoString,
+}
+
+impl From<Content> for OutlinedContent {
+    fn from(value: Content) -> Self {
+        value
+            .unpack()
+            .unwrap_or_else(|v| Self::new(v.clone(), v.clone(), v.plain_text()))
+    }
+}
+
+impl Show for Packed<OutlinedContent> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.document().clone())
+    }
+}
+
+cast! {
+    OutlinedContent,
+    v: Content => v.into(),
+    mut v: Dict => {
+        let document = v.take("document")?.cast::<Content>()?;
+        let outline = v
+            .take("outline")
+            .map_or_else(|_| Ok(document.clone()), |v| v.cast::<Content>())?;
+        let bookmark = v
+            .take("bookmark")
+            .map_or_else(|_| Ok(outline.plain_text()), |v| v.cast::<EcoString>())?;
+
+        OutlinedContent::new(document, outline, bookmark)
     }
 }

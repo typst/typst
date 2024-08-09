@@ -254,8 +254,8 @@ Default page numbers now.
   header: context {
     let prev = query(selector(heading).before(here()))
     let next = query(selector(heading).after(here()))
-    let prev = if prev != () { prev.last().body }
-    let next = if next != () { next.first().body }
+    let prev = if prev != () { prev.last().body.document }
+    let next = if next != () { next.first().body.document }
     (prev: prev, next: next)
   }
 )
