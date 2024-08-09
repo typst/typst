@@ -69,7 +69,7 @@ pub use self::version::*;
 pub use {
     ecow::{eco_format, eco_vec},
     indexmap::IndexMap,
-    once_cell::sync::Lazy,
+    std::sync::LazyLock,
 };
 
 use ecow::EcoString;

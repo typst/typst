@@ -1,9 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -216,8 +215,8 @@ impl Func {
 
     /// Get details about the function's return type.
     pub fn returns(&self) -> Option<&'static CastInfo> {
-        static CONTENT: Lazy<CastInfo> =
-            Lazy::new(|| CastInfo::Type(Type::of::<Content>()));
+        static CONTENT: LazyLock<CastInfo> =
+            LazyLock::new(|| CastInfo::Type(Type::of::<Content>()));
         match &self.repr {
             Repr::Native(native) => Some(&native.0.returns),
             Repr::Element(_) => Some(&CONTENT),
@@ -462,11 +461,11 @@ pub struct NativeFuncData {
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
     pub contextual: bool,
-    pub scope: Lazy<Scope>,
+    pub scope: LazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: Lazy<Vec<ParamInfo>>,
+    pub params: LazyLock<Vec<ParamInfo>>,
     /// Information about the return value of this function.
-    pub returns: Lazy<CastInfo>,
+    pub returns: LazyLock<CastInfo>,
 }
 
 impl From<&'static NativeFuncData> for Func {
