@@ -319,7 +319,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        SyntaxKind::Text | SyntaxKind::Shorthand => {
+        SyntaxKind::Text | SyntaxKind::MathShorthand => {
             continuable = matches!(
                 math_class(p.current_text()),
                 None | Some(MathClass::Alphabetic)
