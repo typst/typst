@@ -1,13 +1,16 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
-    Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
+    StyleChain, Unlabellable,
 };
-use crate::introspection::Locator;
-use crate::layout::{Em, Fragment, Length, Size};
+use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
+use crate::layout::{
+    Em, FixedAlignment, Fragment, HAlignment, Length, OuterHAlignment, Size,
+};
+use crate::model::Numbering;
 use crate::realize::StyleVec;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -35,7 +38,7 @@ use crate::realize::StyleVec;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Debug, Construct)]
+#[elem(scope, title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -144,6 +147,12 @@ pub struct ParElem {
     pub children: StyleVec,
 }
 
+#[scope]
+impl ParElem {
+    #[elem]
+    type ParLine;
+}
+
 impl Construct for ParElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -224,3 +233,103 @@ pub enum Linebreaks {
 pub struct ParbreakElem {}
 
 impl Unlabellable for Packed<ParbreakElem> {}
+
+/// A paragraph line.
+///
+/// This element is exclusively used for line number configuration and cannot
+/// be placed.
+#[elem(name = "line", title = "Paragraph Line", Construct, Locatable, Count)]
+pub struct ParLine {
+    /// How to number each line. Accepts a
+    /// [numbering pattern or function]($numbering).
+    ///
+    /// ```example
+    /// #set par.line(numbering: "1")
+    ///
+    /// Roses are red. \
+    /// Violets are blue. \
+    /// Typst is awesome.
+    /// ```
+    #[ghost]
+    pub numbering: Option<Numbering>,
+
+    /// The alignment of line numbers associated with each line.
+    ///
+    /// The default of `auto` will provide a smart default where numbers grow
+    /// horizontally away from the text, considering the margin they're in and
+    /// the current text direction.
+    ///
+    /// ```example
+    /// #set par.line(numbering: "I", number-align: left)
+    ///
+    /// Hello world! \
+    /// Today is a beautiful day \
+    /// For exploring the world.
+    /// ```
+    #[ghost]
+    pub number_align: Smart<HAlignment>,
+
+    /// The margin at which the line numbers for each line appear.
+    ///
+    /// ```example
+    /// #set par.line(numbering: "1", number-margin: right)
+    ///
+    /// = Report
+    /// - Brightness: Dark, yet darker
+    /// - Readings: Negative
+    /// ```
+    #[ghost]
+    #[default(OuterHAlignment::Start)]
+    pub number_margin: OuterHAlignment,
+}
+
+impl Construct for ParLine {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Count for Packed<ParLine> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // The line counter must be updated manually by the root flow
+        None
+    }
+}
+
+/// A marker used to indicate the presence of a line.
+///
+/// This element is added to each line in a paragraph and later searched to
+/// find out where to draw line numbers.
+#[elem(Construct, Show, Locatable, Count)]
+pub struct ParLineMarker {
+    #[internal]
+    #[required]
+    pub numbering: Numbering,
+
+    #[internal]
+    #[required]
+    pub number_align: FixedAlignment,
+
+    #[internal]
+    #[required]
+    pub number_margin: FixedAlignment,
+}
+
+impl Construct for ParLineMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<ParLineMarker> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(Content::empty())
+    }
+}
+
+impl Count for Packed<ParLineMarker> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // The line counter must be updated manually by the root flow
+        None
+    }
+}

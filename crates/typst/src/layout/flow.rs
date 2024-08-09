@@ -5,20 +5,25 @@
 //! inline-level layoutable elements.
 
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Construct, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+    elem, Args, Construct, Content, NativeElement, Packed, Resolve, SequenceElem, Smart,
+    StyleChain,
 };
-use crate::introspection::{Locator, SplitLocator, Tag, TagElem};
+use crate::introspection::{
+    Counter, CounterDisplayElem, CounterUpdate, Locator, SplitLocator, Tag, TagElem,
+};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem, Fr,
     Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
 };
-use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
+use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
-use crate::utils::Numeric;
+use crate::syntax::Span;
+use crate::utils::{NonZeroExt, Numeric};
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
@@ -102,6 +107,12 @@ struct FootnoteConfig {
     gap: Abs,
 }
 
+/// Information needed to generate a line number.
+struct CollectedParLine {
+    y: Abs,
+    marker: Packed<ParLineMarker>,
+}
+
 /// A prepared item in a flow layout.
 #[derive(Debug)]
 enum FlowItem {
@@ -117,6 +128,12 @@ enum FlowItem {
         align: Axes<FixedAlignment>,
         /// Whether the frame sticks to the item after it (for orphan prevention).
         sticky: bool,
+        /// Whether the frame comes from a rootable block, which may be laid
+        /// out as a root flow and thus display its own line numbers.
+        /// Therefore, we do not display line numbers for these frames.
+        ///
+        /// Currently, this is only used by columns.
+        rootable: bool,
         /// Whether the frame is movable; that is, kept together with its
         /// footnotes.
         ///
@@ -150,6 +167,8 @@ impl FlowItem {
     /// Out-of-flow items are guaranteed to have a [zero size][Size::zero()].
     fn is_out_of_flow(&self) -> bool {
         match self {
+            // TODO: Is it appropriate to bundle line number here?
+            // It is the same as placing something though.
             Self::Placed { float: false, .. } => true,
             Self::Frame { frame, .. } => {
                 frame.size().is_zero()
@@ -316,6 +335,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 frame,
                 align,
                 sticky: false,
+                rootable: false,
                 movable: true,
             })?;
         }
@@ -333,12 +353,13 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         // Fetch properties.
         let sticky = block.sticky(styles);
         let align = AlignElem::alignment_in(styles).resolve(styles);
+        let rootable = block.rootable(styles);
 
         // If the block is "rootable" it may host footnotes. In that case, we
         // defer rootness to it temporarily. We disable our own rootness to
         // prevent duplicate footnotes.
         let is_root = self.root;
-        if is_root && block.rootable(styles) {
+        if is_root && rootable {
             self.root = false;
             self.regions.root = true;
         }
@@ -369,7 +390,13 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
             self.drain_tag(&mut frame);
             frame.post_process(styles);
-            self.handle_item(FlowItem::Frame { frame, align, sticky, movable: false })?;
+            self.handle_item(FlowItem::Frame {
+                frame,
+                align,
+                sticky,
+                rootable,
+                movable: false,
+            })?;
         }
 
         self.try_handle_footnotes(notes)?;
@@ -510,7 +537,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
                 self.regions.size.y -= frame.height();
 
-                // Find footnotes in the frame.
+                // Find lines and footnotes in the frame.
                 if self.root {
                     let mut notes = vec![];
                     collect_footnotes(&mut notes, frame);
@@ -645,6 +672,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let mut float_bottom_offset = Abs::zero();
         let mut footnote_offset = Abs::zero();
 
+        let mut lines: Vec<CollectedParLine> = vec![];
+
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
@@ -656,12 +685,20 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let length = v.share(fr, remaining);
                     offset += length;
                 }
-                FlowItem::Frame { frame, align, .. } => {
+                FlowItem::Frame { frame, align, rootable, .. } => {
                     ruler = ruler.max(align.y);
                     let x = align.x.position(size.x - frame.width());
                     let y = offset + ruler.position(size.y - used.y);
                     let pos = Point::new(x, y);
                     offset += frame.height();
+
+                    // Do not display line numbers for frames coming from
+                    // rootable blocks as they will display their own line
+                    // numbers when laid out as a root flow themselves.
+                    if self.root && !rootable {
+                        collect_par_lines(&mut lines, &frame, pos, Abs::zero());
+                    }
+
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed { frame, x_align, y_align, delta, float, .. } => {
@@ -693,6 +730,10 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     let pos = Point::new(x, y)
                         + delta.zip_map(size, Rel::relative_to).to_point();
 
+                    if self.root {
+                        collect_par_lines(&mut lines, &frame, pos, Abs::zero());
+                    }
+
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Footnote(frame) => {
@@ -701,6 +742,72 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     output.push_frame(Point::with_y(y), frame);
                 }
             }
+        }
+
+        // Prepare to sort, deduplicate and layout line numbers.
+        //
+        // We do this after placing all frames since they might not necessarily
+        // be ordered by height (e.g. you can have a `place(bottom)` followed
+        // by a paragraph, but the paragraph appears at the top), so we buffer
+        // all line numbers to later sort and deduplicate them based on how
+        // close they are to each other.
+        lines.sort_by_key(|line| line.y);
+
+        // TODO: Consider real line height
+        // Actually, we should store the height of each line next to the tag
+        // Then we deduplicate based on lines being inside others
+        const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
+
+        // Buffer line number frames so we can align them horizontally later
+        // before placing, based on the width of the largest line number.
+        let mut line_numbers = vec![];
+        // Used for horizontal alignment.
+        let mut max_number_width = Abs::zero();
+        let mut prev_y = None;
+        for line in lines {
+            if prev_y
+                .is_some_and(|prev_y| (line.y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
+            {
+                // Lines are too close together. Display as the same line number.
+                continue;
+            }
+
+            // Note that line.y > prev_y due to sorting.
+            // Therefore, the check above ensures no lines too close together
+            // will cause too many different line numbers to appear.
+            prev_y = Some(line.y);
+            let number_align = *line.marker.number_align();
+            let number_margin = *line.marker.number_margin();
+            // TODO: Clearance argument
+            let number_clearance = Abs::cm(1.0);
+            let number = self.layout_line_number(line.marker)?;
+            let number_x = match number_margin {
+                FixedAlignment::Start => -number_clearance,
+                FixedAlignment::End => size.x + number_clearance,
+                // Shouldn't be specifiable by the user due to 'OuterHAlignment'.
+                FixedAlignment::Center => unreachable!(),
+            };
+            let number_pos = Point::new(number_x, line.y);
+            max_number_width.set_max(number.width());
+            line_numbers.push((number_pos, number, number_align, number_margin));
+        }
+
+        for (mut pos, number, align, margin) in line_numbers {
+            if matches!(margin, FixedAlignment::Start) {
+                // Move the line number backwards the more aligned to the left it
+                // is, instead of moving to the right when it's right aligned. We
+                // do it this way, without fully overriding the 'x' coordinate, to
+                // preserve the original clearance between the line numbers and the
+                // text.
+                pos.x -=
+                    max_number_width - align.position(max_number_width - number.width());
+            } else {
+                // Move the line number forwards when aligned to the right.
+                // Leave as is when aligned to the left.
+                pos.x += align.position(max_number_width - number.width());
+            }
+
+            output.push_frame(pos, number);
         }
 
         if force && !self.pending_tags.is_empty() {
@@ -856,6 +963,49 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
         Ok(())
     }
+
+    /// Layout the line number associated with the given line marker.
+    ///
+    /// Produces a counter update and counter display with counter key
+    /// `ParLineMarker`. We use `ParLineMarker` as it is an element which is
+    /// not exposed to the user, as we don't want to expose the line number
+    /// counter at the moment, given that its semantics are inconsistent with
+    /// that of normal counters (the counter is updated based on height and not
+    /// on frame order / layer). When we find a solution to this, we should
+    /// switch to a counter on `ParLine` instead, thus exposing the counter as
+    /// `counter(par.line)` to the user.
+    fn layout_line_number(
+        &mut self,
+        marker: Packed<ParLineMarker>,
+    ) -> SourceResult<Frame> {
+        let counter = Counter::of(ParLineMarker::elem());
+        let counter_update = counter
+            .clone()
+            .update(Span::detached(), CounterUpdate::Step(NonZeroUsize::ONE));
+        let counter_display = CounterDisplayElem::new(
+            counter,
+            Smart::Custom(marker.numbering().clone()),
+            false,
+        );
+        let number = SequenceElem::new(vec![counter_update, counter_display.pack()]);
+        let locator = self.locator.next(&number);
+
+        let mut frame = number
+            .pack()
+            .layout(
+                self.engine,
+                locator,
+                *self.styles,
+                Regions::one(Axes::splat(Abs::inf()), Axes::splat(false)),
+            )?
+            .into_frame();
+
+        // Ensure the baseline of the line number aligns with the line's own
+        // baseline.
+        frame.translate(Point::with_y(-frame.baseline()));
+
+        Ok(frame)
+    }
 }
 
 /// Collect all footnotes in a frame.
@@ -870,6 +1020,53 @@ fn collect_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
                     continue;
                 };
                 notes.push(footnote.clone());
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Collect all numbered paragraph lines in the frame.
+/// The 'prev_y' parameter starts at 0 on the first call to 'collect_par_lines'.
+/// On each subframe we encounter, we add that subframe's position to 'prev_y',
+/// until we reach a line's tag, at which point we add the tag's position
+/// and finish. That gives us the relative height of the line from the start of
+/// the initial frame.
+fn collect_par_lines(
+    lines: &mut Vec<CollectedParLine>,
+    frame: &Frame,
+    frame_pos: Point,
+    prev_y: Abs,
+) {
+    for (pos, item) in frame.items() {
+        match item {
+            FrameItem::Group(group) => {
+                collect_par_lines(lines, &group.frame, frame_pos, prev_y + pos.y)
+            }
+
+            // Unlike footnotes, we don't need to guard against duplicate tags
+            // here, since we already deduplicate line markers based on their
+            // height later on, in `finish_region`.
+            FrameItem::Tag(tag) => {
+                let Some(marker) = tag.elem.to_packed::<ParLineMarker>() else {
+                    continue;
+                };
+
+                // 1. 'prev_y' is the accumulated relative height from the top
+                // of the frame we're searching so far;
+                // 2. 'prev_y + pos.y' gives us the final relative height of
+                // the line we just found from the top of the initial frame;
+                // 3. 'frame_pos.y' is the height of the initial frame relative
+                // to the root flow (and thus its absolute 'y');
+                // 4. Therefore, 'y' will be the line's absolute 'y' in the
+                // page based on its marker's position, and thus the 'y' we
+                // should use for line numbers. In particular, this represents
+                // the 'y' at the top of the line, due to the marker placement
+                // logic within the 'line::commit()' function in the 'inline'
+                // module.
+                let y = frame_pos.y + prev_y + pos.y;
+
+                lines.push(CollectedParLine { y, marker: marker.clone() });
             }
             _ => {}
         }

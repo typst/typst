@@ -3,7 +3,10 @@ use std::ops::{Deref, DerefMut};
 
 use super::*;
 use crate::engine::Engine;
-use crate::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use crate::foundations::{NativeElement, Resolve};
+use crate::introspection::{SplitLocator, Tag};
+use crate::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, HAlignment, Point};
+use crate::model::{ParLine, ParLineMarker};
 use crate::text::{Lang, TextElem};
 use crate::utils::Numeric;
 
@@ -406,6 +409,7 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
 }
 
 /// Commit to a line and build its frame.
+#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
@@ -413,6 +417,8 @@ pub fn commit(
     width: Abs,
     full: Abs,
     shrink: bool,
+    locator: &mut SplitLocator<'_>,
+    styles: StyleChain,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
@@ -535,6 +541,37 @@ pub fn commit(
             }
             Item::Skip(_) => {}
         }
+    }
+
+    if let Some(numbering) = ParLine::numbering_in(styles) {
+        let number_align = ParLine::number_align_in(styles)
+            .unwrap_or(HAlignment::End)
+            .resolve(styles);
+        let number_margin = ParLine::number_margin_in(styles).resolve(styles);
+        let mut par_line =
+            ParLineMarker::new(numbering, number_align, number_margin).pack();
+
+        // Elements in tags must have a location for introspection to work.
+        // We do the work here instead of going through all of the realization
+        // process just for this, given we don't need to actually place the
+        // marker as we manually search for it in the frame later (when
+        // building a root flow, where line numbers can be displayed), so we
+        // just need it to be in a tag and to be valid (to have a location).
+        let hash = crate::utils::hash128(&par_line);
+        let location = locator.next_location(engine.introspector, hash);
+        par_line.set_location(location);
+
+        // Create a tag through which we can search for this line's marker
+        // later. Its 'x' coordinate is not important, just the 'y'
+        // coordinate, as that's what is used for line numbers. We will place
+        // the tag among other subframes in the line such that it is aligned
+        // with the line's general baseline. However, the line number will
+        // still need to manually adjust its own 'y' position based on its own
+        // baseline.
+        let tag = Tag::new(par_line, hash);
+        let mut frame = Frame::soft(Size::zero());
+        frame.push(Point::zero(), FrameItem::Tag(tag));
+        frames.push((offset, frame));
     }
 
     // Remaining space is distributed now.

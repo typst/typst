@@ -63,9 +63,11 @@ pub(crate) fn layout_inline(
             route: Route::extend(route),
         };
 
+        let mut locator = locator.split();
+
         // Collect all text into one string for BiDi analysis.
         let (text, segments, spans) =
-            collect(children, &mut engine, locator, &styles, region, consecutive)?;
+            collect(children, &mut engine, &mut locator, &styles, region, consecutive)?;
 
         // Perform BiDi analysis and then prepares paragraph layout.
         let p = prepare(&mut engine, children, &text, segments, spans, styles)?;
@@ -74,7 +76,7 @@ pub(crate) fn layout_inline(
         let lines = linebreak(&engine, &p, region.x - p.hang);
 
         // Turn the selected lines into frames.
-        finalize(&mut engine, &p, &lines, styles, region, expand)
+        finalize(&mut engine, &p, &lines, styles, region, expand, &mut locator)
     }
 
     cached(
