@@ -602,6 +602,18 @@ impl Str {
         }
         s.into()
     }
+
+    /// Capitalize the first letter of the string.
+    #[func]
+    pub fn capitalize(&self) -> Str {
+        let mut c = self.0.chars();
+        let result = match c.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        };
+        result.into()
+    }
+    
 }
 
 impl Deref for Str {
