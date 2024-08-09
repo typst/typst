@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -19,7 +19,29 @@ pub(super) struct Lexer<'s> {
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
+    ///
+    /// This is present to increase convenience when returning an error by avoiding the
+    /// need to manually return an error from most lexer functions.
     error: Option<SyntaxError>,
+}
+
+/// How to proceed with lexing when seeing a newline in Code mode.
+///
+/// This enum causes the lexer to emit false `SyntaxKind::End` tokens when lexing in code
+/// mode. This simplifies parsing in Code mode, since the parser will think it's done when
+/// newlines interrupt expressions and won't have to handle the complexity of potentially
+/// continuing past newlines for if-else statements or trailing field-accesses.
+///
+/// Note that this does not interact with newlines in block comments.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum NewlineMode {
+    /// Never emit a false `End`.
+    Continue,
+    /// Emit a false `End` at any newline.
+    Stop,
+    /// Emit a false `End` only if there is no continuation with `else` or `.`.
+    /// Note that a continuation might come after an arbitrary amount of trivia.
+    MaybeContinue,
 }
 
 /// What kind of tokens to emit.
@@ -30,9 +52,26 @@ pub(super) enum LexMode {
     /// Math atoms, operators, etc.
     Math,
     /// Keywords, literals and operators.
-    Code,
+    Code(NewlineMode),
     /// The contents of a raw block.
     Raw,
+}
+
+/// A single parsed Token, potentially an error.
+#[derive(Clone)]
+pub struct Token<'s> {
+    pub kind: SyntaxKind,
+    pub text: &'s str,
+    pub lex_error: Option<SyntaxError>,
+}
+
+/// The starting point of any trivia (whitespace/comments) preceding the current token.
+#[derive(Clone)]
+pub struct TriviaStart {
+    /// Number of preceding trivia `nodes` (for avoiding trivia when wrapping).
+    pub num: usize,
+    /// Offset into `text` of the trivia start (for moving the lexer's cursor back).
+    pub offset: usize,
 }
 
 impl<'s> Lexer<'s> {
@@ -73,11 +112,6 @@ impl<'s> Lexer<'s> {
     pub fn newline(&self) -> bool {
         self.newline
     }
-
-    /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<SyntaxError> {
-        self.error.take()
-    }
 }
 
 impl Lexer<'_> {
@@ -96,23 +130,49 @@ impl Lexer<'_> {
 }
 
 /// Shared methods with all [`LexMode`].
-impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
-    /// token could be a [trivia](SyntaxKind::is_trivia).
+impl<'s> Lexer<'s> {
+    /// Move the lexer forward to return the next token and, in Math/Code mode, lex past
+    /// any trivia tokens, pushing them into `nodes`.
+    ///
+    /// Note: This cannot be a function of self since it's needed for initializization.
+    pub fn lex_past_trivia(
+        &mut self,
+        nodes: &mut Vec<SyntaxNode>,
+    ) -> (Token<'s>, Option<TriviaStart>) {
+        let mut start = self.cursor();
+        let mut kind = self.next();
+        let mut triv = TriviaStart { num: 0, offset: start };
+
+        if self.mode != LexMode::Markup {
+            // Skip past any trivia at the start when in Math/Code mode.
+            while kind.is_trivia() {
+                nodes.push(SyntaxNode::leaf(kind, self.s.from(start)));
+                start = self.cursor();
+                kind = self.next();
+                triv.num += 1;
+            }
+        }
+        let prev_trivia = if triv.num != 0 { Some(triv) } else { None };
+        let lex_error = self.error.take();
+        (Token { kind, text: self.s.from(start), lex_error }, prev_trivia)
+    }
+
+    /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.
+    /// Note the token could be a [trivia](SyntaxKind::is_trivia).
     pub fn next(&mut self) -> SyntaxKind {
         if self.mode == LexMode::Raw {
-            let Some((kind, end)) = self.raw.pop() else {
+            if let Some((kind, end)) = self.raw.pop() {
+                self.s.jump(end);
+                return kind;
+            } else {
                 return SyntaxKind::End;
-            };
-            self.s.jump(end);
-            return kind;
+            }
         }
-
-        self.newline = false;
-        self.error = None;
+        assert_eq!(self.error, None);
         let start = self.s.cursor();
-        match self.s.eat() {
-            Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+        let mut newlines = 0; // Make it explicit where newline counting happens.
+        let kind = match self.s.eat() {
+            Some(c) if is_space(c, self.mode) => self.whitespace(start, c, &mut newlines),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -127,24 +187,44 @@ impl Lexer<'_> {
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
-                LexMode::Code => self.code(start, c),
+                LexMode::Code(mode) => match mode {
+                    // Code mode might produce false `SyntaxKind::End` tokens on newlines.
+                    NewlineMode::Stop if self.newline => SyntaxKind::End,
+                    NewlineMode::MaybeContinue if self.newline => {
+                        // Lookahead at the next token before lexing to avoid entering
+                        // an invalid state somehow.
+                        let mut lookahead = self.clone();
+                        match lookahead.code(start, c) {
+                            SyntaxKind::Dot | SyntaxKind::Else => self.code(start, c),
+                            _ => SyntaxKind::End,
+                        }
+                    }
+                    _ => self.code(start, c),
+                },
                 LexMode::Raw => unreachable!(),
             },
 
             None => SyntaxKind::End,
-        }
+        };
+        use NewlineMode::MaybeContinue;
+        if matches!(self.mode, LexMode::Code(MaybeContinue)) && kind.is_trivia() {
+            // Preserve `self.newline` when in MaybeContinue mode and parsing trivia.
+            self.newline = self.newline || newlines > 0;
+        } else {
+            self.newline = newlines > 0;
+        };
+        kind
     }
 
     /// Eat whitespace characters greedily.
-    fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
+    fn whitespace(&mut self, start: usize, c: char, newlines: &mut usize) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
-        let newlines = match c {
+        *newlines = match c {
             ' ' if more.is_empty() => 0,
             _ => count_newlines(self.s.from(start)),
         };
 
-        self.newline = newlines > 0;
-        if self.mode == LexMode::Markup && newlines >= 2 {
+        if self.mode == LexMode::Markup && *newlines >= 2 {
             SyntaxKind::Parbreak
         } else {
             SyntaxKind::Space
