@@ -113,7 +113,7 @@ impl SystemWorld {
         };
 
         let fonts = Fonts::searcher()
-            .include_system_fonts(command.font_args.ignore_system_fonts)
+            .include_system_fonts(!command.font_args.ignore_system_fonts)
             .search_with(&command.font_args.font_paths);
 
         let now = match command.creation_timestamp {
