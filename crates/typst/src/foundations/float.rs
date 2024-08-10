@@ -66,8 +66,8 @@ impl f64 {
 
     /// Checks if a float is infinite.
     ///
-    /// For floats, there is positive and negative infinity. This function
-    /// returns `true` if the float is either positive or negative infinity.
+    /// Floats can represent positive and negative infinity. This function
+    /// returns `{true}` if the float is either an infinity.
     ///
     /// ```example
     /// #float.is-infinite(0) \
