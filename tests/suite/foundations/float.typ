@@ -49,7 +49,10 @@
 #repr(-9876543210.0) \
 #repr(-0987654321.0) \
 #repr(-3.14) \
-#repr(4.0 - 8.0)
+#repr(4.0 - 8.0) \
+#repr(calc.inf) \
+#repr(-calc.inf) \
+#repr(calc.nan)
 
 --- float-display ---
 // Test floats.
@@ -63,4 +66,7 @@
 #(-9876543210.0) \
 #(-0987654321.0) \
 #(-3.14) \
-#(4.0 - 8.0)
+#(4.0 - 8.0) \
+#calc.inf \
+#(-calc.inf) \
+#calc.nan
