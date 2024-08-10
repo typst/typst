@@ -89,6 +89,7 @@ impl f64 {
     /// #(5.0).signum() \
     /// #(-5.0).signum() \
     /// #(0.0).signum() \
+    /// #calc.nan.signum()
     /// ```
     #[func]
     pub fn signum(self) -> f64 {
