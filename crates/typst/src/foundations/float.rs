@@ -27,10 +27,11 @@ impl f64 {
     /// Converts a value to a float.
     ///
     /// - Booleans are converted to `0.0` or `1.0`.
-    /// - Integers are converted to the closest 64-bit float.
+    /// - Integers are converted to the closest 64-bit float. For integers with
+    ///   absolute value less than 9 quadrillion, this conversion is exact.
     /// - Ratios are divided by 100%.
-    /// - Strings are parsed in base 10 to the closest 64-bit float.
-    ///   Exponential notation is supported.
+    /// - Strings are parsed in base 10 to the closest 64-bit float. Exponential
+    ///   notation is supported.
     ///
     /// ```example
     /// #float(false) \
