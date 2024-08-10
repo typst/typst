@@ -83,8 +83,7 @@ impl f64 {
     ///
     /// - If the number is positive (including `{+0.0}`), returns `{1.0}`.
     /// - If the number is negative (including `{-0.0}`), returns `{-1.0}`.
-    /// - If the number is [`{calc.nan}`]($calc.nan), returns
-    ///   [`{calc.nan}`]($calc.nan).
+    /// - If the number is `{calc.nan}`, returns `{calc.nan}`.
     ///
     /// ```example
     /// #(5.0).signum() \
