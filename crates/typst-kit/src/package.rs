@@ -85,9 +85,11 @@ impl PackageStorage {
             }
 
             // Download from network if it doesn't exist yet.
-            self.download_package(spec, &dir, progress)?;
-            if dir.exists() {
-                return Ok(dir);
+            if spec.namespace == "preview" {
+                self.download_package(spec, &dir, progress)?;
+                if dir.exists() {
+                    return Ok(dir);
+                }
             }
         }
 
