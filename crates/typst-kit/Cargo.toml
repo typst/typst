@@ -37,7 +37,7 @@ default = ["fonts", "packages"]
 fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 
 # Add generic downloading utilities
-downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "openssl"]
+downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
 
 # Add package downloading utilities, implies `downloads`
 packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]
