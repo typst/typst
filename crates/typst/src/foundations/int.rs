@@ -62,7 +62,7 @@ impl i64 {
     /// ```example
     /// #(5).signum() \
     /// #(-5).signum() \
-    /// #(0).signum() \
+    /// #(0).signum()
     /// ```
     #[func]
     pub fn signum(self) -> i64 {
@@ -75,7 +75,7 @@ impl i64 {
     /// integer of 64 bits.
     ///
     /// ```example
-    /// #4.bit-not()
+    /// #4.bit-not() \
     /// #(-1).bit-not()
     /// ```
     #[func(title = "Bitwise NOT")]
@@ -141,7 +141,7 @@ impl i64 {
     /// fit in a 64-bit integer.
     ///
     /// ```example
-    /// #33.bit-lshift(2)
+    /// #33.bit-lshift(2) \
     /// #(-1).bit-lshift(3)
     /// ```
     #[func(title = "Bitwise Left Shift")]
@@ -162,8 +162,8 @@ impl i64 {
     /// integer of 64 bits.
     ///
     /// ```example
-    /// #64.bit-rshift(2)
-    /// #(-8).bit-rshift(2)
+    /// #64.bit-rshift(2) \
+    /// #(-8).bit-rshift(2) \
     /// #(-8).bit-rshift(2, logical: true)
     /// ```
     #[func(title = "Bitwise Right Shift")]
@@ -172,17 +172,17 @@ impl i64 {
         /// The amount of bits to shift. Must not be negative.
         ///
         /// Shifts larger than 63 are allowed and will cause the return value to
-        /// saturate. For non-negative numbers, the return value saturates at `0`,
-        /// while, for negative numbers, it saturates at `-1` if `logical` is set
-        /// to `false`, or `0` if it is `true`. This behavior is consistent with
-        /// just applying this operation multiple times. Therefore, the shift will
-        /// always succeed.
+        /// saturate. For non-negative numbers, the return value saturates at
+        /// `{0}`, while, for negative numbers, it saturates at `{-1}` if
+        /// `logical` is set to `{false}`, or `{0}` if it is `{true}`. This
+        /// behavior is consistent with just applying this operation multiple
+        /// times. Therefore, the shift will always succeed.
         shift: u32,
         /// Toggles whether a logical (unsigned) right shift should be performed
         /// instead of arithmetic right shift.
-        /// If this is `true`, negative operands will not preserve their sign bit,
-        /// and bits which appear to the left after the shift will be `0`.
-        /// This parameter has no effect on non-negative operands.
+        /// If this is `{true}`, negative operands will not preserve their sign
+        /// bit, and bits which appear to the left after the shift will be
+        /// `{0}`. This parameter has no effect on non-negative operands.
         #[named]
         #[default(false)]
         logical: bool,
