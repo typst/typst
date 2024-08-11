@@ -24,6 +24,13 @@ type f64;
 
 #[scope]
 impl f64 {
+    /// Positive infinity.
+    const INF: f64 = f64::INFINITY;
+
+    /// A NaN value, as defined by the
+    /// [IEEE 754 standard](https://en.wikipedia.org/wiki/IEEE_754).
+    const NAN: f64 = f64::NAN;
+
     /// Converts a value to a float.
     ///
     /// - Booleans are converted to `0.0` or `1.0`.
