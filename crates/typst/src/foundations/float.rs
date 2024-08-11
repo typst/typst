@@ -68,7 +68,7 @@ impl f64 {
     /// ```example
     /// #float.is-nan(0) \
     /// #float.is-nan(1) \
-    /// #float.is-nan(calc.nan)
+    /// #float.is-nan(float.nan)
     /// ```
     #[func]
     pub fn is_nan(self) -> bool {
@@ -83,7 +83,7 @@ impl f64 {
     /// ```example
     /// #float.is-infinite(0) \
     /// #float.is-infinite(1) \
-    /// #float.is-infinite(calc.inf)
+    /// #float.is-infinite(float.inf)
     /// ```
     #[func]
     pub fn is_infinite(self) -> bool {
@@ -94,13 +94,13 @@ impl f64 {
     ///
     /// - If the number is positive (including `{+0.0}`), returns `{1.0}`.
     /// - If the number is negative (including `{-0.0}`), returns `{-1.0}`.
-    /// - If the number is `{calc.nan}`, returns `{calc.nan}`.
+    /// - If the number is `{float.nan}`, returns `{float.nan}`.
     ///
     /// ```example
     /// #(5.0).signum() \
     /// #(-5.0).signum() \
     /// #(0.0).signum() \
-    /// #calc.nan.signum()
+    /// #float.nan.signum()
     /// ```
     #[func]
     pub fn signum(self) -> f64 {
