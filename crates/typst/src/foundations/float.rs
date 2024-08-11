@@ -13,6 +13,9 @@ use crate::layout::Ratio;
 ///
 /// You can convert a value to a float with this type's constructor.
 ///
+/// NaN and positive infinity are available as `{float.nan}` and `{float.inf}`
+/// respectively.
+///
 /// # Example
 /// ```example
 /// #3.14 \
