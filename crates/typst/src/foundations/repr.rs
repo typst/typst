@@ -73,12 +73,15 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
 }
 
 /// Converts a float to a string representation with a specific precision and a
-/// suffix, all with a single allocation.
+/// unit, all with a single allocation.
+///
+/// The returned string is always valid Typst code. As such, it might not be a
+/// float literal. For example, it may return `"calc.inf"`.
 pub fn format_float(
     mut value: f64,
     precision: Option<u8>,
     force_separator: bool,
-    suffix: &str,
+    unit: &str,
 ) -> EcoString {
     if let Some(p) = precision {
         let offset = 10_f64.powi(p as i32);
@@ -86,12 +89,16 @@ pub fn format_float(
     }
     // Debug for f64 always prints a decimal separator, while Display only does
     // when necessary.
+    let unit_multiplication = if unit.is_empty() { "" } else { " * 1" };
     if value.is_nan() {
-        "NaN".into()
+        eco_format!("calc.nan{unit_multiplication}{unit}")
+    } else if value.is_infinite() {
+        let sign = if value < 0.0 { "-" } else { "" };
+        eco_format!("{sign}calc.inf{unit_multiplication}{unit}")
     } else if force_separator {
-        eco_format!("{:?}{}", value, suffix)
+        eco_format!("{value:?}{unit}")
     } else {
-        eco_format!("{}{}", value, suffix)
+        eco_format!("{value}{unit}")
     }
 }
 
@@ -112,6 +119,9 @@ pub fn format_float_with_unit(value: f64, unit: &str) -> EcoString {
 pub fn display_float(value: f64) -> EcoString {
     if value.is_nan() {
         "NaN".into()
+    } else if value.is_infinite() {
+        let sign = if value < 0.0 { MINUS_SIGN } else { "" };
+        eco_format!("{sign}∞")
     } else if value < 0.0 {
         eco_format!("{}{}", MINUS_SIGN, value.abs())
     } else {
