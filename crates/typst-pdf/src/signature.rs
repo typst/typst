@@ -25,9 +25,7 @@ use cms::{
     },
 };
 use pdf_writer::{
-    types::{FieldType, SigFlags},
-    writers::{Field, Form},
-    Finish, Name, Pdf, Primitive, Ref, Str,
+    types::SigFlags, writers::Form, Finish, Name, Pdf, Primitive, Ref, Str,
 };
 use rsa::{traits::SignatureScheme, Pkcs1v15Sign, RsaPrivateKey};
 use sha2::Sha512;
@@ -38,8 +36,11 @@ pub fn prepare(alloc: &mut Ref, pdf: &mut Pdf) -> (Range<usize>, Ref) {
     let form_ref = alloc.bump();
     let signature_field_ref = alloc.bump();
 
-    let mut signature_field: Field = pdf.indirect(signature_field_ref).start();
-    signature_field.field_type(FieldType::Signature);
+    let mut signature_field = pdf.indirect(signature_field_ref).dict();
+    signature_field.pair(Name(b"Type"), Name(b"Annot"));
+    signature_field.pair(Name(b"Subtype"), Name(b"Widget"));
+    signature_field.pair(Name(b"FieldType"), Name(b"Sig"));
+    signature_field.insert(Name(b"Rect")).array().items([0, 0, 0, 0]);
     let mut signature_dict = signature_field.insert(Name(b"V")).dict();
     signature_dict.pair(Name(b"Type"), Name(b"Sig"));
     signature_dict.pair(Name(b"Filter"), Name(b"Adobe.PPKLite"));
