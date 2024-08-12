@@ -1,13 +1,12 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, Show, StyleChain,
 };
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, Fragment, Frame, Length, Point, Regions, Size,
 };
-use crate::model::ParElem;
 use crate::utils::Numeric;
 
 /// Repeats content to the available space.
@@ -43,10 +42,8 @@ pub struct RepeatElem {
 
     /// Whether to increase the gap between instances to completely fill the
     /// available space.
-    ///
-    /// When `{auto}`, inherits the paragraph's [`justify`]($par.justify).
-    #[default(Smart::Custom(true))]
-    pub justify: Smart<bool>,
+    #[default(true)]
+    pub justify: bool,
 }
 
 impl Show for Packed<RepeatElem> {
@@ -82,10 +79,13 @@ fn layout_repeat(
     let mut gap = elem.gap(styles).resolve(styles);
     let fill = regions.size.x;
     let width = piece.width();
+
+    // count * width + (count - 1) * gap = fill, but count is an integer so
+    // we need to round down and get the remainder.
     let count = ((fill + gap) / (width + gap)).floor();
     let remaining = (fill + gap) % (width + gap);
 
-    let justify = elem.justify(styles).unwrap_or_else(|| ParElem::justify_in(styles));
+    let justify = elem.justify(styles);
     if justify {
         gap += remaining / (count - 1.0);
     }
