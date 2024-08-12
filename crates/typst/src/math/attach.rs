@@ -89,7 +89,8 @@ impl LayoutMath for Packed<AttachElem> {
             };
         }
 
-        let [t, b] = [layout!(t, sup_style_chain)?, layout!(b, sub_style_chain)?];
+        let t = layout!(t, sup_style_chain)?;
+        let b = layout!(b, sub_style_chain)?;
         if let Some(stretch) = base.stretch() {
             let relative_to_width =
                 measure!(t, width).max(measure!(b, width)).max(stretch.from);
