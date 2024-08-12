@@ -23,3 +23,11 @@
 --- issue-3110-associated-function ---
 // Error: 6-18 type string does not contain field `from-unïcode`
 #str.from-unïcode(97)
+
+--- issue-2747-repr ---
+#repr(none)
+#repr(auto)
+
+--- issue-2747-repr-type ---
+#repr(type(none))
+#repr(type(auto))

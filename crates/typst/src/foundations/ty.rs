@@ -148,7 +148,11 @@ impl Debug for Type {
 
 impl Repr for Type {
     fn repr(&self) -> EcoString {
-        self.long_name().into()
+        match self.long_name() {
+            "auto" => "type(auto)".into(),
+            "none" => "type(none)".into(),
+            x => x.into(),
+        }
     }
 }
 
