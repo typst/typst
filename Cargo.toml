@@ -138,6 +138,10 @@ opt-level = 2
 lto = "thin"
 codegen-units = 1
 
+[profile.bench]
+debug = true
+strip = false
+
 [profile.release.package."typst-cli"]
 strip = true
 
