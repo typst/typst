@@ -353,7 +353,7 @@ impl MathRun {
         items
     }
 
-    fn is_multiline(&self) -> bool {
+    pub fn is_multiline(&self) -> bool {
         self.iter().any(|frag| matches!(frag, MathFragment::Linebreak))
     }
 }
