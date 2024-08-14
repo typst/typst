@@ -112,7 +112,8 @@ fn write_page(
         return;
     };
 
-    let mut annotations = Vec::with_capacity(page.content.links.len());
+    let mut annotations = Vec::with_capacity(page.content.links.len() + 1);
+    annotations.push(ctx.references.signature_annotation);
     for (dest, rect) in &page.content.links {
         let id = chunk.alloc();
         annotations.push(id);

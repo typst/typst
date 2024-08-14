@@ -133,7 +133,17 @@ pub fn write_catalog(
         .pair(Name(b"Subtype"), Name(b"XML"));
 
     // Prepare digital signatures
-    let (signature_range, signature_form_ref) = signature::prepare(alloc, &mut pdf);
+    let (signature_range, signature_form_ref) = signature::prepare(
+        alloc,
+        &mut pdf,
+        ctx.references.signature_annotation,
+        ctx.globals
+            .pages
+            .iter()
+            .filter_map(|p| *p)
+            .last()
+            .expect("Can't sign a doc with no pages"),
+    );
 
     // Write the document catalog.
     let catalog_ref = alloc.bump();

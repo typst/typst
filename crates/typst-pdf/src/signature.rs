@@ -25,26 +25,54 @@ use cms::{
     },
 };
 use pdf_writer::{
-    types::SigFlags, writers::Form, Finish, Name, Pdf, Primitive, Ref, Str,
+    types::SigFlags, writers::Form, Date, Finish, Name, Pdf, Primitive, Ref, Str,
 };
 use rsa::{traits::SignatureScheme, Pkcs1v15Sign, RsaPrivateKey};
 use sha2::Sha512;
 
+use crate::{PdfChunk, WithGlobalRefs};
+
 const SIG_SIZE: usize = 1024 * 4;
 
-pub fn prepare(alloc: &mut Ref, pdf: &mut Pdf) -> (Range<usize>, Ref) {
-    let form_ref = alloc.bump();
-    let signature_field_ref = alloc.bump();
+pub fn alloc_signature_annotation(_: &WithGlobalRefs) -> (PdfChunk, Ref) {
+    let mut chunk = PdfChunk::new();
+    let r = chunk.alloc();
+    (chunk, r)
+}
 
-    let mut signature_field = pdf.indirect(signature_field_ref).dict();
+pub fn prepare(
+    alloc: &mut Ref,
+    pdf: &mut Pdf,
+    signature_annotation_ref: Ref,
+    last_page_ref: Ref,
+) -> (Range<usize>, Ref) {
+    let form_ref = alloc.bump();
+    let field_lock_ref = alloc.bump();
+
+    let mut lock = pdf.indirect(field_lock_ref).dict();
+    lock.pair(Name(b"Type"), Name(b"SigFieldLock"));
+    lock.pair(Name(b"Action"), Name(b"All"));
+    lock.finish();
+
+    let mut signature_field = pdf.indirect(signature_annotation_ref).dict();
     signature_field.pair(Name(b"Type"), Name(b"Annot"));
     signature_field.pair(Name(b"Subtype"), Name(b"Widget"));
-    signature_field.pair(Name(b"FieldType"), Name(b"Sig"));
-    signature_field.insert(Name(b"Rect")).array().items([0, 0, 0, 0]);
+    signature_field.pair(Name(b"FT"), Name(b"Sig"));
+    signature_field.pair(Name(b"F"), 132);
+    signature_field.pair(Name(b"T"), Str(b"Signature"));
+    signature_field.pair(Name(b"P"), last_page_ref);
+    signature_field.pair(Name(b"Lock"), field_lock_ref);
+    signature_field
+        .insert(Name(b"Rect"))
+        .array()
+        .items([0.0, 0.0, 0.0, 0.0]);
     let mut signature_dict = signature_field.insert(Name(b"V")).dict();
     signature_dict.pair(Name(b"Type"), Name(b"Sig"));
     signature_dict.pair(Name(b"Filter"), Name(b"Adobe.PPKLite"));
     signature_dict.pair(Name(b"SubFilter"), Name(b"adbe.pkcs7.detached"));
+    signature_dict.pair(Name(b"Name"), Str(b"Ana Gelez"));
+    signature_dict
+        .pair(Name(b"M"), Date::new(2024).month(08).day(12).hour(15).minute(55));
     let mut placeholder = [0; SIG_SIZE];
     placeholder[0] = 255; // Make sure pdf-writer writes this array as binary
     let sig_end = signature_dict
@@ -58,12 +86,25 @@ pub fn prepare(alloc: &mut Ref, pdf: &mut Pdf) -> (Range<usize>, Ref) {
         .array()
         .items([0, sig_start as i32, sig_end as i32])
         .item(Str(b"typst-document-size"));
+
+    let mut sig_refs = signature_dict.insert(Name(b"Reference")).array();
+    let mut sig_ref = sig_refs.push().dict();
+    sig_ref.pair(Name(b"Type"), Name(b"SigRef"));
+    sig_ref.pair(Name(b"TransformMethod"), Name(b"DocMDP"));
+    let mut params = sig_ref.insert(Name(b"TransformParams")).dict();
+    params.pair(Name(b"Type"), Name(b"TransformParams"));
+    params.pair(Name(b"P"), 1);
+    params.finish();
+    sig_ref.pair(Name(b"DigestMethod"), Name(b"SHA1"));
+    sig_ref.finish();
+    sig_refs.finish();
+
     signature_dict.finish();
     signature_field.finish();
 
     let mut form: Form = pdf.indirect(form_ref).start();
-    form.fields([signature_field_ref]);
-    form.sig_flags(SigFlags::SIGNATURES_EXIST);
+    form.fields([signature_annotation_ref]);
+    form.sig_flags(SigFlags::SIGNATURES_EXIST | SigFlags::APPEND_ONLY);
 
     (sig_start..sig_end, form_ref)
 }
@@ -77,7 +118,10 @@ pub fn write(range: Range<usize>, mut bytes: Vec<u8>) -> Vec<u8> {
     let doc_size_range = doc_size_start..(doc_size_start + needle.len());
     dbg!(&range, &doc_size_range);
     let mut actual_size = Vec::new();
-    <i32 as pdf_writer::Primitive>::write(bytes.len() as i32, &mut actual_size);
+    <i32 as pdf_writer::Primitive>::write(
+        (bytes.len() - range.end) as i32,
+        &mut actual_size,
+    );
     actual_size.extend(std::iter::repeat(b' ').take(needle.len() - actual_size.len()));
     bytes.splice(
         doc_size_range.start + range.end..doc_size_range.end + range.end,

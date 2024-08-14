@@ -21,6 +21,7 @@ use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
 use pdf_writer::{Chunk, Pdf, Ref};
+use signature::alloc_signature_annotation;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, PageRanges, Transform};
 use typst::model::Document;
@@ -79,6 +80,7 @@ pub fn pdf(
             resources: builder.run(alloc_resources_refs),
         })
         .phase(|builder| References {
+            signature_annotation: builder.run(alloc_signature_annotation),
             named_destinations: builder.run(write_named_destinations),
             fonts: builder.run(write_fonts),
             color_fonts: builder.run(write_color_fonts),
@@ -207,6 +209,8 @@ impl<'a> From<(WithResources<'a>, GlobalRefs)> for WithGlobalRefs<'a> {
 
 /// The references that have been assigned to each object.
 struct References {
+    /// Reference for the digital signature annotation
+    signature_annotation: Ref,
     /// List of named destinations, each with an ID.
     named_destinations: NamedDestinations,
     /// The IDs of written fonts.
