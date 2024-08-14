@@ -6,6 +6,8 @@ heading = Chapitre
 outline = Table des matières
 raw = Liste
 
+figure_caption_separator = .\u{a0}–\u{20}
+
 opening_single_quote = ‹\u{a0}
 closing_single_quote = \u{a0}›
 opening_double_quote = «\u{a0}
