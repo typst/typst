@@ -10,7 +10,10 @@ use std::time::Duration;
 /// more robust.
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
     let offset = 10_f64.powi(precision.into());
-    assert!(value * offset < f64::MAX, "Hit the upper limit of f64 when rounding!");
+    assert!(
+        value * offset < f64::MAX,
+        "Hit the upper limit of f64 when rounding! ({value} * 10^{precision})"
+    );
     (value * offset).round() / offset
 }
 
