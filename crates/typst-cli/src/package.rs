@@ -26,6 +26,12 @@ pub struct PackageStorage {
     index: OnceCell<Vec<PackageInfo>>,
 }
 
+/// Returns mapped `io::Error` to `PackageError::FileLocking` with a custom message.
+/// Intended to be used inside `io::Result`'s `.map_err()` method.
+fn file_locking_err(message: &'static str) -> impl Fn(io::Error) -> PackageError {
+    move |error| PackageError::FileLocking(eco_format!("{message}: {error}"))
+}
+
 impl PackageStorage {
     pub fn from_args(args: &PackageStorageArgs) -> Self {
         let package_cache_path = args.package_cache_path.clone().or_else(|| {
@@ -65,10 +71,6 @@ impl PackageStorage {
                 return Ok(dir);
             }
             let parent_dir = cache_dir.join(&parent_subdir);
-
-            let file_locking_err = |string| {
-                move |err| PackageError::FileLocking(eco_format!("{string}: {err}"))
-            };
 
             let lock_file_path = parent_dir.join(format!(".{}.lock", spec.version));
             let remove_lock = || {
