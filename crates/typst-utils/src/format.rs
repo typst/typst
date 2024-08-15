@@ -1,4 +1,18 @@
-use std::{cmp::min, time::Duration};
+//! Different formatting functions.
+
+use std::time::Duration;
+
+/// Returns value with `n` digits after floating point where `n` is `precision`.
+/// Standard rounding rule applies (if `n+1`th digit >= 5 then round up).
+///
+/// Will panic for a very large `value` and `precision` (if the `f64` limit is hit).
+/// In practice, it should never panic, otherwise the implementation have to be
+/// more robust.
+pub fn round_with_precision(value: f64, precision: u8) -> f64 {
+    let offset = 10_f64.powi(precision.into());
+    assert!(value * offset < f64::MAX, "Hit the upper limit of f64 when rounding!");
+    (value * offset).round() / offset
+}
 
 /// Returns number of `(days, hours, minutes, seconds, milliseconds, microseconds)`.
 fn get_duration_parts(duration: &Duration) -> (u16, u8, u8, u8, u16, u16) {
@@ -23,51 +37,27 @@ fn format_dhms(days: u16, hours: u8, minutes: u8, seconds: u8) -> String {
 }
 
 /// Format string starting with number of days and going bigger from there.
-fn time_starting_with_seconds(duration: &Duration) -> String {
+pub fn time_starting_with_seconds(duration: &Duration) -> String {
     let (days, hours, minutes, seconds, _, _) = get_duration_parts(duration);
     format_dhms(days, hours, minutes, seconds)
 }
 
 /// Format string starting with number of milliseconds and going bigger from there.
-/// `precision` is how many digits of microseconds from left will be preserved.
-/// Note that this function will always remove all trailing zeros for microseconds.
-fn time_starting_with_ms_with_precision(duration: &Duration, precision: usize) -> String {
-    let digits = precision;
+/// `precision` is how many digits of microseconds from floating point to the right
+/// will be preserved. Note that this function will always remove all trailing zeros
+/// for microseconds.
+pub fn time_starting_with_ms_with_precision(
+    duration: &Duration,
+    precision: u8,
+) -> String {
     let (d, h, m, s, ms, mcs) = get_duration_parts(duration);
-    let mcs_digits = {
-        let mut mcs = mcs;
-        println!("before {mcs}");
-        while mcs % 10 == 0 && mcs != 0 {
-            mcs /= 10
-        }
-        println!("after {mcs}");
-        mcs.to_string().len()
-    };
-    let ms = format!(
-        "{1:.0$} ms",
-        if mcs != 0 { min(digits, mcs_digits) } else { 0 },
-        ms as f32 + mcs as f32 / 1000.0
-    );
     match (d, h, m, s) {
-        (0, 0, 0, 0) => ms.to_string(),
+        (0, 0, 0, 0) => {
+            let ms_mcs = ms as f64 + mcs as f64 / 1000.0;
+            format!("{} ms", round_with_precision(ms_mcs, precision))
+        }
         (d, h, m, s) => format_dhms(d, h, m, s),
     }
-}
-
-fn time_as_ms(duration: &Duration) -> String {
-    time_starting_with_ms_with_precision(duration, 2)
-}
-
-pub fn elapsed_time(duration: &Duration) -> String {
-    time_starting_with_seconds(duration)
-}
-
-pub fn eta_time(duration: &Duration) -> String {
-    time_starting_with_seconds(duration)
-}
-
-pub fn compilation_time(duration: &Duration) -> String {
-    time_as_ms(duration)
 }
 
 #[cfg(test)]

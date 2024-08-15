@@ -166,7 +166,7 @@ impl RemoteReader {
 
         let total_downloaded = as_bytes_unit(self.total_downloaded);
         let speed_h = as_throughput_unit(speed);
-        let elapsed = format::elapsed_time(
+        let elapsed = format::time_starting_with_seconds(
             &Instant::now().saturating_duration_since(self.start_time),
         );
 
@@ -176,7 +176,7 @@ impl RemoteReader {
                 let remaining = content_len - self.total_downloaded;
 
                 let download_size = as_bytes_unit(content_len);
-                let eta = format::eta_time(
+                let eta = format::time_starting_with_seconds(
                     &Duration::from_secs(
                         if speed == 0 { 0 } else { (remaining / speed) as u64 }
                     )

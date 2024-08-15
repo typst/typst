@@ -1,12 +1,12 @@
 //! Utilities for Typst.
 
 pub mod fat;
+pub mod format;
 
 #[macro_use]
 mod macros;
 mod bitset;
 mod deferred;
-pub mod format;
 mod hash;
 mod pico;
 mod scalar;
