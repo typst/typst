@@ -50,7 +50,6 @@ pub fn module() -> Module {
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
     scope.define("inf", f64::INFINITY);
-    scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
     scope.define("tau", std::f64::consts::TAU);
     scope.define("e", std::f64::consts::E);

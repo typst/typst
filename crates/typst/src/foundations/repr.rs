@@ -76,7 +76,7 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
 /// unit, all with a single allocation.
 ///
 /// The returned string is always valid Typst code. As such, it might not be a
-/// float literal. For example, it may return `"calc.inf"`.
+/// float literal. For example, it may return `"float.inf"`.
 pub fn format_float(
     mut value: f64,
     precision: Option<u8>,
@@ -91,10 +91,10 @@ pub fn format_float(
     // when necessary.
     let unit_multiplication = if unit.is_empty() { "" } else { " * 1" };
     if value.is_nan() {
-        eco_format!("calc.nan{unit_multiplication}{unit}")
+        eco_format!("float.nan{unit_multiplication}{unit}")
     } else if value.is_infinite() {
         let sign = if value < 0.0 { "-" } else { "" };
-        eco_format!("{sign}calc.inf{unit_multiplication}{unit}")
+        eco_format!("{sign}float.inf{unit_multiplication}{unit}")
     } else if force_separator {
         eco_format!("{value:?}{unit}")
     } else {

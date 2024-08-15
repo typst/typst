@@ -5,7 +5,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, Fragment, Frame, Length, Point, Regions, Size,
+    Abs, AlignElem, Axes, BlockElem, Frame, Length, Point, Region, Regions, Size,
 };
 use crate::utils::Numeric;
 
@@ -48,7 +48,7 @@ pub struct RepeatElem {
 
 impl Show for Packed<RepeatElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), layout_repeat)
+        Ok(BlockElem::single_layouter(self.clone(), layout_repeat)
             .pack()
             .spanned(self.span()))
     }
@@ -61,11 +61,11 @@ fn layout_repeat(
     engine: &mut Engine,
     locator: Locator,
     styles: StyleChain,
-    regions: Regions,
-) -> SourceResult<Fragment> {
-    let pod = Regions::one(regions.size, Axes::new(false, false));
+    region: Region,
+) -> SourceResult<Frame> {
+    let pod = Regions::one(region.size, Axes::new(false, false));
     let piece = elem.body().layout(engine, locator, styles, pod)?.into_frame();
-    let size = Size::new(regions.size.x, piece.height());
+    let size = Size::new(region.size.x, piece.height());
 
     if !size.is_finite() {
         bail!(elem.span(), "repeat with no size restrictions");
@@ -77,7 +77,7 @@ fn layout_repeat(
     }
 
     let mut gap = elem.gap(styles).resolve(styles);
-    let fill = regions.size.x;
+    let fill = region.size.x;
     let width = piece.width();
 
     // count * width + (count - 1) * gap = fill, but count is an integer so
@@ -103,5 +103,5 @@ fn layout_repeat(
         }
     }
 
-    Ok(Fragment::frame(frame))
+    Ok(frame)
 }

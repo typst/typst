@@ -13,6 +13,9 @@ use crate::layout::Ratio;
 ///
 /// You can convert a value to a float with this type's constructor.
 ///
+/// NaN and positive infinity are available as `{float.nan}` and `{float.inf}`
+/// respectively.
+///
 /// # Example
 /// ```example
 /// #3.14 \
@@ -24,6 +27,13 @@ type f64;
 
 #[scope]
 impl f64 {
+    /// Positive infinity.
+    const INF: f64 = f64::INFINITY;
+
+    /// A NaN value, as defined by the
+    /// [IEEE 754 standard](https://en.wikipedia.org/wiki/IEEE_754).
+    const NAN: f64 = f64::NAN;
+
     /// Converts a value to a float.
     ///
     /// - Booleans are converted to `0.0` or `1.0`.
@@ -58,7 +68,7 @@ impl f64 {
     /// ```example
     /// #float.is-nan(0) \
     /// #float.is-nan(1) \
-    /// #float.is-nan(calc.nan)
+    /// #float.is-nan(float.nan)
     /// ```
     #[func]
     pub fn is_nan(self) -> bool {
@@ -73,7 +83,7 @@ impl f64 {
     /// ```example
     /// #float.is-infinite(0) \
     /// #float.is-infinite(1) \
-    /// #float.is-infinite(calc.inf)
+    /// #float.is-infinite(float.inf)
     /// ```
     #[func]
     pub fn is_infinite(self) -> bool {
@@ -84,13 +94,13 @@ impl f64 {
     ///
     /// - If the number is positive (including `{+0.0}`), returns `{1.0}`.
     /// - If the number is negative (including `{-0.0}`), returns `{-1.0}`.
-    /// - If the number is `{calc.nan}`, returns `{calc.nan}`.
+    /// - If the number is `{float.nan}`, returns `{float.nan}`.
     ///
     /// ```example
     /// #(5.0).signum() \
     /// #(-5.0).signum() \
     /// #(0.0).signum() \
-    /// #calc.nan.signum()
+    /// #float.nan.signum()
     /// ```
     #[func]
     pub fn signum(self) -> f64 {

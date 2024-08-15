@@ -18,7 +18,7 @@
 
 --- float-is-nan ---
 // Test float `is-nan()`.
-#test(float(calc.nan).is-nan(), true)
+#test(float(float.nan).is-nan(), true)
 #test(float(10).is-nan(), false)
 #test(float(calc.inf).is-nan(), false)
 #test(float(-calc.inf).is-nan(), false)
@@ -29,7 +29,7 @@
 #test(float(-calc.inf).is-infinite(), true)
 #test(float(10).is-infinite(), false)
 #test(float(-10).is-infinite(), false)
-#test(float(calc.nan).is-infinite(), false)
+#test(float(float.nan).is-infinite(), false)
 
 --- float-signum ---
 // Test float `signum()`
@@ -40,7 +40,7 @@
 #test(float(-10.0).signum(), -1.0)
 #test(float(calc.inf).signum(), 1.0)
 #test(float(-calc.inf).signum(), -1.0)
-#test(float(calc.nan).signum().is-nan(), true)
+#test(float(float.nan).signum().is-nan(), true)
 
 --- float-repr ---
 // Test the `repr` function with floats.
@@ -55,9 +55,9 @@
 #repr(-0987654321.0) \
 #repr(-3.14) \
 #repr(4.0 - 8.0) \
-#repr(calc.inf) \
-#repr(-calc.inf) \
-#repr(calc.nan)
+#repr(float.inf) \
+#repr(-float.inf) \
+#repr(float.nan)
 
 --- float-display ---
 // Test floats.
@@ -72,6 +72,6 @@
 #(-0987654321.0) \
 #(-3.14) \
 #(4.0 - 8.0) \
-#calc.inf \
-#(-calc.inf) \
-#calc.nan
+#float.inf \
+#(-float.inf) \
+#float.nan

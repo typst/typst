@@ -503,7 +503,10 @@ impl Lexer<'_> {
     }
 
     fn space_or_end(&self) -> bool {
-        self.s.done() || self.s.at(char::is_whitespace)
+        self.s.done()
+            || self.s.at(char::is_whitespace)
+            || self.s.at("//")
+            || self.s.at("/*")
     }
 }
 
