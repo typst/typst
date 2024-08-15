@@ -1,4 +1,5 @@
 use std::ops::{Add, Sub};
+use std::sync::LazyLock;
 
 use az::SaturatingAs;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
@@ -8,7 +9,6 @@ use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
-use once_cell::sync::Lazy;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -41,11 +41,11 @@ fn blob() -> BlobDataProvider {
 }
 
 /// The general line break segmenter.
-static SEGMENTER: Lazy<LineSegmenter> =
-    Lazy::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
+static SEGMENTER: LazyLock<LineSegmenter> =
+    LazyLock::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
 
 /// The line break segmenter for Chinese/Japanese text.
-static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
+static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
     let cj_blob =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU_CJ_SEGMENT)
             .unwrap();
@@ -54,12 +54,12 @@ static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
 });
 
 /// The Unicode line break properties for each code point.
-static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
+static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| {
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
 
 /// The set of Unicode default ignorables.
-static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
+static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetData> = LazyLock::new(|| {
     icu_properties::sets::load_default_ignorable_code_point(&blob().as_deserializing())
         .unwrap()
 });

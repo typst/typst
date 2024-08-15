@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
@@ -25,8 +24,8 @@ use crate::package;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
-static STDIN_ID: Lazy<FileId> =
-    Lazy::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
+static STDIN_ID: LazyLock<FileId> =
+    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {

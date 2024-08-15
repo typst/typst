@@ -1,6 +1,5 @@
 use std::ops::Div;
-
-use once_cell::unsync::Lazy;
+use std::cell::LazyCell;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -298,7 +297,7 @@ impl Packed<ScaleElem> {
             })
         }
 
-        let size = Lazy::new(|| {
+        let size = LazyCell::new(|| {
             let pod = Regions::one(container, Axes::splat(false));
             let frame = self.body().layout(engine, locator, styles, pod)?.into_frame();
             SourceResult::Ok(frame.size())

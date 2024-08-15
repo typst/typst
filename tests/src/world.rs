@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
@@ -29,7 +28,7 @@ impl TestWorld {
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
     pub fn new(source: Source) -> Self {
-        static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
+        static BASE: LazyLock<TestBase> = LazyLock::new(TestBase::default);
         Self { main: source, base: &*BASE }
     }
 }

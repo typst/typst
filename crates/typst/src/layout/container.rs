@@ -1,4 +1,4 @@
-use once_cell::unsync::Lazy;
+use std::cell::LazyCell;
 use smallvec::SmallVec;
 
 use crate::diag::{bail, SourceResult};
@@ -172,8 +172,8 @@ impl Packed<BoxElem> {
             .map(|s| s.map(Stroke::unwrap_or_default));
 
         // Only fetch these if necessary (for clipping or filling/stroking).
-        let outset = Lazy::new(|| self.outset(styles).unwrap_or_default());
-        let radius = Lazy::new(|| self.radius(styles).unwrap_or_default());
+        let outset = LazyCell::new(|| self.outset(styles).unwrap_or_default());
+        let radius = LazyCell::new(|| self.radius(styles).unwrap_or_default());
 
         // Clip the contents, if requested.
         if self.clip(styles) {
@@ -586,8 +586,8 @@ impl Packed<BlockElem> {
             .map(|s| s.map(Stroke::unwrap_or_default));
 
         // Only fetch these if necessary (for clipping or filling/stroking).
-        let outset = Lazy::new(|| self.outset(styles).unwrap_or_default());
-        let radius = Lazy::new(|| self.radius(styles).unwrap_or_default());
+        let outset = LazyCell::new(|| self.outset(styles).unwrap_or_default());
+        let radius = LazyCell::new(|| self.radius(styles).unwrap_or_default());
 
         // Fetch/compute these outside of the loop.
         let clip = self.clip(styles);
