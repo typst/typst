@@ -11,13 +11,13 @@ use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
 use typst::diag::{bail, StrResult};
+use typst::utils::format;
 
 use crate::args::{CompileCommand, Input, Output};
 use crate::compile::compile_once;
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
-use typst_utils::format;
 
 /// Execute a watching compilation command.
 pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {

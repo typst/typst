@@ -11,7 +11,7 @@ use std::time::Duration;
 /// more robust.
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
     let offset = 10_f64.powi(precision.into());
-    if [f64::NEG_INFINITY, f64::INFINITY].contains(&value) {
+    if value.is_infinite() {
         return value;
     }
     assert!(
@@ -119,7 +119,6 @@ mod tests {
         assert_eq!("123.45 ms", &f(duration(123, 450)));
         assert_eq!("123.1 ms", &f(duration(123, 100)));
         assert_eq!("123 ms", &f(duration(123, 0)));
-        // assert_eq!(format!("{:?}", &f(duration(123, 0))).as_str(), &f(duration(123, 0)));
     }
 
     #[test]

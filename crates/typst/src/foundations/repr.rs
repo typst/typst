@@ -1,7 +1,7 @@
 //! Debug representation of values.
 
 use ecow::{eco_format, EcoString};
-use typst_utils::format::round_with_precision;
+use typst::utils::format::round_with_precision;
 
 use crate::foundations::{func, Str, Value};
 
