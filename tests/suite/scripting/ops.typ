@@ -335,7 +335,7 @@
 #(1em <= 10pt)
 
 --- ops-compare-normal-float-with-nan ---
-// Error: 3-22 cannot compare 2.2 with calc.nan
+// Error: 3-22 cannot compare 2.2 with float.nan
 #(2.2 <= float("nan"))
 
 --- ops-compare-int-and-str ---
@@ -343,7 +343,7 @@
 #((0, 1, 3) > (0, 1, "a"))
 
 --- ops-compare-array-nested-failure ---
-// Error: 3-42 cannot compare 3.5 with calc.nan
+// Error: 3-42 cannot compare 3.5 with float.nan
 #((0, "a", 3.5) <= (0, "a", float("nan")))
 
 --- ops-divide-by-zero-float ---
