@@ -24,10 +24,8 @@
 // Error: 6-18 type string does not contain field `from-unïcode`
 #str.from-unïcode(97)
 
---- issue-2747-repr ---
-#repr(none)
-#repr(auto)
-
---- issue-2747-repr-type ---
-#repr(type(none))
-#repr(type(auto))
+--- issue-2747-repr-auto-none ---
+#test(repr(none), "none")
+#test(repr(auto), "auto")
+#test(repr(type(none)), "type(none)")
+#test(repr(type(auto)), "type(auto)")

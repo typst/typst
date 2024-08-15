@@ -727,9 +727,9 @@ mod tests {
     fn test_value_debug() {
         // Primitives.
         test(Value::None, "none");
-        test(Value::Type(Type::construct(Value::None)), "type(none)");
         test(Value::Auto, "auto");
-        test(Value::Type(Type::construct(Value::Auto)), "type(auto)");
+        test(Value::None.ty(), "type(none)");
+        test(Value::Auto.ty(), "type(auto)");
         test(false, "false");
         test(12i64, "12");
         test(3.24, "3.24");
