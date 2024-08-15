@@ -6,7 +6,6 @@ use std::{thread::sleep, time::Duration};
 use crate::args::PackageStorageArgs;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
-use fd_lock::RwLock;
 use once_cell::sync::OnceCell;
 use termcolor::WriteColor;
 use typst::diag::{bail, PackageError, PackageResult, StrResult};
@@ -44,28 +43,34 @@ impl PackageStorage {
 
     /// Make a package available in the on-disk cache.
     pub fn prepare_package(&self, spec: &PackageSpec) -> PackageResult<PathBuf> {
-        let deepest_dir = spec.version;
-        let subdir = format!("{}/{}/{}", spec.namespace, spec.name, deepest_dir);
+        let parent_subdir = format!("{}/{}", spec.namespace, spec.name);
+        let subdir = format!("{parent_subdir}/{}", spec.version);
 
         if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);
             if dir.exists() {
+                // Question:
+                // This is a dir in the persistent package dir.
+                // Which dir is supposed to be returned?
                 return Ok(dir);
             }
         }
 
         if let Some(cache_dir) = &self.package_cache_path {
-            let dir = cache_dir.join(&subdir);
+            let dir = cache_dir.join(subdir);
             if dir.exists() {
+                // Question:
+                // This is a dir in the temporary cache dir.
+                // Which dir is supposed to be returned?
                 return Ok(dir);
             }
-            let parent_dir = dir.parent().unwrap();
+            let parent_dir = cache_dir.join(&parent_subdir);
 
             let file_locking_err = |string| {
                 move |err| PackageError::FileLocking(eco_format!("{string}: {err}"))
             };
 
-            let lock_file_path = parent_dir.join(format!(".{deepest_dir}.lock"));
+            let lock_file_path = parent_dir.join(format!(".{}.lock", spec.version));
             let remove_lock = || {
                 fs::remove_file(&lock_file_path)
                     .map_err(file_locking_err("failed to remove lock file"))
@@ -89,7 +94,7 @@ impl PackageStorage {
                 lock_file_path.to_string_lossy().strip_prefix(env!("HOME")).unwrap()
             );
             // let mut lock_file = RwLock::new(file.try_clone().unwrap());
-            let mut lock_file = RwLock::new(file);
+            let mut lock_file = fd_lock::RwLock::new(file);
             let try_lock = lock_file.try_write();
             let _lock = match try_lock {
                 Ok(lock) => {
