@@ -4,6 +4,8 @@ pub mod calc;
 pub mod repr;
 pub mod sys;
 
+pub use typst_macros::{scope, ty};
+
 mod args;
 mod array;
 mod auto;

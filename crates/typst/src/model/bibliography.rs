@@ -217,7 +217,7 @@ impl Show for Packed<BibliographyElem> {
         }) {
             seq.push(
                 HeadingElem::new(title)
-                    .with_level(Smart::Custom(NonZeroUsize::ONE))
+                    .with_depth(NonZeroUsize::ONE)
                     .pack()
                     .spanned(self.span()),
             );

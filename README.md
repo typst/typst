@@ -32,8 +32,7 @@ as LaTeX while being much easier to learn and use. Typst has:
 
 This repository contains the Typst compiler and its CLI, which is everything you
 need to compile Typst documents locally. For the best writing experience,
-consider signing up to our [collaborative online editor][app] for free. It is
-currently in public beta.
+consider signing up to our [collaborative online editor][app] for free.
 
 ## Example
 A [gentle introduction][tutorial] to Typst is available in our documentation.
@@ -173,8 +172,7 @@ typst help watch
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant
-preview, you can also check out the [Typst web app][app], which is currently in
-public beta.
+preview, you can also check out [Typst's free web app][app].
 
 ## Community
 The main place where the community gathers is our [Discord server][discord].

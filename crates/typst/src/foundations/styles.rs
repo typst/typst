@@ -7,7 +7,7 @@ use comemo::{Track, Tracked};
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 
-use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::diag::{warning, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, ty, Content, Context, Element, Func, NativeElement, Packed, Repr,
@@ -33,6 +33,8 @@ use crate::utils::LazyHash;
 /// ```
 #[func]
 pub fn style(
+    /// The engine.
+    engine: &mut Engine,
     /// The call site span.
     span: Span,
     /// A function to call with the styles. Its return value is displayed
@@ -43,6 +45,11 @@ pub fn style(
     /// content that depends on the style context it appears in.
     func: Func,
 ) -> Content {
+    engine.sink.warn(warning!(
+        span, "`style` is deprecated";
+        hint: "use a `context` expression instead"
+    ));
+
     StyleElem::new(func).pack().spanned(span)
 }
 

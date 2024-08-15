@@ -4,6 +4,7 @@ use crate::diag::{At, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{Content, NativeElement, Value};
 use crate::math::{AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem};
+use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
 
@@ -23,6 +24,14 @@ impl Eval for ast::MathIdent<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.get_in_math(&self).cloned().at(self.span())
+    }
+}
+
+impl Eval for ast::MathShorthand<'_> {
+    type Output = Value;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Symbol(Symbol::single(self.get().into())))
     }
 }
 

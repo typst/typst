@@ -8,12 +8,12 @@ use pdf_writer::{
 };
 use typst::foundations::Label;
 use typst::introspection::Location;
-use typst::layout::{Abs, Frame};
+use typst::layout::{Abs, Page};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
+use crate::Resources;
 use crate::{content, AbsExt, PdfChunk, WithDocument, WithRefs, WithResources};
-use crate::{font::improve_glyph_sets, Resources};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
@@ -33,7 +33,7 @@ pub fn traverse_pages(
             pages.push(None);
             skipped_pages += 1;
         } else {
-            let mut encoded = construct_page(&mut resources, &page.frame);
+            let mut encoded = construct_page(&mut resources, page);
             encoded.label = page
                 .numbering
                 .as_ref()
@@ -52,17 +52,13 @@ pub fn traverse_pages(
         }
     }
 
-    improve_glyph_sets(&mut resources.glyph_sets);
-    improve_glyph_sets(&mut resources.color_glyph_sets);
-
     (PdfChunk::new(), (pages, resources))
 }
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-fn construct_page(out: &mut Resources<()>, frame: &Frame) -> EncodedPage {
-    let content = content::build(out, frame, None);
-
+fn construct_page(out: &mut Resources<()>, page: &Page) -> EncodedPage {
+    let content = content::build(out, &page.frame, page.fill_or_transparent(), None);
     EncodedPage { content, label: None }
 }
 

@@ -79,7 +79,7 @@ At Beta, it was #context {
 
 --- issue-2480-counter-reset ---
 #let q = counter("question")
-#let step-show =  q.step() + q.display("1")
+#let step-show =  q.step() + context q.display("1")
 #let g = grid(step-show, step-show, gutter: 2pt)
 
 #g
@@ -104,3 +104,15 @@ At Beta, it was #context {
 #block(foo())
 #block(foo())
 #foo()
+
+--- issue-4626-counter-depth-skip ---
+// When we step and skip a level, the levels should be filled with zeros, not
+// with ones.
+#let c = counter("c")
+#context test(c.get(), (0,))
+#c.step(level: 4)
+#context test(c.get(), (0, 0, 0, 1))
+#c.step(level: 1)
+#context test(c.get(), (1,))
+#c.step(level: 3)
+#context test(c.get(), (1, 0, 1))

@@ -5,7 +5,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, At, HintedStrResult, SourceResult};
+use crate::diag::{bail, warning, At, HintedStrResult, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
@@ -15,7 +15,7 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
-use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
 use crate::World;
@@ -372,6 +372,8 @@ impl Counter {
                     FigureElem::numbering_in(styles).clone()
                 } else if func == EquationElem::elem() {
                     EquationElem::numbering_in(styles).clone()
+                } else if func == FootnoteElem::elem() {
+                    Some(FootnoteElem::numbering_in(styles).clone())
                 } else {
                     None
                 }
@@ -464,6 +466,11 @@ impl Counter {
         if let Ok(loc) = context.location() {
             self.display_impl(engine, loc, numbering, both, context.styles().ok())
         } else {
+            engine.sink.warn(warning!(
+                span, "`counter.display` without context is deprecated";
+                hint: "use it in a `context` expression instead"
+            ));
+
             Ok(CounterDisplayElem::new(self, numbering, both)
                 .pack()
                 .spanned(span)
@@ -508,13 +515,19 @@ impl Counter {
         context: Tracked<Context>,
         /// The callsite span.
         span: Span,
-        /// _Compatibility:_ This argument only exists for compatibility with
-        /// Typst 0.10 and lower and shouldn't be used anymore.
+        /// _Compatibility:_ This argument is deprecated. It only exists for
+        /// compatibility with Typst 0.10 and lower and shouldn't be used
+        /// anymore.
         #[default]
         location: Option<Location>,
     ) -> SourceResult<CounterState> {
         if location.is_none() {
             context.location().at(span)?;
+        } else {
+            engine.sink.warn(warning!(
+                span, "calling `counter.final` with a location is deprecated";
+                hint: "try removing the location argument"
+            ));
         }
 
         let sequence = self.sequence(engine)?;
@@ -674,14 +687,12 @@ impl CounterState {
     pub fn step(&mut self, level: NonZeroUsize, by: usize) {
         let level = level.get();
 
-        if self.0.len() >= level {
-            self.0[level - 1] = self.0[level - 1].saturating_add(by);
-            self.0.truncate(level);
+        while self.0.len() < level {
+            self.0.push(0);
         }
 
-        while self.0.len() < level {
-            self.0.push(1);
-        }
+        self.0[level - 1] = self.0[level - 1].saturating_add(by);
+        self.0.truncate(level);
     }
 
     /// Get the first number of the state.

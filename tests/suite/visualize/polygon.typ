@@ -27,6 +27,8 @@
 
 // Self-intersections
 #polygon((0pt, 10pt), (30pt, 20pt), (0pt, 30pt), (20pt, 0pt), (20pt, 35pt))
+#polygon(fill-rule: "non-zero", (0pt, 10pt), (30pt, 20pt), (0pt, 30pt), (20pt, 0pt), (20pt, 35pt))
+#polygon(fill-rule: "even-odd", (0pt, 10pt), (30pt, 20pt), (0pt, 30pt), (20pt, 0pt), (20pt, 35pt))
 
 // Regular polygon; should have equal side lengths
 #for k in range(3, 9) {polygon.regular(size: 30pt, vertices: k,)}

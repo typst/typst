@@ -21,24 +21,30 @@
 --- pattern-relative-self ---
 // Test with relative set to `"self"`
 #let pat(..args) = pattern(size: (30pt, 30pt), ..args)[
+  #set line(stroke: green)
   #place(top + left, line(start: (0%, 0%), end: (100%, 100%), stroke: 1pt))
   #place(top + left, line(start: (0%, 100%), end: (100%, 0%), stroke: 1pt))
 ]
 
 #set page(fill: pat(), width: 100pt, height: 100pt)
-
-#rect(fill: pat(relative: "self"), width: 100%, height: 100%, stroke: 1pt)
+#rect(
+  width: 100%,
+  height: 100%,
+  fill: pat(relative: "self"),
+  stroke: 1pt + green,
+)
 
 --- pattern-relative-parent ---
 // Test with relative set to `"parent"`
-#let pat(..args) = pattern(size: (30pt, 30pt), ..args)[
+#let pat(fill, ..args) = pattern(size: (30pt, 30pt), ..args)[
+  #rect(width: 100%, height: 100%, fill: fill, stroke: none)
   #place(top + left, line(start: (0%, 0%), end: (100%, 100%), stroke: 1pt))
   #place(top + left, line(start: (0%, 100%), end: (100%, 0%), stroke: 1pt))
 ]
 
-#set page(fill: pat(), width: 100pt, height: 100pt)
+#set page(fill: pat(white), width: 100pt, height: 100pt)
 
-#rect(fill: pat(relative: "parent"), width: 100%, height: 100%, stroke: 1pt)
+#rect(fill: pat(none, relative: "parent"), width: 100%, height: 100%, stroke: 1pt)
 
 --- pattern-small ---
 // Tests small patterns for pixel accuracy.
@@ -95,10 +101,32 @@
   center + top,
   square(
     size: 50pt,
-    stroke: 5pt + pattern(
+    fill: pattern(
       size: (5pt, 5pt),
       align(horizon + center, circle(fill: blue, radius: 2.5pt))
+    ),
+    stroke: 7.5pt + pattern(
+      size: (5pt, 5pt),
+      align(horizon + center, circle(fill: red, radius: 2.5pt))
     )
+  )
+)
+
+--- pattern-stroke-relative-parent ---
+// Test pattern on strokes with relative set to `"parent"`
+// The pattern on the circle should align with the pattern on the square.
+#align(
+  center + top,
+  block(
+    width: 50pt,
+    height: 50pt,
+    fill: pattern(size: (5pt, 5pt), circle(radius: 2.5pt, fill: blue)),
+    align(center + horizon, circle(
+      radius: 15pt,
+      stroke: 7.5pt + pattern(
+        size: (5pt, 5pt), circle(radius: 2.5pt, fill: red), relative: "parent"
+      ),
+    ))
   )
 )
 

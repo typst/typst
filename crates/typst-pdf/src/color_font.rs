@@ -243,7 +243,7 @@ impl ColorFontMap<()> {
             let width =
                 font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
             let instructions =
-                content::build(&mut self.resources, &frame, Some(width as f32));
+                content::build(&mut self.resources, &frame, None, Some(width as f32));
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
@@ -305,7 +305,7 @@ impl<'a, R> Iterator for ColorFontMapIter<'a, R> {
 
 /// A set of at most 256 glyphs (a limit imposed on Type3 fonts by the PDF
 /// specification) that represents a part of a TTF font.
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ColorFontSlice {
     /// The original TTF font.
     pub font: Font,
