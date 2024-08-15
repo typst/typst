@@ -1,7 +1,7 @@
 //! Download and unpack packages and package indices.
 
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::{thread::sleep, time::Duration};
 
@@ -257,6 +257,8 @@ impl PackageStorage {
             }
         };
 
+        eprintln!("[tmp] Unpacking package...");
+        sleep(Duration::from_secs(3));
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
         tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
             fs::remove_dir_all(package_dir).ok();
