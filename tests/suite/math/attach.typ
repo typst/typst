@@ -128,3 +128,11 @@ $integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 // Test default of limit attachments on large operators at display size only
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+
+--- math-attach-limit-long ---
+// Test long limit attachments.
+$ attach(product, t: 123456789) attach(product, t: 123456789, bl: x) \
+  attach(product, b: 123456789) attach(product, b: 123456789, tr: x) $
+$attach(limits(product), t: 123456789) attach(limits(product), t: 123456789, bl: x)$
+
+$attach(limits(product), b: 123456789) attach(limits(product), b: 123456789, tr: x)$

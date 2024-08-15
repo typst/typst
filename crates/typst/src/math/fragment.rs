@@ -184,6 +184,18 @@ impl MathFragment {
             _ => Limits::Never,
         }
     }
+
+    /// If no kern table is provided for a corner, a kerning amount of zero is
+    /// assumed.
+    pub fn kern_at_height(&self, ctx: &MathContext, corner: Corner, height: Abs) -> Abs {
+        match self {
+            Self::Glyph(glyph) => {
+                kern_at_height(ctx, glyph.font_size, glyph.id, corner, height)
+                    .unwrap_or_default()
+            }
+            _ => Abs::zero(),
+        }
+    }
 }
 
 impl From<GlyphFragment> for MathFragment {
@@ -552,10 +564,6 @@ fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
 }
 
 /// Look up a kerning value at a specific corner and height.
-///
-/// This can be integrated once we've found a font that actually provides this
-/// data.
-#[allow(unused)]
 fn kern_at_height(
     ctx: &MathContext,
     font_size: Abs,
