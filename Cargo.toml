@@ -19,6 +19,7 @@ readme = "README.md"
 typst = { path = "crates/typst", version = "0.11.0" }
 typst-cli = { path = "crates/typst-cli", version = "0.11.0" }
 typst-ide = { path = "crates/typst-ide", version = "0.11.0" }
+typst-kit = { path = "crates/typst-kit", version = "0.11.0" }
 typst-macros = { path = "crates/typst-macros", version = "0.11.0" }
 typst-pdf = { path = "crates/typst-pdf", version = "0.11.0" }
 typst-render = { path = "crates/typst-render", version = "0.11.0" }
@@ -141,5 +142,6 @@ codegen-units = 1
 strip = true
 
 [workspace.lints.clippy]
-uninlined_format_args = "warn"
 blocks_in_conditions = "allow"
+mutable_key_type = "allow"
+uninlined_format_args = "warn"

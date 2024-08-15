@@ -14,7 +14,7 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 33] = [
+const TRANSLATIONS: [(&str, &str); 34] = [
     translation!("ar"),
     translation!("ca"),
     translation!("cs"),
@@ -30,6 +30,7 @@ const TRANSLATIONS: [(&str, &str); 33] = [
     translation!("hu"),
     translation!("it"),
     translation!("ja"),
+    translation!("la"),
     translation!("nb"),
     translation!("nl"),
     translation!("nn"),
@@ -75,6 +76,7 @@ impl Lang {
     pub const HUNGARIAN: Self = Self(*b"hu ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
+    pub const LATIN: Self = Self(*b"la ", 2);
     pub const LOWER_SORBIAN: Self = Self(*b"dsb", 3);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);

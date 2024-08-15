@@ -36,6 +36,14 @@
 #set text(lang: "ru")
 "Лошадь не ест салат из огурцов" - это была первая фраза, сказанная по 'телефону'.
 
+#set text(lang: "it")
+"Il cavallo non mangia insalata di cetrioli" è stata la prima frase pronunciata al 'telefono'.
+
+#set text(lang: "la")
+#set smartquote(alternative: true)
+"Equus cucumeris sem non edit" prima sententia in 'telephono' prolata fuit.
+#set smartquote(alternative: false)
+
 --- smartquote-empty ---
 // Test single pair of quotes.
 ""
