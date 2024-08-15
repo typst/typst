@@ -4,12 +4,16 @@ use std::time::Duration;
 
 /// Returns value with `n` digits after floating point where `n` is `precision`.
 /// Standard rounding rule applies (if `n+1`th digit >= 5 then round up).
+/// If `value` is +/- infinity returns `value`.
 ///
 /// Will panic for a very large `value` and `precision` (if the `f64` limit is hit).
 /// In practice, it should never panic, otherwise the implementation have to be
 /// more robust.
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
     let offset = 10_f64.powi(precision.into());
+    if [f64::NEG_INFINITY, f64::INFINITY].contains(&value) {
+        return value;
+    }
     assert!(
         value * offset < f64::MAX,
         "Hit the upper limit of f64 when rounding! ({value} * 10^{precision})"
