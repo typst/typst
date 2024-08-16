@@ -183,3 +183,22 @@ Ok ...
 
 = הוקוס Pocus
 = זוהי כותרת שתורגמה על ידי מחשב
+
+--- issue-3972-indent-inside-of-entry ---
+#set page(width: 5cm)
+#show outline.entry: it => {
+  v(0pt, weak: true)
+  it
+}
+
+#outline(indent: auto)
+
+#set heading(numbering: "1.")
+= Ok
+== Ok?
+=== Ok?
+==== Ok?
+
+#set heading(numbering: none)
+= Ok
+== Ok
