@@ -30,8 +30,8 @@ use crate::layout::{
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, EnumItem, ListElem, ListItem, ParElem,
-    ParbreakElem, TermItem, TermsElem,
+    CiteElem, CiteGroup, DocumentElem, DocumentInfo, EnumElem, EnumItem, ListElem,
+    ListItem, ParElem, ParbreakElem, TermItem, TermsElem,
 };
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -45,7 +45,7 @@ pub fn realize_doc<'a>(
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>)> {
+) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>, DocumentInfo)> {
     let mut builder = Builder::new(engine, locator, arenas, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
@@ -198,11 +198,21 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styled: &'a StyledElem,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        let local = &styled.styles;
         let stored = self.arenas.store(styles);
-        let styles = stored.chain(&styled.styles);
-        self.interrupt_style(&styled.styles, None)?;
+        let styles = stored.chain(local);
+
+        if let Some(Some(span)) = local.interruption::<DocumentElem>() {
+            let Some(doc) = &mut self.doc else {
+                bail!(span, "document set rules are not allowed inside of containers");
+            };
+            doc.info.populate(local);
+        }
+
+        self.interrupt_style(local, None)?;
         self.accept(&styled.child, styles)?;
-        self.interrupt_style(&styled.styles, Some(styles))?;
+        self.interrupt_style(local, Some(styles))?;
+
         Ok(())
     }
 
@@ -211,20 +221,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         local: &Styles,
         outer: Option<StyleChain<'a>>,
     ) -> SourceResult<()> {
-        if let Some(Some(span)) = local.interruption::<DocumentElem>() {
-            let Some(doc) = &self.doc else {
-                bail!(span, "document set rules are not allowed inside of containers");
-            };
-            if outer.is_none()
-                && (!doc.pages.is_empty()
-                    || !self.flow.0.is_empty()
-                    || !self.par.0.is_empty()
-                    || !self.list.items.is_empty()
-                    || !self.cites.items.is_empty())
-            {
-                bail!(span, "document set rules must appear before any content");
-            }
-        }
         if let Some(Some(span)) = local.interruption::<PageElem>() {
             if self.doc.is_none() {
                 bail!(span, "page configuration is not allowed inside of containers");
@@ -314,6 +310,8 @@ struct DocBuilder<'a> {
     keep_next: bool,
     /// Whether the next page should be cleared to an even or odd number.
     clear_next: Option<Parity>,
+    /// Details about the document.
+    info: DocumentInfo,
 }
 
 impl<'a> DocBuilder<'a> {
@@ -354,9 +352,9 @@ impl<'a> DocBuilder<'a> {
 
     /// Turns this builder into the resulting document, along with
     /// its [style chain][StyleChain].
-    fn finish(self) -> (Packed<DocumentElem>, StyleChain<'a>) {
+    fn finish(self) -> (Packed<DocumentElem>, StyleChain<'a>, DocumentInfo) {
         let (children, trunk, span) = self.pages.finish();
-        (Packed::new(DocumentElem::new(children)).spanned(span), trunk)
+        (Packed::new(DocumentElem::new(children)).spanned(span), trunk, self.info)
     }
 }
 
@@ -366,6 +364,7 @@ impl Default for DocBuilder<'_> {
             pages: BehavedBuilder::new(),
             keep_next: true,
             clear_next: None,
+            info: DocumentInfo::default(),
         }
     }
 }

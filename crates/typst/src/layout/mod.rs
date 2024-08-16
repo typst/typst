@@ -149,9 +149,9 @@ impl Content {
                 route: Route::extend(route).unnested(),
             };
             let arenas = Arenas::default();
-            let (document, styles) =
+            let (document, styles, info) =
                 realize_doc(&mut engine, locator.next(&()), &arenas, content, styles)?;
-            document.layout(&mut engine, locator.next(&()), styles)
+            document.layout(&mut engine, locator.next(&()), styles, info)
         }
 
         cached(
