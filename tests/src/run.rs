@@ -133,7 +133,7 @@ impl<'a> Runner<'a> {
     /// Run custom checks for which it is not worth to create special
     /// annotations.
     fn check_custom(&mut self, doc: Option<&Document>) {
-        let errors = crate::custom::check(&self.test, &self.world, doc);
+        let errors = crate::custom::check(self.test, &self.world, doc);
         if !errors.is_empty() {
             log!(self, "custom check failed");
             for line in errors.lines() {
