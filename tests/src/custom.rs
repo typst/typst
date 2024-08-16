@@ -30,6 +30,11 @@ pub fn check(test: &Test, world: &TestWorld, doc: Option<&Document>) -> String {
             let info = info(doc);
             test_eq!(sink, info.title.as_deref(), Some("Top level"));
         }
+        "issue-4769-document-context-conditional" => {
+            let info = info(doc);
+            test_eq!(sink, info.author, ["Changed"]);
+            test_eq!(sink, info.title.as_deref(), Some("Alternative"));
+        }
         _ => {}
     }
     sink
