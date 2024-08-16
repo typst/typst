@@ -4,21 +4,16 @@ use std::time::Duration;
 
 /// Returns value with `n` digits after floating point where `n` is `precision`.
 /// Standard rounding rule applies (if `n+1`th digit >= 5 then round up).
-/// If `value` is +/- infinity returns `value`.
-///
-/// Will panic for a very large `value` and `precision` (if the `f64` limit is hit).
-/// In practice, it should never panic, otherwise the implementation have to be
-/// more robust.
+/// If `value` is +/- infinity or NaN returns `value`.
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
-    let offset = 10_f64.powi(precision.into());
-    if value.is_infinite() {
+    if value.is_infinite() || value.is_nan() {
         return value;
     }
-    assert!(
-        value * offset < f64::MAX,
-        "Hit the upper limit of f64 when rounding! ({value} * 10^{precision})"
-    );
-    (value * offset).round() / offset
+    let integer_part = if value > 0.0 { value.floor() } else { value.ceil() };
+    let fractional_part = value - integer_part;
+    let offset = 10_f64.powi(precision.into());
+    let rounded_fractional_part = (fractional_part * offset).round() / offset;
+    integer_part + rounded_fractional_part
 }
 
 /// Returns number of `(days, hours, minutes, seconds, milliseconds, microseconds)`.
@@ -71,7 +66,58 @@ pub fn time_starting_with_ms_with_precision(
 mod tests {
     use super::*;
 
-    fn duration_milli_micro(milliseconds: u16, microseconds: u16) -> Duration {
+    #[test]
+    fn test_round_with_precision_0() {
+        let round = |value| round_with_precision(value, 0);
+        assert_eq!(0.0, round(0.0));
+        assert_eq!(-0.0, round(-0.0));
+        assert_eq!(0.0, round(0.4));
+        assert_eq!(-0.0, round(-0.4));
+        assert_eq!(1.0, round(0.56453));
+        assert_eq!(-1.0, round(-0.56453));
+    }
+
+    #[test]
+    fn test_round_with_precision_1() {
+        let round = |value| round_with_precision(value, 1);
+        assert_eq!(0.0, round(0.0));
+        assert_eq!(-0.0, round(-0.0));
+        assert_eq!(0.4, round(0.4));
+        assert_eq!(-0.4, round(-0.4));
+        assert_eq!(0.4, round(0.44));
+        assert_eq!(-0.4, round(-0.44));
+        assert_eq!(0.6, round(0.56453));
+        assert_eq!(-0.6, round(-0.56453));
+        assert_eq!(1.0, round(0.96453));
+        assert_eq!(-1.0, round(-0.96453));
+    }
+
+    #[test]
+    fn test_round_with_precision_2() {
+        let round = |value| round_with_precision(value, 2);
+        assert_eq!(0.0, round(0.0));
+        assert_eq!(-0.0, round(-0.0));
+        assert_eq!(0.4, round(0.4));
+        assert_eq!(-0.4, round(-0.4));
+        assert_eq!(0.44, round(0.44));
+        assert_eq!(-0.44, round(-0.44));
+        assert_eq!(0.44, round(0.444));
+        assert_eq!(-0.44, round(-0.444));
+        assert_eq!(0.57, round(0.56553));
+        assert_eq!(-0.57, round(-0.56553));
+        assert_eq!(1.0, round(0.99553));
+        assert_eq!(-1.0, round(-0.99553));
+    }
+
+    #[test]
+    fn test_round_with_precision_fuzzy() {
+        let round = |value| round_with_precision(value, 0);
+        assert_eq!(f64::INFINITY, round(f64::INFINITY));
+        assert_eq!(f64::NEG_INFINITY, round(f64::NEG_INFINITY));
+        assert!(round(f64::NAN).is_nan());
+    }
+
+    fn duration_from_milli_micro(milliseconds: u16, microseconds: u16) -> Duration {
         let microseconds = microseconds as u64;
         let milliseconds = 1000 * milliseconds as u64;
         Duration::from_micros(milliseconds + microseconds)
@@ -100,7 +146,7 @@ mod tests {
     #[test]
     fn test_time_as_ms_with_precision_1() {
         let f = |duration| time_starting_with_ms_with_precision(&duration, 1);
-        let duration = duration_milli_micro;
+        let duration = duration_from_milli_micro;
         assert_eq!("123.5 ms", &f(duration(123, 456)));
         assert_eq!("123.5 ms", &f(duration(123, 455)));
         assert_eq!("123.4 ms", &f(duration(123, 445)));
@@ -112,7 +158,7 @@ mod tests {
     #[test]
     fn test_time_as_ms_with_precision_2() {
         let f = |duration| time_starting_with_ms_with_precision(&duration, 2);
-        let duration = duration_milli_micro;
+        let duration = duration_from_milli_micro;
         assert_eq!("123.46 ms", &f(duration(123, 456)));
         assert_eq!("123.46 ms", &f(duration(123, 455)));
         assert_eq!("123.45 ms", &f(duration(123, 454)));
@@ -124,7 +170,7 @@ mod tests {
     #[test]
     fn test_time_as_ms_with_precision_3() {
         let f = |duration| time_starting_with_ms_with_precision(&duration, 3);
-        let duration = duration_milli_micro;
+        let duration = duration_from_milli_micro;
         assert_eq!("123.456 ms", &f(duration(123, 456)));
         assert_eq!("123.455 ms", &f(duration(123, 455)));
         assert_eq!("123.454 ms", &f(duration(123, 454)));
