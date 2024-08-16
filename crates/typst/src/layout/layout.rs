@@ -6,7 +6,7 @@ use crate::foundations::{
     dict, elem, func, Content, Context, Func, NativeElement, Packed, Show, StyleChain,
 };
 use crate::introspection::Locatable;
-use crate::layout::{BlockElem, Size};
+use crate::layout::{layout_fragment, BlockElem, Size};
 use crate::syntax::Span;
 
 /// Provides access to the current outer container's (or page's, if none)
@@ -92,7 +92,7 @@ impl Show for Packed<LayoutElem> {
                         [dict! { "width" => x, "height" => y }],
                     )?
                     .display();
-                result.layout(engine, locator, styles, regions)
+                layout_fragment(engine, &result, locator, styles, regions)
             },
         )
         .pack()

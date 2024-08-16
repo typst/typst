@@ -11,7 +11,7 @@ use crate::engine::Engine;
 use crate::foundations::{Resolve, StyleChain};
 use crate::layout::{
     Abs, Axes, Cell, CellGrid, Dir, Fr, Fragment, Frame, FrameItem, Length, Point,
-    Regions, Rel, Size, Sizing,
+    Region, Regions, Rel, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -843,8 +843,8 @@ impl<'a> GridLayouter<'a> {
                 let already_covered_width = self.cell_spanned_width(cell, parent.x);
 
                 let size = Size::new(available, height);
-                let pod = Regions::one(size, Axes::splat(false));
-                let frame = cell.layout(engine, 0, self.styles, pod)?.into_frame();
+                let pod = Region::new(size, Axes::splat(false));
+                let frame = cell.layout(engine, 0, self.styles, pod.into())?.into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -1062,7 +1062,7 @@ impl<'a> GridLayouter<'a> {
                 // Force cell to fit into a single region when the row is
                 // unbreakable, even when it is a breakable rowspan, as a best
                 // effort.
-                let mut pod = Regions::one(size, self.regions.expand);
+                let mut pod: Regions = Region::new(size, self.regions.expand).into();
                 pod.full = measurement_data.full;
 
                 if measurement_data.frames_in_previous_regions > 0 {
@@ -1244,7 +1244,7 @@ impl<'a> GridLayouter<'a> {
                 if cell.rowspan.get() == 1 {
                     let width = self.cell_spanned_width(cell, x);
                     let size = Size::new(width, height);
-                    let mut pod = Regions::one(size, Axes::splat(true));
+                    let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
                     if self.grid.rows[y] == Sizing::Auto
                         && self.unbreakable_rows_left == 0
                     {
@@ -1296,7 +1296,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions.
         let size = Size::new(self.width, heights[0]);
-        let mut pod = Regions::one(size, Axes::splat(true));
+        let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
         pod.full = self.regions.full;
         pod.backlog = &heights[1..];
 

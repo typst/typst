@@ -30,54 +30,15 @@ type Range = std::ops::Range<usize>;
 
 /// Layouts content inline.
 pub(crate) fn layout_inline(
-    children: &StyleVec,
     engine: &mut Engine,
+    children: &StyleVec,
     locator: Locator,
     styles: StyleChain,
     consecutive: bool,
     region: Size,
     expand: bool,
 ) -> SourceResult<Fragment> {
-    #[comemo::memoize]
-    #[allow(clippy::too_many_arguments)]
-    fn cached(
-        children: &StyleVec,
-        world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
-        traced: Tracked<Traced>,
-        sink: TrackedMut<Sink>,
-        route: Tracked<Route>,
-        locator: Tracked<Locator>,
-        styles: StyleChain,
-        consecutive: bool,
-        region: Size,
-        expand: bool,
-    ) -> SourceResult<Fragment> {
-        let link = LocatorLink::new(locator);
-        let locator = Locator::link(&link);
-        let mut engine = Engine {
-            world,
-            introspector,
-            traced,
-            sink,
-            route: Route::extend(route),
-        };
-
-        // Collect all text into one string for BiDi analysis.
-        let (text, segments, spans) =
-            collect(children, &mut engine, locator, &styles, region, consecutive)?;
-
-        // Perform BiDi analysis and then prepares paragraph layout.
-        let p = prepare(&mut engine, children, &text, segments, spans, styles)?;
-
-        // Break the paragraph into lines.
-        let lines = linebreak(&engine, &p, region.x - p.hang);
-
-        // Turn the selected lines into frames.
-        finalize(&mut engine, &p, &lines, styles, region, expand)
-    }
-
-    cached(
+    layout_inline_impl(
         children,
         engine.world,
         engine.introspector,
@@ -90,4 +51,44 @@ pub(crate) fn layout_inline(
         region,
         expand,
     )
+}
+
+/// The internal, memoized implementation of `layout_inline`.
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn layout_inline_impl(
+    children: &StyleVec,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+    consecutive: bool,
+    region: Size,
+    expand: bool,
+) -> SourceResult<Fragment> {
+    let link = LocatorLink::new(locator);
+    let locator = Locator::link(&link);
+    let mut engine = Engine {
+        world,
+        introspector,
+        traced,
+        sink,
+        route: Route::extend(route),
+    };
+
+    // Collect all text into one string for BiDi analysis.
+    let (text, segments, spans) =
+        collect(children, &mut engine, locator, &styles, region, consecutive)?;
+
+    // Perform BiDi analysis and then prepares paragraph layout.
+    let p = prepare(&mut engine, children, &text, segments, spans, styles)?;
+
+    // Break the paragraph into lines.
+    let lines = linebreak(&engine, &p, region.x - p.hang);
+
+    // Turn the selected lines into frames.
+    finalize(&mut engine, &p, &lines, styles, region, expand)
 }

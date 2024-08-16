@@ -9,7 +9,9 @@ use crate::foundations::{
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
-use crate::layout::{Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Regions};
+use crate::layout::{
+    layout_frame, Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Region,
+};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 use crate::utils::NonZeroExt;
@@ -233,15 +235,14 @@ impl Show for Packed<HeadingElem> {
                 .spanned(span);
 
             if hanging_indent.is_auto() {
-                let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
+                let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
                 // We don't have a locator for the numbering here, so we just
                 // use the measurement infrastructure for now.
                 let link = LocatorLink::measure(location);
-                let size = numbering
-                    .layout(engine, Locator::link(&link), styles, pod)?
-                    .into_frame()
-                    .size();
+                let size =
+                    layout_frame(engine, &numbering, Locator::link(&link), styles, pod)?
+                        .size();
 
                 indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
             }

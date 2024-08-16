@@ -3,11 +3,9 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
-    Unlabellable,
+    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, Unlabellable,
 };
-use crate::introspection::Locator;
-use crate::layout::{Em, Fragment, Length, Size};
+use crate::layout::{Em, Length};
 use crate::realize::StyleVec;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -156,30 +154,6 @@ impl Construct for ParElem {
             body.styled_with_map(styles),
             ParbreakElem::new().pack(),
         ]))
-    }
-}
-
-impl Packed<ParElem> {
-    /// Layout the paragraph into a collection of lines.
-    #[typst_macros::time(name = "par", span = self.span())]
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        consecutive: bool,
-        region: Size,
-        expand: bool,
-    ) -> SourceResult<Fragment> {
-        crate::layout::layout_inline(
-            &self.children,
-            engine,
-            locator,
-            styles,
-            consecutive,
-            region,
-            expand,
-        )
     }
 }
 

@@ -3,12 +3,11 @@ use ecow::EcoString;
 use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Fields, Packed, Smart,
-    StyleChain, Styles, Value,
+    cast, elem, Args, Array, Construct, Content, Datetime, Fields, Smart, StyleChain,
+    Styles, Value,
 };
-use crate::introspection::{Introspector, Locator, ManualPageCounter};
-use crate::layout::{Page, PageElem};
-use crate::realize::StyleVec;
+use crate::introspection::Introspector;
+use crate::layout::Page;
 
 /// The root element of a document and its metadata.
 ///
@@ -57,58 +56,11 @@ pub struct DocumentElem {
     /// something other than `{auto}`.
     #[ghost]
     pub date: Smart<Option<Datetime>>,
-
-    /// The page runs.
-    #[internal]
-    #[variadic]
-    pub children: StyleVec,
 }
 
 impl Construct for DocumentElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "can only be used in set rules")
-    }
-}
-
-impl Packed<DocumentElem> {
-    /// Layout this document.
-    #[typst_macros::time(name = "document", span = self.span())]
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        info: DocumentInfo,
-    ) -> SourceResult<Document> {
-        let children = self.children();
-        let mut peekable = children.chain(&styles).peekable();
-        let mut locator = locator.split();
-
-        let iter = std::iter::from_fn(|| {
-            let (child, styles) = peekable.next()?;
-            let extend_to = peekable
-                .peek()
-                .and_then(|(next, _)| *next.to_packed::<PageElem>()?.clear_to()?);
-            let locator = locator.next(&child.span());
-            Some((child, styles, extend_to, locator))
-        });
-
-        let layouts =
-            engine.parallelize(iter, |engine, (child, styles, extend_to, locator)| {
-                if let Some(page) = child.to_packed::<PageElem>() {
-                    page.layout(engine, locator, styles, extend_to)
-                } else {
-                    bail!(child.span(), "unexpected document child");
-                }
-            });
-
-        let mut page_counter = ManualPageCounter::new();
-        let mut pages = Vec::with_capacity(self.children().len());
-        for result in layouts {
-            pages.extend(result?.finalize(engine, &mut page_counter)?);
-        }
-
-        Ok(Document { pages, info, introspector: Introspector::default() })
     }
 }
 
