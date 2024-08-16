@@ -3,8 +3,8 @@ use ecow::EcoString;
 use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
-    Value,
+    cast, elem, Args, Array, Construct, Content, Datetime, Fields, Packed, Smart,
+    StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator, ManualPageCounter};
 use crate::layout::{Page, PageElem};
@@ -78,6 +78,7 @@ impl Packed<DocumentElem> {
         engine: &mut Engine,
         locator: Locator,
         styles: StyleChain,
+        info: DocumentInfo,
     ) -> SourceResult<Document> {
         let children = self.children();
         let mut peekable = children.chain(&styles).peekable();
@@ -107,14 +108,7 @@ impl Packed<DocumentElem> {
             pages.extend(result?.finalize(engine, &mut page_counter)?);
         }
 
-        Ok(Document {
-            pages,
-            title: DocumentElem::title_in(styles).map(|content| content.plain_text()),
-            author: DocumentElem::author_in(styles).0,
-            keywords: DocumentElem::keywords_in(styles).0,
-            date: DocumentElem::date_in(styles),
-            introspector: Introspector::default(),
-        })
+        Ok(Document { pages, info, introspector: Introspector::default() })
     }
 }
 
@@ -145,6 +139,15 @@ cast! {
 pub struct Document {
     /// The document's finished pages.
     pub pages: Vec<Page>,
+    /// Details about the document.
+    pub info: DocumentInfo,
+    /// Provides the ability to execute queries on the document.
+    pub introspector: Introspector,
+}
+
+/// Details about the document.
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
+pub struct DocumentInfo {
     /// The document's title.
     pub title: Option<EcoString>,
     /// The document's author.
@@ -153,8 +156,29 @@ pub struct Document {
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
-    /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
+}
+
+impl DocumentInfo {
+    /// Populate this document info with details from the given styles.
+    ///
+    /// Document set rules are a bit special, so we need to do this manually.
+    pub fn populate(&mut self, styles: &Styles) {
+        let chain = StyleChain::new(styles);
+        let has = |field| styles.has::<DocumentElem>(field as _);
+        if has(<DocumentElem as Fields>::Enum::Title) {
+            self.title =
+                DocumentElem::title_in(chain).map(|content| content.plain_text());
+        }
+        if has(<DocumentElem as Fields>::Enum::Author) {
+            self.author = DocumentElem::author_in(chain).0;
+        }
+        if has(<DocumentElem as Fields>::Enum::Keywords) {
+            self.keywords = DocumentElem::keywords_in(chain).0;
+        }
+        if has(<DocumentElem as Fields>::Enum::Date) {
+            self.date = DocumentElem::date_in(chain);
+        }
+    }
 }
 
 #[cfg(test)]
