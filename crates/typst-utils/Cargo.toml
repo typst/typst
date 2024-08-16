@@ -16,6 +16,7 @@ readme = { workspace = true }
 once_cell = { workspace = true }
 portable-atomic = { workspace = true }
 rayon = { workspace = true }
+rust_decimal = { version = "1.35.0", default-features = false }
 siphasher = { workspace = true }
 thin-vec = { workspace = true }
 
