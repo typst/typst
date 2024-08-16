@@ -198,11 +198,21 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styled: &'a StyledElem,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        let local = &styled.styles;
         let stored = self.arenas.store(styles);
-        let styles = stored.chain(&styled.styles);
-        self.interrupt_style(&styled.styles, None)?;
+        let styles = stored.chain(local);
+
+        if let Some(Some(span)) = local.interruption::<DocumentElem>() {
+            let Some(doc) = &mut self.doc else {
+                bail!(span, "document set rules are not allowed inside of containers");
+            };
+            doc.info.populate(local);
+        }
+
+        self.interrupt_style(local, None)?;
         self.accept(&styled.child, styles)?;
-        self.interrupt_style(&styled.styles, Some(styles))?;
+        self.interrupt_style(local, Some(styles))?;
+
         Ok(())
     }
 
@@ -211,12 +221,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         local: &Styles,
         outer: Option<StyleChain<'a>>,
     ) -> SourceResult<()> {
-        if let Some(Some(span)) = local.interruption::<DocumentElem>() {
-            let Some(doc) = &mut self.doc else {
-                bail!(span, "document set rules are not allowed inside of containers");
-            };
-            doc.info.populate(local);
-        }
         if let Some(Some(span)) = local.interruption::<PageElem>() {
             if self.doc.is_none() {
                 bail!(span, "page configuration is not allowed inside of containers");
