@@ -509,8 +509,6 @@ pub enum PackageError {
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
     MalformedArchive(Option<EcoString>),
-    /// Some error when dealing with file locking.
-    FileLocking(EcoString),
     /// Another error.
     Other(Option<EcoString>),
 }
@@ -540,7 +538,6 @@ impl Display for PackageError {
             Self::MalformedArchive(None) => {
                 f.pad("failed to decompress package (archive malformed)")
             }
-            Self::FileLocking(err) => write!(f, "problem with file locking ({err})"),
             Self::Other(Some(err)) => write!(f, "failed to load package ({err})"),
             Self::Other(None) => f.pad("failed to load package"),
         }

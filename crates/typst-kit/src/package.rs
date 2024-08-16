@@ -34,10 +34,10 @@ pub struct PackageStorage {
     index: OnceCell<Vec<PackageInfo>>,
 }
 
-/// Returns mapped `io::Error` to `PackageError::FileLocking` with a custom message.
+/// Returns mapped `io::Error` to `PackageError::Other` with a custom message.
 /// Intended to be used inside `io::Result`'s `.map_err()` method.
-fn file_locking_err(message: &'static str) -> impl Fn(io::Error) -> PackageError {
-    move |error| PackageError::FileLocking(eco_format!("{message}: {error}"))
+fn other_err(message: &'static str) -> impl Fn(io::Error) -> PackageError {
+    move |error| PackageError::Other(Some(eco_format!("{message}: {error}")))
 }
 
 impl PackageStorage {
@@ -103,11 +103,12 @@ impl PackageStorage {
             let lock_file_path = parent_dir.join(format!(".{}.lock", spec.version));
             let remove_lock = || {
                 fs::remove_file(&lock_file_path)
-                    .map_err(file_locking_err("failed to remove lock file"))
+                    .map_err(other_err("failed to remove lock file"))
             };
             if !parent_dir.exists() {
-                fs::create_dir_all(parent_dir)
-                    .map_err(file_locking_err("failed to create parent directories"))?;
+                fs::create_dir_all(parent_dir).map_err(other_err(
+                    "failed to create parent directories for lock file",
+                ))?;
             }
             // https://github.com/yoshuawuyts/fd-lock/issues/28#issuecomment-2264180893
             // File::create(&lock_file_path).unwrap();
@@ -118,7 +119,7 @@ impl PackageStorage {
                 .write(true)
                 // .read(true) // to test the error
                 .open(lock_file_path.as_path())
-                .map_err(file_locking_err("failed to open lock file"))?;
+                .map_err(other_err("failed to open lock file"))?;
             let lock_file_path = format!(
                 "~{}",
                 lock_file_path.to_string_lossy().strip_prefix(env!("HOME")).unwrap()
@@ -137,7 +138,7 @@ impl PackageStorage {
                     eprintln!("Waiting for another instance to finish installing the package...");
                     let lock = lock_file
                         .write()
-                        .map_err(file_locking_err("failed to aquire lock file"))?;
+                        .map_err(other_err("failed to aquire lock file"))?;
 
                     // If other instance successfully installed a package after
                     // waiting for the lock, then there is nothing left to do.
@@ -159,9 +160,7 @@ impl PackageStorage {
                     //     todo!()
                     // }
                 }
-                Err(err) => {
-                    return Err(file_locking_err("failed to aquire lock file")(err))
-                }
+                Err(err) => return Err(other_err("failed to aquire lock file")(err)),
             };
 
             // Download from network if it doesn't exist yet.
