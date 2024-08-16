@@ -210,19 +210,12 @@ impl Show for Packed<OutlineElem> {
         let elems = engine.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(entry) = OutlineEntry::from_outlinable(
-                engine,
-                self.span(),
-                elem.clone(),
-                self.fill(styles),
-                styles,
-            )?
-            else {
-                continue;
+            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+                bail!(self.span(), "cannot outline {}", elem.func().name());
             };
 
-            let level = entry.level();
-            if depth < *level {
+            let level = outlinable.level();
+            if depth < level {
                 continue;
             }
 
@@ -231,18 +224,30 @@ impl Show for Packed<OutlineElem> {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .is_some_and(|last| last.level() >= *level)
+                .is_some_and(|last| last.level() >= level)
             {
                 ancestors.pop();
             }
-
-            OutlineIndent::apply(
+            let indent = OutlineIndent::compute_indent(
                 indent,
                 engine,
                 &ancestors,
-                &mut seq,
                 styles,
                 self.span(),
+            )?;
+
+            let Some(entry_body) = outlinable.outline(engine, styles)? else {
+                continue;
+            };
+
+            let entry = OutlineEntry::from_element(
+                engine,
+                elem.clone(),
+                indent,
+                entry_body,
+                level,
+                self.fill(styles),
+                styles,
             )?;
 
             // Add the overridable outline entry, followed by a line break.
@@ -298,17 +303,18 @@ pub enum OutlineIndent {
 }
 
 impl OutlineIndent {
-    fn apply(
+    fn compute_indent(
         indent: &Option<Smart<Self>>,
         engine: &mut Engine,
         ancestors: &Vec<&Content>,
-        seq: &mut Vec<Content>,
         styles: StyleChain,
         span: Span,
-    ) -> SourceResult<()> {
+    ) -> SourceResult<Content> {
         match indent {
             // 'none' | 'false' => no indenting
-            None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
+            None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {
+                Ok(Content::empty())
+            }
 
             // 'auto' | 'true' => use numbering alignment for indenting
             Some(Smart::Auto | Smart::Custom(OutlineIndent::Bool(true))) => {
@@ -330,16 +336,18 @@ impl OutlineIndent {
                 }
 
                 if !ancestors.is_empty() {
-                    seq.push(HideElem::new(hidden).pack());
-                    seq.push(SpaceElem::shared().clone());
+                    Ok(Content::sequence([
+                        HideElem::new(hidden).pack(),
+                        SpaceElem::shared().clone(),
+                    ]))
+                } else {
+                    Ok(Content::empty())
                 }
             }
 
             // Length => indent with some fixed spacing per level
             Some(Smart::Custom(OutlineIndent::Rel(length))) => {
-                seq.push(
-                    HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()),
-                );
+                Ok(HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()))
             }
 
             // Function => call function with the current depth and take
@@ -350,13 +358,9 @@ impl OutlineIndent {
                     .call(engine, Context::new(None, Some(styles)).track(), [depth])?
                     .cast()
                     .at(span)?;
-                if !content.is_empty() {
-                    seq.push(content);
-                }
+                Ok(content)
             }
-        };
-
-        Ok(())
+        }
     }
 }
 
@@ -420,6 +424,10 @@ pub struct OutlineEntry {
     #[required]
     pub element: Content,
 
+    /// The indent, displayed before the entry's body.
+    #[required]
+    pub indent: Content,
+
     /// The content which is displayed in place of the referred element at its
     /// entry in the outline. For a heading, this would be its number followed
     /// by the heading's title, for example.
@@ -444,25 +452,16 @@ pub struct OutlineEntry {
 }
 
 impl OutlineEntry {
-    /// Generates an OutlineEntry from the given element, if possible (errors if
-    /// the element does not implement `Outlinable`). If the element should not
-    /// be outlined (e.g. heading with 'outlined: false'), does not generate an
-    /// entry instance (returns `Ok(None)`).
-    fn from_outlinable(
+    /// Generates an OutlineEntry from the given element, indent, and level.
+    fn from_element(
         engine: &mut Engine,
-        span: Span,
         elem: Content,
+        indent: Content,
+        body: Content,
+        level: NonZeroUsize,
         fill: Option<Content>,
         styles: StyleChain,
-    ) -> SourceResult<Option<Self>> {
-        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-            bail!(span, "cannot outline {}", elem.func().name());
-        };
-
-        let Some(body) = outlinable.outline(engine, styles)? else {
-            return Ok(None);
-        };
-
+    ) -> SourceResult<Self> {
         let location = elem.location().unwrap();
         let page_numbering = engine
             .introspector
@@ -477,14 +476,14 @@ impl OutlineEntry {
             &page_numbering,
         )?;
 
-        Ok(Some(Self::new(outlinable.level(), elem, body, fill, page)))
+        Ok(Self::new(level, elem, indent, body, fill, page))
     }
 }
 
 impl Show for Packed<OutlineEntry> {
     #[typst_macros::time(name = "outline.entry", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut seq = vec![];
+        let mut seq = vec![self.indent().clone()];
         let elem = self.element();
 
         // In case a user constructs an outline entry with an arbitrary element.
