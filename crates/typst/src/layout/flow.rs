@@ -3,6 +3,7 @@
 //! - inside of a container, into a [`Frame`] or [`Fragment`].
 
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
 use std::ptr;
 
 use comemo::{Track, Tracked, TrackedMut};
@@ -160,23 +161,25 @@ fn layout_page_run<'a>(
         .relative_to(size);
 
     // Realize columns.
-    let mut child = page.body().clone();
-    let columns = page.columns(styles);
-    if columns.get() > 1 {
-        child = ColumnsElem::new(child)
-            .with_count(columns)
-            .pack()
-            .spanned(page.span());
-    }
-
     let area = size - margin.sum_by_axis();
     let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
     regions.root = true;
 
     // Layout the child.
-    let frames =
-        layout_fragment(engine, &child, locator.next(&page.span()), styles, regions)?
-            .into_frames();
+    let columns = page.columns(styles);
+    let fragment = if columns.get() > 1 {
+        layout_fragment_with_columns(
+            engine,
+            &page.body,
+            locator.next(&page.span()),
+            styles,
+            regions,
+            columns,
+            ColumnsElem::gutter_in(styles),
+        )?
+    } else {
+        layout_fragment(engine, &page.body, locator.next(&page.span()), styles, regions)?
+    };
 
     Ok(PageRunLayout {
         page,
@@ -186,7 +189,7 @@ fn layout_page_run<'a>(
         area,
         margin,
         two_sided,
-        frames,
+        frames: fragment.into_frames(),
     })
 }
 
@@ -366,6 +369,85 @@ pub fn layout_fragment(
         styles,
         regions,
     )
+}
+
+/// Layout content into regions with columns.
+///
+/// For now, this just invokes normal layout on cycled smaller regions. However,
+/// in the future, columns will be able to interact (e.g. through floating
+/// figures), so this is already factored out because it'll be conceptually
+/// different from just layouting into more smaller regions.
+pub fn layout_fragment_with_columns(
+    engine: &mut Engine,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+    count: NonZeroUsize,
+    gutter: Rel<Abs>,
+) -> SourceResult<Fragment> {
+    // Separating the infinite space into infinite columns does not make
+    // much sense.
+    if !regions.size.x.is_finite() {
+        return layout_fragment(engine, content, locator, styles, regions);
+    }
+
+    // Determine the width of the gutter and each column.
+    let count = count.get();
+    let gutter = gutter.relative_to(regions.base().x);
+    let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
+
+    let backlog: Vec<_> = std::iter::once(&regions.size.y)
+        .chain(regions.backlog)
+        .flat_map(|&height| std::iter::repeat(height).take(count))
+        .skip(1)
+        .collect();
+
+    // Create the pod regions.
+    let pod = Regions {
+        size: Size::new(width, regions.size.y),
+        full: regions.full,
+        backlog: &backlog,
+        last: regions.last,
+        expand: Axes::new(true, regions.expand.y),
+        root: regions.root,
+    };
+
+    // Layout the children.
+    let mut frames = layout_fragment(engine, content, locator, styles, pod)?.into_iter();
+    let mut finished = vec![];
+
+    let dir = TextElem::dir_in(styles);
+    let total_regions = (frames.len() as f32 / count as f32).ceil() as usize;
+
+    // Stitch together the column for each region.
+    for region in regions.iter().take(total_regions) {
+        // The height should be the parent height if we should expand.
+        // Otherwise its the maximum column height for the frame. In that
+        // case, the frame is first created with zero height and then
+        // resized.
+        let height = if regions.expand.y { region.y } else { Abs::zero() };
+        let mut output = Frame::hard(Size::new(regions.size.x, height));
+        let mut cursor = Abs::zero();
+
+        for _ in 0..count {
+            let Some(frame) = frames.next() else { break };
+            if !regions.expand.y {
+                output.size_mut().y.set_max(frame.height());
+            }
+
+            let width = frame.width();
+            let x =
+                if dir == Dir::LTR { cursor } else { regions.size.x - cursor - width };
+
+            output.push_frame(Point::with_x(x), frame);
+            cursor += width + gutter;
+        }
+
+        finished.push(output);
+    }
+
+    Ok(Fragment::frames(finished))
 }
 
 /// The internal implementation of [`layout_fragment`].
