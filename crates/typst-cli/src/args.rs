@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use clap::builder::{TypedValueParser, ValueParser};
-use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -77,7 +77,11 @@ pub struct CompileCommand {
     /// must be present if the source document renders to multiple pages. Use `{p}` for page
     /// numbers, `{0p}` for zero padded page numbers and `{t}` for page count. For example,
     /// `page-{0p}-of-{t}.png` creates `page-01-of-10.png`, `page-02-of-10.png` and so on.
-    #[clap(required_if_eq("input", "-"), value_parser = make_output_value_parser())]
+    #[clap(
+        required_if_eq("input", "-"),
+        value_parser = make_output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
     pub output: Option<Output>,
 
     /// Which pages to export. When unspecified, all document pages are exported.
@@ -177,7 +181,7 @@ pub enum SerializationFormat {
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
     /// Path to input Typst file. Use `-` to read input from stdin
-    #[clap(value_parser = make_input_value_parser())]
+    #[clap(value_parser = make_input_value_parser(), value_hint = ValueHint::FilePath)]
     pub input: Input,
 
     /// Configures the project root (for absolute paths)
