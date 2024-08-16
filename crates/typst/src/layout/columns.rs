@@ -5,12 +5,9 @@ use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
 use crate::introspection::Locator;
 use crate::layout::{
-    layout_fragment, Abs, Axes, BlockElem, Dir, Fragment, Frame, Length, Point, Ratio,
-    Regions, Rel, Size,
+    layout_fragment_with_columns, BlockElem, Fragment, Length, Ratio, Regions, Rel,
 };
 use crate::realize::{Behave, Behaviour};
-use crate::text::TextElem;
-use crate::utils::Numeric;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -78,70 +75,15 @@ fn layout_columns(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let body = &elem.body;
-
-    // Separating the infinite space into infinite columns does not make
-    // much sense.
-    if !regions.size.x.is_finite() {
-        return layout_fragment(engine, body, locator, styles, regions);
-    }
-
-    // Determine the width of the gutter and each column.
-    let columns = elem.count(styles).get();
-    let gutter = elem.gutter(styles).relative_to(regions.base().x);
-    let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
-
-    let backlog: Vec<_> = std::iter::once(&regions.size.y)
-        .chain(regions.backlog)
-        .flat_map(|&height| std::iter::repeat(height).take(columns))
-        .skip(1)
-        .collect();
-
-    // Create the pod regions.
-    let pod = Regions {
-        size: Size::new(width, regions.size.y),
-        full: regions.full,
-        backlog: &backlog,
-        last: regions.last,
-        expand: Axes::new(true, regions.expand.y),
-        root: regions.root,
-    };
-
-    // Layout the children.
-    let mut frames = layout_fragment(engine, body, locator, styles, pod)?.into_iter();
-    let mut finished = vec![];
-
-    let dir = TextElem::dir_in(styles);
-    let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
-
-    // Stitch together the columns for each region.
-    for region in regions.iter().take(total_regions) {
-        // The height should be the parent height if we should expand.
-        // Otherwise its the maximum column height for the frame. In that
-        // case, the frame is first created with zero height and then
-        // resized.
-        let height = if regions.expand.y { region.y } else { Abs::zero() };
-        let mut output = Frame::hard(Size::new(regions.size.x, height));
-        let mut cursor = Abs::zero();
-
-        for _ in 0..columns {
-            let Some(frame) = frames.next() else { break };
-            if !regions.expand.y {
-                output.size_mut().y.set_max(frame.height());
-            }
-
-            let width = frame.width();
-            let x =
-                if dir == Dir::LTR { cursor } else { regions.size.x - cursor - width };
-
-            output.push_frame(Point::with_x(x), frame);
-            cursor += width + gutter;
-        }
-
-        finished.push(output);
-    }
-
-    Ok(Fragment::frames(finished))
+    layout_fragment_with_columns(
+        engine,
+        &elem.body,
+        locator,
+        styles,
+        regions,
+        elem.count(styles),
+        elem.gutter(styles),
+    )
 }
 
 /// Forces a column break.
