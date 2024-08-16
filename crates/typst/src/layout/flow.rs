@@ -14,10 +14,12 @@ use crate::foundations::{
 use crate::introspection::{Locator, SplitLocator, Tag, TagElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem, Fr,
-    Fragment, Frame, FrameItem, PlaceElem, Point, Regions, Rel, Size, Spacing, VElem,
+    Fragment, Frame, FrameItem, PlaceElem, Point, Ratio, Regions, Rel, Size, Spacing,
+    VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::realize::StyleVec;
+use crate::text::TextElem;
 use crate::utils::Numeric;
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
@@ -278,6 +280,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         // Fetch properties.
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let leading = ParElem::leading_in(styles);
+        let costs = TextElem::costs_in(styles);
 
         // Layout the paragraph into lines. This only depends on the base size,
         // not on the Y position.
@@ -305,10 +308,49 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
+        // Determine whether to prevent widow and orphans.
+        let len = lines.len();
+        let prevent_orphans =
+            costs.orphan() > Ratio::zero() && len >= 2 && !lines[1].is_empty();
+        let prevent_widows =
+            costs.widow() > Ratio::zero() && len >= 2 && !lines[len - 2].is_empty();
+        let prevent_all = len == 3 && prevent_orphans && prevent_widows;
+
+        // Store the heights of lines at the edges because we'll potentially
+        // need these later when `lines` is already moved.
+        let height_at = |i| lines.get(i).map(Frame::height).unwrap_or_default();
+        let front_1 = height_at(0);
+        let front_2 = height_at(1);
+        let back_2 = height_at(len.saturating_sub(2));
+        let back_1 = height_at(len.saturating_sub(1));
+
         // Layout the lines.
         for (i, mut frame) in lines.into_iter().enumerate() {
             if i > 0 {
                 self.handle_item(FlowItem::Absolute(leading, true))?;
+            }
+
+            // To prevent widows and orphans, we require enough space for
+            // - all lines if it's just three
+            // - the first two lines if we're at the first line
+            // - the last two lines if we're at the second to last line
+            let needed = if prevent_all && i == 0 {
+                front_1 + leading + front_2 + leading + back_1
+            } else if prevent_orphans && i == 0 {
+                front_1 + leading + front_2
+            } else if prevent_widows && i >= 2 && i + 2 == len {
+                back_2 + leading + back_1
+            } else {
+                frame.height()
+            };
+
+            // If the line(s) don't fit into this region, but they do fit into
+            // the next, then advance.
+            if !self.regions.in_last()
+                && !self.regions.size.y.fits(needed)
+                && self.regions.iter().nth(1).is_some_and(|region| region.y.fits(needed))
+            {
+                self.finish_region(false)?;
             }
 
             self.drain_tag(&mut frame);

@@ -163,11 +163,10 @@ Ref @fn
 --- issue-multiple-footnote-in-one-line ---
 // Test that the logic that keeps footnote entry together with
 // their markers also works for multiple footnotes in a single
-// line or frame (here, there are two lines, but they are one
-// unit due to orphan prevention).
+// line.
 #set page(height: 100pt)
-#v(40pt)
-A #footnote[a] \
+#v(50pt)
+A #footnote[a]
 B #footnote[b]
 
 --- issue-1433-footnote-in-list ---
