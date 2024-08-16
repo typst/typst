@@ -14,7 +14,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Alignment, Axes, Fragment, Length, LinePosition, Regions, Rel, Sides, Sizing,
+    layout_fragment, Abs, Alignment, Axes, Fragment, Length, LinePosition, Regions, Rel,
+    Sides, Sizing,
 };
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
@@ -220,7 +221,7 @@ impl<'a> Cell<'a> {
         if disambiguator > 0 {
             locator = locator.split().next_inner(disambiguator as u128);
         }
-        self.body.layout(engine, locator, styles, regions)
+        layout_fragment(engine, &self.body, locator, styles, regions)
     }
 }
 

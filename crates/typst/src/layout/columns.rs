@@ -5,7 +5,8 @@ use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Axes, BlockElem, Dir, Fragment, Frame, Length, Point, Ratio, Regions, Rel, Size,
+    layout_fragment, Abs, Axes, BlockElem, Dir, Fragment, Frame, Length, Point, Ratio,
+    Regions, Rel, Size,
 };
 use crate::realize::{Behave, Behaviour};
 use crate::text::TextElem;
@@ -77,12 +78,12 @@ fn layout_columns(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let body = elem.body();
+    let body = &elem.body;
 
     // Separating the infinite space into infinite columns does not make
     // much sense.
     if !regions.size.x.is_finite() {
-        return body.layout(engine, locator, styles, regions);
+        return layout_fragment(engine, body, locator, styles, regions);
     }
 
     // Determine the width of the gutter and each column.
@@ -107,7 +108,7 @@ fn layout_columns(
     };
 
     // Layout the children.
-    let mut frames = body.layout(engine, locator, styles, pod)?.into_iter();
+    let mut frames = layout_fragment(engine, body, locator, styles, pod)?.into_iter();
     let mut finished = vec![];
 
     let dir = TextElem::dir_in(styles);

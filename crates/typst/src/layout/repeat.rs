@@ -5,7 +5,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, Frame, Length, Point, Region, Regions, Size,
+    layout_frame, Abs, AlignElem, Axes, BlockElem, Frame, Length, Point, Region, Size,
 };
 use crate::utils::Numeric;
 
@@ -63,8 +63,8 @@ fn layout_repeat(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let pod = Regions::one(region.size, Axes::new(false, false));
-    let piece = elem.body().layout(engine, locator, styles, pod)?.into_frame();
+    let pod = Region::new(region.size, Axes::new(false, false));
+    let piece = layout_frame(engine, &elem.body, locator, styles, pod)?;
     let size = Size::new(region.size.x, piece.height());
 
     if !size.is_finite() {

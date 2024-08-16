@@ -9,8 +9,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, Length, Region, Regions, Rel,
-    Sides, Size, Spacing,
+    layout_fragment, layout_frame, Abs, Axes, Corners, Em, Fr, Fragment, Frame,
+    FrameKind, Length, Region, Regions, Rel, Sides, Size, Spacing,
 };
 use crate::utils::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -141,9 +141,7 @@ impl Packed<BoxElem> {
 
             // If we have a child, layout it into the body. Boxes are boundaries
             // for gradient relativeness, so we set the `FrameKind` to `Hard`.
-            Some(body) => body
-                .layout(engine, locator, styles, pod.into_regions())?
-                .into_frame()
+            Some(body) => layout_frame(engine, body, locator, styles, pod)?
                 .with_kind(FrameKind::Hard),
         };
 
@@ -531,7 +529,7 @@ impl Packed<BlockElem> {
             // If we have content as our body, just layout it.
             Some(BlockChild::Content(body)) => {
                 let mut fragment =
-                    body.layout(engine, locator.relayout(), styles, pod)?;
+                    layout_fragment(engine, body, locator.relayout(), styles, pod)?;
 
                 // If the body is automatically sized and produced more than one
                 // fragment, ensure that the width was consistent across all
@@ -552,7 +550,7 @@ impl Packed<BlockElem> {
                         expand: Axes::new(true, pod.expand.y),
                         ..pod
                     };
-                    fragment = body.layout(engine, locator, styles, pod)?;
+                    fragment = layout_fragment(engine, body, locator, styles, pod)?;
                 }
 
                 fragment

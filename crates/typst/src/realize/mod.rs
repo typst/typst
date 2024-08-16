@@ -23,7 +23,7 @@ use crate::engine::{Engine, Route};
 use crate::foundations::{
     Content, NativeElement, Packed, SequenceElem, Smart, StyleChain, StyledElem, Styles,
 };
-use crate::introspection::{Locator, SplitLocator, TagElem};
+use crate::introspection::{SplitLocator, TagElem};
 use crate::layout::{
     AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem, InlineElem,
     PageElem, PagebreakElem, Parity, PlaceElem, VElem,
@@ -36,16 +36,15 @@ use crate::model::{
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
-/// Realize into a `DocumentElem`, an element that is capable of root-level
-/// layout.
-#[typst_macros::time(name = "realize doc")]
-pub fn realize_doc<'a>(
-    engine: &mut Engine,
-    locator: Locator,
+/// Realize at the root-level.
+#[typst_macros::time(name = "realize root")]
+pub fn realize_root<'a>(
+    engine: &mut Engine<'a>,
+    locator: &mut SplitLocator<'a>,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>, DocumentInfo)> {
+) -> SourceResult<(StyleVec, StyleChain<'a>, DocumentInfo)> {
     let mut builder = Builder::new(engine, locator, arenas, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
@@ -55,8 +54,8 @@ pub fn realize_doc<'a>(
 /// Realize into a `FlowElem`, an element that is capable of block-level layout.
 #[typst_macros::time(name = "realize flow")]
 pub fn realize_flow<'a>(
-    engine: &mut Engine,
-    locator: Locator,
+    engine: &mut Engine<'a>,
+    locator: &mut SplitLocator<'a>,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
@@ -68,11 +67,11 @@ pub fn realize_flow<'a>(
 }
 
 /// Builds a document or a flow element from content.
-struct Builder<'a, 'v, 't> {
+struct Builder<'a, 'v> {
     /// The engine.
-    engine: &'v mut Engine<'t>,
+    engine: &'v mut Engine<'a>,
     /// Assigns unique locations to elements.
-    locator: SplitLocator<'v>,
+    locator: &'v mut SplitLocator<'a>,
     /// Scratch arenas for building.
     arenas: &'a Arenas<'a>,
     /// The current document building state.
@@ -87,16 +86,16 @@ struct Builder<'a, 'v, 't> {
     cites: CiteGroupBuilder<'a>,
 }
 
-impl<'a, 'v, 't> Builder<'a, 'v, 't> {
+impl<'a, 'v> Builder<'a, 'v> {
     fn new(
-        engine: &'v mut Engine<'t>,
-        locator: Locator<'v>,
+        engine: &'v mut Engine<'a>,
+        locator: &'v mut SplitLocator<'a>,
         arenas: &'a Arenas<'a>,
         top: bool,
     ) -> Self {
         Self {
             engine,
-            locator: locator.split(),
+            locator,
             arenas,
             doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
@@ -121,8 +120,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
         // Styled elements and sequences can (at least currently) also have
         // labels, so this needs to happen before they are handled.
-        if let Some(realized) = process(self.engine, &mut self.locator, content, styles)?
-        {
+        if let Some(realized) = process(self.engine, self.locator, content, styles)? {
             self.engine.route.increase();
             if !self.engine.route.within(Route::MAX_SHOW_RULE_DEPTH) {
                 bail!(
@@ -350,11 +348,11 @@ impl<'a> DocBuilder<'a> {
         false
     }
 
-    /// Turns this builder into the resulting document, along with
+    /// Turns this builder into the resulting page runs, along with
     /// its [style chain][StyleChain].
-    fn finish(self) -> (Packed<DocumentElem>, StyleChain<'a>, DocumentInfo) {
-        let (children, trunk, span) = self.pages.finish();
-        (Packed::new(DocumentElem::new(children)).spanned(span), trunk, self.info)
+    fn finish(self) -> (StyleVec, StyleChain<'a>, DocumentInfo) {
+        let (children, trunk, _) = self.pages.finish();
+        (children, trunk, self.info)
     }
 }
 

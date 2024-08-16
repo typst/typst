@@ -10,9 +10,9 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Locator};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame,
-    InlineElem, InlineItem, OuterHAlignment, Point, Regions, Size, SpecificAlignment,
-    VAlignment,
+    layout_frame, Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment,
+    Fragment, Frame, InlineElem, InlineItem, OuterHAlignment, Point, Region, Regions,
+    Size, SpecificAlignment, VAlignment,
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -399,12 +399,11 @@ fn layout_equation_block(
         return Ok(Fragment::frames(frames));
     };
 
-    let pod = Regions::one(regions.base(), Axes::splat(false));
-    let number = Counter::of(EquationElem::elem())
+    let pod = Region::new(regions.base(), Axes::splat(false));
+    let counter = Counter::of(EquationElem::elem())
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
-        .spanned(span)
-        .layout(engine, locator.next(&()), styles, pod)?
-        .into_frame();
+        .spanned(span);
+    let number = layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);

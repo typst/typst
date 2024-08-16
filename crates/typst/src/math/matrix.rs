@@ -434,7 +434,7 @@ fn layout_vec_body(
     row_gap: Rel<Abs>,
     alternator: LeftRightAlternator,
 ) -> SourceResult<Frame> {
-    let gap = row_gap.relative_to(ctx.regions.base().y);
+    let gap = row_gap.relative_to(ctx.region.size.y);
 
     let denom_style = style_for_denominator(styles);
     let mut flat = vec![];
@@ -464,7 +464,7 @@ fn layout_mat_body(
         return Ok(Frame::soft(Size::zero()));
     }
 
-    let gap = gap.zip_map(ctx.regions.base(), Rel::relative_to);
+    let gap = gap.zip_map(ctx.region.size, Rel::relative_to);
     let half_gap = gap * 0.5;
 
     // We provide a default stroke thickness that scales

@@ -17,10 +17,18 @@ impl Region {
     pub fn new(size: Size, expand: Axes<bool>) -> Self {
         Self { size, expand }
     }
+}
 
-    /// Turns this into a region sequence.
-    pub fn into_regions(self) -> Regions<'static> {
-        Regions::one(self.size, self.expand)
+impl From<Region> for Regions<'_> {
+    fn from(region: Region) -> Self {
+        Regions {
+            size: region.size,
+            expand: region.expand,
+            full: region.size.y,
+            backlog: &[],
+            last: None,
+            root: false,
+        }
     }
 }
 
@@ -35,6 +43,9 @@ impl Region {
 pub struct Regions<'a> {
     /// The remaining size of the first region.
     pub size: Size,
+    /// Whether elements should expand to fill the regions instead of shrinking
+    /// to fit the content.
+    pub expand: Axes<bool>,
     /// The full height of the region for relative sizing.
     pub full: Abs,
     /// The height of followup regions. The width is the same for all regions.
@@ -42,9 +53,6 @@ pub struct Regions<'a> {
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
     pub last: Option<Abs>,
-    /// Whether elements should expand to fill the regions instead of shrinking
-    /// to fit the content.
-    pub expand: Axes<bool>,
     /// Whether these are the root regions or direct descendants.
     ///
     /// True for the padded page regions and columns directly in the page,
@@ -53,18 +61,6 @@ pub struct Regions<'a> {
 }
 
 impl Regions<'_> {
-    /// Create a new region sequence with exactly one region.
-    pub fn one(size: Size, expand: Axes<bool>) -> Self {
-        Self {
-            size,
-            full: size.y,
-            backlog: &[],
-            last: None,
-            expand,
-            root: false,
-        }
-    }
-
     /// Create a new sequence of same-size regions that repeats indefinitely.
     pub fn repeat(size: Size, expand: Axes<bool>) -> Self {
         Self {

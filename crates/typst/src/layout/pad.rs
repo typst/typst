@@ -5,7 +5,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, BlockElem, Fragment, Frame, Length, Point, Regions, Rel, Sides, Size,
+    layout_fragment, Abs, BlockElem, Fragment, Frame, Length, Point, Regions, Rel, Sides,
+    Size,
 };
 
 /// Adds spacing around content.
@@ -91,7 +92,7 @@ fn layout_pad(
     let pod = regions.map(&mut backlog, |size| shrink(size, &padding));
 
     // Layout child into padded regions.
-    let mut fragment = elem.body().layout(engine, locator, styles, pod)?;
+    let mut fragment = layout_fragment(engine, &elem.body, locator, styles, pod)?;
 
     for frame in &mut fragment {
         grow(frame, &padding);

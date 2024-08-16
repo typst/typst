@@ -13,12 +13,11 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{Content, Packed, StyleChain};
 use crate::introspection::{Locator, SplitLocator};
-use crate::layout::{Abs, Axes, BoxElem, Em, Frame, Regions, Size};
+use crate::layout::{layout_frame, Abs, Axes, BoxElem, Em, Frame, Region, Size};
 use crate::math::{
     scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
     LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
-use crate::model::ParElem;
 use crate::realize::StyleVec;
 use crate::syntax::{is_newline, Span};
 use crate::text::{
@@ -51,7 +50,7 @@ pub struct MathContext<'a, 'b, 'v> {
     // External.
     pub engine: &'v mut Engine<'b>,
     pub locator: SplitLocator<'v>,
-    pub regions: Regions<'static>,
+    pub region: Region,
     // Font-related.
     pub font: &'a Font,
     pub ttf: &'a ttf_parser::Face<'a>,
@@ -107,7 +106,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Self {
             engine,
             locator: locator.split(),
-            regions: Regions::one(base, Axes::splat(false)),
+            region: Region::new(base, Axes::splat(false)),
             font,
             ttf: font.ttf(),
             table: math_table,
@@ -182,7 +181,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             self.engine,
             self.locator.next(&boxed.span()),
             styles.chain(&local),
-            self.regions.base(),
+            self.region.size,
         )
     }
 
@@ -194,14 +193,13 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     ) -> SourceResult<Frame> {
         let local =
             TextElem::set_size(TextSize(scaled_font_size(self, styles).into())).wrap();
-        Ok(content
-            .layout(
-                self.engine,
-                self.locator.next(&content.span()),
-                styles.chain(&local),
-                self.regions,
-            )?
-            .into_frame())
+        layout_frame(
+            self.engine,
+            content,
+            self.locator.next(&content.span()),
+            styles.chain(&local),
+            self.region,
+        )
     }
 
     /// Layout the given [`TextElem`] into a [`MathFragment`].
@@ -300,19 +298,17 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // it will overflow. So emulate an `hbox` instead and allow the paragraph
         // to extend as far as needed.
         let spaced = text.graphemes(true).nth(1).is_some();
-        let text = TextElem::packed(text).spanned(span);
-        let par = ParElem::new(StyleVec::wrap(eco_vec![text]));
-        let frame = Packed::new(par)
-            .spanned(span)
-            .layout(
-                self.engine,
-                self.locator.next(&span),
-                styles,
-                false,
-                Size::splat(Abs::inf()),
-                false,
-            )?
-            .into_frame();
+        let elem = TextElem::packed(text).spanned(span);
+        let frame = crate::layout::layout_inline(
+            self.engine,
+            &StyleVec::wrap(eco_vec![elem]),
+            self.locator.next(&span),
+            styles,
+            false,
+            Size::splat(Abs::inf()),
+            false,
+        )?
+        .into_frame();
 
         Ok(FrameFragment::new(self, styles, frame)
             .with_class(MathClass::Alphabetic)
