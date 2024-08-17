@@ -4,12 +4,10 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
-    Unlabellable,
+    StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
-use crate::layout::{
-    Abs, Em, FixedAlignment, HAlignment, Length, OuterHAlignment,
-};
+use crate::layout::{Abs, Em, FixedAlignment, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 use crate::realize::StyleVec;
 

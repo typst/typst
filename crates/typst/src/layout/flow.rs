@@ -28,6 +28,7 @@ use crate::model::{Document, Numbering};
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
 use crate::realize::{realize_flow, realize_root, Arenas};
+use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
@@ -1485,15 +1486,9 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let number = SequenceElem::new(vec![counter_update, counter_display.pack()]);
         let locator = self.locator.next(&number);
 
-        let mut frame = number
-            .pack()
-            .layout(
-                self.engine,
-                locator,
-                *self.styles,
-                Regions::one(Axes::splat(Abs::inf()), Axes::splat(false)),
-            )?
-            .into_frame();
+        let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
+        let mut frame =
+            layout_frame(self.engine, &number.pack(), locator, *self.styles, pod)?;
 
         // Ensure the baseline of the line number aligns with the line's own
         // baseline.
