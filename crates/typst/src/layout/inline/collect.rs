@@ -127,11 +127,11 @@ pub fn collect<'a>(
     let mut collector = Collector::new(2 + children.len());
     let mut iter = children.chain(styles).peekable();
 
+    let outer_dir = TextElem::dir_in(*styles);
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
         && consecutive
-        && AlignElem::alignment_in(*styles).resolve(*styles).x
-            == TextElem::dir_in(*styles).start().into()
+        && AlignElem::alignment_in(*styles).resolve(*styles).x == outer_dir.start().into()
     {
         collector.push_item(Item::Absolute(first_line_indent.resolve(*styles), false));
         collector.spans.push(1, Span::detached());
@@ -142,8 +142,6 @@ pub fn collect<'a>(
         collector.push_item(Item::Absolute(-hang, false));
         collector.spans.push(1, Span::detached());
     }
-
-    let outer_dir = TextElem::dir_in(*styles);
 
     while let Some((child, styles)) = iter.next() {
         let prev_len = collector.full.len();

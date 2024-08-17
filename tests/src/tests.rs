@@ -2,6 +2,7 @@
 
 mod args;
 mod collect;
+mod custom;
 mod logger;
 mod run;
 mod world;

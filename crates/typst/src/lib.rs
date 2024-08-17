@@ -26,7 +26,7 @@
 //! [evaluate]: eval::eval
 //! [module]: foundations::Module
 //! [content]: foundations::Content
-//! [layouted]: foundations::Content::layout_document
+//! [layouted]: crate::layout::layout_document
 //! [document]: model::Document
 //! [frame]: layout::Frame
 
@@ -86,7 +86,7 @@ use crate::visualize::Color;
 #[typst_macros::time]
 pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
     let mut sink = Sink::new();
-    let output = compile_inner(world.track(), Traced::default().track(), &mut sink)
+    let output = compile_impl(world.track(), Traced::default().track(), &mut sink)
         .map_err(deduplicate);
     Warned { output, warnings: sink.warnings() }
 }
@@ -97,12 +97,13 @@ pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
 pub fn trace(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)> {
     let mut sink = Sink::new();
     let traced = Traced::new(span);
-    compile_inner(world.track(), traced.track(), &mut sink).ok();
+    compile_impl(world.track(), traced.track(), &mut sink).ok();
     sink.values()
 }
 
-/// Relayout until introspection converges.
-fn compile_inner(
+/// The internal implementation of `compile` with a bit lower-level interface
+/// that is also used by `trace`.
+fn compile_impl(
     world: Tracked<dyn World + '_>,
     traced: Tracked<Traced>,
     sink: &mut Sink,
@@ -150,7 +151,7 @@ fn compile_inner(
         };
 
         // Layout!
-        document = content.layout_document(&mut engine, styles)?;
+        document = crate::layout::layout_document(&mut engine, &content, styles)?;
         document.introspector.rebuild(&document.pages);
         iter += 1;
 

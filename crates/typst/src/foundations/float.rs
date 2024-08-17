@@ -13,6 +13,9 @@ use crate::layout::Ratio;
 ///
 /// You can convert a value to a float with this type's constructor.
 ///
+/// NaN and positive infinity are available as `{float.nan}` and `{float.inf}`
+/// respectively.
+///
 /// # Example
 /// ```example
 /// #3.14 \
@@ -24,13 +27,22 @@ type f64;
 
 #[scope]
 impl f64 {
+    /// Positive infinity.
+    const INF: f64 = f64::INFINITY;
+
+    /// A NaN value, as defined by the
+    /// [IEEE 754 standard](https://en.wikipedia.org/wiki/IEEE_754).
+    const NAN: f64 = f64::NAN;
+
     /// Converts a value to a float.
     ///
     /// - Booleans are converted to `0.0` or `1.0`.
-    /// - Integers are converted to the closest 64-bit float.
+    /// - Integers are converted to the closest 64-bit float. For integers with
+    ///   absolute value less than `{calc.pow(2, 53)}`, this conversion is
+    ///   exact.
     /// - Ratios are divided by 100%.
-    /// - Strings are parsed in base 10 to the closest 64-bit float.
-    ///   Exponential notation is supported.
+    /// - Strings are parsed in base 10 to the closest 64-bit float. Exponential
+    ///   notation is supported.
     ///
     /// ```example
     /// #float(false) \
@@ -56,7 +68,7 @@ impl f64 {
     /// ```example
     /// #float.is-nan(0) \
     /// #float.is-nan(1) \
-    /// #float.is-nan(calc.nan)
+    /// #float.is-nan(float.nan)
     /// ```
     #[func]
     pub fn is_nan(self) -> bool {
@@ -65,13 +77,13 @@ impl f64 {
 
     /// Checks if a float is infinite.
     ///
-    /// For floats, there is positive and negative infinity. This function
-    /// returns `true` if the float is either positive or negative infinity.
+    /// Floats can represent positive infinity and negative infinity. This
+    /// function returns `{true}` if the float is an infinity.
     ///
     /// ```example
     /// #float.is-infinite(0) \
     /// #float.is-infinite(1) \
-    /// #float.is-infinite(calc.inf)
+    /// #float.is-infinite(float.inf)
     /// ```
     #[func]
     pub fn is_infinite(self) -> bool {
@@ -82,13 +94,13 @@ impl f64 {
     ///
     /// - If the number is positive (including `{+0.0}`), returns `{1.0}`.
     /// - If the number is negative (including `{-0.0}`), returns `{-1.0}`.
-    /// - If the number is [`{calc.nan}`]($calc.nan), returns
-    ///   [`{calc.nan}`]($calc.nan).
+    /// - If the number is `{float.nan}`, returns `{float.nan}`.
     ///
     /// ```example
     /// #(5.0).signum() \
     /// #(-5.0).signum() \
     /// #(0.0).signum() \
+    /// #float.nan.signum()
     /// ```
     #[func]
     pub fn signum(self) -> f64 {

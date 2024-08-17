@@ -4,11 +4,11 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
-    StyleChain, Unlabellable,
+    Unlabellable,
 };
-use crate::introspection::{Count, CounterUpdate, Locatable, Locator};
+use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, Em, FixedAlignment, Fragment, HAlignment, Length, OuterHAlignment, Size,
+    Abs, Em, FixedAlignment, HAlignment, Length, OuterHAlignment,
 };
 use crate::model::Numbering;
 use crate::realize::StyleVec;
@@ -165,30 +165,6 @@ impl Construct for ParElem {
             body.styled_with_map(styles),
             ParbreakElem::new().pack(),
         ]))
-    }
-}
-
-impl Packed<ParElem> {
-    /// Layout the paragraph into a collection of lines.
-    #[typst_macros::time(name = "par", span = self.span())]
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        consecutive: bool,
-        region: Size,
-        expand: bool,
-    ) -> SourceResult<Fragment> {
-        crate::layout::layout_inline(
-            &self.children,
-            engine,
-            locator,
-            styles,
-            consecutive,
-            region,
-            expand,
-        )
     }
 }
 

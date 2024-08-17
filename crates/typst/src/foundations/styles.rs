@@ -133,6 +133,15 @@ impl Styles {
         self
     }
 
+    /// Whether there is a style for the given field of the given element.
+    pub fn has<T: NativeElement>(&self, field: u8) -> bool {
+        let elem = T::elem();
+        self.0
+            .iter()
+            .filter_map(|style| style.property())
+            .any(|property| property.is_of(elem) && property.id == field)
+    }
+
     /// Returns `Some(_)` with an optional span if this list contains
     /// styles for the given element.
     pub fn interruption<T: NativeElement>(&self) -> Option<Option<Span>> {

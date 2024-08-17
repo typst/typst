@@ -89,6 +89,7 @@ impl<'a> Runner<'a> {
             log!(self, "no document, but also no errors");
         }
 
+        self.check_custom(doc.as_ref());
         self.check_document(doc.as_ref());
 
         for error in &errors {
@@ -126,6 +127,18 @@ impl<'a> Runner<'a> {
                 first = false;
             }
             log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos,);
+        }
+    }
+
+    /// Run custom checks for which it is not worth to create special
+    /// annotations.
+    fn check_custom(&mut self, doc: Option<&Document>) {
+        let errors = crate::custom::check(self.test, &self.world, doc);
+        if !errors.is_empty() {
+            log!(self, "custom check failed");
+            for line in errors.lines() {
+                log!(self, "  {line}");
+            }
         }
     }
 

@@ -967,7 +967,7 @@ impl From<Content> for GridCell {
 }
 
 /// Function with common code to display a grid cell or table cell.
-pub fn show_grid_cell(
+pub(crate) fn show_grid_cell(
     mut body: Content,
     inset: Smart<Sides<Option<Rel<Length>>>>,
     align: Smart<Alignment>,

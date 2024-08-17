@@ -44,12 +44,12 @@ pub fn write_catalog(
     let info_ref = alloc.bump();
     let mut info = pdf.document_info(info_ref);
     let mut xmp = XmpWriter::new();
-    if let Some(title) = &ctx.document.title {
+    if let Some(title) = &ctx.document.info.title {
         info.title(TextStr(title));
         xmp.title([(None, title.as_str())]);
     }
 
-    let authors = &ctx.document.author;
+    let authors = &ctx.document.info.author;
     if !authors.is_empty() {
         // Turns out that if the authors are given in both the document
         // information dictionary and the XMP metadata, Acrobat takes a little
@@ -76,15 +76,15 @@ pub fn write_catalog(
     info.creator(TextStr(&creator));
     xmp.creator_tool(&creator);
 
-    let keywords = &ctx.document.keywords;
+    let keywords = &ctx.document.info.keywords;
     if !keywords.is_empty() {
         let joined = keywords.join(", ");
         info.keywords(TextStr(&joined));
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.date.unwrap_or(timestamp) {
-        let tz = ctx.document.date.is_auto();
+    if let Some(date) = ctx.document.info.date.unwrap_or(timestamp) {
+        let tz = ctx.document.info.date.is_auto();
         if let Some(pdf_date) = pdf_date(date, tz) {
             info.creation_date(pdf_date);
             info.modified_date(pdf_date);
@@ -109,10 +109,10 @@ pub fn write_catalog(
     let doc_id = if let Smart::Custom(ident) = ident {
         // We were provided with a stable ID. Yay!
         hash_base64(&(PDF_VERSION, ident))
-    } else if ctx.document.title.is_some() && !ctx.document.author.is_empty() {
+    } else if ctx.document.info.title.is_some() && !ctx.document.info.author.is_empty() {
         // If not provided from the outside, but title and author were given, we
         // compute a hash of them, which should be reasonably stable and unique.
-        hash_base64(&(PDF_VERSION, &ctx.document.title, &ctx.document.author))
+        hash_base64(&(PDF_VERSION, &ctx.document.info.title, &ctx.document.info.author))
     } else {
         // The user provided no usable metadata which we can use as an `/ID`.
         instance_id.clone()

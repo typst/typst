@@ -9,8 +9,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Alignment, Angle, Axes, BlockElem, FixedAlignment, Frame, HAlignment, Length,
-    Point, Ratio, Region, Regions, Rel, Size, VAlignment,
+    layout_frame, Abs, Alignment, Angle, Axes, BlockElem, FixedAlignment, Frame,
+    HAlignment, Length, Point, Ratio, Region, Rel, Size, VAlignment,
 };
 use crate::utils::Numeric;
 
@@ -62,10 +62,7 @@ fn layout_move(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let mut frame = elem
-        .body()
-        .layout(engine, locator, styles, region.into_regions())?
-        .into_frame();
+    let mut frame = layout_frame(engine, &elem.body, locator, styles, region)?;
     let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
     let delta = delta.zip_map(region.size, Rel::relative_to);
     frame.translate(delta.to_point());
@@ -299,8 +296,8 @@ impl Packed<ScaleElem> {
         }
 
         let size = Lazy::new(|| {
-            let pod = Regions::one(container, Axes::splat(false));
-            let frame = self.body().layout(engine, locator, styles, pod)?.into_frame();
+            let pod = Region::new(container, Axes::splat(false));
+            let frame = layout_frame(engine, &self.body, locator, styles, pod)?;
             SourceResult::Ok(frame.size())
         });
 
@@ -478,12 +475,12 @@ fn measure_and_layout(
 ) -> SourceResult<Frame> {
     if reflow {
         // Measure the size of the body.
-        let pod = Regions::one(size, Axes::splat(false));
-        let frame = body.layout(engine, locator.relayout(), styles, pod)?.into_frame();
+        let pod = Region::new(size, Axes::splat(false));
+        let frame = layout_frame(engine, body, locator.relayout(), styles, pod)?;
 
         // Actually perform the layout.
-        let pod = Regions::one(frame.size(), Axes::splat(true));
-        let mut frame = body.layout(engine, locator, styles, pod)?.into_frame();
+        let pod = Region::new(frame.size(), Axes::splat(true));
+        let mut frame = layout_frame(engine, body, locator, styles, pod)?;
         let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
         // Compute the transform.
@@ -499,9 +496,7 @@ fn measure_and_layout(
         Ok(frame)
     } else {
         // Layout the body.
-        let mut frame = body
-            .layout(engine, locator, styles, region.into_regions())?
-            .into_frame();
+        let mut frame = layout_frame(engine, body, locator, styles, region)?;
         let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
         // Compute the transform.

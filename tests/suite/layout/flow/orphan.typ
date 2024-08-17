@@ -29,3 +29,14 @@ This is the start and it goes on.
 // All three lines go to the next page.
 #set text(olive)
 #lorem(10)
+
+--- flow-widow-forced ---
+// Ensure that a widow is allowed when the three lines don't all fit.
+#set page(height: 50pt)
+#lorem(10)
+
+--- issue-1445-widow-orphan-unnecessary-skip ---
+// Ensure that widow/orphan prevention doesn't unnecessarily move things
+// to another page.
+#set page(width: 16cm)
+#block(height: 30pt, fill: aqua, columns(2, lorem(19)))

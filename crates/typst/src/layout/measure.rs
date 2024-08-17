@@ -6,7 +6,7 @@ use crate::foundations::{
     dict, func, Content, Context, Dict, Resolve, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Locator, LocatorLink};
-use crate::layout::{Abs, Axes, Length, Regions, Size};
+use crate::layout::{layout_frame, Abs, Axes, Length, Region, Size};
 use crate::syntax::Span;
 
 /// Measures the layouted size of content.
@@ -93,7 +93,7 @@ pub fn measure(
     };
 
     // Create a pod region with the available space.
-    let pod = Regions::one(
+    let pod = Region::new(
         Axes::new(
             width.resolve(styles).unwrap_or(Abs::inf()),
             height.resolve(styles).unwrap_or(Abs::inf()),
@@ -109,7 +109,7 @@ pub fn measure(
     let link = LocatorLink::measure(here);
     let locator = Locator::link(&link);
 
-    let frame = content.layout(engine, locator, styles, pod)?.into_frame();
+    let frame = layout_frame(engine, &content, locator, styles, pod)?;
     let Size { x, y } = frame.size();
     Ok(dict! { "width" => x, "height" => y })
 }

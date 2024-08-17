@@ -43,8 +43,6 @@ pub struct Preparation<'a> {
     pub cjk_latin_spacing: bool,
     /// Whether font fallback is enabled for this paragraph.
     pub fallback: bool,
-    /// The leading of the paragraph.
-    pub leading: Abs,
     /// How to determine line breaks.
     pub linebreaks: Smart<Linebreaks>,
     /// The text size.
@@ -136,7 +134,6 @@ pub fn prepare<'a>(
         hang: ParElem::hanging_indent_in(styles),
         cjk_latin_spacing,
         fallback: TextElem::fallback_in(styles),
-        leading: ParElem::leading_in(styles),
         linebreaks: ParElem::linebreaks_in(styles),
         size: TextElem::size_in(styles),
     })

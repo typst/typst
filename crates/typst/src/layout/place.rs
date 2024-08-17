@@ -3,7 +3,7 @@ use crate::engine::Engine;
 use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain, Unlabellable};
 use crate::introspection::Locator;
 use crate::layout::{
-    Alignment, Axes, Em, Fragment, Length, Regions, Rel, Size, VAlignment,
+    layout_frame, Alignment, Axes, Em, Frame, Length, Region, Rel, Size, VAlignment,
 };
 use crate::realize::{Behave, Behaviour};
 
@@ -112,7 +112,7 @@ impl Packed<PlaceElem> {
         locator: Locator,
         styles: StyleChain,
         base: Size,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
         let float = self.float(styles);
@@ -135,9 +135,8 @@ impl Packed<PlaceElem> {
             .clone()
             .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
 
-        let pod = Regions::one(base, Axes::splat(false));
-        let frame = child.layout(engine, locator, styles, pod)?.into_frame();
-        Ok(Fragment::frame(frame))
+        let pod = Region::new(base, Axes::splat(false));
+        layout_frame(engine, &child, locator, styles, pod)
     }
 }
 
