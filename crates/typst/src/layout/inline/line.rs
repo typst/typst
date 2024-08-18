@@ -256,7 +256,7 @@ where
     }
 }
 
-/// Collects / reshapes all items for the given `subrange` with continous
+/// Collects / reshapes all items for the given `subrange` with continuous
 /// direction.
 fn collect_range<'a>(
     engine: &Engine,

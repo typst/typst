@@ -39,9 +39,9 @@ use crate::visualize::{Paint, Stroke};
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
 /// appropriate. Furthermore, Typst will annotate its output in the future such
-/// that screenreaders will annouce content in `table` as tabular while a grid's
-/// content will be announced no different than multiple content blocks in the
-/// document flow.
+/// that screenreaders will announce content in `table` as tabular while a
+/// grid's content will be announced no different than multiple content blocks
+/// in the document flow.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
 /// table cells, you can use the [`table.cell`]($table.cell) element. See its

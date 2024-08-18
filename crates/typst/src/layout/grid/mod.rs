@@ -45,7 +45,7 @@ use crate::visualize::{Paint, Stroke};
 /// intended for presentational and layout purposes, while the
 /// [`{table}`]($table) element is intended for, in broad terms, presenting
 /// multiple related data points. In the future, Typst will annotate its output
-/// such that screenreaders will annouce content in `table` as tabular while a
+/// such that screenreaders will announce content in `table` as tabular while a
 /// grid's content will be announced no different than multiple content blocks
 /// in the document flow. Set and show rules on one of these elements do not
 /// affect the other.
