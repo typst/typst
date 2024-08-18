@@ -246,7 +246,7 @@ impl LayoutMath for Content {
             self.sequence_recursive_for_each(&mut |child: &Content| {
                 bb.push(child, StyleChain::default());
             });
-            for (child, _) in bb.finish().0.chain(&styles) {
+            for (child, _) in bb.finish() {
                 child.layout_math(ctx, styles)?;
             }
             return Ok(());
