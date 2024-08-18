@@ -174,7 +174,7 @@ impl StyleVec {
 
     /// Create a `StyleVec` from a list of content with style chains.
     pub fn create<'a>(buf: &[(&Content, StyleChain<'a>)]) -> (Self, StyleChain<'a>) {
-        let (trunk, depth) = determine_style_trunk(&buf);
+        let (trunk, depth) = determine_style_trunk(buf);
 
         let mut elements = EcoVec::with_capacity(buf.len());
         let mut styles = EcoVec::<(Styles, usize)>::new();
