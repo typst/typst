@@ -36,6 +36,9 @@ use crate::model::{
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
+/// A pair of content and a style chain that applies to it.
+type Pair<'a> = (&'a Content, StyleChain<'a>);
+
 /// Realize at the root-level.
 #[typst_macros::time(name = "realize root")]
 pub fn realize_root<'a>(
@@ -351,7 +354,8 @@ impl<'a> DocBuilder<'a> {
     /// Turns this builder into the resulting page runs, along with
     /// its [style chain][StyleChain].
     fn finish(self) -> (StyleVec, StyleChain<'a>, DocumentInfo) {
-        let (children, trunk, _) = self.pages.finish();
+        let buf = self.pages.finish();
+        let (children, trunk) = StyleVec::create(&buf);
         (children, trunk, self.info)
     }
 }
@@ -442,7 +446,9 @@ impl<'a> FlowBuilder<'a> {
     /// Turns this builder into the resulting flow, along with
     /// its [style chain][StyleChain].
     fn finish(self) -> (Packed<FlowElem>, StyleChain<'a>) {
-        let (children, trunk, span) = self.0.finish();
+        let buf = self.0.finish();
+        let span = determine_span(&buf);
+        let (children, trunk) = StyleVec::create(&buf);
         (Packed::new(FlowElem::new(children)).spanned(span), trunk)
     }
 }
@@ -482,7 +488,9 @@ impl<'a> ParBuilder<'a> {
     /// Turns this builder into the resulting paragraph, along with
     /// its [style chain][StyleChain].
     fn finish(self) -> (Packed<ParElem>, StyleChain<'a>) {
-        let (children, trunk, span) = self.0.finish();
+        let buf = self.0.finish();
+        let span = determine_span(&buf);
+        let (children, trunk) = StyleVec::create(&buf);
         (Packed::new(ParElem::new(children)).spanned(span), trunk)
     }
 }
@@ -491,11 +499,11 @@ impl<'a> ParBuilder<'a> {
 /// from list or enum items, spaces, and paragraph breaks.
 struct ListBuilder<'a> {
     /// The list items collected so far.
-    items: BehavedBuilder<'a>,
+    items: Vec<Pair<'a>>,
+    /// Trailing content for which it is unclear whether it is part of the list.
+    staged: Vec<Pair<'a>>,
     /// Whether the list contains no paragraph breaks.
     tight: bool,
-    /// Trailing content for which it is unclear whether it is part of the list.
-    staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
 
 impl<'a> ListBuilder<'a> {
@@ -518,11 +526,10 @@ impl<'a> ListBuilder<'a> {
             || content.is::<TermItem>())
             && self
                 .items
-                .items()
-                .next()
-                .map_or(true, |first| first.func() == content.func())
+                .first()
+                .map_or(true, |(first, _)| first.func() == content.func())
         {
-            self.items.push(content, styles);
+            self.items.push((content, styles));
             self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakElem>());
             return true;
         }
@@ -533,25 +540,27 @@ impl<'a> ListBuilder<'a> {
     /// Turns this builder into the resulting list, along with
     /// its [style chain][StyleChain].
     fn finish(self) -> (Content, StyleChain<'a>) {
-        let (items, trunk, span) = self.items.finish();
-        let mut items = items.into_iter().peekable();
-        let (first, _) = items.peek().unwrap();
+        let span = determine_span(&self.items);
+        let (children, trunk) = StyleVec::create(&self.items);
+
+        let mut iter = children.into_iter().peekable();
+        let (first, _) = iter.peek().unwrap();
         let output = if first.is::<ListItem>() {
-            let children = items
+            let children = iter
                 .map(|(item, local)| {
                     item.into_packed::<ListItem>().unwrap().styled(local)
                 })
                 .collect();
             ListElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else if first.is::<EnumItem>() {
-            let children = items
+            let children = iter
                 .map(|(item, local)| {
                     item.into_packed::<EnumItem>().unwrap().styled(local)
                 })
                 .collect();
             EnumElem::new(children).with_tight(self.tight).pack().spanned(span)
         } else if first.is::<TermItem>() {
-            let children = items
+            let children = iter
                 .map(|(item, local)| {
                     item.into_packed::<TermItem>().unwrap().styled(local)
                 })
@@ -560,29 +569,26 @@ impl<'a> ListBuilder<'a> {
         } else {
             unreachable!()
         };
+
         (output, trunk)
     }
 }
 
 impl Default for ListBuilder<'_> {
     fn default() -> Self {
-        Self {
-            items: BehavedBuilder::default(),
-            tight: true,
-            staged: vec![],
-        }
+        Self { items: vec![], staged: vec![], tight: true }
     }
 }
 
 /// Builds a [citation group][CiteGroup] from citations.
 #[derive(Default)]
 struct CiteGroupBuilder<'a> {
-    /// The styles.
-    styles: StyleChain<'a>,
     /// The citations.
     items: Vec<Packed<CiteElem>>,
     /// Trailing content for which it is unclear whether it is part of the list.
-    staged: Vec<(&'a Content, StyleChain<'a>)>,
+    staged: Vec<Pair<'a>>,
+    /// The styles.
+    styles: StyleChain<'a>,
 }
 
 impl<'a> CiteGroupBuilder<'a> {
@@ -618,4 +624,16 @@ impl<'a> CiteGroupBuilder<'a> {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
         (Packed::new(CiteGroup::new(self.items)).spanned(span), self.styles)
     }
+}
+
+/// Determine a span for the built collection.
+fn determine_span(buf: &[(&Content, StyleChain)]) -> Span {
+    let mut span = Span::detached();
+    for &(content, _) in buf {
+        span = content.span();
+        if !span.is_detached() {
+            break;
+        }
+    }
+    span
 }
