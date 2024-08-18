@@ -5,7 +5,6 @@ use std::fmt::{Debug, Formatter};
 use ecow::EcoVec;
 
 use crate::foundations::{Content, StyleChain, Styles};
-use crate::syntax::Span;
 
 /// How an element interacts with other elements in a stream.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -129,39 +128,9 @@ impl<'a> BehavedBuilder<'a> {
 
     /// Return the built content (possibly styled with local styles) plus a
     /// trunk style chain and a span for the collection.
-    pub fn finish(mut self) -> (StyleVec, StyleChain<'a>, Span) {
+    pub fn finish(mut self) -> Vec<(&'a Content, StyleChain<'a>)> {
         self.trim_weak();
-
-        let span = self.determine_span();
-        let (trunk, depth) = self.determine_style_trunk();
-
-        let mut elements = EcoVec::with_capacity(self.buf.len());
-        let mut styles = EcoVec::<(Styles, usize)>::new();
-        let mut last: Option<(StyleChain<'a>, usize)> = None;
-
-        for (element, chain) in self.buf.into_iter() {
-            elements.push(element.clone());
-
-            if let Some((prev, run)) = &mut last {
-                if chain == *prev {
-                    *run += 1;
-                } else {
-                    styles.push((prev.suffix(depth), *run));
-                    last = Some((chain, 1));
-                }
-            } else {
-                last = Some((chain, 1));
-            }
-        }
-
-        if let Some((last, run)) = last {
-            let skippable = styles.is_empty() && last == trunk;
-            if !skippable {
-                styles.push((last.suffix(depth), run));
-            }
-        }
-
-        (StyleVec { elements, styles }, trunk, span)
+        self.buf
     }
 
     /// Trim a possibly remaining weak item.
@@ -175,50 +144,6 @@ impl<'a> BehavedBuilder<'a> {
     /// Get the position of the right most weak item.
     fn find_last_weak(&self) -> Option<usize> {
         self.buf.iter().rposition(|(c, _)| c.behaviour().is_weak())
-    }
-
-    /// Determine a span for the built collection.
-    fn determine_span(&self) -> Span {
-        let mut span = Span::detached();
-        for &(content, _) in &self.buf {
-            span = content.span();
-            if !span.is_detached() {
-                break;
-            }
-        }
-        span
-    }
-
-    /// Determine the shared trunk style chain.
-    fn determine_style_trunk(&self) -> (StyleChain<'a>, usize) {
-        // Determine shared style depth and first span.
-        let mut trunk = match self.buf.first() {
-            Some(&(_, chain)) => chain,
-            None => Default::default(),
-        };
-
-        let mut depth = trunk.links().count();
-        for (_, mut chain) in &self.buf {
-            let len = chain.links().count();
-            if len < depth {
-                for _ in 0..depth - len {
-                    trunk.pop();
-                }
-                depth = len;
-            } else if len > depth {
-                for _ in 0..len - depth {
-                    chain.pop();
-                }
-            }
-
-            while depth > 0 && chain != trunk {
-                trunk.pop();
-                chain.pop();
-                depth -= 1;
-            }
-        }
-
-        (trunk, depth)
     }
 }
 
@@ -245,6 +170,39 @@ impl StyleVec {
     /// Create a style vector from an unstyled vector content.
     pub fn wrap(elements: EcoVec<Content>) -> Self {
         Self { elements, styles: EcoVec::new() }
+    }
+
+    /// Create a `StyleVec` from a list of content with style chains.
+    pub fn create<'a>(buf: &[(&Content, StyleChain<'a>)]) -> (Self, StyleChain<'a>) {
+        let (trunk, depth) = determine_style_trunk(buf);
+
+        let mut elements = EcoVec::with_capacity(buf.len());
+        let mut styles = EcoVec::<(Styles, usize)>::new();
+        let mut last: Option<(StyleChain<'a>, usize)> = None;
+
+        for &(element, chain) in buf {
+            elements.push(element.clone());
+
+            if let Some((prev, run)) = &mut last {
+                if chain == *prev {
+                    *run += 1;
+                } else {
+                    styles.push((prev.suffix(depth), *run));
+                    last = Some((chain, 1));
+                }
+            } else {
+                last = Some((chain, 1));
+            }
+        }
+
+        if let Some((last, run)) = last {
+            let skippable = styles.is_empty() && last == trunk;
+            if !skippable {
+                styles.push((last.suffix(depth), run));
+            }
+        }
+
+        (StyleVec { elements, styles }, trunk)
     }
 
     /// Whether there are no elements.
@@ -320,4 +278,36 @@ impl Debug for StyleVec {
             }))
             .finish()
     }
+}
+
+/// Determine the shared trunk style chain.
+fn determine_style_trunk<'a, T>(buf: &[(T, StyleChain<'a>)]) -> (StyleChain<'a>, usize) {
+    // Determine shared style depth and first span.
+    let mut trunk = match buf.first() {
+        Some(&(_, chain)) => chain,
+        None => Default::default(),
+    };
+
+    let mut depth = trunk.links().count();
+    for (_, mut chain) in buf {
+        let len = chain.links().count();
+        if len < depth {
+            for _ in 0..depth - len {
+                trunk.pop();
+            }
+            depth = len;
+        } else if len > depth {
+            for _ in 0..len - depth {
+                chain.pop();
+            }
+        }
+
+        while depth > 0 && chain != trunk {
+            trunk.pop();
+            chain.pop();
+            depth -= 1;
+        }
+    }
+
+    (trunk, depth)
 }
