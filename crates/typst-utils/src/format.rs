@@ -6,18 +6,20 @@ use std::time::Duration;
 /// Standard rounding rule applies (if `n+1`th digit >= 5 then round up).
 /// If `value` is +/- infinity or NaN returns `value`.
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
-    use rust_decimal::prelude::*;
-
-    if value.is_infinite() || value.is_nan() {
+    if value.is_infinite()
+        || value.is_nan()
+        // Integers that big can't have fractional part (mantissa is already full).
+        || value.abs() >= (1_i64 << 53) as f64
+        // Binary64 format can only precisely represent up to log_10(2^53) digits.
+        || precision >= 17
+    {
         return value;
     }
-    let value = Decimal::from_f64(value).unwrap();
-    let integer_part = if value > Decimal::ZERO { value.floor() } else { value.ceil() };
-    let fractional_part = value.fract();
     let offset = 10_f64.powi(precision.into());
-    let offset = Decimal::from_f64(offset).unwrap();
-    let rounded_fractional_part = (fractional_part * offset).round() / offset;
-    (integer_part + rounded_fractional_part).to_f64().unwrap()
+    if !(value * offset).is_finite() {
+        return value;
+    }
+    (value * offset).round() / offset
 }
 
 /// Returns number of `(days, hours, minutes, seconds, milliseconds, microseconds)`.
