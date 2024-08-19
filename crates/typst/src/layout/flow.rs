@@ -28,7 +28,7 @@ use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::realize::StyleVec;
 use crate::realize::{realize_flow, realize_root, Arenas};
 use crate::text::TextElem;
-use crate::utils::Numeric;
+use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
 
 /// Layout content into a document.
@@ -368,6 +368,8 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
+        NonZeroUsize::ONE,
+        Rel::zero(),
     )
 }
 
@@ -386,68 +388,19 @@ pub fn layout_fragment_with_columns(
     count: NonZeroUsize,
     gutter: Rel<Abs>,
 ) -> SourceResult<Fragment> {
-    // Separating the infinite space into infinite columns does not make
-    // much sense.
-    if !regions.size.x.is_finite() {
-        return layout_fragment(engine, content, locator, styles, regions);
-    }
-
-    // Determine the width of the gutter and each column.
-    let count = count.get();
-    let gutter = gutter.relative_to(regions.base().x);
-    let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
-
-    let backlog: Vec<_> = std::iter::once(&regions.size.y)
-        .chain(regions.backlog)
-        .flat_map(|&height| std::iter::repeat(height).take(count))
-        .skip(1)
-        .collect();
-
-    // Create the pod regions.
-    let pod = Regions {
-        size: Size::new(width, regions.size.y),
-        full: regions.full,
-        backlog: &backlog,
-        last: regions.last,
-        expand: Axes::new(true, regions.expand.y),
-        root: regions.root,
-    };
-
-    // Layout the children.
-    let mut frames = layout_fragment(engine, content, locator, styles, pod)?.into_iter();
-    let mut finished = vec![];
-
-    let dir = TextElem::dir_in(styles);
-    let total_regions = (frames.len() as f32 / count as f32).ceil() as usize;
-
-    // Stitch together the column for each region.
-    for region in regions.iter().take(total_regions) {
-        // The height should be the parent height if we should expand.
-        // Otherwise its the maximum column height for the frame. In that
-        // case, the frame is first created with zero height and then
-        // resized.
-        let height = if regions.expand.y { region.y } else { Abs::zero() };
-        let mut output = Frame::hard(Size::new(regions.size.x, height));
-        let mut cursor = Abs::zero();
-
-        for _ in 0..count {
-            let Some(frame) = frames.next() else { break };
-            if !regions.expand.y {
-                output.size_mut().y.set_max(frame.height());
-            }
-
-            let width = frame.width();
-            let x =
-                if dir == Dir::LTR { cursor } else { regions.size.x - cursor - width };
-
-            output.push_frame(Point::with_x(x), frame);
-            cursor += width + gutter;
-        }
-
-        finished.push(output);
-    }
-
-    Ok(Fragment::frames(finished))
+    layout_fragment_impl(
+        engine.world,
+        engine.introspector,
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        content,
+        locator.track(),
+        styles,
+        regions,
+        count,
+        gutter,
+    )
 }
 
 /// The internal implementation of [`layout_fragment`].
@@ -461,8 +414,10 @@ fn layout_fragment_impl(
     route: Tracked<Route>,
     content: &Content,
     locator: Tracked<Locator>,
-    styles: StyleChain,
+    mut styles: StyleChain,
     regions: Regions,
+    columns: NonZeroUsize,
+    column_gutter: Rel<Abs>,
 ) -> SourceResult<Fragment> {
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
@@ -480,19 +435,31 @@ fn layout_fragment_impl(
             hint: "try to reduce the amount of nesting in your layout",
         );
     }
-
-    // If we are in a `PageElem`, this might already be a realized flow.
-    if let Some(flow) = content.to_packed::<FlowElem>() {
-        return FlowLayouter::new(&mut engine, flow, locator, &styles, regions).layout();
-    }
-
     // Layout the content by first turning it into a `FlowElem` and then
     // layouting that.
     let arenas = Arenas::default();
-    let (flow, styles) =
-        realize_flow(&mut engine, &mut locator, &arenas, content, styles)?;
 
-    FlowLayouter::new(&mut engine, &flow, locator, &styles, regions).layout()
+    // If we are in a `PageElem`, this might already be a realized flow.
+    let stored;
+    let flow = if let Some(flow) = content.to_packed::<FlowElem>() {
+        flow
+    } else {
+        (stored, styles) =
+            realize_flow(&mut engine, &mut locator, &arenas, content, styles)?;
+        &stored
+    };
+
+    FlowLayouter::new(
+        &mut engine,
+        flow,
+        locator,
+        &styles,
+        regions,
+        columns,
+        column_gutter,
+        &mut vec![],
+    )
+    .layout(regions)
 }
 
 /// A collection of block-level layoutable elements. This is analogous to a
@@ -533,7 +500,12 @@ struct FlowLayouter<'a, 'e> {
     locator: SplitLocator<'a>,
     /// The shared styles.
     styles: &'a StyleChain<'a>,
-    /// The regions to layout children into.
+    /// The number of columns.
+    columns: usize,
+    /// The gutter between columns.
+    column_gutter: Abs,
+    /// The regions to layout children into. These already incorporate the
+    /// columns.
     regions: Regions<'a>,
     /// Whether the flow should expand to fill the region.
     expand: Axes<bool>,
@@ -627,13 +599,48 @@ impl FlowItem {
 
 impl<'a, 'e> FlowLayouter<'a, 'e> {
     /// Create a new flow layouter.
+    #[allow(clippy::too_many_arguments)]
     fn new(
         engine: &'a mut Engine<'e>,
         flow: &'a Packed<FlowElem>,
         locator: SplitLocator<'a>,
         styles: &'a StyleChain<'a>,
         mut regions: Regions<'a>,
+        columns: NonZeroUsize,
+        column_gutter: Rel<Abs>,
+        backlog: &'a mut Vec<Abs>,
     ) -> Self {
+        // Separating the infinite space into infinite columns does not make
+        // much sense.
+        let mut columns = columns.get();
+        if !regions.size.x.is_finite() {
+            columns = 1;
+        }
+
+        // Determine the width of the gutter and each column.
+        let column_gutter = column_gutter.relative_to(regions.base().x);
+
+        if columns > 1 {
+            *backlog = std::iter::once(&regions.size.y)
+                .chain(regions.backlog)
+                .flat_map(|&height| std::iter::repeat(height).take(columns))
+                .skip(1)
+                .collect();
+
+            let width =
+                (regions.size.x - column_gutter * (columns - 1) as f64) / columns as f64;
+
+            // Create the pod regions.
+            regions = Regions {
+                size: Size::new(width, regions.size.y),
+                full: regions.full,
+                backlog,
+                last: regions.last,
+                expand: Axes::new(true, regions.expand.y),
+                root: regions.root,
+            };
+        }
+
         // Check whether we have just a single multiple-layoutable element. In
         // that case, we do not set `expand.y` to `false`, but rather keep it at
         // its original value (since that element can take the full space).
@@ -663,6 +670,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             root,
             locator,
             styles,
+            columns,
+            column_gutter,
             regions,
             expand,
             initial: regions.size,
@@ -681,7 +690,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     }
 
     /// Layout the flow.
-    fn layout(mut self) -> SourceResult<Fragment> {
+    fn layout(mut self, regions: Regions) -> SourceResult<Fragment> {
         for (child, styles) in self.flow.children.chain(self.styles) {
             if let Some(elem) = child.to_packed::<TagElem>() {
                 self.handle_tag(elem);
@@ -702,7 +711,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
-        self.finish()
+        self.finish(regions)
     }
 
     /// Place explicit metadata into the flow.
@@ -1229,7 +1238,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     }
 
     /// Finish layouting and return the resulting fragment.
-    fn finish(mut self) -> SourceResult<Fragment> {
+    fn finish(mut self, regions: Regions) -> SourceResult<Fragment> {
         if self.expand.y {
             while !self.regions.backlog.is_empty() {
                 self.finish_region(true)?;
@@ -1241,7 +1250,46 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             self.finish_region(true)?;
         }
 
-        Ok(Fragment::frames(self.finished))
+        if self.columns == 1 {
+            return Ok(Fragment::frames(self.finished));
+        }
+
+        // Stitch together the column for each region.
+        let dir = TextElem::dir_in(*self.styles);
+        let total = (self.finished.len() as f32 / self.columns as f32).ceil() as usize;
+
+        let mut collected = vec![];
+        let mut iter = self.finished.into_iter();
+        for region in regions.iter().take(total) {
+            // The height should be the parent height if we should expand.
+            // Otherwise its the maximum column height for the frame. In that
+            // case, the frame is first created with zero height and then
+            // resized.
+            let height = if regions.expand.y { region.y } else { Abs::zero() };
+            let mut output = Frame::hard(Size::new(regions.size.x, height));
+            let mut cursor = Abs::zero();
+
+            for _ in 0..self.columns {
+                let Some(frame) = iter.next() else { break };
+                if !regions.expand.y {
+                    output.size_mut().y.set_max(frame.height());
+                }
+
+                let width = frame.width();
+                let x = if dir == Dir::LTR {
+                    cursor
+                } else {
+                    regions.size.x - cursor - width
+                };
+
+                output.push_frame(Point::with_x(x), frame);
+                cursor += width + self.column_gutter;
+            }
+
+            collected.push(output);
+        }
+
+        Ok(Fragment::frames(collected))
     }
 
     /// Tries to process all footnotes in the frame, placing them
