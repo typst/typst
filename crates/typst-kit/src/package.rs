@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::{thread::sleep, time::Duration};
 
 use ecow::eco_format;
+use fs4::fs_std::FileExt;
 use once_cell::sync::OnceCell;
 use typst::diag::{bail, PackageError, PackageResult, StrResult};
 use typst::syntax::package::{
@@ -13,6 +14,111 @@ use typst::syntax::package::{
 };
 
 use crate::download::{Downloader, Progress};
+
+struct LockFile {
+    path: PathBuf,
+    tmp_path: String,
+    file: fs::File,
+}
+
+impl LockFile {
+    /// `packages_root_dir` is normally either the cache or the local directory.
+    fn new(packages_root_dir: &Path, spec: &PackageSpec) -> Result<Self, PackageError> {
+        // Directory that is 1 level above the package directory.
+        let parent_dir_path = format!("{}/{}", spec.namespace, spec.name);
+        let parent_dir = packages_root_dir.join(&parent_dir_path);
+        let lock_file_name = format!(".{}.lock", spec.version);
+        let lock_file_path = parent_dir.join(&lock_file_name);
+        if !parent_dir.exists() {
+            fs::create_dir_all(parent_dir).map_err(other_err(
+                "failed to create parent directories for lock file",
+            ))?;
+        }
+        Ok(Self {
+            file: fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&lock_file_path)
+                .map_err(other_err("failed to open lock file"))?,
+            path: lock_file_path,
+            tmp_path: format!("{parent_dir_path}/{lock_file_name}"),
+        })
+    }
+
+    /// Try acquiring exclusive lock.
+    fn try_lock(&self) -> io::Result<()> {
+        self.file.try_lock_exclusive()
+    }
+
+    /// Acquire exclusive lock.
+    fn lock(&self) -> Result<(), PackageError> {
+        self.file
+            .lock_exclusive()
+            .map_err(other_err("failed to aquire lock file"))
+    }
+
+    /// Try acquiring the exclusive lock, if failed print an error an wait
+    /// for the lock with blocking.
+    ///
+    /// Returns `Ok(true)` if acquired first try, otherwise `Ok(false)`.
+    fn try_and_lock(&self) -> Result<bool, PackageError> {
+        match self.try_lock() {
+            Ok(_) => {
+                eprintln!("[tmp] acquired the lock file {:?}", self.tmp_path);
+                Ok(true)
+            }
+            Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                eprintln!("[tmp] couldn't aquire the lock file {:?}", self.tmp_path);
+                eprintln!(
+                    "Waiting for another instance to finish installing the package..."
+                );
+                self.lock()?;
+
+                // // If other instance successfully installed a package after
+                // // waiting for the lock, then there is nothing left to do.
+                // if dir.exists() {
+                //     eprintln!("[tmp] dropped the lock file {:?}", self.tmp_path);
+                //     return Ok(dir);
+                // }
+
+                // eprintln!(
+                //     "Another instance failed to install the package, trying it again."
+                // );
+                Ok(false)
+                // Additional cool/user-friendly logs:
+                // let _write_lock = lock_file.write().unwrap();
+                // println!("checking if package already exists");
+                // if dir.exists() {
+                //     println!("it does! no need to download and unpack");
+                //     return Ok(dir);
+                // } else {
+                //     println!("waited to aquire the file lock and the other instance wasn't able to download it :/");
+                //     todo!()
+                // }
+            }
+            Err(err) => Err(other_err("failed to aquire lock file")(err)),
+        }
+    }
+
+    /// Remove (delete) lock file (if wasn't already by other process).
+    ///
+    /// Will be automatically called when struct is being dropped ([Drop]).
+    fn remove(&self) -> Result<(), PackageError> {
+        if self.path.exists() {
+            fs::remove_file(&self.path)
+                .map_err(other_err("failed to remove lock file"))?;
+        }
+        eprintln!("[tmp] dropped the lock file {:?}", self.tmp_path);
+        Ok(())
+    }
+}
+
+impl Drop for LockFile {
+    fn drop(&mut self) {
+        self.remove().expect("An error occured when dropping a lock file")
+    }
+}
 
 /// The default Typst registry.
 pub const DEFAULT_REGISTRY: &str = "https://packages.typst.org";
@@ -72,107 +178,58 @@ impl PackageStorage {
     }
 
     /// Make a package available in the on-disk.
+    ///
+    /// Will return path to the package from the local package directory if present,
+    /// or from the cached directory otherwise.
     pub fn prepare_package(
         &self,
         spec: &PackageSpec,
         progress: &mut dyn Progress,
     ) -> PackageResult<PathBuf> {
-        let parent_subdir = format!("{}/{}", spec.namespace, spec.name);
-        let subdir = format!("{parent_subdir}/{}", spec.version);
+        let path_to_package =
+            format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
         if let Some(packages_dir) = &self.package_path {
-            let dir = packages_dir.join(&subdir);
-            if dir.exists() {
-                // Question:
-                // This is a dir in the persistent package dir.
-                // Which dir is supposed to be returned?
-                return Ok(dir);
+            let package_dir = packages_dir.join(&path_to_package);
+            if package_dir.exists() {
+                return Ok(package_dir);
             }
         }
 
         if let Some(cache_dir) = &self.package_cache_path {
-            let dir = cache_dir.join(subdir);
-            if dir.exists() {
-                // Question:
-                // This is a dir in the temporary cache dir.
-                // Which dir is supposed to be returned?
-                return Ok(dir);
+            let package_dir = cache_dir.join(path_to_package);
+            if package_dir.exists() {
+                return Ok(package_dir);
             }
-            let parent_dir = cache_dir.join(&parent_subdir);
 
-            let lock_file_path = parent_dir.join(format!(".{}.lock", spec.version));
-            let remove_lock = || {
-                fs::remove_file(&lock_file_path)
-                    .map_err(other_err("failed to remove lock file"))
-            };
-            if !parent_dir.exists() {
-                fs::create_dir_all(parent_dir).map_err(other_err(
-                    "failed to create parent directories for lock file",
-                ))?;
+            let lock_file = LockFile::new(cache_dir, spec)?;
+            if !lock_file.try_and_lock()? {
+                // If other instance successfully installed a package after
+                // waiting for the lock, then there is nothing left to do.
+                if package_dir.exists() {
+                    return Ok(package_dir);
+                }
+
+                eprintln!(
+                    "Another instance failed to install the package, trying it again."
+                );
+                // Additional cool/user-friendly logs:
+                // let _write_lock = lock_file.write().unwrap();
+                // println!("checking if package already exists");
+                // if dir.exists() {
+                //     println!("it does! no need to download and unpack");
+                //     return Ok(dir);
+                // } else {
+                //     println!("waited to aquire the file lock and the other instance wasn't able to download it :/");
+                //     todo!()
+                // }
             }
-            // https://github.com/yoshuawuyts/fd-lock/issues/28#issuecomment-2264180893
-            // File::create(&lock_file_path).unwrap();
-            // let file = match File::open(lock_file_path.as_path()) {
-            let file = fs::OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                // .read(true) // to test the error
-                .open(lock_file_path.as_path())
-                .map_err(other_err("failed to open lock file"))?;
-            let lock_file_path = format!(
-                "~{}",
-                lock_file_path.to_string_lossy().strip_prefix(env!("HOME")).unwrap()
-            );
-            // let mut lock_file = RwLock::new(file.try_clone().unwrap());
-            let mut lock_file = fd_lock::RwLock::new(file);
-            let try_lock = lock_file.try_write();
-            let _lock = match try_lock {
-                Ok(lock) => {
-                    eprintln!("[tmp] acquired the lock file {lock_file_path:?}");
-                    lock
-                }
-                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
-                    drop(try_lock);
-                    eprintln!("[tmp] couldn't aquire the lock file {lock_file_path:?}");
-                    eprintln!("Waiting for another instance to finish installing the package...");
-                    let lock = lock_file
-                        .write()
-                        .map_err(other_err("failed to aquire lock file"))?;
-
-                    // If other instance successfully installed a package after
-                    // waiting for the lock, then there is nothing left to do.
-                    if dir.exists() {
-                        eprintln!("[tmp] dropped the lock file {lock_file_path:?}");
-                        return Ok(dir);
-                    }
-
-                    eprintln!("Another instance failed to install the package, trying it again.");
-                    lock
-                    // Additional cool/user-friendly logs:
-                    // let _write_lock = lock_file.write().unwrap();
-                    // println!("checking if package already exists");
-                    // if dir.exists() {
-                    //     println!("it does! no need to download and unpack");
-                    //     return Ok(dir);
-                    // } else {
-                    //     println!("waited to aquire the file lock and the other instance wasn't able to download it :/");
-                    //     todo!()
-                    // }
-                }
-                Err(err) => return Err(other_err("failed to aquire lock file")(err)),
-            };
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == "preview" {
-                self.download_package(spec, &dir, progress)?;
-                // https://github.com/yoshuawuyts/fd-lock/issues/28#issuecomment-2264180893
-                // drop(lock);
-                // remove_file(&lock_file_path).unwrap();
-                remove_lock()?;
-                eprintln!("[tmp] dropped the lock file {lock_file_path:?}");
-                if dir.exists() {
-                    return Ok(dir);
+                self.download_package(spec, &package_dir, progress)?;
+                if package_dir.exists() {
+                    return Ok(package_dir);
                 }
             }
         }

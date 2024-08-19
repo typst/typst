@@ -18,9 +18,9 @@ typst-utils = { workspace = true }
 ecow = { workspace = true }
 env_proxy = { workspace = true, optional = true }
 dirs = { workspace = true, optional = true }
-fd-lock = { workspace = true }
 flate2 = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
+fs4 = { workspace = true }
 native-tls = { workspace = true, optional = true }
 once_cell = { workspace = true }
 tar = { workspace = true, optional = true }

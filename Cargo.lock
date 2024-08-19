@@ -681,17 +681,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fc0510504f03c51ada170672ac806f1f105a88aa97a5281117e1ddc3368e51a"
 
 [[package]]
-name = "fd-lock"
-version = "4.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e5768da2206272c81ef0b5e951a41862938a6070da63bcea197899942d3b947"
-dependencies = [
- "cfg-if",
- "rustix",
- "windows-sys 0.52.0",
-]
-
-[[package]]
 name = "fdeflate"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -779,6 +768,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fs4"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8c6b3bd49c37d2aa3f3f2220233b29a7cd23f79d1fe70e5337d25fb390793de"
+dependencies = [
+ "rustix",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2775,9 +2774,9 @@ dependencies = [
  "dirs",
  "ecow",
  "env_proxy",
- "fd-lock",
  "flate2",
  "fontdb",
+ "fs4",
  "native-tls",
  "once_cell",
  "openssl",
