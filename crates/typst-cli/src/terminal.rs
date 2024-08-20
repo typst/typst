@@ -8,7 +8,9 @@ use crate::ARGS;
 
 /// Returns a handle to the optionally colored terminal output.
 pub fn out() -> TermOut {
-    TermOut { inner: singleton!(TermOutInner, TermOutInner::new()) }
+    TermOut {
+        inner: singleton!(TermOutInner, TermOutInner::new()),
+    }
 }
 
 /// The stuff that has to be shared between instances of [`TermOut`].
