@@ -16,8 +16,8 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 /// Note that for a value `v` of type `T`, `hash(v)` is not necessarily equal to
 /// `hash(LazyHash::new(v))`. Writing the precomputed hash into a hasher's
 /// state produces different output than writing the value's parts directly.
-/// However, that seldomly matters as you are typically either dealing with
-/// values of type `T` or with values of type `LazyHash<T>`, not a mix of both.
+/// However, that seldom matters as you are typically either dealing with values
+/// of type `T` or with values of type `LazyHash<T>`, not a mix of both.
 ///
 /// # Equality
 /// Because Typst uses high-quality 128 bit hashes in all places, the risk of a

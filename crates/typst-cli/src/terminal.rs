@@ -1,15 +1,16 @@
 use std::io::{self, IsTerminal, Write};
 
 use codespan_reporting::term::termcolor;
-use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};
+use typst::utils::singleton;
 
 use crate::ARGS;
 
 /// Returns a handle to the optionally colored terminal output.
 pub fn out() -> TermOut {
-    static OUTPUT: Lazy<TermOutInner> = Lazy::new(TermOutInner::new);
-    TermOut { inner: &OUTPUT }
+    TermOut {
+        inner: singleton!(TermOutInner, TermOutInner::new()),
+    }
 }
 
 /// The stuff that has to be shared between instances of [`TermOut`].

@@ -211,11 +211,7 @@ pub enum Color {
 #[scope]
 impl Color {
     /// The module of preset color maps.
-    pub const MAP: fn() -> Module = || {
-        // Lazy to avoid re-allocating.
-        static MODULE: Lazy<Module> = Lazy::new(map);
-        MODULE.clone()
-    };
+    pub const MAP: fn() -> Module = || crate::utils::singleton!(Module, map()).clone();
 
     pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
     pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));

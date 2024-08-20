@@ -223,7 +223,7 @@ fn shading_function(
     function
 }
 
-/// Writes an expontential function that expresses a single segment (between two
+/// Writes an exponential function that expresses a single segment (between two
 /// stops) of a gradient.
 fn single_gradient(
     chunk: &mut PdfChunk,

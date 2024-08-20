@@ -89,7 +89,7 @@ impl<'a> Logger<'a> {
         let Self { selected, passed, failed, skipped, .. } = *self;
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
-        assert_eq!(selected, passed + failed, "not all tests were executed succesfully");
+        assert_eq!(selected, passed + failed, "not all tests were executed successfully");
 
         if self.mismatched_image {
             eprintln!("  pass the --update flag to update the reference images");

@@ -10,6 +10,7 @@ use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Abs, Em, FixedAlignment, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 use crate::realize::StyleVec;
+use crate::utils::singleton;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
 ///
@@ -125,7 +126,7 @@ pub struct ParElem {
     #[resolve]
     pub hanging_indent: Length,
 
-    /// Indicates wheter an overflowing line should be shrunk.
+    /// Indicates whether an overflowing line should be shrunk.
     ///
     /// This property is set to `false` on raw blocks, because shrinking a line
     /// could visually break the indentation.
@@ -159,9 +160,9 @@ impl Construct for ParElem {
         let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([
-            ParbreakElem::new().pack(),
+            ParbreakElem::shared().clone(),
             body.styled_with_map(styles),
-            ParbreakElem::new().pack(),
+            ParbreakElem::shared().clone(),
         ]))
     }
 }
@@ -205,6 +206,13 @@ pub enum Linebreaks {
 /// markup to create a paragraph break.
 #[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
+
+impl ParbreakElem {
+    /// Get the globally shared paragraph element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, ParbreakElem::new().pack())
+    }
+}
 
 impl Unlabellable for Packed<ParbreakElem> {}
 

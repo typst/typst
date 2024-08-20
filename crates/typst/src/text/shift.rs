@@ -128,7 +128,7 @@ impl Show for Packed<SuperElem> {
 }
 
 /// Find and transform the text contained in `content` to the given script kind
-/// if and only if it only consists of `Text`, `Space`, and `Empty` leafs.
+/// if and only if it only consists of `Text`, `Space`, and `Empty` leaves.
 fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
     if content.is::<SpaceElem>() {
         Some(' '.into())

@@ -1443,7 +1443,7 @@ pub enum BinOp {
     NotIn,
     /// The add-assign operator: `+=`.
     AddAssign,
-    /// The subtract-assign oeprator: `-=`.
+    /// The subtract-assign operator: `-=`.
     SubAssign,
     /// The multiply-assign operator: `*=`.
     MulAssign,

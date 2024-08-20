@@ -24,7 +24,7 @@
 --- measure-counter-width ---
 // Measure a counter. Tests that the introspector-assisted location assignment
 // is able to take `here()` from the context into account to find the closest
-// matching element instaed of any single one. Crucially, we need to reuse
+// matching element instead of any single one. Crucially, we need to reuse
 // the same `context c.display()` to get the same span, hence `it`.
 #let f(it) = context [
   Is #measure(it).width wide: #it \

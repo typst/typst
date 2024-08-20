@@ -1,11 +1,19 @@
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Packed, StyleChain};
+use crate::foundations::{elem, Content, NativeElement, Packed, StyleChain};
 use crate::layout::Abs;
 use crate::math::{LayoutMath, MathContext, MathFragment, MathRun};
+use crate::utils::singleton;
 
 /// A math alignment point: `&`, `&&`.
 #[elem(title = "Alignment Point", LayoutMath)]
 pub struct AlignPointElem {}
+
+impl AlignPointElem {
+    /// Get the globally shared alignment point element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, AlignPointElem::new().pack())
+    }
+}
 
 impl LayoutMath for Packed<AlignPointElem> {
     fn layout_math(&self, ctx: &mut MathContext, _: StyleChain) -> SourceResult<()> {

@@ -25,6 +25,9 @@ use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
 
+#[doc(hidden)]
+pub use once_cell;
+
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
 where

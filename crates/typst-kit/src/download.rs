@@ -29,7 +29,7 @@ pub trait Progress {
     fn print_finish(&mut self, state: &DownloadState);
 }
 
-/// An implementation of [`Progress`] whth no-op reporting, i.e. reporting
+/// An implementation of [`Progress`] with no-op reporting, i.e., reporting
 /// events are swallowed.
 pub struct ProgressSink;
 
