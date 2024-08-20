@@ -1286,6 +1286,16 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             prev_y = Some(line.y);
             let number_align = *line.marker.number_align();
             let number_margin = *line.marker.number_margin();
+            let current_column = self.finished.len() % self.columns;
+            let number_margin = if self.columns >= 2 && current_column + 1 == self.columns
+            {
+                // The last column will always place line numbers at the end
+                // margin. This should become configurable in the future.
+                Alignment::END.resolve(*self.styles).x
+            } else {
+                number_margin
+            };
+
             let number_clearance = line.marker.number_clearance().resolve(*self.styles);
             let number = self.layout_line_number(line.marker)?;
             let number_x = match number_margin {

@@ -44,3 +44,57 @@ a
 #set par.line(numbering: "1")
 a
 #([\ a] * 15)
+
+--- line-numbers-columns ---
+#set page(columns: 2, margin: (x: 1.5em))
+#set par.line(numbering: "1", number-clearance: 0.5em)
+
+Hello \
+Beautiful \
+World
+#colbreak()
+Birds\
+In the\
+Sky
+
+--- line-numbers-multi-columns ---
+#set page(columns: 3, margin: (x: 1.5em))
+#set par.line(numbering: "1", number-clearance: 0.5em)
+
+A\
+B\
+C
+#colbreak()
+D\
+E\
+F
+#colbreak()
+G\
+H\
+I
+
+--- line-numbers-columns-rtl ---
+#set page(columns: 2, margin: (x: 1.5em))
+#set par.line(numbering: "1", number-clearance: 0.5em)
+#set text(dir: rtl)
+
+Hello \
+Beautiful \
+World
+#colbreak()
+Birds\
+In the\
+Sky
+
+--- line-numbers-columns-override ---
+#set columns(gutter: 1.5em)
+#set page(columns: 2, margin: (x: 1.5em))
+#set par.line(numbering: "1", number-margin: end, number-clearance: 0.5em)
+
+Hello \
+Beautiful \
+World
+#colbreak()
+Birds\
+In the\
+Sky
