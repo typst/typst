@@ -24,7 +24,7 @@ class TestHelper {
   // The current zoom scale.
   scale = 1.0;
 
-  // The extention's status bar item.
+  // The extension's status bar item.
   statusItem: vscode.StatusBarItem;
 
   // The active message of the status item.

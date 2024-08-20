@@ -95,7 +95,7 @@ use crate::introspection::{Introspector, Location};
 ///   that layer upfront and then start forking out. The final remaining
 ///   question is how we can compactly encode this information: For this, as
 ///   always, we use hashing! We incorporate the ID information from each layer
-///   into a single hash and thanks to the collision resistence of 128-bit
+///   into a single hash and thanks to the collision resistance of 128-bit
 ///   SipHash, we get almost guaranteed unique locations. We don't even store
 ///   the full layer information at all, but rather hash _hierarchically:_ Let
 ///   `k_x` be our local per-layer ID for layer `x` and `h_x` be the full

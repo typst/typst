@@ -348,7 +348,7 @@ fn linebreak_optimized_bounded<'a>(
 
 /// Runs the normal Knuth-Plass algorithm, but instead of building proper lines
 /// (which is costly) to determine costs, it determines approximate costs using
-/// cummulative arrays.
+/// cumulative arrays.
 ///
 /// This results in a likely good paragraph layouts, for which we then compute
 /// the exact cost. This cost is an upper bound for proper optimized
@@ -360,7 +360,7 @@ fn linebreak_optimized_approximate(
     width: Abs,
     metrics: &CostMetrics,
 ) -> Cost {
-    // Determine the cummulative estimation metrics.
+    // Determine the cumulative estimation metrics.
     let estimates = Estimates::compute(p);
 
     /// An entry in the dynamic programming table for paragraph optimization.
@@ -872,10 +872,10 @@ impl CostMetrics {
 /// Allows to get a quick estimate of a metric for a line between two byte
 /// positions.
 struct Estimates {
-    widths: CummulativeVec<Abs>,
-    stretchability: CummulativeVec<Abs>,
-    shrinkability: CummulativeVec<Abs>,
-    justifiables: CummulativeVec<usize>,
+    widths: CumulativeVec<Abs>,
+    stretchability: CumulativeVec<Abs>,
+    shrinkability: CumulativeVec<Abs>,
+    justifiables: CumulativeVec<usize>,
 }
 
 impl Estimates {
@@ -883,10 +883,10 @@ impl Estimates {
     fn compute(p: &Preparation) -> Self {
         let cap = p.text.len();
 
-        let mut widths = CummulativeVec::with_capacity(cap);
-        let mut stretchability = CummulativeVec::with_capacity(cap);
-        let mut shrinkability = CummulativeVec::with_capacity(cap);
-        let mut justifiables = CummulativeVec::with_capacity(cap);
+        let mut widths = CumulativeVec::with_capacity(cap);
+        let mut stretchability = CumulativeVec::with_capacity(cap);
+        let mut shrinkability = CumulativeVec::with_capacity(cap);
+        let mut justifiables = CumulativeVec::with_capacity(cap);
 
         for (range, item) in p.items.iter() {
             if let Item::Text(shaped) = item {
@@ -919,12 +919,12 @@ impl Estimates {
 }
 
 /// An accumulative array of a metric.
-struct CummulativeVec<T> {
+struct CumulativeVec<T> {
     total: T,
     summed: Vec<T>,
 }
 
-impl<T> CummulativeVec<T>
+impl<T> CumulativeVec<T>
 where
     T: Default + Copy + Add<Output = T> + Sub<Output = T>,
 {
