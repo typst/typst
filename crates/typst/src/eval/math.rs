@@ -39,7 +39,7 @@ impl Eval for ast::MathAlignPoint<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(AlignPointElem::new().pack())
+        Ok(AlignPointElem::shared().clone())
     }
 }
 

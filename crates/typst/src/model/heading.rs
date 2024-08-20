@@ -331,7 +331,7 @@ impl Outlinable for Packed<HeadingElem> {
                 styles,
                 numbering,
             )?;
-            content = numbers + SpaceElem::new().pack() + content;
+            content = numbers + SpaceElem::shared().clone() + content;
         };
 
         Ok(Some(content))

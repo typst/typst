@@ -83,7 +83,7 @@ impl Eval for ast::Space<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(SpaceElem::new().pack())
+        Ok(SpaceElem::shared().clone())
     }
 }
 
@@ -91,7 +91,7 @@ impl Eval for ast::Linebreak<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(LinebreakElem::new().pack())
+        Ok(LinebreakElem::shared().clone())
     }
 }
 
@@ -99,7 +99,7 @@ impl Eval for ast::Parbreak<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(ParbreakElem::new().pack())
+        Ok(ParbreakElem::shared().clone())
     }
 }
 

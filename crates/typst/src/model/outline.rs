@@ -190,7 +190,7 @@ impl OutlineElem {
 impl Show for Packed<OutlineElem> {
     #[typst_macros::time(name = "outline", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut seq = vec![ParbreakElem::new().pack()];
+        let mut seq = vec![ParbreakElem::shared().clone()];
         // Build the outline title.
         if let Some(title) = self.title(styles).unwrap_or_else(|| {
             Some(TextElem::packed(Self::local_name_in(styles)).spanned(self.span()))
@@ -247,12 +247,12 @@ impl Show for Packed<OutlineElem> {
 
             // Add the overridable outline entry, followed by a line break.
             seq.push(entry.pack());
-            seq.push(LinebreakElem::new().pack());
+            seq.push(LinebreakElem::shared().clone());
 
             ancestors.push(elem);
         }
 
-        seq.push(ParbreakElem::new().pack());
+        seq.push(ParbreakElem::shared().clone());
 
         Ok(Content::sequence(seq))
     }
@@ -325,13 +325,13 @@ impl OutlineIndent {
                             numbering,
                         )?;
 
-                        hidden += numbers + SpaceElem::new().pack();
+                        hidden += numbers + SpaceElem::shared().clone();
                     };
                 }
 
                 if !ancestors.is_empty() {
                     seq.push(HideElem::new(hidden).pack());
-                    seq.push(SpaceElem::new().pack());
+                    seq.push(SpaceElem::shared().clone());
                 }
             }
 
@@ -508,7 +508,7 @@ impl Show for Packed<OutlineEntry> {
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
-            seq.push(SpaceElem::new().pack());
+            seq.push(SpaceElem::shared().clone());
             seq.push(
                 BoxElem::new()
                     .with_body(Some(filler.clone()))
@@ -516,7 +516,7 @@ impl Show for Packed<OutlineEntry> {
                     .pack()
                     .spanned(self.span()),
             );
-            seq.push(SpaceElem::new().pack());
+            seq.push(SpaceElem::shared().clone());
         } else {
             seq.push(HElem::new(Fr::one().into()).pack());
         }

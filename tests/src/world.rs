@@ -5,14 +5,13 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
 use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook, TextElem, TextSize};
-use typst::utils::LazyHash;
+use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
 use typst::{Library, World};
 
@@ -29,8 +28,10 @@ impl TestWorld {
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
     pub fn new(source: Source) -> Self {
-        static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
-        Self { main: source, base: &*BASE }
+        Self {
+            main: source,
+            base: singleton!(TestBase, TestBase::default()),
+        }
     }
 }
 
