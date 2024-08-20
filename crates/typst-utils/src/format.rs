@@ -8,6 +8,8 @@ use std::time::Duration;
 /// If rounding the `value` will have no effect (e.g., it's infinite or
 /// NaN), returns `value` unchanged.
 ///
+/// # Examples
+///
 /// ```
 /// # use typst_utils::format::round_with_precision;
 /// let rounded = round_with_precision(-0.56553, 2);
@@ -55,6 +57,8 @@ fn format_dhms(days: u16, hours: u8, minutes: u8, seconds: u8) -> String {
 
 /// Format string starting with number of seconds and going bigger from there.
 ///
+/// # Examples
+///
 /// ```
 /// # use std::time::Duration;
 /// # use typst_utils::format::time_starting_with_seconds;
@@ -77,8 +81,14 @@ pub fn time_starting_with_seconds(duration: &Duration) -> String {
 /// Format string starting with number of milliseconds and going bigger
 /// from there. `precision` is how many digits of microseconds
 /// from floating point to the right will be preserved (with rounding).
-/// Note that this function will always remove all trailing zeros
+/// Keep in mind that this function will always remove all trailing zeros
 /// for microseconds.
+///
+/// Note: if duration is 1 second or longer, then output will be identical
+/// to [time_starting_with_seconds], which also means that precision,
+/// number of milliseconds and microseconds will not be used.
+///
+/// # Examples
 ///
 /// ```
 /// # use std::time::Duration;
@@ -97,10 +107,6 @@ pub fn time_starting_with_seconds(duration: &Duration) -> String {
 /// let duration3 = time_starting_with_milliseconds(&Duration::from_secs(1), 2);
 /// assert_eq!(" 1 s", &duration3);
 /// ```
-///
-/// Note: if duration is 1 second or longer, then output will be identical
-/// to [time_starting_with_seconds], which also means that precision,
-/// number of milliseconds and microseconds will not be used.
 pub fn time_starting_with_milliseconds(duration: &Duration, precision: u8) -> String {
     let (d, h, m, s, ms, mcs) = get_duration_parts(duration);
     match (d, h, m, s) {
