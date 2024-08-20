@@ -3,26 +3,35 @@
 use std::time::Duration;
 
 /// Returns value with `n` digits after floating point where `n` is `precision`.
-/// Standard rounding rule applies (if `n+1`th digit >= 5 then round up).
-/// If `value` is +/- infinity or NaN returns `value`.
+/// Standard rounding rules apply (if `n+1`th digit >= 5, round up).
+///
+/// If rounding the `value` will have no effect (e.g., it's infinite or
+/// NaN), returns `value` unchanged.
+///
+/// ```
+/// # use typst_utils::format::round_with_precision;
+/// let rounded = round_with_precision(-0.56553, 2);
+/// assert_eq!(-0.57, rounded);
+/// ```
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
+    // Don't attempt to round the float if that wouldn't have any effect. This
+    // includes infinite or NaN values, as well as integer values
+    // with a filled mantissa (which can't have a fractional part). Rounding
+    // with a precision larger than the amount of digits that can be
+    // effectively represented would also be a no-op.
     if value.is_infinite()
         || value.is_nan()
-        // Integers that big can't have fractional part (mantissa is already full).
-        || value.abs() >= (1_i64 << 53) as f64
-        // Binary64 format can only precisely represent up to log_10(2^53) digits.
-        || precision >= 17
+        || value.abs() >= (1_i64 << f64::MANTISSA_DIGITS) as f64
+        || precision as u32 >= f64::DIGITS
     {
         return value;
     }
     let offset = 10_f64.powi(precision.into());
-    if !(value * offset).is_finite() {
-        return value;
-    }
+    assert!((value * offset).is_finite(), "{value} * {offset} is not finite!");
     (value * offset).round() / offset
 }
 
-/// Returns number of `(days, hours, minutes, seconds, milliseconds, microseconds)`.
+/// Returns `(days, hours, minutes, seconds, milliseconds, microseconds)`.
 fn get_duration_parts(duration: &Duration) -> (u16, u8, u8, u8, u16, u16) {
     // In practice we probably don't need nanoseconds.
     let micros = duration.as_micros();
@@ -44,20 +53,55 @@ fn format_dhms(days: u16, hours: u8, minutes: u8, seconds: u8) -> String {
     }
 }
 
-/// Format string starting with number of days and going bigger from there.
+/// Format string starting with number of seconds and going bigger from there.
+///
+/// ```
+/// # use std::time::Duration;
+/// # use typst_utils::format::time_starting_with_seconds;
+/// let duration1 = time_starting_with_seconds(&Duration::from_secs(0));
+/// assert_eq!(" 0 s", &duration1);
+///
+/// let duration2 = time_starting_with_seconds(&Duration::from_secs(
+///     24 * 60 * 60 * 100 + // days
+///     60 * 60 * 10 + // hours
+///     60 * 10 + // minutes
+///     10 // seconds
+/// ));
+/// assert_eq!("100 d 10 h 10 m 10 s", &duration2);
+/// ```
 pub fn time_starting_with_seconds(duration: &Duration) -> String {
     let (days, hours, minutes, seconds, _, _) = get_duration_parts(duration);
     format_dhms(days, hours, minutes, seconds)
 }
 
-/// Format string starting with number of milliseconds and going bigger from there.
-/// `precision` is how many digits of microseconds from floating point to the right
-/// will be preserved. Note that this function will always remove all trailing zeros
+/// Format string starting with number of milliseconds and going bigger
+/// from there. `precision` is how many digits of microseconds
+/// from floating point to the right will be preserved (with rounding).
+/// Note that this function will always remove all trailing zeros
 /// for microseconds.
-pub fn time_starting_with_ms_with_precision(
-    duration: &Duration,
-    precision: u8,
-) -> String {
+///
+/// ```
+/// # use std::time::Duration;
+/// # use typst_utils::format::time_starting_with_milliseconds;
+/// let duration1 = time_starting_with_milliseconds(&Duration::from_micros(
+///     123 * 1000 + // milliseconds
+///     456 // microseconds
+/// ), 2);
+/// assert_eq!("123.46 ms", &duration1);
+///
+/// let duration2 = time_starting_with_milliseconds(&Duration::from_micros(
+///     123 * 1000 // milliseconds
+/// ), 2);
+/// assert_eq!("123 ms", &duration2);
+///
+/// let duration3 = time_starting_with_milliseconds(&Duration::from_secs(1), 2);
+/// assert_eq!(" 1 s", &duration3);
+/// ```
+///
+/// Note: if duration is 1 second or longer, then output will be identical
+/// to [time_starting_with_seconds], which also means that precision,
+/// number of milliseconds and microseconds will not be used.
+pub fn time_starting_with_milliseconds(duration: &Duration, precision: u8) -> String {
     let (d, h, m, s, ms, mcs) = get_duration_parts(duration);
     match (d, h, m, s) {
         (0, 0, 0, 0) => {
@@ -151,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_time_as_ms_with_precision_1() {
-        let f = |duration| time_starting_with_ms_with_precision(&duration, 1);
+        let f = |duration| time_starting_with_milliseconds(&duration, 1);
         let duration = duration_from_milli_micro;
         assert_eq!("123.5 ms", &f(duration(123, 456)));
         assert_eq!("123.5 ms", &f(duration(123, 455)));
@@ -163,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_time_as_ms_with_precision_2() {
-        let f = |duration| time_starting_with_ms_with_precision(&duration, 2);
+        let f = |duration| time_starting_with_milliseconds(&duration, 2);
         let duration = duration_from_milli_micro;
         assert_eq!("123.46 ms", &f(duration(123, 456)));
         assert_eq!("123.46 ms", &f(duration(123, 455)));
@@ -175,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_time_as_ms_with_precision_3() {
-        let f = |duration| time_starting_with_ms_with_precision(&duration, 3);
+        let f = |duration| time_starting_with_milliseconds(&duration, 3);
         let duration = duration_from_milli_micro;
         assert_eq!("123.456 ms", &f(duration(123, 456)));
         assert_eq!("123.455 ms", &f(duration(123, 455)));

@@ -301,12 +301,12 @@ impl Status {
             Self::Success(duration) => {
                 format!(
                     "compiled successfully in {}",
-                    format::time_starting_with_ms_with_precision(duration, 2)
+                    format::time_starting_with_milliseconds(duration, 2)
                 )
             }
             Self::PartialSuccess(duration) => format!(
                 "compiled with warnings in {}",
-                format::time_starting_with_ms_with_precision(duration, 2)
+                format::time_starting_with_milliseconds(duration, 2)
             ),
             Self::Error => "compiled with errors".into(),
         }
