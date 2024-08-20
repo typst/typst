@@ -440,7 +440,7 @@ impl Show for Packed<RawElem> {
         let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
         for (i, line) in lines.iter().enumerate() {
             if i != 0 {
-                seq.push(LinebreakElem::new().pack());
+                seq.push(LinebreakElem::shared().clone());
             }
 
             seq.push(line.clone().pack());

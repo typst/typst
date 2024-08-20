@@ -189,7 +189,7 @@ impl Show for Packed<QuoteElem> {
                 .spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
-                let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
+                let mut seq = vec![TextElem::packed('—'), SpaceElem::shared().clone()];
 
                 match attribution {
                     Attribution::Content(content) => {
@@ -213,7 +213,7 @@ impl Show for Packed<QuoteElem> {
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack()
+            realized += SpaceElem::shared().clone()
                 + CiteElem::new(*label).pack().spanned(self.span());
         }
 

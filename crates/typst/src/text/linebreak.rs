@@ -1,5 +1,6 @@
-use crate::foundations::{elem, Packed};
+use crate::foundations::{elem, Content, NativeElement, Packed};
 use crate::realize::{Behave, Behaviour};
+use crate::utils::singleton;
 
 /// Inserts a line break.
 ///
@@ -35,6 +36,13 @@ pub struct LinebreakElem {
     /// ```
     #[default(false)]
     pub justify: bool,
+}
+
+impl LinebreakElem {
+    /// Get the globally shared linebreak element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, LinebreakElem::new().pack())
+    }
 }
 
 impl Behave for Packed<LinebreakElem> {
