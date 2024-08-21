@@ -40,8 +40,11 @@ fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 # Add generic downloading utilities
 downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
 
-# Add package downloading utilities, implies `downloads`
-packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]
+# How do I do this "put LockFile into separate file"?
+lockfile = []
+
+# Add package downloading utilities, implies `downloads` and `lockfile`
+packages = ["downloads", "lockfile", "dep:dirs", "dep:flate2", "dep:tar"]
 
 # Embeds some fonts into the binary:
 # - For text: Linux Libertine, New Computer Modern
