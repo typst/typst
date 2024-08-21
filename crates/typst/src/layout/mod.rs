@@ -104,6 +104,7 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<MoveElem>();
     global.define_elem::<ScaleElem>();
     global.define_elem::<RotateElem>();
+    global.define_elem::<SkewElem>();
     global.define_elem::<HideElem>();
     global.define_func::<measure>();
     global.define_func::<layout>();
