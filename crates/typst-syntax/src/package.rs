@@ -36,7 +36,7 @@ pub struct PackageManifest {
 /// The `[tool]` key in the manifest. This field can be used to retrieve
 /// 3rd-party tool configuration.
 ///
-// # Examples
+/// # Examples
 /// ```
 /// # use serde::{Deserialize, Serialize};
 /// # use ecow::EcoString;
