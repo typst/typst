@@ -98,3 +98,54 @@ World
 Birds\
 In the\
 Sky
+
+--- line-numbers-per-page-reset ---
+#set page(margin: (left: 2cm))
+#set par.line(
+    numbering: "1",
+    reset-number-every-page: true
+)
+
+First line \
+Second line
+#pagebreak()
+Back to first line \
+Second line again
+#page[
+  Once again, first \
+  And second
+]
+Back to first
+
+--- line-numbers-per-page-reset-columns ---
+#set page(margin: (x: 1.5cm), columns: 2)
+#set par.line(
+    numbering: "1",
+    reset-number-every-page: true
+)
+
+A \
+A \
+A
+#colbreak()
+B \
+B \
+B
+#pagebreak()
+One \
+Two \
+Three
+#colbreak()
+Four \
+Five \
+Six
+#page[
+  Page \
+  Elem
+  #colbreak()
+  Number\
+  Reset
+]
+We're back
+#colbreak()
+Bye!

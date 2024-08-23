@@ -15,8 +15,8 @@ use crate::foundations::{
     StyleChain,
 };
 use crate::introspection::{
-    Counter, CounterDisplayElem, CounterKey, CounterUpdate, Introspector, Locator,
-    LocatorLink, ManualPageCounter, SplitLocator, Tag, TagElem,
+    Counter, CounterDisplayElem, CounterKey, CounterState, CounterUpdate, Introspector,
+    Locator, LocatorLink, ManualPageCounter, SplitLocator, Tag, TagElem,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Binding, BlockElem, ColbreakElem, ColumnsElem, Dir,
@@ -24,7 +24,7 @@ use crate::layout::{
     OuterVAlignment, Page, PageElem, Paper, Parity, PlaceElem, Point, Ratio, Region,
     Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
 };
-use crate::model::{Document, Numbering};
+use crate::model::{Document, Numbering, ParLine};
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
 use crate::realize::{realize_flow, realize_root, Arenas};
@@ -1106,6 +1106,16 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             && !self.items.is_empty()
             && self.items.iter().all(FlowItem::is_out_of_flow)
         {
+            let mut output = Frame::soft(self.initial);
+
+            if self.root
+                && (self.columns == 1 || self.finished.len() % self.columns == 0)
+                && ParLine::reset_number_every_page_in(*self.styles)
+            {
+                // Ensure line numbers are reset at the first column if needed.
+                output.push_frame(Point::zero(), self.layout_line_number_reset()?);
+            }
+
             self.finished.push(Frame::soft(self.initial));
             self.regions.next();
             self.initial = self.regions.size;
@@ -1250,6 +1260,14 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                     output.push_frame(Point::with_y(y), frame);
                 }
             }
+        }
+
+        if self.root
+            && (self.columns == 1 || self.finished.len() % self.columns == 0)
+            && ParLine::reset_number_every_page_in(*self.styles)
+        {
+            // Ensure line numbers are reset at the first column if needed.
+            output.push_frame(Point::zero(), self.layout_line_number_reset()?);
         }
 
         // Prepare to sort, deduplicate and layout line numbers.
@@ -1553,6 +1571,17 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         frame.translate(Point::with_y(-frame.baseline()));
 
         Ok(frame)
+    }
+
+    /// Produces a frame which, when placed, resets the line number counter.
+    fn layout_line_number_reset(&mut self) -> SourceResult<Frame> {
+        let reset =
+            CounterState::init(&CounterKey::Selector(ParLineMarker::elem().select()));
+        let counter = Counter::of(ParLineMarker::elem());
+        let update = counter.update(Span::detached(), CounterUpdate::Set(reset));
+        let locator = self.locator.next(&update);
+        let pod = Region::new(Axes::splat(Abs::zero()), Axes::splat(false));
+        layout_frame(self.engine, &update, locator, *self.styles, pod)
     }
 }
 

@@ -267,7 +267,10 @@ pub struct ParLine {
     /// The distance between line numbers and text.
     ///
     /// ```example
-    /// #set par.line(numbering: "1", number-clearance: 0.5pt)
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   number-clearance: 0.5pt
+    /// )
     ///
     /// Typesetting \
     /// Styling \
@@ -276,6 +279,24 @@ pub struct ParLine {
     #[ghost]
     #[default(Length::from(Abs::cm(1.0)))]
     pub number_clearance: Length,
+
+    /// If enabled, the numbering is reset on every page.
+    ///
+    /// ```example
+    /// #set par.line(
+    ///   numbering: "1.",
+    ///   reset-number-every-page: true
+    /// )
+    ///
+    /// First line \
+    /// Second line
+    /// #pagebreak()
+    /// First line again
+    /// Second line again
+    /// ```
+    #[ghost]
+    #[default(false)]
+    pub reset_number_every_page: bool,
 }
 
 impl Construct for ParLine {
