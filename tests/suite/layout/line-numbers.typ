@@ -101,10 +101,7 @@ Sky
 
 --- line-numbers-per-page-reset ---
 #set page(margin: (left: 2cm))
-#set par.line(
-    numbering: "1",
-    reset-number-every-page: true
-)
+#set par.line(numbering: "1", number-reset: "page")
 
 First line \
 Second line
@@ -119,10 +116,7 @@ Back to first
 
 --- line-numbers-per-page-reset-columns ---
 #set page(margin: (x: 1.5cm), columns: 2)
-#set par.line(
-    numbering: "1",
-    reset-number-every-page: true
-)
+#set par.line(numbering: "1", number-reset: "page")
 
 A \
 A \

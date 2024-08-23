@@ -3,8 +3,8 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
-    StyleChain, Unlabellable,
+    cast, elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show,
+    Smart, StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Abs, Em, FixedAlignment, HAlignment, Length, OuterHAlignment};
@@ -280,12 +280,14 @@ pub struct ParLine {
     #[default(Length::from(Abs::cm(1.0)))]
     pub number_clearance: Length,
 
-    /// If enabled, the numbering is reset on every page.
+    /// Controls when to reset line numbering.
+    /// When `none`, line number is never reset.
+    /// When set to `"page"`, the line number is reset on every page.
     ///
     /// ```example
     /// #set par.line(
     ///   numbering: "1.",
-    ///   reset-number-every-page: true
+    ///   number-reset: "page",
     /// )
     ///
     /// First line \
@@ -295,8 +297,8 @@ pub struct ParLine {
     /// Second line again
     /// ```
     #[ghost]
-    #[default(false)]
-    pub reset_number_every_page: bool,
+    #[default(None)]
+    pub number_reset: Option<ParLineNumberReset>,
 }
 
 impl Construct for ParLine {
@@ -310,6 +312,19 @@ impl Count for Packed<ParLine> {
         // The line counter must be updated manually by the root flow
         None
     }
+}
+
+/// Possible line number reset options.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ParLineNumberReset {
+    /// Indicates the line number counter should be reset on every page.
+    Page,
+}
+
+cast! {
+    ParLineNumberReset,
+    self => "page".into_value(),
+    "page" => Self::Page,
 }
 
 /// A marker used to indicate the presence of a line.

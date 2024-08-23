@@ -24,7 +24,7 @@ use crate::layout::{
     OuterVAlignment, Page, PageElem, Paper, Parity, PlaceElem, Point, Ratio, Region,
     Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
 };
-use crate::model::{Document, Numbering, ParLine};
+use crate::model::{Document, Numbering, ParLine, ParLineNumberReset};
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
 use crate::realize::{realize_flow, realize_root, Arenas};
@@ -1108,11 +1108,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         {
             let mut output = Frame::soft(self.initial);
 
-            if self.root
-                && (self.columns == 1 || self.finished.len() % self.columns == 0)
-                && ParLine::reset_number_every_page_in(*self.styles)
-            {
-                // Ensure line numbers are reset at the first column if needed.
+            if self.should_reset_line_numbers_on_finish() {
+                // Reset line numbers at the first column if requested.
                 output.push_frame(Point::zero(), self.layout_line_number_reset()?);
             }
 
@@ -1262,11 +1259,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
-        if self.root
-            && (self.columns == 1 || self.finished.len() % self.columns == 0)
-            && ParLine::reset_number_every_page_in(*self.styles)
-        {
-            // Ensure line numbers are reset at the first column if needed.
+        if self.should_reset_line_numbers_on_finish() {
+            // Reset line numbers at the first column if requested.
             output.push_frame(Point::zero(), self.layout_line_number_reset()?);
         }
 
@@ -1573,7 +1567,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         Ok(frame)
     }
 
-    /// Produces a frame which, when placed, resets the line number counter.
+    /// Produces a frame which resets the line number counter.
     fn layout_line_number_reset(&mut self) -> SourceResult<Frame> {
         let reset =
             CounterState::init(&CounterKey::Selector(ParLineMarker::elem().select()));
@@ -1582,6 +1576,16 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let locator = self.locator.next(&update);
         let pod = Region::new(Axes::splat(Abs::zero()), Axes::splat(false));
         layout_frame(self.engine, &update, locator, *self.styles, pod)
+    }
+
+    /// Checks if the line number counter should be reset when finishing a
+    /// region. That will be true if this is a root flow, if the region being
+    /// finished is the first column of the page, and if the user configured
+    /// paragraph line numbers to be reset on every page.
+    fn should_reset_line_numbers_on_finish(&self) -> bool {
+        self.root
+            && (self.columns == 1 || self.finished.len() % self.columns == 0)
+            && ParLine::number_reset_in(*self.styles) == Some(ParLineNumberReset::Page)
     }
 }
 
