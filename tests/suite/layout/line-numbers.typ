@@ -38,6 +38,14 @@ a \
 a \
 a
 
+--- line-numbers-auto-alignment ---
+#set page(margin: (right: 3cm))
+#set par.line(numbering: "i", number-clearance: 1.5cm, number-margin: end)
+
+First line \
+Second line \
+Third line
+
 --- line-numbers-rtl ---
 #set page(margin: (right: 2cm))
 #set text(dir: rtl)
