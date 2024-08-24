@@ -61,6 +61,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         right.arc: '⊾',
         right.dot: '⦝',
         right.sq: '⦜',
+        s: '⦞',
         spatial: '⟀',
         spheric: '∢',
         spheric.rev: '⦠',
