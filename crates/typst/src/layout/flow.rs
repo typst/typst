@@ -21,8 +21,8 @@ use crate::introspection::{
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Binding, BlockElem, ColbreakElem, ColumnsElem, Dir,
     FixedAlignment, FlushElem, Fr, Fragment, Frame, FrameItem, HAlignment, Length,
-    OuterVAlignment, Page, PageElem, Paper, Parity, PlaceElem, Point, Ratio, Region,
-    Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
+    OuterHAlignment, OuterVAlignment, Page, PageElem, Paper, Parity, PlaceElem, Point,
+    Ratio, Region, Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
 };
 use crate::model::{Document, Numbering, ParLine, ParLineNumberReset};
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
@@ -1296,16 +1296,15 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Therefore, the check above ensures no lines too close together
             // will cause too many different line numbers to appear.
             prev_y = Some(line.y);
-            let number_align = *line.marker.number_align();
-            let number_margin = *line.marker.number_margin();
+            let number_align = line.marker.number_align().resolve(*self.styles);
             let current_column = self.finished.len() % self.columns;
             let number_margin = if self.columns >= 2 && current_column + 1 == self.columns
             {
                 // The last column will always place line numbers at the end
                 // margin. This should become configurable in the future.
-                Alignment::END.resolve(*self.styles).x
+                OuterHAlignment::End.resolve(*self.styles)
             } else {
-                number_margin
+                line.marker.number_margin().resolve(*self.styles)
             };
 
             let number_clearance = line.marker.number_clearance().resolve(*self.styles);

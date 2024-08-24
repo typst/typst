@@ -7,7 +7,7 @@ use crate::foundations::{
     Smart, StyleChain, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
-use crate::layout::{Abs, Em, FixedAlignment, HAlignment, Length, OuterHAlignment};
+use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 use crate::realize::StyleVec;
 use crate::utils::singleton;
@@ -339,11 +339,11 @@ pub struct ParLineMarker {
 
     #[internal]
     #[required]
-    pub number_align: FixedAlignment,
+    pub number_align: HAlignment,
 
     #[internal]
     #[required]
-    pub number_margin: FixedAlignment,
+    pub number_margin: OuterHAlignment,
 
     #[internal]
     #[required]
