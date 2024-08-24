@@ -47,7 +47,9 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     angle: [
         '∠',
         l: '⟨',
+        l.curly: '⧼',
         r: '⟩',
+        r.curly: '⧽',
         l.double: '《',
         r.double: '》',
         acute: '⦟',
