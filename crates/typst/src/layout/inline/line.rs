@@ -5,7 +5,7 @@ use super::*;
 use crate::engine::Engine;
 use crate::foundations::NativeElement;
 use crate::introspection::{SplitLocator, Tag};
-use crate::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, HAlignment, Point};
+use crate::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use crate::model::{ParLine, ParLineMarker};
 use crate::text::{Lang, TextElem};
 use crate::utils::Numeric;
@@ -545,8 +545,7 @@ pub fn commit(
 
     if let Some(numbering) = ParLine::numbering_in(styles) {
         let number_margin = ParLine::number_margin_in(styles);
-        let number_align = ParLine::number_align_in(styles)
-            .unwrap_or_else(|| HAlignment::from(number_margin).inv());
+        let number_align = ParLine::number_align_in(styles);
 
         // Delay resolving the number clearance until line numbers are laid out
         // to avoid inconsistent spacing depending on varying font size.

@@ -339,7 +339,7 @@ pub struct ParLineMarker {
 
     #[internal]
     #[required]
-    pub number_align: HAlignment,
+    pub number_align: Smart<HAlignment>,
 
     #[internal]
     #[required]

@@ -1296,7 +1296,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Therefore, the check above ensures no lines too close together
             // will cause too many different line numbers to appear.
             prev_y = Some(line.y);
-            let number_align = line.marker.number_align().resolve(*self.styles);
             let current_column = self.finished.len() % self.columns;
             let number_margin = if self.columns >= 2 && current_column + 1 == self.columns
             {
@@ -1306,6 +1305,12 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             } else {
                 line.marker.number_margin().resolve(*self.styles)
             };
+
+            let number_align = line
+                .marker
+                .number_align()
+                .map(|align| align.resolve(*self.styles))
+                .unwrap_or_else(|| number_margin.inv());
 
             let number_clearance = line.marker.number_clearance().resolve(*self.styles);
             let number = self.layout_line_number(line.marker)?;
