@@ -119,9 +119,9 @@ Birds\
 In the\
 Sky
 
---- line-numbers-per-page-reset ---
+--- line-numbers-page-scope ---
 #set page(margin: (left: 2cm))
-#set par.line(numbering: "1", number-reset: "page")
+#set par.line(numbering: "1", numbering-scope: "page")
 
 First line \
 Second line
@@ -134,9 +134,9 @@ Second line again
 ]
 Back to first
 
---- line-numbers-per-page-reset-columns ---
+--- line-numbers-page-scope-with-columns ---
 #set page(margin: (x: 1.5cm), columns: 2)
-#set par.line(numbering: "1", number-reset: "page")
+#set par.line(numbering: "1", numbering-scope: "page")
 
 A \
 A \

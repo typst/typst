@@ -281,13 +281,14 @@ pub struct ParLine {
     pub number_clearance: Length,
 
     /// Controls when to reset line numbering.
-    /// When `none`, line number is never reset.
-    /// When set to `"page"`, the line number is reset on every page.
+    ///
+    /// Possible options are `"document"`, indicating the line number counter
+    /// is never reset, or `"page"`, indicating it is reset on every page.
     ///
     /// ```example
     /// #set par.line(
     ///   numbering: "1.",
-    ///   number-reset: "page",
+    ///   numbering-scope: "page",
     /// )
     ///
     /// First line \
@@ -297,8 +298,8 @@ pub struct ParLine {
     /// Second line again
     /// ```
     #[ghost]
-    #[default(None)]
-    pub number_reset: Option<ParLineNumberReset>,
+    #[default(ParLineNumberingScope::Document)]
+    pub numbering_scope: ParLineNumberingScope,
 }
 
 impl Construct for ParLine {
@@ -314,16 +315,25 @@ impl Count for Packed<ParLine> {
     }
 }
 
-/// Possible line number reset options.
+/// Possible line numbering scope options, indicating how often the line number
+/// counter should be reset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ParLineNumberReset {
-    /// Indicates the line number counter should be reset on every page.
+pub enum ParLineNumberingScope {
+    /// Indicates the line number counter spans the whole document, that is,
+    /// is never automatically reset.
+    Document,
+    /// Indicates the line number counter should be reset at the start of every
+    /// new page.
     Page,
 }
 
 cast! {
-    ParLineNumberReset,
-    self => "page".into_value(),
+    ParLineNumberingScope,
+    self => match self {
+        Self::Document => "document".into_value(),
+        Self::Page => "page".into_value(),
+    },
+    "document" => Self::Document,
     "page" => Self::Page,
 }
 

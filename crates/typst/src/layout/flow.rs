@@ -24,7 +24,7 @@ use crate::layout::{
     OuterHAlignment, OuterVAlignment, Page, PageElem, Paper, Parity, PlaceElem, Point,
     Ratio, Region, Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
 };
-use crate::model::{Document, Numbering, ParLine, ParLineNumberReset};
+use crate::model::{Document, Numbering, ParLine, ParLineNumberingScope};
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem, ParLineMarker};
 use crate::realize::StyleVec;
 use crate::realize::{realize_flow, realize_root, Arenas};
@@ -1108,7 +1108,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         {
             let mut output = Frame::soft(self.initial);
 
-            if self.should_reset_line_numbers_on_finish() {
+            if self.should_reset_page_scoped_line_numbers() {
                 // Reset line numbers at the first column if requested.
                 output.push_frame(Point::zero(), self.layout_line_number_reset()?);
             }
@@ -1259,7 +1259,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
-        if self.should_reset_line_numbers_on_finish() {
+        if self.should_reset_page_scoped_line_numbers() {
             // Reset line numbers at the first column if requested.
             output.push_frame(Point::zero(), self.layout_line_number_reset()?);
         }
@@ -1583,13 +1583,14 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     }
 
     /// Checks if the line number counter should be reset when finishing a
-    /// region. That will be true if this is a root flow, if the region being
-    /// finished is the first column of the page, and if the user configured
-    /// paragraph line numbers to be reset on every page.
-    fn should_reset_line_numbers_on_finish(&self) -> bool {
+    /// region due to beginning a new page. That will be true if this is a root
+    /// flow, if the region being finished is the first column of the page, and
+    /// if the user configured paragraph line numbers to be reset on every
+    /// page.
+    fn should_reset_page_scoped_line_numbers(&self) -> bool {
         self.root
             && (self.columns == 1 || self.finished.len() % self.columns == 0)
-            && ParLine::number_reset_in(*self.styles) == Some(ParLineNumberReset::Page)
+            && ParLine::numbering_scope_in(*self.styles) == ParLineNumberingScope::Page
     }
 }
 
