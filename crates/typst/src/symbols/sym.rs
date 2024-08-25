@@ -38,8 +38,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Delimiters.
-    paren: [l: '(', r: ')', t: '⏜', b: '⏝'],
-    brace: [l: '{', r: '}', t: '⏞', b: '⏟'],
+    paren: [l: '(', l.double: '⦅', r: ')', r.double: '⦆', t: '⏜', b: '⏝'],
+    brace: [l: '{', l.double: '⦃', r: '}', r.double: '⦄', t: '⏞', b: '⏟'],
     bracket: [l: '[', l.double: '⟦', r: ']', r.double: '⟧', t: '⎴', b: '⎵'],
     shell: [l: '〔', r: '〕', t: '⏠', b: '⏡'],
     bar: [v: '|', v.double: '‖', v.triple: '⦀', v.broken: '¦', v.circle: '⦶', h: '―'],
