@@ -453,7 +453,18 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     wreath: '≀',
 
     // Geometry.
-    parallel: ['∥', circle: '⦷', not: '∦'],
+    parallel: [
+        '∥',
+        bar: '⫲',
+        circle: '⦷',
+        eq: '⋕',
+        equiv: '⩨',
+        not: '∦',
+        slanted.eq: '⧣',
+        slanted.eq.tilde: '⧤',
+        slanted.equiv: '⧥',
+        tilde: '⫳',
+    ],
     perp: ['⟂', circle: '⦹'],
 
     // Miscellaneous Technical.
