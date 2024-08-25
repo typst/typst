@@ -638,6 +638,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         #[call(crate::math::accent::arrow)] r: '→',
         r.long.bar: '⟼',
         r.bar: '↦',
+        r.colon: '⧴',
         r.curve: '⤷',
         r.dashed: '⇢',
         r.dotted: '⤑',
