@@ -444,7 +444,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Function and category theory.
     compose: '∘',
     convolve: '∗',
-    multimap: '⊸',
+    multimap: ['⊸', double: '⧟'],
 
     // Number theory.
     divides: ['∣', not: '∤'],
