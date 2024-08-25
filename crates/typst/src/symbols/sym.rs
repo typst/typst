@@ -395,7 +395,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Calculus.
-    infinity: '∞',
+    infinity: [
+        '∞',
+        bar: '⧞',
+        incomplete: '⧜',
+        tie: '⧝',
+    ],
     oo: '∞',
     diff: '∂', // Deprecation planned
     partial: '∂',
