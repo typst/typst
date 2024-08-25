@@ -453,6 +453,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     convolve: '∗',
     multimap: ['⊸', double: '⧟'],
 
+    // Game theory.
+    tiny: '⧾',
+    miny: '⧿',
+
     // Number theory.
     divides: ['∣', not: '∤'],
 
