@@ -186,10 +186,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         circle.arrow: '⟴',
         circle.big: '⨁',
         dot: '∔',
+        double: '⧺',
         minus: '±',
         small: '﹢',
         square: '⊞',
         triangle: '⨹',
+        triple: '⧻',
     ],
     minus: [
         '−',
