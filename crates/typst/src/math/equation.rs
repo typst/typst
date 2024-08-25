@@ -333,7 +333,9 @@ fn layout_equation_block(
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
 
-    let equation_builders = if BlockElem::breakable_in(styles) {
+    let equation_builders = if BlockElem::breakable_in(styles)
+        && full_equation_builder.frames.len() > 1
+    {
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
@@ -365,8 +367,10 @@ fn layout_equation_block(
                 frames.push((sub, pos));
             }
 
-            equation_builders
-                .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
+            if !frames.is_empty() {
+                equation_builders
+                    .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
+            }
         }
 
         // Append remaining rows to the equation builder of the last region.
