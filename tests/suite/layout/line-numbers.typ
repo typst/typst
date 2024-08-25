@@ -163,3 +163,40 @@ Six
 We're back
 #colbreak()
 Bye!
+
+--- line-numbers-peek-into-grid ---
+#set page(margin: (left: 1.5cm))
+#set par.line(numbering: "1", number-clearance: 0.5cm)
+
+#grid(
+  columns: (1fr, 1fr),
+  column-gutter: 0.5cm,
+  lorem(20), lorem(20),
+  [AAA], [],
+  [], block[BBB\ CCC],
+  [DDD], [DDD]
+)
+
+--- line-numbers-place-out-of-order ---
+#set page(margin: (left: 1.5cm))
+#set par.line(numbering: "1", number-clearance: 0.5cm)
+
+#place(bottom)[Line 4]
+
+Line 1\
+Line 2\
+Line 3
+#v(1cm)
+
+--- line-numbers-deduplication ---
+#set page(margin: (left: 1.5cm))
+#set par.line(numbering: "1", number-clearance: 0.5cm)
+
+#grid(
+  columns: (1fr, 1fr),
+  column-gutter: 0.5cm,
+  row-gutter: 5pt,
+  lorem(5), [A\ B\ C],
+  [DDD], [DDD],
+  [This is], move(dy: 2pt)[tough]
+)
