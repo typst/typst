@@ -184,6 +184,10 @@ impl Packed<BoxElem> {
             frame.fill_and_stroke(fill, &stroke, &outset, &radius, self.span());
         }
 
+        if let Some(label) = self.label() {
+            frame.group(|group| group.set_label(label))
+        }
+
         Ok(frame)
     }
 
@@ -269,7 +273,21 @@ impl Packed<InlineElem> {
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Vec<InlineItem>> {
-        self.body().call(engine, locator, styles, region)
+        let callback = self.body();
+        let mut items = callback.call(engine, locator, styles, region)?;
+
+        if let Some(label) = callback.captured_content().label() {
+            for item in items.iter_mut() {
+                match item {
+                    InlineItem::Space(..) => {}
+                    InlineItem::Frame(frame) => {
+                        frame.group(|group| group.set_label(label));
+                    }
+                }
+            }
+        }
+
+        Ok(items)
     }
 }
 
@@ -636,6 +654,13 @@ impl Packed<BlockElem> {
             }
         }
 
+        // Assign label to each frame in the fragment.
+        if let Some(label) = self.label() {
+            for frame in fragment.iter_mut() {
+                frame.group(|group| group.set_label(label))
+            }
+        }
+
         Ok(fragment)
     }
 
@@ -911,6 +936,10 @@ mod callbacks {
                         #[allow(clippy::missing_transmute_annotations)]
                         f: unsafe { std::mem::transmute(f) },
                     }
+                }
+
+                pub fn captured_content(&self) -> &Content {
+                    &self.captured
                 }
 
                 pub fn call(&self, $($param: $param_ty),*) -> $ret {
