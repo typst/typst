@@ -13,18 +13,20 @@ use crate::foundations::{
     Content, NativeElement, Packed, Resolve, SequenceElem, Smart, StyleChain, Styles,
 };
 use crate::introspection::{
-    Counter, CounterDisplayElem, CounterKey, CounterState, CounterUpdate, Introspector, Location, Locator,
-    LocatorLink, ManualPageCounter, SplitLocator, Tag, TagElem, TagKind,
+    Counter, CounterDisplayElem, CounterKey, CounterState, CounterUpdate, Introspector,
+    Location, Locator, LocatorLink, ManualPageCounter, SplitLocator, Tag, TagElem,
+    TagKind,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Binding, BlockElem, ColbreakElem, ColumnsElem, Dir,
     FixedAlignment, FlushElem, Fr, Fragment, Frame, FrameItem, HAlignment, Length,
     OuterHAlignment, OuterVAlignment, Page, PageElem, PagebreakElem, Paper, Parity,
-    PlaceElem, Point, Ratio, Region, Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
+    PlaceElem, Point, Ratio, Region, Regions, Rel, Sides, Size, Spacing, VAlignment,
+    VElem,
 };
 use crate::model::{
     Document, FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine, ParLineMarker,
-    ParLineNumberingScope
+    ParLineNumberingScope,
 };
 use crate::realize::{first_span, realize_root, realizer_container, Arenas, Pair};
 use crate::syntax::Span;
@@ -1571,18 +1573,18 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             {
                 // The last column will always place line numbers at the end
                 // margin. This should become configurable in the future.
-                OuterHAlignment::End.resolve(*self.styles)
+                OuterHAlignment::End.resolve(self.shared)
             } else {
-                line.marker.number_margin().resolve(*self.styles)
+                line.marker.number_margin().resolve(self.shared)
             };
 
             let number_align = line
                 .marker
                 .number_align()
-                .map(|align| align.resolve(*self.styles))
+                .map(|align| align.resolve(self.shared))
                 .unwrap_or_else(|| number_margin.inv());
 
-            let number_clearance = line.marker.number_clearance().resolve(*self.styles);
+            let number_clearance = line.marker.number_clearance().resolve(self.shared);
             let number = self.layout_line_number(line.marker)?;
             let number_x = match number_margin {
                 FixedAlignment::Start => -number_clearance,
@@ -1832,7 +1834,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
         let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
         let mut frame =
-            layout_frame(self.engine, &number.pack(), locator, *self.styles, pod)?;
+            layout_frame(self.engine, &number.pack(), locator, self.shared, pod)?;
 
         // Ensure the baseline of the line number aligns with the line's own
         // baseline.
@@ -1849,7 +1851,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let update = counter.update(Span::detached(), CounterUpdate::Set(reset));
         let locator = self.locator.next(&update);
         let pod = Region::new(Axes::splat(Abs::zero()), Axes::splat(false));
-        layout_frame(self.engine, &update, locator, *self.styles, pod)
+        layout_frame(self.engine, &update, locator, self.shared, pod)
     }
 
     /// Checks if the line number counter should be reset when finishing a
@@ -1860,7 +1862,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     fn should_reset_page_scoped_line_numbers(&self) -> bool {
         self.root
             && (self.columns == 1 || self.finished.len() % self.columns == 0)
-            && ParLine::numbering_scope_in(*self.styles) == ParLineNumberingScope::Page
+            && ParLine::numbering_scope_in(self.shared) == ParLineNumberingScope::Page
     }
 
     /// Collect all footnotes in a frame.
@@ -1908,7 +1910,7 @@ fn collect_par_lines(
             // here, since we already deduplicate line markers based on their
             // height later on, in `finish_region`.
             FrameItem::Tag(tag) => {
-                let Some(marker) = tag.elem.to_packed::<ParLineMarker>() else {
+                let Some(marker) = tag.elem().to_packed::<ParLineMarker>() else {
                     continue;
                 };
 
