@@ -579,68 +579,40 @@ fn math_kern(
     pos: Corner,
 ) -> Abs {
     // This process is described under the MathKernInfo table in the OpenType
-    // MATH spec. Note that there is a bug in the spec (as of 2024-08-15): it
-    // says to take the minimum of the two sums, but as the kerning value is
-    // usually negative it really means the smaller kern. The current wording of
-    // the spec could result in glyphs colliding.
-    match pos {
-        // superscripts
+    // MATH spec.
+
+    let (corr_height_top, corr_height_bot) = match pos {
+        // Calculate two correction heights for superscripts:
+        // - The distance from the superscript's baseline to the top of the
+        //   base's bounding box.
+        // - The distance from the base's baseline to the bottom of the
+        //   superscript's bounding box.
         Corner::TopLeft | Corner::TopRight => {
-            // Calculate two correction heights:
-            // - The distance from the base's baseline to the bottom of the
-            //   superscript's bounding box.
-            // - The distance from the superscript's baseline to the top of the
-            //   base's bounding box.
-            let corr_height_bot = shift - script.descent();
-            let corr_height_top = base.ascent() - shift;
-
-            // Calculate the sum of kerning values for each correction height.
-            let base_kern = base.kern_at_height(ctx, pos, corr_height_bot);
-            let superscript_kern =
-                script.kern_at_height(ctx, opposite_corner(pos), corr_height_bot);
-            let sum = base_kern + superscript_kern;
-
-            let base_kern = base.kern_at_height(ctx, pos, corr_height_top);
-            let superscript_kern =
-                script.kern_at_height(ctx, opposite_corner(pos), corr_height_top);
-
-            // Take the smaller kerning amount (and so the larger value).
-            sum.max(base_kern + superscript_kern)
+            (base.ascent() - shift, shift - script.descent())
         }
-        // subscripts
+        // Calculate two correction heights for subscripts:
+        // - The distance from the base's baseline to the top of the
+        //   subscript's bounding box.
+        // - The distance from the subscript's baseline to the bottom of the
+        //   base's bounding box.
         Corner::BottomLeft | Corner::BottomRight => {
-            // Calculate two correction heights:
-            // - The distance from the base's baseline to the top of the
-            //   subscript's bounding box.
-            // - The distance from the subscript's baseline to the bottom of the
-            //   base's bounding box.
-            let corr_height_top = script.ascent() - shift;
-            let corr_height_bot = shift - base.descent();
-
-            // Calculate the sum of kerning values for each correction height.
-            let base_kern = base.kern_at_height(ctx, pos, corr_height_bot);
-            let subscript_kern =
-                script.kern_at_height(ctx, opposite_corner(pos), corr_height_bot);
-            let sum = base_kern + subscript_kern;
-
-            let base_kern = base.kern_at_height(ctx, pos, corr_height_top);
-            let subscript_kern =
-                script.kern_at_height(ctx, opposite_corner(pos), corr_height_top);
-
-            // Take the smaller kerning amount (and so the larger value).
-            sum.max(base_kern + subscript_kern)
+            (script.ascent() - shift, shift - base.descent())
         }
-    }
-}
+    };
 
-/// Get the opposite corner.
-fn opposite_corner(position: Corner) -> Corner {
-    match position {
-        Corner::TopLeft => Corner::BottomRight,
-        Corner::BottomLeft => Corner::TopRight,
-        Corner::TopRight => Corner::BottomLeft,
-        Corner::BottomRight => Corner::TopLeft,
-    }
+    // Calculate the sum of kerning values for each correction height.
+    let summed_kern = |height| {
+        let base_kern = base.kern_at_height(ctx, pos, height);
+        let attach_kern = script.kern_at_height(ctx, pos.inv(), height);
+        base_kern + attach_kern
+    };
+
+    // Take the smaller kerning amount (and so the larger value). Note that
+    // there is a bug in the spec (as of 2024-08-15): it says to take the
+    // minimum of the two sums, but as the kerning value is usually negative it
+    // really means the smaller kern. The current wording of the spec could
+    // result in glyphs colliding.
+    summed_kern(corr_height_top).max(summed_kern(corr_height_bot))
 }
 
 /// Determines if the character is one of a variety of integral signs.
