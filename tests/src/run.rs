@@ -157,6 +157,10 @@ impl<'a> Runner<'a> {
         };
 
         let skippable = match document.pages.as_slice() {
+            [] => {
+                log!(self, "document has zero pages");
+                return;
+            }
             [page] => skippable(page),
             _ => false,
         };
@@ -231,7 +235,7 @@ impl<'a> Runner<'a> {
                 std::fs::write(&ref_path, &ref_data).unwrap();
                 log!(
                     into: self.result.infos,
-                    "Updated reference image ({ref_path}, {})",
+                    "updated reference image ({ref_path}, {})",
                     FileSize(ref_data.len()),
                 );
             }
@@ -414,6 +418,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
 fn skippable(page: &Page) -> bool {
     page.frame.width().approx_eq(Abs::pt(120.0))
         && page.frame.height().approx_eq(Abs::pt(20.0))
+        && page.fill.is_auto()
         && skippable_frame(&page.frame)
 }
 
