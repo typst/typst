@@ -18,11 +18,10 @@ use self::shaping::{
 };
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
-use crate::foundations::StyleChain;
+use crate::foundations::{StyleChain, StyleVec};
 use crate::introspection::{Introspector, Locator, LocatorLink};
 use crate::layout::{Fragment, Size};
 use crate::model::ParElem;
-use crate::realize::StyleVec;
 use crate::World;
 
 /// Range of a substring of text.

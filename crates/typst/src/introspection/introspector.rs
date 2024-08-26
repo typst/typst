@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::introspection::Location;
+use crate::introspection::{Location, TagKind};
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
 use crate::utils::NonZeroExt;
@@ -66,20 +66,21 @@ impl Introspector {
                     self.extract(&group.frame, page, ts);
                 }
                 FrameItem::Tag(tag)
-                    if !self.elems.contains_key(&tag.elem.location().unwrap()) =>
+                    if tag.kind() == TagKind::Start
+                        && !self.elems.contains_key(&tag.location()) =>
                 {
                     let pos = pos.transform(ts);
-                    let loc = tag.elem.location().unwrap();
+                    let loc = tag.location();
                     let ret = self
                         .elems
-                        .insert(loc, (tag.elem.clone(), Position { page, point: pos }));
+                        .insert(loc, (tag.elem().clone(), Position { page, point: pos }));
                     assert!(ret.is_none(), "duplicate locations");
 
                     // Build the key map.
-                    self.keys.entry(tag.key).or_default().push(loc);
+                    self.keys.entry(tag.key()).or_default().push(loc);
 
                     // Build the label cache.
-                    if let Some(label) = tag.elem.label() {
+                    if let Some(label) = tag.elem().label() {
                         self.labels.entry(label).or_default().push(self.elems.len() - 1);
                     }
                 }

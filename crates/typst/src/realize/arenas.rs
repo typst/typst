@@ -1,12 +1,13 @@
 use typed_arena::Arena;
 
-use crate::foundations::{Content, StyleChain};
+use crate::foundations::{Content, StyleChain, Styles};
 
 /// Temporary storage arenas for building.
 #[derive(Default)]
 pub struct Arenas<'a> {
     chains: Arena<StyleChain<'a>>,
     content: Arena<Content>,
+    styles: Arena<Styles>,
 }
 
 impl<'a> Arenas<'a> {
@@ -30,5 +31,11 @@ impl<'a> Store<'a> for Content {
 impl<'a> Store<'a> for StyleChain<'a> {
     fn store(self, arenas: &'a Arenas<'a>) -> &'a Self {
         arenas.chains.alloc(self)
+    }
+}
+
+impl<'a> Store<'a> for Styles {
+    fn store(self, arenas: &'a Arenas<'a>) -> &'a Self {
+        arenas.styles.alloc(self)
     }
 }

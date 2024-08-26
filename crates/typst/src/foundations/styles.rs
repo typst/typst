@@ -93,6 +93,11 @@ impl Styles {
         self.0.iter().map(|style| &**style)
     }
 
+    /// Iterate over the contained styles.
+    pub fn as_slice(&self) -> &[LazyHash<Style>] {
+        self.0.as_slice()
+    }
+
     /// Set an inner value for a style property.
     ///
     /// If the property needs folding and the value is already contained in the
@@ -118,16 +123,33 @@ impl Styles {
         self.0.insert(0, LazyHash::new(outer));
     }
 
-    /// Apply a slice of outer styles.
-    pub fn apply_slice(&mut self, outer: &[LazyHash<Style>]) {
-        self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
-    }
-
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
             if let Style::Property(property) = &mut **entry {
-                property.span = Some(span);
+                property.span = span;
+            }
+        }
+        self
+    }
+
+    /// Marks the styles as having been applied outside of any show rule.
+    pub fn outside(mut self) -> Self {
+        for entry in self.0.make_mut() {
+            match &mut **entry {
+                Style::Property(property) => property.outside = true,
+                Style::Recipe(recipe) => recipe.outside = true,
+                _ => {}
+            }
+        }
+        self
+    }
+
+    /// Marks the styles as being allowed to be lifted up to the page level.
+    pub fn liftable(mut self) -> Self {
+        for entry in self.0.make_mut() {
+            if let Style::Property(property) = &mut **entry {
+                property.liftable = true;
             }
         }
         self
@@ -144,13 +166,8 @@ impl Styles {
 
     /// Returns `Some(_)` with an optional span if this list contains
     /// styles for the given element.
-    pub fn interruption<T: NativeElement>(&self) -> Option<Option<Span>> {
-        let elem = T::elem();
-        self.0.iter().find_map(|entry| match &**entry {
-            Style::Property(property) => property.is_of(elem).then_some(property.span),
-            Style::Recipe(recipe) => recipe.is_of(elem).then_some(Some(recipe.span)),
-            Style::Revocation(_) => None,
-        })
+    pub fn interruption<T: NativeElement>(&self) -> Option<Span> {
+        self.0.iter().find_map(|entry| entry.interruption::<T>())
     }
 
     /// Set a font family composed of a preferred family and existing families
@@ -173,6 +190,21 @@ impl From<LazyHash<Style>> for Styles {
 impl From<Style> for Styles {
     fn from(style: Style) -> Self {
         Self(eco_vec![LazyHash::new(style)])
+    }
+}
+
+impl IntoIterator for Styles {
+    type Item = LazyHash<Style>;
+    type IntoIter = ecow::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl FromIterator<LazyHash<Style>> for Styles {
+    fn from_iter<T: IntoIterator<Item = LazyHash<Style>>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -216,6 +248,37 @@ impl Style {
             _ => None,
         }
     }
+
+    /// Returns `Some(_)` with an optional span if this style is of
+    /// the given element.
+    pub fn interruption<T: NativeElement>(&self) -> Option<Span> {
+        let elem = T::elem();
+        match self {
+            Style::Property(property) => property.is_of(elem).then_some(property.span),
+            Style::Recipe(recipe) => recipe.is_of(elem).then_some(recipe.span),
+            Style::Revocation(_) => None,
+        }
+    }
+
+    /// Whether the style is allowed to be lifted up to the page level. Only
+    /// true for styles originating from set rules.
+    pub fn liftable(&self) -> bool {
+        match self {
+            Self::Property(property) => property.liftable,
+            Self::Recipe(_) => true,
+            Self::Revocation(_) => false,
+        }
+    }
+
+    /// Whether the style was applied outside of any show rule. This is set
+    /// during realization.
+    pub fn outside(&self) -> bool {
+        match self {
+            Self::Property(property) => property.outside,
+            Self::Recipe(recipe) => recipe.outside,
+            Self::Revocation(_) => false,
+        }
+    }
 }
 
 impl Debug for Style {
@@ -250,7 +313,11 @@ pub struct Property {
     /// The property's value.
     value: Block,
     /// The span of the set rule the property stems from.
-    span: Option<Span>,
+    span: Span,
+    /// Whether the property is allowed to be lifted up to the page level.
+    liftable: bool,
+    /// Whether the property was applied outside of any show rule.
+    outside: bool,
 }
 
 impl Property {
@@ -264,7 +331,9 @@ impl Property {
             elem: E::elem(),
             id,
             value: Block::new(value),
-            span: None,
+            span: Span::detached(),
+            liftable: false,
+            outside: false,
         }
     }
 
@@ -370,19 +439,41 @@ impl Hash for dyn Blockable {
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
 pub struct Recipe {
-    /// The span that errors are reported with.
-    pub span: Span,
     /// Determines whether the recipe applies to an element.
     ///
     /// If this is `None`, then this recipe is from a show rule with
     /// no selector (`show: rest => ...`), which is [eagerly applied][Content::styled_with_recipe]
     /// to the rest of the content in the scope.
-    pub selector: Option<Selector>,
+    selector: Option<Selector>,
     /// The transformation to perform on the match.
-    pub transform: Transformation,
+    transform: Transformation,
+    /// The span that errors are reported with.
+    span: Span,
+    /// Relevant properties of the kind of construct the style originated from
+    /// and where it was applied.
+    outside: bool,
 }
 
 impl Recipe {
+    /// Create a new recipe from a key-value pair.
+    pub fn new(
+        selector: Option<Selector>,
+        transform: Transformation,
+        span: Span,
+    ) -> Self {
+        Self { selector, transform, span, outside: false }
+    }
+
+    /// The recipe's selector.
+    pub fn selector(&self) -> Option<&Selector> {
+        self.selector.as_ref()
+    }
+
+    /// The recipe's transformation.
+    pub fn transform(&self) -> &Transformation {
+        &self.transform
+    }
+
     /// Whether this recipe is for the given type of element.
     pub fn is_of(&self, element: Element) -> bool {
         match self.selector {
@@ -494,7 +585,7 @@ impl<'a> StyleChain<'a> {
     /// `self`. For folded properties `local` contributes the inner value.
     pub fn chain<'b, C>(&'b self, local: &'b C) -> StyleChain<'b>
     where
-        C: Chainable,
+        C: Chainable + ?Sized,
     {
         Chainable::chain(local, self)
     }
@@ -557,7 +648,7 @@ impl<'a> StyleChain<'a> {
     ) -> impl Iterator<Item = &'a T> {
         inherent.into_iter().chain(
             self.entries()
-                .filter_map(Style::property)
+                .filter_map(|style| style.property())
                 .filter(move |property| property.is(func, id))
                 .map(|property| &property.value)
                 .map(move |value| {
@@ -573,15 +664,6 @@ impl<'a> StyleChain<'a> {
         )
     }
 
-    /// Convert to a style map.
-    pub fn to_map(self) -> Styles {
-        let mut suffix = Styles::new();
-        for link in self.links() {
-            suffix.apply_slice(link);
-        }
-        suffix
-    }
-
     /// Iterate over the entries of the chain.
     pub fn entries(self) -> Entries<'a> {
         Entries { inner: [].as_slice().iter(), links: self.links() }
@@ -592,20 +674,58 @@ impl<'a> StyleChain<'a> {
         Links(Some(self))
     }
 
+    /// Convert to a style map.
+    pub fn to_map(self) -> Styles {
+        let mut styles: EcoVec<_> = self.entries().cloned().collect();
+        styles.make_mut().reverse();
+        Styles(styles)
+    }
+
     /// Build owned styles from the suffix (all links beyond the `len`) of the
     /// chain.
     pub fn suffix(self, len: usize) -> Styles {
-        let mut suffix = Styles::new();
+        let mut styles = EcoVec::new();
         let take = self.links().count().saturating_sub(len);
         for link in self.links().take(take) {
-            suffix.apply_slice(link);
+            styles.extend(link.iter().cloned().rev());
         }
-        suffix
+        styles.make_mut().reverse();
+        Styles(styles)
     }
 
     /// Remove the last link from the chain.
     pub fn pop(&mut self) {
         *self = self.tail.copied().unwrap_or_default();
+    }
+
+    /// Determine the shared trunk of a collection of style chains.
+    pub fn trunk(iter: impl IntoIterator<Item = Self>) -> Option<Self> {
+        // Determine shared style depth and first span.
+        let mut iter = iter.into_iter();
+        let mut trunk = iter.next()?;
+        let mut depth = trunk.links().count();
+
+        for mut chain in iter {
+            let len = chain.links().count();
+            if len < depth {
+                for _ in 0..depth - len {
+                    trunk.pop();
+                }
+                depth = len;
+            } else if len > depth {
+                for _ in 0..len - depth {
+                    chain.pop();
+                }
+            }
+
+            while depth > 0 && chain != trunk {
+                trunk.pop();
+                chain.pop();
+                depth -= 1;
+            }
+        }
+
+        Some(trunk)
     }
 }
 
@@ -673,7 +793,7 @@ pub struct Entries<'a> {
 }
 
 impl<'a> Iterator for Entries<'a> {
-    type Item = &'a Style;
+    type Item = &'a LazyHash<Style>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -699,6 +819,107 @@ impl<'a> Iterator for Links<'a> {
         let StyleChain { head, tail } = self.0?;
         self.0 = tail.copied();
         Some(head)
+    }
+}
+
+/// A sequence of elements with associated styles.
+#[derive(Clone, PartialEq, Hash)]
+pub struct StyleVec {
+    /// The elements themselves.
+    elements: EcoVec<Content>,
+    /// A run-length encoded list of style lists.
+    ///
+    /// Each element is a (styles, count) pair. Any elements whose
+    /// style falls after the end of this list is considered to
+    /// have an empty style list.
+    styles: EcoVec<(Styles, usize)>,
+}
+
+impl StyleVec {
+    /// Create a style vector from an unstyled vector content.
+    pub fn wrap(elements: EcoVec<Content>) -> Self {
+        Self { elements, styles: EcoVec::new() }
+    }
+
+    /// Create a `StyleVec` from a list of content with style chains.
+    pub fn create<'a>(buf: &[(&'a Content, StyleChain<'a>)]) -> (Self, StyleChain<'a>) {
+        let trunk = StyleChain::trunk(buf.iter().map(|&(_, s)| s)).unwrap_or_default();
+        let depth = trunk.links().count();
+
+        let mut elements = EcoVec::with_capacity(buf.len());
+        let mut styles = EcoVec::<(Styles, usize)>::new();
+        let mut last: Option<(StyleChain<'a>, usize)> = None;
+
+        for &(element, chain) in buf {
+            elements.push(element.clone());
+
+            if let Some((prev, run)) = &mut last {
+                if chain == *prev {
+                    *run += 1;
+                } else {
+                    styles.push((prev.suffix(depth), *run));
+                    last = Some((chain, 1));
+                }
+            } else {
+                last = Some((chain, 1));
+            }
+        }
+
+        if let Some((last, run)) = last {
+            let skippable = styles.is_empty() && last == trunk;
+            if !skippable {
+                styles.push((last.suffix(depth), run));
+            }
+        }
+
+        (StyleVec { elements, styles }, trunk)
+    }
+
+    /// Whether there are no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
+    /// The number of elements.
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// Iterate over the contained content and style chains.
+    pub fn iter<'a>(
+        &'a self,
+        outer: &'a StyleChain<'_>,
+    ) -> impl Iterator<Item = (&'a Content, StyleChain<'a>)> {
+        static EMPTY: Styles = Styles::new();
+        self.elements
+            .iter()
+            .zip(
+                self.styles
+                    .iter()
+                    .flat_map(|(local, count)| std::iter::repeat(local).take(*count))
+                    .chain(std::iter::repeat(&EMPTY)),
+            )
+            .map(|(element, local)| (element, outer.chain(local)))
+    }
+
+    /// Get a style property, but only if it is the same for all children of the
+    /// style vector.
+    pub fn shared_get<T: PartialEq>(
+        &self,
+        styles: StyleChain<'_>,
+        getter: fn(StyleChain) -> T,
+    ) -> Option<T> {
+        let value = getter(styles);
+        self.styles
+            .iter()
+            .all(|(local, _)| getter(styles.chain(local)) == value)
+            .then_some(value)
+    }
+}
+
+impl Debug for StyleVec {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_list().entries(&self.elements).finish()
     }
 }
 

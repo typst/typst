@@ -24,7 +24,7 @@ impl Eval for ast::SetRule<'_> {
             })
             .at(target.span())?;
         let args = self.args().eval(vm)?.spanned(self.span());
-        Ok(target.set(&mut vm.engine, args)?.spanned(self.span()))
+        Ok(target.set(&mut vm.engine, args)?.spanned(self.span()).liftable())
     }
 }
 
@@ -46,6 +46,6 @@ impl Eval for ast::ShowRule<'_> {
             expr => expr.eval(vm)?.cast::<Transformation>().at(span)?,
         };
 
-        Ok(Recipe { span, selector, transform })
+        Ok(Recipe::new(selector, transform, span))
     }
 }

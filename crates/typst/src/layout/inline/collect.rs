@@ -125,7 +125,7 @@ pub fn collect<'a>(
     consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
-    let mut iter = children.chain(styles).peekable();
+    let mut iter = children.iter(styles).peekable();
     let mut locator = locator.split();
 
     let outer_dir = TextElem::dir_in(*styles);
