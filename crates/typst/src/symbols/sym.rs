@@ -186,10 +186,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         circle.arrow: '⟴',
         circle.big: '⨁',
         dot: '∔',
+        double: '⧺',
         minus: '±',
         small: '﹢',
         square: '⊞',
         triangle: '⨹',
+        triple: '⧻',
     ],
     minus: [
         '−',
@@ -395,7 +397,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Calculus.
-    infinity: '∞',
+    infinity: [
+        '∞',
+        bar: '⧞',
+        incomplete: '⧜',
+        tie: '⧝',
+    ],
     oo: '∞',
     diff: '∂', // Deprecation planned
     partial: '∂',
@@ -444,7 +451,11 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Function and category theory.
     compose: '∘',
     convolve: '∗',
-    multimap: '⊸',
+    multimap: ['⊸', double: '⧟'],
+
+    // Game theory.
+    tiny: '⧾',
+    miny: '⧿',
 
     // Number theory.
     divides: ['∣', not: '∤'],
