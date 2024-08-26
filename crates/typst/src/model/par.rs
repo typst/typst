@@ -3,8 +3,8 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show,
-    Smart, StyleChain, StyleVec, Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
+    StyleChain, StyleVec, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment};
@@ -309,7 +309,7 @@ impl Construct for ParLine {
 
 /// Possible line numbering scope options, indicating how often the line number
 /// counter should be reset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ParLineNumberingScope {
     /// Indicates the line number counter spans the whole document, that is,
     /// is never automatically reset.
@@ -317,16 +317,6 @@ pub enum ParLineNumberingScope {
     /// Indicates the line number counter should be reset at the start of every
     /// new page.
     Page,
-}
-
-cast! {
-    ParLineNumberingScope,
-    self => match self {
-        Self::Document => "document".into_value(),
-        Self::Page => "page".into_value(),
-    },
-    "document" => Self::Document,
-    "page" => Self::Page,
 }
 
 /// A marker used to indicate the presence of a line.
