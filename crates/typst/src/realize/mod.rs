@@ -1,10 +1,7 @@
 //! Realization of content.
 //!
-//! *Realization* is the process of applying show rules to produce
-//! something that can be laid out directly.
-//!
-//! Currently, there are issues with the realization process, and
-//! it is subject to changes in the future.
+//! *Realization* is the process of recursively applying styling and, in
+//! particular, show rules to produce well-known elements that can be laid out.
 
 mod arenas;
 mod behaviour;
@@ -13,7 +10,7 @@ mod process;
 use once_cell::unsync::Lazy;
 
 pub use self::arenas::Arenas;
-pub use self::behaviour::{Behave, BehavedBuilder, Behaviour, StyleVec};
+pub use self::behaviour::{Behave, BehavedBuilder, Behaviour};
 pub use self::process::process;
 
 use std::mem;
@@ -21,12 +18,13 @@ use std::mem;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, NativeElement, Packed, SequenceElem, Smart, StyleChain, StyledElem, Styles,
+    Content, ContextElem, NativeElement, Packed, SequenceElem, Smart, StyleChain,
+    StyleVec, StyledElem, Styles,
 };
-use crate::introspection::{SplitLocator, TagElem};
+use crate::introspection::{SplitLocator, TagElem, TagKind};
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, FlushElem, HElem, InlineElem,
-    PageElem, PagebreakElem, Parity, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ColbreakElem, FlushElem, HElem, InlineElem, PageElem,
+    PagebreakElem, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -35,41 +33,42 @@ use crate::model::{
 };
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::utils::SliceExt;
 
 /// A pair of content and a style chain that applies to it.
-type Pair<'a> = (&'a Content, StyleChain<'a>);
+pub type Pair<'a> = (&'a Content, StyleChain<'a>);
 
-/// Realize at the root-level.
-#[typst_macros::time(name = "realize root")]
+/// Realize at the root level.
+#[typst_macros::time(name = "realize")]
 pub fn realize_root<'a>(
     engine: &mut Engine<'a>,
     locator: &mut SplitLocator<'a>,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(StyleVec, StyleChain<'a>, DocumentInfo)> {
+) -> SourceResult<(Vec<Pair<'a>>, DocumentInfo)> {
     let mut builder = Builder::new(engine, locator, arenas, true);
     builder.accept(content, styles)?;
-    builder.interrupt_page(Some(styles), true)?;
-    Ok(builder.doc.unwrap().finish())
+    builder.interrupt_par()?;
+    Ok((builder.sink.finish(), builder.doc_info.unwrap()))
 }
 
-/// Realize into a `FlowElem`, an element that is capable of block-level layout.
-#[typst_macros::time(name = "realize flow")]
-pub fn realize_flow<'a>(
+/// Realize at the container level.
+#[typst_macros::time(name = "realize")]
+pub fn realizer_container<'a>(
     engine: &mut Engine<'a>,
     locator: &mut SplitLocator<'a>,
     arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Packed<FlowElem>, StyleChain<'a>)> {
+) -> SourceResult<Vec<Pair<'a>>> {
     let mut builder = Builder::new(engine, locator, arenas, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
-    Ok(builder.flow.finish())
+    Ok(builder.sink.finish())
 }
 
-/// Builds a document or a flow element from content.
+/// Realizes content into a flat list of well-known, styled elements.
 struct Builder<'a, 'v> {
     /// The engine.
     engine: &'v mut Engine<'a>,
@@ -77,34 +76,47 @@ struct Builder<'a, 'v> {
     locator: &'v mut SplitLocator<'a>,
     /// Scratch arenas for building.
     arenas: &'a Arenas<'a>,
-    /// The current document building state.
-    doc: Option<DocBuilder<'a>>,
-    /// The current flow building state.
-    flow: FlowBuilder<'a>,
-    /// The current paragraph building state.
+
+    /// The output elements of well-known types collected by the builder.
+    sink: BehavedBuilder<'a>,
+    /// Document metadata we have collected from `set document` rules. If this
+    /// is `None`, we are in a container.
+    doc_info: Option<DocumentInfo>,
+
+    /// A builder for a paragraph that might be under construction.
     par: ParBuilder<'a>,
-    /// The current list building state.
+    /// A builder for a list that might be under construction.
     list: ListBuilder<'a>,
-    /// The current citation grouping state.
+    /// A builder for a citation group that might be under construction.
     cites: CiteGroupBuilder<'a>,
+
+    /// Whether we are currently not within any container or show rule output.
+    /// This is used to determine page styles during layout.
+    outside: bool,
+    /// Whether the last item that we visited was a paragraph (with no parbreak
+    /// in between). This is used for attach spacing.
+    last_was_par: bool,
 }
 
 impl<'a, 'v> Builder<'a, 'v> {
+    /// Creates a new builder.
     fn new(
         engine: &'v mut Engine<'a>,
         locator: &'v mut SplitLocator<'a>,
         arenas: &'a Arenas<'a>,
-        top: bool,
+        root: bool,
     ) -> Self {
         Self {
             engine,
             locator,
             arenas,
-            doc: top.then(DocBuilder::default),
-            flow: FlowBuilder::default(),
+            sink: BehavedBuilder::default(),
+            doc_info: root.then(DocumentInfo::default),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
             cites: CiteGroupBuilder::default(),
+            outside: root,
+            last_was_par: false,
         }
     }
 
@@ -123,7 +135,9 @@ impl<'a, 'v> Builder<'a, 'v> {
 
         // Styled elements and sequences can (at least currently) also have
         // labels, so this needs to happen before they are handled.
-        if let Some(realized) = process(self.engine, self.locator, content, styles)? {
+        if let Some((tag, realized)) =
+            process(self.engine, self.locator, content, styles)?
+        {
             self.engine.route.increase();
             if !self.engine.route.within(Route::MAX_SHOW_RULE_DEPTH) {
                 bail!(
@@ -131,9 +145,23 @@ impl<'a, 'v> Builder<'a, 'v> {
                     hint: "check whether the show rule matches its own output"
                 );
             }
-            let result = self.accept(self.arenas.store(realized), styles);
+
+            if let Some(tag) = &tag {
+                self.accept(self.arenas.store(TagElem::packed(tag.clone())), styles)?;
+            }
+
+            let prev_outside = self.outside;
+            self.outside &= content.is::<ContextElem>();
+            self.accept(self.arenas.store(realized), styles)?;
+            self.outside = prev_outside;
+
+            if let Some(tag) = tag {
+                let end = tag.with_kind(TagKind::End);
+                self.accept(self.arenas.store(TagElem::packed(end)), styles)?;
+            }
+
             self.engine.route.decrease();
-            return result;
+            return Ok(());
         }
 
         if let Some(styled) = content.to_packed::<StyledElem>() {
@@ -148,6 +176,7 @@ impl<'a, 'v> Builder<'a, 'v> {
         }
 
         // Try to merge `content` with an element under construction
+        // (cite group, list, or par).
 
         if self.cites.accept(content, styles) {
             return Ok(());
@@ -161,6 +190,7 @@ impl<'a, 'v> Builder<'a, 'v> {
 
         self.interrupt_list()?;
 
+        // Try again because it could be another kind of list.
         if self.list.accept(content, styles) {
             return Ok(());
         }
@@ -171,285 +201,165 @@ impl<'a, 'v> Builder<'a, 'v> {
 
         self.interrupt_par()?;
 
-        if self.flow.accept(self.arenas, content, styles) {
-            return Ok(());
-        }
+        self.save(content, styles)
+    }
 
-        let keep = content
-            .to_packed::<PagebreakElem>()
-            .is_some_and(|pagebreak| !pagebreak.weak(styles));
+    /// Tries to save a piece of content into the sink.
+    fn save(&mut self, content: &'a Content, styles: StyleChain<'a>) -> SourceResult<()> {
+        let last_was_par = std::mem::replace(&mut self.last_was_par, false);
+        let par_spacing = Lazy::new(|| {
+            self.arenas
+                .store(VElem::par_spacing(ParElem::spacing_in(styles).into()).pack())
+        });
 
-        self.interrupt_page(keep.then_some(styles), false)?;
-
-        if let Some(doc) = &mut self.doc {
-            if doc.accept(self.arenas, content, styles) {
-                return Ok(());
+        if content.is::<TagElem>()
+            || content.is::<PlaceElem>()
+            || content.is::<FlushElem>()
+            || content.is::<ColbreakElem>()
+        {
+            self.sink.push(content, styles);
+        } else if content.is::<PagebreakElem>() {
+            if self.doc_info.is_none() {
+                bail!(content.span(), "pagebreaks are not allowed inside of containers");
             }
-        }
+            self.sink.push(content, styles);
+        } else if let Some(elem) = content.to_packed::<VElem>() {
+            if !elem.attach(styles) || last_was_par {
+                self.sink.push(content, styles);
+            }
+        } else if content.is::<ParbreakElem>() {
+            // It's only a boundary, so we can ignore it.
+        } else if content.is::<ParElem>() {
+            self.sink.push(*par_spacing, styles);
+            self.sink.push(content, styles);
+            self.sink.push(*par_spacing, styles);
+            self.last_was_par = true;
+        } else if let Some(elem) = content.to_packed::<BlockElem>() {
+            let above = match elem.above(styles) {
+                Smart::Auto => *par_spacing,
+                Smart::Custom(above) => {
+                    self.arenas.store(VElem::block_spacing(above).pack())
+                }
+            };
 
-        if content.is::<PagebreakElem>() {
-            bail!(content.span(), "pagebreaks are not allowed inside of containers");
+            let below = match elem.below(styles) {
+                Smart::Auto => *par_spacing,
+                Smart::Custom(below) => {
+                    self.arenas.store(VElem::block_spacing(below).pack())
+                }
+            };
+
+            self.sink.push(above, styles);
+            self.sink.push(content, styles);
+            self.sink.push(below, styles);
         } else {
             bail!(content.span(), "{} is not allowed here", content.func().name());
         }
+
+        Ok(())
     }
 
+    /// Handles a styled element.
     fn styled(
         &mut self,
         styled: &'a StyledElem,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let local = &styled.styles;
-        let stored = self.arenas.store(styles);
-        let styles = stored.chain(local);
-
-        if let Some(Some(span)) = local.interruption::<DocumentElem>() {
-            let Some(doc) = &mut self.doc else {
+        if let Some(span) = styled.styles.interruption::<DocumentElem>() {
+            let Some(info) = &mut self.doc_info else {
                 bail!(span, "document set rules are not allowed inside of containers");
             };
-            doc.info.populate(local);
+            info.populate(&styled.styles);
         }
 
-        self.interrupt_style(local, None)?;
-        self.accept(&styled.child, styles)?;
-        self.interrupt_style(local, Some(styles))?;
+        let page_interruption = styled.styles.interruption::<PageElem>();
+        if let Some(span) = page_interruption {
+            if self.doc_info.is_none() {
+                bail!(span, "page configuration is not allowed inside of containers");
+            }
+
+            // When there are page styles, we "break free" from our show rule
+            // cage.
+            self.outside = true;
+        }
+
+        // If we are not within a container or show rule, mark the styles as
+        // "outside". This will allow them to be lifted to the page level.
+        let outer = self.arenas.store(styles);
+        let local = if self.outside {
+            self.arenas.store(styled.styles.clone().outside())
+        } else {
+            &styled.styles
+        };
+
+        if page_interruption.is_some() {
+            // For the starting pagebreak we only want the styles before and
+            // including the interruptions, not trailing styles that happen to
+            // be in the same `Styles` list.
+            let relevant = local
+                .as_slice()
+                .trim_end_matches(|style| style.interruption::<PageElem>().is_none());
+            self.accept(PagebreakElem::shared_weak(), outer.chain(relevant))?;
+        }
+
+        self.interrupt_styles(local)?;
+        self.accept(&styled.child, outer.chain(local))?;
+        self.interrupt_styles(local)?;
+
+        if page_interruption.is_some() {
+            // For the ending pagebreak, the styles don't really matter because
+            // the styles of a "boundary" pagebreak are ignored during layout.
+            self.accept(PagebreakElem::shared_boundary(), *outer)?;
+        }
 
         Ok(())
     }
 
-    fn interrupt_style(
-        &mut self,
-        local: &Styles,
-        outer: Option<StyleChain<'a>>,
-    ) -> SourceResult<()> {
-        if let Some(Some(span)) = local.interruption::<PageElem>() {
-            if self.doc.is_none() {
-                bail!(span, "page configuration is not allowed inside of containers");
-            }
-            self.interrupt_page(outer, false)?;
-        }
+    /// Inspects the styles and dispatches to the different interruption
+    /// handlers.
+    fn interrupt_styles(&mut self, local: &Styles) -> SourceResult<()> {
         if local.interruption::<ParElem>().is_some()
             || local.interruption::<AlignElem>().is_some()
         {
             self.interrupt_par()?;
-        }
-        if local.interruption::<ListElem>().is_some()
+        } else if local.interruption::<ListElem>().is_some()
             || local.interruption::<EnumElem>().is_some()
             || local.interruption::<TermsElem>().is_some()
         {
             self.interrupt_list()?;
+        } else if local.interruption::<CiteElem>().is_some() {
+            self.interrupt_cites()?;
         }
         Ok(())
     }
 
-    /// Interrupts citation grouping and adds the resulting citation group to the builder.
-    fn interrupt_cites(&mut self) -> SourceResult<()> {
-        if !self.cites.items.is_empty() {
-            let staged = mem::take(&mut self.cites.staged);
-            let (group, styles) = mem::take(&mut self.cites).finish();
-            self.accept(self.arenas.store(group.pack()), styles)?;
-            for (content, styles) in staged {
-                self.accept(content, styles)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Interrupts list building and adds the resulting list element to the builder.
-    fn interrupt_list(&mut self) -> SourceResult<()> {
-        self.interrupt_cites()?;
-        if !self.list.items.is_empty() {
-            let staged = mem::take(&mut self.list.staged);
-            let (list, styles) = mem::take(&mut self.list).finish();
-            self.accept(self.arenas.store(list), styles)?;
-            for (content, styles) in staged {
-                self.accept(content, styles)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Interrupts paragraph building and adds the resulting paragraph element to the builder.
+    /// Interrupts paragraph building and adds the resulting paragraph element
+    /// to the builder.
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
-            let (par, styles) = mem::take(&mut self.par).finish();
-            self.accept(self.arenas.store(par.pack()), styles)?;
-        }
-
-        Ok(())
-    }
-
-    /// Interrupts page building and adds the resulting page element to the builder.
-    fn interrupt_page(
-        &mut self,
-        styles: Option<StyleChain<'a>>,
-        last: bool,
-    ) -> SourceResult<()> {
-        self.interrupt_par()?;
-        let Some(doc) = &mut self.doc else { return Ok(()) };
-        if (doc.keep_next && styles.is_some()) || self.flow.0.has_strong_elements(last) {
-            let (flow, trunk) = mem::take(&mut self.flow).finish();
-            let span = flow.span();
-            let styles = if trunk == StyleChain::default() {
-                styles.unwrap_or_default()
-            } else {
-                trunk
-            };
-            let page = PageElem::new(flow.pack()).pack().spanned(span);
-            self.accept(self.arenas.store(page), styles)?;
+            mem::take(&mut self.par).finish(self)?;
         }
         Ok(())
     }
-}
 
-/// Builds a [document][DocumentElem] from pagebreaks and pages.
-struct DocBuilder<'a> {
-    /// The page runs built so far.
-    pages: BehavedBuilder<'a>,
-    /// Whether to keep a following page even if it is empty.
-    keep_next: bool,
-    /// Whether the next page should be cleared to an even or odd number.
-    clear_next: Option<Parity>,
-    /// Details about the document.
-    info: DocumentInfo,
-}
-
-impl<'a> DocBuilder<'a> {
-    /// Tries to accept a piece of content.
-    ///
-    /// Returns true if this content could be merged into the document.
-    /// If this function returns false, then the
-    /// content could not be merged, and document building should be
-    /// interrupted so that the content can be added elsewhere.
-    fn accept(
-        &mut self,
-        arenas: &'a Arenas<'a>,
-        content: &'a Content,
-        styles: StyleChain<'a>,
-    ) -> bool {
-        if let Some(pagebreak) = content.to_packed::<PagebreakElem>() {
-            self.keep_next = !pagebreak.weak(styles);
-            self.clear_next = pagebreak.to(styles);
-            return true;
+    /// Interrupts list building and adds the resulting list element to the
+    /// builder.
+    fn interrupt_list(&mut self) -> SourceResult<()> {
+        self.interrupt_cites()?;
+        if !self.list.0.is_empty() {
+            mem::take(&mut self.list).finish(self)?;
         }
-
-        if let Some(page) = content.to_packed::<PageElem>() {
-            let elem = if let Some(clear_to) = self.clear_next.take() {
-                let mut page = page.clone();
-                page.push_clear_to(Some(clear_to));
-                arenas.store(page.pack())
-            } else {
-                content
-            };
-
-            self.pages.push(elem, styles);
-            self.keep_next = false;
-            return true;
-        }
-
-        false
+        Ok(())
     }
 
-    /// Turns this builder into the resulting page runs, along with
-    /// its [style chain][StyleChain].
-    fn finish(self) -> (StyleVec, StyleChain<'a>, DocumentInfo) {
-        let buf = self.pages.finish();
-        let (children, trunk) = StyleVec::create(&buf);
-        (children, trunk, self.info)
-    }
-}
-
-impl Default for DocBuilder<'_> {
-    fn default() -> Self {
-        Self {
-            pages: BehavedBuilder::new(),
-            keep_next: true,
-            clear_next: None,
-            info: DocumentInfo::default(),
+    /// Interrupts citation grouping and adds the resulting citation group to
+    /// the builder.
+    fn interrupt_cites(&mut self) -> SourceResult<()> {
+        if !self.cites.0.is_empty() {
+            mem::take(&mut self.cites).finish(self)?;
         }
-    }
-}
-
-/// Builds a [flow][FlowElem] from flow content.
-#[derive(Default)]
-struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
-
-impl<'a> FlowBuilder<'a> {
-    /// Tries to accept a piece of content.
-    ///
-    /// Returns true if this content could be merged into the flow.
-    /// If this function returns false, then the
-    /// content could not be merged, and flow building should be
-    /// interrupted so that the content can be added elsewhere.
-    fn accept(
-        &mut self,
-        arenas: &'a Arenas<'a>,
-        content: &'a Content,
-        styles: StyleChain<'a>,
-    ) -> bool {
-        let last_was_par = self.1;
-        self.1 = false;
-
-        if content.is::<ParbreakElem>() {
-            return true;
-        }
-
-        if let Some(elem) = content.to_packed::<VElem>() {
-            if !elem.attach(styles) || last_was_par {
-                self.0.push(content, styles);
-            }
-            return true;
-        }
-
-        if content.is::<ColbreakElem>()
-            || content.is::<TagElem>()
-            || content.is::<PlaceElem>()
-            || content.is::<FlushElem>()
-        {
-            self.0.push(content, styles);
-            return true;
-        }
-
-        let par_spacing = Lazy::new(|| {
-            arenas.store(VElem::par_spacing(ParElem::spacing_in(styles).into()).pack())
-        });
-
-        if let Some(elem) = content.to_packed::<BlockElem>() {
-            let above = match elem.above(styles) {
-                Smart::Auto => *par_spacing,
-                Smart::Custom(above) => arenas.store(VElem::block_spacing(above).pack()),
-            };
-
-            let below = match elem.below(styles) {
-                Smart::Auto => *par_spacing,
-                Smart::Custom(below) => arenas.store(VElem::block_spacing(below).pack()),
-            };
-
-            self.0.push(above, styles);
-            self.0.push(content, styles);
-            self.0.push(below, styles);
-            return true;
-        }
-
-        if content.is::<ParElem>() {
-            self.0.push(*par_spacing, styles);
-            self.0.push(content, styles);
-            self.0.push(*par_spacing, styles);
-            self.1 = true;
-            return true;
-        }
-
-        false
-    }
-
-    /// Turns this builder into the resulting flow, along with
-    /// its [style chain][StyleChain].
-    fn finish(self) -> (Packed<FlowElem>, StyleChain<'a>) {
-        let buf = self.0.finish();
-        let span = determine_span(&buf);
-        let (children, trunk) = StyleVec::create(&buf);
-        (Packed::new(FlowElem::new(children)).spanned(span), trunk)
+        Ok(())
     }
 }
 
@@ -460,24 +370,12 @@ struct ParBuilder<'a>(BehavedBuilder<'a>);
 impl<'a> ParBuilder<'a> {
     /// Tries to accept a piece of content.
     ///
-    /// Returns true if this content could be merged into the paragraph.
-    /// If this function returns false, then the
-    /// content could not be merged, and paragraph building should be
-    /// interrupted so that the content can be added elsewhere.
+    /// Returns true if this content could be merged into the paragraph. If this
+    /// function returns false, then the content could not be merged, and
+    /// paragraph building should be interrupted so that the content can be
+    /// added elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if content.is::<TagElem>() {
-            if !self.0.is_empty() {
-                self.0.push(content, styles);
-                return true;
-            }
-        } else if content.is::<SpaceElem>()
-            || content.is::<TextElem>()
-            || content.is::<HElem>()
-            || content.is::<LinebreakElem>()
-            || content.is::<SmartQuoteElem>()
-            || content.is::<InlineElem>()
-            || content.is::<BoxElem>()
-        {
+        if Self::is_primary(content) || (!self.0.is_empty() && Self::is_inner(content)) {
             self.0.push(content, styles);
             return true;
         }
@@ -485,155 +383,203 @@ impl<'a> ParBuilder<'a> {
         false
     }
 
-    /// Turns this builder into the resulting paragraph, along with
+    /// Whether this content is of interest to the builder.
+    fn is_primary(content: &'a Content) -> bool {
+        content.is::<SpaceElem>()
+            || content.is::<TextElem>()
+            || content.is::<HElem>()
+            || content.is::<LinebreakElem>()
+            || content.is::<SmartQuoteElem>()
+            || content.is::<InlineElem>()
+            || content.is::<BoxElem>()
+    }
+
+    /// Whether this content can merely exist in between interesting items.
+    fn is_inner(content: &'a Content) -> bool {
+        content.is::<TagElem>()
+    }
+
+    /// Turns this builder into the resulting list, along with
     /// its [style chain][StyleChain].
-    fn finish(self) -> (Packed<ParElem>, StyleChain<'a>) {
+    fn finish(self, builder: &mut Builder<'a, '_>) -> SourceResult<()> {
         let buf = self.0.finish();
-        let span = determine_span(&buf);
-        let (children, trunk) = StyleVec::create(&buf);
-        (Packed::new(ParElem::new(children)).spanned(span), trunk)
+        let trimmed = buf.trim_end_matches(|(c, _)| c.is::<TagElem>());
+        let staged = &buf[trimmed.len()..];
+
+        let span = first_span(trimmed);
+        let (children, trunk) = StyleVec::create(trimmed);
+        let elem = Packed::new(ParElem::new(children)).spanned(span);
+        builder.accept(builder.arenas.store(elem.pack()), trunk)?;
+
+        for &(tag, styles) in staged {
+            builder.accept(tag, styles)?;
+        }
+
+        Ok(())
     }
 }
 
-/// Builds a list (either [`ListElem`], [`EnumElem`], or [`TermsElem`])
-/// from list or enum items, spaces, and paragraph breaks.
-struct ListBuilder<'a> {
-    /// The list items collected so far.
-    items: Vec<Pair<'a>>,
-    /// Trailing content for which it is unclear whether it is part of the list.
-    staged: Vec<Pair<'a>>,
-    /// Whether the list contains no paragraph breaks.
-    tight: bool,
-}
+/// Builds a list (either [`ListElem`], [`EnumElem`], or [`TermsElem`]) from
+/// list or enum items, spaces, and paragraph breaks.
+#[derive(Default)]
+struct ListBuilder<'a>(Vec<Pair<'a>>);
 
 impl<'a> ListBuilder<'a> {
     /// Tries to accept a piece of content.
     ///
-    /// Returns true if this content could be merged into the list.
-    /// If this function returns false, then the
-    /// content could not be merged, and list building should be
-    /// interrupted so that the content can be added elsewhere.
+    /// Returns true if this content could be merged into the list. If this
+    /// function returns false, then the content could not be merged, and list
+    /// building should be interrupted so that the content can be added
+    /// elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if !self.items.is_empty()
-            && (content.is::<SpaceElem>() || content.is::<ParbreakElem>())
+        if (Self::is_primary(content) && self.is_compatible(content))
+            || (!self.0.is_empty() && Self::is_inner(content))
         {
-            self.staged.push((content, styles));
-            return true;
-        }
-
-        if (content.is::<ListItem>()
-            || content.is::<EnumItem>()
-            || content.is::<TermItem>())
-            && self
-                .items
-                .first()
-                .map_or(true, |(first, _)| first.func() == content.func())
-        {
-            self.items.push((content, styles));
-            self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakElem>());
+            self.0.push((content, styles));
             return true;
         }
 
         false
     }
 
+    /// Whether this content is of interest to the builder.
+    fn is_primary(content: &'a Content) -> bool {
+        content.is::<ListItem>() || content.is::<EnumItem>() || content.is::<TermItem>()
+    }
+
+    /// Whether this content can merely exist in between interesting items.
+    fn is_inner(content: &'a Content) -> bool {
+        content.is::<TagElem>()
+            || content.is::<SpaceElem>()
+            || content.is::<ParbreakElem>()
+    }
+
+    /// Whether this kind of list items is compatible with the builder's type.
+    fn is_compatible(&self, content: &'a Content) -> bool {
+        self.0
+            .first()
+            .map_or(true, |(first, _)| first.func() == content.func())
+    }
+
     /// Turns this builder into the resulting list, along with
     /// its [style chain][StyleChain].
-    fn finish(self) -> (Content, StyleChain<'a>) {
-        let span = determine_span(&self.items);
-        let (children, trunk) = StyleVec::create(&self.items);
+    fn finish(self, builder: &mut Builder<'a, '_>) -> SourceResult<()> {
+        let trimmed = self.0.trim_end_matches(|(c, _)| Self::is_inner(c));
+        let tags = trimmed.iter().filter(|(c, _)| c.is::<TagElem>());
+        let staged = &self.0[trimmed.len()..];
+        let items = trimmed.iter().copied().filter(|(c, _)| Self::is_primary(c));
+        let first = items.clone().next().unwrap().0;
+        let tight = !trimmed.iter().any(|(c, _)| c.is::<ParbreakElem>());
 
-        let mut iter = children.into_iter().peekable();
-        let (first, _) = iter.peek().unwrap();
-        let output = if first.is::<ListItem>() {
+        // Determine the styles that are shared by all items. These will be
+        // used for the list itself.
+        let trunk = StyleChain::trunk(items.clone().map(|(_, s)| s)).unwrap();
+        let depth = trunk.links().count();
+
+        // Builder the correct element.
+        let iter = items.map(|(c, s)| (c, s.suffix(depth)));
+        let elem = if first.is::<ListItem>() {
             let children = iter
                 .map(|(item, local)| {
-                    item.into_packed::<ListItem>().unwrap().styled(local)
+                    item.to_packed::<ListItem>().unwrap().clone().styled(local)
                 })
                 .collect();
-            ListElem::new(children).with_tight(self.tight).pack().spanned(span)
+            ListElem::new(children).with_tight(tight).pack()
         } else if first.is::<EnumItem>() {
             let children = iter
                 .map(|(item, local)| {
-                    item.into_packed::<EnumItem>().unwrap().styled(local)
+                    item.to_packed::<EnumItem>().unwrap().clone().styled(local)
                 })
                 .collect();
-            EnumElem::new(children).with_tight(self.tight).pack().spanned(span)
+            EnumElem::new(children).with_tight(tight).pack()
         } else if first.is::<TermItem>() {
             let children = iter
                 .map(|(item, local)| {
-                    item.into_packed::<TermItem>().unwrap().styled(local)
+                    item.to_packed::<TermItem>().unwrap().clone().styled(local)
                 })
                 .collect();
-            TermsElem::new(children).with_tight(self.tight).pack().spanned(span)
+            TermsElem::new(children).with_tight(tight).pack()
         } else {
             unreachable!()
         };
 
-        (output, trunk)
-    }
-}
+        // Add the list to the builder.
+        let span = first_span(&self.0);
+        let stored = builder.arenas.store(elem.spanned(span));
+        builder.accept(stored, trunk)?;
 
-impl Default for ListBuilder<'_> {
-    fn default() -> Self {
-        Self { items: vec![], staged: vec![], tight: true }
+        // Add the tags and staged elements to the builder.
+        for &(content, styles) in tags.chain(staged) {
+            builder.accept(content, styles)?;
+        }
+
+        Ok(())
     }
 }
 
 /// Builds a [citation group][CiteGroup] from citations.
 #[derive(Default)]
-struct CiteGroupBuilder<'a> {
-    /// The citations.
-    items: Vec<Packed<CiteElem>>,
-    /// Trailing content for which it is unclear whether it is part of the list.
-    staged: Vec<Pair<'a>>,
-    /// The styles.
-    styles: StyleChain<'a>,
-}
+struct CiteGroupBuilder<'a>(Vec<Pair<'a>>);
 
 impl<'a> CiteGroupBuilder<'a> {
     /// Tries to accept a piece of content.
     ///
-    /// Returns true if this content could be merged into the citation
-    /// group. If this function returns false, then the
-    /// content could not be merged, and citation grouping should be
-    /// interrupted so that the content can be added elsewhere.
+    /// Returns true if this content could be merged into the citation group. If
+    /// this function returns false, then the content could not be merged, and
+    /// citation grouping should be interrupted so that the content can be added
+    /// elsewhere.
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if !self.items.is_empty()
-            && (content.is::<SpaceElem>() || content.is::<TagElem>())
-        {
-            self.staged.push((content, styles));
-            return true;
-        }
-
-        if let Some(citation) = content.to_packed::<CiteElem>() {
-            if self.items.is_empty() {
-                self.styles = styles;
-            }
-            self.staged.retain(|(elem, _)| !elem.is::<SpaceElem>());
-            self.items.push(citation.clone());
+        if Self::is_primary(content) || (!self.0.is_empty() && Self::is_inner(content)) {
+            self.0.push((content, styles));
             return true;
         }
 
         false
     }
 
+    /// Whether this content is of interest to the builder.
+    fn is_primary(content: &'a Content) -> bool {
+        content.is::<CiteElem>()
+    }
+
+    /// Whether this content can merely exist in between interesting items.
+    fn is_inner(content: &'a Content) -> bool {
+        content.is::<TagElem>() || content.is::<SpaceElem>()
+    }
+
     /// Turns this builder into the resulting citation group, along with
     /// its [style chain][StyleChain].
-    fn finish(self) -> (Packed<CiteGroup>, StyleChain<'a>) {
-        let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
-        (Packed::new(CiteGroup::new(self.items)).spanned(span), self.styles)
+    fn finish(self, builder: &mut Builder<'a, '_>) -> SourceResult<()> {
+        let trimmed = self.0.trim_end_matches(|(c, _)| Self::is_inner(c));
+        let tags = trimmed.iter().filter(|(c, _)| c.is::<TagElem>());
+        let staged = &self.0[trimmed.len()..];
+        let trunk = trimmed[0].1;
+        let children = trimmed
+            .iter()
+            .filter_map(|(c, _)| c.to_packed::<CiteElem>())
+            .cloned()
+            .collect();
+
+        // Add the citation group to the builder.
+        let span = first_span(&self.0);
+        let elem = CiteGroup::new(children).pack();
+        let stored = builder.arenas.store(elem.spanned(span));
+        builder.accept(stored, trunk)?;
+
+        // Add the tags and staged elements to the builder.
+        for &(content, styles) in tags.chain(staged) {
+            builder.accept(content, styles)?;
+        }
+
+        Ok(())
     }
 }
 
 /// Determine a span for the built collection.
-fn determine_span(buf: &[(&Content, StyleChain)]) -> Span {
-    let mut span = Span::detached();
-    for &(content, _) in buf {
-        span = content.span();
-        if !span.is_detached() {
-            break;
-        }
-    }
-    span
+pub fn first_span(children: &[(&Content, StyleChain)]) -> Span {
+    children
+        .iter()
+        .map(|(c, _)| c.span())
+        .find(|span| !span.is_detached())
+        .unwrap_or(Span::detached())
 }

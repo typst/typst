@@ -245,6 +245,98 @@ Look, ma, no page numbers!
 #set page(header: auto, footer: auto)
 Default page numbers now.
 
+--- page-marginal-style-text-set ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#set text(red)
+Red
+
+--- page-marginal-style-text-set-first ---
+#set text(red)
+#set page(numbering: "1", margin: (bottom: 20pt))
+Red
+
+--- page-marginal-style-text-call ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#text(red)[Red]
+
+--- page-marginal-style-text-call-code ---
+#{
+  set page(numbering: "1", margin: (bottom: 20pt))
+  text(red)[Red]
+}
+
+--- page-marginal-style-text-call-around-page-call ---
+#text(red, page(numbering: "1", margin: (bottom: 20pt))[Hello])
+
+--- page-marginal-style-text-call-around-set-page ---
+#text(red, {
+  set page(numbering: "1", margin: (bottom: 20pt))
+  text(style: "italic")[Hello]
+})
+
+--- page-marginal-style-text-call-around-pagebreak ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#text(red)[
+  #pagebreak(weak: true)
+  B
+]
+
+--- page-marginal-style-show-rule ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+= Introduction
+
+--- page-marginal-style-show-rule-with-set-page ---
+#show heading: it => {
+  set page(numbering: "1", margin: (bottom: 20pt))
+  it
+}
+
+= Introduction
+
+--- page-marginal-style-show-rule-with-page-call ---
+#show heading: page.with(fill: aqua)
+
+A
+= Introduction
+B
+
+--- page-marginal-style-show-rule-with-pagebreak ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#show heading: it => {
+  pagebreak(weak: true)
+  it
+}
+
+= Introduction
+
+--- page-marginal-style-context ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#show: it => context {
+  set text(red)
+  it
+}
+Hi
+
+--- page-marginal-style-shared-initial-interaction ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#{
+  set text(fill: red)
+  pagebreak()
+}
+#text(fill: blue)[B]
+
+--- page-marginal-style-empty ---
+#set text(red)
+#set page(numbering: "1", margin: (bottom: 20pt))
+
+--- page-marginal-style-page-call ---
+#page(numbering: "1", margin: (bottom: 20pt))[
+  #set text(red)
+  A
+]
+
 --- issue-2631-page-header-ordering ---
 #set text(6pt)
 #show heading: set text(6pt, weight: "regular")
@@ -272,3 +364,22 @@ Hi
 #set page(fill: gray)
 text
 #pagebreak()
+
+--- issue-2326-context-set-page ---
+#context [
+  #set page(fill: aqua)
+  On page #here().page()
+]
+
+--- issue-3671-get-from-page-call ---
+#set page(margin: 5pt)
+#context test(page.margin, 5pt)
+#page(margin: 10pt, context test(page.margin, 10pt))
+
+--- issue-4363-set-page-after-tag ---
+#set page(fill: aqua)
+1
+#pagebreak()
+#metadata(none)
+#set page(fill: red)
+2

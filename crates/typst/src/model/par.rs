@@ -3,10 +3,10 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, Unlabellable,
+    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleVec,
+    Unlabellable,
 };
 use crate::layout::{Em, Length};
-use crate::realize::StyleVec;
 use crate::utils::singleton;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
