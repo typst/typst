@@ -70,8 +70,10 @@ impl<'a> Logger<'a> {
         self.print(move |out| {
             if !result.errors.is_empty() {
                 writeln!(out, "❌ {test}")?;
-                for line in result.errors.lines() {
-                    writeln!(out, "  {line}")?;
+                if !crate::ARGS.compact {
+                    for line in result.errors.lines() {
+                        writeln!(out, "  {line}")?;
+                    }
                 }
             } else if crate::ARGS.verbose || !result.infos.is_empty() {
                 writeln!(out, "✅ {test}")?;
