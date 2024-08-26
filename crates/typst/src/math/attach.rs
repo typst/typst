@@ -8,6 +8,7 @@ use crate::math::{
     MathContext, MathFragment, MathSize, Scaled,
 };
 use crate::text::TextElem;
+use crate::utils::OptionExt;
 
 /// A base with optional attachments.
 ///
@@ -273,7 +274,8 @@ fn layout_attachments(
 
     // Calculate the distance from the base's baseline to the top attachment's
     // and bottom attachment's baseline.
-    let (t_shift, b_shift) = compute_limit_shifts(ctx, styles, &base, [&t, &b]);
+    let (t_shift, b_shift) =
+        compute_limit_shifts(ctx, styles, &base, [t.as_ref(), b.as_ref()]);
 
     // Calculate the final frame height.
     let ascent = base
@@ -298,7 +300,7 @@ fn layout_attachments(
     // Calculate the distance each limit extends to the left and right of the
     // base's width.
     let ((t_pre_width, t_post_width), (b_pre_width, b_post_width)) =
-        compute_limit_widths(&base, [&t, &b]);
+        compute_limit_widths(&base, [t.as_ref(), b.as_ref()]);
 
     // `space_after_script` is extra spacing that is at the start before each
     // pre-script, and at the end after each post-script (see the MathConstants
@@ -310,7 +312,7 @@ fn layout_attachments(
     let (tl_pre_width, bl_pre_width) = compute_pre_script_widths(
         ctx,
         &base,
-        [&tl, &bl],
+        [tl.as_ref(), bl.as_ref()],
         (tx_shift, bx_shift),
         space_after_script,
     );
@@ -321,7 +323,7 @@ fn layout_attachments(
     let ((tr_post_width, tr_kern), (br_post_width, br_kern)) = compute_post_script_widths(
         ctx,
         &base,
-        [&tr, &br],
+        [tr.as_ref(), br.as_ref()],
         (tx_shift, bx_shift),
         space_after_script,
     );
@@ -377,27 +379,23 @@ fn layout_attachments(
 fn compute_post_script_widths(
     ctx: &MathContext,
     base: &MathFragment,
-    [tr, br]: [&Option<MathFragment>; 2],
+    [tr, br]: [Option<&MathFragment>; 2],
     (tr_shift, br_shift): (Abs, Abs),
     space_after_post_script: Abs,
 ) -> ((Abs, Abs), (Abs, Abs)) {
-    let tr_values = if let Some(tr) = tr {
+    let tr_values = tr.map_or_default(|tr| {
         let kern = math_kern(ctx, base, tr, tr_shift, Corner::TopRight);
         (space_after_post_script + tr.width() + kern, kern)
-    } else {
-        (Abs::zero(), Abs::zero())
-    };
+    });
 
     // The base's bounding box already accounts for its italic correction, so we
     // need to shift the post-subscript left by the base's italic correction
     // (see the kerning algorithm as described in the OpenType MATH spec).
-    let br_values = if let Some(br) = br {
+    let br_values = br.map_or_default(|br| {
         let kern = math_kern(ctx, base, br, br_shift, Corner::BottomRight)
             - base.italics_correction();
         (space_after_post_script + br.width() + kern, kern)
-    } else {
-        (Abs::zero(), Abs::zero())
-    };
+    });
 
     (tr_values, br_values)
 }
@@ -411,23 +409,19 @@ fn compute_post_script_widths(
 fn compute_pre_script_widths(
     ctx: &MathContext,
     base: &MathFragment,
-    [tl, bl]: [&Option<MathFragment>; 2],
+    [tl, bl]: [Option<&MathFragment>; 2],
     (tl_shift, bl_shift): (Abs, Abs),
     space_before_pre_script: Abs,
 ) -> (Abs, Abs) {
-    let tl_pre_width = if let Some(tl) = tl {
+    let tl_pre_width = tl.map_or_default(|tl| {
         let kern = math_kern(ctx, base, tl, tl_shift, Corner::TopLeft);
         space_before_pre_script + tl.width() + kern
-    } else {
-        Abs::zero()
-    };
+    });
 
-    let bl_pre_width = if let Some(bl) = bl {
+    let bl_pre_width = bl.map_or_default(|bl| {
         let kern = math_kern(ctx, base, bl, bl_shift, Corner::BottomLeft);
         space_before_pre_script + bl.width() + kern
-    } else {
-        Abs::zero()
-    };
+    });
 
     (tl_pre_width, bl_pre_width)
 }
@@ -441,25 +435,21 @@ fn compute_pre_script_widths(
 /// tuple is for the upper-limit, and the second is for the lower-limit.
 fn compute_limit_widths(
     base: &MathFragment,
-    [t, b]: [&Option<MathFragment>; 2],
+    [t, b]: [Option<&MathFragment>; 2],
 ) -> ((Abs, Abs), (Abs, Abs)) {
     // The upper- (lower-) limit is shifted to the right (left) of the base's
     // center by half the base's italic correction.
     let delta = base.italics_correction() / 2.0;
 
-    let t_widths = if let Some(t) = t {
+    let t_widths = t.map_or_default(|t| {
         let half = (t.width() - base.width()) / 2.0;
         (half - delta, half + delta)
-    } else {
-        (Abs::zero(), Abs::zero())
-    };
+    });
 
-    let b_widths = if let Some(b) = b {
+    let b_widths = b.map_or_default(|b| {
         let half = (b.width() - base.width()) / 2.0;
         (half + delta, half - delta)
-    } else {
-        (Abs::zero(), Abs::zero())
-    };
+    });
 
     (t_widths, b_widths)
 }
@@ -471,28 +461,24 @@ fn compute_limit_shifts(
     ctx: &MathContext,
     styles: StyleChain,
     base: &MathFragment,
-    [t, b]: [&Option<MathFragment>; 2],
+    [t, b]: [Option<&MathFragment>; 2],
 ) -> (Abs, Abs) {
     // `upper_gap_min` and `lower_gap_min` give gaps to the descender and
     // ascender of the limits respectively, whereas `upper_rise_min` and
     // `lower_drop_min` give gaps to each limit's baseline (see the
     // MathConstants table in the OpenType MATH spec).
 
-    let t_shift = if let Some(t) = t {
+    let t_shift = t.map_or_default(|t| {
         let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
         let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
         base.ascent() + upper_rise_min.max(upper_gap_min + t.descent())
-    } else {
-        Abs::zero()
-    };
+    });
 
-    let b_shift = if let Some(b) = b {
+    let b_shift = b.map_or_default(|b| {
         let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
         let lower_drop_min = scaled!(ctx, styles, lower_limit_baseline_drop_min);
         base.descent() + lower_drop_min.max(lower_gap_min + b.ascent())
-    } else {
-        Abs::zero()
-    };
+    });
 
     (t_shift, b_shift)
 }
