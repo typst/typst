@@ -1767,30 +1767,19 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         // close they are to each other.
         lines.sort_by_key(|line| line.y);
 
-        // TODO: Consider real line height
-        // Actually, we should store the height of each line next to the tag
-        // Then we deduplicate based on lines being inside others
-        const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
-
         // Buffer line number frames so we can align them horizontally later
         // before placing, based on the width of the largest line number.
         let mut line_numbers = vec![];
         // Used for horizontal alignment.
         let mut max_number_width = Abs::zero();
-        let mut prev_y = None;
+        let mut prev_bottom = None;
         for line in lines {
-            if prev_y
-                .is_some_and(|prev_y| (line.y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
-            {
+            if prev_bottom.is_some_and(|prev_bottom| line.y < prev_bottom) {
                 // Lines are too close together. Display as the same line
                 // number.
                 continue;
             }
 
-            // Note that line.y > prev_y due to sorting. Therefore, the check
-            // above ensures no lines too close together will cause too many
-            // different line numbers to appear.
-            prev_y = Some(line.y);
             let current_column = self.finished.len() % self.columns;
             let number_margin = if self.columns >= 2 && current_column + 1 == self.columns
             {
@@ -1818,6 +1807,11 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 FixedAlignment::Center => unreachable!(),
             };
             let number_pos = Point::new(number_x, line.y);
+
+            // Note that this line.y is larger than the previous due to
+            // sorting. Therefore, the check at the top of the loop ensures no
+            // line numbers will reasonably intersect with each other.
+            prev_bottom = Some(line.y + number.height());
 
             // Collect line numbers and compute the max width so we can align
             // them later.
