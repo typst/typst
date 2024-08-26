@@ -20,6 +20,7 @@ env_proxy = { workspace = true, optional = true }
 dirs = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
+fs4 = { workspace = true }
 native-tls = { workspace = true, optional = true }
 once_cell = { workspace = true }
 tar = { workspace = true, optional = true }
@@ -39,8 +40,11 @@ fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 # Add generic downloading utilities
 downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
 
-# Add package downloading utilities, implies `downloads`
-packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]
+# How do I do this "put LockFile into separate file"?
+lockfile = []
+
+# Add package downloading utilities, implies `downloads` and `lockfile`
+packages = ["downloads", "lockfile", "dep:dirs", "dep:flate2", "dep:tar"]
 
 # Embeds some fonts into the binary:
 # - For text: Linux Libertine, New Computer Modern

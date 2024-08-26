@@ -25,3 +25,6 @@ pub mod download;
 pub mod fonts;
 #[cfg(feature = "packages")]
 pub mod package;
+// How do I do this "put LockFile into separate file"?
+#[cfg(feature = "lockfile")]
+pub mod lockfile;

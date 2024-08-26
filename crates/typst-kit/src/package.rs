@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::{thread::sleep, time::Duration};
 
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
@@ -11,6 +12,7 @@ use typst::syntax::package::{
 };
 
 use crate::download::{Downloader, Progress};
+use crate::lockfile::LockFile;
 
 /// The default Typst registry.
 pub const DEFAULT_REGISTRY: &str = "https://packages.typst.org";
@@ -64,31 +66,58 @@ impl PackageStorage {
     }
 
     /// Make a package available in the on-disk.
+    ///
+    /// Will return path to the package from the local package directory if present,
+    /// or from the cached directory otherwise.
     pub fn prepare_package(
         &self,
         spec: &PackageSpec,
         progress: &mut dyn Progress,
     ) -> PackageResult<PathBuf> {
-        let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
+        let path_to_package =
+            format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
         if let Some(packages_dir) = &self.package_path {
-            let dir = packages_dir.join(&subdir);
-            if dir.exists() {
-                return Ok(dir);
+            let package_dir = packages_dir.join(&path_to_package);
+            if package_dir.exists() {
+                return Ok(package_dir);
             }
         }
 
         if let Some(cache_dir) = &self.package_cache_path {
-            let dir = cache_dir.join(&subdir);
-            if dir.exists() {
-                return Ok(dir);
+            let package_dir = cache_dir.join(path_to_package);
+            if package_dir.exists() {
+                return Ok(package_dir);
+            }
+
+            let lock_file = LockFile::create_and_lock(cache_dir, spec)?;
+            if lock_file.did_wait() {
+                // If other instance successfully installed a package after
+                // waiting for the lock, then there is nothing left to do.
+                if package_dir.exists() {
+                    return Ok(package_dir);
+                }
+
+                eprintln!(
+                    "Another instance failed to install the package, trying it again."
+                );
+                // Additional cool/user-friendly logs:
+                // let _write_lock = lock_file.write().unwrap();
+                // println!("checking if package already exists");
+                // if dir.exists() {
+                //     println!("it does! no need to download and unpack");
+                //     return Ok(dir);
+                // } else {
+                //     println!("waited to aquire the file lock and the other instance wasn't able to download it :/");
+                //     todo!()
+                // }
             }
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == "preview" {
-                self.download_package(spec, &dir, progress)?;
-                if dir.exists() {
-                    return Ok(dir);
+                self.download_package(spec, &package_dir, progress)?;
+                if package_dir.exists() {
+                    return Ok(package_dir);
                 }
             }
         }
@@ -172,6 +201,8 @@ impl PackageStorage {
             }
         };
 
+        eprintln!("[tmp] Unpacking package...");
+        sleep(Duration::from_secs(3));
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
         tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
             fs::remove_dir_all(package_dir).ok();
