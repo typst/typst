@@ -83,5 +83,6 @@ pkg-url = "{ repo }/releases/download/v{ version }/typst-{ target }{ archive-suf
 bin-dir = "typst-{ target }/typst{ binary-ext }"
 pkg-fmt = "txz"
 
-[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
-pkg-fmt = "zip"
+[package.metadata.binstall.overrides]
+x86_64-pc-windows-msvc = { pkg-fmt = "zip" }
+aarch64-pc-windows-msvc = { pkg-fmt = "zip" }

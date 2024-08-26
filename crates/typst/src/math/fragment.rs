@@ -6,6 +6,7 @@ use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
 use crate::foundations::StyleChain;
+use crate::introspection::Tag;
 use crate::layout::{
     Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size, VAlignment,
 };
@@ -26,6 +27,7 @@ pub enum MathFragment {
     Space(Abs),
     Linebreak,
     Align,
+    Tag(Tag),
 }
 
 impl MathFragment {
@@ -74,6 +76,7 @@ impl MathFragment {
     pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Frame(fragment) => fragment.ignorant,
+            Self::Tag(_) => true,
             _ => false,
         }
     }
@@ -87,6 +90,7 @@ impl MathFragment {
             Self::Space(_) => MathClass::Space,
             Self::Linebreak => MathClass::Space,
             Self::Align => MathClass::Special,
+            Self::Tag(_) => MathClass::Special,
         }
     }
 
@@ -172,6 +176,11 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.into_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
+            Self::Tag(tag) => {
+                let mut frame = Frame::soft(Size::zero());
+                frame.push(Point::zero(), FrameItem::Tag(tag));
+                frame
+            }
             _ => Frame::soft(self.size()),
         }
     }
@@ -182,6 +191,18 @@ impl MathFragment {
             MathFragment::Variant(variant) => variant.limits,
             MathFragment::Frame(fragment) => fragment.limits,
             _ => Limits::Never,
+        }
+    }
+
+    /// If no kern table is provided for a corner, a kerning amount of zero is
+    /// assumed.
+    pub fn kern_at_height(&self, ctx: &MathContext, corner: Corner, height: Abs) -> Abs {
+        match self {
+            Self::Glyph(glyph) => {
+                kern_at_height(ctx, glyph.font_size, glyph.id, corner, height)
+                    .unwrap_or_default()
+            }
+            _ => Abs::zero(),
         }
     }
 }
@@ -552,10 +573,6 @@ fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
 }
 
 /// Look up a kerning value at a specific corner and height.
-///
-/// This can be integrated once we've found a font that actually provides this
-/// data.
-#[allow(unused)]
 fn kern_at_height(
     ctx: &MathContext,
     font_size: Abs,

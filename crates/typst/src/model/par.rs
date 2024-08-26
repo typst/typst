@@ -4,12 +4,11 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show,
-    Smart, StyleChain, Unlabellable,
+    Smart, StyleChain, StyleVec, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
-use crate::realize::StyleVec;
 use crate::utils::singleton;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.

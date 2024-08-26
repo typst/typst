@@ -369,7 +369,7 @@ impl Content {
         context: Tracked<Context>,
         recipe: Recipe,
     ) -> SourceResult<Self> {
-        if recipe.selector.is_none() {
+        if recipe.selector().is_none() {
             recipe.apply(engine, context, self)
         } else {
             Ok(self.styled(recipe))

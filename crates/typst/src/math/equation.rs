@@ -332,8 +332,10 @@ fn layout_equation_block(
         .layout_into_run(elem, styles)?
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
+    let can_break =
+        BlockElem::breakable_in(styles) && full_equation_builder.frames.len() > 1;
 
-    let equation_builders = if BlockElem::breakable_in(styles) {
+    let equation_builders = if can_break {
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
@@ -415,9 +417,14 @@ fn layout_equation_block(
     };
 
     // Add equation numbers to each equation region.
+    let region_count = equation_builders.len();
     let frames = equation_builders
         .into_iter()
         .map(|builder| {
+            if builder.frames.is_empty() && region_count > 1 {
+                // Don't number empty regions, but do number empty equations.
+                return builder.build();
+            }
             add_equation_number(
                 builder,
                 number.clone(),

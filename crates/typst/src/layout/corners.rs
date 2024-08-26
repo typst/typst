@@ -262,6 +262,16 @@ pub enum Corner {
 }
 
 impl Corner {
+    /// The opposite corner.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::TopLeft => Self::BottomRight,
+            Self::TopRight => Self::BottomLeft,
+            Self::BottomRight => Self::TopLeft,
+            Self::BottomLeft => Self::TopRight,
+        }
+    }
+
     /// The next corner, clockwise.
     pub fn next_cw(self) -> Self {
         match self {

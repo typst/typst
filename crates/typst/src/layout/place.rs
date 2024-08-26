@@ -177,7 +177,7 @@ pub struct FlushElem {}
 
 impl Behave for Packed<FlushElem> {
     fn behaviour(&self) -> Behaviour {
-        Behaviour::Invisible
+        Behaviour::Ignorant
     }
 }
 

@@ -83,8 +83,41 @@ impl<T: Clone> ArcExt<T> for Arc<T> {
     }
 }
 
+/// Extra methods for [`Option`].
+pub trait OptionExt<T> {
+    /// Maps an `Option<T>` to `U` by applying a function to a contained value
+    /// (if `Some`) or returns a default (if `None`).
+    fn map_or_default<U: Default, F>(self, f: F) -> U
+    where
+        F: FnOnce(T) -> U;
+}
+
+impl<T> OptionExt<T> for Option<T> {
+    fn map_or_default<U: Default, F>(self, f: F) -> U
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Some(x) => f(x),
+            None => U::default(),
+        }
+    }
+}
+
 /// Extra methods for [`[T]`](slice).
 pub trait SliceExt<T> {
+    /// Returns a slice with all matching elements from the start of the slice
+    /// removed.
+    fn trim_start_matches<F>(&self, f: F) -> &[T]
+    where
+        F: FnMut(&T) -> bool;
+
+    /// Returns a slice with all matching elements from the end of the slice
+    /// removed.
+    fn trim_end_matches<F>(&self, f: F) -> &[T]
+    where
+        F: FnMut(&T) -> bool;
+
     /// Split a slice into consecutive runs with the same key and yield for
     /// each such run the key and the slice of elements with that key.
     fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F>
@@ -94,6 +127,29 @@ pub trait SliceExt<T> {
 }
 
 impl<T> SliceExt<T> for [T] {
+    fn trim_start_matches<F>(&self, mut f: F) -> &[T]
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let len = self.len();
+        let mut i = 0;
+        while i < len && f(&self[i]) {
+            i += 1;
+        }
+        &self[i..]
+    }
+
+    fn trim_end_matches<F>(&self, mut f: F) -> &[T]
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let mut i = self.len();
+        while i > 0 && f(&self[i - 1]) {
+            i -= 1;
+        }
+        &self[..i]
+    }
+
     fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F> {
         GroupByKey { slice: self, f }
     }
