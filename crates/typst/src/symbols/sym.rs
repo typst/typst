@@ -455,7 +455,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Geometry.
     parallel: [
         '∥',
-        bar: '⫲',
+        sruck: '⫲',
         circle: '⦷',
         eq: '⋕',
         equiv: '⩨',
