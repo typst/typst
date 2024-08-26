@@ -1378,14 +1378,14 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             && !self.items.is_empty()
             && self.items.iter().all(FlowItem::is_out_of_flow)
         {
+            // Run line number layout here even though we have no line numbers
+            // to ensure we reset line numbers at the start of the page if
+            // requested, which is still necessary if e.g. the first column is
+            // empty when the others aren't.
             let mut output = Frame::soft(self.initial);
+            self.layout_line_numbers(&mut output, self.initial, vec![])?;
 
-            if self.should_reset_page_scoped_line_numbers() {
-                // Reset line numbers at the first column if requested.
-                output.push_frame(Point::zero(), self.layout_line_number_reset()?);
-            }
-
-            self.finished.push(Frame::soft(self.initial));
+            self.finished.push(output);
             self.regions.next();
             self.initial = self.regions.size;
             return Ok(());
@@ -1531,89 +1531,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
-        if self.should_reset_page_scoped_line_numbers() {
-            // Reset line numbers at the first column if requested.
-            output.push_frame(Point::zero(), self.layout_line_number_reset()?);
-        }
-
-        // Prepare to sort, deduplicate and layout line numbers.
-        //
-        // We do this after placing all frames since they might not necessarily
-        // be ordered by height (e.g. you can have a `place(bottom)` followed
-        // by a paragraph, but the paragraph appears at the top), so we buffer
-        // all line numbers to later sort and deduplicate them based on how
-        // close they are to each other.
-        lines.sort_by_key(|line| line.y);
-
-        // TODO: Consider real line height
-        // Actually, we should store the height of each line next to the tag
-        // Then we deduplicate based on lines being inside others
-        const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
-
-        // Buffer line number frames so we can align them horizontally later
-        // before placing, based on the width of the largest line number.
-        let mut line_numbers = vec![];
-        // Used for horizontal alignment.
-        let mut max_number_width = Abs::zero();
-        let mut prev_y = None;
-        for line in lines {
-            if prev_y
-                .is_some_and(|prev_y| (line.y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
-            {
-                // Lines are too close together. Display as the same line number.
-                continue;
-            }
-
-            // Note that line.y > prev_y due to sorting.
-            // Therefore, the check above ensures no lines too close together
-            // will cause too many different line numbers to appear.
-            prev_y = Some(line.y);
-            let current_column = self.finished.len() % self.columns;
-            let number_margin = if self.columns >= 2 && current_column + 1 == self.columns
-            {
-                // The last column will always place line numbers at the end
-                // margin. This should become configurable in the future.
-                OuterHAlignment::End.resolve(self.shared)
-            } else {
-                line.marker.number_margin().resolve(self.shared)
-            };
-
-            let number_align = line
-                .marker
-                .number_align()
-                .map(|align| align.resolve(self.shared))
-                .unwrap_or_else(|| number_margin.inv());
-
-            let number_clearance = line.marker.number_clearance().resolve(self.shared);
-            let number = self.layout_line_number(line.marker)?;
-            let number_x = match number_margin {
-                FixedAlignment::Start => -number_clearance,
-                FixedAlignment::End => size.x + number_clearance,
-                // Shouldn't be specifiable by the user due to 'OuterHAlignment'.
-                FixedAlignment::Center => unreachable!(),
-            };
-            let number_pos = Point::new(number_x, line.y);
-            max_number_width.set_max(number.width());
-            line_numbers.push((number_pos, number, number_align, number_margin));
-        }
-
-        for (mut pos, number, align, margin) in line_numbers {
-            if matches!(margin, FixedAlignment::Start) {
-                // Move the line number backwards the more aligned to the left it
-                // is, instead of moving to the right when it's right aligned. We
-                // do it this way, without fully overriding the 'x' coordinate, to
-                // preserve the original clearance between the line numbers and the
-                // text.
-                pos.x -=
-                    max_number_width - align.position(max_number_width - number.width());
-            } else {
-                // Move the line number forwards when aligned to the right.
-                // Leave as is when aligned to the left.
-                pos.x += align.position(max_number_width - number.width());
-            }
-
-            output.push_frame(pos, number);
-        }
+        self.layout_line_numbers(&mut output, size, lines)?;
 
         if force && !self.pending_tags.is_empty() {
             let pos = Point::with_y(offset);
@@ -1806,6 +1724,128 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         Ok(())
     }
 
+    /// Layout the given collected lines' line numbers to an output frame.
+    ///
+    /// The numbers are placed either on the left margin (left border of the
+    /// frame) or on the right margin (right border). Before they are placed,
+    /// a line number counter reset is inserted if we're in the first column of
+    /// the page being currently laid out and the user requested for line
+    /// numbers to be reset at the start of every page.
+    fn layout_line_numbers(
+        &mut self,
+        output: &mut Frame,
+        size: Size,
+        mut lines: Vec<CollectedParLine>,
+    ) -> SourceResult<()> {
+        // Reset page-scoped line numbers if currently at the first column.
+        if self.root
+            && (self.columns == 1 || self.finished.len() % self.columns == 0)
+            && ParLine::numbering_scope_in(self.shared) == ParLineNumberingScope::Page
+        {
+            let reset =
+                CounterState::init(&CounterKey::Selector(ParLineMarker::elem().select()));
+            let counter = Counter::of(ParLineMarker::elem());
+            let update = counter.update(Span::detached(), CounterUpdate::Set(reset));
+            let locator = self.locator.next(&update);
+            let pod = Region::new(Axes::splat(Abs::zero()), Axes::splat(false));
+            let reset_frame =
+                layout_frame(self.engine, &update, locator, self.shared, pod)?;
+            output.push_frame(Point::zero(), reset_frame);
+        }
+
+        if lines.is_empty() {
+            // We always stop here if this is not the root flow.
+            return Ok(());
+        }
+
+        // Prepare to sort, deduplicate and layout line numbers.
+        //
+        // We do this after placing all frames since they might not necessarily
+        // be ordered by height (e.g. you can have a `place(bottom)` followed
+        // by a paragraph, but the paragraph appears at the top), so we buffer
+        // all line numbers to later sort and deduplicate them based on how
+        // close they are to each other.
+        lines.sort_by_key(|line| line.y);
+
+        // TODO: Consider real line height
+        // Actually, we should store the height of each line next to the tag
+        // Then we deduplicate based on lines being inside others
+        const LINE_DISTANCE_THRESHOLD: Abs = Abs::raw(1.0);
+
+        // Buffer line number frames so we can align them horizontally later
+        // before placing, based on the width of the largest line number.
+        let mut line_numbers = vec![];
+        // Used for horizontal alignment.
+        let mut max_number_width = Abs::zero();
+        let mut prev_y = None;
+        for line in lines {
+            if prev_y
+                .is_some_and(|prev_y| (line.y - prev_y).abs() < LINE_DISTANCE_THRESHOLD)
+            {
+                // Lines are too close together. Display as the same line
+                // number.
+                continue;
+            }
+
+            // Note that line.y > prev_y due to sorting. Therefore, the check
+            // above ensures no lines too close together will cause too many
+            // different line numbers to appear.
+            prev_y = Some(line.y);
+            let current_column = self.finished.len() % self.columns;
+            let number_margin = if self.columns >= 2 && current_column + 1 == self.columns
+            {
+                // The last column will always place line numbers at the end
+                // margin. This should become configurable in the future.
+                OuterHAlignment::End.resolve(self.shared)
+            } else {
+                line.marker.number_margin().resolve(self.shared)
+            };
+
+            let number_align = line
+                .marker
+                .number_align()
+                .map(|align| align.resolve(self.shared))
+                .unwrap_or_else(|| number_margin.inv());
+
+            let number_clearance = line.marker.number_clearance().resolve(self.shared);
+            let number = self.layout_line_number(line.marker)?;
+            let number_x = match number_margin {
+                FixedAlignment::Start => -number_clearance,
+                FixedAlignment::End => size.x + number_clearance,
+
+                // Shouldn't be specifiable by the user due to
+                // 'OuterHAlignment'.
+                FixedAlignment::Center => unreachable!(),
+            };
+            let number_pos = Point::new(number_x, line.y);
+
+            // Collect line numbers and compute the max width so we can align
+            // them later.
+            max_number_width.set_max(number.width());
+            line_numbers.push((number_pos, number, number_align, number_margin));
+        }
+
+        for (mut pos, number, align, margin) in line_numbers {
+            if matches!(margin, FixedAlignment::Start) {
+                // Move the line number backwards the more aligned to the left
+                // it is, instead of moving to the right when it's right
+                // aligned. We do it this way, without fully overriding the
+                // 'x' coordinate, to preserve the original clearance between
+                // the line numbers and the text.
+                pos.x -=
+                    max_number_width - align.position(max_number_width - number.width());
+            } else {
+                // Move the line number forwards when aligned to the right.
+                // Leave as is when aligned to the left.
+                pos.x += align.position(max_number_width - number.width());
+            }
+
+            output.push_frame(pos, number);
+        }
+
+        Ok(())
+    }
+
     /// Layout the line number associated with the given line marker.
     ///
     /// Produces a counter update and counter display with counter key
@@ -1841,28 +1881,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         frame.translate(Point::with_y(-frame.baseline()));
 
         Ok(frame)
-    }
-
-    /// Produces a frame which resets the line number counter.
-    fn layout_line_number_reset(&mut self) -> SourceResult<Frame> {
-        let reset =
-            CounterState::init(&CounterKey::Selector(ParLineMarker::elem().select()));
-        let counter = Counter::of(ParLineMarker::elem());
-        let update = counter.update(Span::detached(), CounterUpdate::Set(reset));
-        let locator = self.locator.next(&update);
-        let pod = Region::new(Axes::splat(Abs::zero()), Axes::splat(false));
-        layout_frame(self.engine, &update, locator, self.shared, pod)
-    }
-
-    /// Checks if the line number counter should be reset when finishing a
-    /// region due to beginning a new page. That will be true if this is a root
-    /// flow, if the region being finished is the first column of the page, and
-    /// if the user configured paragraph line numbers to be reset on every
-    /// page.
-    fn should_reset_page_scoped_line_numbers(&self) -> bool {
-        self.root
-            && (self.columns == 1 || self.finished.len() % self.columns == 0)
-            && ParLine::numbering_scope_in(self.shared) == ParLineNumberingScope::Page
     }
 
     /// Collect all footnotes in a frame.
