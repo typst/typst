@@ -389,7 +389,10 @@ pub struct FontsCommand {
 /// Common arguments to customize available fonts
 #[derive(Debug, Clone, Parser)]
 pub struct FontArgs {
-    /// Adds additional directories to search for fonts
+    /// Adds additional directories that are recursively searched for fonts
+    ///
+    /// If multiple paths are specified, they are separated by the system's path
+    /// separator (`:` on Unix-like systems and `;` on Windows).
     #[clap(
         long = "font-path",
         env = "TYPST_FONT_PATHS",
