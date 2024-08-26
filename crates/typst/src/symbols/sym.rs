@@ -487,7 +487,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     yen: '¥',
 
     // Miscellaneous.
-    ballot: ['☐', x: '☒'],
+    ballot: ['☐', cross: '☒', check: '☑', check.heavy: '🗹'],
     checkmark: ['✓', light: '🗸', heavy: '✔'],
     crossmark: ['✗', heavy: '✘'],
     floral: ['❦', l: '☙', r: '❧'],
