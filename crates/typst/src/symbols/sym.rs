@@ -332,8 +332,22 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     image: '⊷',
 
     // Set theory.
-    emptyset: ['∅', rev: '⦰'],
-    nothing: ['∅', rev: '⦰'],
+    emptyset: [
+        '∅',
+        bar: '⦱',
+        circle: '⦲',
+        larrow: '⦴',
+        rarrow: '⦳',
+        rev: '⦰',
+    ],
+    nothing: [
+        '∅',
+        bar: '⦱',
+        circle: '⦲',
+        larrow: '⦴',
+        rarrow: '⦳',
+        rev: '⦰',
+    ],
     without: '∖',
     complement: '∁',
     in: [
