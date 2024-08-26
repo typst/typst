@@ -9,6 +9,8 @@ use typst::syntax::package::PackageVersion;
 use typst::syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
 use unscanny::Scanner;
 
+use crate::constants;
+
 /// Collects all tests from all files.
 ///
 /// Returns:
@@ -16,6 +18,20 @@ use unscanny::Scanner;
 /// - parsing errors in the failure case.
 pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
     Collector::new().collect()
+}
+
+/// Like [`collect`], but prints all errors and exits if this didn’t succeed.
+pub fn collect_or_exit() -> (Vec<Test>, usize) {
+    match crate::collect::collect() {
+        Ok(output) => output,
+        Err(errors) => {
+            eprintln!("failed to collect tests");
+            for error in errors {
+                eprintln!("❌ {error}");
+            }
+            std::process::exit(1);
+        }
+    }
 }
 
 /// A single test.
@@ -139,7 +155,7 @@ impl Collector {
 
     /// Walks through all test files and collects the tests.
     fn walk_files(&mut self) {
-        for entry in walkdir::WalkDir::new(crate::SUITE_PATH).sort_by_file_name() {
+        for entry in walkdir::WalkDir::new(constants::SUITE_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
             let path = entry.path();
             if !path.extension().is_some_and(|ext| ext == "typ") {
@@ -158,7 +174,7 @@ impl Collector {
     /// Walks through all reference images and ensure that a test exists for
     /// each one.
     fn walk_references(&mut self) {
-        for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
+        for entry in walkdir::WalkDir::new(constants::REF_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
             let path = entry.path();
             if !path.extension().is_some_and(|ext| ext == "png") {
@@ -177,12 +193,12 @@ impl Collector {
             };
 
             let len = path.metadata().unwrap().len() as usize;
-            if !self.large.contains(name) && len > crate::REF_LIMIT {
+            if !self.large.contains(name) && len > constants::REF_LIMIT {
                 self.errors.push(TestParseError {
                     pos: pos.clone(),
                     message: format!(
                         "reference image size exceeds {}, but the test is not marked as `// LARGE`",
-                        FileSize(crate::REF_LIMIT),
+                        FileSize(constants::REF_LIMIT),
                     ),
                 });
             }
