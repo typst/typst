@@ -219,7 +219,7 @@ impl Unlabellable for Packed<ParbreakElem> {}
 ///
 /// This element is exclusively used for line number configuration and cannot
 /// be placed.
-#[elem(name = "line", title = "Paragraph Line", Construct, Locatable, Count)]
+#[elem(name = "line", title = "Paragraph Line", Construct, Locatable)]
 pub struct ParLine {
     /// How to number each line. Accepts a
     /// [numbering pattern or function]($numbering).
@@ -304,13 +304,6 @@ pub struct ParLine {
 impl Construct for ParLine {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
-    }
-}
-
-impl Count for Packed<ParLine> {
-    fn update(&self) -> Option<CounterUpdate> {
-        // The line counter must be updated manually by the root flow
-        None
     }
 }
 
