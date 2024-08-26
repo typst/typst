@@ -16,7 +16,6 @@ pub use self::hash::LazyHash;
 pub use self::pico::PicoStr;
 pub use self::scalar::Scalar;
 
-use std::default::Default;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
