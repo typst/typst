@@ -129,6 +129,37 @@ $integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
 
+--- math-attach-limit-long ---
+// Test long limit attachments.
+$ attach(product, t: 123456789) attach(product, t: 123456789, bl: x) \
+  attach(product, b: 123456789) attach(product, b: 123456789, tr: x) $
+$attach(limits(product), t: 123456789) attach(limits(product), t: 123456789, bl: x)$
+
+$attach(limits(product), b: 123456789) attach(limits(product), b: 123456789, tr: x)$
+
+--- math-attach-kerning ---
+// Test math kerning.
+#show math.equation: set text(font: "STIX Two Math")
+
+$ L^A Y^c R^2 delta^y omega^f a^2 t^w gamma^V p^+ \
+  b_lambda f_k p_i x_1 x_j x_A y_l y_y beta_s theta_k \
+  J_0 Y_0 T_1 T_f V_a V_A F_j cal(F)_j lambda_y \
+  attach(W, tl: l) attach(A, tl: 2) attach(cal(V), tl: beta)
+  attach(cal(P), tl: iota) attach(f, bl: i) attach(A, bl: x)
+  attach(cal(J), bl: xi) attach(cal(A), bl: m) $
+
+--- math-attach-kerning-mixed ---
+// Test mixtures of math kerning.
+#show math.equation: set text(font: "STIX Two Math")
+
+$ x_1^i x_2^lambda x_2^(2alpha) x_2^(k+1) x_2^(-p_(-1)) x_j^gamma \
+  f_2^2 v_0^2  z_0^2 beta_s^2 xi_i^k J_1^2 N_(k y)^(-1) V_pi^x \
+  attach(J, tl: 1, br: i) attach(P, tl: i, br: 2) B_i_0 phi.alt_i_(n-1)
+  attach(A, tr: x, bl: x, br: x, tl: x) attach(F, tl: i, tr: f) \
+  attach(cal(A), tl: 2, bl: o) attach(cal(J), bl: l, br: A)
+  attach(cal(y), tr: p, bl: n t) attach(cal(O), tl: 16, tr: +, br: sigma)
+  attach(italic(Upsilon), tr: s, br: Psi, bl: d) $
+
 --- math-attach-nested-base ---
 // Test attachments when the base has attachments.
 $ attach(a^b, b: c) quad
