@@ -333,67 +333,64 @@ fn layout_equation_block(
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
 
-    let equation_builders = if BlockElem::breakable_in(styles)
-        && full_equation_builder.frames.len() > 1
-    {
-        let mut rows = full_equation_builder.frames.into_iter().peekable();
-        let mut equation_builders = vec![];
-        let mut last_first_pos = Point::zero();
+    let equation_builders =
+        if BlockElem::breakable_in(styles) && full_equation_builder.frames.len() > 1 {
+            let mut rows = full_equation_builder.frames.into_iter().peekable();
+            let mut equation_builders = vec![];
+            let mut last_first_pos = Point::zero();
 
-        for region in regions.iter() {
-            // Keep track of the position of the first row in this region,
-            // so that the offset can be reverted later.
-            let Some(&(_, first_pos)) = rows.peek() else { break };
-            last_first_pos = first_pos;
+            for region in regions.iter() {
+                // Keep track of the position of the first row in this region,
+                // so that the offset can be reverted later.
+                let Some(&(_, first_pos)) = rows.peek() else { break };
+                last_first_pos = first_pos;
 
-            let mut frames = vec![];
-            let mut height = Abs::zero();
-            while let Some((sub, pos)) = rows.peek() {
-                let mut pos = *pos;
-                pos.y -= first_pos.y;
+                let mut frames = vec![];
+                let mut height = Abs::zero();
+                while let Some((sub, pos)) = rows.peek() {
+                    let mut pos = *pos;
+                    pos.y -= first_pos.y;
 
-                // Finish this region if the line doesn't fit. Only do it if
-                // we placed at least one line _or_ we still have non-last
-                // regions. Crucially, we don't want to infinitely create
-                // new regions which are too small.
-                if !region.y.fits(sub.height() + pos.y)
-                    && (!frames.is_empty() || !regions.in_last())
-                {
-                    break;
+                    // Finish this region if the line doesn't fit. Only do it if
+                    // we placed at least one line _or_ we still have non-last
+                    // regions. Crucially, we don't want to infinitely create
+                    // new regions which are too small.
+                    if !region.y.fits(sub.height() + pos.y)
+                        && (!frames.is_empty() || !regions.in_last())
+                    {
+                        break;
+                    }
+
+                    let (sub, _) = rows.next().unwrap();
+                    height = height.max(pos.y + sub.height());
+                    frames.push((sub, pos));
                 }
 
-                let (sub, _) = rows.next().unwrap();
-                height = height.max(pos.y + sub.height());
-                frames.push((sub, pos));
-            }
-
-            if !frames.is_empty() {
                 equation_builders
                     .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
             }
-        }
 
-        // Append remaining rows to the equation builder of the last region.
-        if let Some(equation_builder) = equation_builders.last_mut() {
-            equation_builder.frames.extend(rows.map(|(frame, mut pos)| {
-                pos.y -= last_first_pos.y;
-                (frame, pos)
-            }));
+            // Append remaining rows to the equation builder of the last region.
+            if let Some(equation_builder) = equation_builders.last_mut() {
+                equation_builder.frames.extend(rows.map(|(frame, mut pos)| {
+                    pos.y -= last_first_pos.y;
+                    (frame, pos)
+                }));
 
-            let height = equation_builder
-                .frames
-                .iter()
-                .map(|(frame, pos)| frame.height() + pos.y)
-                .max()
-                .unwrap_or(equation_builder.size.y);
+                let height = equation_builder
+                    .frames
+                    .iter()
+                    .map(|(frame, pos)| frame.height() + pos.y)
+                    .max()
+                    .unwrap_or(equation_builder.size.y);
 
-            equation_builder.size.y = height;
-        }
+                equation_builder.size.y = height;
+            }
 
-        equation_builders
-    } else {
-        vec![full_equation_builder]
-    };
+            equation_builders
+        } else {
+            vec![full_equation_builder]
+        };
 
     let Some(numbering) = (**elem).numbering(styles) else {
         let frames = equation_builders
@@ -419,9 +416,14 @@ fn layout_equation_block(
     };
 
     // Add equation numbers to each equation region.
+    let region_count = equation_builders.len();
     let frames = equation_builders
         .into_iter()
         .map(|builder| {
+            if builder.frames.is_empty() && region_count > 1 {
+                // Don't number empty regions, but do number empty equations.
+                return builder.build();
+            }
             add_equation_number(
                 builder,
                 number.clone(),
