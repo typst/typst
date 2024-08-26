@@ -38,10 +38,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Delimiters.
-    paren: [l: '(', r: ')', t: '⏜', b: '⏝'],
-    brace: [l: '{', r: '}', t: '⏞', b: '⏟'],
+    paren: [l: '(', l.double: '⦅', r: ')', r.double: '⦆', t: '⏜', b: '⏝'],
+    brace: [l: '{', l.double: '⦃', r: '}', r.double: '⦄', t: '⏞', b: '⏟'],
     bracket: [l: '[', l.double: '⟦', r: ']', r.double: '⟧', t: '⎴', b: '⎵'],
-    shell: [l: '〔', r: '〕', t: '⏠', b: '⏡'],
+    shell: [l: '❲', l.double: '⟬', r: '❳', r.double: '⟭', t: '⏠', b: '⏡'],
     bar: [v: '|', v.double: '‖', v.triple: '⦀', v.broken: '¦', v.circle: '⦶', h: '―'],
     fence: [l: '⧘', l.double: '⧚', r: '⧙', r.double: '⧛', dotted: '⦙'],
     angle: [
@@ -186,10 +186,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         circle.arrow: '⟴',
         circle.big: '⨁',
         dot: '∔',
+        double: '⧺',
         minus: '±',
         small: '﹢',
         square: '⊞',
         triangle: '⨹',
+        triple: '⧻',
     ],
     minus: [
         '−',
@@ -330,8 +332,22 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     image: '⊷',
 
     // Set theory.
-    emptyset: ['∅', rev: '⦰'],
-    nothing: ['∅', rev: '⦰'],
+    emptyset: [
+        '∅',
+        bar: '⦱',
+        circle: '⦲',
+        larrow: '⦴',
+        rarrow: '⦳',
+        rev: '⦰',
+    ],
+    nothing: [
+        '∅',
+        bar: '⦱',
+        circle: '⦲',
+        larrow: '⦴',
+        rarrow: '⦳',
+        rev: '⦰',
+    ],
     without: '∖',
     complement: '∁',
     in: [
@@ -395,7 +411,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Calculus.
-    infinity: '∞',
+    infinity: [
+        '∞',
+        bar: '⧞',
+        incomplete: '⧜',
+        tie: '⧝',
+    ],
     oo: '∞',
     diff: '∂', // Deprecation planned
     partial: '∂',
@@ -444,7 +465,11 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Function and category theory.
     compose: '∘',
     convolve: '∗',
-    multimap: '⊸',
+    multimap: ['⊸', double: '⧟'],
+
+    // Game theory.
+    tiny: '⧾',
+    miny: '⧿',
 
     // Number theory.
     divides: ['∣', not: '∤'],
@@ -476,7 +501,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     yen: '¥',
 
     // Miscellaneous.
-    ballot: ['☐', x: '☒'],
+    ballot: ['☐', cross: '☒', check: '☑', check.heavy: '🗹'],
     checkmark: ['✓', light: '🗸', heavy: '✔'],
     crossmark: ['✗', heavy: '✘'],
     floral: ['❦', l: '☙', r: '❧'],
@@ -639,6 +664,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         r.long.bar: '⟼',
         r.bar: '↦',
         r.curve: '⤷',
+        r.turn: '⮎',
         r.dashed: '⇢',
         r.dotted: '⤑',
         r.double: '⇒',
@@ -665,6 +691,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         #[call(crate::math::accent::arrow_l)] l: '←',
         l.bar: '↤',
         l.curve: '⤶',
+        l.turn: '⮌',
         l.dashed: '⇠',
         l.dotted: '⬸',
         l.double: '⇐',
@@ -692,6 +719,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         t: '↑',
         t.bar: '↥',
         t.curve: '⤴',
+        t.turn: '⮍',
         t.dashed: '⇡',
         t.double: '⇑',
         t.filled: '⬆',
@@ -703,6 +731,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         b: '↓',
         b.bar: '↧',
         b.curve: '⤵',
+        b.turn: '⮏',
         b.dashed: '⇣',
         b.double: '⇓',
         b.filled: '⬇',
