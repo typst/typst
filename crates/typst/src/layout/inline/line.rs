@@ -543,6 +543,41 @@ pub fn commit(
         }
     }
 
+    // Remaining space is distributed now.
+    if !fr.is_zero() {
+        remaining = Abs::zero();
+    }
+
+    let size = Size::new(width, top + bottom);
+    let mut output = Frame::soft(size);
+    output.set_baseline(top);
+
+    add_par_line_marker(&mut output, styles, engine, locator, top);
+
+    // Construct the line's frame.
+    for (offset, frame) in frames {
+        let x = offset + p.align.position(remaining);
+        let y = top - frame.baseline();
+        output.push_frame(Point::new(x, y), frame);
+    }
+
+    Ok(output)
+}
+
+/// Adds a paragraph line marker to a paragraph line's output frame if
+/// line numbering is not `None` at this point. Ensures other style properties,
+/// namely number margin, number align and number clearance, are stored in the
+/// marker as well.
+///
+/// The `top` parameter is used to ensure the marker, and thus the line's
+/// number in the margin, is aligned to the line's baseline.
+fn add_par_line_marker(
+    output: &mut Frame,
+    styles: StyleChain,
+    engine: &mut Engine,
+    locator: &mut SplitLocator,
+    top: Abs,
+) {
     if let Some(numbering) = ParLine::numbering_in(styles) {
         let number_margin = ParLine::number_margin_in(styles);
         let number_align = ParLine::number_align_in(styles);
@@ -573,28 +608,8 @@ pub fn commit(
         // still need to manually adjust its own 'y' position based on its own
         // baseline.
         let tag = Tag::new(par_line, hash);
-        let mut frame = Frame::soft(Size::zero());
-        frame.push(Point::zero(), FrameItem::Tag(tag));
-        frames.push((offset, frame));
+        output.push(Point::with_y(top), FrameItem::Tag(tag));
     }
-
-    // Remaining space is distributed now.
-    if !fr.is_zero() {
-        remaining = Abs::zero();
-    }
-
-    let size = Size::new(width, top + bottom);
-    let mut output = Frame::soft(size);
-    output.set_baseline(top);
-
-    // Construct the line's frame.
-    for (offset, frame) in frames {
-        let x = offset + p.align.position(remaining);
-        let y = top - frame.baseline();
-        output.push_frame(Point::new(x, y), frame);
-    }
-
-    Ok(output)
 }
 
 /// How much a character should hang into the end margin.
