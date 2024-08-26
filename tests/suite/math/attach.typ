@@ -69,7 +69,7 @@ $ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
   sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
 
 --- math-attach-descender-collision ---
-// Test for no collisions between descenders/ascenders and attachments
+// Test for no collisions between descenders/ascenders and attachments.
 
 $ sup_(x in P_i) quad inf_(x in P_i) $
 $ op("fff",limits: #true)^(y) quad op("yyy", limits:#true)_(f) $
@@ -112,7 +112,7 @@ $ attach(A, t: #context oops) $
 $iota_a^b$
 
 --- math-attach-default-placement ---
-// Test default of limit attachments on relations at all sizes
+// Test default of limit attachments on relations at all sizes.
 #set page(width: auto)
 $ a =^"def" b quad a lt.eq_"really" b quad  a arrow.r.long.squiggly^"slowly" b $
 $a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
@@ -120,11 +120,22 @@ $a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
 $a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.long.squiggly)^"slowly" b$
 
 --- math-attach-integral ---
-// Test default of scripts attachments on integrals at display size
+// Test default of scripts attachments on integrals at display size.
 $ integral.sect_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
 $integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
 --- math-attach-large-operator ---
-// Test default of limit attachments on large operators at display size only
+// Test default of limit attachments on large operators at display size only.
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+
+--- math-attach-nested-base ---
+// Test attachments when the base has attachments.
+$ attach(a^b, b: c) quad
+  attach(attach(attach(attach(attach(attach(sum, tl: 1), t: 2), tr: 3), br: 4), b: 5), bl: 6) $
+
+#let a0 = math.attach(math.alpha, b: [0])
+#let a1 = $alpha^1$
+
+$ a0 + a1 + a0_2 \
+  a1_2 + a0^2 + a1^2 $

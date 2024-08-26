@@ -52,20 +52,22 @@ pub struct AttachElem {
 impl LayoutMath for Packed<AttachElem> {
     #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let base = ctx.layout_into_fragment(self.base(), styles)?;
+        let new_elem = merge_base(self);
+        let elem = new_elem.as_ref().unwrap_or(self);
 
+        let base = ctx.layout_into_fragment(elem.base(), styles)?;
         let sup_style = style_for_superscript(styles);
         let sup_style_chain = styles.chain(&sup_style);
-        let tl = self.tl(sup_style_chain);
-        let tr = self.tr(sup_style_chain);
+        let tl = elem.tl(sup_style_chain);
+        let tr = elem.tr(sup_style_chain);
         let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
-        let t = self.t(sup_style_chain);
+        let t = elem.t(sup_style_chain);
 
         let sub_style = style_for_subscript(styles);
         let sub_style_chain = styles.chain(&sub_style);
-        let bl = self.bl(sub_style_chain);
-        let br = self.br(sub_style_chain);
-        let b = self.b(sub_style_chain);
+        let bl = elem.bl(sub_style_chain);
+        let br = elem.br(sub_style_chain);
+        let b = elem.b(sub_style_chain);
 
         let limits = base.limits().active(styles);
         let (t, tr) = match (t, tr) {
@@ -246,6 +248,43 @@ impl Limits {
             Self::Never => false,
         }
     }
+}
+
+/// If an AttachElem's base is also an AttachElem, merge attachments into the
+/// base AttachElem where possible.
+fn merge_base(elem: &Packed<AttachElem>) -> Option<Packed<AttachElem>> {
+    // Extract from an EquationElem.
+    let mut base = elem.base();
+    if let Some(equation) = base.to_packed::<EquationElem>() {
+        base = equation.body();
+    }
+
+    // Move attachments from elem into base where possible.
+    if let Some(base) = base.to_packed::<AttachElem>() {
+        let mut elem = elem.clone();
+        let mut base = base.clone();
+
+        macro_rules! merge {
+            ($content:ident) => {
+                if base.$content.is_none() && elem.$content.is_some() {
+                    base.$content = elem.$content.clone();
+                    elem.$content = None;
+                }
+            };
+        }
+
+        merge!(t);
+        merge!(b);
+        merge!(tl);
+        merge!(tr);
+        merge!(bl);
+        merge!(br);
+
+        elem.base = base.pack();
+        return Some(elem);
+    }
+
+    None
 }
 
 macro_rules! measure {
