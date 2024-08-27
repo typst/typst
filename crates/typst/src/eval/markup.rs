@@ -29,7 +29,6 @@ fn eval_markup<'a>(
 ) -> SourceResult<Content> {
     let flow = vm.flow.take();
     let mut seq = Vec::with_capacity(exprs.size_hint().1.unwrap_or_default());
-    let mut prev_label_expr: Option<ast::Expr<'a>> = None;
 
     while let Some(expr) = exprs.next() {
         match expr {
@@ -55,16 +54,14 @@ fn eval_markup<'a>(
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
                     {
-                        if let Some(prev_label) = elem.label() {
+                        if elem.label().is_some() {
                             vm.engine.sink.warn(warning!(
-                                prev_label_expr.unwrap().span(),
-                                "label `{}` has been ignored",
-                                prev_label.repr()
+                                elem.span(), "content labelled multiple times";
+                                hint: "only the last label is used, the rest are ignored",
                             ));
                         }
 
                         *elem = std::mem::take(elem).labelled(label);
-                        prev_label_expr = Some(expr);
                     } else {
                         vm.engine.sink.warn(warning!(
                             expr.span(),
