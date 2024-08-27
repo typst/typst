@@ -273,21 +273,7 @@ impl Packed<InlineElem> {
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Vec<InlineItem>> {
-        let callback = self.body();
-        let mut items = callback.call(engine, locator, styles, region)?;
-
-        if let Some(label) = callback.captured_content().label() {
-            for item in items.iter_mut() {
-                match item {
-                    InlineItem::Space(..) => {}
-                    InlineItem::Frame(frame) => {
-                        frame.group(|group| group.set_label(label));
-                    }
-                }
-            }
-        }
-
-        Ok(items)
+        self.body().call(engine, locator, styles, region)
     }
 }
 
@@ -936,10 +922,6 @@ mod callbacks {
                         #[allow(clippy::missing_transmute_annotations)]
                         f: unsafe { std::mem::transmute(f) },
                     }
-                }
-
-                pub fn captured_content(&self) -> &Content {
-                    &self.captured
                 }
 
                 pub fn call(&self, $($param: $param_ty),*) -> $ret {
