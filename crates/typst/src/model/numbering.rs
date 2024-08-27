@@ -297,6 +297,10 @@ pub enum NumberingKind {
     EasternArabic,
     /// The variant of Eastern Arabic numerals used in Persian and Urdu.
     EasternArabicPersian,
+    /// Devanagari numerals
+    // TODO: Is it the best name? (I use the suffic ‘Number’ in case we want to also support
+    // devanagari letters)
+    DevanagariNumber,
     /// Circled numbers (①, ②, ③, etc.), up to 50.
     CircledNumber,
     /// Double-circled numbers (⓵, ⓶, ⓷, etc.), up to 10.
@@ -321,6 +325,7 @@ impl NumberingKind {
             '가' => NumberingKind::KoreanSyllable,
             '\u{0661}' => NumberingKind::EasternArabic,
             '\u{06F1}' => NumberingKind::EasternArabicPersian,
+            '\u{0967}' => NumberingKind::DevanagariNumber,
             '①' => NumberingKind::CircledNumber,
             '⓵' => NumberingKind::DoubleCircledNumber,
             _ => return None,
@@ -345,6 +350,7 @@ impl NumberingKind {
             Self::KoreanSyllable => '가',
             Self::EasternArabic => '\u{0661}',
             Self::EasternArabicPersian => '\u{06F1}',
+            Self::DevanagariNumber => '\u{0967}',
             Self::CircledNumber => '①',
             Self::DoubleCircledNumber => '⓵',
         }
@@ -556,6 +562,7 @@ impl NumberingKind {
             ),
             Self::EasternArabic => decimal('\u{0660}', n),
             Self::EasternArabicPersian => decimal('\u{06F0}', n),
+            Self::DevanagariNumber => decimal('\u{0966}', n),
             Self::CircledNumber => zeroless::<50>(
                 |x| {
                     [
