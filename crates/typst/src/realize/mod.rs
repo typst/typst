@@ -15,8 +15,8 @@ pub use self::process::process;
 
 use std::mem;
 
-use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route};
+use crate::diag::{bail, At, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     Content, ContextElem, NativeElement, Packed, SequenceElem, Smart, StyleChain,
     StyleVec, StyledElem, Styles,
@@ -139,12 +139,7 @@ impl<'a, 'v> Builder<'a, 'v> {
             process(self.engine, self.locator, content, styles)?
         {
             self.engine.route.increase();
-            if !self.engine.route.within(Route::MAX_SHOW_RULE_DEPTH) {
-                bail!(
-                    content.span(), "maximum show rule depth exceeded";
-                    hint: "check whether the show rule matches its own output"
-                );
-            }
+            self.engine.route.check_show_depth().at(content.span())?;
 
             if let Some(tag) = &tag {
                 self.accept(self.arenas.store(TagElem::packed(tag.clone())), styles)?;

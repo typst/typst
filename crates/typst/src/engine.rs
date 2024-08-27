@@ -7,7 +7,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{bail, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
 use crate::syntax::{FileId, Span};
@@ -229,21 +229,6 @@ pub struct Route<'a> {
     upper: AtomicUsize,
 }
 
-/// The maximum nesting depths. They are different so that even if show rule and
-/// call checks are interleaved, show rule problems we always get the show rule.
-/// The lower the max depth for a kind of error, the higher its precedence
-/// compared to the others.
-impl Route<'_> {
-    /// The maximum stack nesting depth.
-    pub const MAX_SHOW_RULE_DEPTH: usize = 64;
-
-    /// The maximum layout nesting depth.
-    pub const MAX_LAYOUT_DEPTH: usize = 72;
-
-    /// The maximum function call nesting depth.
-    pub const MAX_CALL_DEPTH: usize = 80;
-}
-
 impl<'a> Route<'a> {
     /// Create a new, empty route.
     pub fn root() -> Self {
@@ -294,6 +279,51 @@ impl<'a> Route<'a> {
     /// Decrease the nesting depth for this route segment.
     pub fn decrease(&mut self) {
         self.len -= 1;
+    }
+}
+
+/// The maximum nesting depths. They are different so that even if show rule and
+/// call checks are interleaved, for show rule problems we always get the show
+/// rule error. The lower the max depth for a kind of error, the higher its
+/// precedence compared to the others.
+impl Route<'_> {
+    /// The maximum stack nesting depth.
+    const MAX_SHOW_RULE_DEPTH: usize = 64;
+
+    /// The maximum layout nesting depth.
+    const MAX_LAYOUT_DEPTH: usize = 72;
+
+    /// The maximum function call nesting depth.
+    const MAX_CALL_DEPTH: usize = 80;
+
+    /// Ensures that we are within the maximum show rule depth.
+    pub fn check_show_depth(&self) -> HintedStrResult<()> {
+        if !self.within(Route::MAX_SHOW_RULE_DEPTH) {
+            bail!(
+                "maximum show rule depth exceeded";
+                hint: "check whether the show rule matches its own output"
+            );
+        }
+        Ok(())
+    }
+
+    /// Ensures that we are within the maximum layout depth.
+    pub fn check_layout_depth(&self) -> HintedStrResult<()> {
+        if !self.within(Route::MAX_LAYOUT_DEPTH) {
+            bail!(
+                "maximum layout depth exceeded";
+                hint: "try to reduce the amount of nesting in your layout",
+            );
+        }
+        Ok(())
+    }
+
+    /// Ensures that we are within the maximum function call depth.
+    pub fn check_call_depth(&self) -> StrResult<()> {
+        if !self.within(Route::MAX_CALL_DEPTH) {
+            bail!("maximum function call depth exceeded");
+        }
+        Ok(())
     }
 }
 

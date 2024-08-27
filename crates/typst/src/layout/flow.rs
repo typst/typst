@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 
 use comemo::{Track, Tracked, TrackedMut};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Content, NativeElement, Packed, Resolve, Smart, StyleChain, Styles,
@@ -724,12 +724,7 @@ fn layout_fragment_impl(
         route: Route::extend(route),
     };
 
-    if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {
-        bail!(
-            content.span(), "maximum layout depth exceeded";
-            hint: "try to reduce the amount of nesting in your layout",
-        );
-    }
+    engine.route.check_layout_depth().at(content.span())?;
 
     // If we are in a `PageElem`, this might already be a realized flow.
     let arenas = Arenas::default();
