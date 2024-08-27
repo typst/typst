@@ -118,8 +118,8 @@ Hello #scaled[World]!
 
 --- transform-skew ---
 // Test skewing along one axis.
-#set page(width: 220pt)
-#set text(size: 32pt)
+#set page(width: 100pt, height: 60pt)
+#set text(size: 12pt)
 #let skewed(body) = box(skew(-30deg, body))
 
 #set skew(reflow: false)
@@ -130,8 +130,8 @@ Hello #skewed[World]!
 
 --- transform-skew-both-axes ---
 // Test skewing along both axes.
-#set page(width: 220pt)
-#set text(size: 32pt)
+#set page(width: 100pt, height: 250pt)
+#set text(size: 12pt)
 #let skewed(angle) = box(skew(ax: 30deg, ay: angle)[Some Text])
 
 #set skew(reflow: true)
@@ -141,20 +141,20 @@ Hello #skewed[World]!
 
 --- transform-skew-origin ---
 // Test setting skewing origin.
-#set page(width: 128pt, height:64pt)
-#set text(spacing: 30pt)
-#let square = square.with(width: 20pt)
-#let skew_square(origin) = box(place(square(stroke: gray))
+#set page(width: 100pt, height:40pt)
+#set text(spacing: 20pt)
+#let square = square.with(width: 8pt)
+#let skew-square(origin) = box(place(square(stroke: gray))
   + place(skew(-30deg, -30deg, origin: origin, square())))
-#skew_square(center+horizon)
-#skew_square(bottom+left)
-#skew_square(top+right)
-#skew_square(horizon+right)
+#skew-square(center+horizon)
+#skew-square(bottom+left)
+#skew-square(top+right)
+#skew-square(horizon+right)
 
 --- transform-skew-relative-sizing ---
 // Test relative sizing in skewed boxes.
-#set page(width: 250pt, height: 150pt)
-#set text(size: 32pt)
+#set page(width: 100pt, height: 60pt)
+#set text(size: 12pt)
 #let skewed(body) = box(skew(
   30deg,
   box(stroke: 0.5pt, width: 30%, clip: true, body)
