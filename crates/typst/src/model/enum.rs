@@ -6,16 +6,16 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Context, NativeElement, Packed, Show, Smart,
-    StyleChain, Styles,
+    cast, elem, scope, Array, Content, Context, NativeElement, Packed, Show, ShowSet,
+    Smart, StyleChain, Styles,
 };
-use crate::introspection::Locator;
+use crate::introspection::{Locatable, Locator, LocatorLink};
 use crate::layout::{
-    Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    Length, Regions, Sizing, VAlignment, VElem,
+    layout_fragment, layout_frame, Abs, Axes, BlockElem, Em, Fragment, HElem, Length,
+    Region, Regions, Sides, Size, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
-use crate::text::TextElem;
+use crate::text::{isolate, TextElem};
 
 /// A numbered list.
 ///
@@ -73,7 +73,7 @@ use crate::text::TextElem;
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Show)]
+#[elem(scope, title = "Numbered List", Locatable, Show, ShowSet)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
@@ -146,14 +146,15 @@ pub struct EnumElem {
     #[default(false)]
     pub full: bool,
 
-    /// The indentation of each item.
+    /// The indentation of the enumeration.
     #[resolve]
+    #[default(Em::new(1.75).into())]
     pub indent: Length,
 
-    /// The space between the numbering and the body of each item.
+    /// The spacing between the number and the body of each item.
     #[resolve]
     #[default(Em::new(0.5).into())]
-    pub body_indent: Length,
+    pub number_gap: Length,
 
     /// The spacing between the items of the enumeration.
     ///
@@ -161,32 +162,6 @@ pub struct EnumElem {
     /// enumerations and paragraph [`spacing`]($par.spacing) for wide
     /// (non-tight) enumerations.
     pub spacing: Smart<Length>,
-
-    /// The alignment that enum numbers should have.
-    ///
-    /// By default, this is set to `{end + top}`, which aligns enum numbers
-    /// towards end of the current text direction (in left-to-right script,
-    /// for example, this is the same as `{right}`) and at the top of the line.
-    /// The choice of `{end}` for horizontal alignment of enum numbers is
-    /// usually preferred over `{start}`, as numbers then grow away from the
-    /// text instead of towards it, avoiding certain visual issues. This option
-    /// lets you override this behaviour, however. (Also to note is that the
-    /// [unordered list]($list) uses a different method for this, by giving the
-    /// `marker` content an alignment directly.).
-    ///
-    /// ````example
-    /// #set enum(number-align: start + bottom)
-    ///
-    /// Here are some powers of two:
-    /// 1. One
-    /// 2. Two
-    /// 4. Four
-    /// 8. Eight
-    /// 16. Sixteen
-    /// 32. Thirty two
-    /// ````
-    #[default(HAlignment::End + VAlignment::Top)]
-    pub number_align: Alignment,
 
     /// The numbered list's items.
     ///
@@ -218,7 +193,11 @@ impl EnumElem {
 
 impl Show for Packed<EnumElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let indent = self.indent(styles);
+        let inset = Sides::one(Some(indent.into()), TextElem::dir_in(styles).start());
+
         let mut realized = BlockElem::multi_layouter(self.clone(), layout_enum)
+            .with_inset(inset)
             .pack()
             .spanned(self.span());
 
@@ -232,6 +211,14 @@ impl Show for Packed<EnumElem> {
     }
 }
 
+impl ShowSet for Packed<EnumElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(ParElem::set_first_line_indent(Length::zero()));
+        out
+    }
+}
+
 /// Layout the enumeration.
 #[typst_macros::time(span = elem.span())]
 fn layout_enum(
@@ -242,9 +229,10 @@ fn layout_enum(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let numbering = elem.numbering(styles);
+    let full = elem.full(styles);
     let indent = elem.indent(styles);
-    let body_indent = elem.body_indent(styles);
-    let gutter = elem.spacing(styles).unwrap_or_else(|| {
+    let number_gap = elem.number_gap(styles);
+    let spacing = elem.spacing(styles).unwrap_or_else(|| {
         if elem.tight(styles) {
             ParElem::leading_in(styles).into()
         } else {
@@ -252,21 +240,19 @@ fn layout_enum(
         }
     });
 
-    let mut cells = vec![];
-    let mut locator = locator.split();
+    let spacing_elem = VElem::block_spacing(spacing.into()).pack();
+    let number_gap_elem = HElem::new(number_gap.into()).pack();
+
     let mut number = elem.start(styles);
     let mut parents = EnumElem::parents_in(styles);
+    let mut seq = vec![];
 
-    let full = elem.full(styles);
+    for (i, child) in elem.children.iter().enumerate() {
+        if i > 0 {
+            seq.push(spacing_elem.clone());
+        }
 
-    // Horizontally align based on the given respective parameter.
-    // Vertically align to the top to avoid inheriting `horizon` or `bottom`
-    // alignment from the context and having the number be displaced in
-    // relation to the item it refers to.
-    let number_align = elem.number_align(styles);
-
-    for item in elem.children() {
-        number = item.number(styles).unwrap_or(number);
+        number = child.number(styles).unwrap_or(number);
 
         let context = Context::new(None, Some(styles));
         let resolved = if full {
@@ -283,34 +269,28 @@ fn layout_enum(
             }
         };
 
-        // Disable overhang as a workaround to end-aligned dots glitching
-        // and decreasing spacing between numbers and items.
-        let resolved =
-            resolved.aligned(number_align).styled(TextElem::set_overhang(false));
+        let number_width = layout_frame(
+            engine,
+            &resolved,
+            Locator::link(&LocatorLink::measure(elem.location().unwrap())),
+            styles,
+            Region::new(Size::splat(Abs::inf()), Axes::splat(false)),
+        )?
+        .width();
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(resolved, locator.next(&())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            item.body.clone().styled(EnumElem::set_parents(smallvec![number])),
-            locator.next(&item.body.span()),
-        ));
+        let dedent = -(number_width + number_gap).min(indent);
+        let dedent_elem = HElem::new(dedent.into()).pack();
+
+        seq.push(dedent_elem);
+        isolate(&mut seq, resolved, styles);
+        seq.push(number_gap_elem.clone());
+        seq.push(child.body.clone().styled(EnumElem::set_parents(smallvec![number])));
+
         number = number.saturating_add(1);
     }
 
-    let grid = CellGrid::new(
-        Axes::with_x(&[
-            Sizing::Rel(indent.into()),
-            Sizing::Auto,
-            Sizing::Rel(body_indent.into()),
-            Sizing::Auto,
-        ]),
-        Axes::with_y(&[gutter.into()]),
-        cells,
-    );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
-
-    layouter.layout(engine)
+    let realized = Content::sequence(seq);
+    layout_fragment(engine, &realized, locator, styles, regions)
 }
 
 /// An enumeration item.

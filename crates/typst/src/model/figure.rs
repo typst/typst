@@ -339,10 +339,10 @@ impl ShowSet for Packed<FigureElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         // Still allows breakable figures with
         // `show figure: set block(breakable: true)`.
-        let mut map = Styles::new();
-        map.set(BlockElem::set_breakable(false));
-        map.set(AlignElem::set_alignment(Alignment::CENTER));
-        map
+        let mut out = Styles::new();
+        out.set(BlockElem::set_breakable(false));
+        out.set(AlignElem::set_alignment(Alignment::CENTER));
+        out
     }
 }
 

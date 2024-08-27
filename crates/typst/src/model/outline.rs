@@ -10,12 +10,12 @@ use crate::foundations::{
     NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
-use crate::layout::{BoxElem, Em, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
+use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
 use crate::model::{
     Destination, HeadingElem, NumberingPattern, ParElem, ParbreakElem, Refable,
 };
 use crate::syntax::Span;
-use crate::text::{LinebreakElem, LocalName, SpaceElem, TextElem};
+use crate::text::{isolate, LinebreakElem, LocalName, SpaceElem, TextElem};
 use crate::utils::NonZeroExt;
 
 /// A table of contents, figures, or other elements.
@@ -263,7 +263,7 @@ impl ShowSet for Packed<OutlineElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::set_outlined(false));
         out.set(HeadingElem::set_numbering(None));
-        out.set(ParElem::set_first_line_indent(Em::new(0.0).into()));
+        out.set(ParElem::set_first_line_indent(Length::zero()));
         out
     }
 }
@@ -500,10 +500,10 @@ impl Show for Packed<OutlineEntry> {
         };
 
         // The body text remains overridable.
-        crate::text::isolate(
+        isolate(
+            &mut seq,
             self.body().clone().linked(Destination::Location(location)),
             styles,
-            &mut seq,
         );
 
         // Add filler symbols between the section name and page number.

@@ -207,8 +207,10 @@ impl<'a, 'v> Builder<'a, 'v> {
                 .store(VElem::par_spacing(ParElem::spacing_in(styles).into()).pack())
         });
 
-        if content.is::<TagElem>()
-            || content.is::<PlaceElem>()
+        if content.is::<TagElem>() {
+            self.sink.push(content, styles);
+            self.last_was_par = last_was_par;
+        } else if content.is::<PlaceElem>()
             || content.is::<FlushElem>()
             || content.is::<ColbreakElem>()
         {

@@ -41,6 +41,17 @@ impl<T> Sides<T> {
         }
     }
 
+    /// Create an instance where a single has the value and all others are
+    /// default.
+    pub fn one(value: T, side: Side) -> Self
+    where
+        T: Default,
+    {
+        let mut this = Self::default();
+        this.set(side, value);
+        this
+    }
+
     /// Map the individual fields with `f`.
     pub fn map<F, U>(self, mut f: F) -> Sides<U>
     where

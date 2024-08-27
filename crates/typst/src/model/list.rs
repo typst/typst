@@ -4,15 +4,15 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
-    Smart, StyleChain, Styles, Value,
+    ShowSet, Smart, StyleChain, Styles, Value,
 };
-use crate::introspection::Locator;
+use crate::introspection::{Locatable, Locator, LocatorLink};
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
-    Regions, Sizing, VAlignment, VElem,
+    layout_fragment, layout_frame, Abs, Axes, BlockElem, Em, Fragment, HElem, Length,
+    Region, Regions, Sides, Size, VElem,
 };
 use crate::model::ParElem;
-use crate::text::TextElem;
+use crate::text::{isolate, TextElem};
 
 /// A bullet list.
 ///
@@ -45,7 +45,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", Show)]
+#[elem(scope, title = "Bullet List", Locatable, Show, ShowSet)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [list spacing]($list.spacing). If it is `{true}`, they use normal
@@ -98,14 +98,15 @@ pub struct ListElem {
     ]))]
     pub marker: ListMarker,
 
-    /// The indent of each item.
+    /// The indentation of the list.
     #[resolve]
+    #[default(Em::new(1.75).into())]
     pub indent: Length,
 
     /// The spacing between the marker and the body of each item.
     #[resolve]
     #[default(Em::new(0.5).into())]
-    pub body_indent: Length,
+    pub marker_gap: Length,
 
     /// The spacing between the items of the list.
     ///
@@ -142,7 +143,11 @@ impl ListElem {
 
 impl Show for Packed<ListElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let indent = self.indent(styles);
+        let inset = Sides::one(Some(indent.into()), TextElem::dir_in(styles).start());
+
         let mut realized = BlockElem::multi_layouter(self.clone(), layout_list)
+            .with_inset(inset)
             .pack()
             .spanned(self.span());
 
@@ -156,6 +161,14 @@ impl Show for Packed<ListElem> {
     }
 }
 
+impl ShowSet for Packed<ListElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(ParElem::set_first_line_indent(Length::zero()));
+        out
+    }
+}
+
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]
 fn layout_list(
@@ -165,9 +178,11 @@ fn layout_list(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
+    let Depth(depth) = ListElem::depth_in(styles);
+    let marker = elem.marker(styles).resolve(engine, styles, depth)?;
     let indent = elem.indent(styles);
-    let body_indent = elem.body_indent(styles);
-    let gutter = elem.spacing(styles).unwrap_or_else(|| {
+    let marker_gap = elem.marker_gap(styles);
+    let spacing = elem.spacing(styles).unwrap_or_else(|| {
         if elem.tight(styles) {
             ParElem::leading_in(styles).into()
         } else {
@@ -175,39 +190,36 @@ fn layout_list(
         }
     });
 
-    let Depth(depth) = ListElem::depth_in(styles);
-    let marker = elem
-        .marker(styles)
-        .resolve(engine, styles, depth)?
-        // avoid '#set align' interference with the list
-        .aligned(HAlignment::Start + VAlignment::Top);
+    let marker_width = layout_frame(
+        engine,
+        &marker,
+        Locator::link(&LocatorLink::measure(elem.location().unwrap())),
+        styles,
+        Region::new(Size::splat(Abs::inf()), Axes::splat(false)),
+    )?
+    .width();
 
-    let mut cells = vec![];
-    let mut locator = locator.split();
+    let dedent = -(marker_width + marker_gap).min(indent);
 
-    for item in elem.children() {
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            item.body.clone().styled(ListElem::set_depth(Depth(1))),
-            locator.next(&item.body.span()),
-        ));
+    let spacing_elem = VElem::block_spacing(spacing.into()).pack();
+    let dedent_elem = HElem::new(dedent.into()).pack();
+    let marker_gap_elem = HElem::new(marker_gap.into()).pack();
+
+    let mut seq = vec![];
+    for (i, child) in elem.children.iter().enumerate() {
+        if i > 0 {
+            seq.push(spacing_elem.clone());
+        }
+
+        seq.push(dedent_elem.clone());
+        isolate(&mut seq, marker.clone(), styles);
+        seq.push(marker_gap_elem.clone());
+        seq.push(child.body.clone());
     }
 
-    let grid = CellGrid::new(
-        Axes::with_x(&[
-            Sizing::Rel(indent.into()),
-            Sizing::Auto,
-            Sizing::Rel(body_indent.into()),
-            Sizing::Auto,
-        ]),
-        Axes::with_y(&[gutter.into()]),
-        cells,
-    );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
-
-    layouter.layout(engine)
+    let depth = ListElem::set_depth(Depth(1)).wrap();
+    let realized = Content::sequence(seq);
+    layout_fragment(engine, &realized, locator, styles.chain(&depth), regions)
 }
 
 /// A bullet list item.

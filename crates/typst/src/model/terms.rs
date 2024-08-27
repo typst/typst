@@ -1,13 +1,15 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles,
+    cast, elem, scope, Array, Content, NativeElement, Packed, Show, ShowSet, Smart,
+    StyleChain, Styles,
 };
-use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
+use crate::introspection::{Locatable, Locator};
+use crate::layout::{
+    layout_fragment, BlockElem, Em, Fragment, HElem, Length, Regions, Sides, VElem,
+};
 use crate::model::ParElem;
-use crate::text::TextElem;
-use crate::utils::Numeric;
+use crate::text::{isolate, TextElem};
 
 /// A list of terms and their descriptions.
 ///
@@ -25,7 +27,7 @@ use crate::utils::Numeric;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Show)]
+#[elem(scope, title = "Term List", Locatable, Show, ShowSet)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
@@ -65,20 +67,15 @@ pub struct TermsElem {
     #[borrowed]
     pub separator: Content,
 
-    /// The indentation of each item.
-    pub indent: Length,
-
-    /// The hanging indent of the description.
-    ///
-    /// This is in addition to the whole item's `indent`.
+    /// The indentation of the term list.
     ///
     /// ```example
-    /// #set terms(hanging-indent: 0pt)
+    /// #set terms(indent: 0pt)
     /// / Term: This term list does not
-    ///   make use of hanging indents.
+    ///   make use of indents.
     /// ```
-    #[default(Em::new(2.0).into())]
-    pub hanging_indent: Length,
+    #[default(Em::new(1.75).into())]
+    pub indent: Length,
 
     /// The spacing between the items of the term list.
     ///
@@ -111,42 +108,13 @@ impl TermsElem {
 
 impl Show for Packed<TermsElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let separator = self.separator(styles);
         let indent = self.indent(styles);
-        let hanging_indent = self.hanging_indent(styles);
-        let gutter = self.spacing(styles).unwrap_or_else(|| {
-            if self.tight(styles) {
-                ParElem::leading_in(styles).into()
-            } else {
-                ParElem::spacing_in(styles).into()
-            }
-        });
+        let inset = Sides::one(Some(indent.into()), TextElem::dir_in(styles).start());
 
-        let pad = hanging_indent + indent;
-        let unpad = (!hanging_indent.is_zero())
-            .then(|| HElem::new((-hanging_indent).into()).pack());
-
-        let mut children = vec![];
-        for child in self.children().iter() {
-            let mut seq = vec![];
-            seq.extend(unpad.clone());
-            seq.push(child.term().clone().strong());
-            seq.push((*separator).clone());
-            seq.push(child.description().clone());
-            children.push(StackChild::Block(Content::sequence(seq)));
-        }
-
-        let mut padding = Sides::default();
-        if TextElem::dir_in(styles) == Dir::LTR {
-            padding.left = pad.into();
-        } else {
-            padding.right = pad.into();
-        }
-
-        let mut realized = StackElem::new(children)
-            .with_spacing(Some(gutter.into()))
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_terms)
+            .with_inset(inset)
             .pack()
-            .padded(padding);
+            .spanned(self.span());
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
@@ -156,6 +124,52 @@ impl Show for Packed<TermsElem> {
 
         Ok(realized)
     }
+}
+
+impl ShowSet for Packed<TermsElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(ParElem::set_first_line_indent(Length::zero()));
+        out
+    }
+}
+
+/// Layout the term list.
+#[typst_macros::time(span = elem.span())]
+fn layout_terms(
+    elem: &Packed<TermsElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let separator = elem.separator(styles);
+    let indent = elem.indent(styles);
+    let spacing = elem.spacing(styles).unwrap_or_else(|| {
+        if elem.tight(styles) {
+            ParElem::leading_in(styles).into()
+        } else {
+            ParElem::spacing_in(styles).into()
+        }
+    });
+
+    let spacing_elem = VElem::block_spacing(spacing.into()).pack();
+    let dedent_elem = HElem::new((-indent).into()).pack();
+
+    let mut seq = vec![];
+    for (i, child) in elem.children.iter().enumerate() {
+        if i > 0 {
+            seq.push(spacing_elem.clone());
+        }
+
+        seq.push(dedent_elem.clone());
+        isolate(&mut seq, child.term().clone().strong(), styles);
+        seq.push(separator.clone());
+        seq.push(child.description().clone());
+    }
+
+    let realized = Content::sequence(seq);
+    layout_fragment(engine, &realized, locator, styles, regions)
 }
 
 /// A term list item.
