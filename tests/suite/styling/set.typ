@@ -10,7 +10,7 @@ Hello *#x*
 #let fruit = [
   - Apple
   - Orange
-  #list(body-indent: 20pt)[Pear]
+  #list(indent: 30pt)[Pear]
 ]
 
 - Fruit
@@ -41,7 +41,7 @@ Hello *#x*
 #let choice = ("monkey.svg", "rhino.png", "tiger.jpg")
 #set enum(numbering: n => {
   let path = "/assets/images/" + choice.at(n - 1)
-  move(dy: -0.15em, image(path, width: 1em, height: 1em))
+  box(baseline: 0.25em, image(path, width: 1em, height: 1em))
 })
 
 + Monkey
@@ -69,7 +69,7 @@ Hello *#x*
 // Ensure that constructor styles aren't passed down the tree.
 // The inner list should have no extra indent.
 #set par(leading: 2pt)
-#list(body-indent: 20pt, [First], list[A][B])
+#list(indent: 20pt, [First], list[A][B])
 
 --- set-vs-construct-2 ---
 // Ensure that constructor styles win, but not over outer styles.
