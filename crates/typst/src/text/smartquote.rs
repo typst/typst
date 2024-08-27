@@ -97,68 +97,100 @@ impl PlainText for Packed<SmartQuoteElem> {
     }
 }
 
-/// State machine for smart quote substitution.
+/// A smart quote substitutor with zero lookahead.
 #[derive(Debug, Clone)]
 pub struct SmartQuoter {
-    /// How many quotes have been opened.
-    quote_depth: usize,
-    /// Whether an opening quote might follow.
-    expect_opening: bool,
-    /// Whether the last character was numeric.
-    last_num: bool,
-    /// The previous type of quote character, if it was an opening quote.
-    prev_quote_type: Option<bool>,
+    /// The amount of quotes that have been opened.
+    depth: u8,
+    /// Each bit indicates whether the quote at this nesting depth is a double.
+    /// Maximum supported depth is thus 32.
+    kinds: u32,
+    /// The last visited character.
+    last: Last,
+}
+
+/// The last visited character.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum Last {
+    /// A character that indicates that an opening quote is expected:
+    /// Whitespace, newlines, and opening brackets.
+    Opener,
+    /// Something alphabetic. This is interesting for apostrophes.
+    Alphabetic,
+    /// A number. This is interesting for primes.
+    Number,
+    /// Anything else, including a substituted quote.
+    Other,
 }
 
 impl SmartQuoter {
     /// Start quoting.
     pub fn new() -> Self {
-        Self {
-            quote_depth: 0,
-            expect_opening: true,
-            last_num: false,
-            prev_quote_type: None,
-        }
+        Self { depth: 0, kinds: 0, last: Last::Opener }
     }
 
-    /// Process the last seen character.
-    pub fn last(&mut self, c: char, is_quote: bool) {
-        self.expect_opening = is_exterior_to_quote(c) || is_opening_bracket(c);
-        self.last_num = c.is_numeric();
-        if !is_quote {
-            self.prev_quote_type = None;
-        }
-    }
-
-    /// Process and substitute a quote.
-    pub fn quote<'a>(
-        &mut self,
-        quotes: &SmartQuotes<'a>,
-        double: bool,
-        peeked: Option<char>,
-    ) -> &'a str {
-        let peeked = peeked.unwrap_or(' ');
-        let mut expect_opening = self.expect_opening;
-        if let Some(prev_double) = self.prev_quote_type.take() {
-            if double != prev_double {
-                expect_opening = true;
-            }
-        }
-
-        if expect_opening {
-            self.quote_depth += 1;
-            self.prev_quote_type = Some(double);
-            quotes.open(double)
-        } else if self.quote_depth > 0
-            && (peeked.is_ascii_punctuation() || is_exterior_to_quote(peeked))
-        {
-            self.quote_depth -= 1;
-            quotes.close(double)
-        } else if self.last_num {
-            quotes.prime(double)
+    /// Visit the last character before a quote. Not intended not be called for
+    /// quotes themselves, though it will not do any harm for normal quotes.
+    pub fn visit(&mut self, c: char) {
+        self.last = if c.is_numeric() {
+            Last::Number
+        } else if c.is_alphabetic() {
+            Last::Alphabetic
+        } else if c.is_whitespace() || is_newline(c) || is_opening_bracket(c) {
+            Last::Opener
         } else {
-            quotes.fallback(double)
+            Last::Other
+        };
+    }
+
+    /// Produce a smart quote.
+    pub fn quote<'a>(&mut self, quotes: &SmartQuotes<'a>, double: bool) -> &'a str {
+        let opened = self.top();
+        let last = std::mem::replace(&mut self.last, Last::Other);
+
+        // If we are after a number and haven't most recently opened a quote of
+        // this kind, produce a prime. Otherwise, we prefer a closing quote.
+        if last == Last::Number && opened != Some(double) {
+            return if double { "″" } else { "′" };
         }
+
+        // If we have a single smart quote, didn't recently open a single
+        // quotation, and are after an alphabetic char, interpret this as an
+        // apostrophe.
+        if !double && opened != Some(false) && last == Last::Alphabetic {
+            return "’";
+        }
+
+        // If the most recently opened quotation is of this kind and the
+        // previous char does not indicate a nested quotation, close it.
+        if opened == Some(double) && last != Last::Opener {
+            self.pop();
+            return quotes.close(double);
+        }
+
+        // Otherwise, open a new the quotation.
+        self.push(double);
+        quotes.open(double)
+    }
+
+    /// The top of our quotation stack. Returns `Some(double)` for the most
+    /// recently opened quote or `None` if we didn't open one.
+    fn top(&self) -> Option<bool> {
+        self.depth.checked_sub(1).map(|i| (self.kinds >> i) & 1 == 1)
+    }
+
+    /// Push onto the quotation stack.
+    fn push(&mut self, double: bool) {
+        if self.depth < 32 {
+            self.kinds |= (double as u32) << self.depth;
+            self.depth += 1;
+        }
+    }
+
+    /// Pop from the quotation stack.
+    fn pop(&mut self) {
+        self.depth -= 1;
+        self.kinds &= (1 << self.depth) - 1;
     }
 }
 
@@ -168,10 +200,7 @@ impl Default for SmartQuoter {
     }
 }
 
-fn is_exterior_to_quote(c: char) -> bool {
-    c.is_whitespace() || is_newline(c)
-}
-
+/// Whether the character is an opening bracket, parenthesis, or brace.
 fn is_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '{' | '[')
 }
@@ -196,13 +225,13 @@ impl<'s> SmartQuotes<'s> {
     /// region as an all-uppercase ISO 3166-alpha2 code.
     ///
     /// Currently, the supported languages are: English, Czech, Danish, German,
-    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin, Lithuanian,
-    /// Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish, Swedish, French,
-    /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
-    /// Norwegian.
+    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin,
+    /// Lithuanian, Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish,
+    /// Swedish, French, Hungarian, Polish, Romanian, Japanese, Traditional
+    /// Chinese, Russian, and Norwegian.
     ///
     /// For unknown languages, the English quotes are used as fallback.
-    pub fn new(
+    pub fn get(
         quotes: &'s Smart<SmartQuoteDict>,
         lang: Lang,
         region: Option<Region>,

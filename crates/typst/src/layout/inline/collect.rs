@@ -16,8 +16,6 @@ use crate::utils::Numeric;
 // paragraph's full text.
 const SPACING_REPLACE: &str = " "; // Space
 const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
-const SPACING_REPLACE_CHAR: char = ' ';
-const OBJ_REPLACE_CHAR: char = '\u{FFFC}';
 
 // Unicode BiDi control characters.
 const LTR_EMBEDDING: &str = "\u{202A}";
@@ -191,31 +189,13 @@ pub fn collect<'a>(
         } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
             let double = elem.double(styles);
             if elem.enabled(styles) {
-                let quotes = SmartQuotes::new(
+                let quotes = SmartQuotes::get(
                     elem.quotes(styles),
                     TextElem::lang_in(styles),
                     TextElem::region_in(styles),
                     elem.alternative(styles),
                 );
-                let peeked = iter.peek().and_then(|(child, _)| {
-                    if let Some(elem) = child.to_packed::<TextElem>() {
-                        elem.text().chars().find(|c| !is_default_ignorable(*c))
-                    } else if child.is::<SmartQuoteElem>() {
-                        Some('"')
-                    } else if child.is::<SpaceElem>()
-                        || child.is::<HElem>()
-                        || child.is::<LinebreakElem>()
-                        // This is a temporary hack. We should rather skip these
-                        // and peek at the next child.
-                        || child.is::<TagElem>()
-                    {
-                        Some(SPACING_REPLACE_CHAR)
-                    } else {
-                        Some(OBJ_REPLACE_CHAR)
-                    }
-                });
-
-                let quote = collector.quoter.quote(&quotes, double, peeked);
+                let quote = collector.quoter.quote(&quotes, double);
                 collector.push_quote(quote, styles);
             } else {
                 collector.push_text(if double { "\"" } else { "'" }, styles);
@@ -300,8 +280,12 @@ impl<'a> Collector<'a> {
     }
 
     fn push_segment(&mut self, segment: Segment<'a>, is_quote: bool) {
-        if let Some(last) = self.full.chars().rev().find(|c| !is_default_ignorable(*c)) {
-            self.quoter.last(last, is_quote);
+        if !is_quote {
+            if let Some(last) =
+                self.full.chars().rev().find(|c| !is_default_ignorable(*c))
+            {
+                self.quoter.visit(last);
+            }
         }
 
         if let (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles)) =
