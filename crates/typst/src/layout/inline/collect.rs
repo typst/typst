@@ -124,6 +124,7 @@ pub fn collect<'a>(
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
     let mut locator = locator.split();
+    let mut quoter = SmartQuoter::new();
 
     let outer_dir = TextElem::dir_in(*styles);
     let first_line_indent = ParElem::first_line_indent_in(*styles);
@@ -194,8 +195,10 @@ pub fn collect<'a>(
                     TextElem::region_in(styles),
                     elem.alternative(styles),
                 );
-                let quote = collector.quoter.quote(&quotes, double);
-                collector.push_quote(quote, styles);
+                let before =
+                    collector.full.chars().rev().find(|&c| !is_default_ignorable(c));
+                let quote = quoter.quote(before, &quotes, double);
+                collector.push_text(quote, styles);
             } else {
                 collector.push_text(if double { "\"" } else { "'" }, styles);
             }
@@ -240,7 +243,6 @@ struct Collector<'a> {
     full: String,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
-    quoter: SmartQuoter,
 }
 
 impl<'a> Collector<'a> {
@@ -249,13 +251,12 @@ impl<'a> Collector<'a> {
             full: String::new(),
             segments: Vec::with_capacity(capacity),
             spans: SpanMapper::new(),
-            quoter: SmartQuoter::new(),
         }
     }
 
     fn push_text(&mut self, text: &str, styles: StyleChain<'a>) {
         self.full.push_str(text);
-        self.push_segment(Segment::Text(text.len(), styles), false);
+        self.push_segment(Segment::Text(text.len(), styles));
     }
 
     fn build_text<F>(&mut self, styles: StyleChain<'a>, f: F)
@@ -265,28 +266,15 @@ impl<'a> Collector<'a> {
         let prev = self.full.len();
         f(&mut self.full);
         let len = self.full.len() - prev;
-        self.push_segment(Segment::Text(len, styles), false);
-    }
-
-    fn push_quote(&mut self, quote: &str, styles: StyleChain<'a>) {
-        self.full.push_str(quote);
-        self.push_segment(Segment::Text(quote.len(), styles), true);
+        self.push_segment(Segment::Text(len, styles));
     }
 
     fn push_item(&mut self, item: Item<'a>) {
         self.full.push_str(item.textual());
-        self.push_segment(Segment::Item(item), false);
+        self.push_segment(Segment::Item(item));
     }
 
-    fn push_segment(&mut self, segment: Segment<'a>, is_quote: bool) {
-        if !is_quote {
-            if let Some(last) =
-                self.full.chars().rev().find(|c| !is_default_ignorable(*c))
-            {
-                self.quoter.visit(last);
-            }
-        }
-
+    fn push_segment(&mut self, segment: Segment<'a>) {
         if let (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles)) =
             (self.segments.last_mut(), &segment)
         {

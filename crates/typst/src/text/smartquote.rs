@@ -105,65 +105,45 @@ pub struct SmartQuoter {
     /// Each bit indicates whether the quote at this nesting depth is a double.
     /// Maximum supported depth is thus 32.
     kinds: u32,
-    /// The last visited character.
-    last: Last,
-}
-
-/// The last visited character.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Last {
-    /// A character that indicates that an opening quote is expected:
-    /// Whitespace, newlines, and opening brackets.
-    Opener,
-    /// Something alphabetic. This is interesting for apostrophes.
-    Alphabetic,
-    /// A number. This is interesting for primes.
-    Number,
-    /// Anything else, including a substituted quote.
-    Other,
 }
 
 impl SmartQuoter {
     /// Start quoting.
     pub fn new() -> Self {
-        Self { depth: 0, kinds: 0, last: Last::Opener }
+        Self { depth: 0, kinds: 0 }
     }
 
-    /// Visit the last character before a quote. Not intended not be called for
-    /// quotes themselves, though it will not do any harm for normal quotes.
-    pub fn visit(&mut self, c: char) {
-        self.last = if c.is_numeric() {
-            Last::Number
-        } else if c.is_alphabetic() {
-            Last::Alphabetic
-        } else if c.is_whitespace() || is_newline(c) || is_opening_bracket(c) {
-            Last::Opener
-        } else {
-            Last::Other
-        };
-    }
-
-    /// Produce a smart quote.
-    pub fn quote<'a>(&mut self, quotes: &SmartQuotes<'a>, double: bool) -> &'a str {
+    /// Determine which smart quote to substitute given this quoter's nesting
+    /// state and the character immediately preceding the quote.
+    pub fn quote<'a>(
+        &mut self,
+        before: Option<char>,
+        quotes: &SmartQuotes<'a>,
+        double: bool,
+    ) -> &'a str {
         let opened = self.top();
-        let last = std::mem::replace(&mut self.last, Last::Other);
+        let before = before.unwrap_or(' ');
 
         // If we are after a number and haven't most recently opened a quote of
         // this kind, produce a prime. Otherwise, we prefer a closing quote.
-        if last == Last::Number && opened != Some(double) {
+        if before.is_numeric() && opened != Some(double) {
             return if double { "″" } else { "′" };
         }
 
         // If we have a single smart quote, didn't recently open a single
         // quotation, and are after an alphabetic char, interpret this as an
         // apostrophe.
-        if !double && opened != Some(false) && last == Last::Alphabetic {
+        if !double && opened != Some(false) && before.is_alphabetic() {
             return "’";
         }
 
         // If the most recently opened quotation is of this kind and the
         // previous char does not indicate a nested quotation, close it.
-        if opened == Some(double) && last != Last::Opener {
+        if opened == Some(double)
+            && !before.is_whitespace()
+            && !is_newline(before)
+            && !is_opening_bracket(before)
+        {
             self.pop();
             return quotes.close(double);
         }
