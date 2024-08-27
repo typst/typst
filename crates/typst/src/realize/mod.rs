@@ -38,31 +38,17 @@ use crate::utils::SliceExt;
 /// A pair of content and a style chain that applies to it.
 pub type Pair<'a> = (&'a Content, StyleChain<'a>);
 
-/// Realize at the root level.
+/// Realize content into a flat list of well-known, styled items.
 #[typst_macros::time(name = "realize")]
-pub fn realize_root<'a>(
+pub fn realize<'a>(
     engine: &mut Engine<'a>,
     locator: &mut SplitLocator<'a>,
     arenas: &'a Arenas<'a>,
-    content: &'a Content,
-    styles: StyleChain<'a>,
-) -> SourceResult<(Vec<Pair<'a>>, DocumentInfo)> {
-    let mut builder = Builder::new(engine, locator, arenas, true);
-    builder.accept(content, styles)?;
-    builder.interrupt_par()?;
-    Ok((builder.sink.finish(), builder.doc_info.unwrap()))
-}
-
-/// Realize at the container level.
-#[typst_macros::time(name = "realize")]
-pub fn realizer_container<'a>(
-    engine: &mut Engine<'a>,
-    locator: &mut SplitLocator<'a>,
-    arenas: &'a Arenas<'a>,
+    doc_info: Option<&mut DocumentInfo>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<Vec<Pair<'a>>> {
-    let mut builder = Builder::new(engine, locator, arenas, false);
+    let mut builder = Builder::new(engine, locator, arenas, doc_info);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     Ok(builder.sink.finish())
@@ -77,11 +63,11 @@ struct Builder<'a, 'v> {
     /// Scratch arenas for building.
     arenas: &'a Arenas<'a>,
 
-    /// The output elements of well-known types collected by the builder.
-    sink: BehavedBuilder<'a>,
     /// Document metadata we have collected from `set document` rules. If this
     /// is `None`, we are in a container.
-    doc_info: Option<DocumentInfo>,
+    doc_info: Option<&'v mut DocumentInfo>,
+    /// The output elements of well-known types collected by the builder.
+    sink: BehavedBuilder<'a>,
 
     /// A builder for a paragraph that might be under construction.
     par: ParBuilder<'a>,
@@ -104,18 +90,19 @@ impl<'a, 'v> Builder<'a, 'v> {
         engine: &'v mut Engine<'a>,
         locator: &'v mut SplitLocator<'a>,
         arenas: &'a Arenas<'a>,
-        root: bool,
+        doc_info: Option<&'v mut DocumentInfo>,
     ) -> Self {
+        let outside = doc_info.is_some();
         Self {
             engine,
             locator,
             arenas,
+            doc_info,
             sink: BehavedBuilder::default(),
-            doc_info: root.then(DocumentInfo::default),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
             cites: CiteGroupBuilder::default(),
-            outside: root,
+            outside,
             last_was_par: false,
         }
     }

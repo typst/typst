@@ -22,8 +22,10 @@ use crate::layout::{
     OuterVAlignment, Page, PageElem, PagebreakElem, Paper, Parity, PlaceElem, Point,
     Ratio, Region, Regions, Rel, Sides, Size, Spacing, VAlignment, VElem,
 };
-use crate::model::{Document, FootnoteElem, FootnoteEntry, Numbering, ParElem};
-use crate::realize::{first_span, realize_root, realizer_container, Arenas, Pair};
+use crate::model::{
+    Document, DocumentInfo, FootnoteElem, FootnoteEntry, Numbering, ParElem,
+};
+use crate::realize::{first_span, realize, Arenas, Pair};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
@@ -110,8 +112,9 @@ fn layout_document_impl(
     let styles = StyleChain::new(&styles);
 
     let arenas = Arenas::default();
-    let (mut children, info) =
-        realize_root(&mut engine, &mut locator, &arenas, content, styles)?;
+    let mut info = DocumentInfo::default();
+    let mut children =
+        realize(&mut engine, &mut locator, &arenas, Some(&mut info), content, styles)?;
 
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
 
@@ -726,10 +729,8 @@ fn layout_fragment_impl(
 
     engine.route.check_layout_depth().at(content.span())?;
 
-    // If we are in a `PageElem`, this might already be a realized flow.
     let arenas = Arenas::default();
-    let children =
-        realizer_container(&mut engine, &mut locator, &arenas, content, styles)?;
+    let children = realize(&mut engine, &mut locator, &arenas, None, content, styles)?;
 
     FlowLayouter::new(
         &mut engine,
