@@ -123,7 +123,6 @@ pub fn collect<'a>(
     consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
-    let mut iter = children.iter(styles).peekable();
     let mut locator = locator.split();
 
     let outer_dir = TextElem::dir_in(*styles);
@@ -142,7 +141,7 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    while let Some((child, styles)) = iter.next() {
+    for (child, styles) in children.iter(styles) {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
