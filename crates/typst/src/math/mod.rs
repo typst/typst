@@ -42,7 +42,7 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 
-use crate::diag::SourceResult;
+use crate::diag::{At, SourceResult};
 use crate::foundations::{
     category, Category, Content, Module, Resolve, Scope, SequenceElem, StyleChain,
     StyledElem,
@@ -239,6 +239,9 @@ impl LayoutMath for Content {
         if let Some((tag, realized)) =
             process(ctx.engine, &mut ctx.locator, self, styles)?
         {
+            ctx.engine.route.increase();
+            ctx.engine.route.check_show_depth().at(self.span())?;
+
             if let Some(tag) = &tag {
                 ctx.push(MathFragment::Tag(tag.clone()));
             }
@@ -246,6 +249,8 @@ impl LayoutMath for Content {
             if let Some(tag) = tag {
                 ctx.push(MathFragment::Tag(tag.with_kind(TagKind::End)));
             }
+
+            ctx.engine.route.decrease();
             return Ok(());
         }
 
