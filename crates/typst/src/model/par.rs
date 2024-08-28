@@ -3,8 +3,8 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Show, Smart,
-    StyleChain, StyleVec, Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart,
+    StyleVec, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment};
@@ -323,7 +323,7 @@ pub enum ParLineNumberingScope {
 ///
 /// This element is added to each line in a paragraph and later searched to
 /// find out where to add line numbers.
-#[elem(Construct, Show, Locatable, Count)]
+#[elem(Construct, Locatable, Count)]
 pub struct ParLineMarker {
     #[internal]
     #[required]
@@ -345,12 +345,6 @@ pub struct ParLineMarker {
 impl Construct for ParLineMarker {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
-    }
-}
-
-impl Show for Packed<ParLineMarker> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
     }
 }
 
