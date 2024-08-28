@@ -371,16 +371,9 @@ pub struct SkewElem {
     /// The origin will stay fixed during the operation.
     ///
     /// ```example
-    /// #set text(spacing: 16pt)
-    /// #let square = square.with(width: 8pt)
-    /// #let skew_square(origin) = box(place(
-    ///   square(stroke: gray))
-    ///   + place(skew(-30deg, -30deg,
-    ///       origin: origin, square())
-    /// ))
-    /// #skew_square(center + horizon)
-    /// #skew_square(bottom + left)
-    /// #skew_square(top + right)
+    /// X #box(skew(ax: -30deg, origin: center + horizon)[X]) X \
+    /// X #box(skew(ax: -30deg, origin: bottom + left)[X]) X \
+    /// X #box(skew(ax: -30deg, origin: top + right)[X]) X
     /// ```
     #[fold]
     #[default(HAlignment::Center + VAlignment::Horizon)]
