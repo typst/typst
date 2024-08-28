@@ -1523,6 +1523,13 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             }
         }
 
+        // Sort, deduplicate and layout line numbers.
+        //
+        // We do this after placing all frames since they might not necessarily
+        // be ordered by height (e.g. you can have a `place(bottom)` followed
+        // by a paragraph, but the paragraph appears at the top), so we buffer
+        // all line numbers to later sort and deduplicate them based on how
+        // close they are to each other in `layout_line_numbers`.
         self.layout_line_numbers(&mut output, size, lines)?;
 
         if force && !self.pending_tags.is_empty() {
@@ -1750,13 +1757,9 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             return Ok(());
         }
 
-        // Prepare to sort, deduplicate and layout line numbers.
-        //
-        // We do this after placing all frames since they might not necessarily
-        // be ordered by height (e.g. you can have a `place(bottom)` followed
-        // by a paragraph, but the paragraph appears at the top), so we buffer
-        // all line numbers to later sort and deduplicate them based on how
-        // close they are to each other.
+        // Assume the line numbers aren't sorted by height.
+        // They must be sorted so we can deduplicate line numbers below based
+        // on vertical proximity.
         lines.sort_by_key(|line| line.y);
 
         // Buffer line number frames so we can align them horizontally later
