@@ -290,24 +290,6 @@ impl<'s> SmartQuotes<'s> {
             self.single_close
         }
     }
-
-    /// Which character should be used as a prime.
-    pub fn prime(&self, double: bool) -> &'static str {
-        if double {
-            "″"
-        } else {
-            "′"
-        }
-    }
-
-    /// Which character should be used as a fallback quote.
-    pub fn fallback(&self, double: bool) -> &'static str {
-        if double {
-            "\""
-        } else {
-            "’"
-        }
-    }
 }
 
 /// An opening and closing quote.
