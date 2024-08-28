@@ -342,7 +342,7 @@ cast! {
 ///
 /// # Example
 /// ```example
-/// #skew(-12deg)[This is some fake italic text.]
+/// #skew(ax: -12deg)[This is some fake italic text.]
 /// ```
 #[elem(Show)]
 pub struct SkewElem {
@@ -352,7 +352,6 @@ pub struct SkewElem {
     /// #skew(ax: 30deg)[Skewed]
     /// ```
     ///
-    #[parse(args.named("ax")?.or(args.find()?))]
     #[default(Angle::zero())]
     pub ax: Angle,
 
@@ -362,7 +361,6 @@ pub struct SkewElem {
     /// #skew(ay: 30deg)[Skewed]
     /// ```
     ///
-    #[parse(args.named("ay")?.or(args.find()?))]
     #[default(Angle::zero())]
     pub ay: Angle,
 

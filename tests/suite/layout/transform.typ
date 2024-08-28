@@ -120,7 +120,7 @@ Hello #scaled[World]!
 // Test skewing along one axis.
 #set page(width: 100pt, height: 60pt)
 #set text(size: 12pt)
-#let skewed(body) = box(skew(-30deg, body))
+#let skewed(body) = box(skew(ax: -30deg, body))
 
 #set skew(reflow: false)
 Hello #skewed[World]!
@@ -145,7 +145,7 @@ Hello #skewed[World]!
 #set text(spacing: 20pt)
 #let square = square.with(width: 8pt)
 #let skew-square(origin) = box(place(square(stroke: gray))
-  + place(skew(-30deg, -30deg, origin: origin, square())))
+  + place(skew(ax: -30deg, ay: -30deg, origin: origin, square())))
 #skew-square(center+horizon)
 #skew-square(bottom+left)
 #skew-square(top+right)
@@ -156,7 +156,7 @@ Hello #skewed[World]!
 #set page(width: 100pt, height: 60pt)
 #set text(size: 12pt)
 #let skewed(body) = box(skew(
-  30deg,
+  ax: 30deg,
   box(stroke: 0.5pt, width: 30%, clip: true, body)
 ))
 
