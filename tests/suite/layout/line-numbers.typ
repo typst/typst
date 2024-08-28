@@ -168,6 +168,22 @@ We're back
 #colbreak()
 Bye!
 
+--- line-numbers-page-scope-quasi-empty-first-column ---
+// Ensure this case (handled separately internally) is properly handled.
+#set page(margin: (x: 1.1cm), height: 2cm, columns: 2)
+#set par.line(
+  numbering: "1",
+  number-clearance: 0.5cm,
+  numbering-scope: "page"
+)
+
+First line
+#colbreak()
+Second line
+#pagebreak()
+#place[]
+#box(height: 2cm)[First!]
+
 --- line-numbers-nested-content ---
 #set page(margin: (left: 1.5cm))
 #set par.line(numbering: "1", number-clearance: 0.5cm)
