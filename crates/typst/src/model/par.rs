@@ -287,7 +287,7 @@ pub struct ParLine {
     /// ```example
     /// #set par.line(
     ///   numbering: "1.",
-    ///   numbering-scope: "page",
+    ///   numbering-scope: "page"
     /// )
     ///
     /// First line \
