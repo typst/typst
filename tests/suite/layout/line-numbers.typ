@@ -61,8 +61,8 @@ Hello \
 Beautiful \
 World
 #colbreak()
-Birds\
-In the\
+Birds \
+In the \
 Sky
 
 --- line-numbers-columns-alignment ---
@@ -73,24 +73,24 @@ Hello \
 Beautiful \
 World
 #colbreak()
-Birds\
-In the\
+Birds \
+In the \
 Sky
 
 --- line-numbers-multi-columns ---
 #set page(columns: 3, margin: (x: 1.5em))
 #set par.line(numbering: "1", number-clearance: 0.5em)
 
-A\
-B\
+A \
+B \
 C
 #colbreak()
-D\
-E\
+D \
+E \
 F
 #colbreak()
-G\
-H\
+G \
+H \
 I
 
 --- line-numbers-columns-rtl ---
@@ -102,8 +102,8 @@ Hello \
 Beautiful \
 World
 #colbreak()
-Birds\
-In the\
+Birds \
+In the \
 Sky
 
 --- line-numbers-columns-override ---
@@ -115,8 +115,8 @@ Hello \
 Beautiful \
 World
 #colbreak()
-Birds\
-In the\
+Birds \
+In the \
 Sky
 
 --- line-numbers-page-scope ---
@@ -135,8 +135,12 @@ Second line again
 Back to first
 
 --- line-numbers-page-scope-with-columns ---
-#set page(margin: (x: 1.5cm), columns: 2)
-#set par.line(numbering: "1", numbering-scope: "page")
+#set page(margin: (x: 1.1cm), columns: 2)
+#set par.line(
+  numbering: "1",
+  number-clearance: 0.5cm,
+  numbering-scope: "page"
+)
 
 A \
 A \
@@ -157,24 +161,24 @@ Six
   Page \
   Elem
   #colbreak()
-  Number\
+  Number \
   Reset
 ]
 We're back
 #colbreak()
 Bye!
 
---- line-numbers-peek-into-grid ---
+--- line-numbers-nested-content ---
 #set page(margin: (left: 1.5cm))
 #set par.line(numbering: "1", number-clearance: 0.5cm)
 
 #grid(
   columns: (1fr, 1fr),
   column-gutter: 0.5cm,
-  lorem(20), lorem(20),
+  inset: 5pt,
+  block[A\ #box(lorem(5))], [Roses\ are\ red],
   [AAA], [],
   [], block[BBB\ CCC],
-  [DDD], [DDD]
 )
 
 --- line-numbers-place-out-of-order ---
