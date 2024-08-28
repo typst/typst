@@ -48,7 +48,7 @@ dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
-fontdb = { version = "0.18", default-features = false }
+fontdb = { version = "0.21", default-features = false }
 fs_extra = "1.3"
 hayagriva = "0.5.3"
 heck = "0.5"
@@ -66,7 +66,7 @@ kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 log = "0.4"
-miniz_oxide = "0.7"
+miniz_oxide = "0.8"
 native-tls = "0.2"
 notify = "6"
 once_cell = "1"
@@ -78,7 +78,7 @@ parking_lot = "0.12.1"
 pathdiff = "0.2"
 pdf-writer = "0.10.0"
 phf = { version = "0.11", features = ["macros"] }
-pixglyph = "0.4"
+pixglyph = "0.5"
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
@@ -87,9 +87,9 @@ quote = "1"
 qcms = "0.3.0"
 rayon = "1.7.0"
 regex = "1"
-resvg = { version = "0.42", default-features = false, features = ["raster-images"] }
+resvg = { version = "0.43", default-features = false, features = ["raster-images"] }
 roxmltree = "0.20"
-rustybuzz = "0.14"
+rustybuzz = "0.18"
 same-file = "1"
 self-replace = "1.3.7"
 semver = "1"
@@ -101,7 +101,7 @@ siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
 subsetter = { git = "https://github.com/typst/subsetter", rev = "4e0058b" }
-svg2pdf = { git = "https://github.com/typst/svg2pdf", rev = "39f8ad3" }
+svg2pdf = { git = "https://github.com/typst/svg2pdf", rev = "5963e1e" }
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
@@ -110,7 +110,7 @@ thin-vec = "0.2.13"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
-ttf-parser = "0.21.0"
+ttf-parser = "0.24.1"
 two-face = { version = "0.4.0", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
 unicode-bidi = "0.3.13"
@@ -120,9 +120,9 @@ unicode-script = "0.5"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
-usvg = { version = "0.42", default-features = false, features = ["text"] }
+usvg = { version = "0.43", default-features = false, features = ["text"] }
 walkdir = "2"
-wasmi = "0.34.0"
+wasmi = "0.35.0"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xmp-writer = "0.2"

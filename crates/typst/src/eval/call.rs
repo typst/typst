@@ -30,9 +30,7 @@ impl Eval for ast::FuncCall<'_> {
         let args = self.args();
         let trailing_comma = args.trailing_comma();
 
-        if !vm.engine.route.within(Route::MAX_CALL_DEPTH) {
-            bail!(span, "maximum function call depth exceeded");
-        }
+        vm.engine.route.check_call_depth().at(span)?;
 
         // Try to evaluate as a call to an associated function or field.
         let (callee, args) = if let ast::Expr::FieldAccess(access) = callee {

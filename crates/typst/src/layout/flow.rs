@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 
 use comemo::{Track, Tracked, TrackedMut};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Content, NativeElement, Packed, Resolve, SequenceElem, Smart, StyleChain, Styles,
@@ -25,10 +25,10 @@ use crate::layout::{
     VElem,
 };
 use crate::model::{
-    Document, FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine, ParLineMarker,
-    ParLineNumberingScope,
+    Document, DocumentInfo, FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine,
+    ParLineMarker, ParLineNumberingScope,
 };
-use crate::realize::{first_span, realize_root, realizer_container, Arenas, Pair};
+use crate::realize::{first_span, realize, Arenas, Pair};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
@@ -115,8 +115,9 @@ fn layout_document_impl(
     let styles = StyleChain::new(&styles);
 
     let arenas = Arenas::default();
-    let (mut children, info) =
-        realize_root(&mut engine, &mut locator, &arenas, content, styles)?;
+    let mut info = DocumentInfo::default();
+    let mut children =
+        realize(&mut engine, &mut locator, &arenas, Some(&mut info), content, styles)?;
 
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
 
@@ -729,17 +730,10 @@ fn layout_fragment_impl(
         route: Route::extend(route),
     };
 
-    if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {
-        bail!(
-            content.span(), "maximum layout depth exceeded";
-            hint: "try to reduce the amount of nesting in your layout",
-        );
-    }
+    engine.route.check_layout_depth().at(content.span())?;
 
-    // If we are in a `PageElem`, this might already be a realized flow.
     let arenas = Arenas::default();
-    let children =
-        realizer_container(&mut engine, &mut locator, &arenas, content, styles)?;
+    let children = realize(&mut engine, &mut locator, &arenas, None, content, styles)?;
 
     FlowLayouter::new(
         &mut engine,
