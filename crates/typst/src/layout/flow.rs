@@ -862,8 +862,6 @@ impl FlowItem {
     /// Out-of-flow items are guaranteed to have a [zero size][Size::zero()].
     fn is_out_of_flow(&self) -> bool {
         match self {
-            // TODO: Is it appropriate to bundle line number here?
-            // It is the same as placing something though.
             Self::Placed { float: false, .. } => true,
             Self::Frame { frame, .. } => {
                 frame.size().is_zero()
@@ -1311,7 +1309,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
                 self.regions.size.y -= frame.height();
 
-                // Find lines and footnotes in the frame.
+                // Find footnotes in the frame.
                 if self.root {
                     let mut notes = vec![];
                     self.collect_footnotes(&mut notes, frame);
@@ -1932,9 +1930,10 @@ fn collect_par_lines(
                 // 4. Therefore, 'y' will be the line's absolute 'y' in the
                 // page based on its marker's position, and thus the 'y' we
                 // should use for line numbers. In particular, this represents
-                // the 'y' at the top of the line, due to the marker placement
-                // logic within the 'line::commit()' function in the 'inline'
-                // module.
+                // the 'y' at the line's general baseline, due to the marker
+                // placement logic within the 'line::commit()' function in the
+                // 'inline' module. We only account for the line number's own
+                // baseline later, upon layout.
                 let y = frame_pos.y + prev_y + pos.y;
 
                 lines.push(CollectedParLine { y, marker: marker.clone() });

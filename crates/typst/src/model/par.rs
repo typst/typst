@@ -250,7 +250,7 @@ pub struct ParLine {
     #[ghost]
     pub number_align: Smart<HAlignment>,
 
-    /// The margin at which the line numbers for each line appear.
+    /// The margin at which line numbers appear.
     ///
     /// ```example
     /// #set par.line(numbering: "1", number-margin: right)
@@ -293,7 +293,7 @@ pub struct ParLine {
     /// First line \
     /// Second line
     /// #pagebreak()
-    /// First line again
+    /// First line again \
     /// Second line again
     /// ```
     #[ghost]
@@ -322,7 +322,7 @@ pub enum ParLineNumberingScope {
 /// A marker used to indicate the presence of a line.
 ///
 /// This element is added to each line in a paragraph and later searched to
-/// find out where to draw line numbers.
+/// find out where to add line numbers.
 #[elem(Construct, Show, Locatable, Count)]
 pub struct ParLineMarker {
     #[internal]
@@ -356,7 +356,7 @@ impl Show for Packed<ParLineMarker> {
 
 impl Count for Packed<ParLineMarker> {
     fn update(&self) -> Option<CounterUpdate> {
-        // The line counter must be updated manually by the root flow
+        // The line counter must be updated manually by the root flow.
         None
     }
 }
