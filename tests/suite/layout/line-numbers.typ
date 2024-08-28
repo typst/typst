@@ -214,3 +214,16 @@ Line 3
   grid.cell(inset: (y: 0.5pt))[Line 1\ Line 2\ Line 3],
   grid.cell(inset: (y: 0.5pt))[Line 4\ Line 5\ Line 6\ Line 7\ Line 8\ Line 9\ End]
 )
+
+--- line-numbers-deduplication-zero-height-number ---
+#set page(margin: (left: 1.5cm))
+#set par.line(numbering: n => move(dy: -0.6em, box(height: 0pt)[#n]), number-clearance: 0.5cm)
+
+#grid(
+  columns: (1fr, 1fr),
+  column-gutter: 0.5cm,
+  row-gutter: 5pt,
+  lorem(5), [A\ B\ C],
+  [DDD], [DDD],
+  [This is], move(dy: 3pt)[tough]
+)

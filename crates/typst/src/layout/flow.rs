@@ -1811,7 +1811,10 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             // Note that this line.y is larger than the previous due to
             // sorting. Therefore, the check at the top of the loop ensures no
             // line numbers will reasonably intersect with each other.
-            prev_bottom = Some(line.y + number.height());
+            //
+            // We enforce a minimum spacing of 1pt between consecutive line
+            // numbers in case a zero-height frame is used.
+            prev_bottom = Some(line.y + number.height().max(Abs::pt(1.0)));
 
             // Collect line numbers and compute the max width so we can align
             // them later.
