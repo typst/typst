@@ -414,7 +414,7 @@
 --- ops-assign-unknown-var-lhs ---
 #{
   // Error: 3-6 unknown variable: a-1
-  // Hint: 3-6 if you meant to use subtraction, try adding spaces around the minus sign
+  // Hint: 3-6 if you meant to use subtraction, try adding spaces around the minus sign: `a - 1`
   a-1 = 2
 }
 
@@ -425,7 +425,7 @@
   a = a -1
 
   // Error: 7-10 unknown variable: a-1
-  // Hint: 7-10 if you meant to use subtraction, try adding spaces around the minus sign
+  // Hint: 7-10 if you meant to use subtraction, try adding spaces around the minus sign: `a - 1`
   a = a-1
 }
 
