@@ -1,7 +1,7 @@
 use super::*;
 use crate::diag::bail;
 use crate::foundations::{Packed, Resolve};
-use crate::introspection::{Tag, TagElem};
+use crate::introspection::{SplitLocator, Tag, TagElem};
 use crate::layout::{
     Abs, AlignElem, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing,
     Spacing,
@@ -117,13 +117,12 @@ impl Segment<'_> {
 pub fn collect<'a>(
     children: &'a StyleVec,
     engine: &mut Engine<'_>,
-    locator: Locator<'a>,
+    locator: &mut SplitLocator<'a>,
     styles: &'a StyleChain<'a>,
     region: Size,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
-    let mut locator = locator.split();
     let mut quoter = SmartQuoter::new();
 
     let outer_dir = TextElem::dir_in(*styles);
