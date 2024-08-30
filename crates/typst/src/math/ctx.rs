@@ -11,14 +11,13 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, Packed, StyleChain};
+use crate::foundations::{Content, Packed, StyleChain, StyleVec};
 use crate::introspection::{Locator, SplitLocator};
 use crate::layout::{layout_frame, Abs, Axes, BoxElem, Em, Frame, Region, Size};
 use crate::math::{
     scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
     LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
-use crate::realize::StyleVec;
 use crate::syntax::{is_newline, Span};
 use crate::text::{
     features, BottomEdge, BottomEdgeMetric, Font, TextElem, TextSize, TopEdge,

@@ -42,15 +42,14 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 
-use crate::diag::SourceResult;
+use crate::diag::{At, SourceResult};
 use crate::foundations::{
     category, Category, Content, Module, Resolve, Scope, SequenceElem, StyleChain,
     StyledElem,
 };
-use crate::introspection::TagElem;
-use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing, VAlignment};
-use crate::realize::Behaviour;
-use crate::realize::{process, BehavedBuilder};
+use crate::introspection::{TagElem, TagKind};
+use crate::layout::{BoxElem, HElem, Spacing, VAlignment};
+use crate::realize::{process, BehavedBuilder, Behaviour};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
 /// Typst has special [syntax]($syntax/#math) and library functions to typeset
@@ -237,8 +236,22 @@ impl LayoutMath for Content {
             return elem.layout_math(ctx, styles);
         }
 
-        if let Some(realized) = process(ctx.engine, &mut ctx.locator, self, styles)? {
-            return realized.layout_math(ctx, styles);
+        if let Some((tag, realized)) =
+            process(ctx.engine, &mut ctx.locator, self, styles)?
+        {
+            ctx.engine.route.increase();
+            ctx.engine.route.check_show_depth().at(self.span())?;
+
+            if let Some(tag) = &tag {
+                ctx.push(MathFragment::Tag(tag.clone()));
+            }
+            realized.layout_math(ctx, styles)?;
+            if let Some(tag) = tag {
+                ctx.push(MathFragment::Tag(tag.with_kind(TagKind::End)));
+            }
+
+            ctx.engine.route.decrease();
+            return Ok(());
         }
 
         if self.is::<SequenceElem>() {
@@ -302,9 +315,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(elem) = self.to_packed::<TagElem>() {
-            let mut frame = Frame::soft(Size::zero());
-            frame.push(Point::zero(), FrameItem::Tag(elem.tag.clone()));
-            ctx.push(FrameFragment::new(ctx, styles, frame).with_ignorant(true));
+            ctx.push(MathFragment::Tag(elem.tag.clone()));
             return Ok(());
         }
 
@@ -321,10 +332,7 @@ impl LayoutMath for Content {
         ctx.push(
             FrameFragment::new(ctx, styles, frame)
                 .with_spaced(true)
-                .with_ignorant(matches!(
-                    self.behaviour(),
-                    Behaviour::Invisible | Behaviour::Ignorant
-                )),
+                .with_ignorant(self.behaviour() == Behaviour::Ignorant),
         );
 
         Ok(())

@@ -18,11 +18,10 @@ use self::shaping::{
 };
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
-use crate::foundations::StyleChain;
+use crate::foundations::{StyleChain, StyleVec};
 use crate::introspection::{Introspector, Locator, LocatorLink};
 use crate::layout::{Fragment, Size};
 use crate::model::ParElem;
-use crate::realize::StyleVec;
 use crate::World;
 
 /// Range of a substring of text.
@@ -79,9 +78,11 @@ fn layout_inline_impl(
         route: Route::extend(route),
     };
 
+    let mut locator = locator.split();
+
     // Collect all text into one string for BiDi analysis.
     let (text, segments, spans) =
-        collect(children, &mut engine, locator, &styles, region, consecutive)?;
+        collect(children, &mut engine, &mut locator, &styles, region, consecutive)?;
 
     // Perform BiDi analysis and then prepares paragraph layout.
     let p = prepare(&mut engine, children, &text, segments, spans, styles)?;
@@ -90,5 +91,5 @@ fn layout_inline_impl(
     let lines = linebreak(&engine, &p, region.x - p.hang);
 
     // Turn the selected lines into frames.
-    finalize(&mut engine, &p, &lines, styles, region, expand)
+    finalize(&mut engine, &p, &lines, styles, region, expand, &mut locator)
 }

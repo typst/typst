@@ -62,6 +62,46 @@ At Beta, it was #context {
 #counter(page).update(1)
 #lorem(20)
 
+--- counter-page-footer-before-set-page ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#pagebreak()
+#counter(page).update(5)
+#set page(fill: aqua)
+B
+
+--- counter-page-header-before-set-page ---
+#set page(numbering: "1", number-align: top + center, margin: (top: 20pt))
+A
+#counter(page).update(4)
+#set page(fill: aqua)
+B
+
+--- counter-page-between-pages ---
+// The update happens conceptually between the pages.
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#pagebreak()
+#counter(page).update(5)
+#set page(number-align: top + center, margin: (top: 20pt, bottom: 10pt))
+B
+
+--- counter-page-header-only-update ---
+// Header should not be affected by default.
+// To affect it, put the counter update before the `set page`.
+#set page(
+  numbering: "1",
+  number-align: top + center,
+  margin: (top: 20pt),
+)
+
+#counter(page).update(5)
+
+--- counter-page-footer-only-update ---
+// Footer should be affected by default.
+#set page(numbering: "1 / 1", margin: (bottom: 20pt))
+#counter(page).update(5)
+
 --- counter-figure ---
 // Count figures.
 #figure(numbering: "A", caption: [Four 'A's], kind: image, supplement: "Figure")[_AAAA!_]

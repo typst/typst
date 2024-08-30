@@ -8,7 +8,7 @@ use crate::foundations::{
     Content, Context, Packed, Recipe, RecipeIndex, Regex, Selector, Show, ShowSet, Style,
     StyleChain, Styles, Synthesize, Transformation,
 };
-use crate::introspection::{Locatable, SplitLocator, Tag, TagElem};
+use crate::introspection::{Locatable, SplitLocator, Tag};
 use crate::text::TextElem;
 use crate::utils::SmallBitSet;
 
@@ -37,7 +37,7 @@ pub fn process(
     locator: &mut SplitLocator,
     target: &Content,
     styles: StyleChain,
-) -> SourceResult<Option<Content>> {
+) -> SourceResult<Option<(Option<Tag>, Content)>> {
     let Some(Verdict { prepared, mut map, step }) = verdict(engine, target, styles)
     else {
         return Ok(None);
@@ -54,7 +54,7 @@ pub fn process(
     }
 
     // Apply a step, if there is one.
-    let mut output = match step {
+    let output = match step {
         Some(step) => {
             // Errors in show rules don't terminate compilation immediately. We
             // just continue with empty content for them and show all errors
@@ -67,12 +67,7 @@ pub fn process(
         None => target,
     };
 
-    // If necessary, add the tag generated in the preparation.
-    if let Some(tag) = tag {
-        output = tag + output;
-    }
-
-    Ok(Some(output.styled_with_map(map)))
+    Ok(Some((tag, output.styled_with_map(map))))
 }
 
 /// Inspects a target element and the current styles and determines how to
@@ -106,7 +101,7 @@ fn verdict<'a>(
 
     let mut r = 0;
     for entry in styles.entries() {
-        let recipe = match entry {
+        let recipe = match &**entry {
             Style::Recipe(recipe) => recipe,
             Style::Property(_) => continue,
             Style::Revocation(index) => {
@@ -124,7 +119,7 @@ fn verdict<'a>(
         // Special handling for show-set rules. Exception: Regex show rules,
         // those need to be handled like normal transformations.
         if let (Transformation::Style(transform), false) =
-            (&recipe.transform, matches!(&recipe.selector, Some(Selector::Regex(_))))
+            (recipe.transform(), matches!(recipe.selector(), Some(Selector::Regex(_))))
         {
             // If this is a show-set for an unprepared element, we need to apply
             // it.
@@ -137,8 +132,9 @@ fn verdict<'a>(
             // applied to the `target` previously. For this purpose, show rules
             // are indexed from the top of the chain as the chain might grow to
             // the bottom.
-            let depth =
-                *depth.get_or_init(|| styles.entries().filter_map(Style::recipe).count());
+            let depth = *depth.get_or_init(|| {
+                styles.entries().filter_map(|style| style.recipe()).count()
+            });
             let index = RecipeIndex(depth - r);
 
             if !target.is_guarded(index) && !revoked.contains(index.0) {
@@ -187,7 +183,7 @@ fn prepare(
     target: &mut Content,
     map: &mut Styles,
     styles: StyleChain,
-) -> SourceResult<Option<Content>> {
+) -> SourceResult<Option<Tag>> {
     // Generate a location for the element, which uniquely identifies it in
     // the document. This has some overhead, so we only do it for elements
     // that are explicitly marked as locatable and labelled elements.
@@ -226,7 +222,7 @@ fn prepare(
     // materialization, so that it includes the synthesized fields. Do it before
     // marking as prepared so that show-set rules will apply to this element
     // when queried.
-    let tag = key.map(|key| TagElem::packed(Tag::new(target.clone(), key)));
+    let tag = key.map(|key| Tag::new(target.clone(), key));
 
     // Ensure that this preparation only runs once by marking the element as
     // prepared.
@@ -246,7 +242,7 @@ fn show(
         // Apply a user-defined show rule.
         ShowStep::Recipe(recipe, guard) => {
             let context = Context::new(target.location(), Some(styles));
-            match &recipe.selector {
+            match recipe.selector() {
                 // If the selector is a regex, the `target` is guaranteed to be a
                 // text element. This invokes special regex handling.
                 Some(Selector::Regex(regex)) => {

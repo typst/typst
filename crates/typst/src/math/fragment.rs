@@ -6,6 +6,7 @@ use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
 use crate::foundations::StyleChain;
+use crate::introspection::Tag;
 use crate::layout::{
     Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size, VAlignment,
 };
@@ -26,6 +27,7 @@ pub enum MathFragment {
     Space(Abs),
     Linebreak,
     Align,
+    Tag(Tag),
 }
 
 impl MathFragment {
@@ -74,6 +76,7 @@ impl MathFragment {
     pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Frame(fragment) => fragment.ignorant,
+            Self::Tag(_) => true,
             _ => false,
         }
     }
@@ -87,6 +90,7 @@ impl MathFragment {
             Self::Space(_) => MathClass::Space,
             Self::Linebreak => MathClass::Space,
             Self::Align => MathClass::Special,
+            Self::Tag(_) => MathClass::Special,
         }
     }
 
@@ -172,6 +176,11 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.into_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
+            Self::Tag(tag) => {
+                let mut frame = Frame::soft(Size::zero());
+                frame.push(Point::zero(), FrameItem::Tag(tag));
+                frame
+            }
             _ => Frame::soft(self.size()),
         }
     }

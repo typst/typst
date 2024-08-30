@@ -8,15 +8,16 @@ use comemo::Track;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Context, Dict, Fold, Func, Smart, StyleChain,
-    Value,
+    cast, elem, Args, AutoValue, Cast, Construct, Content, Context, Dict, Fold, Func,
+    NativeElement, Packed, Set, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Alignment, Frame, HAlignment, Length, OuterVAlignment, Ratio, Rel, Sides,
-    SpecificAlignment,
+    Abs, Alignment, FlushElem, Frame, HAlignment, Length, OuterVAlignment, Ratio, Rel,
+    Sides, SpecificAlignment,
 };
 use crate::model::Numbering;
-use crate::utils::{NonZeroExt, Scalar};
+use crate::realize::{Behave, Behaviour};
+use crate::utils::{singleton, NonZeroExt, Scalar};
 use crate::visualize::{Color, Paint};
 
 /// Layouts its child onto one or multiple pages.
@@ -38,11 +39,12 @@ use crate::visualize::{Color, Paint};
 ///
 /// There you go, US friends!
 /// ```
-#[elem]
+#[elem(Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
     #[external]
     #[default(Paper::A4)]
+    #[ghost]
     pub paper: Paper,
 
     /// The width of the page.
@@ -64,6 +66,7 @@ pub struct PageElem {
             .or_else(|| paper.map(|paper| Smart::Custom(paper.width().into())))
     )]
     #[default(Smart::Custom(Paper::A4.width().into()))]
+    #[ghost]
     pub width: Smart<Length>,
 
     /// The height of the page.
@@ -78,6 +81,7 @@ pub struct PageElem {
             .or_else(|| paper.map(|paper| Smart::Custom(paper.height().into())))
     )]
     #[default(Smart::Custom(Paper::A4.height().into()))]
+    #[ghost]
     pub height: Smart<Length>,
 
     /// Whether the page is flipped into landscape orientation.
@@ -99,6 +103,7 @@ pub struct PageElem {
     /// +1 555 555 5555
     /// ```
     #[default(false)]
+    #[ghost]
     pub flipped: bool,
 
     /// The page's margins.
@@ -138,6 +143,7 @@ pub struct PageElem {
     /// )
     /// ```
     #[fold]
+    #[ghost]
     pub margin: Margin,
 
     /// On which side the pages will be bound.
@@ -149,6 +155,7 @@ pub struct PageElem {
     ///
     /// This affects the meaning of the `inside` and `outside` options for
     /// margins.
+    #[ghost]
     pub binding: Smart<Binding>,
 
     /// How many columns the page has.
@@ -169,6 +176,7 @@ pub struct PageElem {
     /// of a rapidly changing climate.
     /// ```
     #[default(NonZeroUsize::ONE)]
+    #[ghost]
     pub columns: NonZeroUsize,
 
     /// The page's background fill.
@@ -192,6 +200,7 @@ pub struct PageElem {
     /// *Dark mode enabled.*
     /// ```
     #[borrowed]
+    #[ghost]
     pub fill: Smart<Option<Paint>>,
 
     /// How to [number]($numbering) the pages.
@@ -209,6 +218,7 @@ pub struct PageElem {
     /// #lorem(48)
     /// ```
     #[borrowed]
+    #[ghost]
     pub numbering: Option<Numbering>,
 
     /// The alignment of the page numbering.
@@ -228,6 +238,7 @@ pub struct PageElem {
     /// #lorem(30)
     /// ```
     #[default(SpecificAlignment::Both(HAlignment::Center, OuterVAlignment::Bottom))]
+    #[ghost]
     pub number_align: SpecificAlignment<HAlignment, OuterVAlignment>,
 
     /// The page's header. Fills the top margin of each page.
@@ -251,11 +262,13 @@ pub struct PageElem {
     /// #lorem(19)
     /// ```
     #[borrowed]
+    #[ghost]
     pub header: Smart<Option<Content>>,
 
     /// The amount the header is raised into the top margin.
     #[resolve]
     #[default(Ratio::new(0.3).into())]
+    #[ghost]
     pub header_ascent: Rel<Length>,
 
     /// The page's footer. Fills the bottom margin of each page.
@@ -287,11 +300,13 @@ pub struct PageElem {
     /// #lorem(48)
     /// ```
     #[borrowed]
+    #[ghost]
     pub footer: Smart<Option<Content>>,
 
     /// The amount the footer is lowered into the bottom margin.
     #[resolve]
     #[default(Ratio::new(0.3).into())]
+    #[ghost]
     pub footer_descent: Rel<Length>,
 
     /// Content in the page's background.
@@ -311,6 +326,7 @@ pub struct PageElem {
     /// over the world (of typesetting).
     /// ```
     #[borrowed]
+    #[ghost]
     pub background: Option<Content>,
 
     /// Content in the page's foreground.
@@ -325,6 +341,7 @@ pub struct PageElem {
     /// not understand our approach...
     /// ```
     #[borrowed]
+    #[ghost]
     pub foreground: Option<Content>,
 
     /// The contents of the page(s).
@@ -332,13 +349,93 @@ pub struct PageElem {
     /// Multiple pages will be created if the content does not fit on a single
     /// page. A new page with the page properties prior to the function invocation
     /// will be created after the body has been typeset.
+    #[external]
     #[required]
     pub body: Content,
+}
 
-    /// Whether the page should be aligned to an even or odd page.
+impl Construct for PageElem {
+    fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        // The page constructor is special: It doesn't create a page element.
+        // Instead, it just ensures that the passed content lives in a separate
+        // page and styles it.
+        let styles = Self::set(engine, args)?;
+        let body = args.expect::<Content>("body")?;
+        Ok(Content::sequence([
+            PagebreakElem::shared_weak().clone(),
+            // We put an effectless, invisible non-tag element on the page.
+            // This has two desirable consequences:
+            // - The page is kept even if the body is empty
+            // - The page doesn't inherit shared styles from the body
+            FlushElem::new().pack(),
+            body,
+            PagebreakElem::shared_boundary().clone(),
+        ])
+        .styled_with_map(styles))
+    }
+}
+
+/// A manual page break.
+///
+/// Must not be used inside any containers.
+///
+/// # Example
+/// ```example
+/// The next page contains
+/// more details on compound theory.
+/// #pagebreak()
+///
+/// == Compound Theory
+/// In 1984, the first ...
+/// ```
+#[elem(title = "Page Break", Behave)]
+pub struct PagebreakElem {
+    /// If `{true}`, the page break is skipped if the current page is already
+    /// empty.
+    #[default(false)]
+    pub weak: bool,
+
+    /// If given, ensures that the next page will be an even/odd page, with an
+    /// empty page in between if necessary.
+    ///
+    /// ```example
+    /// #set page(height: 30pt)
+    ///
+    /// First.
+    /// #pagebreak(to: "odd")
+    /// Third.
+    /// ```
+    pub to: Option<Parity>,
+
+    /// Whether this pagebreak designates an end boundary of a page run. This is
+    /// an even weaker version of pagebreak `weak` because it not only doesn't
+    /// force an empty page, but also doesn't force its initial styles onto a
+    /// staged empty page.
     #[internal]
-    #[synthesized]
-    pub clear_to: Option<Parity>,
+    #[parse(None)]
+    #[default(false)]
+    pub boundary: bool,
+}
+
+impl Behave for Packed<PagebreakElem> {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Destructive
+    }
+}
+
+impl PagebreakElem {
+    /// Get the globally shared weak pagebreak element.
+    pub fn shared_weak() -> &'static Content {
+        singleton!(Content, PagebreakElem::new().with_weak(true).pack())
+    }
+
+    /// Get the globally shared boundary pagebreak element.
+    pub fn shared_boundary() -> &'static Content {
+        singleton!(
+            Content,
+            PagebreakElem::new().with_weak(true).with_boundary(true).pack()
+        )
+    }
 }
 
 /// A finished page.
@@ -596,39 +693,6 @@ impl PageRanges {
             (None, None) => true,
         })
     }
-}
-
-/// A manual page break.
-///
-/// Must not be used inside any containers.
-///
-/// # Example
-/// ```example
-/// The next page contains
-/// more details on compound theory.
-/// #pagebreak()
-///
-/// == Compound Theory
-/// In 1984, the first ...
-/// ```
-#[elem(title = "Page Break")]
-pub struct PagebreakElem {
-    /// If `{true}`, the page break is skipped if the current page is already
-    /// empty.
-    #[default(false)]
-    pub weak: bool,
-
-    /// If given, ensures that the next page will be an even/odd page, with an
-    /// empty page in between if necessary.
-    ///
-    /// ```example
-    /// #set page(height: 30pt)
-    ///
-    /// First.
-    /// #pagebreak(to: "odd")
-    /// Third.
-    /// ```
-    pub to: Option<Parity>,
 }
 
 /// Whether something should be even or odd.
