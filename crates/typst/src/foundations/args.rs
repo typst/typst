@@ -309,7 +309,7 @@ impl Args {
     ) -> StrResult<Value> {
         match &key {
             ArgumentKey::Index(index) => self.to_pos().at(*index, default).ok(),
-            ArgumentKey::Name(name) => self.to_named().at(name, default).ok(),
+            ArgumentKey::Name(name) => self.to_named().at(name.clone(), default).ok(),
         }
         .ok_or_else(|| missing_key_no_default(key))
     }
