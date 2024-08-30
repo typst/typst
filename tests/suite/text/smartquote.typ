@@ -28,7 +28,7 @@
 "Το άλογο δεν τρώει αγγουροσαλάτα" ήταν η πρώτη πρόταση που ειπώθηκε στο 'τηλέφωνο'.
 
 #set text(lang: "he")
-"הסוס לא אוכל סלט מלפפונים" היה המשפט ההראשון שנאמר ב 'טלפון'.
+"הסוס לא אוכל סלט מלפפונים" היה המשפט ההראשון שנאמר ב'טלפון'.
 
 #set text(lang: "ro")
 "Calul nu mănâncă salată de castraveți" a fost prima propoziție rostită vreodată la 'telefon'.

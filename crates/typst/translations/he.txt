@@ -1,7 +1,7 @@
 figure = איור
 table = טבלה
 equation = משוואה
-bibliography = ביבליוגרפיה
+bibliography = רשימת מקורות
 heading = חלק
 outline = תוכן עניינים
-raw = קוד
+raw = קטע מקור
