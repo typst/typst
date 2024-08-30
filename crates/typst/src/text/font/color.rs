@@ -542,26 +542,6 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
         self.svg.end_element(); // g
     }
 
-    fn push_translate(&mut self, tx: f32, ty: f32) {
-        self.push_transform(ttf_parser::Transform::new(1.0, 0.0, 0.0, 1.0, tx, ty));
-    }
-
-    fn push_scale(&mut self, sx: f32, sy: f32) {
-        self.push_transform(ttf_parser::Transform::new(sx, 0.0, 0.0, sy, 0.0, 0.0));
-    }
-
-    fn push_rotate(&mut self, angle: f32) {
-        let cc = (angle * std::f32::consts::PI).cos();
-        let ss = (angle * std::f32::consts::PI).sin();
-        self.push_transform(ttf_parser::Transform::new(cc, ss, -ss, cc, 0.0, 0.0));
-    }
-
-    fn push_skew(&mut self, skew_x: f32, skew_y: f32) {
-        let x = (-skew_x * std::f32::consts::PI).tan();
-        let y = (skew_y * std::f32::consts::PI).tan();
-        self.push_transform(ttf_parser::Transform::new(1.0, y, x, 1.0, 0.0, 0.0));
-    }
-
     fn push_transform(&mut self, transform: ttf_parser::Transform) {
         self.transforms_stack.push(self.transform);
         self.transform = ttf_parser::Transform::combine(self.transform, transform);

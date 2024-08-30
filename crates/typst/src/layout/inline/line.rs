@@ -3,7 +3,10 @@ use std::ops::{Deref, DerefMut};
 
 use super::*;
 use crate::engine::Engine;
+use crate::foundations::NativeElement;
+use crate::introspection::{SplitLocator, Tag};
 use crate::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use crate::model::{ParLine, ParLineMarker};
 use crate::text::{Lang, TextElem};
 use crate::utils::Numeric;
 
@@ -406,6 +409,7 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
 }
 
 /// Commit to a line and build its frame.
+#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
@@ -413,6 +417,8 @@ pub fn commit(
     width: Abs,
     full: Abs,
     shrink: bool,
+    locator: &mut SplitLocator<'_>,
+    styles: StyleChain,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
@@ -546,6 +552,8 @@ pub fn commit(
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 
+    add_par_line_marker(&mut output, styles, engine, locator, top);
+
     // Construct the line's frame.
     for (offset, frame) in frames {
         let x = offset + p.align.position(remaining);
@@ -554,6 +562,54 @@ pub fn commit(
     }
 
     Ok(output)
+}
+
+/// Adds a paragraph line marker to a paragraph line's output frame if
+/// line numbering is not `None` at this point. Ensures other style properties,
+/// namely number margin, number align and number clearance, are stored in the
+/// marker as well.
+///
+/// The `top` parameter is used to ensure the marker, and thus the line's
+/// number in the margin, is aligned to the line's baseline.
+fn add_par_line_marker(
+    output: &mut Frame,
+    styles: StyleChain,
+    engine: &mut Engine,
+    locator: &mut SplitLocator,
+    top: Abs,
+) {
+    if let Some(numbering) = ParLine::numbering_in(styles) {
+        let number_margin = ParLine::number_margin_in(styles);
+        let number_align = ParLine::number_align_in(styles);
+
+        // Delay resolving the number clearance until line numbers are laid out
+        // to avoid inconsistent spacing depending on varying font size.
+        let number_clearance = ParLine::number_clearance_in(styles);
+
+        let mut par_line =
+            ParLineMarker::new(numbering, number_align, number_margin, number_clearance)
+                .pack();
+
+        // Elements in tags must have a location for introspection to work.
+        // We do the work here instead of going through all of the realization
+        // process just for this, given we don't need to actually place the
+        // marker as we manually search for it in the frame later (when
+        // building a root flow, where line numbers can be displayed), so we
+        // just need it to be in a tag and to be valid (to have a location).
+        let hash = crate::utils::hash128(&par_line);
+        let location = locator.next_location(engine.introspector, hash);
+        par_line.set_location(location);
+
+        // Create a tag through which we can search for this line's marker
+        // later. Its 'x' coordinate is not important, just the 'y'
+        // coordinate, as that's what is used for line numbers. We will place
+        // the tag among other subframes in the line such that it is aligned
+        // with the line's general baseline. However, the line number will
+        // still need to manually adjust its own 'y' position based on its own
+        // baseline.
+        let tag = Tag::new(par_line, hash);
+        output.push(Point::with_y(top), FrameItem::Tag(tag));
+    }
 }
 
 /// How much a character should hang into the end margin.

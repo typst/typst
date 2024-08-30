@@ -159,7 +159,7 @@ impl Show for Packed<QuoteElem> {
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
-            let quotes = SmartQuotes::new(
+            let quotes = SmartQuotes::get(
                 SmartQuoteElem::quotes_in(styles),
                 TextElem::lang_in(styles),
                 TextElem::region_in(styles),

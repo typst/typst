@@ -1,12 +1,14 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleVec,
-    Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart,
+    StyleVec, Unlabellable,
 };
-use crate::layout::{Em, Length};
+use crate::introspection::{Count, CounterUpdate, Locatable};
+use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment};
+use crate::model::Numbering;
 use crate::utils::singleton;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -34,7 +36,7 @@ use crate::utils::singleton;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Debug, Construct)]
+#[elem(scope, title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -143,6 +145,12 @@ pub struct ParElem {
     pub children: StyleVec,
 }
 
+#[scope]
+impl ParElem {
+    #[elem]
+    type ParLine;
+}
+
 impl Construct for ParElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -206,3 +214,143 @@ impl ParbreakElem {
 }
 
 impl Unlabellable for Packed<ParbreakElem> {}
+
+/// A paragraph line.
+///
+/// This element is exclusively used for line number configuration and cannot
+/// be placed.
+#[elem(name = "line", title = "Paragraph Line", Construct, Locatable)]
+pub struct ParLine {
+    /// How to number each line. Accepts a
+    /// [numbering pattern or function]($numbering).
+    ///
+    /// ```example
+    /// #set par.line(numbering: "1")
+    ///
+    /// Roses are red. \
+    /// Violets are blue. \
+    /// Typst is awesome.
+    /// ```
+    #[ghost]
+    pub numbering: Option<Numbering>,
+
+    /// The alignment of line numbers associated with each line.
+    ///
+    /// The default of `auto` will provide a smart default where numbers grow
+    /// horizontally away from the text, considering the margin they're in and
+    /// the current text direction.
+    ///
+    /// ```example
+    /// #set par.line(numbering: "I", number-align: left)
+    ///
+    /// Hello world! \
+    /// Today is a beautiful day \
+    /// For exploring the world.
+    /// ```
+    #[ghost]
+    pub number_align: Smart<HAlignment>,
+
+    /// The margin at which line numbers appear.
+    ///
+    /// ```example
+    /// #set par.line(numbering: "1", number-margin: right)
+    ///
+    /// = Report
+    /// - Brightness: Dark, yet darker
+    /// - Readings: Negative
+    /// ```
+    #[ghost]
+    #[default(OuterHAlignment::Start)]
+    pub number_margin: OuterHAlignment,
+
+    /// The distance between line numbers and text.
+    ///
+    /// ```example
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   number-clearance: 0.5pt
+    /// )
+    ///
+    /// Typesetting \
+    /// Styling \
+    /// Layout
+    /// ```
+    #[ghost]
+    #[default(Length::from(Abs::cm(1.0)))]
+    pub number_clearance: Length,
+
+    /// Controls when to reset line numbering.
+    ///
+    /// Possible options are `"document"`, indicating the line number counter
+    /// is never reset, or `"page"`, indicating it is reset on every page.
+    ///
+    /// ```example
+    /// #set par.line(
+    ///   numbering: "1.",
+    ///   numbering-scope: "page"
+    /// )
+    ///
+    /// First line \
+    /// Second line
+    /// #pagebreak()
+    /// First line again \
+    /// Second line again
+    /// ```
+    #[ghost]
+    #[default(ParLineNumberingScope::Document)]
+    pub numbering_scope: ParLineNumberingScope,
+}
+
+impl Construct for ParLine {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+/// Possible line numbering scope options, indicating how often the line number
+/// counter should be reset.
+#[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ParLineNumberingScope {
+    /// Indicates the line number counter spans the whole document, that is,
+    /// is never automatically reset.
+    Document,
+    /// Indicates the line number counter should be reset at the start of every
+    /// new page.
+    Page,
+}
+
+/// A marker used to indicate the presence of a line.
+///
+/// This element is added to each line in a paragraph and later searched to
+/// find out where to add line numbers.
+#[elem(Construct, Locatable, Count)]
+pub struct ParLineMarker {
+    #[internal]
+    #[required]
+    pub numbering: Numbering,
+
+    #[internal]
+    #[required]
+    pub number_align: Smart<HAlignment>,
+
+    #[internal]
+    #[required]
+    pub number_margin: OuterHAlignment,
+
+    #[internal]
+    #[required]
+    pub number_clearance: Length,
+}
+
+impl Construct for ParLineMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Count for Packed<ParLineMarker> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // The line counter must be updated manually by the root flow.
+        None
+    }
+}
