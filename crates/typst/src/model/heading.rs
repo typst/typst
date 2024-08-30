@@ -13,7 +13,10 @@ use crate::layout::{
     layout_frame, Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Region,
 };
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
-use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
+use crate::text::{
+    defaulted_translation_cascade, FontWeight, Lang, LocalName, SpaceElem, TextElem,
+    TextSize, Translation,
+};
 use crate::utils::NonZeroExt;
 
 /// A section heading.
@@ -343,5 +346,7 @@ impl Outlinable for Packed<HeadingElem> {
 }
 
 impl LocalName for Packed<HeadingElem> {
-    const KEY: &'static str = "heading";
+    fn local_name(lang: Lang, region: Option<crate::text::Region>) -> &'static str {
+        defaulted_translation_cascade(lang, region).heading().unwrap()
+    }
 }

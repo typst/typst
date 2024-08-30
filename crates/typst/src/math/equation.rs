@@ -20,7 +20,8 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
+    defaulted_translation_cascade, families, variant, Font, FontFamily, FontList,
+    FontWeight, Lang, LocalName, TextElem, Translation,
 };
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
@@ -203,7 +204,9 @@ impl Count for Packed<EquationElem> {
 }
 
 impl LocalName for Packed<EquationElem> {
-    const KEY: &'static str = "equation";
+    fn local_name(lang: Lang, region: Option<crate::text::Region>) -> &'static str {
+        defaulted_translation_cascade(lang, region).equation().unwrap()
+    }
 }
 
 impl Refable for Packed<EquationElem> {

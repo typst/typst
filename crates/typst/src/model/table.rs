@@ -1,8 +1,6 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::eco_format;
-
 use crate::diag::{bail, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -17,9 +15,12 @@ use crate::layout::{
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
-use crate::text::{LocalName, TextElem};
+use crate::text::{
+    defaulted_translation_cascade, Lang, LocalName, Region, TextElem, Translation,
+};
 use crate::utils::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
+use ecow::eco_format;
 
 /// A table of items.
 ///
@@ -325,7 +326,9 @@ fn layout_table(
 }
 
 impl LocalName for Packed<TableElem> {
-    const KEY: &'static str = "table";
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+        defaulted_translation_cascade(lang, region).table().unwrap()
+    }
 }
 
 impl Figurable for Packed<TableElem> {}

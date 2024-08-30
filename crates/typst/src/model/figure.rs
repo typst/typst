@@ -18,7 +18,7 @@ use crate::layout::{
     PlaceElem, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{defaulted_translation_cascade, TextElem, Translation};
 use crate::utils::NonZeroExt;
 use crate::visualize::ImageElem;
 
@@ -527,23 +527,16 @@ pub struct FigureCaption {
 }
 
 impl FigureCaption {
-    /// Gets the default separator in the given language and (optionally)
-    /// region.
-    fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::CHINESE => "\u{2003}",
-            Lang::FRENCH => ".\u{a0}– ",
-            Lang::RUSSIAN => ". ",
-            Lang::ENGLISH | _ => ": ",
-        }
-    }
-
     fn get_separator(&self, styles: StyleChain) -> Content {
         self.separator(styles).unwrap_or_else(|| {
-            TextElem::packed(Self::local_separator(
-                TextElem::lang_in(styles),
-                TextElem::region_in(styles),
-            ))
+            TextElem::packed(
+                defaulted_translation_cascade(
+                    TextElem::lang_in(styles),
+                    TextElem::region_in(styles),
+                )
+                .figure_caption_separator()
+                .unwrap(),
+            )
         })
     }
 }

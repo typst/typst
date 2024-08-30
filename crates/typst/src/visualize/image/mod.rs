@@ -10,9 +10,6 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::Tracked;
-use ecow::EcoString;
-
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -27,10 +24,14 @@ use crate::layout::{
 use crate::loading::Readable;
 use crate::model::Figurable;
 use crate::syntax::{Span, Spanned};
-use crate::text::{families, LocalName};
+use crate::text::{
+    defaulted_translation_cascade, families, Lang, LocalName, Translation,
+};
 use crate::utils::LazyHash;
 use crate::visualize::Path;
 use crate::World;
+use comemo::Tracked;
+use ecow::EcoString;
 
 /// A raster or vector graphic.
 ///
@@ -166,7 +167,11 @@ impl Show for Packed<ImageElem> {
 }
 
 impl LocalName for Packed<ImageElem> {
-    const KEY: &'static str = "figure";
+    fn local_name(lang: Lang, region: Option<crate::text::Region>) -> &'static str {
+        let a = defaulted_translation_cascade(lang, region);
+        let b = a.figure();
+        b.unwrap()
+    }
 }
 
 impl Figurable for Packed<ImageElem> {}

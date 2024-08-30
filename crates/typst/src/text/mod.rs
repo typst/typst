@@ -14,6 +14,7 @@ mod shift;
 mod smallcaps_;
 mod smartquote;
 mod space;
+mod translations;
 
 pub use self::case::*;
 pub use self::deco::*;
@@ -27,6 +28,7 @@ pub use self::shift::*;
 pub use self::smallcaps_::*;
 pub use self::smartquote::*;
 pub use self::space::*;
+pub use self::translations::*;
 
 use std::fmt::{self, Debug, Formatter};
 

@@ -7,7 +7,9 @@ use crate::foundations::{
 };
 use crate::layout::Dir;
 use crate::syntax::is_newline;
-use crate::text::{Lang, Region};
+use crate::text::{
+    defaulted_translation_cascade, Lang, Region, Translation, DEFAULT_TRANSLATION,
+};
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -189,53 +191,39 @@ pub struct SmartQuotes<'s> {
 }
 
 impl<'s> SmartQuotes<'s> {
-    /// Create a new `Quotes` struct with the given quotes, optionally falling
-    /// back to the defaults for a language and region.
-    ///
-    /// The language should be specified as an all-lowercase ISO 639-1 code, the
-    /// region as an all-uppercase ISO 3166-alpha2 code.
-    ///
-    /// Currently, the supported languages are: English, Czech, Danish, German,
-    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin, Lithuanian,
-    /// Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish, Swedish, French,
-    /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
-    /// Norwegian.
-    ///
-    /// For unknown languages, the English quotes are used as fallback.
+    /// Create smartquotes with the given quotes, optionally falling back to
+    /// the defaults for a language and region.
     pub fn new(
         quotes: &'s Smart<SmartQuoteDict>,
         lang: Lang,
         region: Option<Region>,
         alternative: bool,
     ) -> Self {
-        let region = region.as_ref().map(Region::as_str);
-
-        let default = ("‘", "’", "“", "”");
-        let low_high = ("‚", "‘", "„", "“");
-
-        let (single_open, single_close, double_open, double_close) = match lang.as_str() {
-            "de" if matches!(region, Some("CH" | "LI")) => match alternative {
-                false => ("‹", "›", "«", "»"),
-                true => low_high,
-            },
-            "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
-            "cs" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
-            "da" => ("‘", "’", "“", "”"),
-            "fr" | "ru" if alternative => default,
-            "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
-            "fi" | "sv" if alternative => ("’", "’", "»", "»"),
-            "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
-            "it" if alternative => default,
-            "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
-            "it" | "la" => ("“", "”", "«", "»"),
-            "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
-            "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
-            "no" | "nb" | "nn" if alternative => low_high,
-            "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
-            "gr" => ("‘", "’", "«", "»"),
-            _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
-            _ => default,
-        };
+        let translation = defaulted_translation_cascade(lang, region);
+        let single_left = if alternative {
+            (translation, DEFAULT_TRANSLATION).alternate_left_single_quote()
+        } else {
+            (translation, DEFAULT_TRANSLATION).left_single_quote()
+        }
+        .unwrap();
+        let single_right = if alternative {
+            (translation, DEFAULT_TRANSLATION).alternate_right_single_quote()
+        } else {
+            (translation, DEFAULT_TRANSLATION).right_single_quote()
+        }
+        .unwrap();
+        let double_left = if alternative {
+            (translation, DEFAULT_TRANSLATION).alternate_left_double_quote()
+        } else {
+            (translation, DEFAULT_TRANSLATION).left_double_quote()
+        }
+        .unwrap();
+        let double_right = if alternative {
+            (translation, DEFAULT_TRANSLATION).alternate_right_double_quote()
+        } else {
+            (translation, DEFAULT_TRANSLATION).right_double_quote()
+        }
+        .unwrap();
 
         fn inner_or_default<'s>(
             quotes: Smart<&'s SmartQuoteDict>,
@@ -251,10 +239,24 @@ impl<'s> SmartQuotes<'s> {
         }
 
         let quotes = quotes.as_ref();
-        let [single_open, single_close] =
-            inner_or_default(quotes, |q| q.single.as_ref(), [single_open, single_close]);
-        let [double_open, double_close] =
-            inner_or_default(quotes, |q| q.double.as_ref(), [double_open, double_close]);
+        let [single_open, single_close] = inner_or_default(
+            quotes,
+            |q| q.single.as_ref(),
+            if lang.dir() == Dir::RTL {
+                [single_right, single_left]
+            } else {
+                [single_left, single_right]
+            },
+        );
+        let [double_open, double_close] = inner_or_default(
+            quotes,
+            |q| q.double.as_ref(),
+            if lang.dir() == Dir::RTL {
+                [double_right, double_left]
+            } else {
+                [double_left, double_right]
+            },
+        );
 
         Self {
             single_open,

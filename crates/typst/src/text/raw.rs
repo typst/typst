@@ -2,14 +2,7 @@ use std::hash::Hash;
 use std::ops::Range;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString, EcoVec};
-use once_cell::sync::Lazy;
-use once_cell::unsync::Lazy as UnsyncLazy;
-use syntect::highlighting::{self as synt, Theme};
-use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use unicode_segmentation::UnicodeSegmentation;
-
-use super::Lang;
+use super::{Lang, Region};
 use crate::diag::{At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -20,11 +13,17 @@ use crate::layout::{BlockChild, BlockElem, Em, HAlignment};
 use crate::model::{Figurable, ParElem};
 use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, SmartQuoteElem, TextElem,
-    TextSize,
+    defaulted_translation_cascade, FontFamily, FontList, Hyphenate, LinebreakElem,
+    LocalName, SmartQuoteElem, TextElem, TextSize, Translation,
 };
 use crate::visualize::Color;
 use crate::{syntax, World};
+use ecow::{eco_format, EcoString, EcoVec};
+use once_cell::sync::Lazy;
+use once_cell::unsync::Lazy as UnsyncLazy;
+use syntect::highlighting::{self as synt, Theme};
+use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use unicode_segmentation::UnicodeSegmentation;
 
 // Shorthand for highlighter closures.
 type StyleFn<'a> =
@@ -477,7 +476,9 @@ impl ShowSet for Packed<RawElem> {
 }
 
 impl LocalName for Packed<RawElem> {
-    const KEY: &'static str = "raw";
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+        defaulted_translation_cascade(lang, region).raw().unwrap()
+    }
 }
 
 impl Figurable for Packed<RawElem> {}

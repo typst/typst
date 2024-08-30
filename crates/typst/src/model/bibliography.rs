@@ -38,7 +38,8 @@ use crate::model::{
 
 use crate::syntax::{Span, Spanned};
 use crate::text::{
-    FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
+    defaulted_translation_cascade, FontStyle, Lang, LocalName, Region, SubElem,
+    SuperElem, TextElem, Translation, WeightDelta,
 };
 use crate::utils::{LazyHash, NonZeroExt, PicoStr};
 use crate::World;
@@ -280,7 +281,9 @@ impl ShowSet for Packed<BibliographyElem> {
 }
 
 impl LocalName for Packed<BibliographyElem> {
-    const KEY: &'static str = "bibliography";
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+        defaulted_translation_cascade(lang, region).bibliography().unwrap()
+    }
 }
 
 /// A loaded bibliography.

@@ -1,8 +1,6 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::Track;
-
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -15,8 +13,12 @@ use crate::model::{
     Destination, HeadingElem, NumberingPattern, ParElem, ParbreakElem, Refable,
 };
 use crate::syntax::Span;
-use crate::text::{LinebreakElem, LocalName, SpaceElem, TextElem};
+use crate::text::{
+    defaulted_translation_cascade, Lang, LinebreakElem, LocalName, Region, SpaceElem,
+    TextElem, Translation,
+};
 use crate::utils::NonZeroExt;
+use comemo::Track;
 
 /// A table of contents, figures, or other elements.
 ///
@@ -269,7 +271,9 @@ impl ShowSet for Packed<OutlineElem> {
 }
 
 impl LocalName for Packed<OutlineElem> {
-    const KEY: &'static str = "outline";
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+        defaulted_translation_cascade(lang, region).outline().unwrap()
+    }
 }
 
 /// Marks an element as being able to be outlined. This is used to implement the
