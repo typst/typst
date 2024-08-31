@@ -55,6 +55,34 @@
 #test(name, "Klaus")
 #test(othername, "Klaus")
 
+--- import-items-parenthesized ---
+#import "module.typ": ()
+#import "module.typ": (a)
+#import "module.typ": (a, b)
+#import "module.typ": (a, b, c, d)
+
+#test(a, none)
+#test(b, 1)
+#test(c, 2)
+#test(d, 3)
+
+--- import-items-parenthesized-multiline ---
+#import "module.typ": (
+  a
+)
+#import "module.typ": (
+  a, b as e,
+  c,
+
+
+      d,
+)
+
+#test(a, none)
+#test(e, 1)
+#test(c, 2)
+#test(d, 3)
+
 --- import-from-function-scope ---
 // Test importing from function scopes.
 
