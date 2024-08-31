@@ -186,9 +186,8 @@ fn shading_function(
         // issues with native color spaces.
         let mut last_c = first.0;
         if gradient.space().hue_index().is_some() {
-            let interm = if gradient.space().is_oklab_family() { 128 } else { 32 };
-            for i in 0..=interm {
-                let t = i as f64 / interm as f64;
+            for i in 0..=32 {
+                let t = i as f64 / 32.0;
                 let real_t = first.1.get() * (1.0 - t) + second.1.get() * t;
 
                 let c = gradient.sample(RatioOrAngle::Ratio(Ratio::new(real_t)));
