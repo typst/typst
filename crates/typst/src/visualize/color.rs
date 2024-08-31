@@ -1840,6 +1840,11 @@ impl ColorSpace {
             _ => None,
         }
     }
+
+    /// Returns whether this color space is part of the Oklab family.
+    pub fn is_oklab_family(&self) -> bool {
+        matches!(self, Self::Oklab | Self::Oklch)
+    }
 }
 
 cast! {

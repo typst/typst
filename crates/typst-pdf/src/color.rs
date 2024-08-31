@@ -1,6 +1,6 @@
 use arrayvec::ArrayVec;
 use once_cell::sync::Lazy;
-use pdf_writer::{types::DeviceNSubtype, writers, Chunk, Dict, Filter, Name, Ref};
+use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
 use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
@@ -8,13 +8,7 @@ use crate::{content, deflate, PdfChunk, Renumber, WithResources};
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
 pub const D65_GRAY: Name<'static> = Name(b"d65gray");
-pub const OKLAB: Name<'static> = Name(b"oklab");
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
-
-// The names of the color components.
-const OKLAB_L: Name<'static> = Name(b"L");
-const OKLAB_A: Name<'static> = Name(b"A");
-const OKLAB_B: Name<'static> = Name(b"B");
 
 // The ICC profiles.
 static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
@@ -22,14 +16,9 @@ static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
 static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(typst_assets::icc::S_GREY_V4));
 
-// The PostScript functions for color spaces.
-static OKLAB_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
-
 /// The color spaces present in the PDF document
 #[derive(Default)]
 pub struct ColorSpaces {
-    use_oklab: bool,
     use_srgb: bool,
     use_d65_gray: bool,
     use_linear_rgb: bool,
@@ -39,11 +28,11 @@ impl ColorSpaces {
     /// Mark a color space as used.
     pub fn mark_as_used(&mut self, color_space: ColorSpace) {
         match color_space {
-            ColorSpace::Oklch | ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
-                self.use_oklab = true;
-                self.use_linear_rgb = true;
-            }
-            ColorSpace::Srgb => {
+            ColorSpace::Oklch
+            | ColorSpace::Oklab
+            | ColorSpace::Hsl
+            | ColorSpace::Hsv
+            | ColorSpace::Srgb => {
                 self.use_srgb = true;
             }
             ColorSpace::D65Gray => {
@@ -58,10 +47,6 @@ impl ColorSpaces {
 
     /// Write the color spaces to the PDF file.
     pub fn write_color_spaces(&self, mut spaces: Dict, refs: &ColorFunctionRefs) {
-        if self.use_oklab {
-            write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), refs);
-        }
-
         if self.use_srgb {
             write(ColorSpace::Srgb, spaces.insert(SRGB).start(), refs);
         }
@@ -78,15 +63,6 @@ impl ColorSpaces {
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
     pub fn write_functions(&self, chunk: &mut Chunk, refs: &ColorFunctionRefs) {
-        // Write the Oklab function & color space.
-        if self.use_oklab {
-            chunk
-                .post_script_function(refs.oklab.unwrap(), &OKLAB_DEFLATED)
-                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .filter(Filter::FlateDecode);
-        }
-
         // Write the sRGB color space.
         if self.use_srgb {
             chunk
@@ -111,7 +87,6 @@ impl ColorSpaces {
     pub fn merge(&mut self, other: &Self) {
         self.use_d65_gray |= other.use_d65_gray;
         self.use_linear_rgb |= other.use_linear_rgb;
-        self.use_oklab |= other.use_oklab;
         self.use_srgb |= other.use_srgb;
     }
 }
@@ -123,14 +98,11 @@ pub fn write(
     refs: &ColorFunctionRefs,
 ) {
     match color_space {
-        ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
-            let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
-            write(ColorSpace::LinearRgb, oklab.alternate_color_space(), refs);
-            oklab.tint_ref(refs.oklab.unwrap());
-            oklab.attrs().subtype(DeviceNSubtype::DeviceN);
-        }
-        ColorSpace::Oklch => write(ColorSpace::Oklab, writer, refs),
-        ColorSpace::Srgb => writer.icc_based(refs.srgb.unwrap()),
+        ColorSpace::Srgb
+        | ColorSpace::Oklab
+        | ColorSpace::Hsl
+        | ColorSpace::Hsv
+        | ColorSpace::Oklch => writer.icc_based(refs.srgb.unwrap()),
         ColorSpace::D65Gray => writer.icc_based(refs.d65_gray.unwrap()),
         ColorSpace::LinearRgb => {
             writer.cal_rgb(
@@ -152,16 +124,12 @@ pub fn write(
 /// needed) in the final document, and be shared by all color space
 /// dictionaries.
 pub struct ColorFunctionRefs {
-    oklab: Option<Ref>,
     srgb: Option<Ref>,
     d65_gray: Option<Ref>,
 }
 
 impl Renumber for ColorFunctionRefs {
     fn renumber(&mut self, offset: i32) {
-        if let Some(r) = &mut self.oklab {
-            r.renumber(offset);
-        }
         if let Some(r) = &mut self.srgb {
             r.renumber(offset);
         }
@@ -183,34 +151,11 @@ pub fn alloc_color_functions_refs(
     });
 
     let refs = ColorFunctionRefs {
-        oklab: if used_color_spaces.use_oklab { Some(chunk.alloc()) } else { None },
         srgb: if used_color_spaces.use_srgb { Some(chunk.alloc()) } else { None },
         d65_gray: if used_color_spaces.use_d65_gray { Some(chunk.alloc()) } else { None },
     };
 
     (chunk, refs)
-}
-
-/// This function removes comments, line spaces and carriage returns from a
-/// PostScript program. This is necessary to optimize the size of the PDF file.
-fn minify(source: &str) -> String {
-    let mut buf = String::with_capacity(source.len());
-    let mut s = unscanny::Scanner::new(source);
-    while let Some(c) = s.eat() {
-        match c {
-            '%' => {
-                s.eat_until('\n');
-            }
-            c if c.is_whitespace() => {
-                s.eat_whitespace();
-                if buf.ends_with(|c: char| !c.is_whitespace()) {
-                    buf.push(' ');
-                }
-            }
-            _ => buf.push(c),
-        }
-    }
-    buf
 }
 
 /// Encodes the color into four f32s, which can be used in a PDF file.
@@ -233,13 +178,7 @@ impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab | ColorSpace::Oklch | ColorSpace::Hsl | ColorSpace::Hsv => {
-                let [l, c, h, alpha] = color.to_oklch().to_vec4();
-                // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
-                let c = c.clamp(0.0, 0.5);
-                // Convert cylindrical coordinates back to rectangular ones.
-                let a = c * h.to_radians().cos();
-                let b = c * h.to_radians().sin();
-                [l, a + 0.5, b + 0.5, alpha]
+                color.to_space(ColorSpace::Srgb).to_vec4()
             }
             _ => color.to_space(*self).to_vec4(),
         }
@@ -303,14 +242,6 @@ impl PaintEncode for Color {
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_fill_color([l]);
             }
-            // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.resources.colors.mark_as_used(ColorSpace::Oklab);
-                ctx.set_fill_color_space(OKLAB);
-
-                let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
-                ctx.content.set_fill_color([l, a, b]);
-            }
             Color::LinearRgb(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::LinearRgb);
                 ctx.set_fill_color_space(LINEAR_SRGB);
@@ -318,7 +249,12 @@ impl PaintEncode for Color {
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
-            Color::Rgb(_) => {
+            // Oklab & friends are encoded as RGB.
+            Color::Rgb(_)
+            | Color::Oklab(_)
+            | Color::Oklch(_)
+            | Color::Hsl(_)
+            | Color::Hsv(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::Srgb);
                 ctx.set_fill_color_space(SRGB);
 
@@ -343,14 +279,6 @@ impl PaintEncode for Color {
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_stroke_color([l]);
             }
-            // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
-                ctx.resources.colors.mark_as_used(ColorSpace::Oklab);
-                ctx.set_stroke_color_space(OKLAB);
-
-                let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
-                ctx.content.set_stroke_color([l, a, b]);
-            }
             Color::LinearRgb(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::LinearRgb);
                 ctx.set_stroke_color_space(LINEAR_SRGB);
@@ -358,7 +286,12 @@ impl PaintEncode for Color {
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
-            Color::Rgb(_) => {
+            // Oklab & friends are encoded as RGB.
+            Color::Rgb(_)
+            | Color::Oklab(_)
+            | Color::Oklch(_)
+            | Color::Hsl(_)
+            | Color::Hsv(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::Srgb);
                 ctx.set_stroke_color_space(SRGB);
 

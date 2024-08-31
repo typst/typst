@@ -181,13 +181,14 @@ fn shading_function(
     for window in gradient.stops_ref().windows(2) {
         let (first, second) = (window[0], window[1]);
 
-        // If we have a hue index, we will create several stops in-between
-        // to make the gradient smoother without interpolation issues with
-        // native color spaces.
+        // If we have a hue index or are using Oklab, we will create several
+        // stops in-between to make the gradient smoother without interpolation
+        // issues with native color spaces.
         let mut last_c = first.0;
         if gradient.space().hue_index().is_some() {
-            for i in 0..=32 {
-                let t = i as f64 / 32.0;
+            let interm = if gradient.space().is_oklab_family() { 128 } else { 32 };
+            for i in 0..=interm {
+                let t = i as f64 / interm as f64;
                 let real_t = first.1.get() * (1.0 - t) + second.1.get() * t;
 
                 let c = gradient.sample(RatioOrAngle::Ratio(Ratio::new(real_t)));
