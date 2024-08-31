@@ -2,6 +2,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
+use rust_decimal::MathematicalOps;
 
 use crate::diag::StrResult;
 use crate::foundations::{func, scope, ty, Repr};
@@ -17,6 +18,35 @@ impl Decimal {
     /// Whether this decimal value is zero.
     pub const fn is_zero(self) -> bool {
         self.0.is_zero()
+    }
+
+    /// Whether this decimal value is negative.
+    pub const fn is_negative(self) -> bool {
+        self.0.is_sign_negative()
+    }
+
+    /// Whether this decimal has fractional part equal to zero (is an integer).
+    pub fn is_integer(self) -> bool {
+        self.0.is_integer()
+    }
+
+    /// Computes the absolute value of this decimal.
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    /// Attempts to calculate `e` to the power of `self`.
+    ///
+    /// Returns `None` on overflow.
+    pub fn checked_exp(self) -> Option<Self> {
+        self.0.checked_exp().map(Self)
+    }
+
+    /// Attempts to calculate this decimal number's square root.
+    ///
+    /// Returns `None` if negative.
+    pub fn checked_sqrt(self) -> Option<Self> {
+        self.0.sqrt().map(Self)
     }
 
     /// Attempts to add two decimals.
@@ -45,6 +75,22 @@ impl Decimal {
     /// Returns `None` if `other` is zero, as well as on overflow or underflow.
     pub fn checked_div(self, other: Self) -> Option<Self> {
         self.0.checked_div(other.0).map(Self)
+    }
+
+    /// Attempts to take one decimal to the power of an integer.
+    ///
+    /// Returns `None` for invalid operands, as well as on overflow or
+    /// underflow.
+    pub fn checked_powi(self, other: i64) -> Option<Self> {
+        self.0.checked_powi(other).map(Self)
+    }
+
+    /// Attempts to take one decimal to the power of another.
+    ///
+    /// Returns `None` for invalid operands, as well as on overflow or
+    /// underflow.
+    pub fn checked_pow(self, other: Self) -> Option<Self> {
+        self.0.checked_powd(other.0).map(Self)
     }
 }
 

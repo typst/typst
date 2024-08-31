@@ -4,9 +4,11 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::ops::{Div, Rem};
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use ecow::eco_format;
+
+use crate::diag::{bail, At, HintedString, SourceResult, StrResult};
 use crate::eval::ops;
-use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
+use crate::foundations::{cast, func, Decimal, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
 
@@ -61,7 +63,8 @@ pub fn module() -> Module {
 /// ```example
 /// #calc.abs(-5) \
 /// #calc.abs(5pt - 2cm) \
-/// #calc.abs(2fr)
+/// #calc.abs(2fr) \
+/// #calc.abs(decimal("-342.440"))
 /// ```
 #[func(title = "Absolute")]
 pub fn abs(
@@ -83,6 +86,7 @@ cast! {
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),
+    v: Decimal => Self(Value::Decimal(v.abs()))
 }
 
 /// Raises a value to some exponent.
@@ -95,43 +99,64 @@ pub fn pow(
     /// The callsite span.
     span: Span,
     /// The base of the power.
-    base: Num,
+    base: DecNum,
     /// The exponent of the power.
-    exponent: Spanned<Num>,
-) -> SourceResult<Num> {
+    exponent: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
     match exponent.v {
-        _ if exponent.v.float() == 0.0 && base.float() == 0.0 => {
+        _ if exponent.v.is_zero() && base.is_zero() => {
             bail!(span, "zero to the power of zero is undefined")
         }
-        Num::Int(i) if i32::try_from(i).is_err() => {
+        DecNum::Num(Num::Int(i)) if i32::try_from(i).is_err() => {
             bail!(exponent.span, "exponent is too large")
         }
-        Num::Float(f) if !f.is_normal() && f != 0.0 => {
+        DecNum::Num(Num::Float(f)) if !f.is_normal() && f != 0.0 => {
             bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
     };
 
-    let result = match (base, exponent.v) {
-        (Num::Int(a), Num::Int(b)) if b >= 0 => {
-            a.checked_pow(b as u32).map(Num::Int).ok_or_else(too_large).at(span)?
+    let dec_result = match (base, exponent.v) {
+        (DecNum::Num(Num::Int(a)), DecNum::Num(Num::Int(b))) if b >= 0 => a
+            .checked_pow(b as u32)
+            .map(Num::Int)
+            .map(DecNum::Num)
+            .ok_or_else(too_large)
+            .at(span)?,
+        (DecNum::Num(a), DecNum::Num(b)) => {
+            DecNum::Num(Num::Float(if a.float() == std::f64::consts::E {
+                b.float().exp()
+            } else if a.float() == 2.0 {
+                b.float().exp2()
+            } else if let Num::Int(b) = b {
+                a.float().powi(b as i32)
+            } else {
+                a.float().powf(b.float())
+            }))
         }
-        (a, b) => Num::Float(if a.float() == std::f64::consts::E {
-            b.float().exp()
-        } else if a.float() == 2.0 {
-            b.float().exp2()
-        } else if let Num::Int(b) = b {
-            a.float().powi(b as i32)
-        } else {
-            a.float().powf(b.float())
-        }),
+        (DecNum::Decimal(a), DecNum::Num(Num::Int(b))) => a
+            .checked_powi(b)
+            .map(DecNum::Decimal)
+            .ok_or_else(too_large)
+            .at(span)?,
+        (a, b) => {
+            let (Some(a), Some(b)) = (a.try_decimal(), b.try_decimal()) else {
+                return Err(cant_apply_to_decimal_and_float()).at(span);
+            };
+
+            if a.is_negative() && !b.is_integer() {
+                bail!(span, "the result is not a real number")
+            }
+
+            a.checked_pow(b).map(DecNum::Decimal).ok_or_else(too_large).at(span)?
+        }
     };
 
-    if result.float().is_nan() {
+    if dec_result.try_num().is_some_and(|num| num.float().is_nan()) {
         bail!(span, "the result is not a real number")
     }
 
-    Ok(result)
+    Ok(dec_result)
 }
 
 /// Raises a value to some exponent of e.
@@ -144,24 +169,35 @@ pub fn exp(
     /// The callsite span.
     span: Span,
     /// The exponent of the power.
-    exponent: Spanned<Num>,
-) -> SourceResult<f64> {
+    exponent: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
     match exponent.v {
-        Num::Int(i) if i32::try_from(i).is_err() => {
-            bail!(exponent.span, "exponent is too large")
-        }
-        Num::Float(f) if !f.is_normal() && f != 0.0 => {
-            bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
-        }
-        _ => {}
-    };
+        DecNum::Num(num) => {
+            match num {
+                Num::Int(i) if i32::try_from(i).is_err() => {
+                    bail!(exponent.span, "exponent is too large")
+                }
+                Num::Float(f) if !f.is_normal() && f != 0.0 => {
+                    bail!(
+                        exponent.span,
+                        "exponent may not be infinite, subnormal, or NaN"
+                    )
+                }
+                _ => {}
+            }
 
-    let result = exponent.v.float().exp();
-    if result.is_nan() {
-        bail!(span, "the result is not a real number")
+            let result = num.float().exp();
+            if result.is_nan() {
+                bail!(span, "the result is not a real number")
+            }
+            Ok(DecNum::Num(Num::Float(result)))
+        }
+        DecNum::Decimal(decimal) => decimal
+            .checked_exp()
+            .map(DecNum::Decimal)
+            .ok_or("exponent is too large")
+            .at(exponent.span),
     }
-
-    Ok(result)
 }
 
 /// Calculates the square root of a number.
@@ -173,12 +209,21 @@ pub fn exp(
 #[func(title = "Square Root")]
 pub fn sqrt(
     /// The number whose square root to calculate. Must be non-negative.
-    value: Spanned<Num>,
-) -> SourceResult<f64> {
-    if value.v.float() < 0.0 {
-        bail!(value.span, "cannot take square root of negative number");
+    value: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
+    match value.v {
+        DecNum::Num(num) => {
+            if num.float() < 0.0 {
+                bail!(value.span, "cannot take square root of negative number");
+            }
+            Ok(DecNum::Num(Num::Float(num.float().sqrt())))
+        }
+        DecNum::Decimal(decimal) => decimal
+            .checked_sqrt()
+            .map(DecNum::Decimal)
+            .ok_or("cannot take square root of negative number")
+            .at(value.span),
     }
-    Ok(value.v.float().sqrt())
 }
 
 /// Calculates the real nth root of a number.
@@ -958,6 +1003,94 @@ cast! {
     v: f64 => Self::Float(v),
 }
 
+/// A value which can be passed to functions that work with decimals, integers or floats.
+#[derive(Debug, Copy, Clone)]
+pub enum DecNum {
+    Decimal(Decimal),
+    Num(Num),
+}
+
+impl DecNum {
+    /// Checks if this number is equivalent to zero.
+    fn is_zero(self) -> bool {
+        match self {
+            Self::Decimal(d) => d.is_zero(),
+            Self::Num(Num::Int(i)) => i == 0,
+            Self::Num(Num::Float(f)) => f == 0.0,
+        }
+    }
+
+    /// Tries to apply a function to two decimal or numeric arguments.
+    ///
+    /// Fails with `None` if one is a float and the other is a decimal.
+    #[allow(dead_code)]
+    fn try_apply2(
+        self,
+        other: Self,
+        int: impl FnOnce(i64, i64) -> i64,
+        float: impl FnOnce(f64, f64) -> f64,
+        decimal: impl FnOnce(Decimal, Decimal) -> Decimal,
+    ) -> Option<Self> {
+        match (self, other) {
+            (Self::Num(a), Self::Num(b)) => Some(Self::Num(a.apply2(b, int, float))),
+            (a, b) => Some(Self::Decimal(decimal(a.try_decimal()?, b.try_decimal()?))),
+        }
+    }
+
+    /// Tries to apply a function to three decimal or numeric arguments.
+    ///
+    /// Fails with `None` if one is a float and the other is a decimal.
+    #[allow(dead_code)]
+    fn try_apply3(
+        self,
+        other: Self,
+        third: Self,
+        int: impl FnOnce(i64, i64, i64) -> i64,
+        float: impl FnOnce(f64, f64, f64) -> f64,
+        decimal: impl FnOnce(Decimal, Decimal, Decimal) -> Decimal,
+    ) -> Option<Self> {
+        match (self, other, third) {
+            (Self::Num(a), Self::Num(b), Self::Num(c)) => {
+                Some(Self::Num(a.apply3(b, c, int, float)))
+            }
+            (a, b, c) => Some(Self::Decimal(decimal(
+                a.try_decimal()?,
+                b.try_decimal()?,
+                c.try_decimal()?,
+            ))),
+        }
+    }
+
+    /// If this `DecNum` holds a `Num` (integer or float), returns it.
+    /// Otherwise, returns `None`.
+    fn try_num(self) -> Option<Num> {
+        match self {
+            Self::Decimal(_) => None,
+            Self::Num(num) => Some(num),
+        }
+    }
+
+    /// Converts to a decimal if this is not a float (to avoid loss of
+    /// precision).
+    fn try_decimal(self) -> Option<Decimal> {
+        match self {
+            Self::Decimal(d) => Some(d),
+            Self::Num(Num::Int(i)) => Some(Decimal::from(i)),
+            Self::Num(Num::Float(_)) => None,
+        }
+    }
+}
+
+cast! {
+    DecNum,
+    self => match self {
+        Self::Decimal(v) => v.into_value(),
+        Self::Num(v) => v.into_value(),
+    },
+    v: Decimal => Self::Decimal(v),
+    v: Num => Self::Num(v),
+}
+
 /// A value that can be passed to a trigonometric function.
 pub enum AngleLike {
     Int(i64),
@@ -976,4 +1109,12 @@ cast! {
 #[cold]
 fn too_large() -> &'static str {
     "the result is too large"
+}
+
+/// The hinted error message when trying to apply an operation to decimal and
+/// float operands.
+#[cold]
+fn cant_apply_to_decimal_and_float() -> HintedString {
+    HintedString::new(eco_format!("cannot apply this operation to a decimal and a float"))
+        .with_hint("if precision loss is acceptable, explicitly cast the decimal to a float with `float(value)`")
 }

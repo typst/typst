@@ -11,9 +11,11 @@
 #test(calc.abs(-3.14), 3.14)
 #test(calc.abs(50%), 50%)
 #test(calc.abs(-25%), 25%)
+#test(calc.abs(decimal("4932.493249324932")), decimal("4932.493249324932"))
+#test(calc.abs(decimal("-12402.593295932041")), decimal("12402.593295932041"))
 
 --- cals-abs-bad-type ---
-// Error: 11-22 expected integer, float, length, angle, ratio, or fraction, found string
+// Error: 11-22 expected integer, float, length, angle, ratio, fraction or decimal, found string
 #calc.abs("no number")
 
 --- calc-even-and-odd ---
@@ -98,7 +100,10 @@
 // Test the `pow`, `log`, `exp`, and `ln` functions.
 #test(calc.pow(10, 0), 1)
 #test(calc.pow(2, 4), 16)
+#test(calc.pow(decimal("0.5"), decimal("18")), decimal("0.000003814697265625"))
+#test(calc.pow(decimal("144"), decimal("0.5")), decimal("11.999999982893776546382839848"))
 #test(calc.exp(2), calc.pow(calc.e, 2))
+#test(calc.exp(decimal("2")), decimal("7.3890560703259115957528655940"))
 #test(calc.ln(10), calc.log(10, base: calc.e))
 
 --- calc-bit-logical ---
@@ -152,6 +157,10 @@
 // Error: 14-31 exponent is too large
 #calc.pow(2, 10000000000000000)
 
+--- calc-pow-too-large-decimal ---
+// Error: 2-43 the result is too large
+#calc.pow(2, decimal("10000000000000000"))
+
 --- calc-pow-too-large ---
 // Error: 2-25 the result is too large
 #calc.pow(2, 2147483647)
@@ -164,9 +173,17 @@
 // Error: 2-19 the result is not a real number
 #calc.pow(-1, 0.5)
 
+--- calc-pow-not-real-decimal ---
+// Error: 2-41 the result is not a real number
+#calc.pow(decimal("-1"), decimal("0.5"))
+
 --- calc-sqrt-not-real ---
 // Error: 12-14 cannot take square root of negative number
 #calc.sqrt(-1)
+
+--- calc-sqrt-not-real-decimal ---
+// Error: 12-25 cannot take square root of negative number
+#calc.sqrt(decimal("-1"))
 
 --- calc-root ---
 #test(calc.root(12.0, 1), 12.0)
