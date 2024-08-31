@@ -106,6 +106,18 @@ pub struct BoxElem {
     pub outset: Sides<Option<Rel<Length>>>,
 
     /// Whether to clip the content inside the box.
+    ///
+    /// Clipping is useful when the box's content is larger than the box itself,
+    /// as any content that exceeds the box's bounds will be hidden.
+    ///
+    /// ```example
+    /// #box(
+    ///   width: 50pt,
+    ///   height: 50pt,
+    ///   clip: true,
+    ///   image("tiger.jpg", width: 100pt, height: 100pt)
+    /// )
+    /// ```
     #[default(false)]
     pub clip: bool,
 
@@ -422,6 +434,18 @@ pub struct BlockElem {
     pub below: Smart<Spacing>,
 
     /// Whether to clip the content inside the block.
+    ///
+    /// Clipping is useful when the block's content is larger than the box itself,
+    /// as any content that exceeds the box's bounds will be hidden.
+    ///
+    /// ```example
+    /// #block(
+    ///   width: 50pt,
+    ///   height: 50pt,
+    ///   clip: true,
+    ///   image("tiger.jpg", width: 100pt, height: 100pt)
+    /// )
+    /// ```
     #[default(false)]
     pub clip: bool,
 
