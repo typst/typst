@@ -178,4 +178,28 @@ impl PackageStorage {
             PackageError::MalformedArchive(Some(eco_format!("{err}")))
         })
     }
+
+    /// Purge the package cache.
+    pub fn purge_cache(&self) -> PackageResult<()> {
+        if let Some(cache_dir) = &self.package_cache_path {
+            if cache_dir.exists() {
+                fs::remove_dir_all(cache_dir)
+                    .map_err(|err| PackageError::Other(Some(eco_format!("{err}"))))?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Purge the local package storage.
+    pub fn purge_local(&self) -> PackageResult<()> {
+        if let Some(packages_dir) = &self.package_path {
+            if packages_dir.exists() {
+                fs::remove_dir_all(packages_dir)
+                    .map_err(|err| PackageError::Other(Some(eco_format!("{err}"))))?;
+            }
+        }
+
+        Ok(())
+    }
 }

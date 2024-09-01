@@ -62,6 +62,9 @@ pub enum Command {
     /// Self update the Typst CLI
     #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
     Update(UpdateCommand),
+
+    /// Purge the package cache
+    Purge(PurgeCommand),
 }
 
 /// Compiles an input file into a supported output format
@@ -175,6 +178,21 @@ pub struct QueryCommand {
 pub enum SerializationFormat {
     Json,
     Yaml,
+}
+
+/// Purge the package cache, removing all downloaded packages
+///
+/// This command is useful when the package cache is corrupted or
+/// when you want to free up disk space.
+#[derive(Debug, Clone, Parser)]
+pub struct PurgeCommand {
+    /// Arguments related to storage of packages in the system
+    #[clap(flatten)]
+    pub package_storage_args: PackageStorageArgs,
+
+    /// Whether to also remove the local packages directory
+    #[clap(long, required = false, action = ArgAction::SetTrue)]
+    pub local: bool,
 }
 
 /// Common arguments of compile, watch, and query.

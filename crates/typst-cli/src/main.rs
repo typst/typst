@@ -56,6 +56,7 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Query(command) => crate::query::query(command)?,
         Command::Fonts(command) => crate::fonts::fonts(command)?,
         Command::Update(command) => crate::update::update(command)?,
+        Command::Purge(command) => crate::package::purge(command)?,
     }
 
     Ok(())
