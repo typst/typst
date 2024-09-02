@@ -1,11 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
-use typst_macros::cast;
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{
-    func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
+    cast, func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
 };
 use crate::syntax::{Span, Spanned};
 
