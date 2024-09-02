@@ -994,7 +994,7 @@ fn module_import(p: &mut Parser) {
         if p.current() == SyntaxKind::LeftParen {
             let m1 = p.marker();
             p.enter_newline_mode(NewlineMode::Continue);
-            p.expect(SyntaxKind::LeftParen);
+            p.assert(SyntaxKind::LeftParen);
 
             import_items(p);
 
