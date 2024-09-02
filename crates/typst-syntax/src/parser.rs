@@ -991,7 +991,7 @@ fn module_import(p: &mut Parser) {
     }
 
     if p.eat_if(SyntaxKind::Colon) {
-        if p.current() == SyntaxKind::LeftParen {
+        if p.at(SyntaxKind::LeftParen) {
             let m1 = p.marker();
             p.enter_newline_mode(NewlineMode::Continue);
             p.assert(SyntaxKind::LeftParen);
