@@ -298,8 +298,6 @@ pub enum NumberingKind {
     /// The variant of Eastern Arabic numerals used in Persian and Urdu.
     EasternArabicPersian,
     /// Devanagari numerals.
-    // TODO: Is it the best name? (I use the suffic ‘Number’ in case we want to also support
-    // devanagari letters)
     DevanagariNumber,
     /// Circled numbers (①, ②, ③, etc.), up to 50.
     CircledNumber,
