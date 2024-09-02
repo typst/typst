@@ -271,38 +271,24 @@ cast! {
 }
 
 impl Args {
-    fn get(&self, key: &ArgumentKey) -> Option<Value> {
-        match key {
+    fn get(&self, key: &ArgumentKey) -> Option<&Value> {
+        let item = match key {
             &ArgumentKey::Index(index) => {
+                let mut iter = self.items.iter().filter(|item| item.name.is_none());
                 if index < 0 {
                     let index = (-(index + 1)).try_into().ok()?;
-                    self.items
-                        .iter()
-                        .filter(|item| item.name.is_none())
-                        .map(|item| item.value.v.clone())
-                        .rev()
-                        .nth(index)
+                    iter.nth_back(index)
                 } else {
                     let index = index.try_into().ok()?;
-                    self.items
-                        .iter()
-                        .filter(|item| item.name.is_none())
-                        .map(|item| item.value.v.clone())
-                        .nth(index)
+                    iter.nth(index)
                 }
             }
-
+            // Accept the last argument with the right name.
             ArgumentKey::Name(name) => {
-                // Accept the last argument with the right name.
-                self.items
-                    .iter()
-                    .filter_map(|item| {
-                        item.name.as_ref().map(|k| (k, item.value.v.clone()))
-                    })
-                    .rfind(|(k, _)| *k == name)
-                    .map(|(_, v)| v)
+                self.items.iter().rfind(|item| item.name.as_ref() == Some(name))
             }
-        }
+        };
+        item.map(|item| &item.value.v)
     }
 }
 
@@ -345,7 +331,10 @@ impl Args {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        self.get(&key).or(default).ok_or_else(|| missing_key_no_default(key))
+        self.get(&key)
+            .cloned()
+            .or(default)
+            .ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Returns the captured positional arguments as an array.
