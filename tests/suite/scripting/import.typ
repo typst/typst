@@ -91,6 +91,13 @@
 // Error: 23-24 unclosed delimiter
 #import "module.typ": (
 
+--- import-items-parenthesized-invalid-3 ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (
+  a, b,
+  c,
+
+
 --- import-from-function-scope ---
 // Test importing from function scopes.
 
