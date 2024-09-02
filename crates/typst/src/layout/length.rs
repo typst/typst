@@ -86,9 +86,9 @@ impl Length {
             span,
             "cannot convert a length with non-zero em units (`{}`) to {unit}",
             self.repr();
-            hint: "use `length.abs.{unit}()` instead to ignore its em component";
-            hint: "or use `length.to-absolute()` to resolve its em component \
-                   (requires context)"
+            hint: "use `length.to-absolute()` to resolve its em component \
+                   (requires context)";
+            hint: "or use `length.abs.{unit}()` instead to ignore its em component"
         )
     }
 }
