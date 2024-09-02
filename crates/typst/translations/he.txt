@@ -1,0 +1,7 @@
+figure = איור
+table = טבלה
+equation = משוואה
+bibliography = רשימת מקורות
+heading = חלק
+outline = תוכן עניינים
+raw = קטע מקור

@@ -1,6 +1,8 @@
 use crate::diag::{warning, SourceResult};
 use crate::eval::{Eval, Vm};
-use crate::foundations::{Content, Label, NativeElement, Smart, Unlabellable, Value};
+use crate::foundations::{
+    Content, Label, NativeElement, Repr, Smart, Unlabellable, Value,
+};
 use crate::math::EquationElem;
 use crate::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -52,7 +54,20 @@ fn eval_markup<'a>(
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
                     {
+                        if elem.label().is_some() {
+                            vm.engine.sink.warn(warning!(
+                                elem.span(), "content labelled multiple times";
+                                hint: "only the last label is used, the rest are ignored",
+                            ));
+                        }
+
                         *elem = std::mem::take(elem).labelled(label);
+                    } else {
+                        vm.engine.sink.warn(warning!(
+                            expr.span(),
+                            "label `{}` is not attached to anything",
+                            label.repr()
+                        ));
                     }
                 }
                 value => seq.push(value.display().spanned(expr.span())),
