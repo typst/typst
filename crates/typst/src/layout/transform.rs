@@ -335,6 +335,106 @@ cast! {
     length: Length => ScaleAmount::Length(length),
 }
 
+/// Skews content.
+///
+/// Skews an element in horizontal and/or vertical direction. The layout will
+/// act as if the element was not skewed unless you specify `{reflow: true}`.
+///
+/// # Example
+/// ```example
+/// #skew(ax: -12deg)[This is some fake italic text.]
+/// ```
+#[elem(Show)]
+pub struct SkewElem {
+    /// The horizontal skewing angle.
+    ///
+    /// ```example
+    /// #skew(ax: 30deg)[Skewed]
+    /// ```
+    ///
+    #[default(Angle::zero())]
+    pub ax: Angle,
+
+    /// The vertical skewing angle.
+    ///
+    /// ```example
+    /// #skew(ay: 30deg)[Skewed]
+    /// ```
+    ///
+    #[default(Angle::zero())]
+    pub ay: Angle,
+
+    /// The origin of the skew transformation.
+    ///
+    /// The origin will stay fixed during the operation.
+    ///
+    /// ```example
+    /// X #box(skew(ax: -30deg, origin: center + horizon)[X]) X \
+    /// X #box(skew(ax: -30deg, origin: bottom + left)[X]) X \
+    /// X #box(skew(ax: -30deg, origin: top + right)[X]) X
+    /// ```
+    #[fold]
+    #[default(HAlignment::Center + VAlignment::Horizon)]
+    pub origin: Alignment,
+
+    /// Whether the skew transformation impacts the layout.
+    ///
+    /// If set to `{false}`, the skewed content will retain the bounding box of
+    /// the original content. If set to `{true}`, the bounding box will take the
+    /// transformation of the content into account and adjust the layout accordingly.
+    ///
+    /// ```example
+    /// Hello #skew(ay: 30deg, reflow: true, "World")!
+    /// ```
+    #[default(false)]
+    pub reflow: bool,
+
+    /// The content to skew.
+    #[required]
+    pub body: Content,
+}
+
+impl Show for Packed<SkewElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::single_layouter(self.clone(), layout_skew)
+            .pack()
+            .spanned(self.span()))
+    }
+}
+
+/// Layout the skewed content.
+#[typst_macros::time(span = elem.span())]
+fn layout_skew(
+    elem: &Packed<SkewElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let ax = elem.ax(styles);
+    let ay = elem.ay(styles);
+    let align = elem.origin(styles).resolve(styles);
+
+    // Compute the new region's approximate size.
+    let size = if region.size.is_finite() {
+        compute_bounding_box(region.size, Transform::skew(ax, ay)).1
+    } else {
+        Size::splat(Abs::inf())
+    };
+
+    measure_and_layout(
+        engine,
+        locator,
+        region,
+        size,
+        styles,
+        elem.body(),
+        Transform::skew(ax, ay),
+        align,
+        elem.reflow(styles),
+    )
+}
+
 /// A scale-skew-translate transformation.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Transform {
@@ -379,6 +479,15 @@ impl Transform {
             kx: -sin,
             sy: cos,
             ..Self::default()
+        }
+    }
+
+    /// A skew transform.
+    pub fn skew(ax: Angle, ay: Angle) -> Self {
+        Self {
+            kx: Ratio::new(ax.tan()),
+            ky: Ratio::new(ay.tan()),
+            ..Self::identity()
         }
     }
 
