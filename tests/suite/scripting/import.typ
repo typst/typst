@@ -83,6 +83,14 @@
 #test(c, 2)
 #test(d, 3)
 
+--- import-items-parenthesized-invalid ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (a, b, c
+
+--- import-items-parenthesized-invalid-2 ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (
+
 --- import-from-function-scope ---
 // Test importing from function scopes.
 
