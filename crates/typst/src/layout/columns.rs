@@ -7,7 +7,6 @@ use crate::introspection::Locator;
 use crate::layout::{
     layout_fragment_with_columns, BlockElem, Fragment, Length, Ratio, Regions, Rel,
 };
-use crate::realize::{Behave, Behaviour};
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -109,20 +108,10 @@ fn layout_columns(
 /// understanding of the fundamental
 /// laws of nature.
 /// ```
-#[elem(title = "Column Break", Behave)]
+#[elem(title = "Column Break")]
 pub struct ColbreakElem {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.
     #[default(false)]
     pub weak: bool,
-}
-
-impl Behave for Packed<ColbreakElem> {
-    fn behaviour(&self) -> Behaviour {
-        if self.weak(StyleChain::default()) {
-            Behaviour::Weak(1)
-        } else {
-            Behaviour::Destructive
-        }
-    }
 }

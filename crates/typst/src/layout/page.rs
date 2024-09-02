@@ -9,14 +9,13 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, AutoValue, Cast, Construct, Content, Context, Dict, Fold, Func,
-    NativeElement, Packed, Set, Smart, StyleChain, Value,
+    NativeElement, Set, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Alignment, FlushElem, Frame, HAlignment, Length, OuterVAlignment, Ratio, Rel,
     Sides, SpecificAlignment,
 };
 use crate::model::Numbering;
-use crate::realize::{Behave, Behaviour};
 use crate::utils::{singleton, NonZeroExt, Scalar};
 use crate::visualize::{Color, Paint};
 
@@ -388,7 +387,7 @@ impl Construct for PageElem {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
-#[elem(title = "Page Break", Behave)]
+#[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.
@@ -415,12 +414,6 @@ pub struct PagebreakElem {
     #[parse(None)]
     #[default(false)]
     pub boundary: bool,
-}
-
-impl Behave for Packed<PagebreakElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Destructive
-    }
 }
 
 impl PagebreakElem {

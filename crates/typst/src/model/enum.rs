@@ -14,7 +14,7 @@ use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
     Length, Regions, Sizing, VAlignment, VElem,
 };
-use crate::model::{Numbering, NumberingPattern, ParElem};
+use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
 
 /// A numbered list.
@@ -224,7 +224,8 @@ impl Show for Packed<EnumElem> {
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
-            let spacing = VElem::list_attach(leading.into()).pack();
+            let spacing =
+                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
             realized = spacing + realized;
         }
 
@@ -325,14 +326,6 @@ pub struct EnumItem {
     pub body: Content,
 }
 
-impl Packed<EnumItem> {
-    /// Apply styles to this enum item.
-    pub fn styled(mut self, styles: Styles) -> Self {
-        self.body.style_in_place(styles);
-        self
-    }
-}
-
 cast! {
     EnumItem,
     array: Array => {
@@ -344,4 +337,19 @@ cast! {
         Self::new(body).with_number(number)
     },
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
+}
+
+impl ListLike for EnumElem {
+    type Item = EnumItem;
+
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self {
+        Self::new(children).with_tight(tight)
+    }
+}
+
+impl ListItemLike for EnumItem {
+    fn styled(mut item: Packed<Self>, styles: Styles) -> Packed<Self> {
+        item.body.style_in_place(styles);
+        item
+    }
 }

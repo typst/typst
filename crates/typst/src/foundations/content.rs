@@ -21,10 +21,9 @@ use crate::foundations::{
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
-use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::utils::{fat, LazyHash, SmallBitSet};
+use crate::utils::{fat, singleton, LazyHash, SmallBitSet};
 
 /// A piece of document content.
 ///
@@ -109,9 +108,9 @@ impl Content {
         }
     }
 
-    /// Creates a new empty sequence content.
+    /// Creates a empty sequence content.
     pub fn empty() -> Self {
-        Self::new(SequenceElem::default())
+        singleton!(Content, SequenceElem::default().pack()).clone()
     }
 
     /// Get the element of this content.
@@ -183,12 +182,6 @@ impl Content {
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
         self.make_mut().lifecycle.insert(0);
-    }
-
-    /// How this element interacts with other elements in a stream.
-    pub fn behaviour(&self) -> Behaviour {
-        self.with::<dyn Behave>()
-            .map_or(Behaviour::Supportive, Behave::behaviour)
     }
 
     /// Get a field by ID.

@@ -5,9 +5,7 @@ use crate::foundations::{
     elem, func, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
 use crate::layout::{Abs, Em, Length, Rel};
-use crate::math::{
-    GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled, SpacingFragment,
-};
+use crate::math::{GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled};
 use crate::text::TextElem;
 
 use super::delimiter_alignment;
@@ -90,10 +88,7 @@ impl LayoutMath for Packed<LrElem> {
         fragments.retain(|fragment| {
             index += 1;
             (index != 2 && index + 1 != original_len)
-                || !matches!(
-                    fragment,
-                    MathFragment::Spacing(SpacingFragment { weak: true, .. })
-                )
+                || !matches!(fragment, MathFragment::Spacing(_, true))
         });
 
         ctx.extend(fragments);

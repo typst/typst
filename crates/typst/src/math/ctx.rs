@@ -11,17 +11,20 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, Packed, StyleChain, StyleVec};
-use crate::introspection::{Locator, SplitLocator};
-use crate::layout::{layout_frame, Abs, Axes, BoxElem, Em, Frame, Region, Size};
+use crate::foundations::{Content, Packed, Resolve, StyleChain, StyleVec};
+use crate::introspection::{SplitLocator, TagElem};
+use crate::layout::{
+    layout_frame, Abs, Axes, BoxElem, Em, Frame, HElem, PlaceElem, Region, Size, Spacing,
+};
 use crate::math::{
     scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
     LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
+use crate::realize::{realize, Arenas, RealizationKind};
 use crate::syntax::{is_newline, Span};
 use crate::text::{
-    features, BottomEdge, BottomEdgeMetric, Font, TextElem, TextSize, TopEdge,
-    TopEdgeMetric,
+    features, BottomEdge, BottomEdgeMetric, Font, LinebreakElem, SpaceElem, TextElem,
+    TextSize, TopEdge, TopEdgeMetric,
 };
 
 macro_rules! scaled {
@@ -45,10 +48,10 @@ macro_rules! percent {
 }
 
 /// The context for math layout.
-pub struct MathContext<'a, 'b, 'v> {
+pub struct MathContext<'a, 'v, 'e> {
     // External.
-    pub engine: &'v mut Engine<'b>,
-    pub locator: SplitLocator<'v>,
+    pub engine: &'v mut Engine<'e>,
+    pub locator: &'v mut SplitLocator<'a>,
     pub region: Region,
     // Font-related.
     pub font: &'a Font,
@@ -62,10 +65,11 @@ pub struct MathContext<'a, 'b, 'v> {
     pub fragments: Vec<MathFragment>,
 }
 
-impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
+impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
+    /// Create a new math context.
     pub fn new(
-        engine: &'v mut Engine<'b>,
-        locator: Locator<'v>,
+        engine: &'v mut Engine<'e>,
+        locator: &'v mut SplitLocator<'a>,
         styles: StyleChain<'a>,
         base: Size,
         font: &'a Font,
@@ -104,7 +108,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
         Self {
             engine,
-            locator: locator.split(),
+            locator,
             region: Region::new(base, Axes::splat(false)),
             font,
             ttf: font.ttf(),
@@ -117,18 +121,29 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         }
     }
 
+    /// Push a fragment.
     pub fn push(&mut self, fragment: impl Into<MathFragment>) {
         self.fragments.push(fragment.into());
     }
 
-    pub fn extend(&mut self, fragments: Vec<MathFragment>) {
+    /// Push multiple fragments.
+    pub fn extend(&mut self, fragments: impl IntoIterator<Item = MathFragment>) {
         self.fragments.extend(fragments);
+    }
+
+    /// Layout the given element and return the result as a [`MathRun`].
+    pub fn layout_into_run(
+        &mut self,
+        elem: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<MathRun> {
+        Ok(MathRun::new(self.layout_into_fragments(elem, styles)?))
     }
 
     /// Layout the given element and return the resulting [`MathFragment`]s.
     pub fn layout_into_fragments(
         &mut self,
-        elem: &dyn LayoutMath,
+        elem: &Content,
         styles: StyleChain,
     ) -> SourceResult<Vec<MathFragment>> {
         // The element's layout_math() changes the fragments held in this
@@ -136,24 +151,15 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // them, so we restore the MathContext's fragments after obtaining the
         // layout result.
         let prev = std::mem::take(&mut self.fragments);
-        elem.layout_math(self, styles)?;
+        self.layout(elem, styles)?;
         Ok(std::mem::replace(&mut self.fragments, prev))
-    }
-
-    /// Layout the given element and return the result as a [`MathRun`].
-    pub fn layout_into_run(
-        &mut self,
-        elem: &dyn LayoutMath,
-        styles: StyleChain,
-    ) -> SourceResult<MathRun> {
-        Ok(MathRun::new(self.layout_into_fragments(elem, styles)?))
     }
 
     /// Layout the given element and return the result as a
     /// unified [`MathFragment`].
     pub fn layout_into_fragment(
         &mut self,
-        elem: &dyn LayoutMath,
+        elem: &Content,
         styles: StyleChain,
     ) -> SourceResult<MathFragment> {
         Ok(self.layout_into_run(elem, styles)?.into_fragment(self, styles))
@@ -162,14 +168,89 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     /// Layout the given element and return the result as a [`Frame`].
     pub fn layout_into_frame(
         &mut self,
-        elem: &dyn LayoutMath,
+        elem: &Content,
         styles: StyleChain,
     ) -> SourceResult<Frame> {
         Ok(self.layout_into_fragment(elem, styles)?.into_frame())
     }
+}
 
-    /// Layout the given [`BoxElem`] into a [`Frame`].
-    pub fn layout_box(
+impl MathContext<'_, '_, '_> {
+    /// Layout arbitrary content.
+    fn layout(&mut self, content: &Content, styles: StyleChain) -> SourceResult<()> {
+        let arenas = Arenas::default();
+        let pairs = realize(
+            RealizationKind::Math,
+            self.engine,
+            self.locator,
+            &arenas,
+            content,
+            styles,
+        )?;
+
+        let outer = styles;
+        for (elem, styles) in pairs {
+            // Hack because the font is fixed in math.
+            if styles != outer && TextElem::font_in(styles) != TextElem::font_in(outer) {
+                let frame = self.layout_external(elem, styles)?;
+                self.push(FrameFragment::new(self, styles, frame).with_spaced(true));
+                continue;
+            }
+
+            self.layout_realized(elem, styles)?;
+        }
+
+        Ok(())
+    }
+
+    /// Layout an element resulting from realization.
+    fn layout_realized(
+        &mut self,
+        elem: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        if let Some(elem) = elem.to_packed::<TagElem>() {
+            self.push(MathFragment::Tag(elem.tag.clone()));
+        } else if elem.is::<SpaceElem>() {
+            let font_size = scaled_font_size(self, styles);
+            self.push(MathFragment::Space(self.space_width.at(font_size)));
+        } else if elem.is::<LinebreakElem>() {
+            self.push(MathFragment::Linebreak);
+        } else if let Some(elem) = elem.to_packed::<HElem>() {
+            if let Spacing::Rel(rel) = elem.amount() {
+                if rel.rel.is_zero() {
+                    self.push(MathFragment::Spacing(
+                        rel.abs.resolve(styles),
+                        elem.weak(styles),
+                    ));
+                }
+            }
+        } else if let Some(elem) = elem.to_packed::<TextElem>() {
+            let fragment = self.layout_text(elem, styles)?;
+            self.push(fragment);
+        } else if let Some(boxed) = elem.to_packed::<BoxElem>() {
+            let frame = self.layout_box(boxed, styles)?;
+            self.push(FrameFragment::new(self, styles, frame).with_spaced(true));
+        } else if let Some(elem) = elem.with::<dyn LayoutMath>() {
+            elem.layout_math(self, styles)?;
+        } else {
+            let mut frame = self.layout_external(elem, styles)?;
+            if !frame.has_baseline() {
+                let axis = scaled!(self, styles, axis_height);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+            }
+            self.push(
+                FrameFragment::new(self, styles, frame)
+                    .with_spaced(true)
+                    .with_ignorant(elem.is::<PlaceElem>()),
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Layout a box into a frame.
+    fn layout_box(
         &mut self,
         boxed: &Packed<BoxElem>,
         styles: StyleChain,
@@ -184,8 +265,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         )
     }
 
-    /// Layout the given [`Content`] into a [`Frame`].
-    pub fn layout_content(
+    /// Layout into a frame with normal layout.
+    fn layout_external(
         &mut self,
         content: &Content,
         styles: StyleChain,
@@ -202,7 +283,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     /// Layout the given [`TextElem`] into a [`MathFragment`].
-    pub fn layout_text(
+    fn layout_text(
         &mut self,
         elem: &Packed<TextElem>,
         styles: StyleChain,
@@ -316,6 +397,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 }
 
+/// Converts some unit to an absolute length with the current font & font size.
 pub(super) trait Scaled {
     fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs;
 }

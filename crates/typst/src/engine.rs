@@ -29,15 +29,11 @@ pub struct Engine<'a> {
 }
 
 impl Engine<'_> {
-    /// Performs a fallible operation that does not immediately terminate further
-    /// execution. Instead it produces a delayed error that is only promoted to
-    /// a fatal one if it remains at the end of the introspection loop.
-    pub fn delay<F, T>(&mut self, f: F) -> T
-    where
-        F: FnOnce(&mut Self) -> SourceResult<T>,
-        T: Default,
-    {
-        match f(self) {
+    /// Handles a result without immediately terminating execution. Instead, it
+    /// produces a delayed error that is only promoted to a fatal one if it
+    /// remains by the end of the introspection loop.
+    pub fn delay<T: Default>(&mut self, result: SourceResult<T>) -> T {
+        match result {
             Ok(value) => value,
             Err(errors) => {
                 self.sink.delay(errors);

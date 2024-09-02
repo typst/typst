@@ -1,5 +1,4 @@
-use crate::foundations::{elem, Content, NativeElement, Packed};
-use crate::realize::{Behave, Behaviour};
+use crate::foundations::{elem, Content, NativeElement};
 use crate::utils::singleton;
 
 /// Inserts a line break.
@@ -19,7 +18,7 @@ use crate::utils::singleton;
 /// This function also has dedicated syntax: To insert a line break, simply write
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
-#[elem(title = "Line Break", Behave)]
+#[elem(title = "Line Break")]
 pub struct LinebreakElem {
     /// Whether to justify the line before the break.
     ///
@@ -42,11 +41,5 @@ impl LinebreakElem {
     /// Get the globally shared linebreak element.
     pub fn shared() -> &'static Content {
         singleton!(Content, LinebreakElem::new().pack())
-    }
-}
-
-impl Behave for Packed<LinebreakElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Destructive
     }
 }

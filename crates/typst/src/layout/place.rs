@@ -1,11 +1,10 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain, Unlabellable};
+use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain};
 use crate::introspection::Locator;
 use crate::layout::{
     layout_frame, Alignment, Axes, Em, Frame, Length, Region, Rel, Size, VAlignment,
 };
-use crate::realize::{Behave, Behaviour};
 
 /// Places content at an absolute position.
 ///
@@ -27,7 +26,7 @@ use crate::realize::{Behave, Behaviour};
 ///   ),
 /// )
 /// ```
-#[elem(scope, Behave)]
+#[elem(scope)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -140,12 +139,6 @@ impl Packed<PlaceElem> {
     }
 }
 
-impl Behave for Packed<PlaceElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
-    }
-}
-
 /// Asks the layout algorithm to place pending floating elements before
 /// continuing with the content.
 ///
@@ -172,13 +165,5 @@ impl Behave for Packed<PlaceElem> {
 /// Some conclusive text that must occur
 /// after the figure.
 /// ```
-#[elem(Behave, Unlabellable)]
+#[elem]
 pub struct FlushElem {}
-
-impl Behave for Packed<FlushElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
-    }
-}
-
-impl Unlabellable for Packed<FlushElem> {}

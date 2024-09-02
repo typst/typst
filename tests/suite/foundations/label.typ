@@ -19,15 +19,6 @@ The end.
 #let b = [*B*]
 #a <v> #b
 
---- label-on-text ---
-// Test labelled text.
-#show "t": it => {
-  set text(blue) if it.has("label") and it.label == <last>
-  it
-}
-
-This is a thing #[that <last>] happened.
-
 --- label-dynamic-show-set ---
 // Test abusing dynamic labels for styling.
 #show <red>: set text(red)

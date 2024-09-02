@@ -15,7 +15,7 @@ use crate::layout::{
     Size, SpecificAlignment, VAlignment,
 };
 use crate::math::{
-    scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
+    scaled_font_size, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
 };
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
@@ -48,10 +48,7 @@ use crate::World;
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(
-    Locatable, Synthesize, Show, ShowSet, LayoutMath, Count, LocalName, Refable,
-    Outlinable
-)]
+#[elem(Locatable, Synthesize, Show, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -258,13 +255,6 @@ impl Outlinable for Packed<EquationElem> {
     }
 }
 
-impl LayoutMath for Packed<EquationElem> {
-    #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        self.body().layout_math(ctx, styles)
-    }
-}
-
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
 fn layout_equation_inline(
@@ -278,8 +268,9 @@ fn layout_equation_inline(
 
     let font = find_math_font(engine, styles, elem.span())?;
 
-    let mut ctx = MathContext::new(engine, locator, styles, region, &font);
-    let run = ctx.layout_into_run(elem, styles)?;
+    let mut locator = locator.split();
+    let mut ctx = MathContext::new(engine, &mut locator, styles, region, &font);
+    let run = ctx.layout_into_run(&elem.body, styles)?;
 
     let mut items = if run.row_count() == 1 {
         run.into_par_items()
@@ -326,10 +317,9 @@ fn layout_equation_block(
     let font = find_math_font(engine, styles, span)?;
 
     let mut locator = locator.split();
-    let mut ctx =
-        MathContext::new(engine, locator.next(&()), styles, regions.base(), &font);
+    let mut ctx = MathContext::new(engine, &mut locator, styles, regions.base(), &font);
     let full_equation_builder = ctx
-        .layout_into_run(elem, styles)?
+        .layout_into_run(&elem.body, styles)?
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
     let can_break =
