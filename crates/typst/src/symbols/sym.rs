@@ -100,6 +100,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     dash: [
         #[call(crate::math::accent::dash)] en: '–',
         em: '—',
+        em.two: '\u{2e3a}',
+        em.three: '\u{2e3b}',
         fig: '‒',
         wave: '〜',
         colon: '∹',
