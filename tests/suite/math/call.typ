@@ -95,3 +95,8 @@ $ mat(
    ,1, ;
    , ,1;
 ) $
+
+--- issue-2885-math-var-only-in-global ---
+// Error: 7-10 unknown variable: rgb
+// Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
+$text(rgb(0, 0, 0), "foo")$

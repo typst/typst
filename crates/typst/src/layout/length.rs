@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{At, Hint, HintedStrResult, SourceResult};
+use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::foundations::{func, scope, ty, Context, Fold, Repr, Resolve, StyleChain};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
@@ -81,12 +81,15 @@ impl Length {
         if self.em == Em::zero() {
             return Ok(());
         }
-        Err(eco_format!(
+
+        bail!(
+            span,
             "cannot convert a length with non-zero em units (`{}`) to {unit}",
-            self.repr()
-        ))
-        .hint(eco_format!("use `length.abs.{unit}()` instead to ignore its em component"))
-        .at(span)
+            self.repr();
+            hint: "use `length.to-absolute()` to resolve its em component \
+                   (requires context)";
+            hint: "or use `length.abs.{unit}()` instead to ignore its em component"
+        )
     }
 }
 

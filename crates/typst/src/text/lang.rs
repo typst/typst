@@ -29,6 +29,7 @@ impl Lang {
     pub const GALICIAN: Self = Self(*b"gl ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const GREEK: Self = Self(*b"gr ", 2);
+    pub const HEBREW: Self = Self(*b"he ", 2);
     pub const HUNGARIAN: Self = Self(*b"hu ", 2);
     pub const ICELANDIC: Self = Self(*b"is ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);

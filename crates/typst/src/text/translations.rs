@@ -360,6 +360,23 @@ translation! {
 }
 
 translation! {
+    pub HE {
+        figure = "איור";
+        table = "טבלה";
+        equation = "משוואה";
+        bibliography = "רשימת מקורות";
+        heading = "חלק";
+        outline = "תוכן עניינים";
+        raw = "קטע מקור";
+
+        left_single_quote = "’";
+        right_single_quote = "’";
+        left_double_quote = "”";
+        right_double_quote = "”";
+    }
+}
+
+translation! {
     pub HU {
         figure = "Ábra";
         table = "Táblázat";
@@ -814,6 +831,7 @@ static TRANSLATIONS: Lazy<[(Locale, &(dyn Translation + Sync)); 43]> = Lazy::new
         locale!(fr, FR),
         locale!(gl, GL),
         locale!(gr, GR),
+        locale!(he, HE),
         locale!(hu, HU),
         locale!(is, IS),
         locale!(it, IT),
