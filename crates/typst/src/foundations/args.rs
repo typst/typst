@@ -256,6 +256,9 @@ impl Args {
     }
 }
 
+/// A key that can be used to get an argument: either the index of a positional
+/// argument, or the name of a named argument.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ArgumentKey {
     Index(i64),
     Name(Str),
@@ -265,6 +268,42 @@ cast! {
     ArgumentKey,
     v: i64 => Self::Index(v),
     v: Str => Self::Name(v),
+}
+
+impl Args {
+    fn get(&self, key: &ArgumentKey) -> Option<Value> {
+        match key {
+            &ArgumentKey::Index(index) => {
+                if index < 0 {
+                    let index = (-(index + 1)).try_into().ok()?;
+                    self.items
+                        .iter()
+                        .filter(|item| item.name.is_none())
+                        .map(|item| item.value.v.clone())
+                        .rev()
+                        .nth(index)
+                } else {
+                    let index = index.try_into().ok()?;
+                    self.items
+                        .iter()
+                        .filter(|item| item.name.is_none())
+                        .map(|item| item.value.v.clone())
+                        .nth(index)
+                }
+            }
+
+            ArgumentKey::Name(name) => {
+                // Accept the last argument with the right name.
+                self.items
+                    .iter()
+                    .filter_map(|item| {
+                        item.name.as_ref().map(|k| (k, item.value.v.clone()))
+                    })
+                    .rfind(|(k, _)| *k == name)
+                    .map(|(_, v)| v)
+            }
+        }
+    }
 }
 
 #[scope]
@@ -306,11 +345,7 @@ impl Args {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        match &key {
-            ArgumentKey::Index(index) => self.to_pos().at(*index, default).ok(),
-            ArgumentKey::Name(name) => self.to_named().at(name.clone(), default).ok(),
-        }
-        .ok_or_else(|| missing_key_no_default(key))
+        self.get(&key).or(default).ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Returns the captured positional arguments as an array.
