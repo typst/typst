@@ -56,6 +56,6 @@ Mix-and-match all the previous tests.
   #counter("dummy").step()
   #place(dx: -0.5cm, dy: -0.75cm, box(width: 200%)[OOF])
   #line(length: 100%)
-  #place(dy: -0.8em)[OOF]
+  #place(dy: 0.2em)[OOF]
   #rect(height: 2cm, fill: gray)
 ]

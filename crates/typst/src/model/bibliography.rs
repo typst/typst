@@ -231,7 +231,9 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        let row_gutter = ParElem::spacing_in(styles).into();
+        let row_gutter = ParElem::spacing_in(styles);
+        let row_gutter_elem = VElem::new(row_gutter.into()).with_weak(true).pack();
+
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in references {
@@ -244,18 +246,18 @@ impl Show for Packed<BibliographyElem> {
                 )));
             }
 
-            seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+            seq.push(row_gutter_elem.clone());
             seq.push(
                 GridElem::new(cells)
                     .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
                     .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
+                    .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
                     .pack()
                     .spanned(self.span()),
             );
         } else {
             for (_, reference) in references {
-                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+                seq.push(row_gutter_elem.clone());
                 seq.push(reference.clone());
             }
         }

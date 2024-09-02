@@ -309,7 +309,7 @@ impl Show for Packed<FigureElem> {
 
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
-            let v = VElem::weak(self.gap(styles).into()).pack();
+            let v = VElem::new(self.gap(styles).into()).with_weak(true).pack();
             realized = match caption.position(styles) {
                 OuterVAlignment::Top => caption.pack() + v + realized,
                 OuterVAlignment::Bottom => realized + v + caption.pack(),

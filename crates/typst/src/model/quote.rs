@@ -207,8 +207,9 @@ impl Show for Packed<QuoteElem> {
 
                 // Use v(0.9em, weak: true) bring the attribution closer to the
                 // quote.
-                let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
-                realized += weak_v + Content::sequence(seq).aligned(Alignment::END);
+                let gap = Spacing::Rel(Em::new(0.9).into());
+                let v = VElem::new(gap).with_weak(true).pack();
+                realized += v + Content::sequence(seq).aligned(Alignment::END);
             }
 
             realized = PadElem::new(realized).pack();

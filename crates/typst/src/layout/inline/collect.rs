@@ -274,16 +274,24 @@ impl<'a> Collector<'a> {
     }
 
     fn push_segment(&mut self, segment: Segment<'a>) {
-        if let (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles)) =
-            (self.segments.last_mut(), &segment)
-        {
-            if *last_styles == *styles {
+        match (self.segments.last_mut(), &segment) {
+            // Merge adjacent text segments with the same styles.
+            (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles))
+                if *last_styles == *styles =>
+            {
                 *last_len += *len;
-                return;
             }
-        }
 
-        self.segments.push(segment);
+            // Merge adjacent weak spacing by taking the maximum.
+            (
+                Some(Segment::Item(Item::Absolute(prev_amount, true))),
+                Segment::Item(Item::Absolute(amount, true)),
+            ) => {
+                *prev_amount = (*prev_amount).max(*amount);
+            }
+
+            _ => self.segments.push(segment),
+        }
     }
 }
 

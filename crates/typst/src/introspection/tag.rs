@@ -6,7 +6,6 @@ use crate::foundations::{
     elem, Args, Construct, Content, NativeElement, Packed, Unlabellable,
 };
 use crate::introspection::Location;
-use crate::realize::{Behave, Behaviour};
 
 /// Holds a locatable element that was realized.
 #[derive(Clone, PartialEq, Hash)]
@@ -78,7 +77,7 @@ pub enum TagKind {
 ///
 /// The `TagElem` is handled by all layouters. The held element becomes
 /// available for introspection in the next compiler iteration.
-#[elem(Behave, Unlabellable, Construct)]
+#[elem(Construct, Unlabellable)]
 pub struct TagElem {
     /// The introspectible element.
     #[required]
@@ -103,9 +102,3 @@ impl Construct for TagElem {
 }
 
 impl Unlabellable for Packed<TagElem> {}
-
-impl Behave for Packed<TagElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
-    }
-}

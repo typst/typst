@@ -184,8 +184,8 @@
     Top
     #align(bottom)[
       Bottom \
-      Bottom \
-      #v(0pt)
+      Bottom
+
       Top
     ]
   ],

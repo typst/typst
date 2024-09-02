@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use comemo::{Track, Tracked, TrackedMut};
+use once_cell::unsync::Lazy;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
@@ -28,7 +29,7 @@ use crate::model::{
     Document, DocumentInfo, FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine,
     ParLineMarker, ParLineNumberingScope,
 };
-use crate::realize::{first_span, realize, Arenas, Pair};
+use crate::realize::{realize, Arenas, Pair, RealizationKind};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
@@ -116,8 +117,14 @@ fn layout_document_impl(
 
     let arenas = Arenas::default();
     let mut info = DocumentInfo::default();
-    let mut children =
-        realize(&mut engine, &mut locator, &arenas, Some(&mut info), content, styles)?;
+    let mut children = realize(
+        RealizationKind::Root(&mut info),
+        &mut engine,
+        &mut locator,
+        &arenas,
+        content,
+        styles,
+    )?;
 
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
 
@@ -393,7 +400,6 @@ fn layout_page_run_impl(
     // Determine the page-wide styles.
     let styles = determine_page_styles(children, initial);
     let styles = StyleChain::new(&styles);
-    let span = first_span(children);
 
     // When one of the lengths is infinite the page fits its content along
     // that axis.
@@ -449,8 +455,7 @@ fn layout_page_run_impl(
             Smart::Custom(numbering.clone()),
             both,
         )
-        .pack()
-        .spanned(span);
+        .pack();
 
         // We interpret the Y alignment as selecting header or footer
         // and then ignore it for aligning the actual number.
@@ -473,12 +478,12 @@ fn layout_page_run_impl(
     let fragment = FlowLayouter::new(
         &mut engine,
         children,
-        locator.next(&span).split(),
+        &mut locator,
         styles,
         regions,
         PageElem::columns_in(styles),
         ColumnsElem::gutter_in(styles),
-        span,
+        Span::detached(),
         &mut vec![],
     )
     .layout(regions)?;
@@ -733,12 +738,19 @@ fn layout_fragment_impl(
     engine.route.check_layout_depth().at(content.span())?;
 
     let arenas = Arenas::default();
-    let children = realize(&mut engine, &mut locator, &arenas, None, content, styles)?;
+    let children = realize(
+        RealizationKind::Container,
+        &mut engine,
+        &mut locator,
+        &arenas,
+        content,
+        styles,
+    )?;
 
     FlowLayouter::new(
         &mut engine,
         &children,
-        locator,
+        &mut locator,
         styles,
         regions,
         columns,
@@ -750,9 +762,9 @@ fn layout_fragment_impl(
 }
 
 /// Layouts a collection of block-level elements.
-struct FlowLayouter<'a, 'e> {
+struct FlowLayouter<'a, 'b> {
     /// The engine.
-    engine: &'a mut Engine<'e>,
+    engine: &'a mut Engine<'b>,
     /// The children that will be arranged into a flow.
     children: &'a [Pair<'a>],
     /// A span to use for errors.
@@ -760,7 +772,7 @@ struct FlowLayouter<'a, 'e> {
     /// Whether this is the root flow.
     root: bool,
     /// Provides unique locations to the flow's children.
-    locator: SplitLocator<'a>,
+    locator: &'a mut SplitLocator<'b>,
     /// The shared styles.
     shared: StyleChain<'a>,
     /// The number of columns.
@@ -811,8 +823,8 @@ struct CollectedParLine {
 /// A prepared item in a flow layout.
 #[derive(Debug)]
 enum FlowItem {
-    /// Spacing between other items and whether it is weak.
-    Absolute(Abs, bool),
+    /// Spacing between other items and its weakness level.
+    Absolute(Abs, u8),
     /// Fractional spacing between other items.
     Fractional(Fr),
     /// A frame for a layouted block.
@@ -874,13 +886,13 @@ impl FlowItem {
     }
 }
 
-impl<'a, 'e> FlowLayouter<'a, 'e> {
+impl<'a, 'b> FlowLayouter<'a, 'b> {
     /// Create a new flow layouter.
     #[allow(clippy::too_many_arguments)]
     fn new(
-        engine: &'a mut Engine<'e>,
+        engine: &'a mut Engine<'b>,
         children: &'a [Pair<'a>],
-        locator: SplitLocator<'a>,
+        locator: &'a mut SplitLocator<'b>,
         shared: StyleChain<'a>,
         mut regions: Regions<'a>,
         columns: NonZeroUsize,
@@ -986,8 +998,10 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
                 self.handle_place(elem, styles)?;
             } else if let Some(elem) = child.to_packed::<FlushElem>() {
                 self.handle_flush(elem)?;
+            } else if child.is::<PagebreakElem>() {
+                bail!(child.span(), "pagebreaks are not allowed inside of containers");
             } else {
-                bail!(child.span(), "unexpected flow child");
+                bail!(child.span(), "{} is not allowed here", child.func().name());
             }
         }
 
@@ -1001,14 +1015,39 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
     /// Layout vertical spacing.
     fn handle_v(&mut self, v: &'a Packed<VElem>, styles: StyleChain) -> SourceResult<()> {
-        self.handle_item(match v.amount {
+        self.layout_spacing(v.amount, styles, v.weak(styles) as u8)
+    }
+
+    /// Layout spacing, handling weakness.
+    fn layout_spacing(
+        &mut self,
+        amount: impl Into<Spacing>,
+        styles: StyleChain,
+        weakness: u8,
+    ) -> SourceResult<()> {
+        self.handle_item(match amount.into() {
             Spacing::Rel(rel) => FlowItem::Absolute(
                 // Resolve the spacing relative to the current base height.
                 rel.resolve(styles).relative_to(self.initial.y),
-                v.weakness(styles) > 0,
+                weakness,
             ),
             Spacing::Fr(fr) => FlowItem::Fractional(fr),
         })
+    }
+
+    /// Trim trailing weak spacing from the items.
+    fn trim_weak_spacing(&mut self) {
+        for (i, item) in self.items.iter().enumerate().rev() {
+            match item {
+                FlowItem::Absolute(amount, 1..) => {
+                    self.regions.size.y += *amount;
+                    self.items.remove(i);
+                    return;
+                }
+                FlowItem::Frame { .. } => return,
+                _ => {}
+            }
+        }
     }
 
     /// Layout a column break.
@@ -1031,6 +1070,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         // Fetch properties.
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let leading = ParElem::leading_in(styles);
+        let spacing = ParElem::spacing_in(styles);
         let costs = TextElem::costs_in(styles);
 
         // Layout the paragraph into lines. This only depends on the base size,
@@ -1075,10 +1115,12 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let back_2 = height_at(len.saturating_sub(2));
         let back_1 = height_at(len.saturating_sub(1));
 
+        self.layout_spacing(spacing, styles, 4)?;
+
         // Layout the lines.
         for (i, mut frame) in lines.into_iter().enumerate() {
             if i > 0 {
-                self.handle_item(FlowItem::Absolute(leading, true))?;
+                self.layout_spacing(leading, styles, 5)?;
             }
 
             // To prevent widows and orphans, we require enough space for
@@ -1114,7 +1156,9 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             })?;
         }
 
+        self.layout_spacing(spacing, styles, 4)?;
         self.last_was_par = true;
+
         Ok(())
     }
 
@@ -1128,6 +1172,11 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         let sticky = block.sticky(styles);
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let rootable = block.rootable(styles);
+        let spacing = Lazy::new(|| (ParElem::spacing_in(styles).into(), 4));
+        let (above, above_weakness) =
+            block.above(styles).map(|v| (v, 3)).unwrap_or_else(|| *spacing);
+        let (below, below_weakness) =
+            block.below(styles).map(|v| (v, 3)).unwrap_or_else(|| *spacing);
 
         // If the block is "rootable" it may host footnotes. In that case, we
         // defer rootness to it temporarily. We disable our own rootness to
@@ -1142,6 +1191,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         if self.regions.is_full() {
             self.finish_region(false)?;
         }
+
+        self.layout_spacing(above, styles, above_weakness)?;
 
         // Layout the block itself.
         let fragment = block.layout(
@@ -1174,6 +1225,7 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
         }
 
         self.try_handle_footnotes(notes)?;
+        self.layout_spacing(below, styles, below_weakness)?;
 
         self.root = is_root;
         self.regions.root = false;
@@ -1232,18 +1284,40 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     /// Layout a finished frame.
     fn handle_item(&mut self, mut item: FlowItem) -> SourceResult<()> {
         match item {
-            FlowItem::Absolute(v, weak) => {
-                if weak
-                    && !self
-                        .items
-                        .iter()
-                        .any(|item| matches!(item, FlowItem::Frame { .. },))
-                {
-                    return Ok(());
+            FlowItem::Absolute(v, weakness) => {
+                if weakness > 0 {
+                    let mut has_frame = false;
+                    for prev in self.items.iter_mut().rev() {
+                        match prev {
+                            FlowItem::Frame { .. } => {
+                                has_frame = true;
+                                break;
+                            }
+                            FlowItem::Absolute(prev_amount, prev_level)
+                                if *prev_level > 0 =>
+                            {
+                                if *prev_level >= weakness {
+                                    let diff = v - *prev_amount;
+                                    if *prev_level > weakness || diff > Abs::zero() {
+                                        self.regions.size.y -= diff;
+                                        *prev = item;
+                                    }
+                                }
+                                return Ok(());
+                            }
+                            FlowItem::Fractional(_) => return Ok(()),
+                            _ => {}
+                        }
+                    }
+                    if !has_frame {
+                        return Ok(());
+                    }
                 }
-                self.regions.size.y -= v
+                self.regions.size.y -= v;
             }
-            FlowItem::Fractional(..) => {}
+            FlowItem::Fractional(..) => {
+                self.trim_weak_spacing();
+            }
             FlowItem::Frame { ref frame, movable, .. } => {
                 let height = frame.height();
                 while !self.regions.size.y.fits(height) && !self.regions.in_last() {
@@ -1289,13 +1363,16 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
 
                 // Select the closer placement, top or bottom.
                 if y_align.is_auto() {
-                    let ratio = (self.regions.size.y
-                        - (frame.height() + clearance) / 2.0)
-                        / self.regions.full;
+                    // When the figure's vertical midpoint would be above the
+                    // middle of the page if it were layouted in-flow, we use
+                    // top alignment. Otherwise, we use bottom alignment.
+                    let used = self.regions.full - self.regions.size.y;
+                    let half = (frame.height() + clearance) / 2.0;
+                    let ratio = (used + half) / self.regions.full;
                     let better_align = if ratio <= 0.5 {
-                        FixedAlignment::End
-                    } else {
                         FixedAlignment::Start
+                    } else {
+                        FixedAlignment::End
                     };
                     *y_align = Smart::Custom(Some(better_align));
                 }
@@ -1365,6 +1442,8 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
     /// only (this is used to force the creation of a frame in case the
     /// remaining elements are all out-of-flow).
     fn finish_region(&mut self, force: bool) -> SourceResult<()> {
+        self.trim_weak_spacing();
+
         // Early return if we don't have any relevant items.
         if !force
             && !self.items.is_empty()
@@ -1381,15 +1460,6 @@ impl<'a, 'e> FlowLayouter<'a, 'e> {
             self.regions.next();
             self.initial = self.regions.size;
             return Ok(());
-        }
-
-        // Trim weak spacing.
-        while self
-            .items
-            .last()
-            .is_some_and(|item| matches!(item, FlowItem::Absolute(_, true)))
-        {
-            self.items.pop();
         }
 
         // Determine the used size.

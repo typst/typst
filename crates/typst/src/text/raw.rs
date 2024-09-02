@@ -20,8 +20,7 @@ use crate::layout::{BlockChild, BlockElem, Em, HAlignment};
 use crate::model::{Figurable, ParElem};
 use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, SmartQuoteElem, TextElem,
-    TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, TextElem, TextSize,
 };
 use crate::visualize::Color;
 use crate::{syntax, World};
@@ -468,7 +467,6 @@ impl ShowSet for Packed<RawElem> {
         out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
-        out.set(SmartQuoteElem::set_enabled(false));
         if self.block(styles) {
             out.set(ParElem::set_shrink(false));
         }

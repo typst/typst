@@ -164,12 +164,6 @@ impl Styles {
             .any(|property| property.is_of(elem) && property.id == field)
     }
 
-    /// Returns `Some(_)` with an optional span if this list contains
-    /// styles for the given element.
-    pub fn interruption<T: NativeElement>(&self) -> Option<Span> {
-        self.0.iter().find_map(|entry| entry.interruption::<T>())
-    }
-
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
     pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
@@ -229,6 +223,10 @@ pub enum Style {
     /// A show rule recipe.
     Recipe(Recipe),
     /// Disables a specific show rule recipe.
+    ///
+    /// Note: This currently only works for regex recipes since it's the only
+    /// place we need it for the moment. Normal show rules use guards directly
+    /// on elements instead.
     Revocation(RecipeIndex),
 }
 
@@ -249,13 +247,24 @@ impl Style {
         }
     }
 
-    /// Returns `Some(_)` with an optional span if this style is of
-    /// the given element.
-    pub fn interruption<T: NativeElement>(&self) -> Option<Span> {
-        let elem = T::elem();
+    /// The style's span, if any.
+    pub fn span(&self) -> Span {
         match self {
-            Style::Property(property) => property.is_of(elem).then_some(property.span),
-            Style::Recipe(recipe) => recipe.is_of(elem).then_some(recipe.span),
+            Self::Property(property) => property.span,
+            Self::Recipe(recipe) => recipe.span,
+            Self::Revocation(_) => Span::detached(),
+        }
+    }
+
+    /// Returns `Some(_)` with an optional span if this style is for
+    /// the given element.
+    pub fn element(&self) -> Option<Element> {
+        match self {
+            Style::Property(property) => Some(property.elem),
+            Style::Recipe(recipe) => match recipe.selector {
+                Some(Selector::Elem(elem, _)) => Some(elem),
+                _ => None,
+            },
             Style::Revocation(_) => None,
         }
     }
@@ -278,6 +287,11 @@ impl Style {
             Self::Recipe(recipe) => recipe.outside,
             Self::Revocation(_) => false,
         }
+    }
+
+    /// Turn this style into prehashed style.
+    pub fn wrap(self) -> LazyHash<Style> {
+        LazyHash::new(self)
     }
 }
 
@@ -349,7 +363,7 @@ impl Property {
 
     /// Turn this property into prehashed style.
     pub fn wrap(self) -> LazyHash<Style> {
-        LazyHash::new(Style::Property(self))
+        Style::Property(self).wrap()
     }
 }
 
@@ -472,21 +486,6 @@ impl Recipe {
     /// The recipe's transformation.
     pub fn transform(&self) -> &Transformation {
         &self.transform
-    }
-
-    /// Whether this recipe is for the given type of element.
-    pub fn is_of(&self, element: Element) -> bool {
-        match self.selector {
-            Some(Selector::Elem(own, _)) => own == element,
-            _ => false,
-        }
-    }
-
-    /// Whether the recipe is applicable to the target.
-    pub fn applicable(&self, target: &Content, styles: StyleChain) -> bool {
-        self.selector
-            .as_ref()
-            .is_some_and(|selector| selector.matches(target, Some(styles)))
     }
 
     /// Apply the recipe to the given content.
@@ -667,6 +666,11 @@ impl<'a> StyleChain<'a> {
     /// Iterate over the entries of the chain.
     pub fn entries(self) -> Entries<'a> {
         Entries { inner: [].as_slice().iter(), links: self.links() }
+    }
+
+    /// Iterate over the recipes in the chain.
+    pub fn recipes(self) -> impl Iterator<Item = &'a Recipe> {
+        self.entries().filter_map(|style| style.recipe())
     }
 
     /// Iterate over the links of the chain.

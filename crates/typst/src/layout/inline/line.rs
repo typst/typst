@@ -181,7 +181,7 @@ pub fn line<'a>(
 /// example, the `range` may span "hello\n", but the `trim` specifies that the
 /// linebreak is trimmed.
 ///
-/// We do not factor the `trim` diredctly into the `range` because we still want
+/// We do not factor the `trim` directly into the `range` because we still want
 /// to keep non-text items after the trim (e.g. tags).
 fn collect_items<'a>(
     engine: &Engine,
