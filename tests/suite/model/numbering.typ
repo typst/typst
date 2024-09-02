@@ -102,6 +102,11 @@
 #assert.eq(numbering("\u{0661}", 1475), "١٤٧٥")
 #assert.eq(numbering("\u{06F1}", 1475), "۱۴۷۵")
 
+--- numbering-devanagari-number ---
+#assert.eq(numbering("\u{0967}", 1), "१")
+#assert.eq(numbering("\u{0967}", 10), "१०")
+#assert.eq(numbering("\u{0967}", 123456789), "१२३४५६७८९")
+
 --- numbering-negative ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
