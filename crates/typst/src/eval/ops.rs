@@ -190,8 +190,15 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Float(a), Float(b)) => Float(a + b),
 
         (Decimal(a), Decimal(b)) => Decimal(a.checked_add(b).ok_or_else(too_large)?),
-        (Decimal(a), Int(b)) => Decimal(a.checked_add(crate::foundations::Decimal::from(b)).ok_or_else(too_large)?),
-        (Int(a), Decimal(b)) => Decimal(crate::foundations::Decimal::from(a).checked_add(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_add(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_add(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Angle(a), Angle(b)) => Angle(a + b),
 
@@ -267,8 +274,15 @@ pub fn sub(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Float(a), Float(b)) => Float(a - b),
 
         (Decimal(a), Decimal(b)) => Decimal(a.checked_sub(b).ok_or_else(too_large)?),
-        (Decimal(a), Int(b)) => Decimal(a.checked_sub(crate::foundations::Decimal::from(b)).ok_or_else(too_large)?),
-        (Int(a), Decimal(b)) => Decimal(crate::foundations::Decimal::from(a).checked_sub(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_sub(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_sub(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Angle(a), Angle(b)) => Angle(a - b),
 
@@ -304,8 +318,15 @@ pub fn mul(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Float(a), Float(b)) => Float(a * b),
 
         (Decimal(a), Decimal(b)) => Decimal(a.checked_mul(b).ok_or_else(too_large)?),
-        (Decimal(a), Int(b)) => Decimal(a.checked_mul(crate::foundations::Decimal::from(b)).ok_or_else(too_large)?),
-        (Int(a), Decimal(b)) => Decimal(crate::foundations::Decimal::from(a).checked_mul(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_mul(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_mul(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Length(a), Int(b)) => Length(a * b as f64),
         (Length(a), Float(b)) => Length(a * b),
@@ -371,8 +392,15 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Float(a), Float(b)) => Float(a / b),
 
         (Decimal(a), Decimal(b)) => Decimal(a.checked_div(b).ok_or_else(too_large)?),
-        (Decimal(a), Int(b)) => Decimal(a.checked_div(crate::foundations::Decimal::from(b)).ok_or_else(too_large)?),
-        (Int(a), Decimal(b)) => Decimal(crate::foundations::Decimal::from(a).checked_div(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_div(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_div(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),

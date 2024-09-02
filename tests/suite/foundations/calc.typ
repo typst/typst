@@ -14,8 +14,8 @@
 #test(calc.abs(decimal("4932.493249324932")), decimal("4932.493249324932"))
 #test(calc.abs(decimal("-12402.593295932041")), decimal("12402.593295932041"))
 
---- cals-abs-bad-type ---
-// Error: 11-22 expected integer, float, length, angle, ratio, fraction or decimal, found string
+--- calc-abs-bad-type ---
+// Error: 11-22 expected integer, float, length, angle, ratio, fraction, or decimal, found string
 #calc.abs("no number")
 
 --- calc-even-and-odd ---
