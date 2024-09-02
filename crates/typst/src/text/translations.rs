@@ -813,7 +813,7 @@ macro_rules! locale {
     };
 }
 
-static TRANSLATIONS: Lazy<[(Locale, &(dyn Translation + Sync)); 43]> = Lazy::new(|| {
+static TRANSLATIONS: Lazy<[(Locale, &(dyn Translation + Sync)); 44]> = Lazy::new(|| {
     let mut translations = [
         locale!(ar, AR),
         locale!(bs, BS),
