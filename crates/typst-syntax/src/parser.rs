@@ -989,9 +989,22 @@ fn module_import(p: &mut Parser) {
         // imported at the same time.
         p.expect(SyntaxKind::Ident);
     }
-    if p.eat_if(SyntaxKind::Colon) && !p.eat_if(SyntaxKind::Star) {
-        import_items(p);
+
+    if p.eat_if(SyntaxKind::Colon) {
+        if p.at(SyntaxKind::LeftParen) {
+            let m1 = p.marker();
+            p.enter_newline_mode(NewlineMode::Continue);
+            p.assert(SyntaxKind::LeftParen);
+
+            import_items(p);
+
+            p.expect_closing_delimiter(m1, SyntaxKind::RightParen);
+            p.exit_newline_mode();
+        } else if !p.eat_if(SyntaxKind::Star) {
+            import_items(p);
+        }
     }
+
     p.wrap(m, SyntaxKind::ModuleImport);
 }
 
@@ -1021,6 +1034,7 @@ fn import_items(p: &mut Parser) {
             p.expect(SyntaxKind::Comma);
         }
     }
+
     p.wrap(m, SyntaxKind::ImportItems);
 }
 
