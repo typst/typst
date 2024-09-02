@@ -181,9 +181,9 @@ fn shading_function(
     for window in gradient.stops_ref().windows(2) {
         let (first, second) = (window[0], window[1]);
 
-        // If we have a hue index, we will create several stops in-between
-        // to make the gradient smoother without interpolation issues with
-        // native color spaces.
+        // If we have a hue index or are using Oklab, we will create several
+        // stops in-between to make the gradient smoother without interpolation
+        // issues with native color spaces.
         let mut last_c = first.0;
         if gradient.space().hue_index().is_some() {
             for i in 0..=32 {
