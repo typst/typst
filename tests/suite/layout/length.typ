@@ -51,20 +51,24 @@
 
 --- length-ignore-em-pt-hint ---
 // Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt
-// Hint: 2-21 use `length.abs.pt()` instead to ignore its em component
+// Hint: 2-21 use `length.to-absolute()` to resolve its em component (requires context)
+// Hint: 2-21 or use `length.abs.pt()` instead to ignore its em component
 #(10.5em - 6pt).pt()
 
 --- length-ignore-em-cm-hint ---
 // Error: 2-12 cannot convert a length with non-zero em units (`3em`) to cm
-// Hint: 2-12 use `length.abs.cm()` instead to ignore its em component
+// Hint: 2-12 use `length.to-absolute()` to resolve its em component (requires context)
+// Hint: 2-12 or use `length.abs.cm()` instead to ignore its em component
 #(3em).cm()
 
 --- length-ignore-em-mm-hint ---
 // Error: 2-20 cannot convert a length with non-zero em units (`-226.77pt + 93em`) to mm
-// Hint: 2-20 use `length.abs.mm()` instead to ignore its em component
+// Hint: 2-20 use `length.to-absolute()` to resolve its em component (requires context)
+// Hint: 2-20 or use `length.abs.mm()` instead to ignore its em component
 #(93em - 80mm).mm()
 
 --- length-ignore-em-inches-hint ---
 // Error: 2-24 cannot convert a length with non-zero em units (`432pt + 4.5em`) to inches
-// Hint: 2-24 use `length.abs.inches()` instead to ignore its em component
+// Hint: 2-24 use `length.to-absolute()` to resolve its em component (requires context)
+// Hint: 2-24 or use `length.abs.inches()` instead to ignore its em component
 #(4.5em + 6in).inches()
