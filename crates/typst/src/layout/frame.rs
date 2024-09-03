@@ -376,7 +376,6 @@ impl Frame {
         let outset = outset.relative_to(self.size());
         let size = self.size() + outset.sum_by_axis();
         let pos = Point::new(-outset.left, -outset.top);
-
         self.prepend_multiple(
             styled_rect(size, radius, fill, stroke)
                 .into_iter()
@@ -563,10 +562,6 @@ impl GroupItem {
             clip_path: None,
             label: None,
         }
-    }
-
-    pub fn set_label(&mut self, label: Label) {
-        self.label = Some(label);
     }
 }
 

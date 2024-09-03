@@ -185,7 +185,7 @@ impl Packed<BoxElem> {
         }
 
         if let Some(label) = self.label() {
-            frame.group(|group| group.set_label(label))
+            frame.group(|group| group.label = Some(label))
         }
 
         Ok(frame)
@@ -643,7 +643,7 @@ impl Packed<BlockElem> {
         // Assign label to each frame in the fragment.
         if let Some(label) = self.label() {
             for frame in fragment.iter_mut() {
-                frame.group(|group| group.set_label(label))
+                frame.group(|group| group.label = Some(label))
             }
         }
 
