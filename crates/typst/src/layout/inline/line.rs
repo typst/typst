@@ -72,21 +72,21 @@ impl<'a> Line<'a> {
 
     /// How much the line can stretch.
     pub fn stretchability(&self) -> Abs {
+        // Use fold instead of sum because sum returns -0.0 for an empty iter
         self.items
             .iter()
             .filter_map(Item::text)
             .map(|s| s.stretchability())
-            // Use fold instead of sum because sum returns -0.0 for an empty iter
             .fold(Abs::zero(), |acc, x| acc + x)
     }
 
     /// How much the line can shrink.
     pub fn shrinkability(&self) -> Abs {
+        // Use fold instead of sum because sum returns -0.0 for an empty iter
         self.items
             .iter()
             .filter_map(Item::text)
             .map(|s| s.shrinkability())
-            // Use fold instead of sum because sum returns -0.0 for an empty iter
             .fold(Abs::zero(), |acc, x| acc + x)
     }
 
