@@ -76,7 +76,8 @@ impl<'a> Line<'a> {
             .iter()
             .filter_map(Item::text)
             .map(|s| s.stretchability())
-            .sum()
+            // Don’t use sum because it returns -0.0 for an empty iter
+            .fold(Abs::zero(), |acc, x| acc + x)
     }
 
     /// How much the line can shrink.
@@ -85,7 +86,8 @@ impl<'a> Line<'a> {
             .iter()
             .filter_map(Item::text)
             .map(|s| s.shrinkability())
-            .sum()
+            // Don’t use sum because it returns -0.0 for an empty iter
+            .fold(Abs::zero(), |acc, x| acc + x)
     }
 
     /// Whether the line has items with negative width.
