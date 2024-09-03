@@ -196,6 +196,10 @@ impl Packed<BoxElem> {
             frame.fill_and_stroke(fill, &stroke, &outset, &radius, self.span());
         }
 
+        if let Some(label) = self.label() {
+            frame.group(|group| group.label = Some(label))
+        }
+
         Ok(frame)
     }
 
@@ -657,6 +661,13 @@ impl Packed<BlockElem> {
                     &radius,
                     self.span(),
                 );
+            }
+        }
+
+        // Assign label to each frame in the fragment.
+        if let Some(label) = self.label() {
+            for frame in fragment.iter_mut() {
+                frame.group(|group| group.label = Some(label))
             }
         }
 

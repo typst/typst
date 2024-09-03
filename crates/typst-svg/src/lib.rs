@@ -240,6 +240,10 @@ impl SVGRenderer {
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-group");
 
+        if let Some(label) = group.label {
+            self.xml.write_attribute("data-typst-label", label.as_str());
+        }
+
         if let Some(clip_path) = &group.clip_path {
             let hash = hash128(&group);
             let id = self.clip_paths.insert_with(hash, || shape::convert_path(clip_path));

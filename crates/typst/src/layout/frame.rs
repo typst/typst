@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
-use crate::foundations::{cast, dict, Dict, StyleChain, Value};
+use crate::foundations::{cast, dict, Dict, Label, StyleChain, Value};
 use crate::introspection::Tag;
 use crate::layout::{
     Abs, Axes, Corners, FixedAlignment, HideElem, Length, Point, Rel, Sides, Size,
@@ -380,7 +380,7 @@ impl Frame {
             styled_rect(size, radius, fill, stroke)
                 .into_iter()
                 .map(|x| (pos, FrameItem::Shape(x, span))),
-        )
+        );
     }
 
     /// Arbitrarily transform the contents of the frame.
@@ -402,7 +402,7 @@ impl Frame {
     }
 
     /// Wrap the frame's contents in a group and modify that group with `f`.
-    fn group<F>(&mut self, f: F)
+    pub fn group<F>(&mut self, f: F)
     where
         F: FnOnce(&mut GroupItem),
     {
@@ -549,6 +549,8 @@ pub struct GroupItem {
     pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
     pub clip_path: Option<Path>,
+    /// The group's label.
+    pub label: Option<Label>,
 }
 
 impl GroupItem {
@@ -558,6 +560,7 @@ impl GroupItem {
             frame,
             transform: Transform::identity(),
             clip_path: None,
+            label: None,
         }
     }
 }
