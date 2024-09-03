@@ -702,6 +702,11 @@ impl<'a> StyleChain<'a> {
         *self = self.tail.copied().unwrap_or_default();
     }
 
+    /// The tail of the chain.
+    pub fn tail(&self) -> Option<Self> {
+        self.tail.copied()
+    }
+
     /// Determine the shared trunk of a collection of style chains.
     pub fn trunk(iter: impl IntoIterator<Item = Self>) -> Option<Self> {
         // Determine shared style depth and first span.

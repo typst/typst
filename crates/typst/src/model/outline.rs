@@ -209,13 +209,15 @@ impl Show for Packed<OutlineElem> {
         let mut ancestors: Vec<&Content> = vec![];
         let elems = engine.introspector.query(&self.target(styles).0);
 
+        // Compute the style chain before the outline `ShowSet` is applied.
+        let pre = styles.tail().unwrap_or_default();
         for elem in &elems {
             let Some(entry) = OutlineEntry::from_outlinable(
                 engine,
                 self.span(),
                 elem.clone(),
                 self.fill(styles),
-                styles,
+                pre,
             )?
             else {
                 continue;
