@@ -76,7 +76,7 @@ impl<'a> Line<'a> {
             .iter()
             .filter_map(Item::text)
             .map(|s| s.stretchability())
-            // Don’t use sum because it returns -0.0 for an empty iter
+            // Use fold instead of sum because sum returns -0.0 for an empty iter
             .fold(Abs::zero(), |acc, x| acc + x)
     }
 
@@ -86,7 +86,7 @@ impl<'a> Line<'a> {
             .iter()
             .filter_map(Item::text)
             .map(|s| s.shrinkability())
-            // Don’t use sum because it returns -0.0 for an empty iter
+            // Use fold instead of sum because sum returns -0.0 for an empty iter
             .fold(Abs::zero(), |acc, x| acc + x)
     }
 
