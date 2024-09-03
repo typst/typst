@@ -167,6 +167,11 @@ hi
 Hello #[ ] \
 #[ ] #[ ] world!
 
+--- show-text-line-wrapping ---
+#show "start end": "word"
+start
+end
+
 --- show-text-after-normal-show ---
 #show rect: "world"
 #show "lo wo": set text(red)
