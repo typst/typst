@@ -5,8 +5,8 @@ use std::time::Duration;
 /// Returns value with `n` digits after floating point where `n` is `precision`.
 /// Standard rounding rules apply (if `n+1`th digit >= 5, round up).
 ///
-/// If rounding the `value` will have no effect (e.g., it's infinite or
-/// NaN), returns `value` unchanged.
+/// If rounding the `value` will have no effect (e.g., it's infinite or NaN),
+/// returns `value` unchanged.
 ///
 /// # Examples
 ///
@@ -16,10 +16,10 @@ use std::time::Duration;
 /// assert_eq!(-0.57, rounded);
 /// ```
 pub fn round_with_precision(value: f64, precision: u8) -> f64 {
-    // Don't attempt to round the float if that wouldn't have any effect. This
-    // includes infinite or NaN values, as well as integer values
-    // with a filled mantissa (which can't have a fractional part). Rounding
-    // with a precision larger than the amount of digits that can be
+    // Don't attempt to round the float if that wouldn't have any effect.
+    // This includes infinite or NaN values, as well as integer values
+    // with a filled mantissa (which can't have a fractional part).
+    // Rounding with a precision larger than the amount of digits that can be
     // effectively represented would also be a no-op.
     if value.is_infinite()
         || value.is_nan()
