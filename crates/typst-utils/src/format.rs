@@ -34,19 +34,19 @@ pub fn round_with_precision(value: f64, precision: u8) -> f64 {
 }
 
 /// Returns `(days, hours, minutes, seconds, milliseconds, microseconds)`.
-fn get_duration_parts(duration: &Duration) -> (u16, u8, u8, u8, u16, u16) {
+fn get_duration_parts(duration: &Duration) -> (u64, u8, u8, u8, u16, u16) {
     // In practice we probably don't need nanoseconds.
     let micros = duration.as_micros();
     let (millis, micros) = (micros / 1000, (micros % 1000) as u16);
     let (sec, millis) = (millis / 1000, (millis % 1000) as u16);
     let (mins, sec) = (sec / 60, (sec % 60) as u8);
     let (hours, mins) = (mins / 60, (mins % 60) as u8);
-    let (days, hours) = ((hours / 24) as u16, (hours % 24) as u8);
+    let (days, hours) = ((hours / 24) as u64, (hours % 24) as u8);
     (days, hours, mins, sec, millis, micros)
 }
 
 /// Format string using `days`, `hours`, `minutes`, `seconds`.
-fn format_dhms(days: u16, hours: u8, minutes: u8, seconds: u8) -> String {
+fn format_dhms(days: u64, hours: u8, minutes: u8, seconds: u8) -> String {
     match (days, hours, minutes, seconds) {
         (0, 0, 0, s) => format!("{s:2} s"),
         (0, 0, m, s) => format!("{m:2} m {s:2} s"),
