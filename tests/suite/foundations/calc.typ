@@ -106,6 +106,18 @@
 #test(calc.exp(decimal("2")), decimal("7.3890560703259115957528655940"))
 #test(calc.ln(10), calc.log(10, base: calc.e))
 
+--- calc-trigonometric ---
+// Test the `sin`, `cos`, `tan` functions.
+#let epsilon = 1e-10
+#test(calc.abs(calc.sin(7 * calc.pi / 6) - (-0.5)) < epsilon, true)
+#test(calc.abs(calc.cos(calc.pi / 3) - 0.5) < epsilon, true)
+#test(calc.abs(calc.tan(calc.pi / 4) - 1.0) < epsilon, true)
+
+#let epsilon = calc.pow(decimal("10"), -8)
+#test(calc.abs(calc.sin(7 * decimal.pi / 6) - decimal("-0.5")) < epsilon, true)
+#test(calc.abs(calc.cos(decimal.pi / 3) - decimal("0.5")) < epsilon, true)
+#test(calc.abs(calc.tan(decimal.pi / 4) - decimal("1.0")) < epsilon, true)
+
 --- calc-bit-logical ---
 // Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
 #test(64.bit-not(), -65)
@@ -190,6 +202,10 @@
 #test(calc.root(9.0, 2), 3.0)
 #test(calc.root(27.0, 3), 3.0)
 #test(calc.root(-27.0, 3), -3.0)
+
+#let epsilon = calc.pow(decimal("10"), -7)
+#test(calc.abs(calc.root(decimal("27.0"), 3) - decimal("3.0")) < epsilon, true)
+#test(calc.abs(calc.root(decimal("-729.0"), 3) - decimal("-9.0")) < epsilon, true)
 // 100^(-1/2) = (100^(1/2))^-1 = 1/sqrt(100)
 #test(calc.root(100.0, -2), 0.1)
 

@@ -237,23 +237,39 @@ pub fn sqrt(
 #[func]
 pub fn root(
     /// The expression to take the root of
-    radicand: f64,
+    radicand: DecNum,
     /// Which root of the radicand to take
     index: Spanned<i64>,
-) -> SourceResult<f64> {
+) -> SourceResult<DecNum> {
     if index.v == 0 {
         bail!(index.span, "cannot take the 0th root of a number");
-    } else if radicand < 0.0 {
+    } else if radicand.is_negative() {
         if index.v % 2 == 0 {
             bail!(
                 index.span,
                 "negative numbers do not have a real nth root when n is even"
             );
         } else {
-            Ok(-(-radicand).powf(1.0 / index.v as f64))
+            Ok(match radicand {
+                DecNum::Decimal(decimal) => DecNum::Decimal(
+                    -(-decimal)
+                        .checked_pow(Decimal::ONE / Decimal::from(index.v))
+                        .unwrap(),
+                ),
+                DecNum::Num(num) => {
+                    DecNum::Num(Num::Float(-(-num.float()).powf(1.0 / index.v as f64)))
+                }
+            })
         }
     } else {
-        Ok(radicand.powf(1.0 / index.v as f64))
+        Ok(match radicand {
+            DecNum::Decimal(decimal) => DecNum::Decimal(
+                decimal.checked_pow(Decimal::ONE / Decimal::from(index.v)).unwrap(),
+            ),
+            DecNum::Num(num) => {
+                DecNum::Num(Num::Float(num.float().powf(1.0 / index.v as f64)))
+            }
+        })
     }
 }
 
@@ -271,11 +287,12 @@ pub fn root(
 pub fn sin(
     /// The angle whose sine to calculate.
     angle: AngleLike,
-) -> f64 {
+) -> DecNum {
     match angle {
-        AngleLike::Angle(a) => a.sin(),
-        AngleLike::Int(n) => (n as f64).sin(),
-        AngleLike::Float(n) => n.sin(),
+        AngleLike::Angle(a) => DecNum::Num(Num::Float(a.sin())),
+        AngleLike::Int(n) => DecNum::Num(Num::Float((n as f64).sin())),
+        AngleLike::Float(n) => DecNum::Num(Num::Float(n.sin())),
+        AngleLike::Decimal(d) => DecNum::Decimal(d.sin()),
     }
 }
 
@@ -293,11 +310,12 @@ pub fn sin(
 pub fn cos(
     /// The angle whose cosine to calculate.
     angle: AngleLike,
-) -> f64 {
+) -> DecNum {
     match angle {
-        AngleLike::Angle(a) => a.cos(),
-        AngleLike::Int(n) => (n as f64).cos(),
-        AngleLike::Float(n) => n.cos(),
+        AngleLike::Angle(a) => DecNum::Num(Num::Float(a.cos())),
+        AngleLike::Int(n) => DecNum::Num(Num::Float((n as f64).cos())),
+        AngleLike::Float(n) => DecNum::Num(Num::Float(n.cos())),
+        AngleLike::Decimal(d) => DecNum::Decimal(d.cos()),
     }
 }
 
@@ -314,11 +332,14 @@ pub fn cos(
 pub fn tan(
     /// The angle whose tangent to calculate.
     angle: AngleLike,
-) -> f64 {
+) -> StrResult<DecNum> {
     match angle {
-        AngleLike::Angle(a) => a.tan(),
-        AngleLike::Int(n) => (n as f64).tan(),
-        AngleLike::Float(n) => n.tan(),
+        AngleLike::Angle(a) => Ok(DecNum::Num(Num::Float(a.tan()))),
+        AngleLike::Int(n) => Ok(DecNum::Num(Num::Float((n as f64).tan()))),
+        AngleLike::Float(n) => Ok(DecNum::Num(Num::Float(n.tan()))),
+        AngleLike::Decimal(d) => {
+            Ok(DecNum::Decimal(d.checked_tan().ok_or_else(too_large)?))
+        }
     }
 }
 
@@ -1020,6 +1041,14 @@ impl DecNum {
         }
     }
 
+    fn is_negative(self) -> bool {
+        match self {
+            Self::Decimal(d) => d.is_negative(),
+            Self::Num(Num::Int(i)) => i < 0,
+            Self::Num(Num::Float(f)) => f < 0.0,
+        }
+    }
+
     /// Tries to apply a function to two decimal or numeric arguments.
     ///
     /// Fails with `None` if one is a float and the other is a decimal.
@@ -1095,6 +1124,7 @@ cast! {
 pub enum AngleLike {
     Int(i64),
     Float(f64),
+    Decimal(Decimal),
     Angle(Angle),
 }
 
@@ -1102,6 +1132,7 @@ cast! {
     AngleLike,
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
+    v: Decimal => Self::Decimal(v),
     v: Angle => Self::Angle(v),
 }
 
