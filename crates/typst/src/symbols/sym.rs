@@ -126,6 +126,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     hyph: ['‐', minus: '\u{2D}', nobreak: '\u{2011}', point: '‧', soft: '\u{ad}'],
     percent: '%',
     copyright: ['©', sound: '℗'],
+    copyleft: '🄯',
+    trademark: ['™', service: '℠', registered: '®'],
     permille: '‰',
     pilcrow: ['¶', rev: '⁋'],
     section: '§',
