@@ -439,8 +439,8 @@ pub struct BlockElem {
 
     /// Whether to clip the content inside the block.
     ///
-    /// Clipping is useful when the block's content is larger than the box itself,
-    /// as any content that exceeds the box's bounds will be hidden.
+    /// Clipping is useful when the block's content is larger than the block itself,
+    /// as any content that exceeds the block's bounds will be hidden.
     ///
     /// ```example
     /// #block(
