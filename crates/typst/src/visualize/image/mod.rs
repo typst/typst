@@ -54,7 +54,7 @@ use crate::World;
 /// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file.
+    /// Path to an image file, relative to the input file by default; if starting with `/`, it's relative to the `--root` path.
     #[required]
     #[parse(
         let Spanned { v: path, span } =
