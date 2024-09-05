@@ -938,6 +938,22 @@ pub fn norm(
     let Some(Spanned { v, span }) = values.first() else {
         return Ok(Value::Float(0.0));
     };
+
+    // When p is infinity, the p-norm is the maximum of the absolute values.
+    if p.float().is_infinite() {
+        return max(*span, values.iter().map(|spanned| Spanned {
+            v: match spanned.v {
+                LengthLike::Int(n) => Value::Int(n.abs()),
+                LengthLike::Float(n) => Value::Float(n.abs()),
+                LengthLike::Length(Length { abs, em }) => Value::Length(Length {
+                    abs: abs.abs(),
+                    em: em.abs(),
+                }),
+            },
+            span: spanned.span,
+        }).collect());
+    }
+
     match v {
         LengthLike::Int(_) | LengthLike::Float(_) => {
             for Spanned { v, span } in values {
