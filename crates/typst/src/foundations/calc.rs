@@ -917,7 +917,7 @@ pub fn quo(
 /// #calc.norm(p: 3, 1in, 2cm)
 /// #calc.norm(3em, 4em)
 /// ```
-#[func(title = "P-Norm")]
+#[func(title = "𝑝-Norm")]
 pub fn norm(
     /// The callsite span.
     span: Span,
