@@ -23,7 +23,7 @@ pub fn round_with_precision(value: f64, precision: u8) -> f64 {
     // effectively represented would also be a no-op. Given that, the check
     // below ensures we won't proceed if `|value| >= 2^53` or if
     // `precision >= 15`, which also ensures the multiplication by `offset`
-    // won't return `+inf`, since `2^53 * 10^15` (larger than any possible
+    // won't return `inf`, since `2^53 * 10^15` (larger than any possible
     // `value * offset` multiplication) does not.
     if value.is_infinite()
         || value.is_nan()
