@@ -20,7 +20,11 @@ pub fn round_with_precision(value: f64, precision: u8) -> f64 {
     // This includes infinite or NaN values, as well as integer values
     // with a filled mantissa (which can't have a fractional part).
     // Rounding with a precision larger than the amount of digits that can be
-    // effectively represented would also be a no-op.
+    // effectively represented would also be a no-op. Given that, the check
+    // below ensures we won't proceed if `|value| >= 2^53` or if
+    // `precision >= 15`, which also ensures the multiplication by `offset`
+    // won't return `+inf`, since `2^53 * 10^15` (larger than any possible
+    // `value * offset` multiplication) does not.
     if value.is_infinite()
         || value.is_nan()
         || value.abs() >= (1_i64 << f64::MANTISSA_DIGITS) as f64
