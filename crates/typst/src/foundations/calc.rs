@@ -941,17 +941,22 @@ pub fn norm(
 
     // When p is infinity, the p-norm is the maximum of the absolute values.
     if p.float().is_infinite() {
-        return max(*span, values.iter().map(|spanned| Spanned {
-            v: match spanned.v {
-                Normable::Int(n) => Value::Int(n.abs()),
-                Normable::Float(n) => Value::Float(n.abs()),
-                Normable::Length(Length { abs, em }) => Value::Length(Length {
-                    abs: abs.abs(),
-                    em: em.abs(),
-                }),
-            },
-            span: spanned.span,
-        }).collect());
+        return max(
+            *span,
+            values
+                .iter()
+                .map(|spanned| Spanned {
+                    v: match spanned.v {
+                        Normable::Int(n) => Value::Int(n.abs()),
+                        Normable::Float(n) => Value::Float(n.abs()),
+                        Normable::Length(Length { abs, em }) => {
+                            Value::Length(Length { abs: abs.abs(), em: em.abs() })
+                        }
+                    },
+                    span: spanned.span,
+                })
+                .collect(),
+        );
     }
 
     match v {
