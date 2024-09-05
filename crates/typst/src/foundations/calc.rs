@@ -928,7 +928,7 @@ pub fn norm(
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.
     #[variadic]
-    values: Vec<Spanned<LengthLike>>,
+    values: Vec<Spanned<Normable>>,
 ) -> SourceResult<Value> {
     if p.float() <= 0.0 {
         bail!(span, "p must be greater than zero");
@@ -943,9 +943,9 @@ pub fn norm(
     if p.float().is_infinite() {
         return max(*span, values.iter().map(|spanned| Spanned {
             v: match spanned.v {
-                LengthLike::Int(n) => Value::Int(n.abs()),
-                LengthLike::Float(n) => Value::Float(n.abs()),
-                LengthLike::Length(Length { abs, em }) => Value::Length(Length {
+                Normable::Int(n) => Value::Int(n.abs()),
+                Normable::Float(n) => Value::Float(n.abs()),
+                Normable::Length(Length { abs, em }) => Value::Length(Length {
                     abs: abs.abs(),
                     em: em.abs(),
                 }),
@@ -955,20 +955,20 @@ pub fn norm(
     }
 
     match v {
-        LengthLike::Int(_) | LengthLike::Float(_) => {
+        Normable::Int(_) | Normable::Float(_) => {
             for Spanned { v, span } in values {
                 match v {
-                    LengthLike::Int(n) => sum += (n as f64).abs().powf(p.float()),
-                    LengthLike::Float(n) => sum += n.abs().powf(p.float()),
+                    Normable::Int(n) => sum += (n as f64).abs().powf(p.float()),
+                    Normable::Float(n) => sum += n.abs().powf(p.float()),
                     _ => bail!(span, "expected a number"),
                 }
             }
             Ok(Value::Float(sum.powf(1.0 / p.float())))
         }
-        LengthLike::Length(Length { em, .. }) if em.is_zero() => {
+        Normable::Length(Length { em, .. }) if em.is_zero() => {
             for Spanned { v, span } in values {
                 match v {
-                    LengthLike::Length(Length { abs, em }) if em.is_zero() => {
+                    Normable::Length(Length { abs, em }) if em.is_zero() => {
                         sum += abs.to_raw().abs().powf(p.float())
                     }
                     _ => {
@@ -984,10 +984,10 @@ pub fn norm(
                 em: Em::zero(),
             }))
         }
-        LengthLike::Length(Length { abs, .. }) if abs.is_zero() => {
+        Normable::Length(Length { abs, .. }) if abs.is_zero() => {
             for Spanned { v, span } in values {
                 match v {
-                    LengthLike::Length(Length { abs, em }) if abs.is_zero() => {
+                    Normable::Length(Length { abs, em }) if abs.is_zero() => {
                         sum += em.get().abs().powf(p.float())
                     }
                     _ => bail!(span, "expected an em"),
@@ -1072,14 +1072,14 @@ cast! {
     v: Angle => Self::Angle(v),
 }
 
-pub enum LengthLike {
+pub enum Normable {
     Int(i64),
     Float(f64),
     Length(Length),
 }
 
 cast! {
-    LengthLike,
+    Normable,
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Length => Self::Length(v),
