@@ -674,9 +674,18 @@ applicable, contains possible workarounds.
 - **Separation of `import` and `include` behaviours.** `\include`ing a file in LaTeX
   has two behaviours that have been separated in Typst: imports LaTeX macros,
   and adds the document content to the parent file. In Typst: `#import`ing will
-  add definitions to the parent file, but not add document content;
-  `#include`ing will add document content to the parent file, but will not import
-  definitions. The syntax for including document content is simply `#include "file.typ"`,
+  add definitions (equivalent to LaTeX macros) to the parent file,
+  but not add document content; `#include`ing will add document content
+  to the parent file, but will not import definitions.
+  The syntax for including document content is simply `#include "file.typ"`,
   but the syntax for importing definitions provides more flexibility:
   `#import "file.typ": *` will import all of `file.typ`'s definitions;
   `#import "file.typ": x, y, template` will import only the named definitions.
+  It is of particular note for those familiar with LaTeX that
+  in LaTeX, a file only needs to be `\include`d once;
+  in Typst, your global definitions
+  and global setups need to be placed in a separate file,
+  and that file is then `#import`ed and/or `#include`d
+  into all of your project's nested files in addition to the main file.
+  This requirement and design improves the robustness, predictability,
+  and performance of Typst, as every file is well-defined in isolation.
