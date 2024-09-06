@@ -32,6 +32,9 @@
 #test(calc.rem(5, -3), 2)
 #test(calc.rem(22.5, 10), 2.5)
 #test(calc.rem(9, 4.5), 0)
+#test(calc.rem(decimal("5"), -3), decimal("2"))
+#test(calc.rem(decimal("22.5"), decimal("10")), decimal("2.5"))
+#test(calc.rem(9, decimal("4.5")), decimal("0"))
 
 --- calc-rem-divisor-zero-1 ---
 // Error: 14-15 divisor must not be zero
@@ -40,6 +43,10 @@
 --- calc-rem-divisor-zero-2 ---
 // Error: 16-19 divisor must not be zero
 #calc.rem(3.0, 0.0)
+
+--- calc-rem-divisor-zero-3 ---
+// Error: 27-39 divisor must not be zero
+#calc.rem(decimal("4.0"), decimal("0"))
 
 --- calc-div-euclid ---
 // Test the `div-euclid` function.
@@ -80,6 +87,8 @@
 #test(calc.quo(5, -3), -1)
 #test(calc.quo(22.5, 10), 2)
 #test(calc.quo(9, 4.5), 2)
+#test(calc.quo(decimal("22.5"), 10), 2)
+#test(calc.quo(decimal("9"), decimal("4.5")), 2)
 
 --- calc-quo-divisor-zero-1 ---
 // Error: 14-15 divisor must not be zero
@@ -89,11 +98,17 @@
 // Error: 16-19 divisor must not be zero
 #calc.quo(3.0, 0.0)
 
+--- calc-quo-divisor-zero-3 ---
+// Error: 27-41 divisor must not be zero
+#calc.quo(decimal("4.0"), decimal("0.0"))
+
 --- calc-min-and-max ---
 // Test the `min` and `max` functions.
 #test(calc.min(2, -4), -4)
 #test(calc.min(3.5, 1e2, -0.1, 3), -0.1)
+#test(calc.min(decimal("3.5"), 4, decimal("-3213.99999")), decimal("-3213.99999"))
 #test(calc.max(-3, 11), 11)
+#test(calc.max(decimal("3"), 45), 45)
 #test(calc.min("hi"), "hi")
 
 --- calc-pow-log-exp-ln ---
@@ -254,6 +269,14 @@
 --- calc-lcm-too-large ---
 // Error: 2-41 the result is too large
 #calc.lcm(15486487489457, 4874879896543)
+
+--- calc-floor-decimal-too-large ---
+// Error: 2-46 the result is too large
+#calc.floor(decimal("9223372036854775809.5"))
+
+--- calc-ceil-decimal-too-large ---
+// Error: 2-46 the result is too large
+#calc.ceil(decimal("-9223372036854775809.5"))
 
 --- calc-min-nothing ---
 // Error: 2-12 expected at least one value

@@ -35,6 +35,22 @@ impl Decimal {
         Self(self.0.abs())
     }
 
+    /// Computes the largest integer less than or equal to this decimal.
+    ///
+    /// A decimal is returned as this may not be within `i64`'s range of
+    /// values.
+    pub fn floor(self) -> Self {
+        Self(self.0.floor())
+    }
+
+    /// Computes the smallest integer greater than or equal to this decimal.
+    ///
+    /// A decimal is returned as this may not be within `i64`'s range of
+    /// values.
+    pub fn ceil(self) -> Self {
+        Self(self.0.ceil())
+    }
+
     /// Attempts to add two decimals.
     ///
     /// Returns `None` on overflow or underflow.
@@ -61,6 +77,13 @@ impl Decimal {
     /// Returns `None` if `other` is zero, as well as on overflow or underflow.
     pub fn checked_div(self, other: Self) -> Option<Self> {
         self.0.checked_div(other.0).map(Self)
+    }
+
+    /// Attempts to calculate the remainder of the division of two decimals.
+    ///
+    /// Returns `None` if `other` is zero, as well as on overflow or underflow.
+    pub fn checked_rem(self, other: Self) -> Option<Self> {
+        self.0.checked_rem(other.0).map(Self)
     }
 
     /// Attempts to take one decimal to the power of an integer.
@@ -108,6 +131,18 @@ impl FromStr for Decimal {
 impl From<i64> for Decimal {
     fn from(value: i64) -> Self {
         Self(rust_decimal::Decimal::from(value))
+    }
+}
+
+impl TryFrom<Decimal> for i64 {
+    type Error = rust_decimal::Error;
+
+    /// Attempts to convert a Decimal to an integer.
+    ///
+    /// Returns an error if the decimal has a fractional part, or if there
+    /// would be overflow or underflow.
+    fn try_from(value: Decimal) -> Result<Self, Self::Error> {
+        value.0.try_into()
     }
 }
 

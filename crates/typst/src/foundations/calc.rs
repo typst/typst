@@ -2,7 +2,6 @@
 
 use std::cmp;
 use std::cmp::Ordering;
-use std::ops::{Div, Rem};
 
 use ecow::eco_format;
 
@@ -613,7 +612,11 @@ pub fn lcm(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
+/// This will error if given a decimal larger than the maximum integer or
+/// smaller than the minimum integer.
+///
 /// ```example
+/// #assert(calc.floor(decimal("3.14")) == 3)
 /// #assert(calc.floor(3.14) == 3)
 /// #assert(calc.floor(3) == 3)
 /// #calc.floor(500.1)
@@ -621,11 +624,12 @@ pub fn lcm(
 #[func]
 pub fn floor(
     /// The number to round down.
-    value: Num,
-) -> i64 {
+    value: DecNum,
+) -> StrResult<i64> {
     match value {
-        Num::Int(n) => n,
-        Num::Float(n) => n.floor() as i64,
+        DecNum::Decimal(n) => Ok(i64::try_from(n.floor()).map_err(|_| too_large())?),
+        DecNum::Int(n) => Ok(n),
+        DecNum::Float(n) => Ok(n.floor() as i64),
     }
 }
 
@@ -633,7 +637,11 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
+/// This will error if given a decimal larger than the maximum integer or
+/// smaller than the minimum integer.
+///
 /// ```example
+/// #assert(calc.ceil(decimal("3.14")) == 4)
 /// #assert(calc.ceil(3.14) == 4)
 /// #assert(calc.ceil(3) == 3)
 /// #calc.ceil(500.1)
@@ -641,11 +649,12 @@ pub fn floor(
 #[func]
 pub fn ceil(
     /// The number to round up.
-    value: Num,
-) -> i64 {
+    value: DecNum,
+) -> StrResult<i64> {
     match value {
-        Num::Int(n) => n,
-        Num::Float(n) => n.ceil() as i64,
+        DecNum::Decimal(n) => Ok(i64::try_from(n.floor()).map_err(|_| too_large())?),
+        DecNum::Int(n) => Ok(n),
+        DecNum::Float(n) => Ok(n.ceil() as i64),
     }
 }
 
@@ -830,6 +839,9 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
+/// This can error if given a `decimal` input and the dividend is too small in
+/// magnitude compared to the divisor.
+///
 /// ```example
 /// #calc.rem(7, 3) \
 /// #calc.rem(7, -3) \
@@ -839,15 +851,28 @@ pub fn odd(
 /// ```
 #[func(title = "Remainder")]
 pub fn rem(
+    /// The span of the function call.
+    span: Span,
     /// The dividend of the remainder.
-    dividend: Num,
+    dividend: DecNum,
     /// The divisor of the remainder.
-    divisor: Spanned<Num>,
-) -> SourceResult<Num> {
-    if divisor.v.float() == 0.0 {
+    divisor: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
+    if divisor.v.is_zero() {
         bail!(divisor.span, "divisor must not be zero");
     }
-    Ok(dividend.apply2(divisor.v, Rem::rem, Rem::rem))
+
+    dividend
+        .try_apply2(
+            divisor.v,
+            |a, b| Some(a % b),
+            |a, b| Some(a % b),
+            |a, b| a.checked_rem(b),
+        )
+        .ok_or_else(cant_apply_to_decimal_and_float)
+        .at(span)?
+        .ok_or("dividend too small compared to divisor")
+        .at(span)
 }
 
 /// Performs euclidean division of two numbers.
@@ -903,23 +928,41 @@ pub fn rem_euclid(
 
 /// Calculates the quotient (floored division) of two numbers.
 ///
+/// This can error when given at least one `decimal` input and the resulting
+/// `decimal` is too large to fit in an integer.
+///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
 ///   "quo"(14, 5) &= #calc.quo(14, 5) \
-///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) $
+///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) \
+///   "quo"("decimal"(\"3.46\"), "decimal"(\"0.5\")) &= #calc.quo(decimal("3.46"), decimal("0.5")) $
 /// ```
 #[func(title = "Quotient")]
 pub fn quo(
+    /// The span of the function call.
+    span: Span,
     /// The dividend of the quotient.
-    dividend: Num,
+    dividend: DecNum,
     /// The divisor of the quotient.
-    divisor: Spanned<Num>,
+    divisor: Spanned<DecNum>,
 ) -> SourceResult<i64> {
-    if divisor.v.float() == 0.0 {
+    if divisor.v.is_zero() {
         bail!(divisor.span, "divisor must not be zero");
     }
 
-    Ok(floor(dividend.apply2(divisor.v, Div::div, Div::div)))
+    let divided = dividend
+        .try_apply2(
+            divisor.v,
+            |a, b| Some(a / b),
+            |a, b| Some(a / b),
+            |a, b| a.checked_div(b),
+        )
+        .ok_or_else(cant_apply_to_decimal_and_float)
+        .at(span)?
+        .ok_or_else(too_large)
+        .at(span)?;
+
+    Ok(floor(divided).at(span)?)
 }
 
 /// A value which can be passed to functions that work with integers and floats.
@@ -998,6 +1041,33 @@ impl DecNum {
             Self::Decimal(_) => None,
             Self::Int(i) => Some(i as f64),
             Self::Float(f) => Some(f),
+        }
+    }
+
+    /// Tries to apply a function to two decimal or numeric arguments.
+    ///
+    /// Fails with `None` if one is a float and the other is a decimal.
+    ///
+    /// Fails with `Some(None)` if one of the functions failed with `None`.
+    fn try_apply2(
+        self,
+        other: Self,
+        int: impl FnOnce(i64, i64) -> Option<i64>,
+        float: impl FnOnce(f64, f64) -> Option<f64>,
+        decimal: impl FnOnce(Decimal, Decimal) -> Option<Decimal>,
+    ) -> Option<Option<Self>> {
+        match (self, other) {
+            (Self::Int(a), Self::Int(b)) => Some(int(a, b).map(Self::Int)),
+            (Self::Decimal(a), Self::Decimal(b)) => {
+                Some(decimal(a, b).map(Self::Decimal))
+            }
+            (Self::Decimal(a), Self::Int(b)) => {
+                Some(decimal(a, Decimal::from(b)).map(Self::Decimal))
+            }
+            (Self::Int(a), Self::Decimal(b)) => {
+                Some(decimal(Decimal::from(a), b).map(Self::Decimal))
+            }
+            (a, b) => Some(float(a.float()?, b.float()?).map(Self::Float)),
         }
     }
 }
