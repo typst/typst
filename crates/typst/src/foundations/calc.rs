@@ -101,62 +101,52 @@ pub fn pow(
     /// The base of the power.
     base: DecNum,
     /// The exponent of the power.
-    exponent: Spanned<DecNum>,
+    exponent: Spanned<Num>,
 ) -> SourceResult<DecNum> {
     match exponent.v {
-        _ if exponent.v.is_zero() && base.is_zero() => {
+        _ if exponent.v.float() == 0.0 && base.is_zero() => {
             bail!(span, "zero to the power of zero is undefined")
         }
-        DecNum::Num(Num::Int(i)) if i32::try_from(i).is_err() => {
+        Num::Int(i) if i32::try_from(i).is_err() => {
             bail!(exponent.span, "exponent is too large")
         }
-        DecNum::Num(Num::Float(f)) if !f.is_normal() && f != 0.0 => {
+        Num::Float(f) if !f.is_normal() && f != 0.0 => {
             bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
     };
 
-    let dec_result = match (base, exponent.v) {
-        (DecNum::Num(Num::Int(a)), DecNum::Num(Num::Int(b))) if b >= 0 => a
+    match (base, exponent.v) {
+        (DecNum::Int(a), Num::Int(b)) if b >= 0 => a
             .checked_pow(b as u32)
-            .map(Num::Int)
-            .map(DecNum::Num)
+            .map(DecNum::Int)
             .ok_or_else(too_large)
-            .at(span)?,
-        (DecNum::Num(a), DecNum::Num(b)) => {
-            DecNum::Num(Num::Float(if a.float() == std::f64::consts::E {
-                b.float().exp()
-            } else if a.float() == 2.0 {
-                b.float().exp2()
-            } else if let Num::Int(b) = b {
-                a.float().powi(b as i32)
-            } else {
-                a.float().powf(b.float())
-            }))
+            .at(span),
+        (DecNum::Decimal(a), Num::Int(b)) => {
+            a.checked_powi(b).map(DecNum::Decimal).ok_or_else(too_large).at(span)
         }
-        (DecNum::Decimal(a), DecNum::Num(Num::Int(b))) => a
-            .checked_powi(b)
-            .map(DecNum::Decimal)
-            .ok_or_else(too_large)
-            .at(span)?,
         (a, b) => {
-            let (Some(a), Some(b)) = (a.try_decimal(), b.try_decimal()) else {
+            if let Some(a) = a.float() {
+                let result = if a == std::f64::consts::E {
+                    b.float().exp()
+                } else if a == 2.0 {
+                    b.float().exp2()
+                } else if let Num::Int(b) = b {
+                    a.powi(b as i32)
+                } else {
+                    a.powf(b.float())
+                };
+
+                if result.is_nan() {
+                    bail!(span, "the result is not a real number")
+                }
+
+                Ok(DecNum::Float(result))
+            } else {
                 return Err(cant_apply_to_decimal_and_float()).at(span);
-            };
-
-            if a.is_negative() && !b.is_integer() {
-                bail!(span, "the result is not a real number")
             }
-
-            a.checked_pow(b).map(DecNum::Decimal).ok_or_else(too_large).at(span)?
         }
-    };
-
-    if dec_result.try_num().is_some_and(|num| num.float().is_nan()) {
-        bail!(span, "the result is not a real number")
     }
-
-    Ok(dec_result)
 }
 
 /// Raises a value to some exponent of e.
@@ -987,7 +977,8 @@ cast! {
 #[derive(Debug, Copy, Clone)]
 pub enum DecNum {
     Decimal(Decimal),
-    Num(Num),
+    Int(i64),
+    Float(f64),
 }
 
 impl DecNum {
@@ -995,68 +986,18 @@ impl DecNum {
     fn is_zero(self) -> bool {
         match self {
             Self::Decimal(d) => d.is_zero(),
-            Self::Num(Num::Int(i)) => i == 0,
-            Self::Num(Num::Float(f)) => f == 0.0,
+            Self::Int(i) => i == 0,
+            Self::Float(f) => f == 0.0,
         }
     }
 
-    /// Tries to apply a function to two decimal or numeric arguments.
-    ///
-    /// Fails with `None` if one is a float and the other is a decimal.
-    #[allow(dead_code)]
-    fn try_apply2(
-        self,
-        other: Self,
-        int: impl FnOnce(i64, i64) -> i64,
-        float: impl FnOnce(f64, f64) -> f64,
-        decimal: impl FnOnce(Decimal, Decimal) -> Decimal,
-    ) -> Option<Self> {
-        match (self, other) {
-            (Self::Num(a), Self::Num(b)) => Some(Self::Num(a.apply2(b, int, float))),
-            (a, b) => Some(Self::Decimal(decimal(a.try_decimal()?, b.try_decimal()?))),
-        }
-    }
-
-    /// Tries to apply a function to three decimal or numeric arguments.
-    ///
-    /// Fails with `None` if one is a float and the other is a decimal.
-    #[allow(dead_code)]
-    fn try_apply3(
-        self,
-        other: Self,
-        third: Self,
-        int: impl FnOnce(i64, i64, i64) -> i64,
-        float: impl FnOnce(f64, f64, f64) -> f64,
-        decimal: impl FnOnce(Decimal, Decimal, Decimal) -> Decimal,
-    ) -> Option<Self> {
-        match (self, other, third) {
-            (Self::Num(a), Self::Num(b), Self::Num(c)) => {
-                Some(Self::Num(a.apply3(b, c, int, float)))
-            }
-            (a, b, c) => Some(Self::Decimal(decimal(
-                a.try_decimal()?,
-                b.try_decimal()?,
-                c.try_decimal()?,
-            ))),
-        }
-    }
-
-    /// If this `DecNum` holds a `Num` (integer or float), returns it.
+    /// If this `DecNum` holds an integer or float, returns a float.
     /// Otherwise, returns `None`.
-    fn try_num(self) -> Option<Num> {
+    fn float(self) -> Option<f64> {
         match self {
             Self::Decimal(_) => None,
-            Self::Num(num) => Some(num),
-        }
-    }
-
-    /// Converts to a decimal if this is not a float (to avoid loss of
-    /// precision).
-    fn try_decimal(self) -> Option<Decimal> {
-        match self {
-            Self::Decimal(d) => Some(d),
-            Self::Num(Num::Int(i)) => Some(Decimal::from(i)),
-            Self::Num(Num::Float(_)) => None,
+            Self::Int(i) => Some(i as f64),
+            Self::Float(f) => Some(f),
         }
     }
 }
@@ -1065,10 +1006,12 @@ cast! {
     DecNum,
     self => match self {
         Self::Decimal(v) => v.into_value(),
-        Self::Num(v) => v.into_value(),
+        Self::Int(v) => v.into_value(),
+        Self::Float(v) => v.into_value(),
     },
     v: Decimal => Self::Decimal(v),
-    v: Num => Self::Num(v),
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Float(v),
 }
 
 /// A value that can be passed to a trigonometric function.
