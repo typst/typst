@@ -671,7 +671,12 @@ applicable, contains possible workarounds.
   can also use `[#v(1fr)]` to distribute space on your page. It works quite
   similar to LaTeX's `\vfill`.
 
-- **Boilerplate for large scale projects.** LaTeX definitions are available in
-  included files. This is not the case in Typst, where you'll need your definitions
-  in a file of its own, and manually `import` them into each of your project's
-  `include`d files. Alternatively your Typst project can be in one very large file.
+- **Separation between `import` and `include`.** LaTeX macro definitions in files are
+  automatically available in documents which `\include` those files' contents. In Typst,
+  including a file's contents (done through `#include "file.typ"`) is separate from
+  importing its definitions, which must be done with a separate
+  `#import "file.typ": definitions` command. With it, you can either list the definitions
+  to import individually, which is more usual when they are few (e.g.
+  `#import "file.typ": x, y, template`), or, to fully mimic LaTeX's behavior, you may use a
+  wildcard import to import all definitions available in another file
+  (e.g. `#import "file.typ": *`).
