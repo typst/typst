@@ -17,10 +17,10 @@ use crate::model::Numbering;
 ///
 /// # Locatable elements { #locatable }
 /// Currently, only a subset of element functions is locatable. Aside from
-/// headings and figures, this includes equations, references and all elements
-/// with an explicit label. As a result, you _can_ query for e.g. [`strong`]
-/// elements, but you will find only those that have an explicit label attached
-/// to them. This limitation will be resolved in the future.
+/// headings and figures, this includes equations, references, quotes and all
+/// elements with an explicit label. As a result, you _can_ query for e.g.
+/// [`strong`] elements, but you will find only those that have an explicit
+/// label attached to them. This limitation will be resolved in the future.
 #[ty(scope)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location(u128);
