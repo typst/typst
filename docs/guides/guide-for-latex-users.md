@@ -670,3 +670,8 @@ applicable, contains possible workarounds.
   break will be created if this spot would be a natural page break anyways. You
   can also use `[#v(1fr)]` to distribute space on your page. It works quite
   similar to LaTeX's `\vfill`.
+
+- **Boilerplate for large scale projects.** LaTeX definitions are available in
+  included files. This is not the case in Typst, where you'll need your definitions
+  in a file of its own, and manually `import` them into each of your project's
+  `include`d files. Alternatively your Typst project can be in one very large file.
