@@ -9,6 +9,7 @@ pub(super) const MEDIUM: Em = Em::new(2.0 / 9.0);
 pub(super) const THICK: Em = Em::new(5.0 / 18.0);
 pub(super) const QUAD: Em = Em::new(1.0);
 pub(super) const WIDE: Em = Em::new(2.0);
+pub(super) const NEG: Em = Em::new(-1.0 / 6.0);
 
 /// Hook up all spacings.
 pub(super) fn define(math: &mut Scope) {
@@ -17,6 +18,7 @@ pub(super) fn define(math: &mut Scope) {
     math.define("thick", HElem::new(THICK.into()).pack());
     math.define("quad", HElem::new(QUAD.into()).pack());
     math.define("wide", HElem::new(WIDE.into()).pack());
+    math.define("neg", HElem::new(NEG.into()).pack());
 }
 
 /// Create the spacing between two fragments in a given style.
