@@ -169,35 +169,24 @@ pub fn exp(
     /// The callsite span.
     span: Span,
     /// The exponent of the power.
-    exponent: Spanned<DecNum>,
-) -> SourceResult<DecNum> {
+    exponent: Spanned<Num>,
+) -> SourceResult<f64> {
     match exponent.v {
-        DecNum::Num(num) => {
-            match num {
-                Num::Int(i) if i32::try_from(i).is_err() => {
-                    bail!(exponent.span, "exponent is too large")
-                }
-                Num::Float(f) if !f.is_normal() && f != 0.0 => {
-                    bail!(
-                        exponent.span,
-                        "exponent may not be infinite, subnormal, or NaN"
-                    )
-                }
-                _ => {}
-            }
-
-            let result = num.float().exp();
-            if result.is_nan() {
-                bail!(span, "the result is not a real number")
-            }
-            Ok(DecNum::Num(Num::Float(result)))
+        Num::Int(i) if i32::try_from(i).is_err() => {
+            bail!(exponent.span, "exponent is too large")
         }
-        DecNum::Decimal(decimal) => decimal
-            .checked_exp()
-            .map(DecNum::Decimal)
-            .ok_or("exponent is too large")
-            .at(exponent.span),
+        Num::Float(f) if !f.is_normal() && f != 0.0 => {
+            bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
+        }
+        _ => {}
     }
+
+    let result = exponent.v.float().exp();
+    if result.is_nan() {
+        bail!(span, "the result is not a real number")
+    }
+
+    Ok(result)
 }
 
 /// Calculates the square root of a number.
@@ -209,21 +198,12 @@ pub fn exp(
 #[func(title = "Square Root")]
 pub fn sqrt(
     /// The number whose square root to calculate. Must be non-negative.
-    value: Spanned<DecNum>,
-) -> SourceResult<DecNum> {
-    match value.v {
-        DecNum::Num(num) => {
-            if num.float() < 0.0 {
-                bail!(value.span, "cannot take square root of negative number");
-            }
-            Ok(DecNum::Num(Num::Float(num.float().sqrt())))
-        }
-        DecNum::Decimal(decimal) => decimal
-            .checked_sqrt()
-            .map(DecNum::Decimal)
-            .ok_or("cannot take square root of negative number")
-            .at(value.span),
+    value: Spanned<Num>,
+) -> SourceResult<f64> {
+    if value.v.float() < 0.0 {
+        bail!(value.span, "cannot take square root of negative number");
     }
+    Ok(value.v.float().sqrt())
 }
 
 /// Calculates the real nth root of a number.

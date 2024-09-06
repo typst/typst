@@ -103,7 +103,6 @@
 #test(calc.pow(decimal("0.5"), decimal("18")), decimal("0.000003814697265625"))
 #test(calc.pow(decimal("144"), decimal("0.5")), decimal("11.999999982893776546382839848"))
 #test(calc.exp(2), calc.pow(calc.e, 2))
-#test(calc.exp(decimal("2")), decimal("7.3890560703259115957528655940"))
 #test(calc.ln(10), calc.log(10, base: calc.e))
 
 --- calc-bit-logical ---
@@ -180,10 +179,6 @@
 --- calc-sqrt-not-real ---
 // Error: 12-14 cannot take square root of negative number
 #calc.sqrt(-1)
-
---- calc-sqrt-not-real-decimal ---
-// Error: 12-25 cannot take square root of negative number
-#calc.sqrt(decimal("-1"))
 
 --- calc-root ---
 #test(calc.root(12.0, 1), 12.0)
