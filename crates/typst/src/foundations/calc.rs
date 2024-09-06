@@ -143,7 +143,7 @@ pub fn pow(
 
                 Ok(DecNum::Float(result))
             } else {
-                return Err(cant_apply_to_decimal_and_float()).at(span);
+                Err(cant_apply_to_decimal_and_float()).at(span)
             }
         }
     }
