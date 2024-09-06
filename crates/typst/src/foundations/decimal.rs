@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::Neg;
 use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
@@ -35,20 +35,6 @@ impl Decimal {
         Self(self.0.abs())
     }
 
-    /// Attempts to calculate `e` to the power of `self`.
-    ///
-    /// Returns `None` on overflow.
-    pub fn checked_exp(self) -> Option<Self> {
-        self.0.checked_exp().map(Self)
-    }
-
-    /// Attempts to calculate this decimal number's square root.
-    ///
-    /// Returns `None` if negative.
-    pub fn checked_sqrt(self) -> Option<Self> {
-        self.0.sqrt().map(Self)
-    }
-
     /// Attempts to add two decimals.
     ///
     /// Returns `None` on overflow or underflow.
@@ -83,14 +69,6 @@ impl Decimal {
     /// underflow.
     pub fn checked_powi(self, other: i64) -> Option<Self> {
         self.0.checked_powi(other).map(Self)
-    }
-
-    /// Attempts to take one decimal to the power of another.
-    ///
-    /// Returns `None` for invalid operands, as well as on overflow or
-    /// underflow.
-    pub fn checked_pow(self, other: Self) -> Option<Self> {
-        self.0.checked_powd(other.0).map(Self)
     }
 }
 
@@ -139,114 +117,10 @@ impl Repr for Decimal {
     }
 }
 
-impl Add for Decimal {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        Self(self.0 + rhs.0)
-    }
-}
-
-impl Add<i64> for Decimal {
-    type Output = Self;
-
-    fn add(self, rhs: i64) -> Self {
-        Self(self.0 + rust_decimal::Decimal::from(rhs))
-    }
-}
-
 impl Neg for Decimal {
     type Output = Self;
 
     fn neg(self) -> Self {
         Self(-self.0)
-    }
-}
-
-impl Sub for Decimal {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self {
-        Self(self.0 - rhs.0)
-    }
-}
-
-impl Sub<i64> for Decimal {
-    type Output = Self;
-
-    fn sub(self, rhs: i64) -> Self {
-        Self(self.0 - rust_decimal::Decimal::from(rhs))
-    }
-}
-
-impl Sub<Decimal> for i64 {
-    type Output = Decimal;
-
-    fn sub(self, rhs: Decimal) -> Decimal {
-        Decimal(rust_decimal::Decimal::from(self) - rhs.0)
-    }
-}
-
-impl Mul for Decimal {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        Self(self.0 * rhs.0)
-    }
-}
-
-impl Mul<i64> for Decimal {
-    type Output = Self;
-
-    fn mul(self, rhs: i64) -> Self {
-        Self(self.0 * rust_decimal::Decimal::from(rhs))
-    }
-}
-
-impl Div for Decimal {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self {
-        Self(self.0 / rhs.0)
-    }
-}
-
-impl Div<i64> for Decimal {
-    type Output = Self;
-
-    fn div(self, rhs: i64) -> Self {
-        Self(self.0 / rust_decimal::Decimal::from(rhs))
-    }
-}
-
-impl Div<Decimal> for i64 {
-    type Output = Decimal;
-
-    fn div(self, rhs: Decimal) -> Decimal {
-        Decimal(rust_decimal::Decimal::from(self) / rhs.0)
-    }
-}
-
-impl AddAssign for Decimal {
-    fn add_assign(&mut self, other: Self) {
-        self.0 += other.0;
-    }
-}
-
-impl SubAssign for Decimal {
-    fn sub_assign(&mut self, other: Self) {
-        self.0 -= other.0;
-    }
-}
-
-impl MulAssign for Decimal {
-    fn mul_assign(&mut self, other: Self) {
-        self.0 *= other.0;
-    }
-}
-
-impl DivAssign for Decimal {
-    fn div_assign(&mut self, other: Self) {
-        self.0 /= other.0;
     }
 }
