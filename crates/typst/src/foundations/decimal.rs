@@ -92,30 +92,10 @@ impl Decimal {
     pub fn checked_pow(self, other: Self) -> Option<Self> {
         self.0.checked_powd(other.0).map(Self)
     }
-
-    /// Calculates the sine of this angle in radians.
-    pub fn sin(self) -> Self {
-        Self(self.0.sin())
-    }
-
-    /// Calculates the cosine of this angle in radians.
-    pub fn cos(self) -> Self {
-        Self(self.0.cos())
-    }
-
-    /// Calculates the tangent of this angle in radians.
-    ///
-    /// Returns `None` on overflow.
-    pub fn checked_tan(self) -> Option<Self> {
-        self.0.checked_tan().map(Self)
-    }
 }
 
 #[scope]
 impl Decimal {
-    pub const E: Self = Self(rust_decimal::Decimal::E);
-    pub const PI: Self = Self(rust_decimal::Decimal::PI);
-
     #[func(constructor)]
     pub fn construct(value: EcoString) -> StrResult<Decimal> {
         Self::from_str(&value).map_err(|_| eco_format!("invalid decimal"))
