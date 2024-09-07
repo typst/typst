@@ -1276,7 +1276,7 @@ fn args(p: &mut Parser) {
 }
 
 /// Parses a single argument in an argument list.
-fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
+fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<EcoString>) {
     let m = p.marker();
 
     // Parses a spread argument: `..args`.
@@ -1288,7 +1288,7 @@ fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
 
     // Parses a normal positional argument or an argument name.
     let was_at_expr = p.at_set(set::CODE_EXPR);
-    let text = p.current_text();
+    let text: EcoString = p.current_text().into();
     code_expr(p);
 
     // Parses a named argument: `thickness: 12pt`.
@@ -1297,7 +1297,7 @@ fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
         if was_at_expr {
             if p[m].kind() != SyntaxKind::Ident {
                 p[m].expected("identifier");
-            } else if !seen.insert(text) {
+            } else if !seen.insert(text.clone()) {
                 p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
             }
         }
@@ -1313,7 +1313,7 @@ fn params(p: &mut Parser) {
     p.enter_mode(LexMode::Code(NewlineMode::Continue), |p| {
         p.assert(SyntaxKind::LeftParen);
 
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::<EcoString>::new();
         let mut sink = false;
 
         while !p.current().is_terminator() {
@@ -1335,7 +1335,7 @@ fn params(p: &mut Parser) {
 }
 
 /// Parses a single parameter in a parameter list.
-fn param<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>, sink: &mut bool) {
+fn param<'s>(p: &mut Parser<'s>, seen: &mut HashSet<EcoString>, sink: &mut bool) {
     let m = p.marker();
 
     // Parses argument sink: `..sink`.
@@ -1370,7 +1370,7 @@ fn param<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>, sink: &mut bool) {
 fn pattern<'s>(
     p: &mut Parser<'s>,
     reassignment: bool,
-    seen: &mut HashSet<&'s str>,
+    seen: &mut HashSet<EcoString>,
     dupe: Option<&'s str>,
 ) {
     match p.current() {
@@ -1384,7 +1384,7 @@ fn pattern<'s>(
 fn destructuring_or_parenthesized<'s>(
     p: &mut Parser<'s>,
     reassignment: bool,
-    seen: &mut HashSet<&'s str>,
+    seen: &mut HashSet<EcoString>,
 ) {
     let mut sink = false;
     let mut count = 0;
@@ -1422,7 +1422,7 @@ fn destructuring_or_parenthesized<'s>(
 fn destructuring_item<'s>(
     p: &mut Parser<'s>,
     reassignment: bool,
-    seen: &mut HashSet<&'s str>,
+    seen: &mut HashSet<EcoString>,
     maybe_just_parens: &mut bool,
     sink: &mut bool,
 ) {
@@ -1466,7 +1466,7 @@ fn destructuring_item<'s>(
 fn pattern_leaf<'s>(
     p: &mut Parser<'s>,
     reassignment: bool,
-    seen: &mut HashSet<&'s str>,
+    seen: &mut HashSet<EcoString>,
     dupe: Option<&'s str>,
 ) {
     if p.current().is_keyword() {
@@ -1478,7 +1478,7 @@ fn pattern_leaf<'s>(
     }
 
     let m = p.marker();
-    let text = p.current_text();
+    let text: EcoString = p.current_text().into();
 
     // We parse an atomic expression even though we only want an identifier for
     // better error recovery. We can mark the whole expression as unexpected
@@ -1488,7 +1488,7 @@ fn pattern_leaf<'s>(
     if !reassignment {
         let node = &mut p[m];
         if node.kind() == SyntaxKind::Ident {
-            if !seen.insert(text) {
+            if !seen.insert(text.clone()) {
                 node.convert_to_error(eco_format!(
                     "duplicate {}: {text}",
                     dupe.unwrap_or("binding"),
