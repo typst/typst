@@ -57,14 +57,6 @@ pub(super) enum LexMode {
     Raw,
 }
 
-/// A single parsed Token, potentially an error.
-#[derive(Clone)]
-pub struct Token<'s> {
-    pub kind: SyntaxKind,
-    pub text: &'s str,
-    pub lex_error: Option<SyntaxError>,
-}
-
 /// The starting point of any trivia (whitespace/comments) preceding the current token.
 #[derive(Clone)]
 pub struct TriviaStart {
@@ -136,7 +128,7 @@ impl<'s> Lexer<'s> {
     pub fn lex_past_trivia(
         &mut self,
         nodes: &mut Vec<SyntaxNode>,
-    ) -> (Token<'s>, Option<TriviaStart>) {
+    ) -> (SyntaxNode, Option<TriviaStart>) {
         let mut start = self.cursor();
         let mut kind = self.next();
         let mut triv = TriviaStart { num: 0, offset: start };
@@ -151,8 +143,11 @@ impl<'s> Lexer<'s> {
             }
         }
         let prev_trivia = if triv.num != 0 { Some(triv) } else { None };
-        let lex_error = self.error.take();
-        (Token { kind, text: self.s.from(start), lex_error }, prev_trivia)
+        let node = match self.error.take() {
+            Some(error) => SyntaxNode::error(error, self.s.from(start)),
+            None => SyntaxNode::leaf(kind, self.s.from(start)),
+        };
+        (node, prev_trivia)
     }
 
     /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.
