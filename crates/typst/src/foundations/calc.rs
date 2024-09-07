@@ -652,7 +652,7 @@ pub fn ceil(
     value: DecNum,
 ) -> StrResult<i64> {
     match value {
-        DecNum::Decimal(n) => Ok(i64::try_from(n.floor()).map_err(|_| too_large())?),
+        DecNum::Decimal(n) => Ok(i64::try_from(n.ceil()).map_err(|_| too_large())?),
         DecNum::Int(n) => Ok(n),
         DecNum::Float(n) => Ok(n.ceil() as i64),
     }
