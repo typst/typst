@@ -662,19 +662,24 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
+/// This will error if given a decimal larger than the maximum integer or
+/// smaller than the minimum integer.
+///
 /// ```example
 /// #assert(calc.trunc(3) == 3)
 /// #assert(calc.trunc(-3.7) == -3)
+/// #assert(calc.trunc(decimal("8493.12949582390")) == 8493)
 /// #calc.trunc(15.9)
 /// ```
 #[func(title = "Truncate")]
 pub fn trunc(
     /// The number to truncate.
-    value: Num,
-) -> i64 {
+    value: DecNum,
+) -> StrResult<i64> {
     match value {
-        Num::Int(n) => n,
-        Num::Float(n) => n.trunc() as i64,
+        DecNum::Decimal(n) => Ok(i64::try_from(n.trunc()).map_err(|_| too_large())?),
+        DecNum::Int(n) => Ok(n),
+        DecNum::Float(n) => Ok(n.trunc() as i64),
     }
 }
 
@@ -684,16 +689,18 @@ pub fn trunc(
 ///
 /// ```example
 /// #assert(calc.fract(3) == 0)
+/// #assert(calc.fract(decimal("234.23949211")) == decimal("0.23949211"))
 /// #calc.fract(-3.1)
 /// ```
 #[func(title = "Fractional")]
 pub fn fract(
     /// The number to truncate.
-    value: Num,
-) -> Num {
+    value: DecNum,
+) -> DecNum {
     match value {
-        Num::Int(_) => Num::Int(0),
-        Num::Float(n) => Num::Float(n.fract()),
+        DecNum::Decimal(n) => DecNum::Decimal(n.fract()),
+        DecNum::Int(_) => DecNum::Int(0),
+        DecNum::Float(n) => DecNum::Float(n.fract()),
     }
 }
 
@@ -704,23 +711,29 @@ pub fn fract(
 /// ```example
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4)
+/// #assert(calc.round(decimal("-6.5")) == decimal("-7"))
 /// #calc.round(3.1415, digits: 2)
 /// ```
 #[func]
 pub fn round(
     /// The number to round.
-    value: Num,
+    value: DecNum,
     /// The number of decimal places.
     #[named]
     #[default(0)]
     digits: i64,
-) -> Num {
+) -> DecNum {
     match value {
-        Num::Int(n) if digits == 0 => Num::Int(n),
+        DecNum::Decimal(n) => match u32::try_from(digits) {
+            Ok(digits) => DecNum::Decimal(n.round(digits)),
+            Err(_) if digits > 0 => value,
+            Err(_) => DecNum::Decimal(n.round(0)),
+        },
+        DecNum::Int(n) if digits == 0 => DecNum::Int(n),
         _ => {
-            let n = value.float();
+            let n = value.float().unwrap();
             let factor = 10.0_f64.powi(digits as i32);
-            Num::Float((n * factor).round() / factor)
+            DecNum::Float((n * factor).round() / factor)
         }
     }
 }

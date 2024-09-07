@@ -51,6 +51,27 @@ impl Decimal {
         Self(self.0.ceil())
     }
 
+    /// Returns the integer part of this decimal.
+    pub fn trunc(self) -> Self {
+        Self(self.0.trunc())
+    }
+
+    /// Returns the fractional part of this decimal (with the integer part set
+    /// to zero).
+    pub fn fract(self) -> Self {
+        Self(self.0.fract())
+    }
+
+    /// Rounds this decimal up to the specified amount of digits with the
+    /// traditional rounding rules, using the "midpoint away from zero"
+    /// strategy (6.5 -> 7, -6.5 -> -7).
+    pub fn round(self, digits: u32) -> Self {
+        Self(self.0.round_dp_with_strategy(
+            digits,
+            rust_decimal::RoundingStrategy::MidpointAwayFromZero,
+        ))
+    }
+
     /// Attempts to add two decimals.
     ///
     /// Returns `None` on overflow or underflow.
