@@ -128,7 +128,7 @@ impl<'s> Lexer<'s> {
     pub fn lex_past_trivia(
         &mut self,
         nodes: &mut Vec<SyntaxNode>,
-    ) -> (SyntaxNode, Option<TriviaStart>) {
+    ) -> (SyntaxKind, SyntaxNode, Option<TriviaStart>) {
         let mut start = self.cursor();
         let mut kind = self.next();
         let mut triv = TriviaStart { num: 0, offset: start };
@@ -144,10 +144,13 @@ impl<'s> Lexer<'s> {
         }
         let prev_trivia = if triv.num != 0 { Some(triv) } else { None };
         let node = match self.error.take() {
-            Some(error) => SyntaxNode::error(error, self.s.from(start)),
+            Some(error) => {
+                kind = SyntaxKind::Error;
+                SyntaxNode::error(error, self.s.from(start))
+            }
             None => SyntaxNode::leaf(kind, self.s.from(start)),
         };
-        (node, prev_trivia)
+        (kind, node, prev_trivia)
     }
 
     /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.
