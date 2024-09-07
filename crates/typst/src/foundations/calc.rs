@@ -962,7 +962,7 @@ pub fn quo(
         .ok_or_else(too_large)
         .at(span)?;
 
-    Ok(floor(divided).at(span)?)
+    floor(divided).at(span)
 }
 
 /// A value which can be passed to functions that work with integers and floats.
