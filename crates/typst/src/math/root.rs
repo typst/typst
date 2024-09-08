@@ -9,6 +9,26 @@ use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::visualize::{FixedStroke, Geometry};
 
+/// Displays a long division symbol over an expression.
+///
+/// ```example
+/// $ 32 longdivision(252.8) $
+/// $ x - 3 longdivision(x^2 + 3x - 5) $
+/// ```
+#[elem(title = "Long Division", LayoutMath)]
+pub struct LongdivisionElem {
+    /// The expression to divide.
+    #[required]
+    pub dividend: Content,
+}
+
+impl LayoutMath for Packed<LongdivisionElem> {
+    #[typst_macros::time(name = "math.longdivision", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        layout(ctx, styles, None, self.dividend(), '⟌', self.span())
+    }
+}
+
 /// A square root.
 ///
 /// ```example
@@ -43,7 +63,14 @@ pub struct RootElem {
 impl LayoutMath for Packed<RootElem> {
     #[typst_macros::time(name = "math.root", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        layout(ctx, styles, self.index(styles).as_ref(), self.radicand(), self.span())
+        layout(
+            ctx,
+            styles,
+            self.index(styles).as_ref(),
+            self.radicand(),
+            '√',
+            self.span(),
+        )
     }
 }
 
@@ -56,6 +83,7 @@ fn layout(
     styles: StyleChain,
     index: Option<&Content>,
     radicand: &Content,
+    c: char,
     span: Span,
 ) -> SourceResult<()> {
     let gap = scaled!(
@@ -87,7 +115,7 @@ fn layout(
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let sqrt = GlyphFragment::new(ctx, styles, '√', span)
+    let sqrt = GlyphFragment::new(ctx, styles, c, span)
         .stretch_vertical(ctx, target, Abs::zero())
         .frame;
 
