@@ -289,3 +289,8 @@
 --- calc-max-uncomparable ---
 // Error: 16-19 cannot compare 1pt with 1em
 #calc.max(1em, 1pt)
+
+--- calc-clamp-decimal-float ---
+// Error: 2-37 cannot apply this operation to a decimal and a float
+// Hint: 2-37 if precision loss is acceptable, explicitly cast the decimal to a float with `float(value)`
+#calc.clamp(decimal("10"), 5.5, 6.6)

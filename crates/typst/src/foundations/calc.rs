@@ -743,21 +743,35 @@ pub fn round(
 /// ```example
 /// #assert(calc.clamp(5, 0, 10) == 5)
 /// #assert(calc.clamp(5, 6, 10) == 6)
+/// #assert(calc.clamp(decimal("5.45"), 2, decimal("45.9")) == decimal("5.45"))
+/// #assert(calc.clamp(decimal("5.45"), decimal("6.75"), 12) == decimal("6.75"))
 /// #calc.clamp(5, 0, 4)
 /// ```
 #[func]
 pub fn clamp(
+    /// The callsite span.
+    span: Span,
     /// The number to clamp.
-    value: Num,
+    value: DecNum,
     /// The inclusive minimum value.
-    min: Num,
+    min: DecNum,
     /// The inclusive maximum value.
-    max: Spanned<Num>,
-) -> SourceResult<Num> {
-    if max.v.float() < min.float() {
+    max: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
+    // Ignore if there are incompatible types (decimal and float) since that
+    // will cause `apply3` below to error before calling clamp, avoiding a
+    // panic.
+    if min
+        .apply2(max.v, |min, max| max < min, |min, max| max < min, |min, max| max < min)
+        .unwrap_or(false)
+    {
         bail!(max.span, "max must be greater than or equal to min")
     }
-    Ok(value.apply3(min, max.v, i64::clamp, f64::clamp))
+
+    value
+        .apply3(min, max.v, i64::clamp, f64::clamp, Decimal::clamp)
+        .ok_or_else(cant_apply_to_decimal_and_float)
+        .at(span)
 }
 
 /// Determines the minimum of a sequence of values.
@@ -876,11 +890,11 @@ pub fn rem(
     }
 
     dividend
-        .try_apply2(
+        .apply2(
             divisor.v,
-            |a, b| Some(a % b),
-            |a, b| Some(a % b),
-            |a, b| a.checked_rem(b),
+            |a, b| Some(DecNum::Int(a % b)),
+            |a, b| Some(DecNum::Float(a % b)),
+            |a, b| a.checked_rem(b).map(DecNum::Decimal),
         )
         .ok_or_else(cant_apply_to_decimal_and_float)
         .at(span)?
@@ -964,11 +978,11 @@ pub fn quo(
     }
 
     let divided = dividend
-        .try_apply2(
+        .apply2(
             divisor.v,
-            |a, b| Some(a / b),
-            |a, b| Some(a / b),
-            |a, b| a.checked_div(b),
+            |a, b| Some(DecNum::Int(a / b)),
+            |a, b| Some(DecNum::Float(a / b)),
+            |a, b| a.checked_div(b).map(DecNum::Decimal),
         )
         .ok_or_else(cant_apply_to_decimal_and_float)
         .at(span)?
@@ -998,6 +1012,8 @@ impl Num {
         }
     }
 
+    // TODO: decide whether to remove this
+    #[allow(dead_code)]
     fn apply3(
         self,
         other: Self,
@@ -1057,30 +1073,58 @@ impl DecNum {
         }
     }
 
+    /// If this `DecNum` holds an integer or decimal, returns a decimal.
+    /// Otherwise, returns `None`.
+    fn decimal(self) -> Option<Decimal> {
+        match self {
+            Self::Decimal(d) => Some(d),
+            Self::Int(i) => Some(Decimal::from(i)),
+            Self::Float(_) => None,
+        }
+    }
+
     /// Tries to apply a function to two decimal or numeric arguments.
     ///
     /// Fails with `None` if one is a float and the other is a decimal.
-    ///
-    /// Fails with `Some(None)` if one of the functions failed with `None`.
-    fn try_apply2(
+    fn apply2<T>(
         self,
         other: Self,
-        int: impl FnOnce(i64, i64) -> Option<i64>,
-        float: impl FnOnce(f64, f64) -> Option<f64>,
-        decimal: impl FnOnce(Decimal, Decimal) -> Option<Decimal>,
-    ) -> Option<Option<Self>> {
+        int: impl FnOnce(i64, i64) -> T,
+        float: impl FnOnce(f64, f64) -> T,
+        decimal: impl FnOnce(Decimal, Decimal) -> T,
+    ) -> Option<T> {
         match (self, other) {
-            (Self::Int(a), Self::Int(b)) => Some(int(a, b).map(Self::Int)),
-            (Self::Decimal(a), Self::Decimal(b)) => {
-                Some(decimal(a, b).map(Self::Decimal))
+            (Self::Int(a), Self::Int(b)) => Some(int(a, b)),
+            (Self::Decimal(a), Self::Decimal(b)) => Some(decimal(a, b)),
+            (Self::Decimal(a), Self::Int(b)) => Some(decimal(a, Decimal::from(b))),
+            (Self::Int(a), Self::Decimal(b)) => Some(decimal(Decimal::from(a), b)),
+            (a, b) => Some(float(a.float()?, b.float()?)),
+        }
+    }
+
+    /// Tries to apply a function to three decimal or numeric arguments.
+    ///
+    /// Fails with `None` if one is a float and the other is a decimal.
+    fn apply3(
+        self,
+        other: Self,
+        third: Self,
+        int: impl FnOnce(i64, i64, i64) -> i64,
+        float: impl FnOnce(f64, f64, f64) -> f64,
+        decimal: impl FnOnce(Decimal, Decimal, Decimal) -> Decimal,
+    ) -> Option<Self> {
+        match (self, other, third) {
+            (Self::Int(a), Self::Int(b), Self::Int(c)) => Some(Self::Int(int(a, b, c))),
+            (Self::Decimal(a), b, c) => {
+                Some(Self::Decimal(decimal(a, b.decimal()?, c.decimal()?)))
             }
-            (Self::Decimal(a), Self::Int(b)) => {
-                Some(decimal(a, Decimal::from(b)).map(Self::Decimal))
+            (a, Self::Decimal(b), c) => {
+                Some(Self::Decimal(decimal(a.decimal()?, b, c.decimal()?)))
             }
-            (Self::Int(a), Self::Decimal(b)) => {
-                Some(decimal(Decimal::from(a), b).map(Self::Decimal))
+            (a, b, Self::Decimal(c)) => {
+                Some(Self::Decimal(decimal(a.decimal()?, b.decimal()?, c)))
             }
-            (a, b) => Some(float(a.float()?, b.float()?).map(Self::Float)),
+            (a, b, c) => Some(Self::Float(float(a.float()?, b.float()?, c.float()?))),
         }
     }
 }
