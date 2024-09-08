@@ -33,3 +33,16 @@ pub struct RootElem {
     #[required]
     pub radicand: Content,
 }
+
+/// Displays a long division symbol over an expression.
+///
+/// ```example
+/// $ 32 longdivision(252.8) $
+/// $ x - 3 longdivision(x^2 + 3x - 5) $
+/// ```
+#[elem(title = "Long Division", Mathy)]
+pub struct LongdivisionElem {
+    /// The expression to divide.
+    #[required]
+    pub dividend: Content,
+}

@@ -570,6 +570,8 @@ fn layout_realized(
         layout_op(elem, ctx, styles)?
     } else if let Some(elem) = elem.to_packed::<RootElem>() {
         self::root::layout_root(elem, ctx, styles)?
+    } else if let Some(elem) = elem.to_packed::<LongdivisionElem>() {
+        self::root::layout_longdivision(elem, ctx, styles)?
     } else if let Some(elem) = elem.to_packed::<StretchElem>() {
         self::stretch::layout_stretch(elem, ctx, styles)?
     } else if let Some(elem) = elem.to_packed::<UnderlineElem>() {
