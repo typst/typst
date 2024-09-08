@@ -59,7 +59,7 @@ pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Escape)
     .add(SyntaxKind::Shorthand)
     .add(SyntaxKind::SmartQuote)
-    .add(SyntaxKind::RawDelim)
+    .add(SyntaxKind::Raw)
     .add(SyntaxKind::Link)
     .add(SyntaxKind::Label)
     .add(SyntaxKind::Hash)
@@ -124,7 +124,7 @@ pub const ATOMIC_CODE_PRIMARY: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Numeric)
     .add(SyntaxKind::Str)
     .add(SyntaxKind::Label)
-    .add(SyntaxKind::RawDelim);
+    .add(SyntaxKind::Raw);
 
 /// Syntax kinds that are unary operators.
 pub const UNARY_OP: SyntaxSet = SyntaxSet::new()
