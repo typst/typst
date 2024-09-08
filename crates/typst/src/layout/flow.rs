@@ -40,7 +40,7 @@ use crate::World;
 enum PageItem<'a> {
     /// A page run containing content. All runs will be layouted in parallel.
     Run(&'a [Pair<'a>], StyleChain<'a>, Locator<'a>),
-    /// Tags in between pages. These will be preprended to the first start of
+    /// Tags in between pages. These will be prepended to the first start of
     /// the next page, or appended at the very end of the final page if there is
     /// no next page.
     Tags(&'a [Pair<'a>]),
