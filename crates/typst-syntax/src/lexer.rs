@@ -65,6 +65,22 @@ pub struct TriviaStart {
     pub offset: usize,
 }
 
+/// A single token returned from the lexer with a cached SyntaxKind and a record of
+/// previous trivia in Math/Code mode.
+#[derive(Clone)]
+pub struct Token {
+    /// A SyntaxNode returned from the lexer.
+    ///
+    /// Invariant: This should never be trivia in Math/Code mode.
+    pub node: SyntaxNode,
+    /// The SyntaxKind of `node`, cached separately for performance as this is used
+    /// frequently.
+    pub kind: SyntaxKind,
+    /// The start of any trivia before `token` in Math/Code mode. Markup parses trivia
+    /// manually and doesn't use this.
+    pub prev_trivia: Option<TriviaStart>,
+}
+
 impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode and a prefix to offset column
     /// calculations.
@@ -124,10 +140,7 @@ impl Lexer<'_> {
 impl<'s> Lexer<'s> {
     /// Move the lexer forward to return the next token and, in Math/Code mode, lex past
     /// any trivia tokens, pushing them into `nodes`.
-    pub fn lex_past_trivia(
-        &mut self,
-        nodes: &mut Vec<SyntaxNode>,
-    ) -> (SyntaxKind, SyntaxNode, Option<TriviaStart>) {
+    pub fn lex_past_trivia(&mut self, nodes: &mut Vec<SyntaxNode>) -> Token {
         let mut start = self.cursor();
         let mut kind = self.next();
         let mut triv = TriviaStart { num: 0, offset: start };
@@ -148,11 +161,11 @@ impl<'s> Lexer<'s> {
                 SyntaxNode::error(error, self.s.from(start))
             }
             None if kind == SyntaxKind::Raw => {
-                SyntaxNode::inner(kind, std::mem::replace(&mut self.raw, Vec::new()))
+                SyntaxNode::inner(kind, std::mem::take(&mut self.raw))
             }
             None => SyntaxNode::leaf(kind, self.s.from(start)),
         };
-        (kind, node, prev_trivia)
+        Token { node, kind, prev_trivia }
     }
 
     /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.

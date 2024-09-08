@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut, Range};
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
-use crate::lexer::{NewlineMode, TriviaStart};
+use crate::lexer::{NewlineMode, Token, TriviaStart};
 use crate::set::SyntaxSet;
 use crate::{
     ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode,
@@ -1265,7 +1265,7 @@ fn args(p: &mut Parser) {
 }
 
 /// Parses a single argument in an argument list.
-fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<EcoString>) {
+fn arg(p: &mut Parser, seen: &mut HashSet<EcoString>) {
     let m = p.marker();
 
     // Parses a spread argument: `..args`.
@@ -1324,7 +1324,7 @@ fn params(p: &mut Parser) {
 }
 
 /// Parses a single parameter in a parameter list.
-fn param<'s>(p: &mut Parser<'s>, seen: &mut HashSet<EcoString>, sink: &mut bool) {
+fn param(p: &mut Parser, seen: &mut HashSet<EcoString>, sink: &mut bool) {
     let m = p.marker();
 
     // Parses argument sink: `..sink`.
@@ -1370,8 +1370,8 @@ fn pattern<'s>(
 }
 
 /// Parses a destructuring pattern or just a parenthesized pattern.
-fn destructuring_or_parenthesized<'s>(
-    p: &mut Parser<'s>,
+fn destructuring_or_parenthesized(
+    p: &mut Parser,
     reassignment: bool,
     seen: &mut HashSet<EcoString>,
 ) {
@@ -1408,8 +1408,8 @@ fn destructuring_or_parenthesized<'s>(
 }
 
 /// Parses an item in a destructuring pattern.
-fn destructuring_item<'s>(
-    p: &mut Parser<'s>,
+fn destructuring_item(
+    p: &mut Parser,
     reassignment: bool,
     seen: &mut HashSet<EcoString>,
     maybe_just_parens: &mut bool,
@@ -1513,13 +1513,7 @@ struct Parser<'s> {
     lexer: Lexer<'s>,
     /// The current token being evaluated, not yet present in `nodes`. This acts like a
     /// single item of lookahead for the parser.
-    /// Invariant: This should never be trivia in Math/Code mode.
-    current: SyntaxNode,
-    /// The current SyntaxKind. Always matches `current`.
-    kind: SyntaxKind,
-    /// The start of any trivia before `token` in Math/Code mode. Markup parses trivia
-    /// manually and doesn't use this.
-    prev_trivia: Option<TriviaStart>,
+    current: Token,
     /// Whether the parser is balanced over open/close delimiters when not actively
     /// matching delimiters. This only ever transitions from true to false.
     balanced: bool,
@@ -1545,9 +1539,7 @@ struct Marker(usize);
 #[derive(Clone)]
 struct Checkpoint<'s> {
     lexer: Lexer<'s>,
-    current: SyntaxNode,
-    kind: SyntaxKind,
-    prev_trivia: Option<TriviaStart>,
+    current: Token,
     node_len: usize,
 }
 
@@ -1557,13 +1549,11 @@ impl<'s> Parser<'s> {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
         let mut nodes = vec![];
-        let (kind, current, prev_trivia) = lexer.lex_past_trivia(&mut nodes);
+        let current = lexer.lex_past_trivia(&mut nodes);
         Self {
             lexer,
             text,
             current,
-            kind,
-            prev_trivia,
             balanced: true,
             nodes,
             memo: HashMap::new(),
@@ -1577,7 +1567,7 @@ impl<'s> Parser<'s> {
     }
 
     fn prev_end(&self) -> usize {
-        match self.prev_trivia {
+        match self.current.prev_trivia {
             Some(TriviaStart { num: _, offset }) => offset,
             None => self.current_start(),
         }
@@ -1585,12 +1575,12 @@ impl<'s> Parser<'s> {
 
     /// Similar to a 'peek()' function: returns the 'kind' of the next token to be eaten.
     fn current_kind(&self) -> SyntaxKind {
-        self.kind
+        self.current.kind
     }
 
     /// The offset into `text` of the current token's start.
     fn current_start(&self) -> usize {
-        self.lexer.cursor() - self.current.len()
+        self.lexer.cursor() - self.current.node.len()
     }
 
     /// The offset into `text` after current token's text.
@@ -1600,28 +1590,28 @@ impl<'s> Parser<'s> {
 
     /// The current token's text.
     fn current_text(&self) -> &str {
-        self.current.text()
+        self.current.node.text()
     }
 
     /// Whether the current token is a given SyntaxKind.
     fn at(&self, kind: SyntaxKind) -> bool {
-        self.kind == kind
+        self.current.kind == kind
     }
 
     /// Whether the current token matches a SyntaxSet.
     fn at_set(&self, set: SyntaxSet) -> bool {
-        set.contains(self.kind)
+        set.contains(self.current.kind)
     }
 
     /// Whether there was trivia between the current node and its predecessor.
     ///
     /// This is only relevant for Math/Code mode and will always be false in Markup mode.
     fn had_trivia(&self) -> bool {
-        self.prev_trivia.is_some()
+        self.current.prev_trivia.is_some()
     }
 
     fn directly_at(&self, kind: SyntaxKind) -> bool {
-        self.kind == kind && !self.had_trivia()
+        self.current.kind == kind && !self.had_trivia()
     }
 
     /// Whether we're at the end of the token stream.
@@ -1656,14 +1646,14 @@ impl<'s> Parser<'s> {
     /// moving between functions that expect to start with a specific token.
     #[track_caller]
     fn assert(&mut self, kind: SyntaxKind) {
-        assert_eq!(self.kind, kind);
+        assert_eq!(self.current.kind, kind);
         self.eat();
     }
 
     /// Convert the current token's SyntaxKind and eat it.
     fn convert_and_eat(&mut self, kind: SyntaxKind) {
-        self.current.convert_to_kind(kind);
-        self.kind = kind; // Note: this isn't necessary, but I'm keeping it for the moment
+        self.current.node.convert_to_kind(kind);
+        self.current.kind = kind; // Note: this isn't necessary, but I'm keeping it for the moment
         self.eat();
     }
 
@@ -1687,16 +1677,10 @@ impl<'s> Parser<'s> {
     /// Get a marker that includes any trivia before the current token in Math/Code mode.
     fn before_trivia(&self) -> Marker {
         let mut marker = self.marker();
-        if let Some(triv) = &self.prev_trivia {
+        if let Some(triv) = &self.current.prev_trivia {
             marker.0 -= triv.num;
         }
         marker
-    }
-
-    /// Whether the last non-trivia node is an error.
-    fn after_error(&mut self) -> bool {
-        let m = self.before_trivia();
-        m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
     }
 
     #[track_caller]
@@ -1713,13 +1697,20 @@ impl<'s> Parser<'s> {
         self.wrap_within(from, self.before_trivia(), kind);
     }
 
-    /// Replace the current token
+    /// Wrap nodes[from..to] in a new SyntaxNode of the given kind.
     fn wrap_within(&mut self, from: Marker, to: Marker, kind: SyntaxKind) {
         let len = self.nodes.len();
         let to = to.0.min(len);
         let from = from.0.min(to);
         let children = self.nodes.drain(from..to).collect();
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
+    }
+
+    /// Eats the current token by saving it to the `nodes` vector, then moves the lexer
+    /// forward to prepare a new current token.
+    fn eat(&mut self) {
+        self.nodes.push(self.current.node.clone());
+        self.current = self.lexer.lex_past_trivia(&mut self.nodes);
     }
 
     /// Parse within a given Lexer mode, exiting and re-lexing if necessary. This is
@@ -1738,13 +1729,25 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Re-lex the current token and any preceding whitespace. This must be called after
+    /// changing the lex/newline mode.
+    fn re_lex(&mut self) {
+        let prev_start = match self.current.prev_trivia {
+            Some(TriviaStart { num, offset }) => {
+                self.nodes.truncate(self.nodes.len() - num);
+                offset
+            }
+            None => self.lexer.cursor() - self.current.node.len(),
+        };
+        self.lexer.jump(prev_start);
+        self.current = self.lexer.lex_past_trivia(&mut self.nodes);
+    }
+
     /// Save a checkpoint of the parser state.
     fn checkpoint(&self) -> Checkpoint<'s> {
         Checkpoint {
             lexer: self.lexer.clone(),
             current: self.current.clone(),
-            kind: self.kind,
-            prev_trivia: self.prev_trivia.clone(),
             node_len: self.nodes.len(),
         }
     }
@@ -1753,32 +1756,7 @@ impl<'s> Parser<'s> {
     fn restore(&mut self, checkpoint: Checkpoint<'s>) {
         self.lexer = checkpoint.lexer;
         self.current = checkpoint.current;
-        self.kind = checkpoint.kind;
-        self.prev_trivia = checkpoint.prev_trivia;
         self.nodes.truncate(checkpoint.node_len);
-    }
-
-    /// Eats the current token by saving it as a leaf node or error, then moves the lexer
-    /// forward to prepare a new current token.
-    fn eat(&mut self) {
-        // TODO: figure out whether this is the perf regression or not.
-        // current is ~10% increase in time
-        self.nodes.push(self.current.clone());
-        (self.kind, self.current, self.prev_trivia) = self.lexer.lex_past_trivia(&mut self.nodes);
-    }
-
-    /// Re-lex the current token and any preceding whitespace. This must be called after
-    /// changing the lex/newline mode.
-    fn re_lex(&mut self) {
-        let prev_start = match self.prev_trivia {
-            Some(TriviaStart { num, offset }) => {
-                self.nodes.truncate(self.nodes.len() - num);
-                offset
-            }
-            None => self.lexer.cursor() - self.current.text().len(),
-        };
-        self.lexer.jump(prev_start);
-        (self.kind, self.current, self.prev_trivia) = self.lexer.lex_past_trivia(&mut self.nodes);
     }
 }
 
@@ -1788,7 +1766,7 @@ impl<'s> Parser<'s> {
         let at = self.at(kind);
         if at {
             self.eat();
-        } else if kind == SyntaxKind::Ident && self.kind.is_keyword() {
+        } else if kind == SyntaxKind::Ident && self.current.kind.is_keyword() {
             self.trim_errors();
             self.eat_as_expecting(Some(kind.name()));
         } else {
@@ -1821,8 +1799,10 @@ impl<'s> Parser<'s> {
 
     /// Produce an error that the given `thing` was expected.
     fn expected(&mut self, thing: &str) {
-        if !self.after_error() {
-            self.expected_at(self.before_trivia(), thing);
+        let m = self.before_trivia();
+        let after_error = m.0 > 0 && self.nodes[m.0 - 1].kind().is_error();
+        if !after_error {
+            self.expected_at(m, thing);
         }
     }
 
@@ -1846,7 +1826,7 @@ impl<'s> Parser<'s> {
     /// unexpected.
     fn unexpected(&mut self) {
         self.trim_errors();
-        self.balanced &= !self.kind.is_grouping();
+        self.balanced &= !self.current.kind.is_grouping();
         self.eat_as_expecting(None);
     }
 
