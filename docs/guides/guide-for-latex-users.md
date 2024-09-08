@@ -686,6 +686,6 @@ applicable, contains possible workarounds.
   in Typst, your global definitions
   and global setups need to be placed in a separate file,
   and that file is then `#import`ed and/or `#include`d
-  into all of your project's nested files in addition to the main file.
+  into the files that make use of these definitions.
   This requirement and design improves the robustness, predictability,
   and performance of Typst, as every file is well-defined in isolation.
