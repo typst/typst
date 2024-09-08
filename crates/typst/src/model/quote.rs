@@ -4,6 +4,7 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles,
 };
+use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockChild, BlockElem, Em, HElem, PadElem, Spacing, VElem,
 };
@@ -42,7 +43,7 @@ use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(ShowSet, Show)]
+#[elem(Locatable, ShowSet, Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
