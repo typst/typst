@@ -168,7 +168,7 @@ I got an ice cream for
 \$1.50! \u{1f600}
 ```
 
-## Paths { #paths }
+## Paths
 Typst supports several directives that require a file path to reference external
 resources such as images, imports, data loading, and others. Understanding how
 to correctly specify paths for these directives is essential to ensure that
