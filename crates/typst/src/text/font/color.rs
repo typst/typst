@@ -2,7 +2,7 @@
 
 use std::io::Read;
 
-use ttf_parser::{GlyphId, RgbaColor};
+use ttf_parser::{name_id, GlyphId, RgbaColor};
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
@@ -11,13 +11,34 @@ use crate::syntax::Span;
 use crate::text::{Font, Glyph};
 use crate::visualize::Image;
 
-/// Tells if a glyph is a color glyph or not in a given font.
+/// Returns true if a glyph is a color glyph.
+///
+/// The `sbix`, `cbdt`, `SVG`, and `COLR` tables are searched, in order, for a matching glyph.
 pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
     let ttf = font.ttf();
     let glyph_id = GlyphId(g.id);
-    ttf.glyph_raster_image(glyph_id, 160).is_some()
-        || ttf.glyph_svg_image(glyph_id).is_some()
-        || ttf.is_color_glyph(glyph_id)
+    let pixels_per_em = 160;
+
+    // Ultimately this can still fail as we only support
+    // PNG glyphs but the sbix table can also contain JPEG
+    // and TIFF glyphs.
+    if let Some(sbix) = ttf.tables().sbix {
+        if sbix.best_strike(pixels_per_em).is_some() {
+            return true;
+        }
+    }
+
+    // We only support PNG (formats 17, 18, and 19) glyphs.
+    // Other formats inherited from the EBDT table will cause
+    // a panic, but hopefully it's unlikely to find raw
+    // greyscale bitmaps in the *C*BDT table.
+    if let Some(cbdt) = ttf.tables().cbdt {
+        if cbdt.get(glyph_id, pixels_per_em).is_some() {
+            return true;
+        }
+    }
+
+    ttf.glyph_svg_image(glyph_id).is_some() || ttf.is_color_glyph(glyph_id)
 }
 
 /// Returns a frame with the glyph drawn inside.
@@ -110,12 +131,27 @@ fn draw_colr_glyph(
 }
 
 /// Draws a raster glyph in a frame.
+///
+/// While raster glyphs in TrueType and OpenType fonts can be encoded in a variety of ways,
+/// currently only PNG glyphs are supported. This function will panic on unsupported glyphs.
 fn draw_raster_glyph(
     frame: &mut Frame,
     font: &Font,
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) {
+    if raster_image.format != ttf_parser::RasterImageFormat::PNG {
+        let image_format = raster_image.format;
+
+        let postscript_name = font
+            .find_name(name_id::POST_SCRIPT_NAME)
+            .unwrap_or_else(|| "unknown".to_string());
+
+        unimplemented!(
+            "{postscript_name} contains raster glyph in unsupported format `{image_format:?}`"
+        )
+    }
+
     let image = Image::new(
         raster_image.data.into(),
         typst::visualize::ImageFormat::Raster(typst::visualize::RasterFormat::Png),
