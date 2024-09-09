@@ -292,5 +292,10 @@
 
 --- calc-clamp-decimal-float ---
 // Error: 2-37 cannot apply this operation to a decimal and a float
-// Hint: 2-37 if precision loss is acceptable, explicitly cast the decimal to a float with `float(value)`
+// Hint: 2-37 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
 #calc.clamp(decimal("10"), 5.5, 6.6)
+
+--- calc-sin-decimal ---
+// Error: 11-25 expected integer, float, or angle, found decimal
+// Hint: 11-25 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
+#calc.sin(decimal("1.1"))

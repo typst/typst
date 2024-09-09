@@ -1166,5 +1166,5 @@ fn too_large() -> &'static str {
 #[cold]
 fn cant_apply_to_decimal_and_float() -> HintedString {
     HintedString::new(eco_format!("cannot apply this operation to a decimal and a float"))
-        .with_hint("if precision loss is acceptable, explicitly cast the decimal to a float with `float(value)`")
+        .with_hint("if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`")
 }
