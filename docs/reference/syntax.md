@@ -167,3 +167,28 @@ sequence: `[\u{1f600}]`. The same kind of escape sequences also work in
 I got an ice cream for
 \$1.50! \u{1f600}
 ```
+
+## Paths { #paths }
+Typst supports several directives that require a file path to reference external
+resources such as images, imports, data loading, and others. Understanding how
+to correctly specify paths for these directives is essential to ensure that
+Typst can locate and load the required files during compilation.
+
+A **relative path** starts from the location of the Typst file where the
+directive is invoked. For example:
+```example
+#image("images/logo.png")
+```
+
+When a path begins with `/`, it is treated as an absolute path relative to the
+project root. For example:
+```example
+#image("/assets/logo.png")
+```
+
+Typst allows customization of the project root through the CLI option `--root`.
+By default, the project root is the directory from which Typst is run.
+If you want to set a specific folder as the root of your project, you can use:
+```example
+typst compile --root <path-to-project-root> file.typ
+```

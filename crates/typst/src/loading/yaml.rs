@@ -44,6 +44,8 @@ pub fn yaml(
     /// The engine.
     engine: &mut Engine,
     /// Path to a YAML file.
+    ///
+    /// For detailed description see [Paths]($syntax/#paths).
     path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;

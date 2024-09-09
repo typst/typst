@@ -27,6 +27,8 @@ pub fn read(
     /// The engine.
     engine: &mut Engine,
     /// Path to a file.
+    ///
+    /// For detailed description see [Paths]($syntax/#paths).
     path: Spanned<EcoString>,
     /// The encoding to read the file with.
     ///
