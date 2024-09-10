@@ -30,6 +30,7 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{families, LocalName};
 use crate::utils::LazyHash;
 use crate::visualize::Path;
+use crate::warning;
 use crate::World;
 
 /// A raster or vector graphic.
@@ -189,6 +190,21 @@ fn layout_image(
         Smart::Custom(v) => v,
         Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
     };
+
+    // Warn the user if the image contains a foreign object.
+    if format == ImageFormat::Vector(VectorFormat::Svg) {
+        let needle = b"foreignObject";
+        if data
+            .as_slice()
+            .windows(needle.len())
+            .position(|s| s == needle)
+            .is_some()
+        {
+            engine.sink.warn(warning!(span, "image contains foreign object";
+            hint: "svg images with foreign objects might render incorrectly in typst";
+            hint: "see https://github.com/typst/typst/issues/1421 for more information"));
+        }
+    }
 
     // Construct the image itself.
     let image = Image::with_fonts(
