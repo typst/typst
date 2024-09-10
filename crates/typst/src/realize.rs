@@ -82,11 +82,11 @@ pub enum RealizationKind<'a> {
 #[derive(Default)]
 pub struct Arenas {
     /// A typed arena for owned content.
-    content: typed_arena::Arena<Content>,
+    pub content: typed_arena::Arena<Content>,
     /// A typed arena for owned styles.
-    styles: typed_arena::Arena<Styles>,
+    pub styles: typed_arena::Arena<Styles>,
     /// An untyped arena for everything that is `Copy`.
-    bump: bumpalo::Bump,
+    pub bump: bumpalo::Bump,
 }
 
 /// Mutable state for realization.
