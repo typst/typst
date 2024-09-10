@@ -2,70 +2,39 @@
 //! - at the top-level, into a [`Document`].
 //! - inside of a container, into a [`Frame`] or [`Fragment`].
 
+mod collect;
+mod pages;
+
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
+use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
-use once_cell::unsync::Lazy;
 
+use self::collect::{collect, BlockChild, Child, LineChild, PlacedChild};
+use self::pages::layout_pages;
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Content, NativeElement, Packed, Resolve, SequenceElem, Smart, StyleChain, Styles,
+    Content, NativeElement, Packed, Resolve, SequenceElem, Smart, StyleChain,
 };
 use crate::introspection::{
     Counter, CounterDisplayElem, CounterKey, CounterState, CounterUpdate, Introspector,
-    Location, Locator, LocatorLink, ManualPageCounter, SplitLocator, Tag, TagElem,
-    TagKind,
+    Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Binding, BlockElem, ColbreakElem, ColumnsElem, Dir,
-    FixedAlignment, FlushElem, Fr, Fragment, Frame, FrameItem, HAlignment, Length,
-    OuterHAlignment, OuterVAlignment, Page, PageElem, PagebreakElem, Paper, Parity,
-    PlaceElem, Point, Ratio, Region, Regions, Rel, Sides, Size, Spacing, VAlignment,
-    VElem,
+    Abs, Axes, BlockElem, Dir, FixedAlignment, Fr, Fragment, Frame, FrameItem,
+    OuterHAlignment, Point, Region, Regions, Rel, Size,
 };
 use crate::model::{
-    Document, DocumentInfo, FootnoteElem, FootnoteEntry, Numbering, ParElem, ParLine,
-    ParLineMarker, ParLineNumberingScope,
+    Document, DocumentInfo, FootnoteElem, FootnoteEntry, ParLine, ParLineMarker,
+    ParLineNumberingScope,
 };
 use crate::realize::{realize, Arenas, Pair, RealizationKind};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
-use crate::visualize::Paint;
 use crate::World;
-
-/// An item in page layout.
-enum PageItem<'a> {
-    /// A page run containing content. All runs will be layouted in parallel.
-    Run(&'a [Pair<'a>], StyleChain<'a>, Locator<'a>),
-    /// Tags in between pages. These will be prepended to the first start of
-    /// the next page, or appended at the very end of the final page if there is
-    /// no next page.
-    Tags(&'a [Pair<'a>]),
-    /// An instruction to possibly add a page to bring the page number parity to
-    /// the desired state. Can only be done at the end, sequentially, because it
-    /// requires knowledge of the concrete page number.
-    Parity(Parity, StyleChain<'a>, Locator<'a>),
-}
-
-/// A mostly finished layout for one page. Needs only knowledge of its exact
-/// page number to be finalized into a `Page`. (Because the margins can depend
-/// on the page number.)
-#[derive(Clone)]
-struct LayoutedPage {
-    inner: Frame,
-    margin: Sides<Abs>,
-    binding: Binding,
-    two_sided: bool,
-    header: Option<Frame>,
-    footer: Option<Frame>,
-    background: Option<Frame>,
-    foreground: Option<Frame>,
-    fill: Smart<Option<Paint>>,
-    numbering: Option<Numbering>,
-}
 
 /// Layout content into a document.
 ///
@@ -129,517 +98,6 @@ fn layout_document_impl(
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
 
     Ok(Document { pages, info, introspector: Introspector::default() })
-}
-
-/// Layouts the document's pages.
-fn layout_pages<'a>(
-    engine: &mut Engine,
-    children: &'a mut [Pair<'a>],
-    locator: SplitLocator<'a>,
-    styles: StyleChain<'a>,
-) -> SourceResult<Vec<Page>> {
-    // Slice up the children into logical parts.
-    let items = collect_page_items(children, locator, styles);
-
-    // Layout the page runs in parallel.
-    let mut runs = engine.parallelize(
-        items.iter().filter_map(|item| match item {
-            PageItem::Run(children, initial, locator) => {
-                Some((children, initial, locator.relayout()))
-            }
-            _ => None,
-        }),
-        |engine, (children, initial, locator)| {
-            layout_page_run(engine, children, locator, *initial)
-        },
-    );
-
-    let mut pages = vec![];
-    let mut tags = vec![];
-    let mut counter = ManualPageCounter::new();
-
-    // Collect and finalize the runs, handling things like page parity and tags
-    // between pages.
-    for item in &items {
-        match item {
-            PageItem::Run(..) => {
-                let layouted = runs.next().unwrap()?;
-                for layouted in layouted {
-                    let page = finalize_page(engine, &mut counter, &mut tags, layouted)?;
-                    pages.push(page);
-                }
-            }
-            PageItem::Parity(parity, initial, locator) => {
-                if !parity.matches(pages.len()) {
-                    continue;
-                }
-
-                let layouted = layout_blank_page(engine, locator.relayout(), *initial)?;
-                let page = finalize_page(engine, &mut counter, &mut tags, layouted)?;
-                pages.push(page);
-            }
-            PageItem::Tags(items) => {
-                tags.extend(
-                    items
-                        .iter()
-                        .filter_map(|(c, _)| c.to_packed::<TagElem>())
-                        .map(|elem| elem.tag.clone()),
-                );
-            }
-        }
-    }
-
-    // Add the remaining tags to the very end of the last page.
-    if !tags.is_empty() {
-        let last = pages.last_mut().unwrap();
-        let pos = Point::with_y(last.frame.height());
-        last.frame
-            .push_multiple(tags.into_iter().map(|tag| (pos, FrameItem::Tag(tag))));
-    }
-
-    Ok(pages)
-}
-
-/// Slices up the children into logical parts, processing styles and handling
-/// things like tags and weak pagebreaks.
-fn collect_page_items<'a>(
-    mut children: &'a mut [Pair<'a>],
-    mut locator: SplitLocator<'a>,
-    mut initial: StyleChain<'a>,
-) -> Vec<PageItem<'a>> {
-    // The collected page-level items.
-    let mut items: Vec<PageItem<'a>> = vec![];
-    // When this is true, an empty page should be added to `pages` at the end.
-    let mut staged_empty_page = true;
-
-    // The `children` are a flat list of flow-level items and pagebreaks. This
-    // loops splits it up into pagebreaks and consecutive slices of
-    // non-pagebreaks. From these pieces, we build page items that we can then
-    // layout in parallel.
-    while let Some(&(elem, styles)) = children.first() {
-        if let Some(pagebreak) = elem.to_packed::<PagebreakElem>() {
-            // Add a blank page if we encounter a strong pagebreak and there was
-            // a staged empty page.
-            let strong = !pagebreak.weak(styles);
-            if strong && staged_empty_page {
-                let locator = locator.next(&elem.span());
-                items.push(PageItem::Run(&[], initial, locator));
-            }
-
-            // Add an instruction to adjust the page parity if requested.
-            if let Some(parity) = pagebreak.to(styles) {
-                let locator = locator.next(&elem.span());
-                items.push(PageItem::Parity(parity, styles, locator));
-            }
-
-            // The initial styles for the next page are ours unless this is a
-            // "boundary" pagebreak. Such a pagebreak is generated at the end of
-            // the scope of a page set rule to ensure a page boundary. It's
-            // styles correspond to the styles _before_ the page set rule, so we
-            // don't want to apply it to a potential empty page.
-            if !pagebreak.boundary(styles) {
-                initial = styles;
-            }
-
-            // Stage an empty page after a strong pagebreak.
-            staged_empty_page |= strong;
-
-            // Advance to the next child.
-            children = &mut children[1..];
-        } else {
-            // Find the end of the consecutive non-pagebreak run.
-            let end =
-                children.iter().take_while(|(c, _)| !c.is::<PagebreakElem>()).count();
-
-            // Migrate start tags without accompanying end tags from before a
-            // pagebreak to after it.
-            let end = migrate_unterminated_tags(children, end);
-            if end == 0 {
-                continue;
-            }
-
-            // Advance to the rest of the children.
-            let (group, rest) = children.split_at_mut(end);
-            children = rest;
-
-            // If all that is left now are tags, then we don't want to add a
-            // page just for them (since no group would have been detected in a
-            // tagless layout and tags should never affect the layout). For this
-            // reason, we remember them in a `PageItem::Tags` and later insert
-            // them at the _very start_ of the next page, even before the
-            // header.
-            //
-            // We don't do this if all that's left is end boundary pagebreaks
-            // and if an empty page is still staged, since then we can just
-            // conceptually replace that final page with us.
-            if group.iter().all(|(c, _)| c.is::<TagElem>())
-                && !(staged_empty_page
-                    && children.iter().all(|&(c, s)| {
-                        c.to_packed::<PagebreakElem>().is_some_and(|c| c.boundary(s))
-                    }))
-            {
-                items.push(PageItem::Tags(group));
-                continue;
-            }
-
-            // Record a page run and then disregard a staged empty page because
-            // we have real content now.
-            let locator = locator.next(&elem.span());
-            items.push(PageItem::Run(group, initial, locator));
-            staged_empty_page = false;
-        }
-    }
-
-    // Flush a staged empty page.
-    if staged_empty_page {
-        items.push(PageItem::Run(&[], initial, locator.next(&())));
-    }
-
-    items
-}
-
-/// Migrates trailing start tags without accompanying end tags tags from before
-/// a pagebreak to after it. Returns the position right after the last
-/// non-migrated tag.
-///
-/// This is important because we want the positions of introspectible elements
-/// that technically started before a pagebreak, but have no visible content
-/// yet, to be after the pagebreak. A typical case where this happens is `show
-/// heading: it => pagebreak() + it`.
-fn migrate_unterminated_tags(children: &mut [Pair], mid: usize) -> usize {
-    // Compute the range from before the first trailing tag to after the last
-    // following pagebreak.
-    let (before, after) = children.split_at(mid);
-    let start = mid - before.iter().rev().take_while(|&(c, _)| c.is::<TagElem>()).count();
-    let end = mid + after.iter().take_while(|&(c, _)| c.is::<PagebreakElem>()).count();
-
-    // Determine the set of tag locations which we won't migrate (because they
-    // are terminated).
-    let excluded: HashSet<_> = children[start..mid]
-        .iter()
-        .filter_map(|(c, _)| c.to_packed::<TagElem>())
-        .filter(|elem| elem.tag.kind() == TagKind::End)
-        .map(|elem| elem.tag.location())
-        .collect();
-
-    // A key function that partitions the area of interest into three groups:
-    // Excluded tags (-1) | Pagebreaks (0) | Migrated tags (1).
-    let key = |(c, _): &Pair| match c.to_packed::<TagElem>() {
-        Some(elem) => {
-            if excluded.contains(&elem.tag.location()) {
-                -1
-            } else {
-                1
-            }
-        }
-        None => 0,
-    };
-
-    // Partition the children using a *stable* sort. While it would be possible
-    // to write a more efficient direct algorithm for this, the sort version is
-    // less likely to have bugs and this is absolutely not on a hot path.
-    children[start..end].sort_by_key(key);
-
-    // Compute the new end index, right before the pagebreaks.
-    start + children[start..end].iter().take_while(|pair| key(pair) == -1).count()
-}
-
-/// Layout a page run with uniform properties.
-#[typst_macros::time(name = "page run")]
-fn layout_page_run(
-    engine: &mut Engine,
-    children: &[Pair],
-    locator: Locator,
-    initial: StyleChain,
-) -> SourceResult<Vec<LayoutedPage>> {
-    layout_page_run_impl(
-        engine.world,
-        engine.introspector,
-        engine.traced,
-        TrackedMut::reborrow_mut(&mut engine.sink),
-        engine.route.track(),
-        children,
-        locator.track(),
-        initial,
-    )
-}
-
-/// Layout a single page suitable  for parity adjustment.
-fn layout_blank_page(
-    engine: &mut Engine,
-    locator: Locator,
-    initial: StyleChain,
-) -> SourceResult<LayoutedPage> {
-    let layouted = layout_page_run(engine, &[], locator, initial)?;
-    Ok(layouted.into_iter().next().unwrap())
-}
-
-/// The internal implementation of `layout_page_run`.
-#[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
-fn layout_page_run_impl(
-    world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
-    traced: Tracked<Traced>,
-    sink: TrackedMut<Sink>,
-    route: Tracked<Route>,
-    children: &[Pair],
-    locator: Tracked<Locator>,
-    initial: StyleChain,
-) -> SourceResult<Vec<LayoutedPage>> {
-    let link = LocatorLink::new(locator);
-    let mut locator = Locator::link(&link).split();
-    let mut engine = Engine {
-        world,
-        introspector,
-        traced,
-        sink,
-        route: Route::extend(route),
-    };
-
-    // Determine the page-wide styles.
-    let styles = determine_page_styles(children, initial);
-    let styles = StyleChain::new(&styles);
-
-    // When one of the lengths is infinite the page fits its content along
-    // that axis.
-    let width = PageElem::width_in(styles).unwrap_or(Abs::inf());
-    let height = PageElem::height_in(styles).unwrap_or(Abs::inf());
-    let mut size = Size::new(width, height);
-    if PageElem::flipped_in(styles) {
-        std::mem::swap(&mut size.x, &mut size.y);
-    }
-
-    let mut min = width.min(height);
-    if !min.is_finite() {
-        min = Paper::A4.width();
-    }
-
-    // Determine the margins.
-    let default = Rel::<Length>::from((2.5 / 21.0) * min);
-    let margin = PageElem::margin_in(styles);
-    let two_sided = margin.two_sided.unwrap_or(false);
-    let margin = margin
-        .sides
-        .map(|side| side.and_then(Smart::custom).unwrap_or(default))
-        .resolve(styles)
-        .relative_to(size);
-
-    // Realize columns.
-    let area = size - margin.sum_by_axis();
-    let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
-    regions.root = true;
-
-    let fill = PageElem::fill_in(styles);
-    let foreground = PageElem::foreground_in(styles);
-    let background = PageElem::background_in(styles);
-    let header_ascent = PageElem::header_ascent_in(styles).relative_to(margin.top);
-    let footer_descent = PageElem::footer_descent_in(styles).relative_to(margin.bottom);
-    let numbering = PageElem::numbering_in(styles);
-    let number_align = PageElem::number_align_in(styles);
-    let binding =
-        PageElem::binding_in(styles).unwrap_or_else(|| match TextElem::dir_in(styles) {
-            Dir::LTR => Binding::Left,
-            _ => Binding::Right,
-        });
-
-    // Construct the numbering (for header or footer).
-    let numbering_marginal = numbering.as_ref().map(|numbering| {
-        let both = match numbering {
-            Numbering::Pattern(pattern) => pattern.pieces() >= 2,
-            Numbering::Func(_) => true,
-        };
-
-        let mut counter = CounterDisplayElem::new(
-            Counter::new(CounterKey::Page),
-            Smart::Custom(numbering.clone()),
-            both,
-        )
-        .pack();
-
-        // We interpret the Y alignment as selecting header or footer
-        // and then ignore it for aligning the actual number.
-        if let Some(x) = number_align.x() {
-            counter = counter.aligned(x.into());
-        }
-
-        counter
-    });
-
-    let header = PageElem::header_in(styles);
-    let footer = PageElem::footer_in(styles);
-    let (header, footer) = if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
-        (header.as_ref().unwrap_or(&numbering_marginal), footer.as_ref().unwrap_or(&None))
-    } else {
-        (header.as_ref().unwrap_or(&None), footer.as_ref().unwrap_or(&numbering_marginal))
-    };
-
-    // Layout the children.
-    let fragment = FlowLayouter::new(
-        &mut engine,
-        children,
-        &mut locator,
-        styles,
-        regions,
-        PageElem::columns_in(styles),
-        ColumnsElem::gutter_in(styles),
-        Span::detached(),
-        &mut vec![],
-    )
-    .layout(regions)?;
-
-    // Layouts a single marginal.
-    let mut layout_marginal = |content: &Option<Content>, area, align| {
-        let Some(content) = content else { return Ok(None) };
-        let aligned = content.clone().styled(AlignElem::set_alignment(align));
-        layout_frame(
-            &mut engine,
-            &aligned,
-            locator.next(&content.span()),
-            styles,
-            Region::new(area, Axes::splat(true)),
-        )
-        .map(Some)
-    };
-
-    // Layout marginals.
-    let mut layouted = Vec::with_capacity(fragment.len());
-    for inner in fragment {
-        let header_size = Size::new(inner.width(), margin.top - header_ascent);
-        let footer_size = Size::new(inner.width(), margin.bottom - footer_descent);
-        let full_size = inner.size() + margin.sum_by_axis();
-        let mid = HAlignment::Center + VAlignment::Horizon;
-        layouted.push(LayoutedPage {
-            inner,
-            fill: fill.clone(),
-            numbering: numbering.clone(),
-            header: layout_marginal(header, header_size, Alignment::BOTTOM)?,
-            footer: layout_marginal(footer, footer_size, Alignment::TOP)?,
-            background: layout_marginal(background, full_size, mid)?,
-            foreground: layout_marginal(foreground, full_size, mid)?,
-            margin,
-            binding,
-            two_sided,
-        });
-    }
-
-    Ok(layouted)
-}
-
-/// Determines the styles used for a page run itself and page-level content like
-/// marginals and footnotes.
-///
-/// As a base, we collect the styles that are shared by all elements on the page
-/// run. As a fallback if there are no elements, we use the styles active at the
-/// pagebreak that introduced the page (at the very start, we use the default
-/// styles). Then, to produce our page styles, we filter this list of styles
-/// according to a few rules:
-///
-/// - Other styles are only kept if they are `outside && (initial || liftable)`.
-/// - "Outside" means they were not produced within a show rule or that the
-///   show rule "broke free" to the page level by emitting page styles.
-/// - "Initial" means they were active at the pagebreak that introduced the
-///   page. Since these are intuitively already active, they should be kept even
-///   if not liftable. (E.g. `text(red, page(..)`) makes the footer red.)
-/// - "Liftable" means they can be lifted to the page-level even though they
-///   weren't yet active at the very beginning. Set rule styles are liftable as
-///   opposed to direct constructor calls:
-///   - For `set page(..); set text(red)` the red text is kept even though it
-///     comes after the weak pagebreak from set page.
-///   - For `set page(..); text(red)[..]` the red isn't kept because the
-///     constructor styles are not liftable.
-fn determine_page_styles(children: &[Pair], initial: StyleChain) -> Styles {
-    // Determine the shared styles (excluding tags).
-    let tagless = children.iter().filter(|(c, _)| !c.is::<TagElem>()).map(|&(_, s)| s);
-    let base = StyleChain::trunk(tagless).unwrap_or(initial).to_map();
-
-    // Determine the initial styles that are also shared by everything. We can't
-    // use `StyleChain::trunk` because it currently doesn't deal with partially
-    // shared links (where a subslice matches).
-    let trunk_len = initial
-        .to_map()
-        .as_slice()
-        .iter()
-        .zip(base.as_slice())
-        .take_while(|&(a, b)| a == b)
-        .count();
-
-    // Filter the base styles according to our rules.
-    base.into_iter()
-        .enumerate()
-        .filter(|(i, style)| {
-            let initial = *i < trunk_len;
-            style.outside() && (initial || style.liftable())
-        })
-        .map(|(_, style)| style)
-        .collect()
-}
-
-/// Piece together the inner page frame and the marginals. We can only do this
-/// at the very end because inside/outside margins require knowledge of the
-/// physical page number, which is unknown during parallel layout.
-fn finalize_page(
-    engine: &mut Engine,
-    counter: &mut ManualPageCounter,
-    tags: &mut Vec<Tag>,
-    LayoutedPage {
-        inner,
-        mut margin,
-        binding,
-        two_sided,
-        header,
-        footer,
-        background,
-        foreground,
-        fill,
-        numbering,
-    }: LayoutedPage,
-) -> SourceResult<Page> {
-    // If two sided, left becomes inside and right becomes outside.
-    // Thus, for left-bound pages, we want to swap on even pages and
-    // for right-bound pages, we want to swap on odd pages.
-    if two_sided && binding.swap(counter.physical()) {
-        std::mem::swap(&mut margin.left, &mut margin.right);
-    }
-
-    // Create a frame for the full page.
-    let mut frame = Frame::hard(inner.size() + margin.sum_by_axis());
-
-    // Add tags.
-    for tag in tags.drain(..) {
-        frame.push(Point::zero(), FrameItem::Tag(tag));
-    }
-
-    // Add the "before" marginals. The order in which we push things here is
-    // important as it affects the relative ordering of introspectible elements
-    // and thus how counters resolve.
-    if let Some(background) = background {
-        frame.push_frame(Point::zero(), background);
-    }
-    if let Some(header) = header {
-        frame.push_frame(Point::with_x(margin.left), header);
-    }
-
-    // Add the inner contents.
-    frame.push_frame(Point::new(margin.left, margin.top), inner);
-
-    // Add the "after" marginals.
-    if let Some(footer) = footer {
-        let y = frame.height() - footer.height();
-        frame.push_frame(Point::new(margin.left, y), footer);
-    }
-    if let Some(foreground) = foreground {
-        frame.push_frame(Point::zero(), foreground);
-    }
-
-    // Apply counter updates from within the page to the manual page counter.
-    counter.visit(engine, &frame)?;
-
-    // Get this page's number and then bump the counter for the next page.
-    let number = counter.logical();
-    counter.step();
-
-    Ok(Page { frame, fill, numbering, number })
 }
 
 /// Layout content into multiple regions.
@@ -747,8 +205,9 @@ fn layout_fragment_impl(
         styles,
     )?;
 
-    FlowLayouter::new(
+    layout_flow(
         &mut engine,
+        &arenas.bump,
         &children,
         &mut locator,
         styles,
@@ -756,23 +215,118 @@ fn layout_fragment_impl(
         columns,
         column_gutter,
         content.span(),
-        &mut vec![],
     )
-    .layout(regions)
+}
+
+/// Layout flow content.
+#[allow(clippy::too_many_arguments)]
+fn layout_flow(
+    engine: &mut Engine,
+    bump: &Bump,
+    children: &[Pair],
+    locator: &mut SplitLocator,
+    shared: StyleChain,
+    regions: Regions,
+    columns: NonZeroUsize,
+    column_gutter: Rel<Abs>,
+    span: Span,
+) -> SourceResult<Fragment> {
+    // Separating the infinite space into infinite columns does not make
+    // much sense.
+    let mut columns = columns.get();
+    if !regions.size.x.is_finite() {
+        columns = 1;
+    }
+
+    // Determine the width of the gutter and each column.
+    let column_gutter = column_gutter.relative_to(regions.base().x);
+
+    let backlog: Vec<Abs>;
+    let mut pod = if columns > 1 {
+        backlog = std::iter::once(&regions.size.y)
+            .chain(regions.backlog)
+            .flat_map(|&height| std::iter::repeat(height).take(columns))
+            .skip(1)
+            .collect();
+
+        let width =
+            (regions.size.x - column_gutter * (columns - 1) as f64) / columns as f64;
+
+        // Create the pod regions.
+        Regions {
+            size: Size::new(width, regions.size.y),
+            full: regions.full,
+            backlog: &backlog,
+            last: regions.last,
+            expand: Axes::new(true, regions.expand.y),
+            root: regions.root,
+        }
+    } else {
+        regions
+    };
+
+    // The children aren't root.
+    pod.root = false;
+
+    // Check whether we have just a single multiple-layoutable element. In
+    // that case, we do not set `expand.y` to `false`, but rather keep it at
+    // its original value (since that element can take the full space).
+    //
+    // Consider the following code: `block(height: 5cm, pad(10pt,
+    // align(bottom, ..)))`. Thanks to the code below, the expansion will be
+    // passed all the way through the block & pad and reach the innermost
+    // flow, so that things are properly bottom-aligned.
+    let mut alone = false;
+    if let [(child, _)] = children {
+        alone = child.is::<BlockElem>();
+    }
+
+    // Disable vertical expansion when there are multiple or not directly
+    // layoutable children.
+    if !alone {
+        pod.expand.y = false;
+    }
+
+    let children =
+        collect(engine, bump, children, locator.next(&()), pod.base(), pod.expand.x)?;
+
+    let layouter = FlowLayouter {
+        engine,
+        span,
+        root: regions.root,
+        locator,
+        shared,
+        columns,
+        column_gutter,
+        regions: pod,
+        expand: regions.expand,
+        initial: pod.size,
+        items: vec![],
+        pending_tags: vec![],
+        pending_floats: vec![],
+        has_footnotes: false,
+        footnote_config: FootnoteConfig {
+            separator: FootnoteEntry::separator_in(shared),
+            clearance: FootnoteEntry::clearance_in(shared),
+            gap: FootnoteEntry::gap_in(shared),
+        },
+        visited_footnotes: HashSet::new(),
+        finished: vec![],
+    };
+
+    layouter.layout(&children, regions)
 }
 
 /// Layouts a collection of block-level elements.
-struct FlowLayouter<'a, 'b> {
+struct FlowLayouter<'a, 'b, 'x, 'y> {
     /// The engine.
-    engine: &'a mut Engine<'b>,
-    /// The children that will be arranged into a flow.
-    children: &'a [Pair<'a>],
+    engine: &'a mut Engine<'x>,
     /// A span to use for errors.
     span: Span,
     /// Whether this is the root flow.
     root: bool,
     /// Provides unique locations to the flow's children.
-    locator: &'a mut SplitLocator<'b>,
+    locator: &'a mut SplitLocator<'y>,
     /// The shared styles.
     shared: StyleChain<'a>,
     /// The number of columns.
@@ -787,16 +341,12 @@ struct FlowLayouter<'a, 'b> {
     /// The initial size of `regions.size` that was available before we started
     /// subtracting.
     initial: Size,
-    /// Whether the last block was a paragraph.
-    ///
-    /// Used for indenting paragraphs after the first in a block.
-    last_was_par: bool,
     /// Spacing and layouted blocks for the current region.
-    items: Vec<FlowItem>,
+    items: Vec<FlowItem<'a, 'b>>,
     /// A queue of tags that will be attached to the next frame.
     pending_tags: Vec<&'a Tag>,
     /// A queue of floating elements.
-    pending_floats: Vec<FlowItem>,
+    pending_floats: Vec<FlowItem<'a, 'b>>,
     /// Whether we have any footnotes in the current region.
     has_footnotes: bool,
     /// Footnote configuration.
@@ -821,8 +371,7 @@ struct CollectedParLine {
 }
 
 /// A prepared item in a flow layout.
-#[derive(Debug)]
-enum FlowItem {
+enum FlowItem<'a, 'b> {
     /// Spacing between other items and its weakness level.
     Absolute(Abs, u8),
     /// Fractional spacing between other items.
@@ -849,32 +398,18 @@ enum FlowItem {
         movable: bool,
     },
     /// An absolutely placed frame.
-    Placed {
-        /// The layouted content.
-        frame: Frame,
-        /// Where to place the content horizontally.
-        x_align: FixedAlignment,
-        /// Where to place the content vertically.
-        y_align: Smart<Option<FixedAlignment>>,
-        /// A translation to apply to the content.
-        delta: Axes<Rel<Abs>>,
-        /// Whether the content floats --- i.e. collides with in-flow content.
-        float: bool,
-        /// The amount of space that needs to be kept between the placed content
-        /// and in-flow content. Only relevant if `float` is `true`.
-        clearance: Abs,
-    },
+    Placed(&'b PlacedChild<'a>, Frame, Smart<Option<FixedAlignment>>),
     /// A footnote frame (can also be the separator).
     Footnote(Frame),
 }
 
-impl FlowItem {
+impl FlowItem<'_, '_> {
     /// Whether this item is out-of-flow.
     ///
     /// Out-of-flow items are guaranteed to have a [zero size][Size::zero()].
     fn is_out_of_flow(&self) -> bool {
         match self {
-            Self::Placed { float: false, .. } => true,
+            Self::Placed(placed, ..) => !placed.float,
             Self::Frame { frame, .. } => {
                 frame.size().is_zero()
                     && frame.items().all(|(_, item)| {
@@ -886,303 +421,87 @@ impl FlowItem {
     }
 }
 
-impl<'a, 'b> FlowLayouter<'a, 'b> {
-    /// Create a new flow layouter.
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        engine: &'a mut Engine<'b>,
-        children: &'a [Pair<'a>],
-        locator: &'a mut SplitLocator<'b>,
-        shared: StyleChain<'a>,
-        mut regions: Regions<'a>,
-        columns: NonZeroUsize,
-        column_gutter: Rel<Abs>,
-        span: Span,
-        backlog: &'a mut Vec<Abs>,
-    ) -> Self {
-        // Separating the infinite space into infinite columns does not make
-        // much sense.
-        let mut columns = columns.get();
-        if !regions.size.x.is_finite() {
-            columns = 1;
-        }
-
-        // Determine the width of the gutter and each column.
-        let column_gutter = column_gutter.relative_to(regions.base().x);
-
-        if columns > 1 {
-            *backlog = std::iter::once(&regions.size.y)
-                .chain(regions.backlog)
-                .flat_map(|&height| std::iter::repeat(height).take(columns))
-                .skip(1)
-                .collect();
-
-            let width =
-                (regions.size.x - column_gutter * (columns - 1) as f64) / columns as f64;
-
-            // Create the pod regions.
-            regions = Regions {
-                size: Size::new(width, regions.size.y),
-                full: regions.full,
-                backlog,
-                last: regions.last,
-                expand: Axes::new(true, regions.expand.y),
-                root: regions.root,
-            };
-        }
-
-        // Check whether we have just a single multiple-layoutable element. In
-        // that case, we do not set `expand.y` to `false`, but rather keep it at
-        // its original value (since that element can take the full space).
-        //
-        // Consider the following code: `block(height: 5cm, pad(10pt,
-        // align(bottom, ..)))`. Thanks to the code below, the expansion will be
-        // passed all the way through the block & pad and reach the innermost
-        // flow, so that things are properly bottom-aligned.
-        let mut alone = false;
-        if let [(child, _)] = children {
-            alone = child.is::<BlockElem>();
-        }
-
-        // Disable vertical expansion when there are multiple or not directly
-        // layoutable children.
-        let expand = regions.expand;
-        if !alone {
-            regions.expand.y = false;
-        }
-
-        // The children aren't root.
-        let root = std::mem::replace(&mut regions.root, false);
-
-        Self {
-            engine,
-            children,
-            span,
-            root,
-            locator,
-            shared,
-            columns,
-            column_gutter,
-            regions,
-            expand,
-            initial: regions.size,
-            last_was_par: false,
-            items: vec![],
-            pending_tags: vec![],
-            pending_floats: vec![],
-            has_footnotes: false,
-            footnote_config: FootnoteConfig {
-                separator: FootnoteEntry::separator_in(shared),
-                clearance: FootnoteEntry::clearance_in(shared),
-                gap: FootnoteEntry::gap_in(shared),
-            },
-            visited_footnotes: HashSet::new(),
-            finished: vec![],
-        }
-    }
-
+impl<'a, 'b, 'x, 'y> FlowLayouter<'a, 'b, 'x, 'y> {
     /// Layout the flow.
-    fn layout(mut self, regions: Regions) -> SourceResult<Fragment> {
-        for &(child, styles) in self.children {
-            if let Some(elem) = child.to_packed::<TagElem>() {
-                self.handle_tag(elem);
-            } else if let Some(elem) = child.to_packed::<VElem>() {
-                self.handle_v(elem, styles)?;
-            } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
-                self.handle_colbreak(elem)?;
-            } else if let Some(elem) = child.to_packed::<ParElem>() {
-                self.handle_par(elem, styles)?;
-            } else if let Some(elem) = child.to_packed::<BlockElem>() {
-                self.handle_block(elem, styles)?;
-            } else if let Some(elem) = child.to_packed::<PlaceElem>() {
-                self.handle_place(elem, styles)?;
-            } else if let Some(elem) = child.to_packed::<FlushElem>() {
-                self.handle_flush(elem)?;
-            } else if child.is::<PagebreakElem>() {
-                bail!(child.span(), "pagebreaks are not allowed inside of containers");
-            } else {
-                bail!(child.span(), "{} is not allowed here", child.func().name());
+    fn layout(
+        mut self,
+        children: &'b [Child<'a>],
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        for child in children {
+            match child {
+                Child::Tag(tag) => {
+                    self.pending_tags.push(tag);
+                }
+                Child::Rel(amount, weakness) => {
+                    self.handle_rel(*amount, *weakness)?;
+                }
+                Child::Fr(fr) => {
+                    self.handle_item(FlowItem::Fractional(*fr))?;
+                }
+                Child::Line(line) => {
+                    self.handle_line(line)?;
+                }
+                Child::Block(block) => {
+                    self.handle_block(block)?;
+                }
+                Child::Placed(placed) => {
+                    self.handle_placed(placed)?;
+                }
+                Child::Break(weak) => {
+                    self.handle_colbreak(*weak)?;
+                }
+                Child::Flush => {
+                    self.handle_flush()?;
+                }
             }
         }
 
         self.finish(regions)
     }
 
-    /// Place explicit metadata into the flow.
-    fn handle_tag(&mut self, elem: &'a Packed<TagElem>) {
-        self.pending_tags.push(&elem.tag);
-    }
-
-    /// Layout vertical spacing.
-    fn handle_v(&mut self, v: &'a Packed<VElem>, styles: StyleChain) -> SourceResult<()> {
-        self.layout_spacing(v.amount, styles, v.weak(styles) as u8)
-    }
-
-    /// Layout spacing, handling weakness.
-    fn layout_spacing(
-        &mut self,
-        amount: impl Into<Spacing>,
-        styles: StyleChain,
-        weakness: u8,
-    ) -> SourceResult<()> {
-        self.handle_item(match amount.into() {
-            Spacing::Rel(rel) => FlowItem::Absolute(
-                // Resolve the spacing relative to the current base height.
-                rel.resolve(styles).relative_to(self.initial.y),
-                weakness,
-            ),
-            Spacing::Fr(fr) => FlowItem::Fractional(fr),
-        })
-    }
-
-    /// Trim trailing weak spacing from the items.
-    fn trim_weak_spacing(&mut self) {
-        for (i, item) in self.items.iter().enumerate().rev() {
-            match item {
-                FlowItem::Absolute(amount, 1..) => {
-                    self.regions.size.y += *amount;
-                    self.items.remove(i);
-                    return;
-                }
-                FlowItem::Frame { .. } => return,
-                _ => {}
-            }
-        }
-    }
-
-    /// Layout a column break.
-    fn handle_colbreak(&mut self, _: &'a Packed<ColbreakElem>) -> SourceResult<()> {
-        // If there is still an available region, skip to it.
-        // TODO: Turn this into a region abstraction.
-        if !self.regions.backlog.is_empty() || self.regions.last.is_some() {
-            self.finish_region(true)?;
-        }
-        Ok(())
+    /// Layout relative spacing, handling weakness.
+    fn handle_rel(&mut self, amount: Rel<Abs>, weakness: u8) -> SourceResult<()> {
+        self.handle_item(FlowItem::Absolute(
+            // Resolve the spacing relative to the current base height.
+            amount.relative_to(self.initial.y),
+            weakness,
+        ))
     }
 
     /// Layout a paragraph.
-    #[typst_macros::time(name = "par", span = par.span())]
-    fn handle_par(
-        &mut self,
-        par: &'a Packed<ParElem>,
-        styles: StyleChain,
-    ) -> SourceResult<()> {
-        // Fetch properties.
-        let align = AlignElem::alignment_in(styles).resolve(styles);
-        let leading = ParElem::leading_in(styles);
-        let spacing = ParElem::spacing_in(styles);
-        let costs = TextElem::costs_in(styles);
-
-        // Layout the paragraph into lines. This only depends on the base size,
-        // not on the Y position.
-        let consecutive = self.last_was_par;
-        let locator = self.locator.next(&par.span());
-        let lines = crate::layout::layout_inline(
-            self.engine,
-            &par.children,
-            locator,
-            styles,
-            consecutive,
-            self.regions.base(),
-            self.regions.expand.x,
-        )?
-        .into_frames();
-
+    fn handle_line(&mut self, line: &LineChild) -> SourceResult<()> {
         // If the first line doesn’t fit in this region, then defer any
         // previous sticky frame to the next region (if available)
-        if let Some(first) = lines.first() {
-            while !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
-                let in_last = self.finish_region_with_migration()?;
-                if in_last {
-                    break;
-                }
-            }
+        if !self.regions.in_last()
+            && !self.regions.size.y.fits(line.need)
+            && self
+                .regions
+                .iter()
+                .nth(1)
+                .is_some_and(|region| region.y.fits(line.need))
+        {
+            self.finish_region_with_migration()?;
         }
 
-        // Determine whether to prevent widow and orphans.
-        let len = lines.len();
-        let prevent_orphans =
-            costs.orphan() > Ratio::zero() && len >= 2 && !lines[1].is_empty();
-        let prevent_widows =
-            costs.widow() > Ratio::zero() && len >= 2 && !lines[len - 2].is_empty();
-        let prevent_all = len == 3 && prevent_orphans && prevent_widows;
-
-        // Store the heights of lines at the edges because we'll potentially
-        // need these later when `lines` is already moved.
-        let height_at = |i| lines.get(i).map(Frame::height).unwrap_or_default();
-        let front_1 = height_at(0);
-        let front_2 = height_at(1);
-        let back_2 = height_at(len.saturating_sub(2));
-        let back_1 = height_at(len.saturating_sub(1));
-
-        self.layout_spacing(spacing, styles, 4)?;
-
-        // Layout the lines.
-        for (i, mut frame) in lines.into_iter().enumerate() {
-            if i > 0 {
-                self.layout_spacing(leading, styles, 5)?;
-            }
-
-            // To prevent widows and orphans, we require enough space for
-            // - all lines if it's just three
-            // - the first two lines if we're at the first line
-            // - the last two lines if we're at the second to last line
-            let needed = if prevent_all && i == 0 {
-                front_1 + leading + front_2 + leading + back_1
-            } else if prevent_orphans && i == 0 {
-                front_1 + leading + front_2
-            } else if prevent_widows && i >= 2 && i + 2 == len {
-                back_2 + leading + back_1
-            } else {
-                frame.height()
-            };
-
-            // If the line(s) don't fit into this region, but they do fit into
-            // the next, then advance.
-            if !self.regions.in_last()
-                && !self.regions.size.y.fits(needed)
-                && self.regions.iter().nth(1).is_some_and(|region| region.y.fits(needed))
-            {
-                self.finish_region(false)?;
-            }
-
-            self.drain_tag(&mut frame);
-            self.handle_item(FlowItem::Frame {
-                frame,
-                align,
-                sticky: false,
-                rootable: false,
-                movable: true,
-            })?;
-        }
-
-        self.layout_spacing(spacing, styles, 4)?;
-        self.last_was_par = true;
-
-        Ok(())
+        let mut frame = line.frame.clone();
+        self.drain_tag(&mut frame);
+        self.handle_item(FlowItem::Frame {
+            frame,
+            align: line.align,
+            sticky: false,
+            rootable: false,
+            movable: true,
+        })
     }
 
     /// Layout into multiple regions.
-    fn handle_block(
-        &mut self,
-        block: &'a Packed<BlockElem>,
-        styles: StyleChain<'a>,
-    ) -> SourceResult<()> {
-        // Fetch properties.
-        let sticky = block.sticky(styles);
-        let align = AlignElem::alignment_in(styles).resolve(styles);
-        let rootable = block.rootable(styles);
-        let spacing = Lazy::new(|| (ParElem::spacing_in(styles).into(), 4));
-        let (above, above_weakness) =
-            block.above(styles).map(|v| (v, 3)).unwrap_or_else(|| *spacing);
-        let (below, below_weakness) =
-            block.below(styles).map(|v| (v, 3)).unwrap_or_else(|| *spacing);
-
+    fn handle_block(&mut self, block: &BlockChild) -> SourceResult<()> {
         // If the block is "rootable" it may host footnotes. In that case, we
         // defer rootness to it temporarily. We disable our own rootness to
         // prevent duplicate footnotes.
         let is_root = self.root;
-        if is_root && rootable {
+        if is_root && block.rootable {
             self.root = false;
             self.regions.root = true;
         }
@@ -1192,15 +511,8 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
             self.finish_region(false)?;
         }
 
-        self.layout_spacing(above, styles, above_weakness)?;
-
         // Layout the block itself.
-        let fragment = block.layout(
-            self.engine,
-            self.locator.next(&block.span()),
-            styles,
-            self.regions,
-        )?;
+        let fragment = block.layout(self.engine, self.regions)?;
 
         let mut notes = Vec::new();
         for (i, mut frame) in fragment.into_iter().enumerate() {
@@ -1214,64 +526,41 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
             }
 
             self.drain_tag(&mut frame);
-            frame.post_process(styles);
             self.handle_item(FlowItem::Frame {
                 frame,
-                align,
-                sticky,
-                rootable,
+                align: block.align,
+                sticky: block.sticky,
+                rootable: block.rootable,
                 movable: false,
             })?;
         }
 
         self.try_handle_footnotes(notes)?;
-        self.layout_spacing(below, styles, below_weakness)?;
 
         self.root = is_root;
         self.regions.root = false;
-        self.last_was_par = false;
 
         Ok(())
     }
 
     /// Layout a placed element.
-    fn handle_place(
-        &mut self,
-        placed: &'a Packed<PlaceElem>,
-        styles: StyleChain,
-    ) -> SourceResult<()> {
-        // Fetch properties.
-        let float = placed.float(styles);
-        let clearance = placed.clearance(styles);
-        let alignment = placed.alignment(styles);
-        let delta = Axes::new(placed.dx(styles), placed.dy(styles)).resolve(styles);
+    fn handle_placed(&mut self, placed: &'b PlacedChild<'a>) -> SourceResult<()> {
+        let frame = placed.layout(self.engine, self.regions.base())?;
+        self.handle_item(FlowItem::Placed(placed, frame, placed.align_y))
+    }
 
-        let x_align = alignment.map_or(FixedAlignment::Center, |align| {
-            align.x().unwrap_or_default().resolve(styles)
-        });
-        let y_align = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
-
-        let mut frame = placed.layout(
-            self.engine,
-            self.locator.next(&placed.span()),
-            styles,
-            self.regions.base(),
-        )?;
-
-        frame.post_process(styles);
-
-        self.handle_item(FlowItem::Placed {
-            frame,
-            x_align,
-            y_align,
-            delta,
-            float,
-            clearance,
-        })
+    /// Layout a column break.
+    fn handle_colbreak(&mut self, _weak: bool) -> SourceResult<()> {
+        // If there is still an available region, skip to it.
+        // TODO: Turn this into a region abstraction.
+        if !self.regions.backlog.is_empty() || self.regions.last.is_some() {
+            self.finish_region(true)?;
+        }
+        Ok(())
     }
 
     /// Lays out all floating elements before continuing with other content.
-    fn handle_flush(&mut self, _: &'a Packed<FlushElem>) -> SourceResult<()> {
+    fn handle_flush(&mut self) -> SourceResult<()> {
         for item in std::mem::take(&mut self.pending_floats) {
             self.handle_item(item)?;
         }
@@ -1282,7 +571,7 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
     }
 
     /// Layout a finished frame.
-    fn handle_item(&mut self, mut item: FlowItem) -> SourceResult<()> {
+    fn handle_item(&mut self, mut item: FlowItem<'a, 'b>) -> SourceResult<()> {
         match item {
             FlowItem::Absolute(v, weakness) => {
                 if weakness > 0 {
@@ -1343,18 +632,12 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
                     return Ok(());
                 }
             }
-            FlowItem::Placed { float: false, .. } => {}
-            FlowItem::Placed {
-                ref mut frame,
-                ref mut y_align,
-                float: true,
-                clearance,
-                ..
-            } => {
+            FlowItem::Placed(placed, ..) if !placed.float => {}
+            FlowItem::Placed(placed, ref mut frame, ref mut align_y) => {
                 // If there is a queued float in front or if the float doesn't
                 // fit, queue it for the next region.
                 if !self.pending_floats.is_empty()
-                    || (!self.regions.size.y.fits(frame.height() + clearance)
+                    || (!self.regions.size.y.fits(frame.height() + placed.clearance)
                         && !self.regions.in_last())
                 {
                     self.pending_floats.push(item);
@@ -1362,26 +645,26 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
                 }
 
                 // Select the closer placement, top or bottom.
-                if y_align.is_auto() {
+                if align_y.is_auto() {
                     // When the figure's vertical midpoint would be above the
                     // middle of the page if it were layouted in-flow, we use
                     // top alignment. Otherwise, we use bottom alignment.
                     let used = self.regions.full - self.regions.size.y;
-                    let half = (frame.height() + clearance) / 2.0;
+                    let half = (frame.height() + placed.clearance) / 2.0;
                     let ratio = (used + half) / self.regions.full;
                     let better_align = if ratio <= 0.5 {
                         FixedAlignment::Start
                     } else {
                         FixedAlignment::End
                     };
-                    *y_align = Smart::Custom(Some(better_align));
+                    *align_y = Smart::Custom(Some(better_align));
                 }
 
                 // Add some clearance so that the float doesn't touch the main
                 // content.
-                frame.size_mut().y += clearance;
-                if *y_align == Smart::Custom(Some(FixedAlignment::End)) {
-                    frame.translate(Point::with_y(clearance));
+                frame.size_mut().y += placed.clearance;
+                if *align_y == Smart::Custom(Some(FixedAlignment::End)) {
+                    frame.translate(Point::with_y(placed.clearance));
                 }
 
                 self.regions.size.y -= frame.height();
@@ -1400,6 +683,21 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
         Ok(())
     }
 
+    /// Trim trailing weak spacing from the items.
+    fn trim_weak_spacing(&mut self) {
+        for (i, item) in self.items.iter().enumerate().rev() {
+            match item {
+                FlowItem::Absolute(amount, 1..) => {
+                    self.regions.size.y += *amount;
+                    self.items.remove(i);
+                    return;
+                }
+                FlowItem::Frame { .. } => return,
+                _ => {}
+            }
+        }
+    }
+
     /// Attach currently pending metadata to the frame.
     fn drain_tag(&mut self, frame: &mut Frame) {
         if !self.pending_tags.is_empty() && !frame.is_empty() {
@@ -1414,7 +712,7 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
     /// Finisht the region, migrating all sticky items to the next one.
     ///
     /// Returns whether we migrated into a last region.
-    fn finish_region_with_migration(&mut self) -> SourceResult<bool> {
+    fn finish_region_with_migration(&mut self) -> SourceResult<()> {
         // Find the suffix of sticky items.
         let mut sticky = self.items.len();
         for (i, item) in self.items.iter().enumerate().rev() {
@@ -1428,12 +726,11 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
         let carry: Vec<_> = self.items.drain(sticky..).collect();
         self.finish_region(false)?;
 
-        let in_last = self.regions.in_last();
         for item in carry {
             self.handle_item(item)?;
         }
 
-        Ok(in_last)
+        Ok(())
     }
 
     /// Finish the frame for one region.
@@ -1477,8 +774,8 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
                     used.y += frame.height();
                     used.x.set_max(frame.width());
                 }
-                FlowItem::Placed { float: false, .. } => {}
-                FlowItem::Placed { frame, float: true, y_align, .. } => match y_align {
+                FlowItem::Placed(placed, ..) if !placed.float => {}
+                FlowItem::Placed(_, frame, align_y) => match align_y {
                     Smart::Custom(Some(FixedAlignment::Start)) => {
                         float_top_height += frame.height()
                     }
@@ -1550,10 +847,10 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
 
                     output.push_frame(pos, frame);
                 }
-                FlowItem::Placed { frame, x_align, y_align, delta, float, .. } => {
-                    let x = x_align.position(size.x - frame.width());
-                    let y = if float {
-                        match y_align {
+                FlowItem::Placed(placed, frame, align_y) => {
+                    let x = placed.align_x.position(size.x - frame.width());
+                    let y = if placed.float {
+                        match align_y {
                             Smart::Custom(Some(FixedAlignment::Start)) => {
                                 let y = float_top_offset;
                                 float_top_offset += frame.height();
@@ -1568,7 +865,7 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
                             _ => unreachable!("float must be y aligned"),
                         }
                     } else {
-                        match y_align {
+                        match align_y {
                             Smart::Custom(Some(align)) => {
                                 align.position(size.y - frame.height())
                             }
@@ -1577,7 +874,7 @@ impl<'a, 'b> FlowLayouter<'a, 'b> {
                     };
 
                     let pos = Point::new(x, y)
-                        + delta.zip_map(size, Rel::relative_to).to_point();
+                        + placed.delta.zip_map(size, Rel::relative_to).to_point();
 
                     if self.root {
                         collect_par_lines(&mut lines, &frame, pos, Abs::zero());
