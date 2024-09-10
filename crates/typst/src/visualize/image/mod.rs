@@ -200,9 +200,12 @@ fn layout_image(
             .windows(needle.len())
             .any(|s| s == needle)
         {
-            engine.sink.warn(warning!(span, "image contains foreign object";
-            hint: "svg images with foreign objects might render incorrectly in typst";
-            hint: "see https://github.com/typst/typst/issues/1421 for more information"));
+            engine.sink.warn(warning!(
+                span,
+                "image contains foreign object";
+                hint: "SVG images with foreign objects might render incorrectly in typst";
+                hint: "see https://github.com/typst/typst/issues/1421 for more information"
+            ));
         }
     }
 
