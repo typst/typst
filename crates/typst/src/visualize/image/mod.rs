@@ -198,8 +198,7 @@ fn layout_image(
         if data
             .as_slice()
             .windows(needle.len())
-            .position(|s| s == needle)
-            .is_some()
+            .any(|s| s == needle)
         {
             engine.sink.warn(warning!(span, "image contains foreign object";
             hint: "svg images with foreign objects might render incorrectly in typst";
