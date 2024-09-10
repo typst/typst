@@ -189,6 +189,6 @@ project root. For example:
 Typst allows customization of the project root through the CLI option `--root`.
 By default, the project root is the directory from which Typst is run.
 If you want to set a specific folder as the root of your project, you can use:
-```typ
+```bash
 typst compile --root <path-to-project-root> file.typ
 ```
