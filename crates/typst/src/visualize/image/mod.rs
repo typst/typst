@@ -191,7 +191,8 @@ fn layout_image(
         Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
     };
 
-    // Warn the user if the image contains a foreign object.
+    // Warn the user if the image contains a foreign object. Not perfect
+    // because the svg could also be encoded, but that's an edge case.
     if format == ImageFormat::Vector(VectorFormat::Svg) {
         let needle = b"foreignObject";
         if data
