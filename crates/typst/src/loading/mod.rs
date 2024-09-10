@@ -22,6 +22,7 @@ pub use self::read_::*;
 pub use self::toml_::*;
 pub use self::xml_::*;
 pub use self::yaml_::*;
+use image::EncodableLayout;
 
 use crate::foundations::{cast, category, Bytes, Category, Scope, Str};
 
@@ -54,10 +55,17 @@ pub enum Readable {
 }
 
 impl Readable {
-    pub(crate) fn as_slice(&self) -> &[u8] {
+    fn as_slice(&self) -> &[u8] {
         match self {
             Readable::Bytes(v) => v,
             Readable::Str(v) => v.as_bytes(),
+        }
+    }
+
+    pub(crate) fn as_str(&self) -> Option<&str> {
+        match self {
+            Readable::Str(v) => Some(v.as_str()),
+            Readable::Bytes(v) => std::str::from_utf8(v.as_bytes()).ok(),
         }
     }
 }

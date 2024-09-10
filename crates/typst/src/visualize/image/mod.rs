@@ -193,12 +193,10 @@ fn layout_image(
     // Warn the user if the image contains a foreign object. Not perfect
     // because the svg could also be encoded, but that's an edge case.
     if format == ImageFormat::Vector(VectorFormat::Svg) {
-        let needle = b"<foreignObject";
-        if data
-            .as_slice()
-            .windows(needle.len())
-            .any(|s| s == needle)
-        {
+        let has_foreign_object =
+            data.as_str().map(|s| s.contains("<foreignObject")).unwrap_or(false);
+
+        if has_foreign_object {
             engine.sink.warn(warning!(
                 span,
                 "image contains foreign object";
