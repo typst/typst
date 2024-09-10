@@ -194,7 +194,7 @@ fn layout_image(
     // because the svg could also be encoded, but that's an edge case.
     if format == ImageFormat::Vector(VectorFormat::Svg) {
         let has_foreign_object =
-            data.as_str().map(|s| s.contains("<foreignObject")).unwrap_or(false);
+            data.as_str().is_some_and(|s| s.contains("<foreignObject"));
 
         if has_foreign_object {
             engine.sink.warn(warning!(
