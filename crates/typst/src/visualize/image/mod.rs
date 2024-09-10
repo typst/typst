@@ -13,7 +13,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::EcoString;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, warning, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
@@ -30,7 +30,6 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{families, LocalName};
 use crate::utils::LazyHash;
 use crate::visualize::Path;
-use crate::warning;
 use crate::World;
 
 /// A raster or vector graphic.
