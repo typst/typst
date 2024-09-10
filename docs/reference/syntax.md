@@ -176,19 +176,19 @@ Typst can locate and load the required files during compilation.
 
 A **relative path** starts from the location of the Typst file where the
 directive is invoked. For example:
-```example
+```typ
 #image("images/logo.png")
 ```
 
 When a path begins with `/`, it is treated as an absolute path relative to the
 project root. For example:
-```example
+```typ
 #image("/assets/logo.png")
 ```
 
 Typst allows customization of the project root through the CLI option `--root`.
 By default, the project root is the directory from which Typst is run.
 If you want to set a specific folder as the root of your project, you can use:
-```example
+```typ
 typst compile --root <path-to-project-root> file.typ
 ```
