@@ -174,11 +174,22 @@ mod tests {
         let round = |value| round_with_precision(value, 0);
         assert_eq!(f64::INFINITY, round(f64::INFINITY));
         assert_eq!(f64::NEG_INFINITY, round(f64::NEG_INFINITY));
-        let max_int = (1_i64 << f64::MANTISSA_DIGITS) as f64;
-        assert_eq!(max_int, round(max_int));
-        assert_eq!(0.123456, round_with_precision(0.123456, f64::DIGITS as u8));
-        assert_eq!(max_int, round_with_precision(max_int, f64::DIGITS as u8));
         assert!(round(f64::NAN).is_nan());
+
+        let max_int = (1_i64 << f64::MANTISSA_DIGITS) as f64;
+        let f64_digits = f64::DIGITS as u8;
+
+        // max
+        assert_eq!(max_int, round(max_int));
+        assert_eq!(0.123456, round_with_precision(0.123456, f64_digits));
+        assert_eq!(max_int, round_with_precision(max_int, f64_digits));
+
+        // max - 1
+        assert_eq!(max_int - 1f64, round(max_int - 1f64));
+        assert_eq!(0.123456, round_with_precision(0.123456, f64_digits - 1));
+        assert_eq!(max_int - 1f64, round_with_precision(max_int - 1f64, f64_digits));
+        assert_eq!(max_int, round_with_precision(max_int, f64_digits - 1));
+        assert_eq!(max_int - 1f64, round_with_precision(max_int - 1f64, f64_digits - 1));
     }
 
     fn duration_from_milli_micro(milliseconds: u16, microseconds: u16) -> Duration {
