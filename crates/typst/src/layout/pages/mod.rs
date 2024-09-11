@@ -21,9 +21,9 @@ use crate::World;
 /// Layout content into a document.
 ///
 /// This first performs root-level realization and then lays out the resulting
-/// elements. In contrast to [`layout_fragment`], this does not take regions
-/// since the regions are defined by the page configuration in the content and
-/// style chain.
+/// elements. In contrast to [`layout_fragment`](crate::layout::layout_fragment),
+/// this does not take regions since the regions are defined by the page
+/// configuration in the content and style chain.
 #[typst_macros::time(name = "document")]
 pub fn layout_document(
     engine: &mut Engine,
