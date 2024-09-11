@@ -61,6 +61,7 @@ pub enum Command {
 
     /// Self update the Typst CLI
     #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
+    #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
 }
 
