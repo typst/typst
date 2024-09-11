@@ -3,7 +3,6 @@
 //! - inside of a container, into a [`Frame`] or [`Fragment`].
 
 mod collect;
-mod pages;
 
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
@@ -12,7 +11,6 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 
 use self::collect::{collect, BlockChild, Child, LineChild, PlacedChild};
-use self::pages::layout_pages;
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
@@ -27,78 +25,13 @@ use crate::layout::{
     OuterHAlignment, Point, Region, Regions, Rel, Size,
 };
 use crate::model::{
-    Document, DocumentInfo, FootnoteElem, FootnoteEntry, ParLine, ParLineMarker,
-    ParLineNumberingScope,
+    FootnoteElem, FootnoteEntry, ParLine, ParLineMarker, ParLineNumberingScope,
 };
 use crate::realize::{realize, Arenas, Pair, RealizationKind};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
-
-/// Layout content into a document.
-///
-/// This first performs root-level realization and then lays out the resulting
-/// elements. In contrast to [`layout_fragment`], this does not take regions
-/// since the regions are defined by the page configuration in the content and
-/// style chain.
-#[typst_macros::time(name = "document")]
-pub fn layout_document(
-    engine: &mut Engine,
-    content: &Content,
-    styles: StyleChain,
-) -> SourceResult<Document> {
-    layout_document_impl(
-        engine.world,
-        engine.introspector,
-        engine.traced,
-        TrackedMut::reborrow_mut(&mut engine.sink),
-        engine.route.track(),
-        content,
-        styles,
-    )
-}
-
-/// The internal implementation of `layout_document`.
-#[comemo::memoize]
-fn layout_document_impl(
-    world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
-    traced: Tracked<Traced>,
-    sink: TrackedMut<Sink>,
-    route: Tracked<Route>,
-    content: &Content,
-    styles: StyleChain,
-) -> SourceResult<Document> {
-    let mut locator = Locator::root().split();
-    let mut engine = Engine {
-        world,
-        introspector,
-        traced,
-        sink,
-        route: Route::extend(route).unnested(),
-    };
-
-    // Mark the external styles as "outside" so that they are valid at the page
-    // level.
-    let styles = styles.to_map().outside();
-    let styles = StyleChain::new(&styles);
-
-    let arenas = Arenas::default();
-    let mut info = DocumentInfo::default();
-    let mut children = realize(
-        RealizationKind::Root(&mut info),
-        &mut engine,
-        &mut locator,
-        &arenas,
-        content,
-        styles,
-    )?;
-
-    let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
-
-    Ok(Document { pages, info, introspector: Introspector::default() })
-}
 
 /// Layout content into multiple regions.
 ///
@@ -220,7 +153,7 @@ fn layout_fragment_impl(
 
 /// Layout flow content.
 #[allow(clippy::too_many_arguments)]
-fn layout_flow(
+pub(crate) fn layout_flow(
     engine: &mut Engine,
     bump: &Bump,
     children: &[Pair],
