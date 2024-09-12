@@ -54,7 +54,7 @@
 #test(str(4 - 8), "−4")
 
 --- str-constructor-bad-type ---
-// Error: 6-8 expected integer, float, version, bytes, label, type, or string, found content
+// Error: 6-8 expected integer, float, decimal, version, bytes, label, type, or string, found content
 #str([])
 
 --- str-constructor-bad-base ---
