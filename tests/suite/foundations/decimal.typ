@@ -13,6 +13,7 @@
 
 --- decimal-repr ---
 // Test the `repr` function with decimals.
+#set page(width: auto)
 #repr(decimal("12.0")) \
 #repr(decimal("3.14")) \
 #repr(decimal("1234567890.0")) \
@@ -23,10 +24,13 @@
 #repr(decimal("-9876543210.0")) \
 #repr(decimal("-0987654321.0")) \
 #repr(decimal("-3.14")) \
+#repr(decimal("-3.9191919191919191919191919195")) \
+#repr(decimal("5.0000000000")) \
 #repr(decimal("4.0") - decimal("8.0")) \
 
 --- decimal-display ---
 // Test decimals.
+#set page(width: auto)
 #decimal("12.0") \
 #decimal("3.14") \
 #decimal("1234567890.0") \
@@ -37,4 +41,11 @@
 #decimal("-9876543210.0") \
 #decimal("-0987654321.0") \
 #decimal("-3.14") \
+#decimal("-3.9191919191919191919191919195") \
+#decimal("5.0000000000") \
 #(decimal("4.0") - decimal("8.0"))
+
+--- decimal-display-round ---
+// Display less digits.
+#calc.round(decimal("-3.9191919191919191919191919195"), digits: 4) \
+#calc.round(decimal("5.0000000000"), digits: 4)

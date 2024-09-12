@@ -1,3 +1,4 @@
+use std::fmt::{self, Display, Formatter};
 use std::ops::Neg;
 use std::str::FromStr;
 
@@ -129,23 +130,6 @@ impl Decimal {
             ToDecimal::Int(int) => Ok(Self::from(int)),
         }
     }
-
-    /// Display this decimal value with the given amount of decimals.
-    #[func]
-    pub fn display(
-        &self,
-        #[named]
-        #[default(2)]
-        decimals: u32,
-    ) -> EcoString {
-        eco_format!(
-            "{}",
-            self.0.round_dp_with_strategy(
-                decimals,
-                rust_decimal::RoundingStrategy::MidpointAwayFromZero,
-            )
-        )
-    }
 }
 
 impl FromStr for Decimal {
@@ -171,6 +155,12 @@ impl TryFrom<Decimal> for i64 {
     /// would be overflow or underflow.
     fn try_from(value: Decimal) -> Result<Self, Self::Error> {
         value.0.try_into()
+    }
+}
+
+impl Display for Decimal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
