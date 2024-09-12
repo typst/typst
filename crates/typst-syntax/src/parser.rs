@@ -1459,7 +1459,8 @@ fn pattern_leaf<'s>(
     dupe: Option<&'s str>,
 ) {
     if p.current_kind().is_keyword() {
-        p.eat_as_expecting(Some("pattern"));
+        p.current.node.expected("pattern");
+        p.eat();
         return;
     } else if !p.at_set(set::PATTERN_LEAF) {
         p.expected("pattern");
@@ -1768,24 +1769,13 @@ impl<'s> Parser<'s> {
             self.eat();
         } else if kind == SyntaxKind::Ident && self.current.kind.is_keyword() {
             self.trim_errors();
-            self.eat_as_expecting(Some(kind.name()));
+            self.current.node.expected(kind.name());
+            self.eat();
         } else {
             self.balanced &= !kind.is_grouping();
             self.expected(kind.name());
         }
         at
-    }
-
-    /// Eat the current node and convert to expected or unexpected for Some/None expected.
-    #[track_caller]
-    fn eat_as_expecting(&mut self, expected: Option<&str>) {
-        let offset = self.nodes.len();
-        self.eat();
-        if let Some(thing) = expected {
-            self.nodes[offset].expected(thing);
-        } else {
-            self.nodes[offset].unexpected();
-        }
     }
 
     /// Consume the given closing delimiter or produce an error for the matching
@@ -1827,7 +1817,8 @@ impl<'s> Parser<'s> {
     fn unexpected(&mut self) {
         self.trim_errors();
         self.balanced &= !self.current.kind.is_grouping();
-        self.eat_as_expecting(None);
+        self.current.node.unexpected();
+        self.eat();
     }
 
     /// Remove trailing errors with zero length.

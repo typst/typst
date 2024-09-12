@@ -192,7 +192,7 @@ impl<'s> Lexer<'s> {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
                 LexMode::Code(mode) => match mode {
-                    // Code mode might produce false `SyntaxKind::End` tokens on newlines.
+                    // Maybe produce false `SyntaxKind::End` tokens on newlines.
                     NewlineMode::Stop if self.newline => SyntaxKind::End,
                     NewlineMode::MaybeContinue if self.newline => {
                         // Lookahead at the next token before lexing to avoid entering
@@ -209,10 +209,11 @@ impl<'s> Lexer<'s> {
 
             None => SyntaxKind::End,
         };
-        use NewlineMode::MaybeContinue;
-        if matches!(self.mode, LexMode::Code(MaybeContinue)) && kind.is_trivia() {
-            // Preserve `self.newline` when in MaybeContinue mode and parsing trivia.
-            self.newline = self.newline || newlines > 0;
+        if matches!(self.mode, LexMode::Code(NewlineMode::MaybeContinue))
+            && kind.is_trivia()
+        {
+            // Preserve the newline in MaybeContinue mode when parsing trivia.
+            self.newline |= newlines > 0;
         } else {
             self.newline = newlines > 0;
         };
