@@ -4,8 +4,9 @@ use std::str::FromStr;
 use ecow::{eco_format, EcoString};
 use rust_decimal::MathematicalOps;
 
-use crate::diag::StrResult;
-use crate::foundations::{func, scope, ty, Repr};
+use crate::diag::{At, SourceResult};
+use crate::foundations::{cast, func, repr, scope, ty, Repr, Str};
+use crate::syntax::Spanned;
 
 #[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -118,9 +119,15 @@ impl Decimal {
 
 #[scope]
 impl Decimal {
+    /// Constructs or converts a value to a decimal.
     #[func(constructor)]
-    pub fn construct(value: EcoString) -> StrResult<Decimal> {
-        Self::from_str(&value).map_err(|_| eco_format!("invalid decimal"))
+    pub fn construct(value: Spanned<ToDecimal>) -> SourceResult<Decimal> {
+        match value.v {
+            ToDecimal::Str(str) => Self::from_str(&str.replace(repr::MINUS_SIGN, "-"))
+                .map_err(|_| eco_format!("invalid decimal: {str}"))
+                .at(value.span),
+            ToDecimal::Int(int) => Ok(Self::from(int)),
+        }
     }
 
     /// Display this decimal value with the given amount of decimals.
@@ -179,4 +186,18 @@ impl Neg for Decimal {
     fn neg(self) -> Self {
         Self(-self.0)
     }
+}
+
+/// A value that can be cast to a decimal.
+pub enum ToDecimal {
+    /// A string with the decimal's representation.
+    Str(EcoString),
+    /// An integer to be converted to the equivalent decimal.
+    Int(i64),
+}
+
+cast! {
+    ToDecimal,
+    v: i64 => Self::Int(v),
+    v: Str => Self::Str(EcoString::from(v)),
 }
