@@ -100,9 +100,10 @@ impl<'a> Logger<'a> {
         self.failed == 0
     }
 
-    /// Refresh the status.
-    pub fn refresh(&mut self) {
+    /// Refresh the status. Returns whether we still seem to be making progress.
+    pub fn refresh(&mut self) -> bool {
         self.print(|_| Ok(())).unwrap();
+        self.last_change.elapsed() < Duration::from_secs(10)
     }
 
     /// Refresh the status print.

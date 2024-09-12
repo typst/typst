@@ -94,7 +94,10 @@ fn test() {
         // Regularly refresh the logger in case we make no progress.
         scope.spawn(move || {
             while receiver.recv_timeout(Duration::from_millis(500)).is_err() {
-                logger.lock().refresh();
+                if !logger.lock().refresh() {
+                    eprintln!("tests seem to be stuck");
+                    std::process::exit(1);
+                }
             }
         });
 

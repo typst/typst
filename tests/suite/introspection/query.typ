@@ -281,3 +281,19 @@
 // New show rules apply to this, but its location and the materialized fields
 // from the original are retained.
 #context query(heading).join()
+
+--- query-quote ---
+// Test quoting a query.
+
+#quote[ABC] & #quote[EFG]
+
+#context query(selector(quote).before(here())).first()
+
+#quote(block: true)[HIJ]
+#quote(block: true)[KLM]
+
+#context query(selector(quote).before(here())).last()
+
+#quote[NOP] <nop>
+
+#context query(<nop>).first()

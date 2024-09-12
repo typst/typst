@@ -14,7 +14,7 @@ use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    AlignElem, Alignment, BlockChild, BlockElem, Em, HAlignment, Length, OuterVAlignment,
+    AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
     PlaceElem, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
@@ -318,7 +318,7 @@ impl Show for Packed<FigureElem> {
 
         // Wrap the contents in a block.
         realized = BlockElem::new()
-            .with_body(Some(BlockChild::Content(realized)))
+            .with_body(Some(BlockBody::Content(realized)))
             .pack()
             .spanned(self.span());
 
