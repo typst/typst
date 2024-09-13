@@ -92,7 +92,7 @@ impl Symbol {
     }
 
     /// Clones self and sets the `from_math` value to true for any/all
-    /// [`SymChars`]s.
+    /// [`SymChar`]s.
     pub fn clone_for_math(&self) -> Self {
         Self(self.0.clone(), true)
     }
