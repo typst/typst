@@ -2,7 +2,7 @@ use std::num::ParseFloatError;
 
 use ecow::{eco_format, EcoString};
 
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str};
+use crate::foundations::{cast, func, repr, scope, ty, Decimal, Repr, Str};
 use crate::layout::Ratio;
 
 /// A floating-point number.
@@ -122,6 +122,7 @@ cast! {
     v: f64 => Self(v),
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
+    v: Decimal => Self(f64::try_from(v).map_err(|_| eco_format!("invalid float: {}", v))?),
     v: Ratio => Self(v.get()),
     v: Str => Self(
         parse_float(v.clone().into())

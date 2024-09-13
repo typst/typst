@@ -6,10 +6,14 @@
 #test(float("3.1415"), 3.1415)
 #test(float("-7654.321"), -7654.321)
 #test(float("\u{2212}7654.321"), -7654.321)
+#test(float(decimal("4.89")), 4.89)
+#test(float(decimal("3.1234567891234567891234567891")), 3.123456789123457)
+#test(float(decimal("79228162514264337593543950335")), 79228162514264340000000000000.0)
+#test(float(decimal("-79228162514264337593543950335")), -79228162514264340000000000000.0)
 #test(type(float(10)), float)
 
 --- float-constructor-bad-type ---
-// Error: 8-13 expected float, boolean, integer, ratio, or string, found type
+// Error: 8-13 expected float, boolean, integer, decimal, ratio, or string, found type
 #float(float)
 
 --- float-constructor-bad-value ---

@@ -5,9 +5,10 @@ use std::str::FromStr;
 use ecow::{eco_format, EcoString};
 use rust_decimal::MathematicalOps;
 
-use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str};
-use crate::syntax::Spanned;
+use crate::diag::{warning, At, SourceResult};
+use crate::foundations::{cast, func, repr, scope, ty, Engine, Repr, Str};
+use crate::syntax::{ast, Spanned};
+use crate::World;
 
 #[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -122,12 +123,39 @@ impl Decimal {
 impl Decimal {
     /// Constructs or converts a value to a decimal.
     #[func(constructor)]
-    pub fn construct(value: Spanned<ToDecimal>) -> SourceResult<Decimal> {
+    pub fn construct(
+        engine: &mut Engine,
+        value: Spanned<ToDecimal>,
+    ) -> SourceResult<Decimal> {
         match value.v {
             ToDecimal::Str(str) => Self::from_str(&str.replace(repr::MINUS_SIGN, "-"))
                 .map_err(|_| eco_format!("invalid decimal: {str}"))
                 .at(value.span),
             ToDecimal::Int(int) => Ok(Self::from(int)),
+            ToDecimal::Float(float) => {
+                if let Some(file) = value.span.id() {
+                    if let Ok(source) = engine.world.source(file) {
+                        if source.find(value.span).is_some_and(|v| v.is::<ast::Float>()) {
+                            engine.sink.warn(
+                                warning!(
+                                    value.span,
+                                    "creating a decimal using imprecise float literal";
+                                    hint: "use a string in the decimal constructor, e.g. `decimal(\"3.14\")`, to avoid loss of precision"
+                                )
+                            );
+                        }
+                    }
+                }
+
+                Self::try_from(float)
+                    .map_err(|_| {
+                        eco_format!(
+                            "float is not a valid decimal: {}",
+                            repr::format_float(float, None, true, "")
+                        )
+                    })
+                    .at(value.span)
+            }
         }
     }
 }
@@ -143,6 +171,30 @@ impl FromStr for Decimal {
 impl From<i64> for Decimal {
     fn from(value: i64) -> Self {
         Self(rust_decimal::Decimal::from(value))
+    }
+}
+
+impl TryFrom<f64> for Decimal {
+    type Error = ();
+
+    /// Attempts to convert a Decimal to a float.
+    ///
+    /// This can fail if the float is infinite or NaN, or otherwise cannot be
+    /// represented by a decimal number.
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        rust_decimal::Decimal::from_f64_retain(value).map(Self).ok_or(())
+    }
+}
+
+impl TryFrom<Decimal> for f64 {
+    type Error = rust_decimal::Error;
+
+    /// Attempts to convert a Decimal to a float.
+    ///
+    /// This should in principle be infallible according to the implementation,
+    /// but we mirror the decimal implementation's API either way.
+    fn try_from(value: Decimal) -> Result<Self, Self::Error> {
+        value.0.try_into()
     }
 }
 
@@ -187,10 +239,13 @@ pub enum ToDecimal {
     Str(EcoString),
     /// An integer to be converted to the equivalent decimal.
     Int(i64),
+    /// A float to be converted to the equivalent decimal.
+    Float(f64),
 }
 
 cast! {
     ToDecimal,
     v: i64 => Self::Int(v),
+    v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
 }

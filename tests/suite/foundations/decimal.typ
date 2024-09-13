@@ -2,15 +2,34 @@
 #test(decimal(10), decimal("10.0"))
 #test(decimal("-7654.321"), decimal("-7654.321"))
 #test(decimal("\u{2212}7654.321"), decimal("-7654.321"))
+#test(decimal({ 3.141592653 }), decimal("3.141592653000000012752934707"))
+#test(decimal({ -3.141592653 }), decimal("-3.141592653000000012752934707"))
 #test(type(decimal(10)), decimal)
 
 --- decimal-constructor-bad-type ---
-// Error: 10-17 expected integer or string, found type
+// Error: 10-17 expected integer, float, or string, found type
 #decimal(decimal)
 
 --- decimal-constructor-bad-value ---
 // Error: 10-17 invalid decimal: 1.2.3
 #decimal("1.2.3")
+
+--- decimal-constructor-float-literal ---
+// Warning: 18-25 creating a decimal using imprecise float literal
+// Hint: 18-25 use a string in the decimal constructor, e.g. `decimal("3.14")`, to avoid loss of precision
+#let _ = decimal(1.32523)
+
+--- decimal-constructor-float-inf ---
+// Error: 10-19 float is not a valid decimal: float.inf
+#decimal(float.inf)
+
+--- decimal-constructor-float-negative-inf ---
+// Error: 10-20 float is not a valid decimal: -float.inf
+#decimal(-float.inf)
+
+--- decimal-constructor-float-nan ---
+// Error: 10-19 float is not a valid decimal: float.nan
+#decimal(float.nan)
 
 --- decimal-repr ---
 // Test the `repr` function with decimals.
