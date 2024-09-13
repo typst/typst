@@ -15,9 +15,6 @@ pub(super) struct Lexer<'s> {
     /// The mode the lexer is in. This determines which kinds of tokens it
     /// produces.
     mode: LexMode,
-    /// The state held by raw line lexing. This is emptied into an inner
-    /// SyntaxNode before returning from next.
-    raw: Vec<SyntaxNode>,
     /// An error for the last token.
     ///
     /// This is present to increase convenience when returning an error by
@@ -40,12 +37,7 @@ impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode and a prefix to offset column
     /// calculations.
     pub fn new(text: &'s str, mode: LexMode) -> Self {
-        Self {
-            s: Scanner::new(text),
-            mode,
-            raw: Vec::new(),
-            error: None,
-        }
+        Self { s: Scanner::new(text), mode, error: None }
     }
 
     /// Get the current lexing mode.
@@ -95,7 +87,6 @@ impl<'s> Lexer<'s> {
     /// This is usually either a leaf node or an error node, but some other
     /// elements like raw text are implemented in the lexer for convenience.
     pub fn next(&mut self) -> (SyntaxKind, TokenType, SyntaxNode) {
-        assert_eq!(self.raw.len(), 0);
         assert_eq!(self.error, None);
         let start = self.s.cursor();
         let (kind, token_type) = match self.s.eat() {
@@ -110,7 +101,13 @@ impl<'s> Lexer<'s> {
                 );
                 (kind, TokenType::Normal)
             }
-
+            Some('`') => match self.mode {
+                LexMode::Math => (SyntaxKind::Text, TokenType::Normal),
+                LexMode::Markup | LexMode::Code => {
+                    let node = self.raw(start);
+                    return (node.kind(), TokenType::Normal, node);
+                }
+            },
             Some(c) => {
                 let kind = match self.mode {
                     LexMode::Markup => self.markup(start, c),
@@ -122,16 +119,12 @@ impl<'s> Lexer<'s> {
                 };
                 (kind, TokenType::Normal)
             }
-
             None => (SyntaxKind::End, TokenType::Normal),
         };
         let node = match self.error.take() {
             Some(error) => {
                 assert_eq!(kind, SyntaxKind::Error);
                 SyntaxNode::error(error, self.s.from(start))
-            }
-            None if kind == SyntaxKind::Raw => {
-                SyntaxNode::inner(kind, std::mem::take(&mut self.raw))
             }
             None => SyntaxNode::leaf(kind, self.s.from(start)),
         };
@@ -194,7 +187,6 @@ impl Lexer<'_> {
     fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             '\\' => self.backslash(),
-            '`' => self.raw(start),
             'h' if self.s.eat_if("ttp://") => self.link(),
             'h' if self.s.eat_if("ttps://") => self.link(),
             '<' if self.s.at(is_id_continue) => self.label(),
@@ -265,7 +257,8 @@ impl Lexer<'_> {
     /// if there is an error (unclosed raw text), we do not push any nodes to
     /// `raw` and instead return `SyntaxKind::Error`. Otherwise we always return
     /// `SyntaxKind::Raw`.
-    fn raw(&mut self, start: usize) -> SyntaxKind {
+    fn raw(&mut self, start: usize) -> SyntaxNode {
+        let mut vec = Vec::with_capacity(3);
         // Determine number of opening backticks.
         let mut backticks = 1;
         while self.s.eat_if('`') {
@@ -274,36 +267,48 @@ impl Lexer<'_> {
 
         // Special case for ``.
         if backticks == 2 {
-            self.raw.push(SyntaxNode::leaf(SyntaxKind::RawDelim, '`'));
-            self.raw.push(SyntaxNode::leaf(SyntaxKind::RawDelim, '`'));
-            return SyntaxKind::Raw;
+            vec.push(SyntaxNode::leaf(SyntaxKind::RawDelim, '`'));
+            vec.push(SyntaxNode::leaf(SyntaxKind::RawDelim, '`'));
+            return SyntaxNode::inner(SyntaxKind::Raw, vec);
         }
 
         // Find end of raw text.
         let mut found = 0;
         while found < backticks {
+            // TODO: This is probably a good spot to try a SIMD search.
             match self.s.eat() {
                 Some('`') => found += 1,
                 Some(_) => found = 0,
-                None => return self.error("unclosed raw text"),
+                None => {
+                    let error = SyntaxError::new("unclosed raw text");
+                    return SyntaxNode::error(error, self.s.from(start));
+                }
             }
         }
         let end = self.s.cursor();
 
+        // Using a closure to capture the vector mutably and avoid passing it
+        // around to the other methods when this is all we need.
+        let mut push_raw = |kind: SyntaxKind, text: &str| {
+            let node = SyntaxNode::leaf(kind, text);
+            vec.push(node);
+        };
+
         // Opening delimiter.
         self.s.jump(start + backticks);
-        self.push_raw(SyntaxKind::RawDelim, start);
+        push_raw(SyntaxKind::RawDelim, self.s.from(start));
 
+        let inner_end = end - backticks;
         if backticks >= 3 {
-            self.blocky_raw(end - backticks);
+            self.blocky_raw(&mut push_raw, inner_end);
         } else {
-            self.inline_raw(end - backticks);
+            self.inline_raw(&mut push_raw, inner_end);
         }
         // Closing delimiter.
         self.s.jump(end);
-        self.push_raw(SyntaxKind::RawDelim, self.cursor() - backticks);
+        push_raw(SyntaxKind::RawDelim, self.s.from(inner_end));
 
-        SyntaxKind::Raw
+        SyntaxNode::inner(SyntaxKind::Raw, vec)
     }
 
     /// Push a series of leaf nodes for a raw block to the `raw` vector.
@@ -314,12 +319,16 @@ impl Lexer<'_> {
     ///    - A `RawTrimmed` element containing trimmed whitespace
     ///    - A `Text` element for each line
     /// 3. A final `RawTrimmed` element for trailing whitespace
-    fn blocky_raw(&mut self, inner_end: usize) {
+    fn blocky_raw<F>(&mut self, push_raw: &mut F, inner_end: usize)
+    where
+        F: FnMut(SyntaxKind, &str),
+    {
         // Language tag.
         let mut prev_end = self.s.cursor();
         if self.s.eat_if(is_id_start) {
             self.s.eat_while(is_id_continue);
-            prev_end = self.push_raw(SyntaxKind::RawLang, prev_end);
+            push_raw(SyntaxKind::RawLang, self.s.from(prev_end));
+            prev_end = self.s.cursor();
         }
 
         // Determine inner content between backticks.
@@ -370,15 +379,17 @@ impl Lexer<'_> {
             let offset: usize = line.chars().take(dedent).map(char::len_utf8).sum();
             self.s.eat_newline();
             self.s.advance(offset);
-            prev_end = self.push_raw(SyntaxKind::RawTrimmed, prev_end);
+            push_raw(SyntaxKind::RawTrimmed, self.s.from(prev_end));
+            prev_end = self.s.cursor();
             self.s.advance(line.len() - offset);
-            prev_end = self.push_raw(SyntaxKind::Text, prev_end);
+            push_raw(SyntaxKind::Text, self.s.from(prev_end));
+            prev_end = self.s.cursor();
         }
 
         // Add final trimmed.
         if self.s.cursor() < inner_end {
             self.s.jump(inner_end);
-            self.push_raw(SyntaxKind::RawTrimmed, prev_end);
+            push_raw(SyntaxKind::RawTrimmed, self.s.from(prev_end));
         }
     }
 
@@ -388,28 +399,23 @@ impl Lexer<'_> {
     /// Inline raw is much simpler than blocky. We just create a series of
     /// `Text` and `RawTrimmed` leaf nodes, where `RawTrimmed` is just the
     /// newline.
-    fn inline_raw(&mut self, inner_end: usize) {
+    fn inline_raw<F>(&mut self, push_raw: &mut F, inner_end: usize)
+    where
+        F: FnMut(SyntaxKind, &str),
+    {
         let mut prev_end = self.s.cursor();
         while self.s.cursor() < inner_end {
             if self.s.at(is_newline) {
-                prev_end = self.push_raw(SyntaxKind::Text, prev_end);
+                push_raw(SyntaxKind::Text, self.s.from(prev_end));
+                prev_end = self.s.cursor();
                 self.s.eat_newline();
-                prev_end = self.push_raw(SyntaxKind::RawTrimmed, prev_end);
+                push_raw(SyntaxKind::RawTrimmed, self.s.from(prev_end));
+                prev_end = self.s.cursor();
                 continue;
             }
             self.s.eat();
         }
-        self.push_raw(SyntaxKind::Text, prev_end);
-    }
-
-    /// Create and push a leaf node onto the `raw` nodes vector with text of the
-    /// given `kind` from `start` up to the cursor.
-    ///
-    /// Returns the cursor for convenience.
-    fn push_raw(&mut self, kind: SyntaxKind, start: usize) -> usize {
-        let text = self.s.from(start);
-        self.raw.push(SyntaxNode::leaf(kind, text));
-        self.s.cursor()
+        push_raw(SyntaxKind::Text, self.s.from(prev_end));
     }
 
     fn link(&mut self) -> SyntaxKind {
@@ -653,7 +659,6 @@ impl Lexer<'_> {
 impl Lexer<'_> {
     fn code(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
-            '`' => self.raw(start),
             '<' if self.s.at(is_id_continue) => self.label(),
             '0'..='9' => self.number(start, c),
             '.' if self.s.at(char::is_ascii_digit) => self.number(start, c),
