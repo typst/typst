@@ -539,9 +539,21 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
 
     // Music.
+    clef: [
+        g: '𝄞',
+        g.alta: '𝄟',
+        g.bassa: '𝄠',
+        c: '𝄡',
+        f: '𝄢',
+        f.alta: '𝄣',
+        f.bassa: '𝄤',
+        percussion: '𝄥',
+        percussion.alt: '𝄦',
+    ],
     note: [
         up: '🎜',
         down: '🎝',
+        double: '𝅜',
         whole: '𝅝',
         half: '𝅗𝅥',
         quarter: '𝅘𝅥',
@@ -555,11 +567,11 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         grace.slash: '𝆔',
     ],
     rest: [
-        whole: '𝄻',
-        multiple: '𝄺',
-        multiple.measure: '𝄩',
-        half: '𝄼',
         quarter: '𝄽',
+        multiple: '𝄩',
+        double: '𝄺',
+        whole: '𝄻',
+        half: '𝄼',
         eighth: '𝄾',
         sixteenth: '𝄿',
     ],
@@ -581,6 +593,14 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         b: '𝄱',
         double: '𝄪',
         quarter: '𝄲',
+    ],
+    segno: '𝄋',
+    code: '𝄌',
+    octave: [
+        alta: '𝄶',
+        bassa: '𝄷',
+        double.alta: '𝄸',
+        double.bassa: '𝄹',
     ],
 
     // Shapes.
