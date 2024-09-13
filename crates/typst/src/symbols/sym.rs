@@ -526,8 +526,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     refmark: '※',
     copyright: ['©', sound: '℗'],
     copyleft: '🄯',
-    registered: '®',
-    trademark: ['™', service: '℠'],
+    trademark: ['™', registered: '®', service: '℠'],
     maltese: '✠',
     suit: [
         club.filled: '♣',
