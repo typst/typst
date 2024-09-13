@@ -595,7 +595,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         quarter: '𝄲',
     ],
     segno: '𝄋',
-    code: '𝄌',
+    coda: '𝄌',
     octave: [
         alta: '𝄶',
         bassa: '𝄷',
