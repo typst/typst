@@ -619,6 +619,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         double.alta: '𝄸',
         double.bassa: '𝄹',
     ],
+    fermata: [
+        '𝄐',
+        inv: '𝄑',
+    ],
 
     // Shapes.
     bullet: '•',
