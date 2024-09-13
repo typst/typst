@@ -135,7 +135,10 @@ impl<'s> Lexer<'s> {
 
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
-                LexMode::Math => self.math(start, c),
+                LexMode::Math => match self.math(start, c) {
+                    Ok(kind) => kind,
+                    Err(node) => return (node.kind(), node),
+                },
                 LexMode::Code(mode) => match mode {
                     // Maybe produce false `SyntaxKind::End` tokens on newlines.
                     NewlineMode::Stop if self.newline => SyntaxKind::End,
@@ -559,8 +562,8 @@ impl Lexer<'_> {
 
 /// Math.
 impl Lexer<'_> {
-    fn math(&mut self, start: usize, c: char) -> SyntaxKind {
-        match c {
+    fn math(&mut self, start: usize, c: char) -> Result<SyntaxKind, SyntaxNode> {
+        let kind = match c {
             '\\' => self.backslash(),
             '"' => self.string(),
 
@@ -613,11 +616,47 @@ impl Lexer<'_> {
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                SyntaxKind::MathIdent
+                self.math_ident_or_field(start)?
             }
 
             // Other math atoms.
             _ => self.math_text(start, c),
+        };
+        Ok(kind)
+    }
+
+    /// Parse a single identifier or an entire series of field accesses.
+    fn math_ident_or_field(&mut self, start: usize) -> Result<SyntaxKind, SyntaxNode> {
+        let initial_ident = self.s.from(start);
+        let Some(mut ident) = self.maybe_dot_ident() else {
+            return Ok(SyntaxKind::MathIdent);
+        };
+        let mut node = SyntaxNode::leaf(SyntaxKind::MathIdent, initial_ident);
+        loop {
+            let vec = vec![
+                node,
+                SyntaxNode::leaf(SyntaxKind::Dot, '.'),
+                SyntaxNode::leaf(SyntaxKind::Ident, ident),
+            ];
+            node = SyntaxNode::inner(SyntaxKind::FieldAccess, vec);
+            match self.maybe_dot_ident() {
+                None => return Err(node),
+                Some(text) => ident = text,
+            }
+        }
+    }
+
+    /// If at a dot and a math identifier, eat and return the identifier.
+    fn maybe_dot_ident(&mut self) -> Option<EcoString> {
+        let start = self.s.cursor();
+        if self.s.eat_if('.') && self.s.at(is_math_id_start) {
+            let ident_start = self.s.cursor();
+            self.s.eat();
+            self.s.eat_while(is_math_id_continue);
+            Some(self.s.from(ident_start).into())
+        } else {
+            self.s.jump(start);
+            None
         }
     }
 
