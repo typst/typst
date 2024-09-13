@@ -16,22 +16,23 @@ pub(super) struct Lexer<'s> {
     mode: LexMode,
     /// Whether the last token contained a newline.
     newline: bool,
-    /// The state held by raw line lexing. This is emptied into an inner SyntaxNode before
-    /// returning from [`lex_past_trivia`].
+    /// The state held by raw line lexing. This is emptied into an inner
+    /// SyntaxNode before returning from next.
     raw: Vec<SyntaxNode>,
     /// An error for the last token.
     ///
-    /// This is present to increase convenience when returning an error by avoiding the
-    /// need to manually return an error from most lexer functions.
+    /// This is present to increase convenience when returning an error by
+    /// avoiding the need to manually return an error from most lexer functions.
     error: Option<SyntaxError>,
 }
 
 /// How to proceed with lexing when seeing a newline in Code mode.
 ///
-/// This enum causes the lexer to emit false `SyntaxKind::End` tokens when lexing in code
-/// mode. This simplifies parsing in Code mode, since the parser will think it's done when
-/// newlines interrupt expressions and won't have to handle the complexity of potentially
-/// continuing past newlines for if-else statements or trailing field-accesses.
+/// This enum causes the lexer to emit false `SyntaxKind::End` tokens when
+/// lexing in Code mode. This simplifies parsing in Code mode, since the parser
+/// will think it's done when newlines interrupt expressions and won't have to
+/// handle the complexity of potentially continuing past newlines for if-else
+/// statements or trailing field-accesses.
 ///
 /// Note that this does not interact with newlines in block comments.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -113,8 +114,9 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl<'s> Lexer<'s> {
-    /// Proceed to the next token and return its [`SyntaxKind`] plus a potential error.
-    /// Note the token could be a [trivia](SyntaxKind::is_trivia).
+    /// Return the next [`SyntaxNode`] (and its SyntaxKind for ease of access).
+    /// This is usually either a leaf node or an error node, but some other
+    /// elements like raw text are implemented in the lexer for convenience.
     pub fn next(&mut self) -> (SyntaxKind, SyntaxNode) {
         assert_eq!(self.raw.len(), 0);
         assert_eq!(self.error, None);
@@ -143,8 +145,8 @@ impl<'s> Lexer<'s> {
                     // Maybe produce false `SyntaxKind::End` tokens on newlines.
                     NewlineMode::Stop if self.newline => SyntaxKind::End,
                     NewlineMode::MaybeContinue if self.newline => {
-                        // Lookahead at the next token before lexing to avoid entering
-                        // an invalid state somehow.
+                        // Lookahead at the next token before lexing to avoid
+                        // entering an invalid state somehow.
                         let mut lookahead = self.clone();
                         match lookahead.code(start, c) {
                             SyntaxKind::Dot | SyntaxKind::Else => self.code(start, c),
@@ -296,9 +298,10 @@ impl Lexer<'_> {
 
     /// Lex an entire raw section at once.
     ///
-    /// This prepares the `raw` vector with leaf nodes of raw elements. However, if there
-    /// is an error (unclosed raw text), we do not push any nodes to `raw` and instead
-    /// return `SyntaxKind::Error`. Otherwise we always return `SyntaxKind::Raw`.
+    /// This prepares the `raw` vector with leaf nodes of raw elements. However,
+    /// if there is an error (unclosed raw text), we do not push any nodes to
+    /// `raw` and instead return `SyntaxKind::Error`. Otherwise we always return
+    /// `SyntaxKind::Raw`.
     fn raw(&mut self, start: usize) -> SyntaxKind {
         // Determine number of opening backticks.
         let mut backticks = 1;
@@ -416,10 +419,12 @@ impl Lexer<'_> {
         }
     }
 
-    /// Push a series of leaf nodes for an inline raw element to the `raw` vector.
+    /// Push a series of leaf nodes for an inline raw element to the `raw`
+    /// vector.
     ///
-    /// Inline raw is much simpler than blocky. We just create a series of `Text` and
-    /// `RawTrimmed` leaf nodes, where `RawTrimmed` is just the newline.
+    /// Inline raw is much simpler than blocky. We just create a series of
+    /// `Text` and `RawTrimmed` leaf nodes, where `RawTrimmed` is just the
+    /// newline.
     fn inline_raw(&mut self, inner_end: usize) {
         let mut prev_end = self.s.cursor();
         while self.s.cursor() < inner_end {
@@ -434,8 +439,8 @@ impl Lexer<'_> {
         self.push_raw(SyntaxKind::Text, prev_end);
     }
 
-    /// Create and push a leaf node onto the `raw` nodes vector with text of the given
-    /// `kind` from `start` up to the cursor.
+    /// Create and push a leaf node onto the `raw` nodes vector with text of the
+    /// given `kind` from `start` up to the cursor.
     ///
     /// Returns the cursor for convenience.
     fn push_raw(&mut self, kind: SyntaxKind, start: usize) -> usize {
