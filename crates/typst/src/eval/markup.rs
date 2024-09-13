@@ -1,7 +1,7 @@
 use crate::diag::{warning, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{
-    Content, Label, NativeElement, Repr, Smart, Unlabellable, Value,
+    Content, Label, NativeElement, Repr, SequenceElem, Smart, Unlabellable, Value,
 };
 use crate::math::EquationElem;
 use crate::model::{
@@ -10,6 +10,7 @@ use crate::model::{
 };
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
+use crate::syntax::Span;
 use crate::text::{
     LinebreakElem, RawContent, RawElem, SmartQuoteElem, SpaceElem, TextElem,
 };
@@ -50,26 +51,7 @@ fn eval_markup<'a>(
                 seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?)
             }
             expr => match expr.eval(vm)? {
-                Value::Label(label) => {
-                    if let Some(elem) =
-                        seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
-                    {
-                        if elem.label().is_some() {
-                            vm.engine.sink.warn(warning!(
-                                elem.span(), "content labelled multiple times";
-                                hint: "only the last label is used, the rest are ignored",
-                            ));
-                        }
-
-                        *elem = std::mem::take(elem).labelled(label);
-                    } else {
-                        vm.engine.sink.warn(warning!(
-                            expr.span(),
-                            "label `{}` is not attached to anything",
-                            label.repr()
-                        ));
-                    }
-                }
+                Value::Label(label) => bind_label(vm, &mut seq, expr.span(), label),
                 value => seq.push(value.display().spanned(expr.span())),
             },
         }
@@ -84,6 +66,44 @@ fn eval_markup<'a>(
     }
 
     Ok(Content::sequence(seq))
+}
+
+/// Attempt to bind a label to content.
+///
+/// Seeks backwards over recent content, skipping Unlabellable content to find
+/// the content to be labeled.  During the seek procedure, if a:
+/// - StyledElem is encountered, the search descends to the element's child.
+/// - SequenceElem is encountered, the search descends into the sequence's
+///   children, starting with the last element.
+fn bind_label(vm: &mut Vm, seq: &mut [Content], span: Span, label: Label) {
+    // Try to find content to label.
+    let Some(elem) = seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
+    else {
+        return vm.engine.sink.warn(warning!(
+            span,
+            "label `{}` is not attached to anything",
+            label.repr()
+        ));
+    };
+
+    // If this is a StyledElem, then extract its child.
+    let elem = elem.styled_child();
+
+    // If this is a SequenceElem, then recurse into its children.
+    if let Some(seq_elem) = elem.to_packed_mut::<SequenceElem>() {
+        return bind_label(vm, &mut seq_elem.children, span, label);
+    }
+
+    // Warn if this content has been labelled before.
+    if elem.label().is_some() {
+        vm.engine.sink.warn(warning!(
+            elem.span(), "content labelled multiple times";
+            hint: "only the last label is used, the rest are ignored",
+        ));
+    }
+
+    // Finally label the content.
+    *elem = std::mem::take(elem).labelled(label);
 }
 
 impl Eval for ast::Text<'_> {

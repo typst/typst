@@ -396,7 +396,7 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
                 #(const #consts: u8 = Fields::#variants as u8;)*
                 match value {
                     #(#consts => Ok(Self::#variants),)*
-                    _ => Err(#foundations::FieldAccessError::Internal),
+                    _ => Err(#foundations::FieldAccessError::Unknown),
                 }
             }
         }

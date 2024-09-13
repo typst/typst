@@ -374,6 +374,16 @@ impl Content {
         Self::sequence(std::iter::repeat_with(|| self.clone()).take(count))
     }
 
+    /// Retrive styled content's child (the content alone).
+    pub fn styled_child(&mut self) -> &mut Content {
+        // Awaiting Polonius...
+        if self.is::<StyledElem>() {
+            let styled_elem = self.to_packed_mut::<StyledElem>().unwrap();
+            return &mut styled_elem.child;
+        }
+        self
+    }
+
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if let Some(style_elem) = self.to_packed_mut::<StyledElem>() {
@@ -972,7 +982,6 @@ pub trait PlainText {
 pub enum FieldAccessError {
     Unknown,
     Unset,
-    Internal,
 }
 
 impl FieldAccessError {
@@ -987,12 +996,6 @@ impl FieldAccessError {
             FieldAccessError::Unset => {
                 eco_format!(
                     "field {} in {elem_name} is not known at this point",
-                    field.repr()
-                )
-            }
-            FieldAccessError::Internal => {
-                eco_format!(
-                    "internal error when accessing field {} in {elem_name} – this is a bug",
                     field.repr()
                 )
             }
