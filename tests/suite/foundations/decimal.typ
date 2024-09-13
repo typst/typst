@@ -1,5 +1,6 @@
 --- decimal-constructor ---
 #test(decimal(10), decimal("10.0"))
+#test(decimal("-7654.321"), decimal("-7654.321"))
 #test(decimal("\u{2212}7654.321"), decimal("-7654.321"))
 #test(type(decimal(10)), decimal)
 

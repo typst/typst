@@ -160,7 +160,10 @@ impl TryFrom<Decimal> for i64 {
 
 impl Display for Decimal {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        if self.0.is_sign_negative() {
+            f.write_str(repr::MINUS_SIGN)?;
+        }
+        self.0.abs().fmt(f)
     }
 }
 
