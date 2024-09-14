@@ -247,7 +247,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         triple: '≡',
         quad: '≣',
         and: '⩞',
-        or: '⩣',
+        or: '⩢',
     ],
     gt: [
         '>',
