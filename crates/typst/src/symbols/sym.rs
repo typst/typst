@@ -901,7 +901,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     lambda: 'λ',
     mu: 'μ',
     nu: 'ν',
-    ohm: ['Ω', inv: '℧'],
     omega: 'ω',
     omicron: 'ο',
     phi: ['φ', alt: 'ϕ'],
@@ -987,4 +986,5 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     Re: 'ℜ',
     Im: 'ℑ',
     dotless: [i: '𝚤', j: '𝚥'],
+    mho: '℧',
 };
