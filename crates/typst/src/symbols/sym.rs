@@ -503,7 +503,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Miscellaneous Technical.
     diameter: '⌀',
     join: ['⨝', r: '⟖', l: '⟕', l.r: '⟗'],
-    degree: ['°', c: '℃', f: '℉'],
+    degree: '°',
     smash: '⨳',
 
     // Currency.
