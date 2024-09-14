@@ -103,6 +103,42 @@ impl Decimal {
         self.0.checked_div(other.0).map(Self)
     }
 
+    /// Attempts to obtain the quotient of Euclidean division between two
+    /// decimals. Implemented similarly to [`f64::div_euclid`].
+    ///
+    /// The returned quotient is truncated and adjusted if the remainder was
+    /// negative.
+    ///
+    /// Returns `None` if `other` is zero, as well as on overflow or underflow.
+    pub fn checked_div_euclid(self, other: Self) -> Option<Self> {
+        let q = self.0.checked_div(other.0)?.trunc();
+        if self
+            .0
+            .checked_rem(other.0)
+            .as_ref()
+            .is_some_and(rust_decimal::Decimal::is_sign_negative)
+        {
+            return if other.0.is_sign_positive() {
+                q.checked_sub(rust_decimal::Decimal::ONE).map(Self)
+            } else {
+                q.checked_add(rust_decimal::Decimal::ONE).map(Self)
+            };
+        }
+        Some(Self(q))
+    }
+
+    /// Attempts to obtain the remainder of Euclidean division between two
+    /// decimals. Implemented similarly to [`f64::rem_euclid`].
+    ///
+    /// The returned decimal `r` is non-negative within the range
+    /// `0.0 <= r < other.abs()`.
+    ///
+    /// Returns `None` if `other` is zero, as well as on overflow or underflow.
+    pub fn checked_rem_euclid(self, other: Self) -> Option<Self> {
+        let r = self.0.checked_rem(other.0)?;
+        Some(Self(if r.is_sign_negative() { r.checked_add(other.0.abs())? } else { r }))
+    }
+
     /// Attempts to calculate the remainder of the division of two decimals.
     ///
     /// Returns `None` if `other` is zero, as well as on overflow or underflow.

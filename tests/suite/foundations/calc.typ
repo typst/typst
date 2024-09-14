@@ -55,6 +55,11 @@
 #test(calc.div-euclid(-7, 3), -3)
 #test(calc.div-euclid(-7, -3), 3)
 #test(calc.div-euclid(2.5, 2), 1)
+#test(calc.div-euclid(decimal("7"), decimal("3")), decimal("2"))
+#test(calc.div-euclid(decimal("7"), decimal("-3")), decimal("-2"))
+#test(calc.div-euclid(decimal("-7"), decimal("3")), decimal("-3"))
+#test(calc.div-euclid(decimal("-7"), decimal("-3")), decimal("3"))
+#test(calc.div-euclid(decimal("2.5"), decimal("2")), decimal("1"))
 
 --- calc-div-euclid-divisor-zero-1 ---
 // Error: 21-22 divisor must not be zero
@@ -64,6 +69,10 @@
 // Error: 23-26 divisor must not be zero
 #calc.div-euclid(3.0, 0.0)
 
+--- calc-div-euclid-divisor-zero-3 ---
+// Error: 35-50 divisor must not be zero
+#calc.div-euclid(decimal("3.00"), decimal("0.00"))
+
 --- calc-rem-euclid ---
 // Test the `rem-euclid` function.
 #test(calc.rem-euclid(7, 3), 1)
@@ -71,6 +80,11 @@
 #test(calc.rem-euclid(-7, 3), 2)
 #test(calc.rem-euclid(-7, -3), 2)
 #test(calc.rem-euclid(2.5, 2), 0.5)
+#test(calc.rem-euclid(decimal("7"), decimal("3")), decimal("1"))
+#test(calc.rem-euclid(decimal("7"), decimal("-3")), decimal("1"))
+#test(calc.rem-euclid(decimal("-7"), decimal("3")), decimal("2"))
+#test(calc.rem-euclid(decimal("-7"), decimal("-3")), decimal("2"))
+#test(calc.rem-euclid(decimal("2.5"), decimal("2")), decimal("0.5"))
 
 --- calc-rem-euclid-divisor-zero-1 ---
 // Error: 21-22 divisor must not be zero
@@ -79,6 +93,10 @@
 --- calc-rem-euclid-divisor-zero-2 ---
 // Error: 23-26 divisor must not be zero
 #calc.rem-euclid(3.0, 0.0)
+
+--- calc-rem-euclid-divisor-zero-3 ---
+// Error: 35-50 divisor must not be zero
+#calc.rem-euclid(decimal("3.00"), decimal("0.00"))
 
 --- calc-quo ---
 // Test the `quo` function.

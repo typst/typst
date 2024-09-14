@@ -931,19 +931,33 @@ pub fn rem(
 /// #calc.div-euclid(7, -3) \
 /// #calc.div-euclid(-7, 3) \
 /// #calc.div-euclid(-7, -3) \
-/// #calc.div-euclid(1.75, 0.5)
+/// #calc.div-euclid(1.75, 0.5) \
+/// #calc.div-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
 #[func(title = "Euclidean Division")]
 pub fn div_euclid(
+    /// The callsite span.
+    span: Span,
     /// The dividend of the division.
-    dividend: Num,
+    dividend: DecNum,
     /// The divisor of the division.
-    divisor: Spanned<Num>,
-) -> SourceResult<Num> {
-    if divisor.v.float() == 0.0 {
+    divisor: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
+    if divisor.v.is_zero() {
         bail!(divisor.span, "divisor must not be zero");
     }
-    Ok(dividend.apply2(divisor.v, i64::div_euclid, f64::div_euclid))
+
+    dividend
+        .apply2(
+            divisor.v,
+            |a, b| Some(DecNum::Int(a.div_euclid(b))),
+            |a, b| Some(DecNum::Float(a.div_euclid(b))),
+            |a, b| a.checked_div_euclid(b).map(DecNum::Decimal),
+        )
+        .ok_or_else(cant_apply_to_decimal_and_float)
+        .at(span)?
+        .ok_or_else(too_large)
+        .at(span)
 }
 
 /// This calculates the least nonnegative remainder of a division.
@@ -957,19 +971,33 @@ pub fn div_euclid(
 /// #calc.rem-euclid(7, -3) \
 /// #calc.rem-euclid(-7, 3) \
 /// #calc.rem-euclid(-7, -3) \
-/// #calc.rem(1.75, 0.5)
+/// #calc.rem-euclid(1.75, 0.5)
+/// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
 #[func(title = "Euclidean Remainder")]
 pub fn rem_euclid(
+    /// The callsite span.
+    span: Span,
     /// The dividend of the remainder.
-    dividend: Num,
+    dividend: DecNum,
     /// The divisor of the remainder.
-    divisor: Spanned<Num>,
-) -> SourceResult<Num> {
-    if divisor.v.float() == 0.0 {
+    divisor: Spanned<DecNum>,
+) -> SourceResult<DecNum> {
+    if divisor.v.is_zero() {
         bail!(divisor.span, "divisor must not be zero");
     }
-    Ok(dividend.apply2(divisor.v, i64::rem_euclid, f64::rem_euclid))
+
+    dividend
+        .apply2(
+            divisor.v,
+            |a, b| Some(DecNum::Int(a.rem_euclid(b))),
+            |a, b| Some(DecNum::Float(a.rem_euclid(b))),
+            |a, b| a.checked_rem_euclid(b).map(DecNum::Decimal),
+        )
+        .ok_or_else(cant_apply_to_decimal_and_float)
+        .at(span)?
+        .ok_or("dividend too small compared to divisor")
+        .at(span)
 }
 
 /// Calculates the quotient (floored division) of two numbers.
@@ -1016,33 +1044,6 @@ pub enum Num {
 }
 
 impl Num {
-    fn apply2(
-        self,
-        other: Self,
-        int: impl FnOnce(i64, i64) -> i64,
-        float: impl FnOnce(f64, f64) -> f64,
-    ) -> Num {
-        match (self, other) {
-            (Self::Int(a), Self::Int(b)) => Num::Int(int(a, b)),
-            (a, b) => Num::Float(float(a.float(), b.float())),
-        }
-    }
-
-    // TODO: decide whether to remove this
-    #[allow(dead_code)]
-    fn apply3(
-        self,
-        other: Self,
-        third: Self,
-        int: impl FnOnce(i64, i64, i64) -> i64,
-        float: impl FnOnce(f64, f64, f64) -> f64,
-    ) -> Num {
-        match (self, other, third) {
-            (Self::Int(a), Self::Int(b), Self::Int(c)) => Num::Int(int(a, b, c)),
-            (a, b, c) => Num::Float(float(a.float(), b.float(), c.float())),
-        }
-    }
-
     fn float(self) -> f64 {
         match self {
             Self::Int(v) => v as f64,
