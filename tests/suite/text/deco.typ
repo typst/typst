@@ -83,3 +83,11 @@ We can also specify a customized value
 #highlight(stroke: 2pt + blue)[abc]
 #highlight(stroke: (top: blue, left: red, bottom: green, right: orange))[abc]
 #highlight(stroke: 1pt, radius: 3pt)[#lorem(5)]
+
+--- highlight-hint-size ---
+#highlight[sub#sub[123]]
+#highlight[sub#sub(typographic: false)[123]]
+#highlight(hint-size: 1em)[sub#sub(typographic: false)[123]]
+#highlight[super#super[123]]
+#highlight[super#super(typographic: false)[123]]
+#highlight(hint-size: 1em)[super#super(typographic: false)[123]]

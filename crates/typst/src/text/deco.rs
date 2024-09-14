@@ -323,6 +323,20 @@ pub struct HighlightElem {
     #[default(BottomEdge::Metric(BottomEdgeMetric::Descender))]
     pub bottom_edge: BottomEdge,
 
+    /// A hint on the text size. If `{auto}` use the text size and the bottom_edge is aligned with
+    /// the text baseline.
+    /// Ignored for a "bounds" edge.
+    ///
+    /// This is useful if you want to customize the highlighting for text with a non-zero baseline,
+    /// such as subscript and superscript.
+    ///
+    /// ```example
+    /// This is #highlight[Without #sub[hint]] . \
+    /// This is #highlight(hint-size: 1em)[With #sub[hint]].
+    /// ```
+    #[resolve]
+    pub hint_size: Smart<Length>,
+
     /// The amount by which to extend the background to the sides beyond
     /// (or within if negative) the content.
     ///
@@ -361,6 +375,7 @@ impl Show for Packed<HighlightElem> {
                     .map(|stroke| stroke.map(Stroke::unwrap_or_default)),
                 top_edge: self.top_edge(styles),
                 bottom_edge: self.bottom_edge(styles),
+                hint_size: self.hint_size(styles),
                 radius: self.radius(styles).unwrap_or_default(),
             },
             extent: self.extent(styles),
@@ -403,6 +418,7 @@ enum DecoLine {
         stroke: Sides<Option<FixedStroke>>,
         top_edge: TopEdge,
         bottom_edge: BottomEdge,
+        hint_size: Smart<Abs>,
         radius: Corners<Rel<Abs>>,
     },
 }
@@ -418,13 +434,29 @@ pub(crate) fn decorate(
 ) {
     let font_metrics = text.font.metrics();
 
-    if let DecoLine::Highlight { fill, stroke, top_edge, bottom_edge, radius } =
-        &deco.line
+    if let DecoLine::Highlight {
+        fill,
+        stroke,
+        top_edge,
+        bottom_edge,
+        hint_size,
+        radius,
+    } = &deco.line
     {
-        let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
+        let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge, *hint_size);
         let size = Size::new(width + 2.0 * deco.extent, top - bottom);
         let rects = styled_rect(size, radius, fill.clone(), stroke);
-        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
+        let y = match hint_size {
+            Smart::Auto => pos.y - top,
+            _ => {
+                if bottom_edge.is_bounds() {
+                    pos.y - top
+                } else {
+                    pos.y - top - shift
+                }
+            }
+        };
+        let origin = Point::new(pos.x - deco.extent, y);
         frame.prepend_multiple(
             rects
                 .into_iter()
@@ -539,8 +571,14 @@ fn determine_edges(
     text: &TextItem,
     top_edge: TopEdge,
     bottom_edge: BottomEdge,
+    hint_size: Smart<Abs>,
 ) -> (Abs, Abs) {
     let mut bbox = None;
+
+    let size = hint_size.unwrap_or(text.size);
+    let top_size = if top_edge.is_bounds() { text.size } else { size };
+    let bottom_size = if bottom_edge.is_bounds() { text.size } else { size };
+
     if top_edge.is_bounds() || bottom_edge.is_bounds() {
         let ttf = text.font.ttf();
         bbox = text
@@ -554,8 +592,8 @@ fn determine_edges(
             });
     }
 
-    let top = top_edge.resolve(text.size, &text.font, bbox);
-    let bottom = bottom_edge.resolve(text.size, &text.font, bbox);
+    let top = top_edge.resolve(top_size, &text.font, bbox);
+    let bottom = bottom_edge.resolve(bottom_size, &text.font, bbox);
     (top, bottom)
 }
 
