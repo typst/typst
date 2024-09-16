@@ -52,7 +52,7 @@
 #import "module.typ": chap2, chap2.name, chap2.chap1, chap2.chap1.name as othername
 #test(chap2, orig-chap2)
 #test(chap1, orig-chap1)
-#test(name, "Klaus")
+#test(name, "Peter")
 #test(othername, "Klaus")
 
 --- import-items-parenthesized ---
