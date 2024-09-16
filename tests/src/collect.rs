@@ -408,8 +408,8 @@ fn selected(name: &str, abs: PathBuf) -> bool {
 
 /// An error in a test file.
 pub struct TestParseError {
-    pos: FilePos,
-    message: String,
+    pub pos: FilePos,
+    pub message: String,
 }
 
 impl Display for TestParseError {

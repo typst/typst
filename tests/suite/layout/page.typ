@@ -152,16 +152,10 @@
   }
 )
 
-But, soft! what light through yonder window breaks? It is the east, and Juliet
-is the sun. Arise, fair sun, and kill the envious moon, Who is already sick and
-pale with grief, That thou her maid art far more fair than she: Be not her maid,
-since she is envious; Her vestal livery is but sick and green And none but fools
-do wear it; cast it off. It is my lady, O, it is my love! O, that she knew she
-were! She speaks yet she says nothing: what of that? Her eye discourses; I will
-answer it.
+#align(center, lines(20))
 
 #set page(header: none, height: auto, margin: (top: 15pt, bottom: 25pt))
-The END.
+Z
 
 --- page-number-align-top-right ---
 #set page(
@@ -189,7 +183,7 @@ The END.
 
 --- page-numbering-pdf-label ---
 #set page(margin: (bottom: 20pt, rest: 10pt))
-#let filler = lorem(20)
+#let filler = lines(7)
 
 // (i) - (ii). No style opt. because of suffix.
 #set page(numbering: "(i)")
