@@ -1,11 +1,10 @@
 // Test the `image` function.
 
---- image-rgba-png-and-jpeg ---
-// Test loading different image formats.
-
+--- image-png ---
 // Load an RGBA PNG image.
 #image("/assets/images/rhino.png")
 
+--- image-jpg ---
 // Load an RGB JPEG image.
 #set page(height: 60pt)
 #image("/assets/images/tiger.jpg")

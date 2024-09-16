@@ -44,9 +44,8 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 #bibliography("/assets/bib/works.bib")
 
 --- bibliography-full ---
-// LARGE
-#set page(paper: "a6", height: 170mm)
-#bibliography("/assets/bib/works.bib", full: true)
+#set page(paper: "a6", height: auto)
+#bibliography("/assets/bib/works_too.bib", full: true)
 
 --- bibliography-math ---
 #set page(width: 200pt)

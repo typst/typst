@@ -98,15 +98,15 @@ Paragraph
 #set page(height: 100pt)
 #set align(center)
 
-#lorem(10)
+#lines(3)
 #block(width: 80%, height: 60pt, fill: aqua)
-#lorem(6)
+#lines(2)
 #block(
   breakable: false,
   width: 100%,
   inset: 4pt,
   fill: aqua,
-  lorem(8) + colbreak(),
+  lines(3) + colbreak(),
 )
 
 --- block-consistent-width ---
