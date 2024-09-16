@@ -128,6 +128,7 @@ fn compile_impl(
     .content();
 
     let mut iter = 0;
+    let mut subsink;
     let mut document = Document::default();
 
     // Relayout until all introspections stabilize.
@@ -138,15 +139,14 @@ fn compile_impl(
             &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
         let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
-        // Clear delayed errors.
-        sink.delayed();
+        subsink = Sink::new();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut engine = Engine {
             world,
             introspector: document.introspector.track_with(&constraint),
             traced,
-            sink: sink.track_mut(),
+            sink: subsink.track_mut(),
             route: Route::default(),
         };
 
@@ -160,13 +160,15 @@ fn compile_impl(
         }
 
         if iter >= 5 {
-            sink.warn(warning!(
+            subsink.warn(warning!(
                 Span::detached(), "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
             break;
         }
     }
+
+    sink.extend_from_sink(subsink);
 
     // Promote delayed errors.
     let delayed = sink.delayed();
