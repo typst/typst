@@ -72,16 +72,16 @@ _Visible_
 // Hint: 1-8 only the last label is used, the rest are ignored
 = Hello <a> <b>
 
-// Warning: 12-19 content labelled multiple times
-// Hint: 12-19 only the last label is used, the rest are ignored
-#let f = [#block()<c>]
+// Warning: 12-26 content labelled multiple times
+// Hint: 12-26 only the last label is used, the rest are ignored
+#let f = [#metadata(none)<c>]
 #f<d>
 
-// Warning: 6-13 content labelled multiple times
-// Hint: 6-13 only the last label is used, the rest are ignored
-#[#[#block()]<e>]<f>
+// Warning: 6-20 content labelled multiple times
+// Hint: 6-20 only the last label is used, the rest are ignored
+#[#[#metadata(none)]<e>]<f>
 
-// Error: 1-3 label `<a>` does not exist in the document
+// Warning: 1-3 label `<a>` does not exist in the document
 @a
 
 --- label-unattached-warn ---

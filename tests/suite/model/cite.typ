@@ -49,6 +49,17 @@ A @netwok @arrgh @quark, B.
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
+--- cite-missing ---
+// Warning: 2-15 key `peter` does not exist in the bibliography
+// Warning: 31-37 label `<extra>` does not exist in the document
+#cite(<peter>) @netwok @arrgh @extra
+
+// Warning: 2-20 key `>?&` does not exist in the bibliography
+#cite(label(">?&"))
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
 --- issue-785-cite-locate ---
 // Test citation in other introspection.
 #set page(width: 180pt)

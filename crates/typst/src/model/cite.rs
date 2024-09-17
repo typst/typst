@@ -1,3 +1,5 @@
+use ecow::eco_format;
+
 use crate::diag::{error, At, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -5,7 +7,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
-use crate::model::CslStyle;
+use crate::model::{unresolved_reference, BibliographyElem, CslStyle};
 use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
@@ -40,7 +42,7 @@ use crate::text::{Lang, Region, TextElem};
 /// This function indirectly has dedicated syntax. [References]($ref) can be
 /// used to cite works from the bibliography. The label then corresponds to the
 /// citation key.
-#[elem(Synthesize)]
+#[elem(Synthesize, Show)]
 pub struct CiteElem {
     /// The citation key that identifies the entry in the bibliography that
     /// shall be cited, as a label.
@@ -114,6 +116,26 @@ impl Synthesize for Packed<CiteElem> {
         elem.push_lang(TextElem::lang_in(styles));
         elem.push_region(TextElem::region_in(styles));
         Ok(())
+    }
+}
+
+impl Show for Packed<CiteElem> {
+    #[typst_macros::time(name = "cite", span = self.span())]
+    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        if !BibliographyElem::has(engine, self.key) {
+            return Ok(unresolved_reference(
+                engine,
+                eco_format!(
+                    "key `{}` does not exist in the bibliography",
+                    self.key.as_str()
+                ),
+                "cite",
+                self.key,
+                self.span(),
+            ));
+        }
+
+        Ok(self.clone().pack())
     }
 }
 

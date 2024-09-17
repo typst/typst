@@ -10,8 +10,14 @@ See @setup.
 As seen in @intro, we proceed.
 
 --- ref-label-missing ---
-// Error: 1-5 label `<foo>` does not exist in the document
+// Warning: 1-5 label `<foo>` does not exist in the document
 @foo
+
+--- ref-label-complex-missing ---
+#set page(width: auto)
+
+// Warning: 2-28 label `label("is;/"bad%//#")` does not exist in the document
+#ref(label("is;\"bad%//#"))
 
 --- ref-label-duplicate ---
 = First <foo>

@@ -1,18 +1,20 @@
 use comemo::Track;
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, At, Hint, SourceResult};
+use crate::diag::{bail, At, Hint, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show,
-    Smart, StyleChain, Synthesize,
+    cast, elem, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr,
+    Show, Smart, StyleChain, Synthesize,
 };
-use crate::introspection::{Counter, Locatable};
+use crate::introspection::{Counter, Locatable, QueryError};
 use crate::math::EquationElem;
 use crate::model::{
     BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, Numbering,
 };
-use crate::text::TextElem;
+use crate::syntax::{is_valid_label_literal, Span};
+use crate::text::{RawContent, RawElem, TextElem};
+use crate::visualize::Color;
 
 /// A reference to a label or bibliography.
 ///
@@ -163,22 +165,25 @@ impl Synthesize for Packed<RefElem> {
 impl Show for Packed<RefElem> {
     #[typst_macros::time(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let target = *self.target();
-        let elem = engine.introspector.query_label(target);
         let span = self.span();
+        let result = engine.introspector.query_label(self.target);
 
-        if BibliographyElem::has(engine, target) {
-            if elem.is_ok() {
+        if BibliographyElem::has(engine, self.target) {
+            if result.is_ok() {
                 bail!(span, "label occurs in the document and its bibliography");
             }
 
             return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
         }
 
-        let elem = elem.at(span)?;
+        if let Err(error @ QueryError::MissingLabel(_)) = result {
+            return Ok(unresolved_reference(engine, error, "ref", self.target, span));
+        }
+
+        let elem = result.at(span)?;
 
         if let Some(footnote) = elem.to_packed::<FootnoteElem>() {
-            return Ok(footnote.into_ref(target).pack().spanned(span));
+            return Ok(footnote.into_ref(self.target).pack().spanned(span));
         }
 
         let elem = elem.clone();
@@ -304,4 +309,27 @@ pub trait Refable {
 
     /// Returns the numbering of this element.
     fn numbering(&self) -> Option<&Numbering>;
+}
+
+/// Generates a warning for an unresolved reference and returns placeholder
+/// content.
+pub(crate) fn unresolved_reference(
+    engine: &mut Engine,
+    message: impl Into<EcoString>,
+    func: &str,
+    target: Label,
+    span: Span,
+) -> Content {
+    engine.sink.warn(SourceDiagnostic::warning(span, message));
+
+    let text = if is_valid_label_literal(target.as_str()) {
+        eco_format!("@{}", target.as_str())
+    } else {
+        eco_format!("#{func}(label({}))", target.as_str().repr())
+    };
+
+    return RawElem::new(RawContent::Text(text))
+        .pack()
+        .spanned(span)
+        .styled(TextElem::set_fill(Color::RED.into()));
 }
