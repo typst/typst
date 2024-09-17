@@ -529,6 +529,11 @@ impl Debug for Recipe {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RecipeIndex(pub usize);
 
+impl RecipeIndex {
+    /// The index reserved for a potential built-in recipe.
+    pub const BUILTIN: Self = Self(1);
+}
+
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Transformation {

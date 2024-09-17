@@ -348,13 +348,13 @@ fn visit_show_rules<'a>(
     };
 
     // Create a fresh copy that we can mutate.
-    let mut output = Cow::Borrowed(content);
+    let mut output = content.clone();
 
     // If the element isn't yet prepared (we're seeing it for the first time),
     // prepare it.
     let mut tag = None;
     if !prepared {
-        tag = prepare(s.engine, s.locator, output.to_mut(), &mut map, styles)?;
+        tag = prepare(s.engine, s.locator, &mut output, &mut map, styles)?;
     }
 
     // Apply a show rule step, if there is one.
@@ -364,17 +364,15 @@ fn visit_show_rules<'a>(
             // Apply a user-defined show rule.
             ShowStep::Recipe(recipe, guard) => {
                 let context = Context::new(output.location(), Some(chained));
-                recipe.apply(
-                    s.engine,
-                    context.track(),
-                    output.into_owned().guarded(guard),
-                )
+                recipe.apply(s.engine, context.track(), output.guarded(guard))
             }
 
             // Apply a built-in show rule.
-            ShowStep::Builtin => {
-                output.with::<dyn Show>().unwrap().show(s.engine, chained)
-            }
+            ShowStep::Builtin => output
+                .guarded(RecipeIndex::BUILTIN)
+                .with::<dyn Show>()
+                .unwrap()
+                .show(s.engine, chained),
         };
 
         // Errors in show rules don't terminate compilation immediately. We just
@@ -383,14 +381,8 @@ fn visit_show_rules<'a>(
         //
         // This way, we can ignore errors that only occur in earlier iterations
         // and also show more useful errors at once.
-        output = Cow::Owned(s.engine.delay(result));
+        output = s.engine.delay(result);
     }
-
-    // Lifetime-extend the realized content if necessary.
-    let realized = match output {
-        Cow::Borrowed(realized) => realized,
-        Cow::Owned(realized) => s.store(realized),
-    };
 
     // Push start tag.
     if let Some(tag) = &tag {
@@ -403,7 +395,7 @@ fn visit_show_rules<'a>(
     s.engine.route.increase();
     s.engine.route.check_show_depth().at(content.span())?;
 
-    visit_styled(s, realized, Cow::Owned(map), styles)?;
+    visit_styled(s, s.store(output), Cow::Owned(map), styles)?;
 
     s.outside = prev_outside;
     s.engine.route.decrease();
@@ -443,11 +435,12 @@ fn verdict<'a>(
         target = &slot;
     }
 
-    // Lazily computes the total number of recipes in the style chain. We need
-    // it to determine whether a particular show rule was already applied to the
-    // `target` previously. For this purpose, show rules are indexed from the
-    // top of the chain as the chain might grow to the bottom.
-    let depth = Lazy::new(|| styles.recipes().count());
+    // Lazily computes the total number of recipes in the style chain, plus one
+    // for the built-in recipe. We need it to determine whether a particular
+    // show rule was already applied to the `target` previously. For this
+    // purpose, show rules are indexed from the top of the chain as the chain
+    // might grow to the bottom.
+    let depth = Lazy::new(|| 1 + styles.recipes().count());
 
     for (r, recipe) in styles.recipes().enumerate() {
         // We're not interested in recipes that don't match.
@@ -489,7 +482,10 @@ fn verdict<'a>(
     }
 
     // If we found no user-defined rule, also consider the built-in show rule.
-    if step.is_none() && target.can::<dyn Show>() {
+    if step.is_none()
+        && target.can::<dyn Show>()
+        && !target.is_guarded(RecipeIndex::BUILTIN)
+    {
         step = Some(ShowStep::Builtin);
     }
 
@@ -1058,7 +1054,7 @@ fn find_regex_match_in_str<'a>(
     let mut revoked = SmallBitSet::new();
     let mut leftmost: Option<(regex::Match, RecipeIndex, &Recipe)> = None;
 
-    let depth = Lazy::new(|| styles.recipes().count());
+    let depth = Lazy::new(|| 1 + styles.recipes().count());
 
     for entry in styles.entries() {
         let recipe = match &**entry {
