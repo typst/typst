@@ -1,6 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::foundations::{func, scope, ty, Repr};
+use crate::syntax::is_valid_label_literal;
 use crate::utils::PicoStr;
 
 /// A label for an element.
@@ -66,7 +67,11 @@ impl Label {
 
 impl Repr for Label {
     fn repr(&self) -> EcoString {
-        eco_format!("<{}>", self.as_str())
+        if is_valid_label_literal(self.as_str()) {
+            eco_format!("<{}>", self.as_str())
+        } else {
+            eco_format!("label({})", self.as_str().repr())
+        }
     }
 }
 

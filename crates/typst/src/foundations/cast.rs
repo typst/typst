@@ -336,7 +336,7 @@ impl CastInfo {
             }
         } else if let Value::Str(s) = found {
             if !matching_type && parts.iter().any(|p| p == "label") {
-                if typst_syntax::is_valid_label_literal_id(s) {
+                if typst_syntax::is_valid_label_literal(s) {
                     msg.hint(eco_format!(
                         "use `<{s}>` or `label({})` to create a label",
                         s.repr()

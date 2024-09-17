@@ -934,13 +934,14 @@ fn is_math_id_continue(c: char) -> bool {
     is_xid_continue(c) && c != '_'
 }
 
+/// Returns true if this string is valid in a label literal.
+#[inline]
+pub fn is_valid_label_literal(string: &str) -> bool {
+    !string.is_empty() && string.chars().all(is_valid_in_label_literal)
+}
+
 /// Whether a character can be part of a label literal's name.
 #[inline]
 fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
-}
-
-/// Returns true if this string is valid in a label literal.
-pub fn is_valid_label_literal_id(id: &str) -> bool {
-    !id.is_empty() && id.chars().all(is_valid_in_label_literal)
 }
