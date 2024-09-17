@@ -328,8 +328,8 @@ pub(crate) fn unresolved_reference(
         eco_format!("#{func}(label({}))", target.as_str().repr())
     };
 
-    return RawElem::new(RawContent::Text(text))
+    RawElem::new(RawContent::Text(text))
         .pack()
         .spanned(span)
-        .styled(TextElem::set_fill(Color::RED.into()));
+        .styled(TextElem::set_fill(Color::RED.into()))
 }

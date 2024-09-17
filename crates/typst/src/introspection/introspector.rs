@@ -238,15 +238,10 @@ impl Introspector {
 
     /// Query for a unique element with the label.
     pub fn query_label(&self, label: Label) -> Result<&Content, QueryError> {
-        let indices = self
-            .labels
-            .get(&label)
-            .ok_or_else(|| QueryError::MissingLabel(label))?;
-
+        let indices = self.labels.get(&label).ok_or(QueryError::MissingLabel(label))?;
         if indices.len() > 1 {
             return Err(QueryError::MultipleLabels(label));
         }
-
         Ok(&self.elems[indices[0]].0)
     }
 
