@@ -1,14 +1,13 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::RwLock;
 
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 
-use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{Location, TagKind};
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
@@ -221,34 +220,31 @@ impl Introspector {
     }
 
     /// Query for the first element that matches the selector.
-    pub fn query_unique(&self, selector: &Selector) -> StrResult<Content> {
+    pub fn query_unique(&self, selector: &Selector) -> Result<Content, QueryError> {
         match selector {
-            Selector::Location(location) => self
-                .get(location)
-                .cloned()
-                .ok_or_else(|| "element does not exist in the document".into()),
+            Selector::Location(location) => {
+                self.get(location).cloned().ok_or(QueryError::MissingMatch)
+            }
             Selector::Label(label) => self.query_label(*label).cloned(),
             _ => {
                 let elems = self.query(selector);
                 if elems.len() > 1 {
-                    bail!("selector matches multiple elements",);
+                    return Err(QueryError::MultipleMatches);
                 }
-                elems
-                    .into_iter()
-                    .next()
-                    .ok_or_else(|| "selector does not match any element".into())
+                elems.into_iter().next().ok_or(QueryError::MissingMatch)
             }
         }
     }
 
     /// Query for a unique element with the label.
-    pub fn query_label(&self, label: Label) -> StrResult<&Content> {
-        let indices = self.labels.get(&label).ok_or_else(|| {
-            eco_format!("label `{}` does not exist in the document", label.repr())
-        })?;
+    pub fn query_label(&self, label: Label) -> Result<&Content, QueryError> {
+        let indices = self
+            .labels
+            .get(&label)
+            .ok_or_else(|| QueryError::MissingLabel(label))?;
 
         if indices.len() > 1 {
-            bail!("label `{}` occurs multiple times in the document", label.repr());
+            return Err(QueryError::MultipleLabels(label));
         }
 
         Ok(&self.elems[indices[0]].0)
@@ -338,5 +334,41 @@ impl QueryCache {
 impl Clone for QueryCache {
     fn clone(&self) -> Self {
         Self(RwLock::new(self.0.read().unwrap().clone()))
+    }
+}
+
+/// An error that occured while querying a selector.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum QueryError {
+    MissingMatch,
+    MultipleMatches,
+    MissingLabel(Label),
+    MultipleLabels(Label),
+}
+
+impl std::error::Error for QueryError {}
+
+impl Display for QueryError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::MissingMatch => f.pad("selector does not match any element"),
+            Self::MultipleMatches => f.pad("selector matches multiple elements"),
+            Self::MissingLabel(label) => {
+                write!(f, "label `{}` does not exist in the document", label.repr())
+            }
+            Self::MultipleLabels(label) => {
+                write!(
+                    f,
+                    "label `{}` occurs multiple times in the document",
+                    label.repr()
+                )
+            }
+        }
+    }
+}
+
+impl From<QueryError> for EcoString {
+    fn from(err: QueryError) -> Self {
+        eco_format!("{err}")
     }
 }
