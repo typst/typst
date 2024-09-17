@@ -140,6 +140,11 @@
 #test(decimal("2359.123456789123456789001234") * 2, decimal("4718.246913578246913578002468"))
 #test(decimal("2359.123456789123456789001234") / 2, decimal("1179.561728394561728394500617"))
 
+--- ops-binary-decimal-multiplication-division-imprecision ---
+// Test digit truncation by multiplication and division.
+#test(decimal("0.7777777777777777777777777777") / 1000, decimal("0.0007777777777777777777777778"))
+#test(decimal("0.7777777777777777777777777777") * decimal("0.001"), decimal("0.0007777777777777777777777778"))
+
 --- ops-add-too-large-decimal ---
 // Error: 3-47 value is too large
 #(decimal("79228162514264337593543950335") + 1)

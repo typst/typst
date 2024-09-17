@@ -10,6 +10,65 @@ use crate::foundations::{cast, func, repr, scope, ty, Engine, Repr, Str};
 use crate::syntax::{ast, Spanned};
 use crate::World;
 
+/// A fixed-point decimal number type.
+///
+/// This type should be used when highly precise arithmetic operations are
+/// needed, such as for finance. Typical operations between `{decimal}`
+/// numbers, such as addition, multiplication, and [power]($calc.pow) to an
+/// integer, will be highly precise due to their fixed-point representation.
+/// Note, however, that multiplication and division may not preserve all digits
+/// in some edge cases: while they are considered precise, digits past the
+/// limits specified below are rounded off and lost, so some loss of precision
+/// beyond the maximum representable digits is possible. Note that this
+/// behavior can be observed not only when dividing, but also when multiplying
+/// by numbers between 0 and 1, as both operations can push a number's
+/// fractional digits beyond the limits described below, leading to rounding.
+/// When those two operations do not surpass the digit limits, they are fully
+/// precise.
+///
+/// # Limits
+/// A `{decimal}` number has a limit of 28 to 29 significant base-10 digits.
+/// This includes the sum of digits before and after the decimal point. As
+/// such, numbers with more fractional digits have a smaller range. The maximum
+/// and minimum `{decimal}` numbers have a value of
+/// `{79228162514264337593543950335}` and `{-79228162514264337593543950335}`
+/// respectively. In contrast with [`{float}`]($float), this type does not
+/// support infinity or NaN, so overflowing or underflowing operations will
+/// raise an error.
+///
+/// # Construction and casts
+/// To create a decimal number, use the `{decimal(string)}` constructor, such
+/// as with `{decimal("3.141592653")}` **(note the double quotes!)**. This
+/// constructor preserves all given fractional digits, provided they are
+/// representable as per the limits above (otherwise, an error is raised). One
+/// may also convert any [integer]($int) to a decimal with the
+/// `{decimal(int)}` constructor, e.g. `{decimal(59)}`. However, note that
+/// constructing a decimal from a [floating-point number]($float), while
+/// supported, **is an imprecise conversion and therefore discouraged.** A
+/// warning will be raised if Typst detects that there was an accidental
+/// `{float}` to `{decimal}` cast through its constructor (e.g. if writing
+/// `{decimal(3.14)}` - note the lack of double quotes, indicating this is
+/// an accidental `{float}` cast and therefore imprecise). The precision of a
+/// `{float}` to `{decimal}` cast can be slightly improved by rounding the
+/// result to 15 digits with [`calc.round`]($calc.round), but there are still
+/// no precision guarantees for that kind of conversion.
+///
+/// In order to guard against accidental loss of precision, built-in operations
+/// between `{float}` and `{decimal}` are not supported and will raise an
+/// error. Certain `calc` functions, such as trigonometric functions and power
+/// between two real numbers, are also only supported for `{float}` (although
+/// raising `{decimal}` to integer exponents is supported). You can opt into
+/// potentially imprecise operations with the `{float(decimal)}` constructor,
+/// which casts the `{decimal}` number into a `{float}`, allowing for
+/// operations without precision guarantees.
+///
+/// # Example
+/// ```example
+/// #decimal("3.14159265358979323846264338") \
+/// #(decimal("0.000000000000000000001") + decimal("0.000000000000000000002"))
+/// #(decimal("0.00002") * decimal("49.25652565")) \
+/// #(decimal("1") / 2048)
+/// ```
 #[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Decimal(rust_decimal::Decimal);
