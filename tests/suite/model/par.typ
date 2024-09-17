@@ -97,3 +97,7 @@ Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
 --- issue-4278-par-trim-before-equation ---
 #set par(justify: true)
 #lorem(6) aa $a = c + b$
+
+--- issue-4938-par-bad-ratio ---
+#set par(justify: true)
+#box($k in NN_0$)
