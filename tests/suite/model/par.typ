@@ -101,3 +101,8 @@ Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
 --- issue-4938-par-bad-ratio ---
 #set par(justify: true)
 #box($k in NN_0$)
+
+--- issue-4770-par-tag-at-start ---
+#h(0pt) #box[] <a>
+
+#context test(query(<a>).len(), 1)
