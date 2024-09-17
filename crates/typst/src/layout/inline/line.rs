@@ -698,6 +698,12 @@ impl<'a> DerefMut for Items<'a> {
     }
 }
 
+impl Debug for Items<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(&self.0).finish()
+    }
+}
+
 /// A reference to or a boxed item.
 pub enum ItemEntry<'a> {
     Ref(&'a Item<'a>),

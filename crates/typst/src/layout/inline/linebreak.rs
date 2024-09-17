@@ -481,8 +481,18 @@ fn linebreak_optimized_approximate(
         let Entry { end, breakpoint, unbreakable, .. } = table[idx];
 
         let attempt = line(engine, p, start..end, breakpoint, Some(&pred));
-        let (_, line_cost) =
+        let (ratio, line_cost) =
             ratio_and_cost(p, metrics, width, &pred, &attempt, breakpoint, unbreakable);
+
+        // If approximation produces a valid layout without too much shrinking,
+        // exact layout is guaranteed to find the same layout. If, however, the
+        // line is overfull, we do not have this guarantee. Then, our bound
+        // becomes useless and actively harmful (it could be lower than what
+        // optimal layout produces). Thus, we immediately bail with an infinite
+        // bound in this case.
+        if ratio < metrics.min_ratio(false) {
+            return Cost::INFINITY;
+        }
 
         pred = attempt;
         start = end;
