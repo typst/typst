@@ -216,7 +216,26 @@ impl Decimal {
 
 #[scope]
 impl Decimal {
-    /// Constructs or converts a value to a decimal.
+    /// Converts a value to a `{decimal}`.
+    ///
+    /// It is recommended to use a string to construct the decimal number, or
+    /// an [integer]($int) (if desired). The string must contain a number in
+    /// the format `"3.14159"` (or `"-3.141519"` for negative numbers). The
+    /// fractional digits are fully preserved; if that's not possible due to
+    /// the limit of significant digits (around 28 to 29) having been reached,
+    /// an error is raised as the given decimal number wouldn't be
+    /// representable. For example, `{decimal("1.222222222222222")}` is a valid
+    /// decimal number.
+    ///
+    /// While this constructor can be used with
+    /// [floating-point numbers]($float) to cast them to `{decimal}`, doing so
+    /// is **discouraged** as **this cast is inherently imprecise.** It is easy
+    /// to accidentally perform this cast by writing `{decimal(1.234)}` (note
+    /// the lack of double quotes), which is why Typst will emit a warning in
+    /// that case. Please write `{decimal("1.234")}` instead for that
+    /// particular case (initialization of a constant decimal). Also note that
+    /// floats equal to NaN and infinity cannot be cast to decimals and will
+    /// raise an error.
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
