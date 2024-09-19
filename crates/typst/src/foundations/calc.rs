@@ -739,7 +739,7 @@ pub fn fract(
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4.0)
 /// #assert(calc.round(decimal("-6.5")) == decimal("-7"))
-/// #assert(calc.round(decimal("7.123456789"), digits: 6), decimal("7.123456"))
+/// #assert(calc.round(decimal("7.123456789"), digits: 6) == decimal("7.123457"))
 /// #calc.round(3.1415, digits: 2)
 /// ```
 #[func]
