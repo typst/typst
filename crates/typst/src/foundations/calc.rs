@@ -92,12 +92,16 @@ cast! {
 ///
 /// ```example
 /// #calc.pow(2, 3)
+/// #calc.pow(decimal("2.5"), 2)
 /// ```
 #[func(title = "Power")]
 pub fn pow(
     /// The callsite span.
     span: Span,
     /// The base of the power.
+    ///
+    /// If this is a [`{decimal}`]($decimal), the exponent can only be an
+    /// [integer]($int).
     base: DecNum,
     /// The exponent of the power.
     exponent: Spanned<Num>,
@@ -613,11 +617,12 @@ pub fn lcm(
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// Note that this function will return the same type as the operand.
-/// That is, applying `floor` to a float will return a float, and to a decimal,
-/// another decimal. You may explicitly convert the output of this function to
-/// an integer with `int(value)`, but note that such a conversion may error if
-/// the float or decimal is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// That is, applying `floor` to a [`{float}`]($float) will return a `{float}`,
+/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
+/// convert the output of this function to an integer with [`{int}`]($int), but
+/// note that such a conversion will error if the `{float}` or `{decimal}` is
+/// larger than the maximum 64-bit signed integer or smaller than the minimum
+/// integer.
 ///
 /// ```example
 /// #assert(calc.floor(3) == 3)
@@ -642,11 +647,12 @@ pub fn floor(
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// Note that this function will return the same type as the operand.
-/// That is, applying `ceil` to a float will return a float, and to a decimal,
-/// another decimal. You may explicitly convert the output of this function to
-/// an integer with `int(value)`, but note that such a conversion may error if
-/// the float or decimal is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// That is, applying `ceil` to a [`{float}`]($float) will return a `{float}`,
+/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
+/// convert the output of this function to an integer with [`{int}`]($int), but
+/// note that such a conversion will error if the `{float}` or `{decimal}` is
+/// larger than the maximum 64-bit signed integer or smaller than the minimum
+/// integer.
 ///
 /// ```example
 /// #assert(calc.ceil(3) == 3)
@@ -671,11 +677,12 @@ pub fn ceil(
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// Note that this function will return the same type as the operand.
-/// That is, applying `trunc` to a float will return a float, and to a decimal,
-/// another decimal. You may explicitly convert the output of this function to
-/// an integer with `int(value)`, but note that such a conversion may error if
-/// the float or decimal is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// That is, applying `trunc` to a [`{float}`]($float) will return a `{float}`,
+/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
+/// convert the output of this function to an integer with [`{int}`]($int), but
+/// note that such a conversion will error if the `{float}` or `{decimal}` is
+/// larger than the maximum 64-bit signed integer or smaller than the minimum
+/// integer.
 ///
 /// ```example
 /// #assert(calc.trunc(3) == 3)
@@ -721,16 +728,18 @@ pub fn fract(
 /// Optionally, a number of decimal places can be specified.
 ///
 /// Note that this function will return the same type as the operand.
-/// That is, applying `round` to a float will return a float, and to a decimal,
-/// another decimal. You may explicitly convert the output of this function to
-/// an integer with `int(value)`, but note that such a conversion may error if
-/// the float or decimal is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// That is, applying `round` to a [`{float}`]($float) will return a `{float}`,
+/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
+/// convert the output of this function to an integer with [`{int}`]($int), but
+/// note that such a conversion will error if the `{float}` or `{decimal}` is
+/// larger than the maximum 64-bit signed integer or smaller than the minimum
+/// integer.
 ///
 /// ```example
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4.0)
 /// #assert(calc.round(decimal("-6.5")) == decimal("-7"))
+/// #assert(calc.round(decimal("7.123456789"), digits: 6), decimal("7.123456"))
 /// #calc.round(3.1415, digits: 2)
 /// ```
 #[func]
