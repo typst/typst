@@ -50,6 +50,10 @@
 #test(calc.rem(decimal("5"), -3), decimal("2"))
 #test(calc.rem(decimal("22.5"), decimal("10")), decimal("2.5"))
 #test(calc.rem(9, decimal("4.5")), decimal("0"))
+#test(calc.rem(decimal("7"), decimal("3")), decimal("1"))
+#test(calc.rem(decimal("7"), decimal("-3")), decimal("1"))
+#test(calc.rem(decimal("-7"), decimal("3")), decimal("-1"))
+#test(calc.rem(decimal("-7"), decimal("-3")), decimal("-1"))
 
 --- calc-rem-divisor-zero-1 ---
 // Error: 14-15 divisor must not be zero
