@@ -1,3 +1,5 @@
+use crate::set::{syntax_set, SyntaxSet};
+
 /// A syntactical building block of a Typst file.
 ///
 /// Can be created by the lexer or by the parser.
@@ -285,27 +287,20 @@ pub enum SyntaxKind {
 impl SyntaxKind {
     /// Is this a bracket, brace, or parenthesis?
     pub fn is_grouping(self) -> bool {
-        matches!(
-            self,
-            Self::LeftBracket
-                | Self::LeftBrace
-                | Self::LeftParen
-                | Self::RightBracket
-                | Self::RightBrace
-                | Self::RightParen
+        syntax_set!(
+            LeftBracket,
+            LeftBrace,
+            LeftParen,
+            RightBracket,
+            RightBrace,
+            RightParen,
         )
+        .contains(self)
     }
 
     /// Does this node terminate a preceding expression?
     pub fn is_terminator(self) -> bool {
-        matches!(
-            self,
-            Self::End
-                | Self::Semicolon
-                | Self::RightBrace
-                | Self::RightParen
-                | Self::RightBracket
-        )
+        syntax_set!(End, Semicolon, RightBrace, RightParen, RightBracket,).contains(self)
     }
 
     /// Is this a code or content block.
@@ -315,50 +310,23 @@ impl SyntaxKind {
 
     /// Does this node need termination through a semicolon or linebreak?
     pub fn is_stmt(self) -> bool {
-        matches!(
-            self,
-            Self::LetBinding
-                | Self::SetRule
-                | Self::ShowRule
-                | Self::ModuleImport
-                | Self::ModuleInclude
-        )
+        syntax_set!(LetBinding, SetRule, ShowRule, ModuleImport, ModuleInclude,)
+            .contains(self)
     }
 
     /// Is this node is a keyword.
     pub fn is_keyword(self) -> bool {
-        matches!(
-            self,
-            Self::Not
-                | Self::And
-                | Self::Or
-                | Self::None
-                | Self::Auto
-                | Self::Let
-                | Self::Set
-                | Self::Show
-                | Self::Context
-                | Self::If
-                | Self::Else
-                | Self::For
-                | Self::In
-                | Self::While
-                | Self::Break
-                | Self::Continue
-                | Self::Return
-                | Self::Import
-                | Self::Include
-                | Self::As
+        syntax_set!(
+            Not, And, Or, None, Auto, Let, Set, Show, Context, If, Else, For, In, While,
+            Break, Continue, Return, Import, Include, As,
         )
+        .contains(self)
     }
 
     /// Whether this kind of node is automatically skipped by the parser in
     /// code and math mode.
     pub fn is_trivia(self) -> bool {
-        matches!(
-            self,
-            Self::LineComment | Self::BlockComment | Self::Space | Self::Parbreak
-        )
+        syntax_set!(LineComment, BlockComment, Space, Parbreak,).contains(self)
     }
 
     /// Whether this is an error.

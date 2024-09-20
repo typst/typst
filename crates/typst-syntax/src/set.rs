@@ -39,41 +39,20 @@ const fn bit(kind: SyntaxKind) -> u128 {
     1 << (kind as usize)
 }
 
-/// Syntax kinds that can start a statement.
-pub const STMT: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Let)
-    .add(SyntaxKind::Set)
-    .add(SyntaxKind::Show)
-    .add(SyntaxKind::Import)
-    .add(SyntaxKind::Include)
-    .add(SyntaxKind::Return);
+/// Generate an inline const syntax-set without having to type [`SyntaxKind`].
+///
+/// e.x.: syntax_set!(Plus, Minus).contains(SyntaxKind::Plus)
+macro_rules! syntax_set {
+    ($($kind:ident),* $(,)?) => {{
+        const SET: SyntaxSet = SyntaxSet::new()
+        $( .add(SyntaxKind:: $kind))*
+        ;
+        SET
+    }};
+}
 
-/// Syntax kinds that can start a markup expression.
-pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Space)
-    .add(SyntaxKind::Parbreak)
-    .add(SyntaxKind::LineComment)
-    .add(SyntaxKind::BlockComment)
-    .add(SyntaxKind::Text)
-    .add(SyntaxKind::Linebreak)
-    .add(SyntaxKind::Escape)
-    .add(SyntaxKind::Shorthand)
-    .add(SyntaxKind::SmartQuote)
-    .add(SyntaxKind::Raw)
-    .add(SyntaxKind::Link)
-    .add(SyntaxKind::Label)
-    .add(SyntaxKind::Hash)
-    .add(SyntaxKind::Star)
-    .add(SyntaxKind::Underscore)
-    .add(SyntaxKind::HeadingMarker)
-    .add(SyntaxKind::ListMarker)
-    .add(SyntaxKind::EnumMarker)
-    .add(SyntaxKind::TermMarker)
-    .add(SyntaxKind::RefMarker)
-    .add(SyntaxKind::Dollar)
-    .add(SyntaxKind::LeftBracket)
-    .add(SyntaxKind::RightBracket)
-    .add(SyntaxKind::Colon);
+// Export so other modules can do: `use set::syntax_set`
+pub(crate) use syntax_set;
 
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()

@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut, Range};
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
-use crate::set::SyntaxSet;
+use crate::set::{syntax_set, SyntaxSet};
 use crate::{ast, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Parses a source file.
@@ -50,43 +50,34 @@ pub(super) fn reparse_markup(
     range: Range<usize>,
     at_start: &mut bool,
     nesting: &mut usize,
-    mut stop: impl FnMut(SyntaxKind) -> bool,
 ) -> Option<Vec<SyntaxNode>> {
+    dbg!(&text[range.clone()]);
     let mut p = Parser::new(text, range.start, LexMode::Markup);
     while !p.end() && p.current_start() < range.end {
         match p.current_kind() {
             SyntaxKind::LeftBracket => *nesting += 1,
             SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
-            _ if stop(p.current_kind()) => break,
+            SyntaxKind::RightBracket => break,
             _ => {}
         }
-
-        if p.newline() {
-            *at_start = true;
-            p.eat();
-            continue;
-        }
-
-        if p.at_set(set::MARKUP_EXPR) {
-            markup_expr(&mut p, at_start);
-        } else {
-            p.unexpected();
-        }
+        markup_expr(&mut p, at_start);
     }
-    (p.balanced && p.current_start() == range.end).then(|| p.nodes)
+    (p.balanced && p.current_start() == range.end).then_some(p.nodes)
 }
 
 /// Parses a single markup expression: This includes markup elements like
 /// spaces, text, and headings, and embedded code expressions.
 fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     match p.current_kind() {
-        SyntaxKind::Text
-        | SyntaxKind::Linebreak
-        | SyntaxKind::Escape
-        | SyntaxKind::Shorthand
-        | SyntaxKind::SmartQuote
-        | SyntaxKind::Link
-        | SyntaxKind::Label => p.eat(),
+        kind if syntax_set!(
+            Text, Linebreak, Escape, Shorthand, SmartQuote, Link, Label,
+        )
+        .contains(kind) =>
+        {
+            p.eat()
+        }
+
+        SyntaxKind::Raw => p.eat(), // Raw is handled entirely in the lexer.
 
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
@@ -98,15 +89,19 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::RefMarker => reference(p),
         SyntaxKind::Dollar => equation(p),
 
-        SyntaxKind::Raw => p.eat(), // Raw is handled entirely in the lexer.
-
-        SyntaxKind::LeftBracket
-        | SyntaxKind::RightBracket
-        | SyntaxKind::HeadingMarker
-        | SyntaxKind::ListMarker
-        | SyntaxKind::EnumMarker
-        | SyntaxKind::TermMarker
-        | SyntaxKind::Colon => p.convert_and_eat(SyntaxKind::Text),
+        kind if syntax_set!(
+            LeftBracket,
+            RightBracket,
+            HeadingMarker,
+            ListMarker,
+            EnumMarker,
+            TermMarker,
+            Colon,
+        )
+        .contains(kind) =>
+        {
+            p.convert_and_eat(SyntaxKind::Text)
+        }
 
         _ => p.unexpected(),
     }
@@ -116,6 +111,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
 
 /// Parse a set of delimiters with common options.
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn delims(
     p: &mut Parser,
     open: SyntaxKind,
@@ -587,9 +583,6 @@ fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
 
 /// Parses a sequence of code expressions.
 fn code(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
-    const MULTILINE: SyntaxSet =
-        SyntaxSet::new().add(SyntaxKind::Else).add(SyntaxKind::Dot);
-
     if p.end() || stop(p) {
         return;
     }
@@ -598,7 +591,9 @@ fn code(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
             p.unexpected();
             return;
         }
-        p.enter_newline_mode(NewlineMode::MaybeContinue(MULTILINE), code_expr);
+        p.enter_newline_mode(NewlineMode::MaybeContinue(syntax_set!(Else, Dot)), |p| {
+            code_expr(p)
+        });
         if p.end() || stop(p) {
             return;
         }
@@ -628,7 +623,7 @@ fn embedded_code_expr(p: &mut Parser) {
                 p.expected("expression");
                 return;
             }
-            let stmt = p.at_set(set::STMT);
+            let stmt = p.at_set(syntax_set!(Let, Set, Show, Import, Include, Return));
             let at = p.at_set(set::ATOMIC_CODE_EXPR);
             code_expr_prec(p, true, 0);
 
@@ -644,7 +639,7 @@ fn embedded_code_expr(p: &mut Parser) {
 
             // Parsed statements must end in a newline, semicolon, or bracket.
             // Ex: `#let x = 5 hello` is an error, but `#let x = 5]hello` isn't.
-            if stmt && !semi && !p.newline() && !p.at(SyntaxKind::RightBracket) {
+            if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
                 p.expected("semicolon or line break");
             }
         })
@@ -768,14 +763,11 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
         SyntaxKind::Raw => p.eat(), // Raw is handled entirely in the lexer.
 
-        SyntaxKind::None
-        | SyntaxKind::Auto
-        | SyntaxKind::Int
-        | SyntaxKind::Float
-        | SyntaxKind::Bool
-        | SyntaxKind::Numeric
-        | SyntaxKind::Str
-        | SyntaxKind::Label => p.eat(),
+        kind if syntax_set!(None, Auto, Int, Float, Bool, Numeric, Str, Label)
+            .contains(kind) =>
+        {
+            p.eat()
+        }
 
         _ => p.expected("expression"),
     }
@@ -791,19 +783,17 @@ fn block(p: &mut Parser) {
 }
 
 /// Reparses a full content or code block.
-pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
+pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<Vec<SyntaxNode>> {
+    // dbg!(&text[range.clone()]);
     let mut p = Parser::new(text, range.start, LexMode::Code);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
     block(&mut p);
-    (p.balanced && p.prev_end() == range.end).then(|| p.finish_into(SyntaxKind::Code))
+    p.nodes.truncate(p.nodes.len() - p.current.n_trivia);
+    (p.balanced && p.prev_end() == range.end).then_some(p.nodes)
 }
 
 /// Parses a code block: `{ let x = 1; x + 2 }`.
 fn code_block(p: &mut Parser) {
-    const END: SyntaxSet = SyntaxSet::new()
-        .add(SyntaxKind::RightBrace)
-        .add(SyntaxKind::RightBracket)
-        .add(SyntaxKind::RightParen);
     delims(
         p,
         SyntaxKind::LeftBrace,
@@ -811,7 +801,7 @@ fn code_block(p: &mut Parser) {
         SyntaxKind::Code,
         NewlineMode::Continue,
         false,
-        |p| code(p, |p| p.at_set(END)),
+        |p| code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen))),
         SyntaxKind::CodeBlock,
     );
 }
@@ -1838,7 +1828,8 @@ impl<'s> Parser<'s> {
         func(self);
         self.mode = prev_mode;
         if mode != prev_mode {
-            if let Token { node, kind, had_newline: Some(lines), .. } = &mut self.current {
+            if let Token { node, kind, had_newline: Some(lines), .. } = &mut self.current
+            {
                 if self.mode.stop_at(*lines, || node.kind()) {
                     *kind = SyntaxKind::End;
                 } else if *kind == SyntaxKind::End {
