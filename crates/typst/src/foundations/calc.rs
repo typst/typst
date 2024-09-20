@@ -736,6 +736,7 @@ pub fn fract(
 /// integer.
 ///
 /// ```example
+/// #assert(calc.round(3) == 3)
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4.0)
 /// #assert(calc.round(decimal("-6.5")) == decimal("-7"))
@@ -746,18 +747,13 @@ pub fn fract(
 pub fn round(
     /// The number to round.
     value: DecNum,
-    /// The number of decimal places.
+    /// The number of decimal places. Must not be negative.
     #[named]
     #[default(0)]
-    digits: i64,
+    digits: u32,
 ) -> DecNum {
     match value {
-        DecNum::Decimal(n) => match u32::try_from(digits) {
-            Ok(digits) => DecNum::Decimal(n.round(digits)),
-            Err(_) if digits > 0 => value,
-            Err(_) => DecNum::Decimal(n.round(0)),
-        },
-        DecNum::Int(n) if digits < 0 => DecNum::Int(n / (10_i64.pow((-digits) as u32))),
+        DecNum::Decimal(n) => DecNum::Decimal(n.round(digits)),
         DecNum::Int(n) => DecNum::Int(n),
         DecNum::Float(n) => {
             let factor = 10.0_f64.powi(digits as i32);
