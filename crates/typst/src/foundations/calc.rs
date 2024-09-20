@@ -757,9 +757,9 @@ pub fn round(
             Err(_) if digits > 0 => value,
             Err(_) => DecNum::Decimal(n.round(0)),
         },
-        DecNum::Int(n) if digits == 0 => DecNum::Int(n),
-        _ => {
-            let n = value.float().unwrap();
+        DecNum::Int(n) if digits < 0 => DecNum::Int(n / (10_i64.pow((-digits) as u32))),
+        DecNum::Int(n) => DecNum::Int(n),
+        DecNum::Float(n) => {
             let factor = 10.0_f64.powi(digits as i32);
             DecNum::Float((n * factor).round() / factor)
         }

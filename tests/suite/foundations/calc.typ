@@ -1,6 +1,12 @@
 --- calc-round ---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
+#test(calc.round(243.32, digits: -2), 200.0)
+#test(calc.round(243, digits: -2), 2)
+#test(calc.round(decimal("243"), digits: -2), decimal("243"))
+#test(type(calc.round(3.1415, digits: 2)), float)
+#test(type(calc.round(5, digits: 2)), int)
+#test(type(calc.round(decimal("3.1415"), digits: 2)), decimal)
 
 --- calc-abs ---
 // Test the `abs` function.
