@@ -894,8 +894,8 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if given a `decimal` input and the dividend is too small in
-/// magnitude compared to the divisor.
+/// This can error if given a [`{decimal}`]($decimal) input and the dividend is
+/// too small in magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.rem(7, 3) \
