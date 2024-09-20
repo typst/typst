@@ -3,6 +3,7 @@
 use std::cmp;
 use std::cmp::Ordering;
 
+use az::SaturatingAs;
 use ecow::eco_format;
 
 use crate::diag::{bail, At, HintedString, SourceResult, StrResult};
@@ -755,10 +756,10 @@ pub fn round(
     match value {
         DecNum::Decimal(n) => DecNum::Decimal(n.round(digits)),
         DecNum::Int(n) => DecNum::Int(n),
-        DecNum::Float(n) => {
-            let factor = 10.0_f64.powi(digits as i32);
-            DecNum::Float((n * factor).round() / factor)
-        }
+        DecNum::Float(n) => DecNum::Float(crate::utils::format::round_with_precision(
+            n,
+            digits.saturating_as::<u8>(),
+        )),
     }
 }
 
