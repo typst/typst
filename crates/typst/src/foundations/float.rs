@@ -3,7 +3,9 @@ use std::num::ParseFloatError;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::foundations::{bail, cast, func, repr, scope, ty, Bytes, Endianness, Repr, Str};
+use crate::foundations::{
+    bail, cast, func, repr, scope, ty, Bytes, Endianness, Repr, Str,
+};
 use crate::layout::Ratio;
 
 /// A floating-point number.
