@@ -246,7 +246,9 @@
 #test(() <= (1,), true)
 #test((1,) <= (), false)
 #test(decimal("123.0000000000000000000000001") > decimal("123.0"), true)
+#test(decimal("123.5") < decimal("122.444"), false)
 #test(decimal("459.9999999999999999999999999") < 460, true)
+#test(decimal("128.50") > 460, false)
 
 --- ops-in ---
 // Test `in` operator.
