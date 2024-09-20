@@ -972,6 +972,9 @@ pub fn div_euclid(
 /// value of the divisor if the dividend is much smaller in magnitude than the divisor
 /// and the dividend is negative. This only applies for floating point inputs.
 ///
+/// In addition, this can error if given a [`{decimal}`]($decimal) input and
+/// the dividend is too small in magnitude compared to the divisor.
+///
 /// ```example
 /// #calc.rem-euclid(7, 3) \
 /// #calc.rem-euclid(7, -3) \
