@@ -38,7 +38,8 @@ fn main() {
 
     match &ARGS.command {
         None => test(),
-        Some(Command::Clean) => std::fs::remove_dir_all(STORE_PATH).unwrap(),
+        Some(Command::Clean) => clean(),
+        Some(Command::Undangle) => undangle(),
     }
 }
 
@@ -94,7 +95,10 @@ fn test() {
         // Regularly refresh the logger in case we make no progress.
         scope.spawn(move || {
             while receiver.recv_timeout(Duration::from_millis(500)).is_err() {
-                logger.lock().refresh();
+                if !logger.lock().refresh() {
+                    eprintln!("tests seem to be stuck");
+                    std::process::exit(1);
+                }
             }
         });
 
@@ -115,5 +119,23 @@ fn test() {
     let passed = logger.into_inner().finish();
     if !passed {
         std::process::exit(1);
+    }
+}
+
+fn clean() {
+    std::fs::remove_dir_all(STORE_PATH).unwrap();
+}
+
+fn undangle() {
+    match crate::collect::collect() {
+        Ok(_) => eprintln!("no danging reference images"),
+        Err(errors) => {
+            for error in errors {
+                if error.message == "dangling reference image" {
+                    std::fs::remove_file(&error.pos.path).unwrap();
+                    eprintln!("✅ deleted {}", error.pos.path.display());
+                }
+            }
+        }
     }
 }

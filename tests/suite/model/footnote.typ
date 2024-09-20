@@ -34,28 +34,31 @@ Fourth
 Beautiful footnotes. #footnote[Wonderful, aren't they?]
 
 --- footnote-break-across-pages ---
-// LARGE
 #set page(height: 200pt)
 
-#lorem(5)
+#lines(2)
 #footnote[ // 1
-  A simple footnote.
-  #footnote[Well, not that simple ...] // 2
+  I
+  #footnote[II ...] // 2
 ]
-#lorem(15)
-#footnote[Another footnote: #lorem(30)] // 3
-#lorem(15)
-#footnote[My fourth footnote: #lorem(50)] // 4
-#lorem(15)
-#footnote[And a final footnote.] // 5
+#lines(6)
+#footnote[III: #lines(8, "1")] // 3
+#lines(6)
+#footnote[IV: #lines(15, "1")] // 4
+#lines(6)
+#footnote[V] // 5
 
 --- footnote-in-columns ---
 // Test footnotes in columns, even those that are not enabled via `set page`.
 #set page(height: 120pt)
 #align(center, strong[Title])
+
 #show: columns.with(2)
-#lorem(3) #footnote(lorem(6))
-Hello there #footnote(lorem(2))
+#lines(3)
+#footnote(lines(4, "1"))
+
+#lines(2)
+#footnote(lines(2, "1"))
 
 --- footnote-in-caption ---
 // Test footnote in caption.
@@ -93,9 +96,9 @@ More #footnote[just for ...] footnotes #footnote[... testing. :)]
 // always end up on the same page.
 #set page(height: 120pt)
 
-#lorem(13)
+#lines(5)
 
-There #footnote(lorem(20))
+A #footnote(lines(6, "1"))
 
 --- footnote-ref ---
 // Test references to footnotes.

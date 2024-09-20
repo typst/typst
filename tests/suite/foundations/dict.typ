@@ -176,10 +176,10 @@
 #let c = "value"
 #let d = "conflict"
 
-#assert.eq(((a): b), ("hello": "world"))
-#assert.eq(((a): 1, (a): 2), ("hello": 2))
-#assert.eq((hello: 1, (a): 2), ("hello": 2))
-#assert.eq((a + b: c, (a + b): d, (a): "value2", a: "value3"), ("helloworld": "conflict", "hello": "value2", "a": "value3"))
+#test(((a): b), ("hello": "world"))
+#test(((a): 1, (a): 2), ("hello": 2))
+#test((hello: 1, (a): 2), ("hello": 2))
+#test((a + b: c, (a + b): d, (a): "value2", a: "value3"), ("helloworld": "conflict", "hello": "value2", "a": "value3"))
 
 --- issue-1338-dictionary-underscore ---
 #let foo = "foo"

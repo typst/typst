@@ -82,11 +82,11 @@ pub enum RealizationKind<'a> {
 #[derive(Default)]
 pub struct Arenas {
     /// A typed arena for owned content.
-    content: typed_arena::Arena<Content>,
+    pub content: typed_arena::Arena<Content>,
     /// A typed arena for owned styles.
-    styles: typed_arena::Arena<Styles>,
+    pub styles: typed_arena::Arena<Styles>,
     /// An untyped arena for everything that is `Copy`.
-    bump: bumpalo::Bump,
+    pub bump: bumpalo::Bump,
 }
 
 /// Mutable state for realization.
@@ -867,7 +867,7 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
 
 /// Processes grouped textual elements.
 ///
-/// Specificaly, it searches for regex matches in grouped textual elements and
+/// Specifically, it searches for regex matches in grouped textual elements and
 /// - if there was a match, visits the results recursively,
 /// - if there was no match, tries to simply implicitly use the grouped elements
 ///   as part of a paragraph grouping,

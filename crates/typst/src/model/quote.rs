@@ -4,8 +4,9 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles,
 };
+use crate::introspection::Locatable;
 use crate::layout::{
-    Alignment, BlockChild, BlockElem, Em, HElem, PadElem, Spacing, VElem,
+    Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,
 };
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
@@ -42,7 +43,7 @@ use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(ShowSet, Show)]
+#[elem(Locatable, ShowSet, Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -184,7 +185,7 @@ impl Show for Packed<QuoteElem> {
 
         if block {
             realized = BlockElem::new()
-                .with_body(Some(BlockChild::Content(realized)))
+                .with_body(Some(BlockBody::Content(realized)))
                 .pack()
                 .spanned(self.span());
 
