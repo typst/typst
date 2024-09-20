@@ -68,3 +68,12 @@
 // Display less digits.
 #calc.round(decimal("-3.9191919191919191919191919195"), digits: 4) \
 #calc.round(decimal("5.0000000000"), digits: 4)
+
+--- decimal-expected-float-error ---
+// Error: 11-25 expected integer, float, or angle, found decimal
+// Hint: 11-25 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
+#calc.sin(decimal("1.1"))
+
+--- decimal-expected-integer-error ---
+// Error: 11-25 expected integer, found decimal
+#calc.odd(decimal("1.1"))

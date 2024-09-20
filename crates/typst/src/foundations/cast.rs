@@ -346,7 +346,9 @@ impl CastInfo {
                 }
             }
         } else if let Value::Decimal(_) = found {
-            msg.hint(eco_format!("if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`"));
+            if !matching_type && parts.iter().any(|p| p == "float") {
+                msg.hint(eco_format!("if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`"));
+            }
         }
 
         msg
