@@ -2,38 +2,37 @@
 
 --- flow-heading-no-orphan ---
 #set page(height: 100pt)
-#lorem(12)
+#lines(4)
 
 = Introduction
-This is the start and it goes on.
+A
 
 --- flow-par-no-orphan-and-widow-lines ---
-// LARGE
-#set page("a8", height: 140pt)
+#set page(width: 60pt, height: 140pt)
 #set text(weight: 700)
 
 // Fits fully onto the first page.
 #set text(blue)
-#lorem(27)
+#lines(8)
 
 // The first line would fit, but is moved to the second page.
-#lorem(20)
+#lines(6, "1")
 
 // The second-to-last line is moved to the third page so that the last is isn't
 // as lonely.
 #set text(maroon)
-#lorem(11)
+#lines(4)
 
-#lorem(13)
+#lines(4, "1")
 
 // All three lines go to the next page.
 #set text(olive)
-#lorem(10)
+#lines(3)
 
 --- flow-widow-forced ---
 // Ensure that a widow is allowed when the three lines don't all fit.
 #set page(height: 50pt)
-#lorem(10)
+#lines(3)
 
 --- issue-1445-widow-orphan-unnecessary-skip ---
 // Ensure that widow/orphan prevention doesn't unnecessarily move things

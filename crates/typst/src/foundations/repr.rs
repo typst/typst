@@ -3,6 +3,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::foundations::{func, Str, Value};
+use crate::utils::format::round_with_precision;
 
 /// The Unicode minus sign.
 pub const MINUS_SIGN: &str = "\u{2212}";
@@ -84,8 +85,7 @@ pub fn format_float(
     unit: &str,
 ) -> EcoString {
     if let Some(p) = precision {
-        let offset = 10_f64.powi(p as i32);
-        value = (value * offset).round() / offset;
+        value = round_with_precision(value, p);
     }
     // Debug for f64 always prints a decimal separator, while Display only does
     // when necessary.

@@ -3,8 +3,6 @@
 --- include-file ---
 #set page(width: 200pt)
 
-= Document
-
 // Include a file
 #include "modules/chap1.typ"
 

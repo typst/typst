@@ -29,7 +29,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockChild, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
+    BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sizing, TrackSizings, VElem,
 };
 use crate::model::{
@@ -932,7 +932,7 @@ impl ElemRenderer<'_> {
         match elem.display {
             Some(Display::Block) => {
                 content = BlockElem::new()
-                    .with_body(Some(BlockChild::Content(content)))
+                    .with_body(Some(BlockBody::Content(content)))
                     .pack()
                     .spanned(self.span);
             }

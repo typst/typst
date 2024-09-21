@@ -2,18 +2,18 @@
 
 --- stroke-constructor ---
 // Converting to stroke
-#assert.eq(stroke(red).paint, red)
-#assert.eq(stroke(red).thickness, auto)
-#assert.eq(stroke(2pt).paint, auto)
-#assert.eq(stroke((cap: "round", paint: blue)).cap, "round")
-#assert.eq(stroke((cap: auto, paint: blue)).cap, auto)
-#assert.eq(stroke((cap: auto, paint: blue)).thickness, auto)
+#test(stroke(red).paint, red)
+#test(stroke(red).thickness, auto)
+#test(stroke(2pt).paint, auto)
+#test(stroke((cap: "round", paint: blue)).cap, "round")
+#test(stroke((cap: auto, paint: blue)).cap, auto)
+#test(stroke((cap: auto, paint: blue)).thickness, auto)
 
 // Constructing with named arguments
-#assert.eq(stroke(paint: blue, thickness: 8pt), 8pt + blue)
-#assert.eq(stroke(thickness: 2pt), stroke(2pt))
-#assert.eq(stroke(cap: "round").thickness, auto)
-#assert.eq(stroke(cap: "round", thickness: auto).thickness, auto)
+#test(stroke(paint: blue, thickness: 8pt), 8pt + blue)
+#test(stroke(thickness: 2pt), stroke(2pt))
+#test(stroke(cap: "round").thickness, auto)
+#test(stroke(cap: "round", thickness: auto).thickness, auto)
 
 --- stroke-constructor-unknown-key ---
 // Error: 9-21 unexpected key "foo", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"

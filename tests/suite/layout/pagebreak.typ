@@ -47,6 +47,7 @@ First
 --- pagebreak-in-container ---
 #box[
   // Error: 4-15 pagebreaks are not allowed inside of containers
+  // Hint: 4-15 try using a `#colbreak()` instead
   #pagebreak()
 ]
 

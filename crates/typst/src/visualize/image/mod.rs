@@ -13,7 +13,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::EcoString;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, warning, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
@@ -189,6 +189,22 @@ fn layout_image(
         Smart::Custom(v) => v,
         Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
     };
+
+    // Warn the user if the image contains a foreign object. Not perfect
+    // because the svg could also be encoded, but that's an edge case.
+    if format == ImageFormat::Vector(VectorFormat::Svg) {
+        let has_foreign_object =
+            data.as_str().is_some_and(|s| s.contains("<foreignObject"));
+
+        if has_foreign_object {
+            engine.sink.warn(warning!(
+                span,
+                "image contains foreign object";
+                hint: "SVG images with foreign objects might render incorrectly in typst";
+                hint: "see https://github.com/typst/typst/issues/1421 for more information"
+            ));
+        }
+    }
 
     // Construct the image itself.
     let image = Image::with_fonts(

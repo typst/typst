@@ -470,7 +470,7 @@ pub struct BlockElem {
     /// The contents of the block.
     #[positional]
     #[borrowed]
-    pub body: Option<BlockChild>,
+    pub body: Option<BlockBody>,
 }
 
 impl BlockElem {
@@ -490,7 +490,7 @@ impl BlockElem {
     ) -> Self {
         Self::new()
             .with_breakable(false)
-            .with_body(Some(BlockChild::SingleLayouter(
+            .with_body(Some(BlockBody::SingleLayouter(
                 callbacks::BlockSingleCallback::new(captured, f),
             )))
     }
@@ -506,7 +506,7 @@ impl BlockElem {
             regions: Regions,
         ) -> SourceResult<Fragment>,
     ) -> Self {
-        Self::new().with_body(Some(BlockChild::MultiLayouter(
+        Self::new().with_body(Some(BlockBody::MultiLayouter(
             callbacks::BlockMultiCallback::new(captured, f),
         )))
     }
@@ -555,7 +555,7 @@ impl Packed<BlockElem> {
             }
 
             // If we have content as our body, just layout it.
-            Some(BlockChild::Content(body)) => {
+            Some(BlockBody::Content(body)) => {
                 let mut fragment =
                     layout_fragment(engine, body, locator.relayout(), styles, pod)?;
 
@@ -586,7 +586,7 @@ impl Packed<BlockElem> {
 
             // If we have a child that wants to layout with just access to the
             // base region, give it that.
-            Some(BlockChild::SingleLayouter(callback)) => {
+            Some(BlockBody::SingleLayouter(callback)) => {
                 let pod = Region::new(pod.base(), pod.expand);
                 callback.call(engine, locator, styles, pod).map(Fragment::frame)?
             }
@@ -597,7 +597,7 @@ impl Packed<BlockElem> {
             // For auto-sized multi-layouters, we propagate the outer expansion
             // so that they can decide for themselves. We also ensure again to
             // only expand if the size is finite.
-            Some(BlockChild::MultiLayouter(callback)) => {
+            Some(BlockBody::MultiLayouter(callback)) => {
                 let expand = (pod.expand | regions.expand) & pod.size.map(Abs::is_finite);
                 let pod = Regions { expand, ..pod };
                 callback.call(engine, locator, styles, pod)?
@@ -619,7 +619,7 @@ impl Packed<BlockElem> {
         let clip = self.clip(styles);
         let has_fill_or_stroke = fill.is_some() || stroke.iter().any(Option::is_some);
         let has_inset = !inset.is_zero();
-        let is_explicit = matches!(body, None | Some(BlockChild::Content(_)));
+        let is_explicit = matches!(body, None | Some(BlockBody::Content(_)));
 
         // Skip filling/stroking the first frame if it is empty and a non-empty
         // one follows.
@@ -787,7 +787,7 @@ impl Packed<BlockElem> {
 
 /// The contents of a block.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum BlockChild {
+pub enum BlockBody {
     /// The block contains normal content.
     Content(Content),
     /// The block contains a layout callback that needs access to just one
@@ -798,14 +798,14 @@ pub enum BlockChild {
     MultiLayouter(callbacks::BlockMultiCallback),
 }
 
-impl Default for BlockChild {
+impl Default for BlockBody {
     fn default() -> Self {
         Self::Content(Content::default())
     }
 }
 
 cast! {
-    BlockChild,
+    BlockBody,
     self => match self {
         Self::Content(content) => content.into_value(),
         _ => Value::Auto,

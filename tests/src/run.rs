@@ -431,7 +431,7 @@ fn skippable_frame(frame: &Frame) -> bool {
     })
 }
 
-/// Whether to pixel images are approximately equal.
+/// Whether two pixel images are approximately equal.
 fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap) -> bool {
     a.width() == b.width()
         && a.height() == b.height()

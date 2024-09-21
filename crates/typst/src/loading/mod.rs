@@ -60,6 +60,13 @@ impl Readable {
             Readable::Str(v) => v.as_bytes(),
         }
     }
+
+    pub(crate) fn as_str(&self) -> Option<&str> {
+        match self {
+            Readable::Str(v) => Some(v.as_str()),
+            Readable::Bytes(v) => std::str::from_utf8(v).ok(),
+        }
+    }
 }
 
 cast! {

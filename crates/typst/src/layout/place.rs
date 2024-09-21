@@ -1,10 +1,5 @@
-use crate::diag::{bail, At, Hint, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain};
-use crate::introspection::Locator;
-use crate::layout::{
-    layout_frame, Alignment, Axes, Em, Frame, Length, Region, Rel, Size, VAlignment,
-};
+use crate::foundations::{elem, scope, Content, Smart};
+use crate::layout::{Alignment, Em, Length, Rel};
 
 /// Places content at an absolute position.
 ///
@@ -101,42 +96,6 @@ pub struct PlaceElem {
 impl PlaceElem {
     #[elem]
     type FlushElem;
-}
-
-impl Packed<PlaceElem> {
-    #[typst_macros::time(name = "place", span = self.span())]
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        base: Size,
-    ) -> SourceResult<Frame> {
-        // The pod is the base area of the region because for absolute
-        // placement we don't really care about the already used area.
-        let float = self.float(styles);
-        let alignment = self.alignment(styles);
-
-        if float
-            && alignment.is_custom_and(|align| {
-                matches!(align.y(), None | Some(VAlignment::Horizon))
-            })
-        {
-            bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
-        } else if !float && alignment.is_auto() {
-            return Err("automatic positioning is only available for floating placement")
-                .hint("you can enable floating placement with `place(float: true, ..)`")
-                .at(self.span());
-        }
-
-        let child = self
-            .body()
-            .clone()
-            .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
-
-        let pod = Region::new(base, Axes::splat(false));
-        layout_frame(engine, &child, locator, styles, pod)
-    }
 }
 
 /// Asks the layout algorithm to place pending floating elements before

@@ -113,9 +113,7 @@ Hey
 ]
 
 #show: columns.with(2)
-Great typography is at the essence of great storytelling. It is the medium that
-transports meaning from parchment to reader, the wave that sparks a flame
-in booklovers and the great fulfiller of human need.
+#lines(16)
 
 --- show-bare-content-block ---
 // Test bare show in content block.

@@ -613,15 +613,6 @@ $ A = mat(
   ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
 )
 
---- gradient-repr ---
-// Gradients
-#set page(width: 400pt)
-#set text(0.8em)
-#gradient.linear(blue, red) \
-#gradient.linear(blue, red, dir: ttb) \
-#gradient.linear(blue, red, angle: 45deg, relative: "self") \
-#gradient.linear(blue, red, angle: 45deg, space: rgb)
-
 --- issue-2902-gradient-oklch-panic ---
 // Minimal reproduction of #2902
 #set page(width: 15cm, height: auto, margin: 1em)

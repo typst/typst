@@ -160,12 +160,12 @@
   let are-equal((a, b)) = {
     let to-float(x) = if type(x) == angle { x.rad() } else { float(x) }
     let epsilon = 1e-4 // The maximum error between both numbers
-    assert.eq(type(a), type(b))
+    test(type(a), type(b))
     calc.abs(to-float(a) - to-float(b)) < epsilon
   }
 
   let ref-without-alpha = if has-alpha { ref.slice(0, -1) } else { ref }
-  assert.eq(col.components().len(), ref.len())
+  test(col.components().len(), ref.len())
   assert(col.components().zip(ref).all(are-equal))
   assert(col.components(alpha: false).zip(ref-without-alpha).all(are-equal))
 }
@@ -316,19 +316,6 @@
 #test-repr(luma(100%, 100%).opacify(250%), luma(100%, 100%))
 #test-repr(luma(100%, 50%).opacify(-50%), luma(100%, 25%))
 #test-repr(luma(100%, 0%).opacify(0%), luma(100%, 0%))
-
---- repr-color ---
-// Colors
-#set page(width: 400pt)
-#set text(0.8em)
-#blue \
-#color.linear-rgb(blue) \
-#oklab(blue) \
-#oklch(blue) \
-#cmyk(blue) \
-#color.hsl(blue) \
-#color.hsv(blue) \
-#luma(blue)
 
 --- issue-color-mix-luma ---
 // When mixing luma colors, we accidentally used the wrong component.

@@ -10,7 +10,7 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
 use crate::layout::{
-    layout_frame, Abs, Axes, BlockChild, BlockElem, Em, HElem, Length, Region,
+    layout_frame, Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region,
 };
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
@@ -257,7 +257,7 @@ impl Show for Packed<HeadingElem> {
         }
 
         Ok(BlockElem::new()
-            .with_body(Some(BlockChild::Content(realized)))
+            .with_body(Some(BlockBody::Content(realized)))
             .pack()
             .spanned(span))
     }

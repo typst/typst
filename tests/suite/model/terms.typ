@@ -60,17 +60,17 @@ Not in list
 / Hello
 
 --- issue-1050-terms-indent ---
-#set page(width: 200pt)
+#set page(width: 110pt)
 #set par(first-line-indent: 0.5cm)
 
-- #lorem(10)
-- #lorem(10)
+- #lorem(5)
+- #lorem(5)
 
-+ #lorem(10)
-+ #lorem(10)
++ #lorem(5)
++ #lorem(5)
 
-/ Term 1: #lorem(10)
-/ Term 2: #lorem(10)
+/ S: #lorem(5)
+/ XXXL: #lorem(5)
 
 --- issue-2530-term-item-panic ---
 // Term item (pre-emptive)

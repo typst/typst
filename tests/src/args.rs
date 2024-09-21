@@ -75,4 +75,6 @@ impl CliArguments {
 pub enum Command {
     /// Clears the on-disk test artifact store.
     Clean,
+    /// Deletes all dangling reference images.
+    Undangle,
 }
