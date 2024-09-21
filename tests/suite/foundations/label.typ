@@ -49,55 +49,11 @@ _Visible_
 // Test that incomplete label is text.
 1 < 2 is #if 1 < 2 [not] a label.
 
---- label-text ---
-// Test label on text.
+--- label-text-styled-and-sequence ---
+// Test label on text, styled, and sequence.
 #test([Hello<hi>].label, <hi>)
-
---- label-styled ---
-// Test that label can bind to the content within styled content.
-#let foo(x) = {
-  show figure: it => {
-    let number = counter(figure).display(it.numbering)
-    [#number #it.body]
-  }
-  figure(x, supplement: "Foo", numbering: "1")
-}
-
-#foo[Hello World]<howdyy>
-@howdyy
-
---- label-sequence ---
-// Test that label can bind to content within a sequence.
-#let foo(x) = {
-  context counter(heading).get()
-  figure(x, kind: "Foo", supplement: "Foo", numbering: "1")
-}
-
-#foo[Hello World]<howdy>
-@howdy
-
---- label-sequence-styled-recurse ---
-// Test that label traverses sequences and styled content recursively.
-#let bar = {
-  [word]
-  align(end, heading[head])
-  parbreak()
-}
-
-#let foo = {
-  figure[fig]
-  text(red, bar)
-  parbreak()
-}
-
-#foo <uhoh>
-// Error: 1-6 cannot reference align
-@uhoh
-
---- label-unlabelled-element-field-access ---
-// Test error message when trying to access "label" field.
-// Error: 19-24 sequence does not have field "label"
-#[#[A *B* C]<hi>].label
+#test([#[A *B* C]<hi>].label, <hi>)
+#test([#text(red)[Hello]<hi>].label, <hi>)
 
 --- label-string-conversion ---
 // Test getting the name of a label.

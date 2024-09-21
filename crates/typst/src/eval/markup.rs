@@ -1,7 +1,7 @@
 use crate::diag::{warning, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{
-    Content, Label, NativeElement, Repr, SequenceElem, Smart, Unlabellable, Value,
+    Content, Label, NativeElement, Repr, Smart, Unlabellable, Value,
 };
 use crate::math::EquationElem;
 use crate::model::{
@@ -87,12 +87,12 @@ fn bind_label(vm: &mut Vm, seq: &mut [Content], span: Span, label: Label) {
     };
 
     // If this is a StyledElem, then extract its child.
-    let elem = elem.styled_child();
+    // let elem = elem.styled_child();
 
     // If this is a SequenceElem, then recurse into its children.
-    if let Some(seq_elem) = elem.to_packed_mut::<SequenceElem>() {
-        return bind_label(vm, &mut seq_elem.children, span, label);
-    }
+    // if let Some(seq_elem) = elem.to_packed_mut::<SequenceElem>() {
+    //     return bind_label(vm, &mut seq_elem.children, span, label);
+    // }
 
     // Warn if this content has been labelled before.
     if elem.label().is_some() {

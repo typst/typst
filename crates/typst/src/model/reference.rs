@@ -5,7 +5,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show,
-    Smart, StyleChain, Synthesize,
+    Smart, StyleChain, StyledElem, Synthesize,
 };
 use crate::introspection::{Counter, Locatable};
 use crate::math::EquationElem;
@@ -181,7 +181,19 @@ impl Show for Packed<RefElem> {
             return Ok(footnote.into_ref(target).pack().spanned(span));
         }
 
-        let elem = elem.clone();
+        // If the target element is a StyledElem, then we use its child as the
+        // target. We need to retrieve its child's location to ensure numbering
+        // is correct.
+        let elem = if let Some(style_elem) = elem.to_packed::<StyledElem>() {
+            let child = style_elem.child.clone();
+            let hash = crate::utils::hash128(&child);
+            let loc = style_elem.location().unwrap();
+            let loc = engine.introspector.locator(hash, loc).unwrap();
+            child.located(loc)
+        } else {
+            elem.clone()
+        };
+
         let refable = elem
             .with::<dyn Refable>()
             .ok_or_else(|| {

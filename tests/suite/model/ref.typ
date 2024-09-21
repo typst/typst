@@ -55,6 +55,19 @@ $ A = 1 $ <eq2>
 @arrgh
 #bibliography("/assets/bib/works.bib")
 
+--- ref-styled ---
+// Test that content within styled can be referenced.
+#let foo(x) = {
+  show figure: it => {
+    let number = counter(figure).display(it.numbering)
+    [#number #it.body]
+  }
+  figure(x, supplement: "Foo", numbering: "1")
+}
+
+#foo[Hello World]<howdyy>
+@howdyy
+
 --- issue-4536-non-whitespace-before-ref ---
 // Test reference with non-whitespace before it.
 #figure[] <1>
