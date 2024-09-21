@@ -481,8 +481,18 @@ fn linebreak_optimized_approximate(
         let Entry { end, breakpoint, unbreakable, .. } = table[idx];
 
         let attempt = line(engine, p, start..end, breakpoint, Some(&pred));
-        let (_, line_cost) =
+        let (ratio, line_cost) =
             ratio_and_cost(p, metrics, width, &pred, &attempt, breakpoint, unbreakable);
+
+        // If approximation produces a valid layout without too much shrinking,
+        // exact layout is guaranteed to find the same layout. If, however, the
+        // line is overfull, we do not have this guarantee. Then, our bound
+        // becomes useless and actively harmful (it could be lower than what
+        // optimal layout produces). Thus, we immediately bail with an infinite
+        // bound in this case.
+        if ratio < metrics.min_ratio {
+            return Cost::INFINITY;
+        }
 
         pred = attempt;
         start = end;
@@ -526,6 +536,11 @@ fn ratio_and_cost(
 }
 
 /// Determine the stretch ratio for a line given raw metrics.
+///
+/// - A ratio < min_ratio indicates an overfull line.
+/// - A negative ratio indicates a line that needs shrinking.
+/// - A ratio of zero indicates a perfect line.
+/// - A positive ratio indicates a line that needs stretching.
 fn raw_ratio(
     p: &Preparation,
     available_width: Abs,
@@ -538,30 +553,39 @@ fn raw_ratio(
     // to make it the desired width.
     let delta = available_width - line_width;
 
-    // Determine how much stretch is permitted.
-    let adjust = if delta >= Abs::zero() { stretchability } else { shrinkability };
+    // Determine how much stretch or shrink is natural.
+    let adjustability = if delta >= Abs::zero() { stretchability } else { shrinkability };
 
-    // Ideally, the ratio should between -1.0 and 1.0.
-    //
-    // A ratio above 1.0 is possible for an underfull line, but a ratio below
-    // -1.0 is forbidden because the line would overflow.
-    let mut ratio = delta / adjust;
+    // Observations:
+    // - `delta` is negative for a line that needs shrinking and positive for a
+    //   line that needs stretching.
+    // - `adjustability` must be non-negative to make sense.
+    // - `ratio` inherits the sign of `delta`.
+    let mut ratio = delta / adjustability.max(Abs::zero());
 
-    // The line is not stretchable, but it just fits. This often happens with
-    // monospace fonts and CJK texts.
+    // The most likely cause of a NaN result is that `delta` was zero. This
+    // often happens with monospace fonts and CJK texts. It means that the line
+    // already fits perfectly, so `ratio` should be zero then.
     if ratio.is_nan() {
         ratio = 0.0;
     }
 
+    // If the ratio exceeds 1, we should stretch above the natural
+    // stretchability using justifiables.
     if ratio > 1.0 {
         // We should stretch the line above its stretchability. Now
         // calculate the extra amount. Also, don't divide by zero.
-        let extra_stretch = (delta - adjust) / justifiables.max(1) as f64;
+        let extra_stretch = (delta - adjustability) / justifiables.max(1) as f64;
         // Normalize the amount by half the em size.
         ratio = 1.0 + extra_stretch / (p.size / 2.0);
     }
 
-    ratio
+    // The min value must be < MIN_RATIO, but how much smaller doesn't matter
+    // since overfull lines have hard-coded huge costs anyway.
+    //
+    // The max value is clamped to 10 since it doesn't really matter whether a
+    // line is stretched 10x or 20x.
+    ratio.clamp(MIN_RATIO - 1.0, 10.0)
 }
 
 /// Compute the cost of a line given raw metrics.
@@ -585,7 +609,7 @@ fn raw_cost(
         // If the line shall be justified or needs shrinking, it has normal
         // badness with cost 100|ratio|^3. We limit the ratio to 10 as to not
         // get to close to our maximum cost.
-        100.0 * ratio.abs().min(10.0).powi(3)
+        100.0 * ratio.abs().powi(3)
     } else {
         // If the line shouldn't be justified and doesn't need shrink, we don't
         // pay any cost.
