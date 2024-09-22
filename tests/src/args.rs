@@ -43,7 +43,9 @@ pub struct CliArguments {
     /// Runs SVG export.
     #[arg(long)]
     pub svg: bool,
-    /// Displays the syntax tree.
+    /// Displays the syntax tree before running tests.
+    ///
+    /// Note: This is ignored if using '--syntax-compare'.
     #[arg(long)]
     pub syntax: bool,
     /// Displays only one line per test, hiding details about failures.
@@ -55,6 +57,25 @@ pub struct CliArguments {
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
+    /// Changes testing behavior for debugging the parser: With no argument,
+    /// outputs the concrete syntax trees of tests as files in
+    /// 'tests/store/syntax/'. With a directory as argument, will treat it as a
+    /// reference of correct syntax tree files and will print which output
+    /// syntax trees differ (viewing the diffs is on you).
+    ///
+    /// This overrides the normal testing system. It parses, but does not run
+    /// the test suite.
+    ///
+    /// You can generate a correct reference directory by running on a known
+    /// good commit and copying the generated outputs to a new directory.
+    /// `_things` may be a good location as it is in the top-level gitignore.
+    ///
+    /// You can view diffs in VS Code with: `code --diff <ref_dir>/<test>.syntax
+    /// tests/store/syntax/<test>.syntax`
+    #[arg(long)]
+    pub parser_compare: Option<Option<PathBuf>>,
+    // ^ I'm not using a subcommand here because then test patterns don't parse
+    // how you would expect and I'm too lazy to try to fix it.
 }
 
 impl CliArguments {
