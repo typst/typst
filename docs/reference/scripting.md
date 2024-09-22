@@ -273,9 +273,9 @@ of each type lists it's scoped functions. You cannot currently define your own
 methods.
 
 ```example
-#let array = (1, 2, 3, 4)
-#array.pop() \
-#array.len() \
+#let values = (1, 2, 3, 4)
+#values.pop() \
+#values.len() \
 
 #("a, b, c"
     .split(", ")
