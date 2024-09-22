@@ -476,7 +476,11 @@ pub(super) fn stack(
 
     let mut y = Abs::zero();
     for (i, row) in rows.into_iter().enumerate() {
-        let x = align.position(width - row.width());
+        let x = if points.is_empty() {
+            align.position(width - row.width())
+        } else {
+            Abs::zero()
+        };
         let ascent_padded_part = minimum_ascent_descent
             .map_or(Abs::zero(), |(a, _)| (a - row.ascent()))
             .max(Abs::zero());
