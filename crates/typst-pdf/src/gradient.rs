@@ -166,7 +166,7 @@ pub fn write_gradients(
     (chunk, out)
 }
 
-/// Writes an expotential or stitched function that expresses the gradient.
+/// Writes an exponential or stitched function that expresses the gradient.
 fn shading_function(
     gradient: &Gradient,
     chunk: &mut PdfChunk,
