@@ -1,10 +1,16 @@
 //! Typst's test runner.
 
+#![cfg_attr(not(feature = "default"), allow(dead_code, unused_imports))]
+
 mod args;
 mod collect;
-mod custom;
 mod logger;
+
+#[cfg(feature = "default")]
+mod custom;
+#[cfg(feature = "default")]
 mod run;
+#[cfg(feature = "default")]
 mod world;
 
 use std::path::{Path, PathBuf};
@@ -17,8 +23,7 @@ use rayon::iter::{ParallelBridge, ParallelIterator};
 
 use crate::args::{CliArguments, Command};
 use crate::collect::Test;
-use crate::logger::Logger;
-use crate::run::TestResult;
+use crate::logger::{Logger, TestResult};
 
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
@@ -95,12 +100,17 @@ fn test() {
     }
 
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
+    #[cfg(not(feature = "default"))]
+    let parser_dirs = parser_dirs.or_else(|| Some(create_syntax_store(None)));
 
     let runner = |test: &Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
         } else {
-            run::run(test)
+            #[cfg(feature = "default")]
+            return run::run(test);
+            #[cfg(not(feature = "default"))]
+            unreachable!();
         }
     };
 

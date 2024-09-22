@@ -3018,6 +3018,7 @@ dependencies = [
  "typst-pdf",
  "typst-render",
  "typst-svg",
+ "typst-syntax",
  "unscanny",
  "walkdir",
 ]

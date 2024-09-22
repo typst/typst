@@ -66,6 +66,10 @@ pub struct CliArguments {
     /// This overrides the normal testing system. It parses, but does not run
     /// the test suite.
     ///
+    /// If `cargo test` is run with `--no-default-features`, then compiling will
+    /// not include Typst's core crates, only typst-syntax, greatly speeding up
+    /// debugging when changing the parser.
+    ///
     /// You can generate a correct reference directory by running on a known
     /// good commit and copying the generated outputs to a new directory.
     /// `_things` may be a good location as it is in the top-level gitignore.
