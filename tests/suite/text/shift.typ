@@ -1,4 +1,4 @@
-// Test sub- and superscipt shifts.
+// Test sub- and superscript shifts.
 
 --- sub-super ---
 #table(
