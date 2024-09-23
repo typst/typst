@@ -49,15 +49,14 @@
             commonCraneArgs = {
               inherit src pname version;
 
-              buildInputs = (optionals pkgs.stdenv.isDarwin [
+              buildInputs = [
+                pkgs.openssl
+              ] ++ (optionals pkgs.stdenv.isDarwin [
                 pkgs.darwin.apple_sdk.frameworks.CoreServices
                 pkgs.libiconv
-              ]) ++ [
-                pkgs.openssl
-              ];
+              ]);
 
               nativeBuildInputs = [
-                pkgs.installShellFiles
                 pkgs.pkg-config
                 pkgs.openssl.dev
               ];
@@ -69,6 +68,10 @@
           in
           craneLib.buildPackage (commonCraneArgs // {
             inherit cargoArtifacts;
+
+            nativeBuildInputs = commonCraneArgs.nativeBuildInputs ++ [
+              pkgs.installShellFiles
+            ];
 
             postInstall = ''
               installManPage crates/typst-cli/artifacts/*.1
@@ -106,22 +109,7 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            rustc
-            cargo
-          ];
-
-          buildInputs = (lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.CoreServices
-            pkgs.libiconv
-          ]) ++ [
-            pkgs.openssl
-          ];
-
-          nativeBuildInputs = [
-            pkgs.pkg-config
-            pkgs.openssl.dev
-          ];
+          inputsFrom = [ typst ];
         };
       };
   };
