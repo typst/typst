@@ -1009,7 +1009,7 @@ description: |
     path must contain `[{n}]` if the document has multiple pages.
   - Added `--diagnostic-format=short` for Unix-style short diagnostics
   - Doesn't emit color codes anymore if stderr isn't a TTY
-  - Now sets the correct exit when invoked with a non-existent file
+  - Now sets the correct exit when invoked with a nonexistent file
   - Now ignores UTF-8 BOM in Typst files
 
 - Miscellaneous Improvements
