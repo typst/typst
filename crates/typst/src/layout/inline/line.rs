@@ -225,7 +225,7 @@ fn collect_items<'a>(
     items
 }
 
-/// Calls `f` for the the BiDi-reordered ranges of a line.
+/// Calls `f` for the BiDi-reordered ranges of a line.
 fn reorder<F>(p: &Preparation, range: Range, mut f: F)
 where
     F: FnMut(Range, bool),

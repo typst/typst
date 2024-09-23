@@ -52,13 +52,13 @@ impl PackageStorage {
         }
     }
 
-    /// Returns a the path at which non-local packages should be stored when
+    /// Returns the path at which non-local packages should be stored when
     /// downloaded.
     pub fn package_cache_path(&self) -> Option<&Path> {
         self.package_cache_path.as_deref()
     }
 
-    /// Returns a the path at which local packages are stored.
+    /// Returns the path at which local packages are stored.
     pub fn package_path(&self) -> Option<&Path> {
         self.package_path.as_deref()
     }
