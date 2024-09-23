@@ -88,7 +88,7 @@ pub struct ShapedGlyph {
 
 #[derive(Debug, Clone, Default)]
 pub struct Adjustability {
-    /// The left and right strechability
+    /// The left and right stretchability
     pub stretchability: (Em, Em),
     /// The left and right shrinkability
     pub shrinkability: (Em, Em),
