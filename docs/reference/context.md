@@ -59,7 +59,7 @@ context is known. The body of a context expression may be evaluated zero, one,
 or multiple times, depending on how many different places it is put into.
 
 ## Location context
-Context can not only give us access to set rule values. It can also let us know
+Context cannot only give us access to set rule values. It can also let us know
 _where_ in the document we currently are, relative to other elements, and
 absolutely on the pages. We can use this information to create very flexible
 interactions between different document parts. This underpins features like
