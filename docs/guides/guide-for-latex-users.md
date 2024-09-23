@@ -469,7 +469,7 @@ Aside from the official package repository, you might also want to check out the
 compiles a curated list of resources created for Typst.
 
 If you need to load functions and variables from another file within your
-project, for example to use a template, you can use use the same
+project, for example to use a template, you can use the same
 [`{import}`]($scripting/#modules) statement with a file name rather than a
 package specification. To instead include the textual content of another file,
 you can use an [`{include}`]($scripting/#modules) statement. It will retrieve
