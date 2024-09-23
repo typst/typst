@@ -62,7 +62,7 @@ use crate::introspection::{Introspector, Location};
 /// - A very simple way to generate unique IDs would be to just increase a
 ///   counter for each element. In this setup, (1) is somewhat satisfied: In
 ///   principle, the counter will line up across iterations, but things start to
-///   break down once we generate content dependant on introspection since the
+///   break down once we generate content dependent on introspection since the
 ///   IDs generated for that new content will shift the IDs for all following
 ///   elements in the document. (2) is not satisfied since an edit in the middle
 ///   of the document shifts all later IDs. (3) is obviously not satisfied.
@@ -76,7 +76,7 @@ use crate::introspection::{Introspector, Location};
 ///   e.g. `#for _ in range(5) { figure(..) }`. To handle this case, we can then
 ///   disambiguate elements with the same span with an increasing counter. In
 ///   this setup, (1) is mostly satisfied: Unless we do stuff like generating
-///   colliding counter updates dependant on introspection, things will line up.
+///   colliding counter updates dependent on introspection, things will line up.
 ///   (2) is also reasonably well satisfied, as typical edits will only affect
 ///   the single element at the currently edited span. Only if we edit inside of
 ///   a function, loop, or similar construct, we will affect multiple elements.
@@ -114,7 +114,7 @@ use crate::introspection::{Introspector, Location};
 /// locations assigned during measurement match up exactly with the locations of
 /// real document elements. Without this guarantee, many introspection-driven
 /// features (like counters, state, and citations) don't work correctly (since
-/// they perform queries dependant on concrete locations).
+/// they perform queries dependent on concrete locations).
 ///
 /// This is all fine and good, but things get really tricky when the _user_
 /// measures such introspecting content since the user isn't kindly managing
@@ -168,7 +168,7 @@ impl<'a> Locator<'a> {
 
     /// Creates a new synthetic locator.
     ///
-    /// This can be used to create a new dependant layout based on an element.
+    /// This can be used to create a new dependent layout based on an element.
     /// This is used for layouting footnote entries based on the location
     /// of the associated footnote.
     pub fn synthesize(location: Location) -> Self {

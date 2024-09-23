@@ -895,7 +895,7 @@ description: |
 
 - Development
   - Extracted parser and syntax tree into `typst-syntax` crate
-  - The `World::today` implementation of Typst dependants may need fixing if
+  - The `World::today` implementation of Typst dependents may need fixing if
     they have the same [bug](https://github.com/typst/typst/issues/1842) that
     the CLI world had
 

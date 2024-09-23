@@ -417,7 +417,7 @@ struct PdfChunk {
 /// chunk, and should be remapped.
 ///
 /// This is a constant (large enough to avoid collisions) and not
-/// dependant on self.alloc to allow for better memoization of steps, if
+/// dependent on self.alloc to allow for better memoization of steps, if
 /// needed in the future.
 const TEMPORARY_REFS_START: i32 = 1_000_000_000;
 

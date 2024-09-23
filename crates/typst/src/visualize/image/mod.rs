@@ -370,7 +370,7 @@ impl Image {
         Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
-    /// Create a possibly font-dependant image from a buffer and a format.
+    /// Create a possibly font-dependent image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn with_fonts(

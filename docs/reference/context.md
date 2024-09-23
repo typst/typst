@@ -63,7 +63,7 @@ Context cannot only give us access to set rule values. It can also let us know
 _where_ in the document we currently are, relative to other elements, and
 absolutely on the pages. We can use this information to create very flexible
 interactions between different document parts. This underpins features like
-heading numbering, the table of contents, or page headers dependant on section
+heading numbering, the table of contents, or page headers dependent on section
 headings.
 
 Some functions like [`counter.get`]($counter.get) implicitly access the current
