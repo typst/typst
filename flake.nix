@@ -27,10 +27,10 @@
               optionals
               sourceByRegex
               ;
-            Cargo-toml = importTOML ./Cargo.toml;
+            cargoToml = importTOML ./Cargo.toml;
 
             pname = "typst";
-            version = Cargo-toml.workspace.package.version;
+            version = cargoToml.workspace.package.version;
 
             # Crane-based Nix flake configuration.
             # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
@@ -84,7 +84,7 @@
             TYPST_VERSION =
               let
                 rev = self.shortRev or "dirty";
-                version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+                version = cargoToml.workspace.package.version;
               in
               "${version} (${rev})";
 
