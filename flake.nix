@@ -22,12 +22,7 @@
         # Generate the typst package for the given nixpkgs instance.
         packageFor = pkgs:
           let
-            inherit (lib)
-              importTOML
-              optionals
-              sourceByRegex
-              ;
-            cargoToml = importTOML ./Cargo.toml;
+            cargoToml = lib.importTOML ./Cargo.toml;
 
             pname = "typst";
             version = cargoToml.workspace.package.version;
@@ -38,7 +33,7 @@
 
             # Typst files to include in the derivation.
             # Here we include Rust files, docs and tests.
-            src = sourceByRegex ./. [
+            src = lib.sourceByRegex ./. [
               "(docs|crates|tests)(/.*)?"
               ''Cargo\.(toml|lock)''
               ''build\.rs''
@@ -51,7 +46,7 @@
 
               buildInputs = [
                 pkgs.openssl
-              ] ++ (optionals pkgs.stdenv.isDarwin [
+              ] ++ (lib.optionals pkgs.stdenv.isDarwin [
                 pkgs.darwin.apple_sdk.frameworks.CoreServices
                 pkgs.libiconv
               ]);
