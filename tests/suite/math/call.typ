@@ -23,7 +23,7 @@ $ pi(a,b,) $
 $ pi(a;b) $
 
 --- math-call-2d-semicolon-priority ---
-// If the semicolon directlry follows a hash expression, it terminates that
+// If the semicolon directly follows a hash expression, it terminates that
 // instead of indicating 2d arguments.
 $ mat(#"math" ; "wins") $
 $ mat(#"code"; "wins") $
