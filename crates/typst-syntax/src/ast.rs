@@ -675,7 +675,7 @@ impl<'a> TermItem<'a> {
 }
 
 node! {
-    /// A mathemathical equation: `$x$`, `$ x^2 $`.
+    /// A mathematical equation: `$x$`, `$ x^2 $`.
     Equation
 }
 
