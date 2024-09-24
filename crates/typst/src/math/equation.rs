@@ -513,7 +513,7 @@ fn add_equation_number(
     equation
 }
 
-/// Resize the equation's frame accordingly so that it emcompasses the number.
+/// Resize the equation's frame accordingly so that it encompasses the number.
 fn resize_equation(
     equation: &mut Frame,
     number: &Frame,
