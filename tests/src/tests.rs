@@ -11,6 +11,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use clap::Parser;
+use collect::Test;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rayon::iter::{ParallelBridge, ParallelIterator};
@@ -30,6 +31,9 @@ const STORE_PATH: &str = "tests/store";
 /// The directory where the reference images are stored.
 const REF_PATH: &str = "tests/ref";
 
+/// Where to output syntax trees if writing.
+const SYNTAX_OUT_PATH: &str = "tests/store/syntax/";
+
 /// The maximum size of reference images that aren't marked as `// LARGE`.
 const REF_LIMIT: usize = 20 * 1024;
 
@@ -40,6 +44,7 @@ fn main() {
         None => test(),
         Some(Command::Clean) => clean(),
         Some(Command::Undangle) => undangle(),
+        Some(Command::WriteSyntax) => output_syntax_trees(),
     }
 }
 
@@ -62,7 +67,7 @@ fn setup() {
     }
 }
 
-fn test() {
+fn get_tests() -> (Vec<Test>, usize, usize) {
     let (tests, skipped) = match crate::collect::collect() {
         Ok(output) => output,
         Err(errors) => {
@@ -80,11 +85,16 @@ fn test() {
             println!("{test}");
         }
         eprintln!("{selected} selected, {skipped} skipped");
-        return;
+        std::process::exit(0);
     } else if selected == 0 {
         eprintln!("no test selected");
-        return;
+        std::process::exit(0);
     }
+
+    (tests, selected, skipped)
+}
+fn test() {
+    let (tests, selected, skipped) = get_tests();
 
     // Run the tests.
     let logger = Mutex::new(Logger::new(selected, skipped));
@@ -119,6 +129,20 @@ fn test() {
     let passed = logger.into_inner().finish();
     if !passed {
         std::process::exit(1);
+    }
+}
+
+fn output_syntax_trees() {
+    let (tests, _, _) = get_tests();
+    let syntax_dir = Path::new(SYNTAX_OUT_PATH);
+    std::fs::create_dir_all(syntax_dir).unwrap();
+
+    // Instead of actually running, maybe just print the ASTs to folders
+    for test in tests {
+        let path = syntax_dir.join(format!("{}.syntax", test.name));
+        eprintln!("Writing: {:?}", path.as_os_str());
+        let syntax_tree = format!("{:#?}\n", test.source.root());
+        std::fs::write(path, syntax_tree).unwrap();
     }
 }
 

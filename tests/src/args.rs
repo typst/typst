@@ -43,7 +43,7 @@ pub struct CliArguments {
     /// Runs SVG export.
     #[arg(long)]
     pub svg: bool,
-    /// Displays the syntax tree.
+    /// Display the syntax tree of tests before running.
     #[arg(long)]
     pub syntax: bool,
     /// Displays only one line per test, hiding details about failures.
@@ -69,7 +69,7 @@ impl CliArguments {
     }
 }
 
-/// What to do.
+/// Alternative commands to running tests.
 #[derive(Debug, Clone, Subcommand)]
 #[command()]
 pub enum Command {
@@ -77,4 +77,10 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference images.
     Undangle,
+    /// Write syntax trees to files in 'tests/store/syntax/'. Do not run any
+    /// tests.
+    ///
+    /// This can be useful for viewing the syntax of all test files,
+    /// especially for creating diffs when refactoring the parser.
+    WriteSyntax,
 }
