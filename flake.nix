@@ -19,74 +19,69 @@
 
     perSystem = { self', pkgs, lib, ... }:
       let
-        # Generate the typst package for the given nixpkgs instance.
-        packageFor = pkgs:
-          let
-            cargoToml = lib.importTOML ./Cargo.toml;
+        cargoToml = lib.importTOML ./Cargo.toml;
 
-            pname = "typst";
-            version = cargoToml.workspace.package.version;
+        pname = "typst";
+        version = cargoToml.workspace.package.version;
 
-            # Crane-based Nix flake configuration.
-            # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
-            craneLib = crane.mkLib pkgs;
+        # Crane-based Nix flake configuration.
+        # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
+        craneLib = crane.mkLib pkgs;
 
-            # Typst files to include in the derivation.
-            # Here we include Rust files, docs and tests.
-            src = lib.sourceByRegex ./. [
-              "(docs|crates|tests)(/.*)?"
-              ''Cargo\.(toml|lock)''
-              ''build\.rs''
-            ];
+        # Typst files to include in the derivation.
+        # Here we include Rust files, docs and tests.
+        src = lib.sourceByRegex ./. [
+          "(docs|crates|tests)(/.*)?"
+          ''Cargo\.(toml|lock)''
+          ''build\.rs''
+        ];
 
-            # Typst derivation's args, used within crane's derivation generation
-            # functions.
-            commonCraneArgs = {
-              inherit src pname version;
+        # Typst derivation's args, used within crane's derivation generation
+        # functions.
+        commonCraneArgs = {
+          inherit src pname version;
 
-              buildInputs = [
-                pkgs.openssl
-              ] ++ (lib.optionals pkgs.stdenv.isDarwin [
-                pkgs.darwin.apple_sdk.frameworks.CoreServices
-                pkgs.libiconv
-              ]);
+          buildInputs = [
+            pkgs.openssl
+          ] ++ (lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.darwin.apple_sdk.frameworks.CoreServices
+            pkgs.libiconv
+          ]);
 
-              nativeBuildInputs = [
-                pkgs.pkg-config
-                pkgs.openssl.dev
-              ];
-            };
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.openssl.dev
+          ];
+        };
 
-            # Derivation with just the dependencies, so we don't have to keep
-            # re-building them.
-            cargoArtifacts = craneLib.buildDepsOnly commonCraneArgs;
-          in
-          craneLib.buildPackage (commonCraneArgs // {
-            inherit cargoArtifacts;
+        # Derivation with just the dependencies, so we don't have to keep
+        # re-building them.
+        cargoArtifacts = craneLib.buildDepsOnly commonCraneArgs;
 
-            nativeBuildInputs = commonCraneArgs.nativeBuildInputs ++ [
-              pkgs.installShellFiles
-            ];
+        typst = craneLib.buildPackage (commonCraneArgs // {
+          inherit cargoArtifacts;
 
-            postInstall = ''
-              installManPage crates/typst-cli/artifacts/*.1
-              installShellCompletion \
-                crates/typst-cli/artifacts/typst.{bash,fish} \
-                --zsh crates/typst-cli/artifacts/_typst
-            '';
+          nativeBuildInputs = commonCraneArgs.nativeBuildInputs ++ [
+            pkgs.installShellFiles
+          ];
 
-            GEN_ARTIFACTS = "artifacts";
-            TYPST_VERSION =
-              let
-                rev = self.shortRev or "dirty";
-                version = cargoToml.workspace.package.version;
-              in
-              "${version} (${rev})";
+          postInstall = ''
+            installManPage crates/typst-cli/artifacts/*.1
+            installShellCompletion \
+              crates/typst-cli/artifacts/typst.{bash,fish} \
+              --zsh crates/typst-cli/artifacts/_typst
+          '';
 
-            meta.mainProgram = "typst";
-          });
+          GEN_ARTIFACTS = "artifacts";
+          TYPST_VERSION =
+            let
+              rev = self.shortRev or "dirty";
+              version = cargoToml.workspace.package.version;
+            in
+            "${version} (${rev})";
 
-        typst = packageFor pkgs;
+          meta.mainProgram = "typst";
+        });
       in
       {
         formatter = pkgs.nixpkgs-fmt;
@@ -103,7 +98,7 @@
           program = lib.getExe typst;
         };
 
-        devShells.default = pkgs.mkShell {
+        devShells.default = craneLib.devShell {
           inputsFrom = [ typst ];
         };
       };
