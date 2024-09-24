@@ -49,7 +49,7 @@ jobs:
       - run: cargo doc --workspace --no-deps
 
   min-version:
-    name: Check mininum Rust version
+    name: Check minimum Rust version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
