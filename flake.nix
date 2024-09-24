@@ -1,13 +1,10 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
+    flake-parts.url = "github:hercules-ci/flake-parts";
     systems.url = "github:nix-systems/default";
+
+    crane.url = "github:ipetkov/crane";
   };
 
   outputs = inputs@{ flake-parts, crane, nixpkgs, self, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
