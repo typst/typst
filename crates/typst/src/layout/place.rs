@@ -1,4 +1,4 @@
-use crate::foundations::{elem, scope, Content, Smart};
+use crate::foundations::{elem, scope, Cast, Content, Smart};
 use crate::layout::{Alignment, Em, Length, Rel};
 
 /// Places content at an absolute position.
@@ -35,6 +35,19 @@ pub struct PlaceElem {
     #[default(Smart::Custom(Alignment::START))]
     pub alignment: Smart<Alignment>,
 
+    /// Relative to which containing scope something is placed.
+    ///
+    /// Page-scoped floating placement is primarily used with figures and, for
+    /// this reason, the figure function has a mirrored [`scope`
+    /// parameter]($figure.scope). Nonetheless, it can also be more generally
+    /// useful to break out of the columns. A typical example would be to
+    /// [create a single-column title section]($guides/page-setup/#columns) in a
+    /// two-column document.
+    ///
+    /// Note that page-scoped placement is currently only supported if `float`
+    /// is `{true}`. This may change in the future.
+    pub scope: PlacementScope,
+
     /// Whether the placed element has floating layout.
     ///
     /// Floating elements are positioned at the top or bottom of the page,
@@ -61,6 +74,8 @@ pub struct PlaceElem {
     pub float: bool,
 
     /// The amount of clearance the placed element has in a floating layout.
+    ///
+    /// Has no effect if `float` is `{false}`.
     #[default(Em::new(1.5).into())]
     #[resolve]
     pub clearance: Length,
@@ -96,6 +111,16 @@ pub struct PlaceElem {
 impl PlaceElem {
     #[elem]
     type FlushElem;
+}
+
+/// Relative to which containing scope something shall be placed.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum PlacementScope {
+    /// Place into the current column.
+    #[default]
+    Column,
+    /// Place relative to the page, letting the content span over all columns.
+    Page,
 }
 
 /// Asks the layout algorithm to place pending floating elements before

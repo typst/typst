@@ -1,3 +1,5 @@
+//! Layout of content into a [`Document`].
+
 mod collect;
 mod finalize;
 mod run;
