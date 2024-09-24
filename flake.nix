@@ -31,6 +31,7 @@
           "(docs|crates|tests)(/.*)?"
           ''Cargo\.(toml|lock)''
           ''build\.rs''
+          "rustfmt.toml"
         ];
 
         # Typst derivation's args, used within crane's derivation generation
@@ -95,7 +96,18 @@
           program = lib.getExe typst;
         };
 
+        checks = {
+          typst-fmt = craneLib.cargoFmt commonCraneArgs;
+          typst-clippy = craneLib.cargoClippy (commonCraneArgs // {
+            inherit cargoArtifacts;
+          });
+          typst-test = craneLib.cargoTest (commonCraneArgs // {
+            inherit cargoArtifacts;
+          });
+        };
+
         devShells.default = craneLib.devShell {
+          checks = self'.checks;
           inputsFrom = [ typst ];
         };
       };
