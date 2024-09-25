@@ -5,9 +5,17 @@
     systems.url = "github:nix-systems/default";
 
     crane.url = "github:ipetkov/crane";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    rust-manifest = {
+      url = "https://static.rust-lang.org/dist/channel-rust-1.80.1.toml";
+      flake = false;
+    };
   };
 
-  outputs = inputs@{ flake-parts, crane, nixpkgs, self, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = inputs@{ flake-parts, crane, nixpkgs, fenix, rust-manifest, self, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
     systems = import inputs.systems;
 
     imports = [
@@ -21,9 +29,11 @@
         pname = "typst";
         version = cargoToml.workspace.package.version;
 
+        rust-toolchain = (fenix.packages.x86_64-linux.fromManifestFile rust-manifest).defaultToolchain;
+
         # Crane-based Nix flake configuration.
         # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
-        craneLib = crane.mkLib pkgs;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
 
         # Typst files to include in the derivation.
         # Here we include Rust files, docs and tests.
