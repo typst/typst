@@ -115,6 +115,7 @@
           typst-fmt = craneLib.cargoFmt commonCraneArgs;
           typst-clippy = craneLib.cargoClippy (commonCraneArgs // {
             inherit cargoArtifacts;
+            cargoClippyExtraArgs = "--workspace -- --deny warnings";
           });
           typst-test = craneLib.cargoTest (commonCraneArgs // {
             inherit cargoArtifacts;
