@@ -124,6 +124,14 @@
         devShells.default = craneLib.devShell {
           checks = self'.checks;
           inputsFrom = [ typst ];
+
+          packages = [
+            # A script for quickly running tests.
+            # See https://github.com/typst/typst/blob/main/tests/README.md#making-an-alias
+            (pkgs.writeShellScriptBin "testit" ''
+              cargo test --workspace --test tests -- "$@"
+            '')
+          ];
         };
       };
   };
