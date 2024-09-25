@@ -1,0 +1,60 @@
+name: Move to Typst Forum
+on:
+  issues:
+    types:
+      - labeled
+jobs:
+  add-comment:
+    if: github.event.label.name == 'to-forum'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Call Discourse API to create forum post
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          RAW="This topic was moved from GitHub issue ${{ github.event.issue.number }}. Please continue the conversation here.
+
+          Here is the original issue:
+          [quote=\"${{ github.event.issue.user.login }}\"]
+          $ISSUE_BODY
+          [/quote]
+
+          Browse the previous discussion at ${{ github.event.issue.html_url }}"
+          TITLE_JSON=$(jq -n --arg title "[#${{ github.event.issue.number }}] $ISSUE_TITLE" '$title')
+          RAW_JSON=$(jq -n --arg raw "$RAW" '$raw')
+
+          RESPONSE=$(curl -X POST "https://forum.typst.app/posts.json" \
+            -H "Api-Key: ${{ secrets.DISCOURSE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"title\": $TITLE_JSON,
+              \"category\": 4,
+              \"external_id\": \"gh-${{ github.repository_owner }}-typst-${{ github.event.issue.number }}\",
+              \"raw\": $RAW_JSON
+            }")
+
+          echo $RESPONSE
+
+          # Check if response contains errors
+          if [ $(jq -n --argjson response "$RESPONSE" '$response.errors | length') -gt 0 ]; then
+            echo "Error creating topic"
+            exit 1
+          fi
+
+          echo "THREAD_ID=$(jq -n --argjson response "$RESPONSE" '$response.topic_id')" >> $GITHUB_ENV
+      - name: Add a comment if the workflow failed
+        if: failure()
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "Failed to move this issue to the Typst Forum. Please see the details in the workflow run: ${{ github.run_id }}"
+      - name: Add comment and close as not planned
+        run: |
+          gh issue close "$NUMBER" --reason "not planned" --comment "$BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          BODY: >
+            We moved this issue to the Typst Forum. Please continue the discussion there: https://forum.typst.app/t/${{ env.THREAD_ID }}
