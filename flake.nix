@@ -27,12 +27,17 @@
 
         # Typst files to include in the derivation.
         # Here we include Rust files, docs and tests.
-        src = lib.sourceByRegex ./. [
-          "(docs|crates|tests)(/.*)?"
-          ''Cargo\.(toml|lock)''
-          ''build\.rs''
-          "rustfmt.toml"
-        ];
+        src = lib.fileset.toSource {
+          root = ./.;
+          fileset = lib.fileset.unions [
+            ./Cargo.toml
+            ./Cargo.lock
+            ./rustfmt.toml
+            ./crates
+            ./docs
+            ./tests
+          ];
+        };
 
         # Typst derivation's args, used within crane's derivation generation
         # functions.
