@@ -861,7 +861,7 @@ description: |
   - Import autocompletion now only shows the latest package version until a
     colon is typed
   - Fixed autocompletion for dictionary key containing a space
-  - Fixed autocompletion for for loops
+  - Fixed autocompletion for `for` loops
 
 - Command line interface
   - Added `typst query` subcommand to execute a
