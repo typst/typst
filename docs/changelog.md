@@ -5,6 +5,343 @@ description: |
 ---
 
 # Changelog
+
+## Unreleased
+- Highlights
+  - Added support for multi-column floating placement and figures via
+    [`place.scope`] and [`figure.scope`]. Two-column documents should now prefer
+    `{set page(columns: 2)}` over `{show: column.with(2)}` (see the
+    [page setup guide]($guides/page-setup-guide/#columns))
+  - Added support for automatic [line numbering]($par.line) (often used in
+    academic papers)
+  - Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
+    larger documents. The multi-threading operates on page break boundaries, so
+    explicit page breaks are necessary for it to kick in.
+  - Paragraph justification was optimized with a new two-pass algorithm.
+    Speedups are larger for shorter paragraphs and range from 1-6x.
+  - Highly reduced PDF file sizes due to better font subsetting (thanks to
+    [@LaurenzV](https://github.com/LaurenzV))
+  - Emoji are now exported properly in PDF
+  - Text show rules now match across multiple text elements
+  - Block-level equations can now break over multiple pages. This behaviour can
+    be disabled via `{show math.equation: set block(breakable: false)}`
+  - Fixed a bug where some fonts would not print correctly on professional
+    printers
+  - Fixed a long-standing bug which could cause headings to be orphaned at the
+    bottom of the page
+
+- Layout
+  - Added support for multi-column floating placement and figures via
+    [`place.scope`] and [`figure.scope`]
+  - Added support for automatic [line numbering]($par.line) (often used in
+    academic papers)
+  - Added [`par.spacing`] property for configuring paragraph spacing. This
+    should now be used instead of `{show par: set block(spacing: ..)}`
+    (**Breaking change**)
+  - Added [`block.sticky`] property which prevents a page break after a block
+  - Added [`place.flush`] function which forces all floating figures to be
+    placed before any further content
+  - Added [`skew`] function
+  - Added `{auto}` option for [`page.header`] and [`page.footer`] which result
+    in an automatic header/footer based on the numbering (which was previously
+    inaccessible after a change)
+  - Added `gap` and `justify` parameters to [`repeat`] function
+  - Added `width` and `height` parameters to the [`measure`] function to define
+    the space in which the content should be measured. Especially useful in
+    combination with [`layout`].
+  - The height of a `block`, `image`, `rect`, `square`, `ellipse`, and `circle`
+    can now be specified in [fractional units]($fraction)
+  - The [`scale`] function now supports non-relative lengths for `x` and `y`.
+    This way an element of unknown size can be scaled to a fixed size.
+  - Fixed a bug which could cause headings to be orphaned at the bottom of the
+    page
+  - Fixed footnotes within breakable blocks appearing on the page where the
+    breakable block ends instead of at the page where the footnote marker is
+  - Fixed empty pages appearing when a [context] expression wraps whole pages
+  - Fixed that `{set block(spacing: x)}` could behave differently than
+    `{set block(above: x, below: x)}`. The values of `block.above` and
+    `block.below` can now be retrieved in context expressions.
+  - Fixed behaviour of [`rotate`] and [`scale`] with `{reflow: true}`
+  - Fixed interaction of `{align(horizon)}` and `{v(1fr)}`
+  - Fixed various bugs where floating placement would yield overlapping results
+  - Fixed a bug where widow/orphan prevention would unnecessarily move text into
+    the next column
+  - Fixed that [weak spacing]($h.weak) was not trimmed at the start and end of
+    lines in a paragraph (only at the start and end of paragraphs)
+  - Fixed interaction of weak page break and [`pagebreak.to`]
+  - Fixed compilation output of a single weak page break
+
+- Text
+  - Tuned hyphenation: It is less eager by default and hyphenations close to the
+    edges of words are now discouraged more strongly
+    (**May lead to larger layout reflows**)
+  - Setting the font to an unavailable family will now result in a warning
+  - Implemented a new smart quote algorithm, fixing various bugs where smart
+    quotes weren't all that smart
+  - Added [`text.costs`] parameter for tweaking various parameters that affect
+    the choices of the layout engine during text layout
+  - Added `typm` highlighting mode for math in [raw blocks]($raw.lang)
+  - Added basic i18n for Galician, Catalan, Latin, Icelandic, Hebrew
+  - Implemented hyphenation duplication for Czech, Croatian, Lower Sorbian,
+    Polish, Portuguese, Slovak, and Spanish.
+  - The [`smallcaps`] function is now an element function and can thereby be
+    used in show(-set) rules.
+  - The [`raw.theme`] parameter can now be set to `{none}` to disable
+    highlighting even in the presence of a language tag, and to `{auto}` to
+    reset to the default
+  - Multiple [stylistic sets]($text.stylistic-set) can now be enabled at once
+  - Fixed the Chinese translation for "Equation"
+  - Fixed that hyphenation could occur outside of words
+  - Fixed incorrect layout of bidirectional text in edge cases
+  - Fixed layout of paragraphs with explicit trailing whitespace
+  - Fixed bugs related to empty paragraphs created via `#""`
+  - Fixed accidental trailing spaces for line breaks immediately preceding an
+    inline equation
+  - Fixed that [`text.historical-ligatures`] was not working correctly
+  - Fixed accidental repetition of Thai characters around line breaks in some
+    circumstances
+  - New font metadata exceptions for Archivo, Kaiti SC, and Kaiti TC
+
+- Math
+  - Block-level equations can now break over multiple pages. This behaviour can
+    be disabled via `{show math.equation: set block(breakable: false)}`
+  - Matrix and vector sizing is now more consistent across different cell
+    contents
+  - Improved layout of attachments on parenthesized as well as under- or
+    overlined expressions
+  - Improved layout of nested attachments resulting from code like
+    `[#let a0 = $a_0$; $a0^1$]`
+  - Improved layout of primes close to superscripts
+  - Typst now makes use of math-specific height-dependant kerning information in
+    some fonts for better attachment layout
+  - The `floor` and `ceil` functions in math are now callable symbols instead,
+    such that `[$ floor(x) = lr(floor.l x floor.r) $]`
+  - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
+  - [`cases.delim`]($math.cases.delim) parameters now allow
+    any character that that is considered as a delimiter or "fence" (like a bar)
+    by Unicode. The `{delim: "||"}` notation is _not_ supported anymore and
+    should be replaced by `delim: bar.double` (**Minor breaking change**)
+  - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
+    [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
+  - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
+  - Fixed baseline alignment of equation numbers
+  - Fixed positioning of corner brackets (⌜, ⌝, ⌞, ⌟)
+  - Fixed baseline of large roots
+  - Fixed multiple minor layout bugs with attachments
+  - Fixed that alignment points could affect line height in math
+  - Fixed that spaces could show up between text and invisible elements like
+    [`metadata`] in math
+  - Fixed a crash with recursive show rules in math
+
+- Introspection
+  - Implemented a new system by which Typst tracks where elements end up on the
+    pages. This may lead to subtly different behaviour in introspections.
+    (**Breaking change**)
+  - Fixed various bugs with wrong counter behaviour in complex layout
+    situations, through a new, more principled implementation
+  - Counter updates can now be before the first, in between, and after the last
+    page when isolated by weak page breaks. This allows, for instance, updating
+    a counter before the first page header and background.
+  - Fixed incorrect [`here().position()`]($here) when [`place`] was used in a
+    context expression
+  - Fixed resolved positions of elements (in particular, headings) whose show
+    rule emits an invisible element (like a state update) before a page break
+  - Fixed behaviour of stepping a counter at a deeper level that its current
+    state has
+  - Fixed citation formatting not working in table headers and a few other
+    places
+  - Displaying the footnote counter will now respect the footnote numbering
+    style
+
+- Model
+  - Document set rules do not need to be at the very start of the document
+    anymore. The only restriction is that they must not occur inside of layout
+    containers.
+  - The `spacing` property of [lists]($list.spacing),
+    [enumerations]($enum.spacing), and [term lists]($terms.spacing) is now also
+    respected for tight lists
+  - Tight lists now only attach (with tighter spacing) to preceding paragraphs,
+    not arbitrary blocks
+  - The [`quote`] element is now locatable (can be used in queries)
+  - The bibliography heading now uses `depth` instead of `level` so that its
+    level can still be configured via a show-set rule
+  - Added support more [numbering] formats: Devanagari, and Eastern Arabic, and
+    Circled Number
+  - Added [`hanging-indent`]($heading.hanging-indent) parameter to heading
+    function to tweak the appearance of multi-line headings and improved default
+    appearance of multi-line headings
+  - Improved handling of bidirectional text in outline entry
+  - Fixed that document set rules were ignored in an otherwise empty document
+  - Fixed that document set rules could not be used in context expressions
+  - Fixed bad interaction between `{set document}` and `{set page}`
+  - Fixed `{show figure: set align(..)}`. Since the default figure alignment is
+    now a show-set rule, it is not revoked by `{show figure: it => it.body}`
+    anymore. (**Minor breaking change**)
+  - Fixed numbering of footnote references
+
+- Visualization
+  - Added non-zero and even-odd fill rules to [`path`] and [`polygon`]
+  - Fixed color mixing and gradients for [Luma colors]($color.luma)
+  - Fixed conversion from Luma to CMYK colors
+  - Fixed offset gradient strokes in PNG export
+  - Fixed unintended cropping of some SVGs
+  - SVGs with foreign objects now produced a warning as they will likely not
+    render correctly in Typst
+
+- Syntax
+  - Added support for nested imports like `{import "file.typ": module.item}`
+  - Added support for parenthesized imports like
+    `{import "file.typ": (a, b, c)}`. With those, the import list can break over
+    multiple lines.
+  - Fixed edge case in parsing of reference syntax
+  - Fixed edge case in parsing of heading, list, enum, and term markers
+    immediately followed by comments
+  - Fixed rare crash in parsing of parenthesized expressions
+
+- Scripting
+  - Added `std` module for accessing standard library definitions even when a
+    variable with the same name shadows/overwrites it
+  - Added [`array.to-dict`], [`array.reduce`], [`array.windows`] methods
+  - Added `exact` argument to [`array.zip`]
+  - Added [`arguments.at`] method
+  - Added [`int.from-bytes`] and [`int.to-bytes`]
+  - Added `float.nan` and `float.inf`, removed `calc.nan`
+    (**Minor breaking change**)
+  - Certain symbols are now generally callable like functions and not only
+    specifically in math. Examples are accents or `floor` and `ceil`.
+  - Improved [`repr`] of relative values, sequences, infinities, NaN,
+    `{type(none)}` and `{type(auto)}`
+  - Fixed crash on whole packages (rather than just files) cyclically importing
+    each other
+
+- Styling
+  - Text show rules now match across multiple text elements
+  - The string `{"}` in a text show rule now matches smart quotes
+  - Fixed a long-standing styling bug where the header and footer would
+    incorrectly inherit styles from a lone element on the page (e.g. a heading)
+  - Fixed `{set page}` not working directly after a counter/state update
+  - Page fields configured via an explicit `{page(..)[..]}` call can now be
+    properly retrieved in context expressions
+
+- Export
+  - Highly reduced PDF file sizes due to better font subsetting
+  - Emoji are now exported properly in PDF
+  - Setting [`page.fill`] to `{none}` will now lead to transparent pages instead
+    of white ones in PNG and SVG. The new default of `{auto}` means transparent
+    for PDF and white for PNG and SVG.
+  - Improved text copy-paste from PDF in complex scenarios
+  - Exported SVGs now contain the `data-typst-label` attribute on groups
+    resulting from labelled [boxes]($box) and [blocks]($block)
+  - Fixed a bug where some fonts would not print correctly on professional
+    printers
+  - Fixed a bug where transparency could leak from one PDF object to another
+  - Fixed a bug with CMYK gradients in PDF
+  - Fixed various bugs with export of Oklab gradients in PDF
+
+- Performance
+  - Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
+    larger documents. The multi-threading operates on page break boundaries, so
+    explicit page breaks are necessary for it to kick in.
+  - Paragraph justification was optimized with a new two-pass algorithm.
+    Speedups are larger for shorter paragraphs and range from 1-6x.
+
+- Command Line Interface
+  - Added `--pages` option to select specific page ranges to export
+  - Added `--package-path` and `--package-cache-path` as well as
+    `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variables
+    for configuring where packages are loaded from and cached in, respectively
+  - Added `--ignore-system-fonts` flag to disable system fonts fully for better
+    reproducibility
+  - Added `--make-deps` argument for outputting the dependencies of the current
+    compilation as a Makefile
+  - Added `--pretty` option to `typst query`, with the default now being to
+    minify
+  - Added `--backup-path` to `typst update` to configure where the previous
+    version is backed up
+  - The document can now be written to stdout by passing `-` as the output
+    filename (for PDF or single-page image export)
+  - Typst will now emit a proper error message instead of failing silently when
+    the certificate specified by `--cert` or `TYPST_CERT` could not be loaded
+  - The CLI now respects the `SOURCE_DATE_EPOCH` environment variable for better
+    reproducibility
+  - When exporting multiple images, you can now use `{t}` (total pages), `{p}`
+    (current page), and `{0p}` (zero-padded current page, same as current `{n}`)
+    in the output path
+  - The input and output paths now allow non-UTF-8 values
+  - Times are now formatted more consistently across the CLI
+  - Fixed a bug related to the `--open` flag
+  - Fixed path completions for `typst` not working in zsh
+
+- Tooling & Diagnostics
+  - The "compiler" field for specifying the minimum Typst version required by a
+    package now supports imprecise bounds like 0.11 instead of 0.11.0
+  - Added warning when a label is ignored by Typst because no preceding
+    labellable element exists
+  - Added hint when trying to apply labels in code mode
+  - Added hint when trying to call a standard library function that has been
+    shadowed/overwritten by a local definition
+  - Added hint when trying to set both the language and the region in the `lang`
+    parameter
+  - Added hints when trying to compile non-Typst files (e.g. after having types
+    `typst c file.pdf` by accident)
+  - Added hint when a string is used where a label is expected
+  - Added hint when a stray end of a block comment (`*/`) is encountered
+  - Added hints when destructuring arrays with the wrong number of elements
+  - Improved error message when trying to use a keyword as an identifier in a
+    let binding
+  - Improved error messages when accessing nonexistent fields
+  - Improved error message when a package exists, but not the specified version
+  - Improved hints for unknown variables
+  - Improved hint when trying to convert a length with non-zero em component to
+    an absolute unit
+  - Fixed a crash that could be triggered by certain hover tooltips
+  - Fixed an off-by-one error in to-source jumps when first-line-indent is
+    enabled
+  - Fixed suggestions for `.` after the end of an inline code expressions
+  - Fixed autocompletions being duplicated in a specific case
+
+- Symbols
+  - New: `parallelogram`, `original`, `image`, `crossmark`, `rest`, `natural`,
+    `flat`, `sharp`, `tiny`, `miny`, `copyleft`, `trademark`
+  - New variants: `club.stroked`, `diamond.stroked`, `heart.stroked`,
+    `spade.stroked`, `gt.neq`, `lt.neq`, `checkmark.heavy`, `paren.double`,
+    `brace.double`, `shell.double`, `arrow.turn`, `plus.double`, `plus.triple`,
+    `infinity.bar`, `infinity.incomplete`, `infinity.tie`, `multimap.double`,
+    `ballot.check`, `ballot.check.heavy`, `emptyset.bar`, `emptyset.circle`,
+    `emptyset.larrow`, `emptyset.rarrow`, `parallel.struck`, `parallel.eq`,
+    `parallel.equiv`, `parallel.slanted`, `parallel.tilde`, `angle.l.curly`,
+    `angle.l.dot`, `angle.r.curly`, `angle.r.dot`, `angle.oblique`, `angle.s`,
+    `em.two`, `em.three`
+  - Renamed: `turtle` to `shell`, `notes` to `note`, `ballot.x` to
+    `ballot.cross`, `succ.eq` to `succ.curly.eq`, `prec.eq` to `prec.curly.eq`,
+    `servicemark` to `trademark.service` (**Breaking change**)
+  - Changed codepoint: `prec.eq`, `prec.neq`, `succ.eq`, `succ.neq`, `triangle`
+    from ▷ to △ (**Breaking change**)
+  - Removed: `lt.curly` in favor of `prec`, `gt.curly` in favor of `succ`
+    (**Breaking change**)
+
+- Deprecations
+  - [`counter.display`] without an established context
+  - [`counter.final`] with a location
+  - [`state.final`] with a location
+  - [`state.display`]
+  - [`query`] with a location as the second argument
+  - [`locate`] with a callback function
+  - [`measure`] with styles
+  - [`style`]
+
+- Development
+  - Added `typst-kit` crate which provides useful APIs for `World` implementors
+  - Added go-to-definition API in `typst-ide`
+  - Added package manifest parsing APIs to `typst-syntax`
+  - As the compiler is now capable of multi-threading, `World` implementations
+    must satisfy `Send` and `Sync`
+  - Changed signature of `World::main` to allow for the scenario where the main
+    file could not be loaded
+  - Removed `Tracer` in favor of `Warned<T>` and `typst::trace` function
+  - The `xz2` dependency used by the self-updater is now statically linked
+  - The Dockerfile now has a `ENTRYPOINT` directive
+
 ## Version 0.11.1 (May 17, 2024) { #v0.11.1 }
 - Security
   - Fixed a vulnerability where image files at known paths could be embedded
