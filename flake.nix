@@ -118,6 +118,7 @@
           });
           typst-test = craneLib.cargoTest (commonCraneArgs // {
             inherit cargoArtifacts;
+            cargoTestExtraArgs = "--workspace";
           });
         };
 
