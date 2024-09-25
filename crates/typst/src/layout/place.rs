@@ -37,23 +37,23 @@ pub struct PlaceElem {
 
     /// Relative to which containing scope something is placed.
     ///
-    /// Page-scoped floating placement is primarily used with figures and, for
+    /// The parent scope is primarily used with figures and, for
     /// this reason, the figure function has a mirrored [`scope`
     /// parameter]($figure.scope). Nonetheless, it can also be more generally
     /// useful to break out of the columns. A typical example would be to
     /// [create a single-column title section]($guides/page-setup/#columns) in a
     /// two-column document.
     ///
-    /// Note that page-scoped placement is currently only supported if `float`
+    /// Note that parent-scoped placement is currently only supported if `float`
     /// is `{true}`. This may change in the future.
     pub scope: PlacementScope,
 
     /// Whether the placed element has floating layout.
     ///
-    /// Floating elements are positioned at the top or bottom of the page,
-    /// displacing in-flow content. They are always placed in the in-flow
-    /// order relative to each other, as well as before any content following
-    /// a later [`place.flush`] element.
+    /// Floating elements are positioned at the top or bottom of the parent
+    /// container, displacing in-flow content. They are always placed in the
+    /// in-flow order relative to each other, as well as before any content
+    /// following a later [`place.flush`] element.
     ///
     /// ```example
     /// #set page(height: 150pt)
@@ -119,8 +119,8 @@ pub enum PlacementScope {
     /// Place into the current column.
     #[default]
     Column,
-    /// Place relative to the page, letting the content span over all columns.
-    Page,
+    /// Place relative to the parent, letting the content span over all columns.
+    Parent,
 }
 
 /// Asks the layout algorithm to place pending floating elements before

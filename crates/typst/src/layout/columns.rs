@@ -28,14 +28,14 @@ use crate::layout::{
 ///
 /// # Breaking out of columns { #breaking-out }
 /// To temporarily break out of columns (e.g. for a paper's title), use
-/// page-scoped floating placement:
+/// parent-scoped floating placement:
 ///
 /// ```example:single
 /// #set page(columns: 2, height: 150pt)
 ///
 /// #place(
 ///   top + center,
-///   scope: "page",
+///   scope: "parent",
 ///   float: true,
 ///   text(1.4em, weight: "bold")[
 ///     My document

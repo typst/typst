@@ -239,10 +239,10 @@ impl<'a> Collector<'a, '_, '_> {
             _ => {}
         }
 
-        if !float && scope == PlacementScope::Page {
+        if !float && scope == PlacementScope::Parent {
             bail!(
                 elem.span(),
-                "page-scoped positioning is currently only available for floating placement";
+                "parent-scoped positioning is currently only available for floating placement";
                 hint: "you can enable floating placement with `place(float: true, ..)`"
             );
         }

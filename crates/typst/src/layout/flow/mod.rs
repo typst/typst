@@ -60,7 +60,7 @@ pub fn layout_fragment(
 /// Lays out content into regions with columns.
 ///
 /// This is different from just laying out into column-sized regions as the
-/// columns can interact due to page-scoped placed elements.
+/// columns can interact due to parent-scoped placed elements.
 pub fn layout_fragment_with_columns(
     engine: &mut Engine,
     content: &Content,

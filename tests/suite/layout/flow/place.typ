@@ -110,7 +110,7 @@ A
 #align(center)[A]
 #pagebreak()
 #align(center)[B]
-#place(bottom, scope: "page", rect(height: 10pt))
+#place(bottom, scope: "parent", rect(height: 10pt))
 
 --- place-float-flow-size-alone ---
 #set page(width: auto, height: auto)
@@ -123,7 +123,7 @@ A
 #set rect(width: 70%)
 
 #place(top + center, rect[I])
-#place(bottom + center, scope: "page", rect[II])
+#place(bottom + center, scope: "parent", rect[II])
 
 A
 #v(1fr)
@@ -137,7 +137,7 @@ C
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
 
-#place(top + center, scope: "page", rect[I])
+#place(top + center, scope: "parent", rect[I])
 #place(top + center, rect[II])
 
 // This test result is not ideal: The first column takes 30% of the full page,
@@ -200,19 +200,19 @@ C
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
 
-#place(top + center, scope: "page", rect[I])
+#place(top + center, scope: "parent", rect[I])
 #place(top + center, rect[II])
 #lines(4)
 #place(top + center, rect[III])
 #block(width: 100%, height: 70pt, fill: conifer)
-#place(bottom + center, scope: "page", rect[IV])
+#place(bottom + center, scope: "parent", rect[IV])
 #place(bottom + center, rect[V])
 #v(1pt, weak: true)
 #block(width: 100%, height: 60pt, fill: aqua)
 
 --- place-float-twocolumn-queued ---
 #set page(height: 100pt, columns: 2)
-#set place(float: true, scope: "page", clearance: 10pt)
+#set place(float: true, scope: "parent", clearance: 10pt)
 #let t(align, fill) = place(top + align, rect(fill: fill, height: 25pt))
 
 #t(left, aqua)
@@ -225,9 +225,9 @@ C
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
 
-#place(auto, scope: "page", rect[I]) // Should end up `top`
+#place(auto, scope: "parent", rect[I]) // Should end up `top`
 #lines(4)
-#place(auto, scope: "page", rect[II])  // Should end up `bottom`
+#place(auto, scope: "parent", rect[II])  // Should end up `bottom`
 #lines(4)
 
 --- place-float-twocolumn-fits ---
@@ -236,7 +236,7 @@ C
 #set rect(width: 70%)
 
 #lines(6)
-#place(auto, scope: "page", rect[I])
+#place(auto, scope: "parent", rect[I])
 #lines(12, "1")
 
 --- place-float-twocolumn-fits-not ---
@@ -245,7 +245,7 @@ C
 #set rect(width: 70%)
 
 #lines(10)
-#place(auto, scope: "page", rect[I])
+#place(auto, scope: "parent", rect[I])
 #lines(10, "1")
 
 --- place-float-threecolumn ---
@@ -253,9 +253,9 @@ C
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
 
-#place(bottom + center, scope: "page", rect[I])
+#place(bottom + center, scope: "parent", rect[I])
 #lines(21)
-#place(top + center, scope: "page", rect[II])
+#place(top + center, scope: "parent", rect[II])
 
 --- place-float-threecolumn-block-backlog ---
 #set page(height: 100pt, columns: 3)
@@ -264,10 +264,10 @@ C
 
 // The most important part of this test is that we get the backlog of the
 // conifer (green) block right.
-#place(top + center, scope: "page", rect[I])
+#place(top + center, scope: "parent", rect[I])
 #block(fill: aqua, width: 100%, height: 70pt)
 #block(fill: conifer, width: 100%, height: 160pt)
-#place(bottom + center, scope: "page", rect[II])
+#place(bottom + center, scope: "parent", rect[II])
 #place(top, rect(height: 40%)[III])
 #block(fill: yellow, width: 100%, height: 60pt)
 
@@ -296,7 +296,7 @@ C
 #t(top, 3)
 #colbreak()
 #cd
-#t(scope: "page", bottom, 11)
+#t(scope: "parent", bottom, 11)
 #colbreak()
 #cd
 #t(top, 12)
