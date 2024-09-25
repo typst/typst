@@ -1,11 +1,23 @@
 use crate::foundations::{elem, scope, Cast, Content, Smart};
 use crate::layout::{Alignment, Em, Length, Rel};
 
-/// Places content at an absolute position.
+/// Places content relatively to its parent container.
 ///
-/// Placed content will not affect the position of other content. Place is
-/// always relative to its parent container and will be in the foreground of all
-/// other content in the container. Page margins will be respected.
+/// Placed content can be either overlaid (the default) or floating. Overlaid
+/// content is aligned with the parent container according to the given
+/// [`alignment`]($place.alignment), and shown over any other content added so
+/// far in the container. Floating content is placed at the top or bottom of
+/// the container, displacing other content down or up respectively. In both
+/// cases, the content position can be adjusted with [`dx`]($place.dx) and
+/// [`dy`]($place.dy) offsets without affecting the layout.
+///
+/// # Effect on the position of other elements
+///
+/// Overlaid elements don't take space in the flow of content, but a `place`
+/// call inserts an invisible block-level element in the flow. This can
+/// affect the layout by breaking the current paragraph. To avoid this,
+/// you can wrap the `place` call in a [`box`]($box) when the call is made
+/// in the middle of a paragraph.
 ///
 ///
 /// # Example
@@ -27,10 +39,6 @@ pub struct PlaceElem {
     ///
     /// - If `float` is `{false}`, then this can be any alignment other than `{auto}`.
     /// - If `float` is `{true}`, then this must be `{auto}`, `{top}`, or `{bottom}`.
-    ///
-    /// When an axis of the page is `{auto}` sized, all alignments relative to
-    /// that axis will be ignored, instead, the item will be placed in the
-    /// origin of the axis.
     #[positional]
     #[default(Smart::Custom(Alignment::START))]
     pub alignment: Smart<Alignment>,
@@ -73,7 +81,8 @@ pub struct PlaceElem {
     /// ```
     pub float: bool,
 
-    /// The amount of clearance the placed element has in a floating layout.
+    /// The spacing between the placed element and other elements in a floating
+    /// layout.
     ///
     /// Has no effect if `float` is `{false}`.
     #[default(Em::new(1.5).into())]
