@@ -27,7 +27,6 @@ impl From<Region> for Regions<'_> {
             full: region.size.y,
             backlog: &[],
             last: None,
-            root: false,
         }
     }
 }
@@ -53,11 +52,6 @@ pub struct Regions<'a> {
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
     pub last: Option<Abs>,
-    /// Whether these are the root regions or direct descendants.
-    ///
-    /// True for the padded page regions and columns directly in the page,
-    /// false otherwise.
-    pub root: bool,
 }
 
 impl Regions<'_> {
@@ -69,7 +63,6 @@ impl Regions<'_> {
             backlog: &[],
             last: Some(size.y),
             expand,
-            root: false,
         }
     }
 
@@ -98,7 +91,6 @@ impl Regions<'_> {
             backlog,
             last: self.last.map(|y| f(Size::new(x, y)).y),
             expand: self.expand,
-            root: self.root,
         }
     }
 
@@ -112,11 +104,6 @@ impl Regions<'_> {
     /// If this is true, calling `next()` will have no effect.
     pub fn in_last(&self) -> bool {
         self.backlog.is_empty() && self.last.map_or(true, |height| self.size.y == height)
-    }
-
-    /// The same regions, but with different `root` configuration.
-    pub fn with_root(self, root: bool) -> Self {
-        Self { root, ..self }
     }
 
     /// Advance to the next region if there is any.

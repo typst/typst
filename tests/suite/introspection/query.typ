@@ -25,10 +25,10 @@
 #outline()
 
 = Introduction
-#v(1cm)
+#lines(1)
 
 = Background
-#v(2cm)
+#lines(2)
 
 = Approach
 

@@ -102,8 +102,7 @@ B #cite(<netwok>) #cite(<arrgh>).
 
 // Everything moves to the second page because we want to keep the line and
 // its footnotes together.
-#footnote[@netwok]
-#footnote[A]
+#footnote[@netwok \ A]
 
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
