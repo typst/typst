@@ -44,10 +44,10 @@ pub fn collect<'a>(
 }
 
 /// State for collection.
-struct Collector<'a, 'b, 'c> {
-    engine: &'b mut Engine<'c>,
+struct Collector<'a, 'x, 'y> {
+    engine: &'x mut Engine<'y>,
     bump: &'a Bump,
-    children: &'b [Pair<'a>],
+    children: &'x [Pair<'a>],
     base: Size,
     expand: bool,
     locator: SplitLocator<'a>,

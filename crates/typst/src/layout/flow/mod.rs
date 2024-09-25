@@ -222,6 +222,10 @@ pub(crate) fn layout_flow(
 }
 
 /// The work that is left to do by flow layout.
+///
+/// The lifetimes 'a and 'b are used across flow layout:
+/// - 'a is that of the content coming out of realization
+/// - 'b is that of the collected/prepared children
 #[derive(Clone)]
 struct Work<'a, 'b> {
     /// Children that we haven't processed yet. This slice shrinks over time.
@@ -296,13 +300,13 @@ impl<'a, 'b> Work<'a, 'b> {
 }
 
 /// Shared configuration for the whole flow.
-struct Config<'a> {
+struct Config<'x> {
     /// Whether this is the root flow, which can host footnotes and line
     /// numbers.
     root: bool,
     /// The styles shared by the whole flow. This is used for footnotes and line
     /// numbers.
-    shared: StyleChain<'a>,
+    shared: StyleChain<'x>,
     /// Settings for columns.
     columns: ColumnConfig,
     /// Settings for footnotes.

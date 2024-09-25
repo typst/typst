@@ -50,10 +50,17 @@ pub fn compose(
 }
 
 /// State for composition.
-pub struct Composer<'a, 'b, 'c, 'd> {
-    pub engine: &'c mut Engine<'d>,
-    pub work: &'c mut Work<'a, 'b>,
-    pub config: &'c Config<'c>,
+///
+/// Sadly, we need that many lifetimes because &mut references are invariant and
+/// it would force the lifetimes of various things to be equal if they
+/// shared a lifetime.
+///
+/// The only interesting lifetimes are 'a and 'b. See [Work] for more details
+/// about them.
+pub struct Composer<'a, 'b, 'x, 'y> {
+    pub engine: &'x mut Engine<'y>,
+    pub work: &'x mut Work<'a, 'b>,
+    pub config: &'x Config<'x>,
     column: usize,
     page_base: Size,
     page_insertions: Insertions<'a, 'b>,

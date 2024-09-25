@@ -29,11 +29,13 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
 }
 
 /// State for distribution.
-struct Distributor<'a, 'b, 'c, 'd, 'e> {
+///
+/// See [Composer] regarding lifetimes.
+struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// The composer that is used to handle insertions.
-    composer: &'e mut Composer<'a, 'b, 'c, 'd>,
+    composer: &'z mut Composer<'a, 'b, 'x, 'y>,
     /// Regions which are continously shrunk as new items are added.
-    regions: Regions<'e>,
+    regions: Regions<'z>,
     /// Already laid out items, not yet aligned.
     items: Vec<Item<'a, 'b>>,
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
