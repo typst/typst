@@ -122,7 +122,7 @@ a table listing all syntax that is available in code mode:
 | Set-if rule              | `{set text(..) if .. }`       | [Styling]($styling/#set-rules)     |
 | Show-set rule            | `{show heading: set block(..)}` | [Styling]($styling/#show-rules)  |
 | Show rule with function  | `{show raw: it => {..}}`      | [Styling]($styling/#show-rules)    |
-| Show-everything rule     | `{show: columns.with(2)}`     | [Styling]($styling/#show-rules)    |
+| Show-everything rule     | `{show: template}`            | [Styling]($styling/#show-rules)    |
 | Context expression       | `{context text.lang}`         | [Context]($context)                |
 | Conditional              | `{if x == 1 {..} else {..}}`  | [Scripting]($scripting/#conditionals) |
 | For loop                 | `{for x in (1, 2, 3) {..}}`   | [Scripting]($scripting/#loops)     |
