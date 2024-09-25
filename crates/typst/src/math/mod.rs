@@ -34,6 +34,7 @@ pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
+pub use self::stretch::*;
 pub use self::style::*;
 pub use self::underover::*;
 
@@ -44,7 +45,6 @@ use self::spacing::*;
 
 use crate::diag::SourceResult;
 use crate::foundations::{category, Category, Module, Scope, StyleChain};
-use crate::layout::VAlignment;
 use crate::text::TextElem;
 
 /// Typst has special [syntax]($syntax/#math) and library functions to typeset
@@ -161,6 +161,7 @@ pub fn module() -> Module {
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
     math.define_elem::<AttachElem>();
+    math.define_elem::<StretchElem>();
     math.define_elem::<ScriptsElem>();
     math.define_elem::<LimitsElem>();
     math.define_elem::<AccentElem>();
@@ -216,12 +217,4 @@ pub fn module() -> Module {
 pub trait LayoutMath {
     /// Layout the element, producing fragment in the context.
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()>;
-}
-
-fn delimiter_alignment(delimiter: char) -> VAlignment {
-    match delimiter {
-        '\u{231c}' | '\u{231d}' => VAlignment::Top,
-        '\u{231e}' | '\u{231f}' => VAlignment::Bottom,
-        _ => VAlignment::Horizon,
-    }
 }

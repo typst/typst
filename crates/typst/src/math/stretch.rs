@@ -1,11 +1,155 @@
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::LazyArray16;
 
-use crate::layout::{Abs, Frame, Point, Size};
-use crate::math::{GlyphFragment, MathContext, Scaled, VariantFragment};
+use crate::diag::SourceResult;
+use crate::foundations::{elem, Content, Packed, Resolve, Smart, StyleChain};
+use crate::layout::{Abs, Frame, Length, Point, Rel, Size, VAlignment};
+use crate::math::{
+    GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled, VariantFragment,
+};
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
+
+/// Stretches a base.
+///
+/// This function can also be used to automatically stretch the base of an
+/// attachment, so that it fits the top and bottom attachments.
+///
+/// Note that only some glyphs can be stretched, and which ones can depends on
+/// the math font being used. Generally however, all math fonts are the same in
+/// this regard.
+///
+/// ```example
+/// $ H stretch(=)^"define" U + p V $
+/// $ f : X stretch(->>, size: #150%)_"surjective" Y $
+/// $ x stretch(harpoons.ltrb, size: #3em) y
+///     stretch(\[, size: #150%) z $
+/// ```
+#[elem(LayoutMath)]
+pub struct StretchElem {
+    /// The base to stretch.
+    #[required]
+    pub base: Content,
+
+    /// The size to stretch to, relative to the glyph's current size.
+    pub size: Smart<Rel<Length>>,
+
+    /// Whether the size should be relative to the width of any top or bottom
+    /// attachments.
+    ///
+    /// ```example
+    /// #set math.stretch(attach: false)
+    /// $ stretch(->, size: #250%)_"very long text" $
+    /// ```
+    #[default(true)]
+    pub attach: bool,
+}
+
+impl LayoutMath for Packed<StretchElem> {
+    #[typst_macros::time(name = "math.stretch", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let mut fragment = ctx.layout_into_fragment(self.base(), styles)?;
+        stretch_fragment(
+            ctx,
+            styles,
+            &mut fragment,
+            None,
+            None,
+            self.size(styles),
+            Abs::zero(),
+        );
+        ctx.push(fragment);
+        Ok(())
+    }
+}
+
+/// Attempts to stretch the given fragment by/to the amount given in stretch.
+pub(super) fn stretch_fragment(
+    ctx: &mut MathContext,
+    styles: StyleChain,
+    fragment: &mut MathFragment,
+    axis_horizontal: Option<bool>,
+    relative_to: Option<Abs>,
+    stretch: Smart<Rel<Length>>,
+    short_fall: Abs,
+) {
+    let glyph = match fragment {
+        MathFragment::Glyph(glyph) => glyph.clone(),
+        MathFragment::Variant(variant) => {
+            GlyphFragment::new(ctx, styles, variant.c, variant.span)
+        }
+        _ => return,
+    };
+
+    let horizontal = if let Some(axis) = axis_horizontal {
+        axis
+    } else if let Some(axis) = is_stretchable(ctx, &glyph) {
+        axis
+    } else {
+        return;
+    };
+
+    let relative_to_size = relative_to.unwrap_or_else(|| {
+        if horizontal {
+            fragment.width()
+        } else {
+            fragment.height()
+        }
+    });
+
+    let mut variant = stretch_glyph(
+        ctx,
+        glyph,
+        stretch
+            .unwrap_or(Rel::one())
+            .resolve(styles)
+            .relative_to(relative_to_size),
+        short_fall,
+        horizontal,
+    );
+
+    if !horizontal {
+        variant.align_on_axis(ctx, delimiter_alignment(variant.c));
+    }
+
+    *fragment = MathFragment::Variant(variant);
+}
+
+pub(super) fn delimiter_alignment(delimiter: char) -> VAlignment {
+    match delimiter {
+        '\u{231c}' | '\u{231d}' => VAlignment::Top,
+        '\u{231e}' | '\u{231f}' => VAlignment::Bottom,
+        _ => VAlignment::Horizon,
+    }
+}
+
+/// Return whether the glyph is stretchable and if it is, along which axis it
+/// can be stretched.
+fn is_stretchable(ctx: &MathContext, base: &GlyphFragment) -> Option<bool> {
+    let base_id = base.id;
+    let vertical = ctx
+        .table
+        .variants
+        .and_then(|variants| variants.vertical_constructions.get(base_id))
+        .map(|_| false);
+    let horizontal = ctx
+        .table
+        .variants
+        .and_then(|variants| variants.horizontal_constructions.get(base_id))
+        .map(|_| true);
+
+    match (vertical, horizontal) {
+        (vertical, None) => vertical,
+        (None, horizontal) => horizontal,
+        _ => {
+            // As far as we know, there aren't any glyphs that have both
+            // vertical and horizontal constructions. So for the time being, we
+            // will assume that a glyph cannot have both.
+            panic!("glyph {:?} has both vertical and horizontal constructions", base.c);
+        }
+    }
+}
 
 impl GlyphFragment {
     /// Try to stretch a glyph to a desired height.

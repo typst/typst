@@ -10,17 +10,15 @@ use crate::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
 };
 use crate::math::{
-    alignments, scaled_font_size, stack, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, Scaled,
-    DELIM_SHORT_FALL,
+    alignments, delimiter_alignment, scaled_font_size, stack, style_for_denominator,
+    AlignmentResult, FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator,
+    MathContext, Scaled, DELIM_SHORT_FALL,
 };
 use crate::symbols::Symbol;
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::utils::Numeric;
 use crate::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape, Stroke};
-
-use super::delimiter_alignment;
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.2);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
