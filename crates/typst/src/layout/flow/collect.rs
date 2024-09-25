@@ -407,15 +407,21 @@ impl MultiSpill<'_, '_> {
         engine: &mut Engine,
         regions: Regions,
     ) -> SourceResult<(Frame, Option<Self>)> {
+        // We build regions for the whole `MultiChild` with the sizes passed to
+        // earlier parts of it plus the new regions. Then, we layout the
+        // complete block, but extract only the suffix that interests us.
         self.backlog.push(regions.size.y);
 
-        let mut backlog = self.backlog.clone();
-        backlog.extend(regions.backlog.iter().copied());
+        let mut backlog: Vec<_> =
+            self.backlog.iter().chain(regions.backlog).copied().collect();
 
+        // Remove unnecessary backlog items (also to prevent it from growing
+        // unnecessarily, which would change the region's hash).
         while !backlog.is_empty() && backlog.last().copied() == regions.last {
             backlog.pop();
         }
 
+        // Build the pod with the merged regions.
         let pod = Regions {
             size: Size::new(regions.size.x, self.first),
             expand: regions.expand,
@@ -424,10 +430,14 @@ impl MultiSpill<'_, '_> {
             last: regions.last,
         };
 
-        let fragment = self.multi.layout_impl(engine, pod)?;
+        // Extract the not-yet-processed frames.
+        let mut frames = self
+            .multi
+            .layout_impl(engine, pod)?
+            .into_iter()
+            .skip(self.backlog.len());
 
         // Save the first frame.
-        let mut frames = fragment.into_iter().skip(self.backlog.len());
         let frame = frames.next().unwrap();
 
         // If there's more, return a `spill`.
