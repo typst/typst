@@ -15,6 +15,8 @@ $ H stretch(=)^"define" U + p V \
 
 --- math-stretch-attach ---
 // Test stretch interactions with attachments.
+#set page(width: auto)
+
 $stretch(stretch(=, size: #4em))_A$
 $stretch(arrow.hook, size: #5em)^"injective map"$
 $stretch(arrow.hook, size: #200%)^"injective map"$
