@@ -212,7 +212,7 @@
 #test(timesum("2:70"), "3:10")
 #test(timesum("1:20, 2:10, 0:40"), "4:10")
 
---- stgring-replace ---
+--- string-replace ---
 // Test the `replace` method with `Str` replacements.
 #test("ABC".replace("", "-"), "-A-B-C-")
 #test("Ok".replace("Ok", "Nope", count: 0), "Ok")

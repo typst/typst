@@ -1947,7 +1947,7 @@ fn map() -> Module {
     Module::new("map", scope)
 }
 
-/// Defines a tradient preset as a series of colors expressed as u32s.
+/// Defines a gradient preset as a series of colors expressed as u32s.
 macro_rules! preset {
     ($name:ident; $($colors:literal),* $(,)*) => {
         fn $name() -> Array {

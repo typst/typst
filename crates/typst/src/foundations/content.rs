@@ -72,7 +72,7 @@ use crate::utils::{fat, singleton, LazyHash, SmallBitSet};
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
-    /// The partially element-dependant inner data.
+    /// The partially element-dependent inner data.
     inner: Arc<Inner<dyn Bounds>>,
     /// The element's source code location.
     span: Span,

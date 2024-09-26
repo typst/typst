@@ -254,7 +254,7 @@ impl<T: Resolve> Resolve for Sides<T> {
 
 impl<T: Fold> Fold for Sides<Option<T>> {
     fn fold(self, outer: Self) -> Self {
-        // Usually, folding an inner `None` with an `outer` preferres the
+        // Usually, folding an inner `None` with an `outer` prefers the
         // explicit `None`. However, here `None` means unspecified and thus
         // we want `outer`, so we use `fold_or` to opt into such behavior.
         self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))

@@ -714,7 +714,7 @@ very first and last line.
   align: center + horizon,
   table.header[Technique][Advantage][Drawback],
   [Diegetic], [Immersive], [May be contrived],
-  [Extradiegetic], [Breaks immersion], [Obstrusive],
+  [Extradiegetic], [Breaks immersion], [Obtrusive],
   [Omitted], [Fosters engagement], [May fracture audience],
 )
 ```
@@ -746,7 +746,7 @@ below the first row:
 >>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
->>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
+>>>   [Extradiegetic], [Breaks immersion], [Obtrusive],
 >>>   [Omitted], [Fosters engagement], [May fracture audience],
 >>> )
 ```
@@ -777,7 +777,7 @@ The next example shows how to draw all but the outer lines:
 >>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
->>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
+>>>   [Extradiegetic], [Breaks immersion], [Obtrusive],
 >>>   [Omitted], [Fosters engagement], [May fracture audience],
 >>> )
 ```
@@ -812,7 +812,7 @@ calendar.
 >>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
->>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
+>>>   [Extradiegetic], [Breaks immersion], [Obtrusive],
 >>>   [Omitted], [Fosters engagement], [May fracture audience],
 >>> )
 ```

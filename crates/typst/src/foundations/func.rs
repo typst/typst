@@ -356,7 +356,7 @@ impl Func {
     /// #show heading.where(level: 2): set text(blue)
     /// = Section
     /// == Subsection
-    /// === Sub-subection
+    /// === Sub-subsection
     /// ```
     #[func]
     pub fn where_(

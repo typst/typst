@@ -198,7 +198,7 @@ pub fn write_font_descriptor<'a>(
 #[typst_macros::time(name = "subset font")]
 fn subset_font(font: &Font, glyph_remapper: &GlyphRemapper) -> Arc<Vec<u8>> {
     let data = font.data();
-    // TODO: Fail export instead of unwrapping once export diagnoistics exist.
+    // TODO: Fail export instead of unwrapping once export diagnostics exist.
     let subsetted = subsetter::subset(data, font.index(), glyph_remapper).unwrap();
 
     let mut data = subsetted.as_ref();

@@ -257,7 +257,7 @@ fn visit<'a>(
         return Ok(());
     }
 
-    // Apply show rules rules and preparation.
+    // Apply show rules and preparation.
     if visit_show_rules(s, content, styles)? {
         return Ok(());
     }

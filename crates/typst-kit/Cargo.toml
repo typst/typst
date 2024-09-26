@@ -33,7 +33,7 @@ openssl = { workspace = true, optional = true }
 [features]
 default = ["fonts", "packages"]
 
-# Add font loading utilitites
+# Add font loading utilities
 fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 
 # Add generic downloading utilities

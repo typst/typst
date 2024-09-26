@@ -161,7 +161,7 @@ impl FontSearcher {
             let path = match &face.source {
                 Source::File(path) | Source::SharedFile(path, _) => path,
                 // We never add binary sources to the database, so there
-                // shouln't be any.
+                // shouldn't be any.
                 Source::Binary(_) => continue,
             };
 

@@ -188,7 +188,7 @@ conditionally remove the header on the first page:
 This example may look intimidating, but let's break it down: By using the
 `{context}` keyword, we are telling Typst that the header depends on where we
 are in the document. We then ask Typst if the page [counter] is larger than one
-at our (context-dependant) current position. The page counter starts at one, so
+at our (context-dependent) current position. The page counter starts at one, so
 we are skipping the header on a single page. Counters may have multiple levels.
 This feature is used for items like headings, but the page counter will always
 have a single level, so we can just look at the first one.

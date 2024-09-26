@@ -90,7 +90,7 @@ struct Args {
     /// This option controls where to spit them out. The HTML generation will
     /// assume that this output directory is served at `${base_url}/assets/*`.
     /// The default is `assets`. For example, if the base URL is `/docs/` then
-    /// the gemerated HTML might look like `<img src="/docs/assets/foo.png">`
+    /// the generated HTML might look like `<img src="/docs/assets/foo.png">`
     /// even though the `--assets-dir` was set to `/tmp/images` or something.
     #[arg(long, default_value = "assets")]
     assets_dir: PathBuf,
