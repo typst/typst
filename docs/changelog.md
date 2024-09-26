@@ -42,25 +42,26 @@ description: |
   - Added [`place.flush`] function which forces all floating figures to be
     placed before any further content
   - Added [`skew`] function
-  - Added `{auto}` option for [`page.header`] and [`page.footer`] which result
+  - Added `{auto}` option for [`page.header`] and [`page.footer`] which results
     in an automatic header/footer based on the numbering (which was previously
     inaccessible after a change)
   - Added `gap` and `justify` parameters to [`repeat`] function
   - Added `width` and `height` parameters to the [`measure`] function to define
     the space in which the content should be measured. Especially useful in
     combination with [`layout`].
-  - The height of a `block`, `image`, `rect`, `square`, `ellipse`, and `circle`
+  - The height of a `block`, `image`, `rect`, `square`, `ellipse`, or `circle`
     can now be specified in [fractional units]($fraction)
   - The [`scale`] function now supports non-relative lengths for `x` and `y`.
     This way an element of unknown size can be scaled to a fixed size.
+  - The values of `block.above` and `block.below` can now be retrieved in
+    context expressions.
   - Fixed a bug which could cause headings to be orphaned at the bottom of the
     page
   - Fixed footnotes within breakable blocks appearing on the page where the
     breakable block ends instead of at the page where the footnote marker is
   - Fixed empty pages appearing when a [context] expression wraps whole pages
-  - Fixed that `{set block(spacing: x)}` could behave differently than
-    `{set block(above: x, below: x)}`. The values of `block.above` and
-    `block.below` can now be retrieved in context expressions.
+  - Fixed `{set block(spacing: x)}` behaving differently from
+    `{set block(above: x, below: x)}`
   - Fixed behaviour of [`rotate`] and [`scale`] with `{reflow: true}`
   - Fixed interaction of `{align(horizon)}` and `{v(1fr)}`
   - Fixed various bugs where floating placement would yield overlapping results
@@ -165,8 +166,8 @@ description: |
   - The [`quote`] element is now locatable (can be used in queries)
   - The bibliography heading now uses `depth` instead of `level` so that its
     level can still be configured via a show-set rule
-  - Added support more [numbering] formats: Devanagari, and Eastern Arabic, and
-    Circled Number
+  - Added support for more [numbering] formats: Devanagari, Eastern Arabic, and
+    circled numbers
   - Added [`hanging-indent`]($heading.hanging-indent) parameter to heading
     function to tweak the appearance of multi-line headings and improved default
     appearance of multi-line headings
@@ -185,7 +186,7 @@ description: |
   - Fixed conversion from Luma to CMYK colors
   - Fixed offset gradient strokes in PNG export
   - Fixed unintended cropping of some SVGs
-  - SVGs with foreign objects now produced a warning as they will likely not
+  - SVGs with foreign objects now produce a warning as they will likely not
     render correctly in Typst
 
 - Syntax
@@ -282,7 +283,7 @@ description: |
     shadowed/overwritten by a local definition
   - Added hint when trying to set both the language and the region in the `lang`
     parameter
-  - Added hints when trying to compile non-Typst files (e.g. after having types
+  - Added hints when trying to compile non-Typst files (e.g. after having typed
     `typst c file.pdf` by accident)
   - Added hint when a string is used where a label is expected
   - Added hint when a stray end of a block comment (`*/`) is encountered
