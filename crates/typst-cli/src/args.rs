@@ -225,7 +225,7 @@ pub struct SharedArgs {
     pub package_storage_args: PackageStorageArgs,
 
     /// Number of parallel jobs spawned during compilation,
-    /// defaults to number of CPUs.
+    /// defaults to number of CPUs. Setting it to 1 disables parallelism.
     #[clap(long, short)]
     pub jobs: Option<usize>,
 }

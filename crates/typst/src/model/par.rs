@@ -297,8 +297,8 @@ pub struct ParLine {
     /// Second line again
     /// ```
     #[ghost]
-    #[default(ParLineNumberingScope::Document)]
-    pub numbering_scope: ParLineNumberingScope,
+    #[default(LineNumberingScope::Document)]
+    pub numbering_scope: LineNumberingScope,
 }
 
 impl Construct for ParLine {
@@ -310,7 +310,7 @@ impl Construct for ParLine {
 /// Possible line numbering scope options, indicating how often the line number
 /// counter should be reset.
 #[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ParLineNumberingScope {
+pub enum LineNumberingScope {
     /// Indicates the line number counter spans the whole document, that is,
     /// is never automatically reset.
     Document,

@@ -9,16 +9,12 @@ A#footnote[A] \
 A #footnote[A]
 
 --- footnote-nested ---
-// Test nested footnotes.
-First \
-Second #footnote[A, #footnote[B, #footnote[C]]] \
-Third #footnote[D, #footnote[E]] \
-Fourth
-
---- footnote-nested-same-frame ---
 // Currently, numbers a bit out of order if a nested footnote ends up in the
 // same frame as another one. :(
-#footnote[A, #footnote[B]], #footnote[C]
+First \
+Second #footnote[A, #footnote[B, #footnote[C]]]
+Third #footnote[D, #footnote[E]] \
+Fourth #footnote[F]
 
 --- footnote-entry ---
 // Test customization.
@@ -48,17 +44,93 @@ Beautiful footnotes. #footnote[Wonderful, aren't they?]
 #lines(6)
 #footnote[V] // 5
 
---- footnote-in-columns ---
-// Test footnotes in columns, even those that are not enabled via `set page`.
-#set page(height: 120pt)
-#align(center, strong[Title])
+--- footnote-break-across-pages-block ---
+#set page(height: 100pt)
+#block[
+  #lines(3) #footnote(lines(6, "1"))
+  #footnote[Y]
+  #footnote[Z]
+]
 
-#show: columns.with(2)
+--- footnote-break-across-pages-float ---
+#set page(height: 180pt)
+
+#lines(5)
+
+#place(
+  bottom,
+  float: true,
+  rect(height: 50pt, width: 100%, {
+    footnote(lines(6, "1"))
+    footnote(lines(2, "I"))
+  })
+)
+
+#lines(5)
+
+--- footnote-break-across-pages-nested ---
+#set page(height: 120pt)
+#block[
+  #lines(4)
+  #footnote[
+    #lines(6, "1")
+    #footnote(lines(3, "I"))
+  ]
+]
+
+--- footnote-in-columns ---
+#set page(height: 120pt, columns: 2)
+
+#place(
+  top + center,
+  float: true,
+  scope: "parent",
+  clearance: 12pt,
+  strong[Title],
+)
+
 #lines(3)
 #footnote(lines(4, "1"))
 
 #lines(2)
 #footnote(lines(2, "1"))
+
+--- footnote-in-list ---
+#set page(height: 120pt)
+
+- A #footnote[a]
+- B #footnote[b]
+- C #footnote[c]
+- D #footnote[d]
+- E #footnote[e]
+- F #footnote[f]
+- G #footnote[g]
+
+--- footnote-block-at-end ---
+#set page(height: 50pt)
+A
+#block(footnote[hello])
+
+--- footnote-float-priority ---
+#set page(height: 100pt)
+
+#lines(3)
+
+#place(
+  top,
+  float: true,
+  rect(height: 40pt)
+)
+
+#block[
+  V
+  #footnote[1]
+  #footnote[2]
+  #footnote[3]
+  #footnote[4]
+]
+
+#lines(5)
 
 --- footnote-in-caption ---
 // Test footnote in caption.
@@ -70,6 +142,15 @@ Read the docs #footnote[https://typst.app/docs]!
   ]
 )
 More #footnote[just for ...] footnotes #footnote[... testing. :)]
+
+--- footnote-in-place ---
+A
+#place(top + right, footnote[A])
+#figure(
+  placement: bottom,
+  caption: footnote[B],
+  rect(),
+)
 
 --- footnote-duplicate ---
 // Test duplicate footnotes.
@@ -104,6 +185,10 @@ A #footnote(lines(6, "1"))
 // Test references to footnotes.
 A footnote #footnote[Hi]<fn> \
 A reference to it @fn
+
+--- footnote-self-ref ---
+// Error: 2-16 footnote cannot reference itself
+#footnote(<fn>) <fn>
 
 --- footnote-ref-multiple ---
 // Multiple footnotes are refs
@@ -163,10 +248,7 @@ Ref @fn
     .map(v => upper(v) + footnote(v))
 )
 
---- issue-multiple-footnote-in-one-line ---
-// Test that the logic that keeps footnote entry together with
-// their markers also works for multiple footnotes in a single
-// line.
+--- footnote-multiple-in-one-line ---
 #set page(height: 100pt)
 #v(50pt)
 A #footnote[a]

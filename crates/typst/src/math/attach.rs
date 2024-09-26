@@ -1,14 +1,20 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, Packed, StyleChain};
-use crate::layout::{Abs, Corner, Frame, Point, Size};
+use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::layout::{Abs, Axis, Corner, Frame, Length, Point, Rel, Size};
 use crate::math::{
-    style_for_subscript, style_for_superscript, EquationElem, FrameFragment, LayoutMath,
-    MathContext, MathFragment, MathSize, Scaled,
+    stretch_fragment, style_for_subscript, style_for_superscript, EquationElem,
+    FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled, StretchElem,
 };
 use crate::text::TextElem;
 use crate::utils::OptionExt;
+
+macro_rules! measure {
+    ($e: ident, $attr: ident) => {
+        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
+    };
+}
 
 /// A base with optional attachments.
 ///
@@ -55,8 +61,9 @@ impl LayoutMath for Packed<AttachElem> {
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let new_elem = merge_base(self);
         let elem = new_elem.as_ref().unwrap_or(self);
+        let stretch = stretch_size(styles, elem);
 
-        let base = ctx.layout_into_fragment(elem.base(), styles)?;
+        let mut base = ctx.layout_into_fragment(elem.base(), styles)?;
         let sup_style = style_for_superscript(styles);
         let sup_style_chain = styles.chain(&sup_style);
         let tl = elem.tl(sup_style_chain);
@@ -86,12 +93,29 @@ impl LayoutMath for Packed<AttachElem> {
             };
         }
 
+        // Layout the top and bottom attachments early so we can measure their
+        // widths, in order to calculate what the stretch size is relative to.
+        let t = layout!(t, sup_style_chain)?;
+        let b = layout!(b, sub_style_chain)?;
+        if let Some(stretch) = stretch {
+            let relative_to_width = measure!(t, width).max(measure!(b, width));
+            stretch_fragment(
+                ctx,
+                styles,
+                &mut base,
+                Some(Axis::X),
+                Some(relative_to_width),
+                stretch,
+                Abs::zero(),
+            );
+        }
+
         let fragments = [
             layout!(tl, sup_style_chain)?,
-            layout!(t, sup_style_chain)?,
+            t,
             layout!(tr, sup_style_chain)?,
             layout!(bl, sub_style_chain)?,
-            layout!(b, sub_style_chain)?,
+            b,
             layout!(br, sub_style_chain)?,
         ];
 
@@ -288,10 +312,18 @@ fn merge_base(elem: &Packed<AttachElem>) -> Option<Packed<AttachElem>> {
     None
 }
 
-macro_rules! measure {
-    ($e: ident, $attr: ident) => {
-        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
-    };
+/// Get the size to stretch the base to, if the attach argument is true.
+fn stretch_size(
+    styles: StyleChain,
+    elem: &Packed<AttachElem>,
+) -> Option<Smart<Rel<Length>>> {
+    // Extract from an EquationElem.
+    let mut base = elem.base();
+    if let Some(equation) = base.to_packed::<EquationElem>() {
+        base = equation.body();
+    }
+
+    base.to_packed::<StretchElem>().map(|stretch| stretch.size(styles))
 }
 
 /// Layout the attachments.

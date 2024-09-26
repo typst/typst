@@ -245,8 +245,6 @@ impl Show for Packed<BibliographyElem> {
                     Packed::new(GridCell::new(reference.clone())).spanned(span),
                 )));
             }
-
-            seq.push(row_gutter_elem.clone());
             seq.push(
                 GridElem::new(cells)
                     .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
@@ -256,8 +254,10 @@ impl Show for Packed<BibliographyElem> {
                     .spanned(self.span()),
             );
         } else {
-            for (_, reference) in references {
-                seq.push(row_gutter_elem.clone());
+            for (i, (_, reference)) in references.iter().enumerate() {
+                if i > 0 {
+                    seq.push(row_gutter_elem.clone());
+                }
                 seq.push(reference.clone());
             }
         }

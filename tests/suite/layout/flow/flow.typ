@@ -55,9 +55,6 @@
 
 --- issue-3641-float-loop ---
 // Flow layout should terminate!
-//
-// This is not yet ideal: The heading should not move to the second page, but
-// that's a separate bug and not a regression.
 #set page(height: 40pt)
 
 = Heading
@@ -69,3 +66,13 @@
 #metadata(none)
 #v(10pt, weak: true)
 Hi
+
+--- issue-3866-block-migration ---
+#set page(height: 120pt)
+#set text(costs: (widow: 0%, orphan: 0%))
+#v(50pt)
+#columns(2)[
+  #lines(6)
+  #block(rect(width: 80%, height: 80pt), breakable: false)
+  #lines(6)
+]

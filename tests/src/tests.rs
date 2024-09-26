@@ -30,6 +30,9 @@ const STORE_PATH: &str = "tests/store";
 /// The directory where the reference images are stored.
 const REF_PATH: &str = "tests/ref";
 
+/// The file where the skipped tests are stored.
+const SKIP_PATH: &str = "tests/skip.txt";
+
 /// The maximum size of reference images that aren't marked as `// LARGE`.
 const REF_LIMIT: usize = 20 * 1024;
 

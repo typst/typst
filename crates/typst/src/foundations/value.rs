@@ -12,9 +12,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::eval::ops;
 use crate::foundations::{
-    fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
-    Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
-    NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type, Version,
+    fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal,
+    Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
+    NativeType, NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type,
+    Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
@@ -65,6 +66,8 @@ pub enum Value {
     Label(Label),
     /// A datetime
     Datetime(Datetime),
+    /// A decimal value: `decimal("123.4500")`
+    Decimal(Decimal),
     /// A duration
     Duration(Duration),
     /// A content value: `[*Hi* there]`.
@@ -136,6 +139,7 @@ impl Value {
             Self::Bytes(_) => Type::of::<Bytes>(),
             Self::Label(_) => Type::of::<Label>(),
             Self::Datetime(_) => Type::of::<Datetime>(),
+            Self::Decimal(_) => Type::of::<Decimal>(),
             Self::Duration(_) => Type::of::<Duration>(),
             Self::Content(_) => Type::of::<Content>(),
             Self::Styles(_) => Type::of::<Styles>(),
@@ -204,6 +208,7 @@ impl Value {
             Self::None => Content::empty(),
             Self::Int(v) => TextElem::packed(repr::format_int_with_base(v, 10)),
             Self::Float(v) => TextElem::packed(repr::display_float(v)),
+            Self::Decimal(v) => TextElem::packed(eco_format!("{v}")),
             Self::Str(v) => TextElem::packed(v),
             Self::Version(v) => TextElem::packed(eco_format!("{v}")),
             Self::Symbol(v) => TextElem::packed(v.get()),
@@ -248,6 +253,7 @@ impl Debug for Value {
             Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
             Self::Datetime(v) => Debug::fmt(v, f),
+            Self::Decimal(v) => Debug::fmt(v, f),
             Self::Duration(v) => Debug::fmt(v, f),
             Self::Content(v) => Debug::fmt(v, f),
             Self::Styles(v) => Debug::fmt(v, f),
@@ -285,6 +291,7 @@ impl Repr for Value {
             Self::Bytes(v) => v.repr(),
             Self::Label(v) => v.repr(),
             Self::Datetime(v) => v.repr(),
+            Self::Decimal(v) => v.repr(),
             Self::Duration(v) => v.repr(),
             Self::Content(v) => v.repr(),
             Self::Styles(v) => v.repr(),
@@ -337,6 +344,7 @@ impl Hash for Value {
             Self::Content(v) => v.hash(state),
             Self::Styles(v) => v.hash(state),
             Self::Datetime(v) => v.hash(state),
+            Self::Decimal(v) => v.hash(state),
             Self::Duration(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
@@ -645,6 +653,7 @@ primitive! {
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
 primitive! { Datetime: "datetime", Datetime }
+primitive! { Decimal: "decimal", Decimal }
 primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,

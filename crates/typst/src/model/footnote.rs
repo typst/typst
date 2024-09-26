@@ -125,6 +125,9 @@ impl Packed<FootnoteElem> {
                 let footnote = element
                     .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
+                if self.location() == footnote.location() {
+                    bail!("footnote cannot reference itself");
+                }
                 footnote.declaration_location(engine)
             }
             _ => Ok(self.location().unwrap()),

@@ -155,6 +155,8 @@ impl Plugin {
         /// The engine.
         engine: &mut Engine,
         /// Path to a WebAssembly file.
+        ///
+        /// For more details, see the [Paths section]($syntax/#paths).
         path: Spanned<EcoString>,
     ) -> SourceResult<Plugin> {
         let Spanned { v: path, span } = path;

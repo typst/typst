@@ -1,16 +1,21 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    systems.url = "github:nix-systems/default";
 
-    crane = {
-      url = "github:ipetkov/crane";
+    crane.url = "github:ipetkov/crane";
+    fenix = {
+      url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    systems.url = "github:nix-systems/default";
+    rust-manifest = {
+      url = "https://static.rust-lang.org/dist/channel-rust-1.80.1.toml";
+      flake = false;
+    };
   };
 
-  outputs = inputs@{ flake-parts, crane, nixpkgs, self, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = inputs@{ flake-parts, crane, nixpkgs, fenix, rust-manifest, self, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
     systems = import inputs.systems;
 
     imports = [
@@ -19,76 +24,77 @@
 
     perSystem = { self', pkgs, lib, ... }:
       let
-        # Generate the typst package for the given nixpkgs instance.
-        packageFor = pkgs:
-          let
-            inherit (lib)
-              importTOML
-              optionals
-              sourceByRegex
-              ;
-            Cargo-toml = importTOML ./Cargo.toml;
+        cargoToml = lib.importTOML ./Cargo.toml;
 
-            pname = "typst";
-            version = Cargo-toml.workspace.package.version;
+        pname = "typst";
+        version = cargoToml.workspace.package.version;
 
-            # Crane-based Nix flake configuration.
-            # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
-            craneLib = crane.mkLib pkgs;
+        rust-toolchain = (fenix.packages.x86_64-linux.fromManifestFile rust-manifest).defaultToolchain;
 
-            # Typst files to include in the derivation.
-            # Here we include Rust files, docs and tests.
-            src = sourceByRegex ./. [
-              "(docs|crates|tests)(/.*)?"
-              ''Cargo\.(toml|lock)''
-              ''build\.rs''
-            ];
+        # Crane-based Nix flake configuration.
+        # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
+        craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
 
-            # Typst derivation's args, used within crane's derivation generation
-            # functions.
-            commonCraneArgs = {
-              inherit src pname version;
+        # Typst files to include in the derivation.
+        # Here we include Rust files, docs and tests.
+        src = lib.fileset.toSource {
+          root = ./.;
+          fileset = lib.fileset.unions [
+            ./Cargo.toml
+            ./Cargo.lock
+            ./rustfmt.toml
+            ./crates
+            ./docs
+            ./tests
+          ];
+        };
 
-              buildInputs = (optionals pkgs.stdenv.isDarwin [
-                pkgs.darwin.apple_sdk.frameworks.CoreServices
-                pkgs.libiconv
-              ]) ++ [
-                pkgs.openssl
-              ];
+        # Typst derivation's args, used within crane's derivation generation
+        # functions.
+        commonCraneArgs = {
+          inherit src pname version;
 
-              nativeBuildInputs = [
-                pkgs.installShellFiles
-                pkgs.pkg-config
-                pkgs.openssl.dev
-              ];
-            };
+          buildInputs = [
+            pkgs.openssl
+          ] ++ (lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.darwin.apple_sdk.frameworks.CoreServices
+            pkgs.libiconv
+          ]);
 
-            # Derivation with just the dependencies, so we don't have to keep
-            # re-building them.
-            cargoArtifacts = craneLib.buildDepsOnly commonCraneArgs;
-          in
-          craneLib.buildPackage (commonCraneArgs // {
-            inherit cargoArtifacts;
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.openssl.dev
+          ];
+        };
 
-            postInstall = ''
-              installManPage crates/typst-cli/artifacts/*.1
-              installShellCompletion \
-                crates/typst-cli/artifacts/typst.{bash,fish} \
-                --zsh crates/typst-cli/artifacts/_typst
-            '';
+        # Derivation with just the dependencies, so we don't have to keep
+        # re-building them.
+        cargoArtifacts = craneLib.buildDepsOnly commonCraneArgs;
 
-            GEN_ARTIFACTS = "artifacts";
-            TYPST_VERSION =
-              let
-                rev = self.shortRev or "dirty";
-                version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
-              in
-              "${version} (${rev})";
+        typst = craneLib.buildPackage (commonCraneArgs // {
+          inherit cargoArtifacts;
 
-            meta.mainProgram = "typst";
-          });
+          nativeBuildInputs = commonCraneArgs.nativeBuildInputs ++ [
+            pkgs.installShellFiles
+          ];
 
-        typst = packageFor pkgs;
+          postInstall = ''
+            installManPage crates/typst-cli/artifacts/*.1
+            installShellCompletion \
+              crates/typst-cli/artifacts/typst.{bash,fish} \
+              --zsh crates/typst-cli/artifacts/_typst
+          '';
+
+          GEN_ARTIFACTS = "artifacts";
+          TYPST_VERSION =
+            let
+              rev = self.shortRev or "dirty";
+              version = cargoToml.workspace.package.version;
+            in
+            "${version} (${rev})";
+
+          meta.mainProgram = "typst";
+        });
       in
       {
         formatter = pkgs.nixpkgs-fmt;
@@ -105,22 +111,28 @@
           program = lib.getExe typst;
         };
 
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            rustc
-            cargo
-          ];
+        checks = {
+          typst-fmt = craneLib.cargoFmt commonCraneArgs;
+          typst-clippy = craneLib.cargoClippy (commonCraneArgs // {
+            inherit cargoArtifacts;
+            cargoClippyExtraArgs = "--workspace -- --deny warnings";
+          });
+          typst-test = craneLib.cargoTest (commonCraneArgs // {
+            inherit cargoArtifacts;
+            cargoTestExtraArgs = "--workspace";
+          });
+        };
 
-          buildInputs = (lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.CoreServices
-            pkgs.libiconv
-          ]) ++ [
-            pkgs.openssl
-          ];
+        devShells.default = craneLib.devShell {
+          checks = self'.checks;
+          inputsFrom = [ typst ];
 
-          nativeBuildInputs = [
-            pkgs.pkg-config
-            pkgs.openssl.dev
+          packages = [
+            # A script for quickly running tests.
+            # See https://github.com/typst/typst/blob/main/tests/README.md#making-an-alias
+            (pkgs.writeShellScriptBin "testit" ''
+              cargo test --workspace --test tests -- "$@"
+            '')
           ];
         };
       };

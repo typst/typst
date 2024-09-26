@@ -13,7 +13,6 @@ use crate::layout::{
 };
 use crate::model::Numbering;
 use crate::realize::Pair;
-use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::utils::Numeric;
 use crate::visualize::Paint;
@@ -117,11 +116,6 @@ fn layout_page_run_impl(
         .resolve(styles)
         .relative_to(size);
 
-    // Realize columns.
-    let area = size - margin.sum_by_axis();
-    let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
-    regions.root = true;
-
     let fill = PageElem::fill_in(styles);
     let foreground = PageElem::foreground_in(styles);
     let background = PageElem::background_in(styles);
@@ -167,17 +161,16 @@ fn layout_page_run_impl(
     };
 
     // Layout the children.
-    let bump = bumpalo::Bump::new();
+    let area = size - margin.sum_by_axis();
     let fragment = layout_flow(
         &mut engine,
-        &bump,
         children,
         &mut locator,
         styles,
-        regions,
+        Regions::repeat(area, area.map(Abs::is_finite)),
         PageElem::columns_in(styles),
         ColumnsElem::gutter_in(styles),
-        Span::detached(),
+        true,
     )?;
 
     // Layouts a single marginal.

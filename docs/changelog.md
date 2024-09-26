@@ -865,7 +865,8 @@ description: |
 
 - Command line interface
   - Added `typst query` subcommand to execute a
-    [query]($reference/meta/query/#command-line-queries) on the command line
+    [query]($reference/introspection/query/#command-line-queries) on the command
+    line
   - The `--root` and `--font-paths` arguments cannot appear in front of the
     command anymore (**Breaking change**)
   - Local and cached packages are now stored in directories of the form
