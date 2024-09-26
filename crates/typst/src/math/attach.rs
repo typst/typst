@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, Packed, StyleChain};
-use crate::layout::{Abs, Corner, Frame, Point, Size};
+use crate::layout::{Abs, Axis, Corner, Frame, Point, Size};
 use crate::math::{
     stretch_fragment, style_for_subscript, style_for_superscript, EquationElem,
     FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled, StretchElem,
@@ -109,7 +109,7 @@ impl LayoutMath for Packed<AttachElem> {
                 ctx,
                 styles,
                 &mut base,
-                Some(true),
+                Some(Axis::X),
                 Some(relative_to_width),
                 stretch,
                 Abs::zero(),

@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Content, NativeElement, Packed, Smart, StyleChain};
-use crate::layout::{Abs, Em, Length, Rel};
+use crate::layout::{Abs, Axis, Em, Length, Rel};
 use crate::math::{stretch_fragment, LayoutMath, MathContext, MathFragment, Scaled};
 use crate::text::TextElem;
 
@@ -155,7 +155,7 @@ fn scale(
             ctx,
             styles,
             fragment,
-            Some(false),
+            Some(Axis::Y),
             Some(relative_to),
             height,
             short_fall,
