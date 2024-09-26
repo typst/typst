@@ -77,7 +77,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lay out a container/page region, including container/page insertions.
     fn page(mut self, locator: Locator, regions: Regions) -> SourceResult<Frame> {
         // This loop can restart region layout when requested to do so by a
-        // `Stop`. This happens when there is a page-scoped float.
+        // `Stop`. This happens when there is a parent-scoped float.
         let checkpoint = self.work.clone();
         let output = loop {
             // Shrink the available space by the space used by page
@@ -89,7 +89,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Ok(frame) => break frame,
                 Err(Stop::Finish(_)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Column)) => unreachable!(),
-                Err(Stop::Relayout(PlacementScope::Page)) => {
+                Err(Stop::Relayout(PlacementScope::Parent)) => {
                     *self.work = checkpoint.clone();
                     continue;
                 }
@@ -257,7 +257,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Determine the base size of the chosen scope.
         let base = match placed.scope {
             PlacementScope::Column => regions.base(),
-            PlacementScope::Page => self.page_base,
+            PlacementScope::Parent => self.page_base,
         };
 
         // Lay out the placed element.
@@ -267,7 +267,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // placement, but only an approximation for page placement.
         let remaining = match placed.scope {
             PlacementScope::Column => regions.size.y,
-            PlacementScope::Page => {
+            PlacementScope::Parent => {
                 let remaining: Abs = regions
                     .iter()
                     .map(|size| size.y)
@@ -309,7 +309,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Select the insertion area where we'll put this float.
         let area = match placed.scope {
             PlacementScope::Column => &mut self.column_insertions,
-            PlacementScope::Page => &mut self.page_insertions,
+            PlacementScope::Parent => &mut self.page_insertions,
         };
 
         // Put the float there.

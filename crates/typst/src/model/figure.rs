@@ -135,7 +135,7 @@ pub struct FigureElem {
 
     /// Relative to which containing scope something is placed.
     ///
-    /// Set this to `{"page"}` to create a full-width figure in a two-column
+    /// Set this to `{"parent"}` to create a full-width figure in a two-column
     /// document.
     ///
     /// Has no effect if `placement` is `{none}`.

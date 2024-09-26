@@ -406,7 +406,7 @@ the `gutter` parameter.
 Very commonly, scientific papers have a single-column title and abstract, while
 the main body is set in two-columns. To achieve this effect, Typst's [`place`
 function]($place) can temporarily escape the two-column layout by specifying
-`{float: true}` and `{scope: "page"}`:
+`{float: true}` and `{scope: "parent"}`:
 
 ```example:single
 >>> #set page(height: 180pt)
@@ -416,7 +416,7 @@ function]($place) can temporarily escape the two-column layout by specifying
 #place(
   top + center,
   float: true,
-  scope: "page",
+  scope: "parent",
   text(1.4em, weight: "bold")[
     Impacts of Odobenidae
   ],

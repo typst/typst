@@ -84,7 +84,7 @@ Beautiful footnotes. #footnote[Wonderful, aren't they?]
 #place(
   top + center,
   float: true,
-  scope: "page",
+  scope: "parent",
   clearance: 12pt,
   strong[Title],
 )
