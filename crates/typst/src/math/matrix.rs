@@ -7,7 +7,8 @@ use crate::foundations::{
     Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
+    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, HAlignment, Length, Point, Ratio,
+    Rel, Size,
 };
 use crate::math::{
     alignments, scaled_font_size, stack, style_for_denominator, AlignmentResult,
@@ -29,7 +30,8 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
 /// A column vector.
 ///
-/// Content in the vector's elements can be aligned with the `&` symbol.
+/// Content in the vector's elements can be aligned with the
+/// [`align`]($math.vec.align) parameter, or the `&` symbol.
 ///
 /// # Example
 /// ```example
@@ -46,6 +48,16 @@ pub struct VecElem {
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
+
+    /// The horizontal alignment that each element should have.
+    ///
+    /// ```example
+    /// #set math.vec(align: right)
+    /// $ vec(-1, 1, -1) $
+    /// ```
+    #[resolve]
+    #[default(HAlignment::Center)]
+    pub align: HAlignment,
 
     /// The gap between elements.
     ///
@@ -70,7 +82,7 @@ impl LayoutMath for Packed<VecElem> {
             ctx,
             styles,
             self.children(),
-            FixedAlignment::Center,
+            self.align(styles),
             self.gap(styles),
             LeftRightAlternator::Right,
         )?;
@@ -87,7 +99,9 @@ impl LayoutMath for Packed<VecElem> {
 /// special syntax of math function calls to define custom functions that take
 /// 2D data.
 ///
-/// Content in cells that are in the same row can be aligned with the `&` symbol.
+/// Content in cells can be aligned with the [`align`]($math.mat.align)
+/// parameter, or content in cells that are in the same row can be aligned with
+/// the `&` symbol.
 ///
 /// # Example
 /// ```example
@@ -108,6 +122,16 @@ pub struct MatElem {
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
+
+    /// The horizontal alignment that each cell should have.
+    ///
+    /// ```example
+    /// #set math.mat(align: right)
+    /// $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
+    /// ```
+    #[resolve]
+    #[default(HAlignment::Center)]
+    pub align: HAlignment,
 
     /// Draws augmentation lines in a matrix.
     ///
@@ -249,6 +273,7 @@ impl LayoutMath for Packed<MatElem> {
             ctx,
             styles,
             rows,
+            self.align(styles),
             augment,
             Axes::new(self.column_gap(styles), self.row_gap(styles)),
             self.span(),
@@ -454,6 +479,7 @@ fn layout_mat_body(
     ctx: &mut MathContext,
     styles: StyleChain,
     rows: &[Vec<Content>],
+    align: FixedAlignment,
     augment: Option<Augment<Abs>>,
     gap: Axes<Rel<Abs>>,
     span: Span,
@@ -538,7 +564,11 @@ fn layout_mat_body(
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_line_frame(&points, LeftRightAlternator::Right);
             let pos = Point::new(
-                if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
+                if points.is_empty() {
+                    x + align.position(rcol - cell.width())
+                } else {
+                    x
+                },
                 y + ascent - cell.ascent(),
             );
 
