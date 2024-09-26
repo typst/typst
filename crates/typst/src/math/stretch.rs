@@ -73,9 +73,7 @@ pub(super) fn stretch_fragment(
         _ => return,
     };
 
-    let axis = if let Some(stretch_axis) = axis.or_else(|| stretch_axis(ctx, &glyph)) {
-        stretch_axis
-    } else {
+    let Some(axis) = axis.or_else(|| stretch_axis(ctx, &glyph)) else {
         return;
     };
 
