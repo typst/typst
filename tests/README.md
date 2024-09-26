@@ -87,6 +87,8 @@ There are, broadly speaking, three kinds of tests:
 
   To prevent bloat, it is important that the test images are kept as small as
   possible. To that effect, the test runner enforces a maximum size of 20 KiB.
+  If you're updating a test and hit `reference image size exceeds`, see
+  Updating reference images.
   If truly necessary, this limit can however be lifted by adding `// LARGE` as
   the first line of a test.
 
@@ -101,6 +103,9 @@ flag:
 ```bash
 testit --exact my-test-name --update
 ```
+
+This will generally generate compressed reference images (to remain within the
+above size limit).
 
 If you use the VS Code test helper extension (see the `tools` folder), you can
 alternatively use the save button to update the reference image.
