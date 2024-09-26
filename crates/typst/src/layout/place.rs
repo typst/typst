@@ -47,19 +47,24 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// you can wrap the `place` call in a [`box`] when the call is made
 /// in the middle of a paragraph. The alignment and offsets will then be
 /// relative to this zero-size box. To make sure it doesn't interfere with
-/// spacing, the box should be attached to a word using a zero-width joiner:
+/// spacing, the box should be attached to a word using a zero-width joiner.
+///
+/// For example, the following defines a function for attaching an annotation
+/// to the following word:
 ///
 /// ```example
-/// The first sentence is covered by
-/// the placed element.
-/// #box(
-///   place(
-///     bottom+center,
-///     circle(fill: red),
-///   )
-/// )#(sym.zwj)The second sentence is
-/// shown on top.
+/// #let annotate(..args) = {
+///   box(place(..args))
+///   sym.zwj
+///   h(0pt, weak: true)
+/// }
+///
+/// A placed #annotate(square(), dy: 2pt)
+/// square in my text.
 /// ```
+///
+/// The zero-width weak spacing serves to discard spaces between the function
+/// call and the next word in markup.
 #[elem(scope)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
