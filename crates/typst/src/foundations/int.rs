@@ -344,12 +344,15 @@ impl Repr for i64 {
     }
 }
 
-/// Represents the byte order used for converting integers to bytes and vice versa.
+/// Represents the byte order used for converting integers and floats to bytes
+/// and vice versa.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Endianness {
-    /// Big-endian byte order: the highest-value byte is at the beginning of the bytes.
+    /// Big-endian byte order: The highest-value byte is at the beginning of the
+    /// bytes.
     Big,
-    /// Little-endian byte order: the lowest-value byte is at the beginning of the bytes.
+    /// Little-endian byte order: The lowest-value byte is at the beginning of
+    /// the bytes.
     Little,
 }
 

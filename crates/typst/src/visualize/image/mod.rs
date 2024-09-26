@@ -22,7 +22,7 @@ use crate::foundations::{
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, FixedAlignment, Frame, FrameItem, Length, Point, Region, Rel,
-    Size,
+    Size, Sizing,
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
@@ -79,7 +79,7 @@ pub struct ImageElem {
     pub width: Smart<Rel<Length>>,
 
     /// The height of the image.
-    pub height: Smart<Rel<Length>>,
+    pub height: Sizing,
 
     /// A text describing the image.
     pub alt: Option<EcoString>,
@@ -127,7 +127,7 @@ impl ImageElem {
         width: Option<Smart<Rel<Length>>>,
         /// The height of the image.
         #[named]
-        height: Option<Smart<Rel<Length>>>,
+        height: Option<Sizing>,
         /// A text describing the image.
         #[named]
         alt: Option<Option<EcoString>>,

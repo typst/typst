@@ -125,7 +125,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     hash: '#',
     hyph: ['‐', minus: '\u{2D}', nobreak: '\u{2011}', point: '‧', soft: '\u{ad}'],
     percent: '%',
-    copyright: ['©', sound: '℗'],
     permille: '‰',
     pilcrow: ['¶', rev: '⁋'],
     section: '§',
@@ -525,7 +524,9 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     crossmark: ['✗', heavy: '✘'],
     floral: ['❦', l: '☙', r: '❧'],
     refmark: '※',
-    servicemark: '℠',
+    copyright: ['©', sound: '℗'],
+    copyleft: '🄯',
+    trademark: ['™', registered: '®', service: '℠'],
     maltese: '✠',
     suit: [
         club.filled: '♣',

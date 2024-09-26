@@ -156,6 +156,11 @@ impl Sink {
     pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
     }
+
+    /// Extend from another sink.
+    pub fn extend_from_sink(&mut self, other: Sink) {
+        self.extend(other.delayed, other.warnings, other.values);
+    }
 }
 
 #[comemo::track]
@@ -181,7 +186,7 @@ impl Sink {
         }
     }
 
-    /// Extend from another sink.
+    /// Extend from parts of another sink.
     fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,

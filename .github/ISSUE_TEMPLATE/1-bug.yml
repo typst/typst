@@ -1,0 +1,46 @@
+name: 🐞 Compiler Bug Report
+description: For bugs in the Typst compiler
+title: Write a short and descriptive title!
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting a bug in the Typst compiler. Did you [take a look](https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Abug) if your issue has already been filed? If so, join the discussion there! Is your issue related to Typst's web app? Please file it [here](https://github.com/typst/webapp-issues/issues) instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe your issue. Include specific steps to reproduce it or a screenshot if the problem is with Typst's output.
+      placeholder: Terse and specific description of the bug. You can add a screenshot by dragging an image here.
+    validations:
+      required: true
+  - type: input
+    id: repro-url
+    attributes:
+      label: Reproduction URL
+      description: If you did not specify Typst code above, you can share a link to your typst.app project here.
+      placeholder: https://typst.app/project/rU6j4Q5foiCcvB7Hz_gs9m
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      description: Which platform did you run the compiler on?
+      multiple: true
+      options:
+        - Web app
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: false
+  - type: checkboxes
+    id: updated
+    attributes:
+      label: Typst version
+      description: Please check this box to confirm you are using the latest released version of Typst or an unreleased commit from this repository after the latest release.
+      options:
+        - label: I am using the latest version of Typst
+          required: false

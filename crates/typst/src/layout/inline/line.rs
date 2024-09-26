@@ -511,28 +511,25 @@ pub fn commit(
                     let region = Size::new(amount, full);
                     let mut frame =
                         elem.layout(engine, loc.relayout(), *styles, region)?;
-                    frame.post_process(*styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                    push(&mut offset, frame);
+                    push(&mut offset, frame.post_processed(*styles));
                 } else {
                     offset += amount;
                 }
             }
             Item::Text(shaped) => {
-                let mut frame = shaped.build(
+                let frame = shaped.build(
                     engine,
                     &p.spans,
                     justification_ratio,
                     extra_justification,
                 );
-                frame.post_process(shaped.styles);
-                push(&mut offset, frame);
+                push(&mut offset, frame.post_processed(shaped.styles));
             }
             Item::Frame(frame, styles) => {
                 let mut frame = frame.clone();
-                frame.post_process(*styles);
                 frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                push(&mut offset, frame);
+                push(&mut offset, frame.post_processed(*styles));
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
@@ -695,6 +692,12 @@ impl<'a> Deref for Items<'a> {
 impl<'a> DerefMut for Items<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Debug for Items<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(&self.0).finish()
     }
 }
 

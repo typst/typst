@@ -15,7 +15,7 @@ use crate::introspection::{
 };
 use crate::layout::{
     AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
-    PlaceElem, VAlignment, VElem,
+    PlaceElem, PlacementScope, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
@@ -132,6 +132,14 @@ pub struct FigureElem {
     /// #lorem(60)
     /// ```
     pub placement: Option<Smart<VAlignment>>,
+
+    /// Relative to which containing scope something is placed.
+    ///
+    /// Set this to `{"parent"}` to create a full-width figure in a two-column
+    /// document.
+    ///
+    /// Has no effect if `placement` is `{none}`.
+    pub scope: PlacementScope,
 
     /// The figure's caption.
     pub caption: Option<Packed<FigureCaption>>,
@@ -325,8 +333,9 @@ impl Show for Packed<FigureElem> {
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
             realized = PlaceElem::new(realized)
-                .with_float(true)
                 .with_alignment(align.map(|align| HAlignment::Center + align))
+                .with_scope(self.scope(styles))
+                .with_float(true)
                 .pack()
                 .spanned(self.span());
         }

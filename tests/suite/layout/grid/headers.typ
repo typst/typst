@@ -186,7 +186,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-and-rowspan-non-contiguous-2 ---
@@ -201,7 +201,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-and-rowspan-non-contiguous-3 ---
@@ -215,7 +215,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-lack-of-space ---

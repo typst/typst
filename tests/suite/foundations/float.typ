@@ -46,6 +46,17 @@
 #test(float(-calc.inf).signum(), -1.0)
 #test(float(float.nan).signum().is-nan(), true)
 
+--- float-from-and-to-bytes ---
+// Test float `from-bytes()` and `to-bytes()`.
+#test(float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))), 1.0)
+#test(float.from-bytes(bytes((63, 240, 0, 0, 0, 0, 0, 0)), endian: "big"), 1.0)
+#test(1.0.to-bytes(), bytes((0, 0, 0, 0, 0, 0, 240, 63)))
+#test(1.0.to-bytes(endian: "big"), bytes((63, 240, 0, 0, 0, 0, 0, 0)))
+
+--- float-from-bytes-bad-length ---
+// Error: 2-54 bytes must have a length of exactly 8
+#float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1, 0)))
+
 --- float-repr ---
 // Test the `repr` function with floats.
 #test(repr(12.0), "12.0")

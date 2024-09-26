@@ -1,3 +1,7 @@
+use std::cell::RefCell;
+use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
+
 use bumpalo::boxed::Box as BumpBox;
 use bumpalo::Bump;
 use once_cell::unsync::Lazy;
@@ -5,39 +9,18 @@ use once_cell::unsync::Lazy;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Packed, Resolve, Smart, StyleChain};
-use crate::introspection::{Locator, Tag, TagElem};
+use crate::introspection::{Locator, SplitLocator, Tag, TagElem};
 use crate::layout::{
     layout_frame, Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem,
-    FixedAlignment, FlushElem, Fr, Fragment, Frame, PagebreakElem, PlaceElem, Ratio,
-    Region, Regions, Rel, Size, Spacing, VElem,
+    FixedAlignment, FlushElem, Fr, Fragment, Frame, PagebreakElem, PlaceElem,
+    PlacementScope, Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
 };
 use crate::model::ParElem;
 use crate::realize::Pair;
 use crate::text::TextElem;
 
-/// A prepared child in flow layout.
-///
-/// The larger variants are bump-boxed to keep the enum size down.
-pub enum Child<'a> {
-    /// An introspection tag.
-    Tag(&'a Tag),
-    /// Relative spacing with a specific weakness.
-    Rel(Rel<Abs>, u8),
-    /// Fractional spacing.
-    Fr(Fr),
-    /// An already layouted line of a paragraph.
-    Line(BumpBox<'a, LineChild>),
-    /// A potentially breakable block.
-    Block(BumpBox<'a, BlockChild<'a>>),
-    /// An absolutely or floatingly placed element.
-    Placed(BumpBox<'a, PlacedChild<'a>>),
-    /// A column break.
-    Break(bool),
-    /// A place flush.
-    Flush,
-}
-
-/// Collects all content of the flow into prepared children.
+/// Collects all elements of the flow into prepared children. These are much
+/// simpler to handle than the raw elements.
 #[typst_macros::time]
 pub fn collect<'a>(
     engine: &mut Engine,
@@ -47,218 +30,510 @@ pub fn collect<'a>(
     base: Size,
     expand: bool,
 ) -> SourceResult<Vec<Child<'a>>> {
-    let mut locator = locator.split();
-    let mut output = Vec::with_capacity(children.len());
-    let mut last_was_par = false;
+    Collector {
+        engine,
+        bump,
+        children,
+        locator: locator.split(),
+        base,
+        expand,
+        output: Vec::with_capacity(children.len()),
+        last_was_par: false,
+    }
+    .run()
+}
 
-    for &(child, styles) in children {
-        if let Some(elem) = child.to_packed::<TagElem>() {
-            output.push(Child::Tag(&elem.tag));
-        } else if let Some(elem) = child.to_packed::<VElem>() {
-            output.push(match elem.amount {
-                Spacing::Rel(rel) => {
-                    Child::Rel(rel.resolve(styles), elem.weak(styles) as u8)
-                }
-                Spacing::Fr(fr) => Child::Fr(fr),
-            });
-        } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
-            output.push(Child::Break(elem.weak(styles)));
-        } else if let Some(elem) = child.to_packed::<ParElem>() {
-            let align = AlignElem::alignment_in(styles).resolve(styles);
-            let leading = ParElem::leading_in(styles);
-            let spacing = ParElem::spacing_in(styles);
-            let costs = TextElem::costs_in(styles);
+/// State for collection.
+struct Collector<'a, 'x, 'y> {
+    engine: &'x mut Engine<'y>,
+    bump: &'a Bump,
+    children: &'x [Pair<'a>],
+    base: Size,
+    expand: bool,
+    locator: SplitLocator<'a>,
+    output: Vec<Child<'a>>,
+    last_was_par: bool,
+}
 
-            let lines = crate::layout::layout_inline(
-                engine,
-                &elem.children,
-                locator.next(&elem.span()),
-                styles,
-                last_was_par,
-                base,
-                expand,
-            )?
-            .into_frames();
+impl<'a> Collector<'a, '_, '_> {
+    /// Perform the collection.
+    fn run(mut self) -> SourceResult<Vec<Child<'a>>> {
+        for (idx, &(child, styles)) in self.children.iter().enumerate() {
+            if let Some(elem) = child.to_packed::<TagElem>() {
+                self.output.push(Child::Tag(&elem.tag));
+            } else if let Some(elem) = child.to_packed::<VElem>() {
+                self.v(elem, styles);
+            } else if let Some(elem) = child.to_packed::<ParElem>() {
+                self.par(elem, styles)?;
+            } else if let Some(elem) = child.to_packed::<BlockElem>() {
+                self.block(elem, styles);
+            } else if let Some(elem) = child.to_packed::<PlaceElem>() {
+                self.place(idx, elem, styles)?;
+            } else if child.is::<FlushElem>() {
+                self.output.push(Child::Flush);
+            } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
+                self.output.push(Child::Break(elem.weak(styles)));
+            } else if child.is::<PagebreakElem>() {
+                bail!(
+                    child.span(), "pagebreaks are not allowed inside of containers";
+                    hint: "try using a `#colbreak()` instead",
+                );
+            } else {
+                bail!(child.span(), "{} is not allowed here", child.func().name());
+            }
+        }
 
-            output.push(Child::Rel(spacing.into(), 4));
+        Ok(self.output)
+    }
 
-            // Determine whether to prevent widow and orphans.
-            let len = lines.len();
-            let prevent_orphans =
-                costs.orphan() > Ratio::zero() && len >= 2 && !lines[1].is_empty();
-            let prevent_widows =
-                costs.widow() > Ratio::zero() && len >= 2 && !lines[len - 2].is_empty();
-            let prevent_all = len == 3 && prevent_orphans && prevent_widows;
+    /// Collect vertical spacing into a relative or fractional child.
+    fn v(&mut self, elem: &'a Packed<VElem>, styles: StyleChain<'a>) {
+        self.output.push(match elem.amount {
+            Spacing::Rel(rel) => Child::Rel(rel.resolve(styles), elem.weak(styles) as u8),
+            Spacing::Fr(fr) => Child::Fr(fr),
+        });
+    }
 
-            // Store the heights of lines at the edges because we'll potentially
-            // need these later when `lines` is already moved.
-            let height_at = |i| lines.get(i).map(Frame::height).unwrap_or_default();
-            let front_1 = height_at(0);
-            let front_2 = height_at(1);
-            let back_2 = height_at(len.saturating_sub(2));
-            let back_1 = height_at(len.saturating_sub(1));
+    /// Collect a paragraph into [`LineChild`]ren. This already performs line
+    /// layout since it is not dependent on the concrete regions.
+    fn par(
+        &mut self,
+        elem: &'a Packed<ParElem>,
+        styles: StyleChain<'a>,
+    ) -> SourceResult<()> {
+        let align = AlignElem::alignment_in(styles).resolve(styles);
+        let leading = ParElem::leading_in(styles);
+        let spacing = ParElem::spacing_in(styles);
+        let costs = TextElem::costs_in(styles);
 
-            for (i, frame) in lines.into_iter().enumerate() {
-                if i > 0 {
-                    output.push(Child::Rel(leading.into(), 5));
-                }
+        let lines = crate::layout::layout_inline(
+            self.engine,
+            &elem.children,
+            self.locator.next(&elem.span()),
+            styles,
+            self.last_was_par,
+            self.base,
+            self.expand,
+        )?
+        .into_frames();
 
-                // To prevent widows and orphans, we require enough space for
-                // - all lines if it's just three
-                // - the first two lines if we're at the first line
-                // - the last two lines if we're at the second to last line
-                let need = if prevent_all && i == 0 {
-                    front_1 + leading + front_2 + leading + back_1
-                } else if prevent_orphans && i == 0 {
-                    front_1 + leading + front_2
-                } else if prevent_widows && i >= 2 && i + 2 == len {
-                    back_2 + leading + back_1
-                } else {
-                    frame.height()
-                };
+        self.output.push(Child::Rel(spacing.into(), 4));
 
-                let child = LineChild { frame, align, need };
-                output.push(Child::Line(BumpBox::new_in(child, bump)));
+        // Determine whether to prevent widow and orphans.
+        let len = lines.len();
+        let prevent_orphans =
+            costs.orphan() > Ratio::zero() && len >= 2 && !lines[1].is_empty();
+        let prevent_widows =
+            costs.widow() > Ratio::zero() && len >= 2 && !lines[len - 2].is_empty();
+        let prevent_all = len == 3 && prevent_orphans && prevent_widows;
+
+        // Store the heights of lines at the edges because we'll potentially
+        // need these later when `lines` is already moved.
+        let height_at = |i| lines.get(i).map(Frame::height).unwrap_or_default();
+        let front_1 = height_at(0);
+        let front_2 = height_at(1);
+        let back_2 = height_at(len.saturating_sub(2));
+        let back_1 = height_at(len.saturating_sub(1));
+
+        for (i, frame) in lines.into_iter().enumerate() {
+            if i > 0 {
+                self.output.push(Child::Rel(leading.into(), 5));
             }
 
-            output.push(Child::Rel(spacing.into(), 4));
-            last_was_par = true;
-        } else if let Some(elem) = child.to_packed::<BlockElem>() {
-            let locator = locator.next(&elem.span());
-            let align = AlignElem::alignment_in(styles).resolve(styles);
-            let sticky = elem.sticky(styles);
-            let rootable = elem.rootable(styles);
-
-            let fallback = Lazy::new(|| ParElem::spacing_in(styles));
-            let spacing = |amount| match amount {
-                Smart::Auto => Child::Rel((*fallback).into(), 4),
-                Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
-                Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr),
+            // To prevent widows and orphans, we require enough space for
+            // - all lines if it's just three
+            // - the first two lines if we're at the first line
+            // - the last two lines if we're at the second to last line
+            let need = if prevent_all && i == 0 {
+                front_1 + leading + front_2 + leading + back_1
+            } else if prevent_orphans && i == 0 {
+                front_1 + leading + front_2
+            } else if prevent_widows && i >= 2 && i + 2 == len {
+                back_2 + leading + back_1
+            } else {
+                frame.height()
             };
 
-            output.push(spacing(elem.above(styles)));
+            self.output
+                .push(Child::Line(self.boxed(LineChild { frame, align, need })));
+        }
 
-            let child = BlockChild { align, sticky, rootable, elem, styles, locator };
-            output.push(Child::Block(BumpBox::new_in(child, bump)));
+        self.output.push(Child::Rel(spacing.into(), 4));
+        self.last_was_par = true;
 
-            output.push(spacing(elem.below(styles)));
-            last_was_par = false;
-        } else if let Some(elem) = child.to_packed::<PlaceElem>() {
-            let locator = locator.next(&elem.span());
-            let float = elem.float(styles);
-            let clearance = elem.clearance(styles);
-            let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
+        Ok(())
+    }
 
-            let alignment = elem.alignment(styles);
-            let align_x = alignment.map_or(FixedAlignment::Center, |align| {
-                align.x().unwrap_or_default().resolve(styles)
-            });
-            let align_y = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
+    /// Collect a block into a [`SingleChild`] or [`MultiChild`] depending on
+    /// whether it is breakable.
+    fn block(&mut self, elem: &'a Packed<BlockElem>, styles: StyleChain<'a>) {
+        let locator = self.locator.next(&elem.span());
+        let align = AlignElem::alignment_in(styles).resolve(styles);
+        let sticky = elem.sticky(styles);
+        let breakable = elem.breakable(styles);
+        let fr = match elem.height(styles) {
+            Sizing::Fr(fr) => Some(fr),
+            _ => None,
+        };
 
-            match (float, align_y) {
-                (true, Smart::Custom(None | Some(FixedAlignment::Center))) => bail!(
-                    elem.span(),
-                    "floating placement must be `auto`, `top`, or `bottom`"
-                ),
-                (false, Smart::Auto) => bail!(
-                    elem.span(),
-                    "automatic positioning is only available for floating placement";
-                    hint: "you can enable floating placement with `place(float: true, ..)`"
-                ),
-                _ => {}
-            }
+        let fallback = Lazy::new(|| ParElem::spacing_in(styles));
+        let spacing = |amount| match amount {
+            Smart::Auto => Child::Rel((*fallback).into(), 4),
+            Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
+            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr),
+        };
 
-            let child = PlacedChild {
-                float,
-                clearance,
-                delta,
-                align_x,
-                align_y,
+        self.output.push(spacing(elem.above(styles)));
+
+        if !breakable || sticky || fr.is_some() {
+            self.output.push(Child::Single(self.boxed(SingleChild {
+                align,
+                sticky,
+                fr,
                 elem,
                 styles,
                 locator,
-                alignment,
-            };
-            output.push(Child::Placed(BumpBox::new_in(child, bump)));
-        } else if child.is::<FlushElem>() {
-            output.push(Child::Flush);
-        } else if child.is::<PagebreakElem>() {
-            bail!(
-                child.span(), "pagebreaks are not allowed inside of containers";
-                hint: "try using a `#colbreak()` instead",
-            );
+                cell: CachedCell::new(),
+            })));
         } else {
-            bail!(child.span(), "{} is not allowed here", child.func().name());
-        }
+            let alone = self.children.len() == 1;
+            self.output.push(Child::Multi(self.boxed(MultiChild {
+                align,
+                alone,
+                elem,
+                styles,
+                locator,
+                cell: CachedCell::new(),
+            })));
+        };
+
+        self.output.push(spacing(elem.below(styles)));
+        self.last_was_par = false;
     }
 
-    Ok(output)
+    /// Collects a placed element into a [`PlacedChild`].
+    fn place(
+        &mut self,
+        idx: usize,
+        elem: &'a Packed<PlaceElem>,
+        styles: StyleChain<'a>,
+    ) -> SourceResult<()> {
+        let alignment = elem.alignment(styles);
+        let align_x = alignment.map_or(FixedAlignment::Center, |align| {
+            align.x().unwrap_or_default().resolve(styles)
+        });
+        let align_y = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
+        let scope = elem.scope(styles);
+        let float = elem.float(styles);
+
+        match (float, align_y) {
+            (true, Smart::Custom(None | Some(FixedAlignment::Center))) => bail!(
+                elem.span(),
+                "vertical floating placement must be `auto`, `top`, or `bottom`"
+            ),
+            (false, Smart::Auto) => bail!(
+                elem.span(),
+                "automatic positioning is only available for floating placement";
+                hint: "you can enable floating placement with `place(float: true, ..)`"
+            ),
+            _ => {}
+        }
+
+        if !float && scope == PlacementScope::Parent {
+            bail!(
+                elem.span(),
+                "parent-scoped positioning is currently only available for floating placement";
+                hint: "you can enable floating placement with `place(float: true, ..)`"
+            );
+        }
+
+        let locator = self.locator.next(&elem.span());
+        let clearance = elem.clearance(styles);
+        let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
+        self.output.push(Child::Placed(self.boxed(PlacedChild {
+            idx,
+            align_x,
+            align_y,
+            scope,
+            float,
+            clearance,
+            delta,
+            elem,
+            styles,
+            locator,
+            alignment,
+            cell: CachedCell::new(),
+        })));
+
+        Ok(())
+    }
+
+    /// Wraps a value in a bump-allocated box to reduce its footprint in the
+    /// [`Child`] enum.
+    fn boxed<T>(&self, value: T) -> BumpBox<'a, T> {
+        BumpBox::new_in(value, self.bump)
+    }
 }
 
-/// A child that encapsulates a paragraph line.
+/// A prepared child in flow layout.
+///
+/// The larger variants are bump-boxed to keep the enum size down.
+#[derive(Debug)]
+pub enum Child<'a> {
+    /// An introspection tag.
+    Tag(&'a Tag),
+    /// Relative spacing with a specific weakness level.
+    Rel(Rel<Abs>, u8),
+    /// Fractional spacing.
+    Fr(Fr),
+    /// An already layouted line of a paragraph.
+    Line(BumpBox<'a, LineChild>),
+    /// An unbreakable block.
+    Single(BumpBox<'a, SingleChild<'a>>),
+    /// A breakable block.
+    Multi(BumpBox<'a, MultiChild<'a>>),
+    /// An absolutely or floatingly placed element.
+    Placed(BumpBox<'a, PlacedChild<'a>>),
+    /// A place flush.
+    Flush,
+    /// An explicit column break.
+    Break(bool),
+}
+
+/// A child that encapsulates a layouted line of a paragraph.
+#[derive(Debug)]
 pub struct LineChild {
     pub frame: Frame,
     pub align: Axes<FixedAlignment>,
     pub need: Abs,
 }
 
-/// A child that encapsulates a prepared block.
-pub struct BlockChild<'a> {
+/// A child that encapsulates a prepared unbreakable block.
+#[derive(Debug)]
+pub struct SingleChild<'a> {
     pub align: Axes<FixedAlignment>,
     pub sticky: bool,
-    pub rootable: bool,
+    pub fr: Option<Fr>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
     locator: Locator<'a>,
+    cell: CachedCell<SourceResult<Frame>>,
 }
 
-impl BlockChild<'_> {
+impl SingleChild<'_> {
+    /// Build the child's frame given the region's base size.
+    pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
+        self.cell.get_or_init(base, |base| {
+            self.elem
+                .layout_single(engine, self.locator.relayout(), self.styles, base)
+                .map(|frame| frame.post_processed(self.styles))
+        })
+    }
+}
+
+/// A child that encapsulates a prepared breakable block.
+#[derive(Debug)]
+pub struct MultiChild<'a> {
+    pub align: Axes<FixedAlignment>,
+    alone: bool,
+    elem: &'a Packed<BlockElem>,
+    styles: StyleChain<'a>,
+    locator: Locator<'a>,
+    cell: CachedCell<SourceResult<Fragment>>,
+}
+
+impl<'a> MultiChild<'a> {
     /// Build the child's frames given regions.
-    pub fn layout(
+    pub fn layout<'b>(
+        &'b self,
+        engine: &mut Engine,
+        regions: Regions,
+    ) -> SourceResult<(Frame, Option<MultiSpill<'a, 'b>>)> {
+        let fragment = self.layout_impl(engine, regions)?;
+
+        // Extract the first frame.
+        let mut frames = fragment.into_iter();
+        let frame = frames.next().unwrap();
+
+        // If there's more, return a `spill`.
+        let mut spill = None;
+        if frames.next().is_some() {
+            spill = Some(MultiSpill {
+                multi: self,
+                full: regions.full,
+                first: regions.size.y,
+                backlog: vec![],
+            });
+        }
+
+        Ok((frame, spill))
+    }
+
+    /// The shared internal implementation of [`Self::layout`] and
+    /// [`MultiSpill::layout`].
+    fn layout_impl(
         &self,
         engine: &mut Engine,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment =
+        self.cell.get_or_init(regions, |mut regions| {
+            // Vertical expansion is only kept if this block is the only child.
+            regions.expand.y &= self.alone;
             self.elem
-                .layout(engine, self.locator.relayout(), self.styles, regions)?;
+                .layout_multiple(engine, self.locator.relayout(), self.styles, regions)
+                .map(|mut fragment| {
+                    for frame in &mut fragment {
+                        frame.post_process(self.styles);
+                    }
+                    fragment
+                })
+        })
+    }
+}
 
-        for frame in &mut fragment {
-            frame.post_process(self.styles);
+/// The spilled remains of a `MultiChild` that broke across two regions.
+#[derive(Debug, Clone)]
+pub struct MultiSpill<'a, 'b> {
+    multi: &'b MultiChild<'a>,
+    first: Abs,
+    full: Abs,
+    backlog: Vec<Abs>,
+}
+
+impl MultiSpill<'_, '_> {
+    /// Build the spill's frames given regions.
+    pub fn layout(
+        mut self,
+        engine: &mut Engine,
+        regions: Regions,
+    ) -> SourceResult<(Frame, Option<Self>)> {
+        // We build regions for the whole `MultiChild` with the sizes passed to
+        // earlier parts of it plus the new regions. Then, we layout the
+        // complete block, but extract only the suffix that interests us.
+        self.backlog.push(regions.size.y);
+
+        let mut backlog: Vec<_> =
+            self.backlog.iter().chain(regions.backlog).copied().collect();
+
+        // Remove unnecessary backlog items (also to prevent it from growing
+        // unnecessarily, which would change the region's hash).
+        while !backlog.is_empty() && backlog.last().copied() == regions.last {
+            backlog.pop();
         }
 
-        Ok(fragment)
+        // Build the pod with the merged regions.
+        let pod = Regions {
+            size: Size::new(regions.size.x, self.first),
+            expand: regions.expand,
+            full: self.full,
+            backlog: &backlog,
+            last: regions.last,
+        };
+
+        // Extract the not-yet-processed frames.
+        let mut frames = self
+            .multi
+            .layout_impl(engine, pod)?
+            .into_iter()
+            .skip(self.backlog.len());
+
+        // Save the first frame.
+        let frame = frames.next().unwrap();
+
+        // If there's more, return a `spill`.
+        let mut spill = None;
+        if frames.next().is_some() {
+            spill = Some(self);
+        }
+
+        Ok((frame, spill))
+    }
+
+    /// The alignment of the breakable block.
+    pub fn align(&self) -> Axes<FixedAlignment> {
+        self.multi.align
     }
 }
 
 /// A child that encapsulates a prepared placed element.
+#[derive(Debug)]
 pub struct PlacedChild<'a> {
+    pub idx: usize,
+    pub align_x: FixedAlignment,
+    pub align_y: Smart<Option<FixedAlignment>>,
+    pub scope: PlacementScope,
     pub float: bool,
     pub clearance: Abs,
     pub delta: Axes<Rel<Abs>>,
-    pub align_x: FixedAlignment,
-    pub align_y: Smart<Option<FixedAlignment>>,
     elem: &'a Packed<PlaceElem>,
     styles: StyleChain<'a>,
     locator: Locator<'a>,
     alignment: Smart<Alignment>,
+    cell: CachedCell<SourceResult<Frame>>,
 }
 
 impl PlacedChild<'_> {
     /// Build the child's frame given the region's base size.
     pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
-        let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
-        let aligned = AlignElem::set_alignment(align).wrap();
+        self.cell.get_or_init(base, |base| {
+            let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
+            let aligned = AlignElem::set_alignment(align).wrap();
+            layout_frame(
+                engine,
+                &self.elem.body,
+                self.locator.relayout(),
+                self.styles.chain(&aligned),
+                Region::new(base, Axes::splat(false)),
+            )
+            .map(|frame| frame.post_processed(self.styles))
+        })
+    }
+}
 
-        let mut frame = layout_frame(
-            engine,
-            &self.elem.body,
-            self.locator.relayout(),
-            self.styles.chain(&aligned),
-            Region::new(base, Axes::splat(false)),
-        )?;
+/// Wraps a parameterized computation and caches its latest output.
+///
+/// - When the computation is performed multiple times consecutively with the
+///   same argument, reuses the cache.
+/// - When the argument changes, the new output is cached.
+#[derive(Clone)]
+struct CachedCell<T>(RefCell<Option<(u128, T)>>);
 
-        frame.post_process(self.styles);
-        Ok(frame)
+impl<T> CachedCell<T> {
+    /// Create an empty cached cell.
+    fn new() -> Self {
+        Self(RefCell::new(None))
+    }
+
+    /// Perform the computation `f` with caching.
+    fn get_or_init<F, I>(&self, input: I, f: F) -> T
+    where
+        I: Hash,
+        T: Clone,
+        F: FnOnce(I) -> T,
+    {
+        let input_hash = crate::utils::hash128(&input);
+
+        let mut slot = self.0.borrow_mut();
+        if let Some((hash, output)) = &*slot {
+            if *hash == input_hash {
+                return output.clone();
+            }
+        }
+
+        let output = f(input);
+        *slot = Some((input_hash, output.clone()));
+        output
+    }
+}
+
+impl<T> Default for CachedCell<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> Debug for CachedCell<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.pad("CachedCell(..)")
     }
 }

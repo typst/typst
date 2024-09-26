@@ -25,10 +25,10 @@
 #outline()
 
 = Introduction
-#v(1cm)
+#lines(1)
 
 = Background
-#v(2cm)
+#lines(2)
 
 = Approach
 
@@ -72,80 +72,11 @@
   caption: [Tetrahedron],
 )
 
---- query-before-after ---
-// LARGE
-#set page(
-  paper: "a7",
-  numbering: "1 / 1",
-  margin: (bottom: 1cm, rest: 0.5cm),
-)
-
-#show heading.where(level: 1, outlined: true): it => [
-  #it
-
-  #set text(size: 12pt, weight: "regular")
-  #outline(
-    title: none,
-    indent: true,
-    target: heading
-      .where(level: 1)
-      .or(heading.where(level: 2))
-      .after(it.location(), inclusive: true)
-      .before(
-        heading
-          .where(level: 1, outlined: true)
-          .after(it.location(), inclusive: false),
-        inclusive: false,
-      )
-  )
-]
-
-#set heading(outlined: true, numbering: "1.")
-
-= Section 1
-== Subsection 1
-== Subsection 2
-=== Subsubsection 1
-=== Subsubsection 2
-== Subsection 3
-
-= Section 2
-== Subsection 1
-== Subsection 2
-
-= Section 3
-== Subsection 1
-== Subsection 2
-=== Subsubsection 1
-=== Subsubsection 2
-=== Subsubsection 3
-== Subsection 3
-
---- query-and-or ---
-#set page(
-  paper: "a7",
-  numbering: "1 / 1",
-  margin: (bottom: 1cm, rest: 0.5cm),
-)
-
-#set heading(outlined: true, numbering: "1.")
-
-#context [
-  Non-outlined elements:
-  #(query(selector(heading).and(heading.where(outlined: false)))
-    .map(it => it.body).join(", "))
-]
-
-#heading("A", outlined: false)
-#heading("B", outlined: true)
-#heading("C", outlined: true)
-#heading("D", outlined: false)
-
 --- query-complex ---
 = A
 == B
 #figure([Cat], kind: "cat", supplement: [Other])
-=== D
+#heading(level: 3, outlined: false)[D]
 = E <first>
 #figure([Frog], kind: "frog", supplement: none)
 #figure([Giraffe], kind: "giraffe", supplement: none) <second>
@@ -162,6 +93,11 @@
 #test-selector(
   heading.where(level: 1).or(heading.where(level: 3)),
   ([A], [D], [E], [H]),
+)
+
+#test-selector(
+  selector(heading).and(heading.where(outlined: false)),
+  ([D],)
 )
 
 #test-selector(

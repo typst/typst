@@ -10,34 +10,39 @@ use crate::layout::{
 
 /// Separates a region into multiple equally sized columns.
 ///
-/// The `column` function allows to separate the interior of any container into
-/// multiple columns. It will not equalize the height of the columns, instead,
-/// the columns will take up the height of their container or the remaining
-/// height on the page. The columns function can break across pages if
-/// necessary.
+/// The `column` function lets you separate the interior of any container into
+/// multiple columns. It will currently not balance the height of the columns.
+/// Instead, the columns will take up the height of their container or the
+/// remaining height on the page. Support for balanced columns is planned for
+/// the future.
 ///
-/// If you need to insert columns across your whole document, you can use the
-/// [`{page}` function's `columns` parameter]($page.columns) instead.
+/// # Page-level columns { #page-level }
+/// If you need to insert columns across your whole document, use the `{page}`
+/// function's [`columns` parameter]($page.columns) instead. This will create
+/// the columns directly at the page-level rather than wrapping all of your
+/// content in a layout container. As a result, things like
+/// [pagebreaks]($pagebreak), [footnotes]($footnote), and [line
+/// numbers]($par.line) will continue to work as expected. For more information,
+/// also read the [relevant part of the page setup
+/// guide]($guides/page-setup/#columns).
 ///
-/// # Example
-/// ```example
-/// = Towards Advanced Deep Learning
+/// # Breaking out of columns { #breaking-out }
+/// To temporarily break out of columns (e.g. for a paper's title), use
+/// parent-scoped floating placement:
 ///
-/// #box(height: 68pt,
-///  columns(2, gutter: 11pt)[
-///    #set par(justify: true)
-///    This research was funded by the
-///    National Academy of Sciences.
-///    NAoS provided support for field
-///    tests and interviews with a
-///    grant of up to USD 40.000 for a
-///    period of 6 months.
-///  ]
+/// ```example:single
+/// #set page(columns: 2, height: 150pt)
+///
+/// #place(
+///   top + center,
+///   scope: "parent",
+///   float: true,
+///   text(1.4em, weight: "bold")[
+///     My document
+///   ],
 /// )
 ///
-/// In recent years, deep learning has
-/// increasingly been used to solve a
-/// variety of problems.
+/// #lorem(40)
 /// ```
 #[elem(Show)]
 pub struct ColumnsElem {
@@ -59,7 +64,6 @@ pub struct ColumnsElem {
 impl Show for Packed<ColumnsElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(BlockElem::multi_layouter(self.clone(), layout_columns)
-            .with_rootable(true)
             .pack()
             .spanned(self.span()))
     }

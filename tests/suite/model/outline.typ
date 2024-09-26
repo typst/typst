@@ -1,53 +1,41 @@
 --- outline ---
-// LARGE
-#set page("a7", margin: 20pt, numbering: "1")
+#set page(height: 200pt, margin: (bottom: 20pt), numbering: "1")
 #set heading(numbering: "(1/a)")
 #show heading.where(level: 1): set text(12pt)
 #show heading.where(level: 2): set text(10pt)
-#set math.equation(numbering: "1")
 
-#outline()
-#outline(title: [Figures], target: figure)
-#outline(title: [Equations], target: math.equation)
+#outline(fill: none)
 
-= Introduction
-#lorem(12)
+= A
+= B
+#lines(3)
 
-= Analysis
-#lorem(10)
-
+// This heading is right at the start of the page, so that we can test
+// whether the tag migrates properly.
 #[
   #set heading(outlined: false)
-  == Methodology
-  #lorem(6)
+  == C
 ]
 
-== Math
-$x$ is a very useful constant. See it in action:
-$ x = x $
+A
 
-== Interesting figures
-#figure(rect[CENSORED], kind: image, caption: [A picture showing a programmer at work.])
-#figure(table[1x1], caption: [A very small table.])
+== D
+== F
+==== G
 
-== Programming
-```rust
-fn main() {
-  panic!("in the disco");
-}
-```
+--- outline-styled-text ---
+#outline(title: none)
 
-==== Deep Stuff
-Ok ...
+= #text(blue)[He]llo
+
+--- outline-bookmark ---
+#outline(title: none, fill: none)
 
 // Ensure 'bookmarked' option doesn't affect the outline
 #set heading(numbering: "(I)", bookmarked: false)
-
-= #text(blue)[Sum]mary
-#lorem(10)
+= A
 
 --- outline-indent-numbering ---
-// LARGE
 // With heading numbering
 #set page(width: 200pt)
 #set heading(numbering: "1.a.")
@@ -62,11 +50,11 @@ Ok ...
 #outline(indent: 2em)
 #outline(indent: n => ([-], [], [==], [====]).at(n))
 
-= About ACME Corp.
-== History
-== Products
-=== Categories
-==== General
+= A
+== B
+== C
+=== D
+==== E
 
 --- outline-indent-no-numbering ---
 // Without heading numbering

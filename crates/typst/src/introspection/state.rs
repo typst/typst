@@ -71,7 +71,7 @@ use crate::World;
 /// # Managing state in Typst { #state-in-typst }
 /// So what do we do instead? We use Typst's state management system. Calling
 /// the `state` function with an identifying string key and an optional initial
-/// value gives you a state value which exposes a few function. The two most
+/// value gives you a state value which exposes a few functions. The two most
 /// important ones are `get` and `update`:
 ///
 /// - The [`get`]($state.get) function retrieves the current value of the state.

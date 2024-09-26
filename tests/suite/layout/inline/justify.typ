@@ -167,3 +167,8 @@ int main() {
 // an underfull first line.
 #set par(hanging-indent: 2.5cm, justify: true)
 #lorem(5)
+
+--- issue-4651-justify-bad-bound ---
+// Test that overflow does not lead to bad bounds in paragraph optimization.
+#set par(justify: true)
+#block(width: 0pt)[A B]

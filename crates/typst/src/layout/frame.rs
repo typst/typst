@@ -320,6 +320,12 @@ impl Frame {
     /// that result from realization will take care of it and the styles can
     /// only apply to them as a whole, not part of it (because they don't manage
     /// styles).
+    pub fn post_processed(mut self, styles: StyleChain) -> Self {
+        self.post_process(styles);
+        self
+    }
+
+    /// Post process in place.
     pub fn post_process(&mut self, styles: StyleChain) {
         if !self.is_empty() {
             self.post_process_raw(

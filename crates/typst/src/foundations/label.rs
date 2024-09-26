@@ -29,6 +29,16 @@ use crate::utils::PicoStr;
 /// its name in angle brackets. This works both in markup and code. A label's
 /// name can contain letters, numbers, `_`, `-`, `:`, and `.`.
 ///
+/// Note that there is a syntactical difference when using the dedicated syntax
+/// for this function. In the code below, the `[<a>]` terminates the heading and
+/// thus attaches to the heading itself, whereas the `[#label("b")]` is part of
+/// the heading and thus attaches to the heading's text.
+///
+/// ```typ
+/// = Intro <a>         // Equivalent to `#heading[Intro] <a>`.
+/// = Concl #label("b") // Equivalent to `#heading[Concl #label("b")]`.
+/// ```
+///
 /// Currently, labels can only be attached to elements in markup mode, not in
 /// code mode. This might change in the future.
 #[ty(scope, cast)]

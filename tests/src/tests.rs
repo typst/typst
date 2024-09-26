@@ -30,6 +30,9 @@ const STORE_PATH: &str = "tests/store";
 /// The directory where the reference images are stored.
 const REF_PATH: &str = "tests/ref";
 
+/// The file where the skipped tests are stored.
+const SKIP_PATH: &str = "tests/skip.txt";
+
 /// The maximum size of reference images that aren't marked as `// LARGE`.
 const REF_LIMIT: usize = 20 * 1024;
 
@@ -38,7 +41,8 @@ fn main() {
 
     match &ARGS.command {
         None => test(),
-        Some(Command::Clean) => std::fs::remove_dir_all(STORE_PATH).unwrap(),
+        Some(Command::Clean) => clean(),
+        Some(Command::Undangle) => undangle(),
     }
 }
 
@@ -118,5 +122,23 @@ fn test() {
     let passed = logger.into_inner().finish();
     if !passed {
         std::process::exit(1);
+    }
+}
+
+fn clean() {
+    std::fs::remove_dir_all(STORE_PATH).unwrap();
+}
+
+fn undangle() {
+    match crate::collect::collect() {
+        Ok(_) => eprintln!("no danging reference images"),
+        Err(errors) => {
+            for error in errors {
+                if error.message == "dangling reference image" {
+                    std::fs::remove_file(&error.pos.path).unwrap();
+                    eprintln!("✅ deleted {}", error.pos.path.display());
+                }
+            }
+        }
     }
 }

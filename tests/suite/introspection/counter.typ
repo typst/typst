@@ -54,13 +54,13 @@ At Beta, it was #context {
 
 --- counter-page ---
 #set page(height: 50pt, margin: (bottom: 20pt, rest: 10pt))
-#lorem(12)
+#lines(4)
 #set page(numbering: "(i)")
-#lorem(6)
+#lines(2)
 #pagebreak()
 #set page(numbering: "1 / 1")
 #counter(page).update(1)
-#lorem(20)
+#lines(7)
 
 --- counter-page-footer-before-set-page ---
 #set page(numbering: "1", margin: (bottom: 20pt))

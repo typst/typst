@@ -3,13 +3,19 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::OnceLock;
 
+use comemo::Tracked;
 use parking_lot::Mutex;
-use typst::diag::{bail, FileError, FileResult, StrResult};
-use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
+use typst::diag::{bail, At, FileError, FileResult, SourceResult, StrResult};
+use typst::engine::Engine;
+use typst::foundations::{
+    func, Array, Bytes, Context, Datetime, IntoValue, NoneValue, Repr, Smart, Value,
+};
 use typst::layout::{Abs, Margin, PageElem};
-use typst::syntax::{FileId, Source};
+use typst::model::{Numbering, NumberingPattern};
+use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
@@ -176,40 +182,11 @@ fn library() -> Library {
     // that it multiplies to nice round numbers.
     let mut lib = Library::default();
 
-    #[func]
-    fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if lhs != rhs {
-            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
-        }
-        Ok(NoneValue)
-    }
-
-    #[func]
-    fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if lhs.repr() != rhs.repr() {
-            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
-        }
-        Ok(NoneValue)
-    }
-
-    #[func]
-    fn print(#[variadic] values: Vec<Value>) -> NoneValue {
-        let mut out = std::io::stdout().lock();
-        write!(out, "> ").unwrap();
-        for (i, value) in values.into_iter().enumerate() {
-            if i > 0 {
-                write!(out, ", ").unwrap();
-            }
-            write!(out, "{value:?}").unwrap();
-        }
-        writeln!(out).unwrap();
-        NoneValue
-    }
-
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();
     lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
+    lib.global.scope_mut().define_func::<lines>();
     lib.global
         .scope_mut()
         .define("conifer", Color::from_u8(0x9f, 0xEB, 0x52, 0xFF));
@@ -227,4 +204,51 @@ fn library() -> Library {
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
 
     lib
+}
+
+#[func]
+fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
+    if lhs != rhs {
+        bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
+    }
+    Ok(NoneValue)
+}
+
+#[func]
+fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
+    if lhs.repr() != rhs.repr() {
+        bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
+    }
+    Ok(NoneValue)
+}
+
+#[func]
+fn print(#[variadic] values: Vec<Value>) -> NoneValue {
+    let mut out = std::io::stdout().lock();
+    write!(out, "> ").unwrap();
+    for (i, value) in values.into_iter().enumerate() {
+        if i > 0 {
+            write!(out, ", ").unwrap();
+        }
+        write!(out, "{value:?}").unwrap();
+    }
+    writeln!(out).unwrap();
+    NoneValue
+}
+
+/// Generates `count` lines of text based on the numbering.
+#[func]
+fn lines(
+    engine: &mut Engine,
+    context: Tracked<Context>,
+    span: Span,
+    count: usize,
+    #[default(Numbering::Pattern(NumberingPattern::from_str("A").unwrap()))]
+    numbering: Numbering,
+) -> SourceResult<Value> {
+    (1..=count)
+        .map(|n| numbering.apply(engine, context, &[n]))
+        .collect::<SourceResult<Array>>()?
+        .join(Some('\n'.into_value()), None)
+        .at(span)
 }

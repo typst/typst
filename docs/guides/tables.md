@@ -242,10 +242,10 @@ Let's start with an example of a horizontally striped table:
 #set text(font: "IBM Plex Sans")
 
 // Medium bold table header.
-#show table.cell.where(x: 1): set text(weight: "medium")
+#show table.cell.where(y: 0): set text(weight: "medium")
 
 // Bold titles.
-#show table.cell.where(y: 0): set text(weight: "bold")
+#show table.cell.where(x: 1): set text(weight: "bold")
 
 // See the strokes section for details on this!
 #let frame(stroke) = (x, y) => (

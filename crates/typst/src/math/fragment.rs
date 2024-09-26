@@ -467,12 +467,11 @@ pub struct FrameFragment {
 }
 
 impl FrameFragment {
-    pub fn new(ctx: &MathContext, styles: StyleChain, mut frame: Frame) -> Self {
+    pub fn new(ctx: &MathContext, styles: StyleChain, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
         let accent_attach = frame.width() / 2.0;
-        frame.post_process(styles);
         Self {
-            frame,
+            frame: frame.post_processed(styles),
             font_size: scaled_font_size(ctx, styles),
             class: EquationElem::class_in(styles).unwrap_or(MathClass::Normal),
             math_size: EquationElem::size_in(styles),

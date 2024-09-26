@@ -18,9 +18,40 @@ Apart
   #block(width: 50%, height: 60%, fill: blue)
 ]
 
---- box-width-fr ---
+--- box-fr-width ---
 // Test fr box.
 Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
+
+--- block-fr-height ---
+#set page(height: 100pt)
+#rect(height: 10pt, width: 100%)
+#align(center, block(height: 1fr, width: 20pt, stroke: 1pt))
+#rect(height: 10pt, width: 100%)
+
+--- block-fr-height-auto-width ---
+// Test that the fr block can also expand its parent.
+#set page(height: 100pt)
+#set align(center)
+#block(inset: 5pt, stroke: green)[
+  #rect(height: 10pt)
+  #block(height: 1fr, stroke: 1pt, inset: 5pt)[
+    #set align(center + horizon)
+    I am the widest
+  ]
+  #rect(height: 10pt)
+]
+
+--- block-fr-height-first-child ---
+// Test that block spacing is not trimmed if only an fr block precedes it.
+#set page(height: 100pt)
+#rect(height: 1fr)
+#rect()
+
+--- block-fr-height-multiple ---
+#set page(height: 100pt)
+#rect(height: 1fr)
+#rect()
+#block(height: 1fr, line(length: 100%, angle: 90deg))
 
 --- block-multiple-pages ---
 // Test block over multiple pages.
@@ -98,15 +129,15 @@ Paragraph
 #set page(height: 100pt)
 #set align(center)
 
-#lorem(10)
+#lines(3)
 #block(width: 80%, height: 60pt, fill: aqua)
-#lorem(6)
+#lines(2)
 #block(
   breakable: false,
   width: 100%,
   inset: 4pt,
   fill: aqua,
-  lorem(8) + colbreak(),
+  lines(3) + colbreak(),
 )
 
 --- block-consistent-width ---
@@ -120,6 +151,34 @@ Paragraph
 
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
+
+--- block-sticky ---
+#set page(height: 100pt)
+#lines(3)
+#block(sticky: true)[D]
+#block(sticky: true)[E]
+F
+
+--- block-sticky-alone ---
+#set page(height: 50pt)
+#block(sticky: true)[A]
+
+--- block-sticky-many ---
+#set page(height: 80pt)
+#set block(sticky: true)
+#block[A]
+#block[B]
+#block[C]
+#block[D]
+E
+#block[F]
+#block[G]
+
+--- block-sticky-colbreak ---
+A
+#block(sticky: true)[B]
+#colbreak()
+C
 
 --- box-clip-rect ---
 // Test box clipping with a rectangle

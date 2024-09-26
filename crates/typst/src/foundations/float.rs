@@ -2,7 +2,10 @@ use std::num::ParseFloatError;
 
 use ecow::{eco_format, EcoString};
 
-use crate::foundations::{cast, func, repr, scope, ty, Decimal, Repr, Str};
+use crate::diag::StrResult;
+use crate::foundations::{
+    bail, cast, func, repr, scope, ty, Bytes, Decimal, Endianness, Repr, Str,
+};
 use crate::layout::Ratio;
 
 /// A floating-point number.
@@ -105,6 +108,58 @@ impl f64 {
     #[func]
     pub fn signum(self) -> f64 {
         f64::signum(self)
+    }
+
+    /// Converts bytes to a float.
+    ///
+    /// ```example
+    /// #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))) \
+    /// #float.from-bytes(bytes((63, 240, 0, 0, 0, 0, 0, 0)), endian: "big")
+    /// ```
+    #[func]
+    pub fn from_bytes(
+        /// The bytes that should be converted to a float.
+        ///
+        /// Must be of length exactly 8 so that the result fits into a 64-bit
+        /// float.
+        bytes: Bytes,
+        /// The endianness of the conversion.
+        #[named]
+        #[default(Endianness::Little)]
+        endian: Endianness,
+    ) -> StrResult<f64> {
+        // Convert slice to an array of length 8.
+        let buf: [u8; 8] = match bytes.as_ref().try_into() {
+            Ok(buffer) => buffer,
+            Err(_) => bail!("bytes must have a length of exactly 8"),
+        };
+
+        Ok(match endian {
+            Endianness::Little => f64::from_le_bytes(buf),
+            Endianness::Big => f64::from_be_bytes(buf),
+        })
+    }
+
+    /// Converts a float to bytes.
+    ///
+    /// ```example
+    /// #array(1.0.to-bytes(endian: "big")) \
+    /// #array(1.0.to-bytes())
+    /// ```
+    #[func]
+    pub fn to_bytes(
+        self,
+        /// The endianness of the conversion.
+        #[named]
+        #[default(Endianness::Little)]
+        endian: Endianness,
+    ) -> Bytes {
+        match endian {
+            Endianness::Little => self.to_le_bytes(),
+            Endianness::Big => self.to_be_bytes(),
+        }
+        .as_slice()
+        .into()
     }
 }
 

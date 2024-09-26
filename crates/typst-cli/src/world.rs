@@ -60,7 +60,11 @@ impl SystemWorld {
     pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
         if let Some(jobs) = command.jobs {
-            rayon::ThreadPoolBuilder::new().num_threads(jobs).build_global().ok();
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(jobs)
+                .use_current_thread()
+                .build_global()
+                .ok();
         }
 
         // Resolve the system-global input path.

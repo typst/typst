@@ -304,7 +304,7 @@ impl Counter {
             route: Route::extend(route).unnested(),
         };
 
-        let mut state = CounterState::init(&self.0);
+        let mut state = CounterState::init(matches!(self.0, CounterKey::Page));
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
@@ -656,12 +656,9 @@ pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
     /// Get the initial counter state for the key.
-    pub fn init(key: &CounterKey) -> Self {
-        Self(match key {
-            // special case, because pages always start at one.
-            CounterKey::Page => smallvec![1],
-            _ => smallvec![0],
-        })
+    pub fn init(page: bool) -> Self {
+        // Special case, because pages always start at one.
+        Self(smallvec![usize::from(page)])
     }
 
     /// Advance the counter and return the numbers for the given heading.
