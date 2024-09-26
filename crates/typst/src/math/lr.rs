@@ -1,14 +1,10 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{
-    elem, func, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
-};
-use crate::layout::{Abs, Em, Length, Rel};
-use crate::math::{GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled};
+use crate::foundations::{elem, func, Content, NativeElement, Packed, Smart, StyleChain};
+use crate::layout::{Abs, Axis, Em, Length, Rel};
+use crate::math::{stretch_fragment, LayoutMath, MathContext, MathFragment, Scaled};
 use crate::text::TextElem;
-
-use super::delimiter_alignment;
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
@@ -55,18 +51,15 @@ impl LayoutMath for Packed<LrElem> {
             .max()
             .unwrap_or_default();
 
-        let height = self
-            .size(styles)
-            .unwrap_or(Rel::one())
-            .resolve(styles)
-            .relative_to(2.0 * max_extent);
+        let relative_to = 2.0 * max_extent;
+        let height = self.size(styles);
 
         // Scale up fragments at both ends.
         match fragments.as_mut_slice() {
-            [one] => scale(ctx, styles, one, height, None),
+            [one] => scale(ctx, styles, one, relative_to, height, None),
             [first, .., last] => {
-                scale(ctx, styles, first, height, Some(MathClass::Opening));
-                scale(ctx, styles, last, height, Some(MathClass::Closing));
+                scale(ctx, styles, first, relative_to, height, Some(MathClass::Opening));
+                scale(ctx, styles, last, relative_to, height, Some(MathClass::Closing));
             }
             _ => {}
         }
@@ -76,7 +69,14 @@ impl LayoutMath for Packed<LrElem> {
             if let MathFragment::Variant(ref mut variant) = fragment {
                 if variant.mid_stretched == Some(false) {
                     variant.mid_stretched = Some(true);
-                    scale(ctx, styles, fragment, height, Some(MathClass::Large));
+                    scale(
+                        ctx,
+                        styles,
+                        fragment,
+                        relative_to,
+                        height,
+                        Some(MathClass::Large),
+                    );
                 }
             }
         }
@@ -140,26 +140,27 @@ fn scale(
     ctx: &mut MathContext,
     styles: StyleChain,
     fragment: &mut MathFragment,
-    height: Abs,
+    relative_to: Abs,
+    height: Smart<Rel<Length>>,
     apply: Option<MathClass>,
 ) {
     if matches!(
         fragment.class(),
         MathClass::Opening | MathClass::Closing | MathClass::Fence
     ) {
-        let glyph = match fragment {
-            MathFragment::Glyph(glyph) => glyph.clone(),
-            MathFragment::Variant(variant) => {
-                GlyphFragment::new(ctx, styles, variant.c, variant.span)
-            }
-            _ => return,
-        };
+        // This unwrap doesn't really matter. If it is None, then the fragment
+        // won't be stretchable anyways.
+        let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
+        stretch_fragment(
+            ctx,
+            styles,
+            fragment,
+            Some(Axis::Y),
+            Some(relative_to),
+            height,
+            short_fall,
+        );
 
-        let short_fall = DELIM_SHORT_FALL.at(glyph.font_size);
-        let mut stretched = glyph.stretch_vertical(ctx, height, short_fall);
-        stretched.align_on_axis(ctx, delimiter_alignment(stretched.c));
-
-        *fragment = MathFragment::Variant(stretched);
         if let Some(class) = apply {
             fragment.set_class(class);
         }

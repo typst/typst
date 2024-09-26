@@ -83,6 +83,10 @@
     automatically decides which is more suitable depending on the base, but you
     can also control this manually with the `scripts` and `limits` functions.
 
+    If you want the base to stretch to fit long top and bottom attachments (for
+    example, an arrow with text above it), use the [`stretch`]($math.stretch)
+    function.
+
     # Example
     ```example
     $ sum_(i=0)^n a_i = 2^(1+i) $
