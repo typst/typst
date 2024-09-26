@@ -7,7 +7,7 @@ use rust_decimal::MathematicalOps;
 
 use crate::diag::{warning, At, SourceResult};
 use crate::foundations::{cast, func, repr, scope, ty, Engine, Repr, Str};
-use crate::syntax::{ast, Spanned};
+use crate::syntax::{ast, Span, Spanned};
 use crate::World;
 
 /// A fixed-point decimal number type.
@@ -247,20 +247,7 @@ impl Decimal {
                 .at(value.span),
             ToDecimal::Int(int) => Ok(Self::from(int)),
             ToDecimal::Float(float) => {
-                if let Some(file) = value.span.id() {
-                    if let Ok(source) = engine.world.source(file) {
-                        if source.find(value.span).is_some_and(|v| v.is::<ast::Float>()) {
-                            engine.sink.warn(
-                                warning!(
-                                    value.span,
-                                    "creating a decimal using imprecise float literal";
-                                    hint: "use a string in the decimal constructor, e.g. `decimal(\"3.14\")`, to avoid loss of precision"
-                                )
-                            );
-                        }
-                    }
-                }
-
+                warn_on_float_literal(engine, value.span);
                 Self::try_from(float)
                     .map_err(|_| {
                         eco_format!(
@@ -272,6 +259,23 @@ impl Decimal {
             }
         }
     }
+}
+
+/// Emits a warning when a decimal is constructed from a float literal.
+fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
+    let id = span.id()?;
+    let source = engine.world.source(id).ok()?;
+    let node = source.find(span)?;
+    if node.is::<ast::Float>() {
+        engine.sink.warn(warning!(
+            span,
+            "creating a decimal using imprecise float literal";
+            hint: "use a string in the decimal constructor to avoid loss \
+                   of precision: `decimal({})`",
+            node.text().repr()
+        ));
+    }
+    Some(())
 }
 
 impl FromStr for Decimal {
@@ -335,7 +339,7 @@ impl Display for Decimal {
 
 impl Repr for Decimal {
     fn repr(&self) -> EcoString {
-        eco_format!("decimal({})", (&*self.0.to_string()).repr())
+        eco_format!("decimal({})", eco_format!("{}", self.0).repr())
     }
 }
 

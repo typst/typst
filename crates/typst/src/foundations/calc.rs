@@ -4,7 +4,6 @@ use std::cmp;
 use std::cmp::Ordering;
 
 use az::SaturatingAs;
-use ecow::eco_format;
 
 use crate::diag::{bail, At, HintedString, SourceResult, StrResult};
 use crate::eval::ops;
@@ -101,8 +100,7 @@ pub fn pow(
     span: Span,
     /// The base of the power.
     ///
-    /// If this is a [`{decimal}`]($decimal), the exponent can only be an
-    /// [integer]($int).
+    /// If this is a [`decimal`], the exponent can only be an [integer]($int).
     base: DecNum,
     /// The exponent of the power.
     exponent: Spanned<Num>,
@@ -130,25 +128,25 @@ pub fn pow(
             a.checked_powi(b).map(DecNum::Decimal).ok_or_else(too_large).at(span)
         }
         (a, b) => {
-            if let Some(a) = a.float() {
-                let result = if a == std::f64::consts::E {
-                    b.float().exp()
-                } else if a == 2.0 {
-                    b.float().exp2()
-                } else if let Num::Int(b) = b {
-                    a.powi(b as i32)
-                } else {
-                    a.powf(b.float())
-                };
+            let Some(a) = a.float() else {
+                return Err(cant_apply_to_decimal_and_float()).at(span);
+            };
 
-                if result.is_nan() {
-                    bail!(span, "the result is not a real number")
-                }
-
-                Ok(DecNum::Float(result))
+            let result = if a == std::f64::consts::E {
+                b.float().exp()
+            } else if a == 2.0 {
+                b.float().exp2()
+            } else if let Num::Int(b) = b {
+                a.powi(b as i32)
             } else {
-                Err(cant_apply_to_decimal_and_float()).at(span)
+                a.powf(b.float())
+            };
+
+            if result.is_nan() {
+                bail!(span, "the result is not a real number")
             }
+
+            Ok(DecNum::Float(result))
         }
     }
 }
@@ -617,13 +615,12 @@ pub fn lcm(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will return the same type as the operand.
-/// That is, applying `floor` to a [`{float}`]($float) will return a `{float}`,
-/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
-/// convert the output of this function to an integer with [`{int}`]($int), but
-/// note that such a conversion will error if the `{float}` or `{decimal}` is
-/// larger than the maximum 64-bit signed integer or smaller than the minimum
-/// integer.
+/// Note that this function will return the same type as the operand. That is,
+/// applying `floor` to a [`float`] will return a `float`, and to a [`decimal`],
+/// another `decimal`. You may explicitly convert the output of this function to
+/// an integer with [`int`], but note that such a conversion will error if the
+/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
+/// smaller than the minimum integer.
 ///
 /// ```example
 /// #assert(calc.floor(3) == 3)
@@ -637,9 +634,9 @@ pub fn floor(
     value: DecNum,
 ) -> DecNum {
     match value {
-        DecNum::Decimal(n) => DecNum::Decimal(n.floor()),
         DecNum::Int(n) => DecNum::Int(n),
         DecNum::Float(n) => DecNum::Float(n.floor()),
+        DecNum::Decimal(n) => DecNum::Decimal(n.floor()),
     }
 }
 
@@ -647,13 +644,12 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will return the same type as the operand.
-/// That is, applying `ceil` to a [`{float}`]($float) will return a `{float}`,
-/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
-/// convert the output of this function to an integer with [`{int}`]($int), but
-/// note that such a conversion will error if the `{float}` or `{decimal}` is
-/// larger than the maximum 64-bit signed integer or smaller than the minimum
-/// integer.
+/// Note that this function will return the same type as the operand. That is,
+/// applying `ceil` to a [`float`] will return a `float`, and to a [`decimal`],
+/// another `decimal`. You may explicitly convert the output of this function to
+/// an integer with [`int`], but note that such a conversion will error if the
+/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
+/// smaller than the minimum integer.
 ///
 /// ```example
 /// #assert(calc.ceil(3) == 3)
@@ -667,9 +663,9 @@ pub fn ceil(
     value: DecNum,
 ) -> DecNum {
     match value {
-        DecNum::Decimal(n) => DecNum::Decimal(n.ceil()),
         DecNum::Int(n) => DecNum::Int(n),
         DecNum::Float(n) => DecNum::Float(n.ceil()),
+        DecNum::Decimal(n) => DecNum::Decimal(n.ceil()),
     }
 }
 
@@ -677,13 +673,12 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will return the same type as the operand.
-/// That is, applying `trunc` to a [`{float}`]($float) will return a `{float}`,
-/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
-/// convert the output of this function to an integer with [`{int}`]($int), but
-/// note that such a conversion will error if the `{float}` or `{decimal}` is
-/// larger than the maximum 64-bit signed integer or smaller than the minimum
-/// integer.
+/// Note that this function will return the same type as the operand. That is,
+/// applying `trunc` to a [`float`] will return a `float`, and to a [`decimal`],
+/// another `decimal`. You may explicitly convert the output of this function to
+/// an integer with [`int`], but note that such a conversion will error if the
+/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
+/// smaller than the minimum integer.
 ///
 /// ```example
 /// #assert(calc.trunc(3) == 3)
@@ -697,9 +692,9 @@ pub fn trunc(
     value: DecNum,
 ) -> DecNum {
     match value {
-        DecNum::Decimal(n) => DecNum::Decimal(n.trunc()),
         DecNum::Int(n) => DecNum::Int(n),
         DecNum::Float(n) => DecNum::Float(n.trunc()),
+        DecNum::Decimal(n) => DecNum::Decimal(n.trunc()),
     }
 }
 
@@ -718,9 +713,9 @@ pub fn fract(
     value: DecNum,
 ) -> DecNum {
     match value {
-        DecNum::Decimal(n) => DecNum::Decimal(n.fract()),
         DecNum::Int(_) => DecNum::Int(0),
         DecNum::Float(n) => DecNum::Float(n.fract()),
+        DecNum::Decimal(n) => DecNum::Decimal(n.fract()),
     }
 }
 
@@ -728,13 +723,12 @@ pub fn fract(
 ///
 /// Optionally, a number of decimal places can be specified.
 ///
-/// Note that this function will return the same type as the operand.
-/// That is, applying `round` to a [`{float}`]($float) will return a `{float}`,
-/// and to a [`{decimal}`]($decimal), another `{decimal}`. You may explicitly
-/// convert the output of this function to an integer with [`{int}`]($int), but
-/// note that such a conversion will error if the `{float}` or `{decimal}` is
-/// larger than the maximum 64-bit signed integer or smaller than the minimum
-/// integer.
+/// Note that this function will return the same type as the operand. That is,
+/// applying `round` to a [`float`] will return a `float`, and to a [`decimal`],
+/// another `decimal`. You may explicitly convert the output of this function to
+/// an integer with [`int`], but note that such a conversion will error if the
+/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
+/// smaller than the minimum integer.
 ///
 /// ```example
 /// #assert(calc.round(3) == 3)
@@ -754,12 +748,12 @@ pub fn round(
     digits: u32,
 ) -> DecNum {
     match value {
-        DecNum::Decimal(n) => DecNum::Decimal(n.round(digits)),
         DecNum::Int(n) => DecNum::Int(n),
         DecNum::Float(n) => DecNum::Float(crate::utils::format::round_with_precision(
             n,
             digits.saturating_as::<u8>(),
         )),
+        DecNum::Decimal(n) => DecNum::Decimal(n.round(digits)),
     }
 }
 
@@ -891,8 +885,8 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if given a [`{decimal}`]($decimal) input and the dividend is
-/// too small in magnitude compared to the divisor.
+/// This can error if given a [`decimal`] input and the dividend is too small in
+/// magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.rem(7, 3) \
@@ -968,12 +962,13 @@ pub fn div_euclid(
 
 /// This calculates the least nonnegative remainder of a division.
 ///
-/// Warning: Due to a floating point round-off error, the remainder may equal the absolute
-/// value of the divisor if the dividend is much smaller in magnitude than the divisor
-/// and the dividend is negative. This only applies for floating point inputs.
+/// Warning: Due to a floating point round-off error, the remainder may equal
+/// the absolute value of the divisor if the dividend is much smaller in
+/// magnitude than the divisor and the dividend is negative. This only applies
+/// for floating point inputs.
 ///
-/// In addition, this can error if given a [`{decimal}`]($decimal) input and
-/// the dividend is too small in magnitude compared to the divisor.
+/// In addition, this can error if given a [`decimal`] input and the dividend is
+/// too small in magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.rem-euclid(7, 3) \
@@ -1014,8 +1009,7 @@ pub fn rem_euclid(
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
 ///   "quo"(14, 5) &= #calc.quo(14, 5) \
-///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) \
-///   "quo"("decimal"(\"-3.46\"), "decimal"(\"0.5\")) &= #calc.quo(decimal("-3.46"), decimal("0.5")) $
+///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) $
 /// ```
 #[func(title = "Quotient")]
 pub fn quo(
@@ -1071,21 +1065,22 @@ cast! {
     v: f64 => Self::Float(v),
 }
 
-/// A value which can be passed to functions that work with decimals, integers or floats.
+/// A value which can be passed to functions that work with integers, floats,
+/// and decimals.
 #[derive(Debug, Copy, Clone)]
 pub enum DecNum {
-    Decimal(Decimal),
     Int(i64),
     Float(f64),
+    Decimal(Decimal),
 }
 
 impl DecNum {
     /// Checks if this number is equivalent to zero.
     fn is_zero(self) -> bool {
         match self {
-            Self::Decimal(d) => d.is_zero(),
             Self::Int(i) => i == 0,
             Self::Float(f) => f == 0.0,
+            Self::Decimal(d) => d.is_zero(),
         }
     }
 
@@ -1093,9 +1088,9 @@ impl DecNum {
     /// Otherwise, returns `None`.
     fn float(self) -> Option<f64> {
         match self {
-            Self::Decimal(_) => None,
             Self::Int(i) => Some(i as f64),
             Self::Float(f) => Some(f),
+            Self::Decimal(_) => None,
         }
     }
 
@@ -1103,9 +1098,9 @@ impl DecNum {
     /// Otherwise, returns `None`.
     fn decimal(self) -> Option<Decimal> {
         match self {
-            Self::Decimal(d) => Some(d),
             Self::Int(i) => Some(Decimal::from(i)),
             Self::Float(_) => None,
+            Self::Decimal(d) => Some(d),
         }
     }
 
@@ -1158,13 +1153,13 @@ impl DecNum {
 cast! {
     DecNum,
     self => match self {
-        Self::Decimal(v) => v.into_value(),
         Self::Int(v) => v.into_value(),
         Self::Float(v) => v.into_value(),
+        Self::Decimal(v) => v.into_value(),
     },
-    v: Decimal => Self::Decimal(v),
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
+    v: Decimal => Self::Decimal(v),
 }
 
 /// A value that can be passed to a trigonometric function.
@@ -1191,6 +1186,9 @@ fn too_large() -> &'static str {
 /// float operands.
 #[cold]
 fn cant_apply_to_decimal_and_float() -> HintedString {
-    HintedString::new(eco_format!("cannot apply this operation to a decimal and a float"))
-        .with_hint("if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`")
+    HintedString::new("cannot apply this operation to a decimal and a float".into())
+        .with_hint(
+            "if loss of precision is acceptable, explicitly cast the \
+             decimal to a float with `float(value)`",
+        )
 }
