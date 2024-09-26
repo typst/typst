@@ -83,9 +83,7 @@ pub(super) fn stretch_fragment(
         _ => return,
     };
 
-    let axis = if let Some(stretch_axis) = axis {
-        stretch_axis
-    } else if let Some(stretch_axis) = is_stretchable(ctx, &glyph) {
+    let axis = if let Some(stretch_axis) = axis.or_else(|| stretch_axis(ctx, &glyph)) {
         stretch_axis
     } else {
         return;
@@ -121,7 +119,7 @@ pub(super) fn delimiter_alignment(delimiter: char) -> VAlignment {
 
 /// Return whether the glyph is stretchable and if it is, along which axis it
 /// can be stretched.
-fn is_stretchable(ctx: &MathContext, base: &GlyphFragment) -> Option<Axis> {
+fn stretch_axis(ctx: &MathContext, base: &GlyphFragment) -> Option<Axis> {
     let base_id = base.id;
     let vertical = ctx
         .table
