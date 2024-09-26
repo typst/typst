@@ -65,7 +65,7 @@ See #ref(<setup>, form: "page").
 
 == Setup <setup>
 Text seen on #ref(<text>, form: "page").
-Text seen on #ref(<text>, form: "page", supplement: "page").
+Text seen on #ref(<text>, form: "page", supplement: "Page").
 
 --- ref-form-page-unambiguous ---
 // Test that page reference is not ambiguous.
