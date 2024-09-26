@@ -120,31 +120,24 @@ impl f64 {
     pub fn from_bytes(
         /// The bytes that should be converted to a float.
         ///
-        /// Must be of a length of exactly 8 so that the result fits into a 64-bit float.
+        /// Must be of length exactly 8 so that the result fits into a 64-bit
+        /// float.
         bytes: Bytes,
         /// The endianness of the conversion.
         #[named]
         #[default(Endianness::Little)]
         endian: Endianness,
     ) -> StrResult<f64> {
-        // Ensure the input is exactly 8 bytes long
-        if bytes.len() != 8 {
-            bail!("bytes must have a length of 8");
-        }
-
-        // Convert slice to an array of length 8. This cannot fail because length
-        // of bytes is ensured to be 8
-        let buffer: [u8; 8] = match bytes.as_ref().try_into() {
+        // Convert slice to an array of length 8.
+        let buf: [u8; 8] = match bytes.as_ref().try_into() {
             Ok(buffer) => buffer,
-            Err(_) => unreachable!(),
+            Err(_) => bail!("bytes must have a length of exactly 8"),
         };
 
-        let result = match endian {
-            Endianness::Little => f64::from_le_bytes(buffer),
-            Endianness::Big => f64::from_be_bytes(buffer),
-        };
-
-        Ok(result)
+        Ok(match endian {
+            Endianness::Little => f64::from_le_bytes(buf),
+            Endianness::Big => f64::from_be_bytes(buf),
+        })
     }
 
     /// Converts a float to bytes.
@@ -161,12 +154,12 @@ impl f64 {
         #[default(Endianness::Little)]
         endian: Endianness,
     ) -> Bytes {
-        let array = match endian {
+        match endian {
             Endianness::Little => self.to_le_bytes(),
             Endianness::Big => self.to_be_bytes(),
-        };
-
-        Bytes::from(array.as_ref())
+        }
+        .as_slice()
+        .into()
     }
 }
 
