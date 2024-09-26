@@ -23,7 +23,7 @@ pub fn cbor(
     engine: &mut Engine,
     /// Path to a CBOR file.
     ///
-    /// For detailed description see [Paths]($syntax/#paths).
+    /// For more details, see the [Paths section]($syntax/#paths).
     path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;

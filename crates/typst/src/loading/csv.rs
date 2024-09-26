@@ -30,7 +30,7 @@ pub fn csv(
     engine: &mut Engine,
     /// Path to a CSV file.
     ///
-    /// For detailed description see [Paths]($syntax/#paths).
+    /// For more details, see the [Paths section]($syntax/#paths).
     path: Spanned<EcoString>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.
