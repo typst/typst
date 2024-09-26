@@ -21,6 +21,8 @@ pub struct Introspector {
     pages: usize,
     /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Option<Numbering>>,
+    /// The page supplements, indexed by page number minus 1.
+    page_supplements: Vec<Content>,
 
     /// All introspectable elements.
     elems: Vec<Pair>,
@@ -266,6 +268,12 @@ impl Introspector {
             .and_then(|slot| slot.as_ref())
     }
 
+    /// Gets the page supplement for the given location, if any.
+    pub fn page_supplement(&self, location: Location) -> Content {
+        let page = self.page(location);
+        self.page_supplements.get(page.get() - 1).cloned().unwrap_or_default()
+    }
+
     /// Try to find a location for an element with the given `key` hash
     /// that is closest after the `anchor`.
     ///
@@ -339,6 +347,7 @@ impl Clone for QueryCache {
 #[derive(Default)]
 struct IntrospectorBuilder {
     page_numberings: Vec<Option<Numbering>>,
+    page_supplements: Vec<Content>,
     seen: HashSet<Location>,
     insertions: MultiMap<Location, Vec<Pair>>,
     keys: MultiMap<u128, Location>,
@@ -355,11 +364,13 @@ impl IntrospectorBuilder {
     /// Build the introspector.
     fn build(mut self, pages: &[Page]) -> Introspector {
         self.page_numberings.reserve(pages.len());
+        self.page_supplements.reserve(pages.len());
 
         // Discover all elements.
         let mut root = Vec::new();
         for (i, page) in pages.iter().enumerate() {
             self.page_numberings.push(page.numbering.clone());
+            self.page_supplements.push(page.supplement.clone());
             self.discover(
                 &mut root,
                 &page.frame,
@@ -379,6 +390,7 @@ impl IntrospectorBuilder {
         Introspector {
             pages: pages.len(),
             page_numberings: self.page_numberings,
+            page_supplements: self.page_supplements,
             elems,
             keys: self.keys,
             locations: self.locations,

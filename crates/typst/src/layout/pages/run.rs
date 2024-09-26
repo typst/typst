@@ -13,7 +13,7 @@ use crate::layout::{
 };
 use crate::model::Numbering;
 use crate::realize::Pair;
-use crate::text::TextElem;
+use crate::text::{LocalName, TextElem};
 use crate::utils::Numeric;
 use crate::visualize::Paint;
 use crate::World;
@@ -33,6 +33,7 @@ pub struct LayoutedPage {
     pub foreground: Option<Frame>,
     pub fill: Smart<Option<Paint>>,
     pub numbering: Option<Numbering>,
+    pub supplement: Content,
 }
 
 /// Layout a single page suitable  for parity adjustment.
@@ -122,6 +123,10 @@ fn layout_page_run_impl(
     let header_ascent = PageElem::header_ascent_in(styles).relative_to(margin.top);
     let footer_descent = PageElem::footer_descent_in(styles).relative_to(margin.bottom);
     let numbering = PageElem::numbering_in(styles);
+    let supplement = match PageElem::supplement_in(styles) {
+        Smart::Auto => TextElem::packed(PageElem::local_name_in(styles)),
+        Smart::Custom(content) => content.unwrap_or_default(),
+    };
     let number_align = PageElem::number_align_in(styles);
     let binding =
         PageElem::binding_in(styles).unwrap_or_else(|| match TextElem::dir_in(styles) {
@@ -198,6 +203,7 @@ fn layout_page_run_impl(
             inner,
             fill: fill.clone(),
             numbering: numbering.clone(),
+            supplement: supplement.clone(),
             header: layout_marginal(header, header_size, Alignment::BOTTOM)?,
             footer: layout_marginal(footer, footer_size, Alignment::TOP)?,
             background: layout_marginal(background, full_size, mid)?,
