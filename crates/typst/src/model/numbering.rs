@@ -59,8 +59,8 @@ pub fn numbering(
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
-    /// `ㄱ`, and `*`. They are replaced by the number in the sequence, in the
-    /// given case.
+    /// `ㄱ`, `*`, `①`, and `⓵`. They are replaced by the number in the sequence, preserving the original
+    /// case.
     ///
     /// The `*` character means that symbols should be used to count, in the
     /// order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
@@ -140,9 +140,8 @@ cast! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of
-/// `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, or `⓵`,
-/// and then a suffix.
+/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`,
+/// `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, or `⓵`, and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -271,7 +270,7 @@ pub enum NumberingKind {
     Symbol,
     /// Hebrew numerals.
     Hebrew,
-    /// Simplified Chinese numerals. Uses standard numerals for lowercase and “banknote” numerals for uppercase.
+    /// Simplified Chinese numerals. Uses standard numerals for lowercase and "banknote" numerals for uppercase.
     SimplifiedChinese,
     // TODO: Pick the numbering pattern based on languages choice.
     // As the `1st` numbering character of Chinese (Simplified) and
@@ -279,7 +278,7 @@ pub enum NumberingKind {
     // if the context is Simplified or Traditional by only this
     // character.
     #[allow(unused)]
-    /// Traditional Chinese numerals. Uses standard numerals for lowercase and “banknote” numerals for uppercase.
+    /// Traditional Chinese numerals. Uses standard numerals for lowercase and "banknote" numerals for uppercase.
     TraditionalChinese,
     /// Hiragana in the gojūon order. Includes n but excludes wi and we.
     HiraganaAiueo,
