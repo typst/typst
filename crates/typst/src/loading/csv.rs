@@ -29,6 +29,8 @@ pub fn csv(
     /// The engine.
     engine: &mut Engine,
     /// Path to a CSV file.
+    ///
+    /// For more details, see the [Paths section]($syntax/#paths).
     path: Spanned<EcoString>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.

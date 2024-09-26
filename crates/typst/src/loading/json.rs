@@ -54,6 +54,8 @@ pub fn json(
     /// The engine.
     engine: &mut Engine,
     /// Path to a JSON file.
+    ///
+    /// For more details, see the [Paths section]($syntax/#paths).
     path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
