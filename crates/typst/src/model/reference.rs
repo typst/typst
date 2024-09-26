@@ -126,16 +126,12 @@ pub struct RefElem {
     /// If the [`form`]($ref.form) is set to `{"page"}`, then this is added
     /// before the page number of the label referenced.
     ///
-    /// If a function is specified, it is passed both the referenced element and
-    /// the reference [`form`]($ref.form), and should return content.
+    /// If a function is specified, it is passed the referenced element and
+    /// should return content.
     ///
     /// ```example
-    /// #set page(numbering: "1")
     /// #set heading(numbering: "1.")
-    /// #set ref(supplement: (it, form) => {
-    ///   if form == "page" {
-    ///     return "p."
-    ///   }
+    /// #show ref.where(form: "normal"): set ref(supplement: it => {
     ///   if it.func() == heading {
     ///     "Chapter"
     ///   } else {
@@ -147,7 +143,7 @@ pub struct RefElem {
     /// In @intro, we see how to turn
     /// Sections into Chapters. And
     /// in @intro[Part], it is done
-    /// manually on #ref(<intro>, form: "page").
+    /// manually.
     /// ```
     #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
@@ -160,8 +156,8 @@ pub struct RefElem {
     /// Here <here> we are on
     /// #ref(<here>, form: "page").
     /// ```
-    #[default(ReferenceForm::Normal)]
-    pub form: ReferenceForm,
+    #[default(RefForm::Normal)]
+    pub form: RefForm,
 
     /// A synthesized citation.
     #[synthesized]
@@ -204,7 +200,7 @@ impl Show for Packed<RefElem> {
         let span = self.span();
 
         let form = self.form(styles);
-        if form == ReferenceForm::Page {
+        if form == RefForm::Page {
             let elem = elem.at(span)?;
             let elem = elem.clone();
 
@@ -229,7 +225,7 @@ impl Show for Packed<RefElem> {
                 elem,
             );
         }
-        // ReferenceForm::Normal
+        // RefForm::Normal
 
         if BibliographyElem::has(engine, target) {
             if elem.is_ok() {
@@ -304,10 +300,7 @@ fn show_reference(
     let supplement = match reference.supplement(styles).as_ref() {
         Smart::Auto => supplement,
         Smart::Custom(None) => Content::empty(),
-        Smart::Custom(Some(supplement)) => {
-            let form = reference.form(styles).into_value();
-            supplement.resolve(engine, styles, [elem.into_value(), form])?
-        }
+        Smart::Custom(Some(supplement)) => supplement.resolve(engine, styles, [elem])?,
     };
 
     let mut content = numbers;
@@ -376,7 +369,7 @@ cast! {
 
 /// The form of the reference.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum ReferenceForm {
+pub enum RefForm {
     /// Produces a textual reference to a label.
     #[default]
     Normal,
