@@ -11,8 +11,8 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// cases, the content position can be adjusted with [`dx`]($place.dx) and
 /// [`dy`]($place.dy) offsets without affecting the layout.
 ///
-/// The parent can be any container such as a [`block`]($block), [`box`]($box),
-/// [`rect`]($rect), etc. A top level `place` call will place content directly
+/// The parent can be any container such as a [`block`], [`box`],
+/// [`rect`], etc. A top level `place` call will place content directly
 /// in the text area of the current page. This can be used for absolute
 /// positioning on the page: with a `top + left`
 /// [`alignment`]($place.alignment), the offsets `dx` and `dy` will set the
@@ -44,17 +44,21 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// Overlaid elements don't take space in the flow of content, but a `place`
 /// call inserts an invisible block-level element in the flow. This can
 /// affect the layout by breaking the current paragraph. To avoid this,
-/// you can wrap the `place` call in a [`box`]($box) when the call is made
+/// you can wrap the `place` call in a [`box`] when the call is made
 /// in the middle of a paragraph. The alignment and offsets will then be
-/// relative to this zero-size box:
+/// relative to this zero-size box. To make sure it doesn't interfere with
+/// spacing, the box should be attached to a word using a zero-width joiner:
 ///
 /// ```example
-/// #let mark = circle(fill: red)
-///
-/// The first sentence is shown below
-/// the subsequent placed element.
-/// #box(place(bottom+center, mark))
-/// The second sentence is shown on top.
+/// The first sentence is covered by
+/// the placed element.
+/// #box(
+///   place(
+///     bottom+center,
+///     circle(fill: red),
+///   )
+/// )#(sym.zwj)The second sentence is
+/// shown on top.
 /// ```
 #[elem(scope)]
 pub struct PlaceElem {
