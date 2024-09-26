@@ -4,7 +4,9 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, NativeElement, Packed, Scope, StyleChain};
 use crate::layout::HElem;
-use crate::math::{upright, FrameFragment, LayoutMath, Limits, MathContext, THIN};
+use crate::math::{
+    upright, FrameFragment, LayoutMath, Limits, MathContext, VarElem, THIN,
+};
 use crate::text::TextElem;
 
 /// A text operator in an equation.
@@ -64,6 +66,8 @@ macro_rules! ops {
                 let operator = EcoString::from(ops!(@name $name $(: $value)?));
                 math.define(
                     stringify!($name),
+                    // Note: this *should* be a TextElem (not VarElem) if we're
+                    // following Latex.
                     OpElem::new(TextElem::new(operator).into())
                         .with_limits(ops!(@limit $($tts)*))
                         .pack()
@@ -72,7 +76,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + upright(TextElem::packed(d))
+                    + upright(VarElem::packed(d))
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

@@ -22,6 +22,7 @@ mod spacing;
 mod stretch;
 mod style;
 mod underover;
+mod var;
 
 pub use self::accent::{Accent, AccentElem};
 pub use self::align::*;
@@ -36,6 +37,7 @@ pub use self::op::*;
 pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
+pub use self::var::*;
 
 use self::ctx::*;
 use self::fragment::*;
@@ -157,6 +159,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.category(MATH);
     math.define_elem::<EquationElem>();
+    math.define_elem::<VarElem>();
     math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
@@ -206,7 +209,7 @@ pub fn module() -> Module {
     op::define(&mut math);
     spacing::define(&mut math);
     for (name, symbol) in crate::symbols::SYM {
-        math.define(*name, symbol.clone());
+        math.define(*name, symbol.clone_for_math());
     }
 
     Module::new("math", math)

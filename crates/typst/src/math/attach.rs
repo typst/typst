@@ -5,9 +5,8 @@ use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{Abs, Corner, Frame, Point, Size};
 use crate::math::{
     style_for_subscript, style_for_superscript, EquationElem, FrameFragment, LayoutMath,
-    MathContext, MathFragment, MathSize, Scaled,
+    MathContext, MathFragment, MathSize, Scaled, VarElem,
 };
-use crate::text::TextElem;
 use crate::utils::OptionExt;
 
 /// A base with optional attachments.
@@ -128,14 +127,13 @@ impl LayoutMath for Packed<PrimesElem> {
                     4 => '⁗',
                     _ => unreachable!(),
                 };
-                let f = ctx.layout_into_fragment(&TextElem::packed(c), styles)?;
+                let f = ctx.layout_into_fragment(&VarElem::packed(c), styles)?;
                 ctx.push(f);
             }
             count => {
                 // Custom amount of primes
-                let prime = ctx
-                    .layout_into_fragment(&TextElem::packed('′'), styles)?
-                    .into_frame();
+                let prime =
+                    ctx.layout_into_fragment(&VarElem::packed('′'), styles)?.into_frame();
                 let width = prime.width() * (count + 1) as f64 / 2.0;
                 let mut frame = Frame::soft(Size::new(width, prime.height()));
                 frame.set_baseline(prime.ascent());

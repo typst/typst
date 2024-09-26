@@ -3,10 +3,11 @@ use ecow::eco_format;
 use crate::diag::{At, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{Content, NativeElement, Value};
-use crate::math::{AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem};
+use crate::math::{
+    AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem, VarElem,
+};
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
-use crate::text::TextElem;
 
 impl Eval for ast::Math<'_> {
     type Output = Content;
@@ -16,6 +17,14 @@ impl Eval for ast::Math<'_> {
                 .map(|expr| expr.eval_display(vm))
                 .collect::<SourceResult<Vec<_>>>()?,
         ))
+    }
+}
+
+impl Eval for ast::MathText<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(VarElem::packed(self.get().clone()))
     }
 }
 
@@ -31,7 +40,7 @@ impl Eval for ast::MathShorthand<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::single(self.get().into())))
+        Ok(Value::Symbol(Symbol::ast_char(self.get(), true)))
     }
 }
 
@@ -101,7 +110,7 @@ impl Eval for ast::MathRoot<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
+        let index = self.index().map(|i| VarElem::packed(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok(RootElem::new(radicand).with_index(index).pack())
     }

@@ -12,10 +12,9 @@ use crate::foundations::{
     Context, Func, IntoValue, NativeElement, Scope, Scopes, Value,
 };
 use crate::introspection::Introspector;
-use crate::math::LrElem;
+use crate::math::{LrElem, VarElem};
 use crate::syntax::ast::{self, AstNode, Ident};
 use crate::syntax::{Span, Spanned, SyntaxNode};
-use crate::text::TextElem;
 use crate::utils::LazyHash;
 use crate::World;
 
@@ -379,16 +378,16 @@ fn wrap_args_in_math(
     let mut body = Content::empty();
     for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
         if i > 0 {
-            body += TextElem::packed(',');
+            body += VarElem::packed(',');
         }
         body += arg;
     }
     if trailing_comma {
-        body += TextElem::packed(',');
+        body += VarElem::packed(',');
     }
     Ok(Value::Content(
         callee.display().spanned(callee_span)
-            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')')).pack(),
+            + LrElem::new(VarElem::packed('(') + body + VarElem::packed(')')).pack(),
     ))
 }
 

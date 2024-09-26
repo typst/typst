@@ -106,7 +106,7 @@ $ attach(A, t: #context oops) $
 // Show and let rules for limits and scripts
 #let eq = $ ∫_a^b iota_a^b $
 #eq
-#show "∫": math.limits
+#show math.var.where(text: "∫"): math.limits
 #show math.iota: math.limits.with(inline: false)
 #eq
 $iota_a^b$
@@ -165,7 +165,7 @@ $ x_1^i x_2^lambda x_2^(2alpha) x_2^(k+1) x_2^(-p_(-1)) x_j^gamma \
 $ attach(a^b, b: c) quad
   attach(attach(attach(attach(attach(attach(sum, tl: 1), t: 2), tr: 3), br: 4), b: 5), bl: 6) $
 
-#let a0 = math.attach(math.alpha, b: [0])
+#let a0 = math.attach(math.alpha, b: $0$)
 #let a1 = $alpha^1$
 
 $ a0 + a1 + a0_2 \
