@@ -411,8 +411,8 @@ impl<'a> CellGrid<'a> {
         let mut footer: Option<(usize, Span, Footer)> = None;
         let mut repeat_footer = false;
 
-        // Resolve the breakability of a cell, based on whether or not it spans
-        // an auto row.
+        // Resolves the breakability of a cell. Cells that span at least one
+        // auto-sized row or gutter are considered breakable.
         let resolve_breakable = |y, rowspan| {
             let auto = Sizing::Auto;
             let zero = Sizing::Rel(Rel::zero());
