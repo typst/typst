@@ -67,7 +67,7 @@ description: |
   - Fixed various bugs where floating placement would yield overlapping results
   - Fixed a bug where widow/orphan prevention would unnecessarily move text into
     the next column
-  - Fixed that [weak spacing]($h.weak) was not trimmed at the start and end of
+  - Fixed [weak spacing]($h.weak) not being trimmed at the start and end of
     lines in a paragraph (only at the start and end of paragraphs)
   - Fixed interaction of weak page break and [`pagebreak.to`]
   - Fixed compilation output of a single weak page break
@@ -98,7 +98,7 @@ description: |
   - Fixed bugs related to empty paragraphs created via `#""`
   - Fixed accidental trailing spaces for line breaks immediately preceding an
     inline equation
-  - Fixed that [`text.historical-ligatures`] was not working correctly
+  - Fixed [`text.historical-ligatures`] not working correctly
   - Fixed accidental repetition of Thai characters around line breaks in some
     circumstances
   - New font metadata exceptions for Archivo, Kaiti SC, and Kaiti TC
@@ -172,8 +172,8 @@ description: |
     function to tweak the appearance of multi-line headings and improved default
     appearance of multi-line headings
   - Improved handling of bidirectional text in outline entry
-  - Fixed that document set rules were ignored in an otherwise empty document
-  - Fixed that document set rules could not be used in context expressions
+  - Fixed document set rules being ignored in an otherwise empty document
+  - Fixed document set rules not being usable in context expressions
   - Fixed bad interaction between `{set document}` and `{set page}`
   - Fixed `{show figure: set align(..)}`. Since the default figure alignment is
     now a show-set rule, it is not revoked by `{show figure: it => it.body}`
