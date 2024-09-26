@@ -118,7 +118,7 @@ description: |
   - The `floor` and `ceil` functions in math are now callable symbols instead,
     such that `[$ floor(x) = lr(floor.l x floor.r) $]`
   - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
-  - [`cases.delim`]($math.cases.delim) parameters now allow any character that
+    [`cases.delim`]($math.cases.delim) parameters now allow any character that
     is considered a delimiter or "fence" (e.g. |) by Unicode. The
     `{delim: "||"}` notation is _not_ supported anymore and should be replaced
     by `{delim: bar.double}` (**Minor breaking change**)
