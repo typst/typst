@@ -23,8 +23,10 @@ pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
     // PNG glyphs but the sbix table can also contain JPEG
     // and TIFF glyphs.
     if let Some(sbix) = ttf.tables().sbix {
-        if sbix.best_strike(pixels_per_em).is_some() {
-            return true;
+        if let Some(strike) = sbix.best_strike(pixels_per_em) {
+            if strike.get(glyph_id).is_some() {
+                return true;
+            }
         }
     }
 
