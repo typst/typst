@@ -35,16 +35,6 @@ pub struct StretchElem {
 
     /// The size to stretch to, relative to the glyph's current size.
     pub size: Smart<Rel<Length>>,
-
-    /// Whether the size should be relative to the width of any top or bottom
-    /// attachments.
-    ///
-    /// ```example
-    /// #set math.stretch(attach: false)
-    /// $ stretch(->, size: #250%)_"very long text" $
-    /// ```
-    #[default(true)]
-    pub attach: bool,
 }
 
 impl LayoutMath for Packed<StretchElem> {

@@ -323,9 +323,7 @@ fn stretch_size(
         base = equation.body();
     }
 
-    base.to_packed::<StretchElem>()
-        .filter(|stretch| stretch.attach(styles))
-        .map(|stretch| stretch.size(styles))
+    base.to_packed::<StretchElem>().map(|stretch| stretch.size(styles))
 }
 
 /// Layout the attachments.

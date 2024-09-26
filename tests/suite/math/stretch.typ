@@ -28,14 +28,6 @@ $ P = Q
   U stretch(equiv)^(forall i)_"Chern-Weil" V
     stretch(equiv, size: #(120% + 2mm))^(forall i)_"Chern-Weil" W $
 
---- math-stretch-attach-disable ---
-// Test disabling stretching to fit attachments.
-#set math.stretch(attach: false)
-$ stretch(->, size: #250%)_"very long text" \
-  stretch(->, size: #250%, attach: #true)_"very long text" \
-  stretch(->, size: #4em)_"very long text" \
-  stretch(->, size: #4em, attach: #true)_"very long text" $
-
 --- math-stretch-horizontal ---
 // Test stretching along horizontal axis.
 #let ext(sym) = math.stretch(sym, size: 2em)
