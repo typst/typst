@@ -119,9 +119,9 @@ description: |
     such that `[$ floor(x) = lr(floor.l x floor.r) $]`
   - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
   - [`cases.delim`]($math.cases.delim) parameters now allow any character that
-    that is considered as a delimiter or "fence" (e.g. |) by Unicode. The
+    is considered a delimiter or "fence" (e.g. |) by Unicode. The
     `{delim: "||"}` notation is _not_ supported anymore and should be replaced
-    by `delim: bar.double` (**Minor breaking change**)
+    by `{delim: bar.double}` (**Minor breaking change**)
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
     [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
   - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
