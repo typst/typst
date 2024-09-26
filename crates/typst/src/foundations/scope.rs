@@ -137,6 +137,17 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
         res.hint(eco_format!(
             "`{var}` is not available directly in math, try adding a hash before it: `#{var}`",
         ));
+    } else {
+        res.hint(eco_format!(
+            "if you meant to display multiple letters as is, try adding spaces between each letter: `{}`",
+            var.chars()
+                .flat_map(|c| [' ', c])
+                .skip(1)
+                .collect::<EcoString>()
+        ));
+        res.hint(eco_format!(
+            "or if you meant to display this as text, try placing it in quotes: `\"{var}\"`"
+        ));
     }
 
     res
