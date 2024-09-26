@@ -944,6 +944,9 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     Zeta: 'Ζ',
 
     // Hebrew.
+    // In math, the following symbols are replaced with corresponding characters
+    // from Letterlike Symbols.
+    // See https://github.com/typst/typst/pull/3375.
     aleph: 'א',
     alef: 'א',
     beth: 'ב',
