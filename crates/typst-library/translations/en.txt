@@ -5,3 +5,4 @@ bibliography = Bibliography
 heading = Section
 outline = Contents
 raw = Listing
+page = Page

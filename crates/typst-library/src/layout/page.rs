@@ -17,6 +17,7 @@ use crate::layout::{
     Sides, SpecificAlignment,
 };
 use crate::model::Numbering;
+use crate::text::LocalName;
 use crate::visualize::{Color, Paint};
 
 /// Layouts its child onto one or multiple pages.
@@ -222,6 +223,19 @@ pub struct PageElem {
     #[ghost]
     pub numbering: Option<Numbering>,
 
+    /// A supplement for the pages.
+    ///
+    /// For page references, this is added before the page number.
+    ///
+    /// ```example
+    /// #set page(numbering: "1.", supplement: [p.])
+    ///
+    /// = Introduction <intro>
+    /// We are on #ref(<intro>, form: "page")!
+    /// ```
+    #[ghost]
+    pub supplement: Smart<Option<Content>>,
+
     /// The alignment of the page numbering.
     ///
     /// If the vertical component is `top`, the numbering is placed into the
@@ -376,6 +390,10 @@ impl Construct for PageElem {
     }
 }
 
+impl LocalName for PageElem {
+    const KEY: &'static str = "page";
+}
+
 /// A manual page break.
 ///
 /// Must not be used inside any containers.
@@ -449,6 +467,8 @@ pub struct Page {
     pub fill: Smart<Option<Paint>>,
     /// The page's numbering.
     pub numbering: Option<Numbering>,
+    /// The page's supplement.
+    pub supplement: Content,
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
     pub number: usize,

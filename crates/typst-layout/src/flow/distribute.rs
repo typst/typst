@@ -35,7 +35,7 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
 struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// The composer that is used to handle insertions.
     composer: &'z mut Composer<'a, 'b, 'x, 'y>,
-    /// Regions which are continously shrunk as new items are added.
+    /// Regions which are continuously shrunk as new items are added.
     regions: Regions<'z>,
     /// Already laid out items, not yet aligned.
     items: Vec<Item<'a, 'b>>,
