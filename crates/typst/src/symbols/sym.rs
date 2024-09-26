@@ -100,8 +100,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     dash: [
         #[call(crate::math::accent::dash)] en: '–',
         em: '—',
-        em.two: '\u{2e3a}',
-        em.three: '\u{2e3b}',
+        em.two: '⸺',
+        em.three: '⸻',
         fig: '‒',
         wave: '〜',
         colon: '∹',
@@ -129,7 +129,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     pilcrow: ['¶', rev: '⁋'],
     section: '§',
     semi: [';', rev: '⁏'],
-    slash: ['/', double: '⫽', triple: '⫻', big: '\u{29f8}'],
+    slash: ['/', double: '⫽', triple: '⫻', big: '⧸'],
     dots: [h.c: '⋯', h: '…', v: '⋮', down: '⋱', up: '⋰'],
     tilde: [
         #[call(crate::math::accent::tilde)] op: '∼',
