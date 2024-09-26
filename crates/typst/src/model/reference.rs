@@ -131,7 +131,9 @@ pub struct RefElem {
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #show ref.where(form: "normal"): set ref(supplement: it => {
+    /// #show ref.where(
+    ///   form: "normal"
+    /// ): set ref(supplement: it => {
     ///   if it.func() == heading {
     ///     "Chapter"
     ///   } else {
