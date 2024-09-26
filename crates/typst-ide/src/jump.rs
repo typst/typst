@@ -113,25 +113,30 @@ pub fn jump_from_cursor(
     document: &Document,
     source: &Source,
     cursor: usize,
-) -> Option<Position> {
+) -> Vec<Position> {
     fn is_text(node: &LinkedNode) -> bool {
         node.get().kind() == SyntaxKind::Text
     }
 
     let root = LinkedNode::new(source.root());
-    let node = root
+    let Some(node) = root
         .leaf_at(cursor, Side::Before)
         .filter(is_text)
-        .or_else(|| root.leaf_at(cursor, Side::After).filter(is_text))?;
+        .or_else(|| root.leaf_at(cursor, Side::After).filter(is_text))
+    else {
+        return vec![];
+    };
 
     let span = node.span();
-    for (i, page) in document.pages.iter().enumerate() {
-        if let Some(point) = find_in_frame(&page.frame, span) {
-            return Some(Position { page: NonZeroUsize::new(i + 1).unwrap(), point });
-        }
-    }
-
-    None
+    document
+        .pages
+        .iter()
+        .enumerate()
+        .filter_map(|(i, page)| {
+            find_in_frame(&page.frame, span)
+                .map(|point| Position { page: NonZeroUsize::new(i + 1).unwrap(), point })
+        })
+        .collect()
 }
 
 /// Find the position of a span in a frame.
@@ -226,8 +231,8 @@ mod tests {
         let world = TestWorld::new(text);
         let doc = typst::compile(&world).output.unwrap();
         let pos = jump_from_cursor(&doc, &world.main, cursor);
-        assert_eq!(pos.is_some(), expected.is_some());
-        if let (Some(pos), Some(expected)) = (pos, expected) {
+        assert_eq!(!pos.is_empty(), expected.is_some());
+        if let (Some(pos), Some(expected)) = (pos.first(), expected) {
             assert_eq!(pos.page, expected.page);
             assert_approx_eq!(pos.point.x, expected.point.x);
             assert_approx_eq!(pos.point.y, expected.point.y);
