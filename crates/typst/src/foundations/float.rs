@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    bail, cast, func, repr, scope, ty, Bytes, Endianness, Repr, Str,
+    bail, cast, func, repr, scope, ty, Bytes, Decimal, Endianness, Repr, Str,
 };
 use crate::layout::Ratio;
 
@@ -177,6 +177,7 @@ cast! {
     v: f64 => Self(v),
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
+    v: Decimal => Self(f64::try_from(v).map_err(|_| eco_format!("invalid float: {}", v))?),
     v: Ratio => Self(v.get()),
     v: Str => Self(
         parse_float(v.clone().into())

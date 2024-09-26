@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    bail, cast, func, repr, scope, ty, Bytes, Cast, Repr, Str, Value,
+    bail, cast, func, repr, scope, ty, Bytes, Cast, Decimal, Repr, Str, Value,
 };
 
 /// A whole number.
@@ -33,16 +33,19 @@ type i64;
 
 #[scope]
 impl i64 {
-    /// Converts a value to an integer.
+    /// Converts a value to an integer. Raises an error if there is an attempt
+    /// to produce an integer larger than the maximum 64-bit signed integer
+    /// or smaller than the minimum 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
-    /// - Floats are floored to the next 64-bit integer.
+    /// - Floats and decimals are truncated to the next 64-bit integer.
     /// - Strings are parsed in base 10.
     ///
     /// ```example
     /// #int(false) \
     /// #int(true) \
     /// #int(2.7) \
+    /// #int(decimal("3.8")) \
     /// #(int("27") + int("4"))
     /// ```
     #[func(constructor)]
@@ -360,8 +363,17 @@ cast! {
     ToInt,
     v: i64 => Self(v),
     v: bool => Self(v as i64),
-    v: f64 => Self(v as i64),
+    v: f64 => Self(convert_float_to_int(v)?),
+    v: Decimal => Self(i64::try_from(v).map_err(|_| eco_format!("number too large"))?),
     v: Str => Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
+}
+
+fn convert_float_to_int(f: f64) -> StrResult<i64> {
+    if f <= i64::MIN as f64 - 1.0 || f >= i64::MAX as f64 + 1.0 {
+        Err(eco_format!("number too large"))
+    } else {
+        Ok(f as i64)
+    }
 }
 
 fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {

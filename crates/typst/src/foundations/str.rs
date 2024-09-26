@@ -11,8 +11,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Dict, Func, IntoValue,
-    Label, Repr, Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
+    IntoValue, Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
 use crate::syntax::{Span, Spanned};
@@ -775,6 +775,7 @@ cast! {
     ToStr,
     v: i64 => Self::Int(v),
     v: f64 => Self::Str(repr::display_float(v).into()),
+    v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)
