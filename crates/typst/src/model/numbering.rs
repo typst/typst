@@ -565,7 +565,7 @@ impl NumberingKind {
             Self::EasternArabic => decimal('\u{0660}', n),
             Self::EasternArabicPersian => decimal('\u{06F0}', n),
             Self::DevanagariNumber => decimal('\u{0966}', n),
-            Self::BengaliNumber => decimal('\u{09E6}',n),
+            Self::BengaliNumber => decimal('\u{09E6}', n),
             Self::CircledNumber => zeroless::<50>(
                 |x| {
                     [
