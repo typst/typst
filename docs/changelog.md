@@ -118,10 +118,10 @@ description: |
   - The `floor` and `ceil` functions in math are now callable symbols instead,
     such that `[$ floor(x) = lr(floor.l x floor.r) $]`
   - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
-  - [`cases.delim`]($math.cases.delim) parameters now allow
-    any character that that is considered as a delimiter or "fence" (like a bar)
-    by Unicode. The `{delim: "||"}` notation is _not_ supported anymore and
-    should be replaced by `delim: bar.double` (**Minor breaking change**)
+  - [`cases.delim`]($math.cases.delim) parameters now allow any character that
+    that is considered as a delimiter or "fence" (e.g. |) by Unicode. The
+    `{delim: "||"}` notation is _not_ supported anymore and should be replaced
+    by `delim: bar.double` (**Minor breaking change**)
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
     [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
   - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
@@ -181,7 +181,8 @@ description: |
   - Fixed numbering of footnote references
 
 - Visualization
-  - Added non-zero and even-odd fill rules to [`path`] and [`polygon`]
+  - Added `fill-rule` parameter to [`path`]($path.fill-rule) and
+    [`polygon`]($polygon.fill-rule) functions
   - Fixed color mixing and gradients for [Luma colors]($color.luma)
   - Fixed conversion from Luma to CMYK colors
   - Fixed offset gradient strokes in PNG export
@@ -341,7 +342,7 @@ description: |
     file could not be loaded
   - Removed `Tracer` in favor of `Warned<T>` and `typst::trace` function
   - The `xz2` dependency used by the self-updater is now statically linked
-  - The Dockerfile now has a `ENTRYPOINT` directive
+  - The Dockerfile now has an `ENTRYPOINT` directive
 
 ## Version 0.11.1 (May 17, 2024) { #v0.11.1 }
 - Security
