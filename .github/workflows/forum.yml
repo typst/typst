@@ -19,14 +19,16 @@ jobs:
           ISSUE_USER_LOGIN: ${{ github.event.issue.user.login }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
-          RAW="This topic was moved from GitHub issue ${ISSUE_NUMBER}. Please continue the conversation here.
+          read -d '' RAW << END_OF_BODY
+          This topic was moved from GitHub issue ${ISSUE_NUMBER}. Please continue the conversation here.
 
           Here is the original issue:
-          [quote=\"${ISSUE_USER_LOGIN}\"]
+          [quote="${ISSUE_USER_LOGIN}"]
           ${ISSUE_BODY}
           [/quote]
 
-          Browse the previous discussion at ${ISSUE_URL}"
+          Browse the previous discussion at ${ISSUE_URL}
+          END_OF_BODY
 
           TITLE_JSON=$(jq -n --arg title "[#${ISSUE_NUMBER}] ${ISSUE_TITLE}" '$title')
           RAW_JSON=$(jq -n --arg raw "$RAW" '$raw')
