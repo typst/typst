@@ -11,27 +11,50 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// cases, the content position can be adjusted with [`dx`]($place.dx) and
 /// [`dy`]($place.dy) offsets without affecting the layout.
 ///
+/// The parent can be any container such as a [`block`]($block), [`box`]($box),
+/// [`rect`]($rect), etc. A top level `place` call will place content directly
+/// in the text area of the current page. This can be used for absolute
+/// positioning on the page: with a `top + left`
+/// [`alignment`]($place.alignment), the offsets `dx` and `dy` will set the
+/// position of the element's top left corner relatively to the top left corner
+/// of the text area. For absolute positioning on the full page including
+/// margins, you can use `place` in [`page.foreground`]($page.foreground) or
+/// [`page.background`]($page.background).
+///
+/// # Examples
+/// ```example
+/// #set page(height: 60pt)
+/// Hello, world!
+///
+/// #rect(
+///   width: 100%,
+///   height: 2cm,
+///   place(horizon + right, square()),
+/// )
+///
+/// #place(
+///   top + left,
+///   dx: -5pt,
+///   square(size: 5pt, fill: red),
+/// )
+/// ```
+///
 /// # Effect on the position of other elements
 ///
 /// Overlaid elements don't take space in the flow of content, but a `place`
 /// call inserts an invisible block-level element in the flow. This can
 /// affect the layout by breaking the current paragraph. To avoid this,
 /// you can wrap the `place` call in a [`box`]($box) when the call is made
-/// in the middle of a paragraph.
+/// in the middle of a paragraph. The alignment and offsets will then be
+/// relative to this zero-size box:
 ///
-///
-/// # Example
 /// ```example
-/// #set page(height: 60pt)
-/// Hello, world!
+/// #let mark = circle(fill: red)
 ///
-/// #place(
-///   top + right,
-///   square(
-///     width: 20pt,
-///     stroke: 2pt + blue
-///   ),
-/// )
+/// The first sentence is shown below
+/// the subsequent placed element.
+/// #box(place(bottom+center, mark))
+/// The second sentence is shown on top.
 /// ```
 #[elem(scope)]
 pub struct PlaceElem {
@@ -39,6 +62,9 @@ pub struct PlaceElem {
     ///
     /// - If `float` is `{false}`, then this can be any alignment other than `{auto}`.
     /// - If `float` is `{true}`, then this must be `{auto}`, `{top}`, or `{bottom}`.
+    ///
+    /// When `float` is `{false}` and no vertical alignment is specified, the
+    /// content is placed at the current position on the vertical axis.
     #[positional]
     #[default(Smart::Custom(Alignment::START))]
     pub alignment: Smart<Alignment>,
