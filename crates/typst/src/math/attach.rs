@@ -1,8 +1,8 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, Packed, StyleChain};
-use crate::layout::{Abs, Axis, Corner, Frame, Point, Size};
+use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::layout::{Abs, Axis, Corner, Frame, Length, Point, Rel, Size};
 use crate::math::{
     stretch_fragment, style_for_subscript, style_for_superscript, EquationElem,
     FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled, StretchElem,
@@ -61,13 +61,7 @@ impl LayoutMath for Packed<AttachElem> {
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let new_elem = merge_base(self);
         let elem = new_elem.as_ref().unwrap_or(self);
-
-        // Get the size to stretch the base to, if the attach argument is true.
-        let stretch = elem
-            .base()
-            .to_packed::<StretchElem>()
-            .filter(|stretch| stretch.attach(styles))
-            .map(|stretch| stretch.size(styles));
+        let stretch = stretch_size(styles, elem);
 
         let mut base = ctx.layout_into_fragment(elem.base(), styles)?;
         let sup_style = style_for_superscript(styles);
@@ -316,6 +310,22 @@ fn merge_base(elem: &Packed<AttachElem>) -> Option<Packed<AttachElem>> {
     }
 
     None
+}
+
+/// Get the size to stretch the base to, if the attach argument is true.
+fn stretch_size(
+    styles: StyleChain,
+    elem: &Packed<AttachElem>,
+) -> Option<Smart<Rel<Length>>> {
+    // Extract from an EquationElem.
+    let mut base = elem.base();
+    if let Some(equation) = base.to_packed::<EquationElem>() {
+        base = equation.body();
+    }
+
+    base.to_packed::<StretchElem>()
+        .filter(|stretch| stretch.attach(styles))
+        .map(|stretch| stretch.size(styles))
 }
 
 /// Layout the attachments.

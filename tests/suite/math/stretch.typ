@@ -73,3 +73,8 @@ $ stretch(base, size: #50%) $
 
 #let base = $stretch(=, size: #4em) $
 $ stretch(base, size: #50%) $
+
+--- math-stretch-attach-nested-equation ---
+// Test stretching with attachments when nested in an equation.
+#let body = $stretch(=)$
+$ body^"text" $
