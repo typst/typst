@@ -97,7 +97,7 @@ pub fn layout_frame(
         .map(Fragment::into_frame)
 }
 
-/// The internal implementation of [`layout_fragment`].
+/// The cached, internal implementation of [`layout_fragment`].
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_fragment_impl(
