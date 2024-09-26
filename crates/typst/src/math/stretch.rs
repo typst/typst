@@ -11,14 +11,14 @@ use crate::math::{
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
 
-/// Stretches a base.
+/// Stretches a glyph.
 ///
 /// This function can also be used to automatically stretch the base of an
 /// attachment, so that it fits the top and bottom attachments.
 ///
-/// Note that only some glyphs can be stretched, and which ones can depends on
-/// the math font being used. Generally however, all math fonts are the same in
-/// this regard.
+/// Note that only some glyphs can be stretched, and which ones can depend on
+/// the math font being used. However, most math fonts are the same in this
+/// regard.
 ///
 /// ```example
 /// $ H stretch(=)^"define" U + p V $
@@ -28,9 +28,9 @@ const MAX_REPEATS: usize = 1024;
 /// ```
 #[elem(LayoutMath)]
 pub struct StretchElem {
-    /// The base to stretch.
+    /// The glyph to stretch.
     #[required]
-    pub base: Content,
+    pub body: Content,
 
     /// The size to stretch to, relative to the glyph's current size.
     pub size: Smart<Rel<Length>>,
@@ -49,7 +49,7 @@ pub struct StretchElem {
 impl LayoutMath for Packed<StretchElem> {
     #[typst_macros::time(name = "math.stretch", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let mut fragment = ctx.layout_into_fragment(self.base(), styles)?;
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
         stretch_fragment(
             ctx,
             styles,
