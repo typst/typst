@@ -31,7 +31,7 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 /// A column vector.
 ///
 /// Content in the vector's elements can be aligned with the
-/// [`align`]($category/math/vec.align) parameter, or the `&` symbol.
+/// [`align`]($math.vec.align) parameter, or the `&` symbol.
 ///
 /// # Example
 /// ```example
@@ -99,7 +99,7 @@ impl LayoutMath for Packed<VecElem> {
 /// special syntax of math function calls to define custom functions that take
 /// 2D data.
 ///
-/// Content in cells can be aligned with the [`align`]($category/math/mat.align)
+/// Content in cells can be aligned with the [`align`]($math.mat.align)
 /// parameter, or content in cells that are in the same row can be aligned with
 /// the `&` symbol.
 ///
