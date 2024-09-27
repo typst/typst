@@ -301,6 +301,8 @@ pub enum NumberingKind {
     DevanagariNumber,
     /// Bengali numerals.
     BengaliNumber,
+    /// Bengali letters (ক, খ, গ, ...কক, কখ etc.).
+    BengaliLetter,
     /// Circled numbers (①, ②, ③, etc.), up to 50.
     CircledNumber,
     /// Double-circled numbers (⓵, ⓶, ⓷, etc.), up to 10.
@@ -327,6 +329,7 @@ impl NumberingKind {
             '\u{06F1}' => NumberingKind::EasternArabicPersian,
             '\u{0967}' => NumberingKind::DevanagariNumber,
             '\u{09E7}' => NumberingKind::BengaliNumber,
+            '\u{0995}' => NumberingKind::BengaliLetter,
             '①' => NumberingKind::CircledNumber,
             '⓵' => NumberingKind::DoubleCircledNumber,
             _ => return None,
@@ -353,6 +356,7 @@ impl NumberingKind {
             Self::EasternArabicPersian => '\u{06F1}',
             Self::DevanagariNumber => '\u{0967}',
             Self::BengaliNumber => '\u{09E7}',
+            Self::BengaliLetter => '\u{0995}',
             Self::CircledNumber => '①',
             Self::DoubleCircledNumber => '⓵',
         }
@@ -566,6 +570,16 @@ impl NumberingKind {
             Self::EasternArabicPersian => decimal('\u{06F0}', n),
             Self::DevanagariNumber => decimal('\u{0966}', n),
             Self::BengaliNumber => decimal('\u{09E6}', n),
+            Self::BengaliLetter => zeroless::<32>(
+                |x| {
+                    [
+                        'ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট', 'ঠ', 'ড',
+                        'ঢ', 'ণ', 'ত', 'থ', 'দ', 'ধ', 'ন', 'প', 'ফ', 'ব', 'ভ', 'ম', 'য',
+                        'র', 'ল', 'শ', 'ষ', 'স', 'হ',
+                    ][x]
+                },
+                n,
+            ),
             Self::CircledNumber => zeroless::<50>(
                 |x| {
                     [
