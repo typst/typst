@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
+use chinese_number::{
+    from_usize_to_chinese_ten_thousand as usize_to_chinese, ChineseCase, ChineseVariant,
+};
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
@@ -150,7 +152,7 @@ cast! {
 /// - `(I)`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NumberingPattern {
-    pub pieces: EcoVec<(EcoString, NumberingKind, Case)>,
+    pub pieces: EcoVec<(EcoString, NumberingKind)>,
     pub suffix: EcoString,
     trimmed: bool,
 }
@@ -161,24 +163,21 @@ impl NumberingPattern {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.iter();
 
-        for (i, ((prefix, kind, case), &n)) in
-            self.pieces.iter().zip(&mut numbers).enumerate()
+        for (i, ((prefix, kind), &n)) in self.pieces.iter().zip(&mut numbers).enumerate()
         {
             if i > 0 || !self.trimmed {
                 fmt.push_str(prefix);
             }
-            fmt.push_str(&kind.apply(n, *case));
+            fmt.push_str(&kind.apply(n));
         }
 
-        for ((prefix, kind, case), &n) in
-            self.pieces.last().into_iter().cycle().zip(numbers)
-        {
+        for ((prefix, kind), &n) in self.pieces.last().into_iter().cycle().zip(numbers) {
             if prefix.is_empty() {
                 fmt.push_str(&self.suffix);
             } else {
                 fmt.push_str(prefix);
             }
-            fmt.push_str(&kind.apply(n, *case));
+            fmt.push_str(&kind.apply(n));
         }
 
         if !self.trimmed {
@@ -191,16 +190,16 @@ impl NumberingPattern {
     /// Apply only the k-th segment of the pattern to a number.
     pub fn apply_kth(&self, k: usize, number: usize) -> EcoString {
         let mut fmt = EcoString::new();
-        if let Some((prefix, _, _)) = self.pieces.first() {
+        if let Some((prefix, _)) = self.pieces.first() {
             fmt.push_str(prefix);
         }
-        if let Some((_, kind, case)) = self
+        if let Some((_, kind)) = self
             .pieces
             .iter()
             .chain(self.pieces.last().into_iter().cycle())
             .nth(k)
         {
-            fmt.push_str(&kind.apply(number, *case));
+            fmt.push_str(&kind.apply(number));
         }
         fmt.push_str(&self.suffix);
         fmt
@@ -220,14 +219,12 @@ impl FromStr for NumberingPattern {
         let mut handled = 0;
 
         for (i, c) in pattern.char_indices() {
-            let Some(kind) = NumberingKind::from_char(c.to_ascii_lowercase()) else {
+            let Some(kind) = NumberingKind::from_char(c) else {
                 continue;
             };
 
             let prefix = pattern[handled..i].into();
-            let case =
-                if c.is_uppercase() || c == '壹' { Case::Upper } else { Case::Lower };
-            pieces.push((prefix, kind, case));
+            pieces.push((prefix, kind));
             handled = c.len_utf8() + i;
         }
 
@@ -244,13 +241,9 @@ cast! {
     NumberingPattern,
     self => {
         let mut pat = EcoString::new();
-        for (prefix, kind, case) in &self.pieces {
+        for (prefix, kind) in &self.pieces {
             pat.push_str(prefix);
-            let mut c = kind.to_char();
-            if *case == Case::Upper {
-                c = c.to_ascii_uppercase();
-            }
-            pat.push(c);
+            pat.push(kind.to_char());
         }
         pat.push_str(&self.suffix);
         pat.into_value()
@@ -263,26 +256,36 @@ cast! {
 pub enum NumberingKind {
     /// Arabic numerals (1, 2, 3, etc.).
     Arabic,
-    /// Latin letters (A, B, C, etc.). Items beyond Z use multiple symbols.
-    /// Uses both cases.
-    Letter,
-    /// Roman numerals (I, II, III, etc.). Uses both cases.
-    Roman,
-    /// The symbols *, †, ‡, §, ¶, and ‖. Further items use multiple symbols.
+    /// Lowercase Latin letters (a, b, c, etc.). Items beyond z use base-26.
+    LowerLatin,
+    /// Uppercase Latin letters (A, B, C, etc.). Items beyond Z use base-26.
+    UpperLatin,
+    /// Lowercase Roman numerals (i, ii, iii, etc.).
+    LowerRoman,
+    /// Uppercase Roman numerals (I, II, III, etc.).
+    UpperRoman,
+    /// Paragraph/note-like symbols: *, †, ‡, §, ¶, and ‖. Further items use repeated symbols.
     Symbol,
-    /// Hebrew numerals.
+    /// Hebrew numerals, including Geresh/Gershayim.
     Hebrew,
-    /// Simplified Chinese numerals. Uses standard numerals for lowercase and
-    /// "banknote" numerals for uppercase.
-    SimplifiedChinese,
+    /// Simplified Chinese standard numerals. This corresponds to the
+    /// `ChineseCase::Lower` variant.
+    LowerSimplifiedChinese,
+    /// Simplified Chinese "banknote" numerals. This corresponds to the
+    /// `ChineseCase::Upper` variant.
+    UpperSimplifiedChinese,
     // TODO: Pick the numbering pattern based on languages choice.
     // As the first character of Simplified and Traditional Chinese numbering
     // are the same, we are unable to determine if the context requires
     // Simplified or Traditional by only looking at this character.
     #[allow(unused)]
-    /// Traditional Chinese numerals. Uses standard numerals for lowercase and
-    /// "banknote" numerals for uppercase.
-    TraditionalChinese,
+    /// Traditional Chinese standard numerals. This corresponds to the
+    /// `ChineseCase::Lower` variant.
+    LowerTraditionalChinese,
+    #[allow(unused)]
+    /// Traditional Chinese "banknote" numerals. This corresponds to the
+    /// `ChineseCase::Upper` variant.
+    UpperTraditionalChinese,
     /// Hiragana in the gojūon order. Includes n but excludes wi and we.
     HiraganaAiueo,
     /// Hiragana in the iroha order. Includes wi and we but excludes n.
@@ -312,15 +315,18 @@ pub enum NumberingKind {
 }
 
 impl NumberingKind {
-    /// Create a numbering kind from a lowercase character.
+    /// Create a numbering kind from a representative character.
     pub fn from_char(c: char) -> Option<Self> {
         Some(match c {
             '1' => NumberingKind::Arabic,
-            'a' => NumberingKind::Letter,
-            'i' => NumberingKind::Roman,
+            'a' => NumberingKind::LowerLatin,
+            'A' => NumberingKind::UpperLatin,
+            'i' => NumberingKind::LowerRoman,
+            'I' => NumberingKind::UpperRoman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
-            '一' | '壹' => NumberingKind::SimplifiedChinese,
+            '一' => NumberingKind::LowerSimplifiedChinese,
+            '壹' => NumberingKind::UpperSimplifiedChinese,
             'あ' => NumberingKind::HiraganaAiueo,
             'い' => NumberingKind::HiraganaIroha,
             'ア' => NumberingKind::KatakanaAiueo,
@@ -338,16 +344,18 @@ impl NumberingKind {
         })
     }
 
-    /// The lowercase character for this numbering kind.
+    /// The representative character for this numbering kind.
     pub fn to_char(self) -> char {
         match self {
             Self::Arabic => '1',
-            Self::Letter => 'a',
-            Self::Roman => 'i',
+            Self::LowerLatin => 'a',
+            Self::UpperLatin => 'A',
+            Self::LowerRoman => 'i',
+            Self::UpperRoman => 'I',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
-            Self::SimplifiedChinese => '一',
-            Self::TraditionalChinese => '一',
+            Self::LowerSimplifiedChinese | Self::LowerTraditionalChinese => '一',
+            Self::UpperSimplifiedChinese | Self::UpperTraditionalChinese => '壹',
             Self::HiraganaAiueo => 'あ',
             Self::HiraganaIroha => 'い',
             Self::KatakanaAiueo => 'ア',
@@ -365,18 +373,13 @@ impl NumberingKind {
     }
 
     /// Apply the numbering to the given number.
-    pub fn apply(self, mut n: usize, case: Case) -> EcoString {
+    pub fn apply(self, n: usize) -> EcoString {
         match self {
             Self::Arabic => {
                 eco_format!("{n}")
             }
-            Self::Letter => zeroless::<26>(
-                |x| match case {
-                    Case::Lower => char::from(b'a' + x as u8),
-                    Case::Upper => char::from(b'A' + x as u8),
-                },
-                n,
-            ),
+            Self::LowerLatin => zeroless::<26>(|x| char::from(b'a' + x as u8), n),
+            Self::UpperLatin => zeroless::<26>(|x| char::from(b'A' + x as u8), n),
             Self::HiraganaAiueo => zeroless::<46>(
                 |x| {
                     [
@@ -425,49 +428,8 @@ impl NumberingKind {
                 },
                 n,
             ),
-            Self::Roman => {
-                if n == 0 {
-                    return 'N'.into();
-                }
-
-                // Adapted from Yann Villessuzanne's roman.rs under the
-                // Unlicense, at https://github.com/linfir/roman.rs/
-                let mut fmt = EcoString::new();
-                for &(name, value) in &[
-                    ("M̅", 1000000),
-                    ("D̅", 500000),
-                    ("C̅", 100000),
-                    ("L̅", 50000),
-                    ("X̅", 10000),
-                    ("V̅", 5000),
-                    ("I̅V̅", 4000),
-                    ("M", 1000),
-                    ("CM", 900),
-                    ("D", 500),
-                    ("CD", 400),
-                    ("C", 100),
-                    ("XC", 90),
-                    ("L", 50),
-                    ("XL", 40),
-                    ("X", 10),
-                    ("IX", 9),
-                    ("V", 5),
-                    ("IV", 4),
-                    ("I", 1),
-                ] {
-                    while n >= value {
-                        n -= value;
-                        for c in name.chars() {
-                            match case {
-                                Case::Lower => fmt.extend(c.to_lowercase()),
-                                Case::Upper => fmt.push(c),
-                            }
-                        }
-                    }
-                }
-
-                fmt
-            }
+            Self::LowerRoman => roman_numeral(n, Case::Lower),
+            Self::UpperRoman => roman_numeral(n, Case::Upper),
             Self::Symbol => {
                 if n == 0 {
                     return '-'.into();
@@ -478,77 +440,20 @@ impl NumberingKind {
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;
                 std::iter::repeat(symbol).take(amount).collect()
             }
-            Self::Hebrew => {
-                if n == 0 {
-                    return '-'.into();
-                }
-
-                let mut fmt = EcoString::new();
-                'outer: for &(name, value) in &[
-                    ('ת', 400),
-                    ('ש', 300),
-                    ('ר', 200),
-                    ('ק', 100),
-                    ('צ', 90),
-                    ('פ', 80),
-                    ('ע', 70),
-                    ('ס', 60),
-                    ('נ', 50),
-                    ('מ', 40),
-                    ('ל', 30),
-                    ('כ', 20),
-                    ('י', 10),
-                    ('ט', 9),
-                    ('ח', 8),
-                    ('ז', 7),
-                    ('ו', 6),
-                    ('ה', 5),
-                    ('ד', 4),
-                    ('ג', 3),
-                    ('ב', 2),
-                    ('א', 1),
-                ] {
-                    while n >= value {
-                        match n {
-                            15 => fmt.push_str("ט״ו"),
-                            16 => fmt.push_str("ט״ז"),
-                            _ => {
-                                let append_geresh = n == value && fmt.is_empty();
-                                if n == value && !fmt.is_empty() {
-                                    fmt.push('״');
-                                }
-                                fmt.push(name);
-                                if append_geresh {
-                                    fmt.push('׳');
-                                }
-
-                                n -= value;
-                                continue;
-                            }
-                        }
-                        break 'outer;
-                    }
-                }
-                fmt
+            Self::Hebrew => hebrew_numeral(n),
+            Self::LowerSimplifiedChinese => {
+                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Lower, n).into()
             }
-            l @ (Self::SimplifiedChinese | Self::TraditionalChinese) => {
-                let chinese_case = match case {
-                    Case::Lower => ChineseCase::Lower,
-                    Case::Upper => ChineseCase::Upper,
-                };
-
-                match (n as u64).to_chinese(
-                    match l {
-                        Self::SimplifiedChinese => ChineseVariant::Simple,
-                        Self::TraditionalChinese => ChineseVariant::Traditional,
-                        _ => unreachable!(),
-                    },
-                    chinese_case,
-                    ChineseCountMethod::TenThousand,
-                ) {
-                    Ok(num_str) => EcoString::from(num_str),
-                    Err(_) => '-'.into(),
-                }
+            Self::UpperSimplifiedChinese => {
+                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Upper, n).into()
+            }
+            Self::LowerTraditionalChinese => {
+                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Lower, n)
+                    .into()
+            }
+            Self::UpperTraditionalChinese => {
+                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
+                    .into()
             }
             Self::KoreanJamo => zeroless::<14>(
                 |x| {
@@ -600,6 +505,106 @@ impl NumberingKind {
             ),
         }
     }
+}
+
+fn hebrew_numeral(mut n: usize) -> EcoString {
+    if n == 0 {
+        return '-'.into();
+    }
+    let mut fmt = EcoString::new();
+    'outer: for (name, value) in [
+        ('ת', 400),
+        ('ש', 300),
+        ('ר', 200),
+        ('ק', 100),
+        ('צ', 90),
+        ('פ', 80),
+        ('ע', 70),
+        ('ס', 60),
+        ('נ', 50),
+        ('מ', 40),
+        ('ל', 30),
+        ('כ', 20),
+        ('י', 10),
+        ('ט', 9),
+        ('ח', 8),
+        ('ז', 7),
+        ('ו', 6),
+        ('ה', 5),
+        ('ד', 4),
+        ('ג', 3),
+        ('ב', 2),
+        ('א', 1),
+    ] {
+        while n >= value {
+            match n {
+                15 => fmt.push_str("ט״ו"),
+                16 => fmt.push_str("ט״ז"),
+                _ => {
+                    let append_geresh = n == value && fmt.is_empty();
+                    if n == value && !fmt.is_empty() {
+                        fmt.push('״');
+                    }
+                    fmt.push(name);
+                    if append_geresh {
+                        fmt.push('׳');
+                    }
+
+                    n -= value;
+                    continue;
+                }
+            }
+            break 'outer;
+        }
+    }
+    fmt
+}
+
+fn roman_numeral(mut n: usize, case: Case) -> EcoString {
+    if n == 0 {
+        return match case {
+            Case::Lower => 'n'.into(),
+            Case::Upper => 'N'.into(),
+        };
+    }
+
+    // Adapted from Yann Villessuzanne's roman.rs under the
+    // Unlicense, at https://github.com/linfir/roman.rs/
+    let mut fmt = EcoString::new();
+    for &(name, value) in &[
+        ("M̅", 1000000),
+        ("D̅", 500000),
+        ("C̅", 100000),
+        ("L̅", 50000),
+        ("X̅", 10000),
+        ("V̅", 5000),
+        ("I̅V̅", 4000),
+        ("M", 1000),
+        ("CM", 900),
+        ("D", 500),
+        ("CD", 400),
+        ("C", 100),
+        ("XC", 90),
+        ("L", 50),
+        ("XL", 40),
+        ("X", 10),
+        ("IX", 9),
+        ("V", 5),
+        ("IV", 4),
+        ("I", 1),
+    ] {
+        while n >= value {
+            n -= value;
+            for c in name.chars() {
+                match case {
+                    Case::Lower => fmt.extend(c.to_lowercase()),
+                    Case::Upper => fmt.push(c),
+                }
+            }
+        }
+    }
+
+    fmt
 }
 
 /// Stringify a number using a base-N counting system with no zero digit.
