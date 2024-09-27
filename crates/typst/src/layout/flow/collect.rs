@@ -4,12 +4,15 @@ use std::hash::Hash;
 
 use bumpalo::boxed::Box as BumpBox;
 use bumpalo::Bump;
+use comemo::{Track, Tracked, TrackedMut};
 use once_cell::unsync::Lazy;
 
 use crate::diag::{bail, SourceResult};
-use crate::engine::Engine;
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{Packed, Resolve, Smart, StyleChain};
-use crate::introspection::{Locator, SplitLocator, Tag, TagElem};
+use crate::introspection::{
+    Introspector, Locator, LocatorLink, SplitLocator, Tag, TagElem,
+};
 use crate::layout::{
     layout_frame, Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem,
     FixedAlignment, FlushElem, Fr, Fragment, Frame, PagebreakElem, PlaceElem,
@@ -18,6 +21,7 @@ use crate::layout::{
 use crate::model::ParElem;
 use crate::realize::Pair;
 use crate::text::TextElem;
+use crate::World;
 
 /// Collects all elements of the flow into prepared children. These are much
 /// simpler to handle than the raw elements.
@@ -324,11 +328,47 @@ impl SingleChild<'_> {
     /// Build the child's frame given the region's base size.
     pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
         self.cell.get_or_init(base, |base| {
-            self.elem
-                .layout_single(engine, self.locator.relayout(), self.styles, base)
-                .map(|frame| frame.post_processed(self.styles))
+            layout_single_impl(
+                engine.world,
+                engine.introspector,
+                engine.traced,
+                TrackedMut::reborrow_mut(&mut engine.sink),
+                engine.route.track(),
+                self.elem,
+                self.locator.track(),
+                self.styles,
+                base,
+            )
         })
     }
+}
+
+/// The cached, internal implementation of [`SingleChild::layout`].
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn layout_single_impl(
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    elem: &Packed<BlockElem>,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+    base: Size,
+) -> SourceResult<Frame> {
+    let link = LocatorLink::new(locator);
+    let locator = Locator::link(&link);
+    let mut engine = Engine {
+        world,
+        introspector,
+        traced,
+        sink,
+        route: Route::extend(route),
+    };
+
+    elem.layout_single(&mut engine, locator, styles, base)
+        .map(|frame| frame.post_processed(styles))
 }
 
 /// A child that encapsulates a prepared breakable block.
@@ -349,7 +389,7 @@ impl<'a> MultiChild<'a> {
         engine: &mut Engine,
         regions: Regions,
     ) -> SourceResult<(Frame, Option<MultiSpill<'a, 'b>>)> {
-        let fragment = self.layout_impl(engine, regions)?;
+        let fragment = self.layout_full(engine, regions)?;
 
         // Extract the first frame.
         let mut frames = fragment.into_iter();
@@ -371,7 +411,7 @@ impl<'a> MultiChild<'a> {
 
     /// The shared internal implementation of [`Self::layout`] and
     /// [`MultiSpill::layout`].
-    fn layout_impl(
+    fn layout_full(
         &self,
         engine: &mut Engine,
         regions: Regions,
@@ -379,16 +419,52 @@ impl<'a> MultiChild<'a> {
         self.cell.get_or_init(regions, |mut regions| {
             // Vertical expansion is only kept if this block is the only child.
             regions.expand.y &= self.alone;
-            self.elem
-                .layout_multiple(engine, self.locator.relayout(), self.styles, regions)
-                .map(|mut fragment| {
-                    for frame in &mut fragment {
-                        frame.post_process(self.styles);
-                    }
-                    fragment
-                })
+            layout_multi_impl(
+                engine.world,
+                engine.introspector,
+                engine.traced,
+                TrackedMut::reborrow_mut(&mut engine.sink),
+                engine.route.track(),
+                self.elem,
+                self.locator.track(),
+                self.styles,
+                regions,
+            )
         })
     }
+}
+
+/// The cached, internal implementation of [`MultiChild::layout_full`].
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn layout_multi_impl(
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    elem: &Packed<BlockElem>,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let link = LocatorLink::new(locator);
+    let locator = Locator::link(&link);
+    let mut engine = Engine {
+        world,
+        introspector,
+        traced,
+        sink,
+        route: Route::extend(route),
+    };
+
+    elem.layout_multiple(&mut engine, locator, styles, regions)
+        .map(|mut fragment| {
+            for frame in &mut fragment {
+                frame.post_process(styles);
+            }
+            fragment
+        })
 }
 
 /// The spilled remains of a `MultiChild` that broke across two regions.
@@ -433,7 +509,7 @@ impl MultiSpill<'_, '_> {
         // Extract the not-yet-processed frames.
         let mut frames = self
             .multi
-            .layout_impl(engine, pod)?
+            .layout_full(engine, pod)?
             .into_iter()
             .skip(self.backlog.len());
 
