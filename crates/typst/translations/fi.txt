@@ -5,3 +5,4 @@ bibliography = Viitteet
 heading = Osio
 outline = Sisällys
 raw = Esimerkki
+page = sivu
