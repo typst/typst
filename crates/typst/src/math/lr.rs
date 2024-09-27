@@ -3,7 +3,9 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Content, NativeElement, Packed, Smart, StyleChain};
 use crate::layout::{Abs, Axis, Em, Length, Rel};
-use crate::math::{stretch_fragment, LayoutMath, MathContext, MathFragment, Scaled};
+use crate::math::{
+    stretch_fragment, EquationElem, LayoutMath, MathContext, MathFragment, Scaled,
+};
 use crate::text::TextElem;
 
 /// How much less high scaled delimiters can be than what they wrap.
@@ -21,13 +23,9 @@ pub struct LrElem {
     /// The delimited content, including the delimiters.
     #[required]
     #[parse(
-        let mut body = Content::empty();
-        for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-            if i > 0 {
-                body += TextElem::packed(',');
-            }
-            body += arg;
-        }
+        let mut arguments = args.all::<Content>()?.into_iter();
+        let mut body = arguments.next().unwrap_or_default();
+        arguments.for_each(|arg| body += TextElem::packed(',') + arg);
         body
     )]
     pub body: Content,
@@ -37,9 +35,16 @@ impl LayoutMath for Packed<LrElem> {
     #[typst_macros::time(name = "math.lr", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let mut body = self.body();
-        if let Some(elem) = body.to_packed::<LrElem>() {
-            if elem.size(styles).is_auto() {
-                body = elem.body();
+
+        // Extract from an EquationElem.
+        if let Some(equation) = body.to_packed::<EquationElem>() {
+            body = equation.body();
+        }
+
+        // Extract implicit LrElem.
+        if let Some(lr) = body.to_packed::<LrElem>() {
+            if lr.size(styles).is_auto() {
+                body = lr.body();
             }
         }
 
