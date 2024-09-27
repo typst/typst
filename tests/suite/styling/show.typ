@@ -31,7 +31,7 @@ my heading?
   box(move(dy: -1pt)[📖])
   h(5pt)
   if it.level == 1 {
-    underline(text(1.25em, blue, it.body))
+    text(1.25em, blue, underline(it.body))
   } else {
     text(red, it.body)
   }
