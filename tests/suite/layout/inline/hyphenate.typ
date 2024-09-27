@@ -102,7 +102,7 @@ Lo que entendemos por nivel léxico-semántico, en cuanto su sentido más
 gramatical: es aquel que estudia el origen y forma de las palabras de
 un idioma.
 
---- hyphenate-es-captalized-names ---
+--- hyphenate-es-capitalized-names ---
 // If the hyphen is followed by a capitalized word we shall not repeat
 //  the hyphen at the next line
 #set page(width: 6.2cm)

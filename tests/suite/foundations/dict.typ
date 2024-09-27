@@ -170,7 +170,7 @@
   dict.nonfunc()
 }
 
---- dict-dynamic-uplicate-key ---
+--- dict-dynamic-duplicate-key ---
 #let a = "hello"
 #let b = "world"
 #let c = "value"

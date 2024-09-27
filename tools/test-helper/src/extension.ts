@@ -371,7 +371,7 @@ class TestHelper {
     );
   }
 
-  // Confgiures whether the run and save buttons are enabled.
+  // Configures whether the run and save buttons are enabled.
   private setRunButtonEnabled(enabled: boolean) {
     vscode.commands.executeCommand(
       "setContext",

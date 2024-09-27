@@ -683,7 +683,7 @@ impl<T: Numeric + Fold> Fold for Augment<T> {
                 (Smart::Custom(inner), Smart::Custom(outer)) => {
                     Smart::Custom(inner.fold(outer))
                 }
-                // Usually, folding an inner `auto` with an `outer` preferres
+                // Usually, folding an inner `auto` with an `outer` prefers
                 // the explicit `auto`. However, here `auto` means unspecified
                 // and thus we want `outer`.
                 (inner, outer) => inner.or(outer),

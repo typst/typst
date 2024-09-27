@@ -67,12 +67,12 @@ Emoji: 🐪, 🌋, 🏞
 
 --- text-unknown-font-family-warning ---
 #text(font: "linux libertine", "I exist, ")
-// Warning: 13-27 unknown font family: non-existing
-#text(font: "non-existing", "but")
-// Warning: 17-36 unknown font family: also-non-existing
-#set text(font: "also-non-existing")
+// Warning: 13-26 unknown font family: nonexistent
+#text(font: "nonexistent", "but")
+// Warning: 17-35 unknown font family: also-nonexistent
+#set text(font: "also-nonexistent")
 I
-// Warning: 23-56 unknown font family: list-of
-// Warning: 23-56 unknown font family: non-existing-fonts
-#let var = text(font: ("list-of", "non-existing-fonts"))[don't]
+// Warning: 23-55 unknown font family: list-of
+// Warning: 23-55 unknown font family: nonexistent-fonts
+#let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var

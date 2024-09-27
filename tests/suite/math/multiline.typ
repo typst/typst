@@ -63,7 +63,7 @@ Multiple trailing line breaks.
 #hrule(70pt)$e^(pi i)+1 = 0$
 
 --- math-linebreaking-lr ---
-// LR groups prevent linbreaking.
+// LR groups prevent linebreaking.
 #let hrule(x) = box(line(length: x))
 #hrule(76pt)$a+b$\
 #hrule(74pt)$(a+b)$\

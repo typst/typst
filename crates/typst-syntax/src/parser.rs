@@ -1789,7 +1789,7 @@ impl<'s> Parser<'s> {
     fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
         loop {
             let next = lexer.next();
-            // Loop is terminatable, because SyntaxKind::End is not a trivia.
+            // Loop is terminable, because SyntaxKind::End is not a trivia.
             if !next.is_trivia() {
                 break next;
             }

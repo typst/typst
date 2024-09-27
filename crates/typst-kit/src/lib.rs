@@ -11,7 +11,7 @@
 //!   - For math: New Computer Modern Math
 //!   - For code: Deja Vu Sans Mono
 //! - [download] contains functionality for making simple web requests with
-//!   status reporting, useful for downloading packages from package registires.
+//!   status reporting, useful for downloading packages from package registries.
 //!   It is enabled by the `downloads` feature flag, additionally the
 //!   `vendor-openssl` can be used on operating systems other than macOS and
 //!   Windows to vendor OpenSSL when building.
