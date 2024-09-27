@@ -213,7 +213,7 @@ pub(crate) fn layout_flow(
     
     let mut balancer = Balancer::new(
         &children,
-        &config.columns,
+        &config,
         balance,
     );
     let mut finished = vec![];
