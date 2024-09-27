@@ -342,7 +342,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     emptyset: [
         '∅',
         arrow.r: '⦳',
-        arror.l: '⦴',
+        arrow.l: '⦴',
         bar: '⦱',
         circle: '⦲',
         rev: '⦰',
@@ -350,7 +350,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     nothing: [
         '∅',
         arrow.r: '⦳',
-        arror.l: '⦴',
+        arrow.l: '⦴',
         bar: '⦱',
         circle: '⦲',
         rev: '⦰',
