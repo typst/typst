@@ -5,3 +5,4 @@
 heading = Secção
 outline = Índice
 # raw = 
+page = página

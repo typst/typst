@@ -5,3 +5,4 @@ bibliography = Bibliografi
 heading = Kapitull
 outline = Përmbajtja
 raw = List
+page = faqe
