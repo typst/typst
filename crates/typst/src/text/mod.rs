@@ -128,17 +128,8 @@ pub struct TextElem {
     /// ```
     #[parse({
         let font_list: Option<Spanned<FontList>> = args.named("font")?;
-        if let Some(font_list) = &font_list {
-            let book = engine.world.book();
-            for family in &font_list.v {
-                if !book.contains_family(family.as_str()) {
-                    engine.sink.warn(warning!(
-                        font_list.span,
-                        "unknown font family: {}",
-                        family.as_str(),
-                    ));
-                }
-            }
+        if let Some(list) = &font_list {
+            check_font_list(engine, list);
         }
         font_list.map(|font_list| font_list.v)
     })]
@@ -1327,4 +1318,35 @@ pub(crate) fn isolate(text: Content, styles: StyleChain, out: &mut Vec<Content>)
     }));
     out.push(text);
     out.push(TextElem::packed("\u{202C}"));
+}
+
+/// Checks for font families that are not available.
+fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
+    let book = engine.world.book();
+    for family in &list.v {
+        let found = book.contains_family(family.as_str());
+        if family.as_str() == "linux libertine" {
+            let mut warning = warning!(
+                list.span,
+                "Typst's default font has changed from Linux Libertine to its successor Libertinus Serif";
+                hint: "please set the font to `\"Libertinus Serif\"` instead"
+            );
+
+            if found {
+                warning.hint(
+                    "Linux Libertine is available on your system - \
+                     you can ignore this warning if you are sure you want to use it",
+                );
+                warning.hint("this warning will be removed in Typst 0.13");
+            }
+
+            engine.sink.warn(warning);
+        } else if !found {
+            engine.sink.warn(warning!(
+                list.span,
+                "unknown font family: {}",
+                family.as_str(),
+            ));
+        }
+    }
 }
