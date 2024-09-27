@@ -58,13 +58,13 @@ pub fn numbering(
     context: Tracked<Context>,
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
-    /// `ㄱ`, `*`, `①`, and `⓵`. They are replaced by the number in the sequence, preserving the original
-    /// case.
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`,
+    /// `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, and `⓵`. They are replaced by the
+    /// number in the sequence, preserving the original case.
     ///
     /// The `*` character means that symbols should be used to count, in the
-    /// order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
-    /// items, the number is represented using multiple symbols.
+    /// order of `*`, `†`, `‡`, `§`, `¶`, `‖`. If there are more than six
+    /// items, the number is represented using repeated symbols.
     ///
     /// **Suffixes** are all characters after the last counting symbol. They are
     /// repeated as-is at the end of any rendered number.
@@ -140,8 +140,9 @@ cast! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`,
-/// `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, or `⓵`, and then a suffix.
+/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`, `I`,
+/// `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, or `⓵`, and then a
+/// suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -262,7 +263,8 @@ cast! {
 pub enum NumberingKind {
     /// Arabic numerals (1, 2, 3, etc.).
     Arabic,
-    /// Latin letters (A, B, C, etc.). Items beyond Z use multiple symbols. Uses both cases.
+    /// Latin letters (A, B, C, etc.). Items beyond Z use multiple symbols.
+    /// Uses both cases.
     Letter,
     /// Roman numerals (I, II, III, etc.). Uses both cases.
     Roman,
@@ -270,15 +272,16 @@ pub enum NumberingKind {
     Symbol,
     /// Hebrew numerals.
     Hebrew,
-    /// Simplified Chinese numerals. Uses standard numerals for lowercase and "banknote" numerals for uppercase.
+    /// Simplified Chinese numerals. Uses standard numerals for lowercase and
+    /// "banknote" numerals for uppercase.
     SimplifiedChinese,
     // TODO: Pick the numbering pattern based on languages choice.
-    // As the `1st` numbering character of Chinese (Simplified) and
-    // Chinese (Traditional) is same, we are unable to determine
-    // if the context is Simplified or Traditional by only this
-    // character.
+    // As the first character of Simplified and Traditional Chinese numbering
+    // are the same, we are unable to determine if the context requires
+    // Simplified or Traditional by only looking at this character.
     #[allow(unused)]
-    /// Traditional Chinese numerals. Uses standard numerals for lowercase and "banknote" numerals for uppercase.
+    /// Traditional Chinese numerals. Uses standard numerals for lowercase and
+    /// "banknote" numerals for uppercase.
     TraditionalChinese,
     /// Hiragana in the gojūon order. Includes n but excludes wi and we.
     HiraganaAiueo,
@@ -601,8 +604,8 @@ impl NumberingKind {
 
 /// Stringify a number using a base-N counting system with no zero digit.
 ///
-/// This is best explained by example.  Suppose our digits are 'A', 'B', and 'C'.
-/// we would get the following:
+/// This is best explained by example. Suppose our digits are 'A', 'B', and 'C'.
+/// We would get the following:
 ///
 /// ```text
 ///  1 =>   "A"
