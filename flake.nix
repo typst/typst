@@ -22,14 +22,14 @@
       inputs.flake-parts.flakeModules.easyOverlay
     ];
 
-    perSystem = { self', pkgs, lib, ... }:
+    perSystem = { self', pkgs, lib, system, ... }:
       let
         cargoToml = lib.importTOML ./Cargo.toml;
 
         pname = "typst";
         version = cargoToml.workspace.package.version;
 
-        rust-toolchain = (fenix.packages.x86_64-linux.fromManifestFile rust-manifest).defaultToolchain;
+        rust-toolchain = (fenix.packages.${system}.fromManifestFile rust-manifest).defaultToolchain;
 
         # Crane-based Nix flake configuration.
         # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
