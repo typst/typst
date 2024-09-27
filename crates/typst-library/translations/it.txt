@@ -5,3 +5,4 @@ bibliography = Bibliografia
 heading = Sezione
 outline = Indice
 raw = Codice
+page = pag.
