@@ -66,9 +66,9 @@ Emoji: 🐪, 🌋, 🏞
 #set text(something: "invalid")
 
 --- text-unknown-font-family-warning ---
-#text(font: "linux libertine", "I exist, ")
+#text(font: "libertinus serif")[I exist, ]
 // Warning: 13-26 unknown font family: nonexistent
-#text(font: "nonexistent", "but")
+#text(font: "nonexistent")[but]
 // Warning: 17-35 unknown font family: also-nonexistent
 #set text(font: "also-nonexistent")
 I

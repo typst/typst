@@ -313,7 +313,7 @@ function. The following example illustrates how it works:
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(font: "Linux Libertine", 11pt)
+>>>  set text(font: "Libertinus Serif", 11pt)
 >>>  set par(justify: true)
 >>>  set page(
 >>>    "us-letter",

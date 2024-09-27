@@ -105,7 +105,7 @@ pub struct TextElem {
     ///   automatically. The priority is: project fonts > server fonts.
     ///
     /// - Locally, Typst uses your installed system fonts or embedded fonts in
-    ///   the CLI, which are `Linux Libertine`, `New Computer Modern`,
+    ///   the CLI, which are `Libertinus Serif`, `New Computer Modern`,
     ///   `New Computer Modern Math`, and `DejaVu Sans Mono`. In addition, you
     ///   can use the `--font-path` argument or `TYPST_FONT_PATHS` environment
     ///   variable to add directories that should be scanned for fonts. The
@@ -142,7 +142,7 @@ pub struct TextElem {
         }
         font_list.map(|font_list| font_list.v)
     })]
-    #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
+    #[default(FontList(vec![FontFamily::new("Libertinus Serif")]))]
     #[borrowed]
     #[ghost]
     pub font: FontList,
@@ -182,7 +182,7 @@ pub struct TextElem {
     /// change your mind about how to signify the emphasis.
     ///
     /// ```example
-    /// #text(font: "Linux Libertine", style: "italic")[Italic]
+    /// #text(font: "Libertinus Serif", style: "italic")[Italic]
     /// #text(font: "DejaVu Sans", style: "oblique")[Oblique]
     /// ```
     #[ghost]
@@ -418,7 +418,7 @@ pub struct TextElem {
     ///
     /// ```example
     /// #set text(
-    ///   font: "Linux Libertine",
+    ///   font: "Libertinus Serif",
     ///   size: 20pt,
     /// )
     ///
@@ -821,7 +821,7 @@ cast! {
 /// Resolve a prioritized iterator over the font families.
 pub(crate) fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
     const FALLBACKS: &[&str] = &[
-        "linux libertine",
+        "libertinus serif",
         "twitter color emoji",
         "noto color emoji",
         "apple color emoji",

@@ -4,7 +4,7 @@
 //! # Embedded fonts
 //! The following fonts are available as embedded fonts via the `embed-fonts`
 //! feature flag:
-//! - For text: Linux Libertine, New Computer Modern
+//! - For text: Libertinus Serif, New Computer Modern
 //! - For math: New Computer Modern Math
 //! - For code: Deja Vu Sans Mono
 

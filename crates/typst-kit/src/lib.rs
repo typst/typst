@@ -7,7 +7,7 @@
 //! - [fonts] contains a default implementation for searching local and system
 //!   installed fonts. It is enabled by the `fonts` feature flag, additionally
 //!   the `embed-fonts` feature can be used to embed the Typst default fonts.
-//!   - For text: Linux Libertine, New Computer Modern
+//!   - For text: Libertinus Serif, New Computer Modern
 //!   - For math: New Computer Modern Math
 //!   - For code: Deja Vu Sans Mono
 //! - [download] contains functionality for making simple web requests with
