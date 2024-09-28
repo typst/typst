@@ -375,6 +375,20 @@ impl NumberingKind {
     pub fn apply(self, n: usize) -> EcoString {
         match self {
             Self::Arabic => eco_format!("{n}"),
+            Self::LowerRoman => roman_numeral(n, Case::Lower),
+            Self::UpperRoman => roman_numeral(n, Case::Upper),
+            Self::Symbol => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
+                const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
+                let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
+                let amount = ((n - 1) / SYMBOLS.len()) + 1;
+                std::iter::repeat(symbol).take(amount).collect()
+            }
+            Self::Hebrew => hebrew_numeral(n),
+
             Self::LowerLatin => zeroless(
                 [
                     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
@@ -429,33 +443,6 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::LowerRoman => roman_numeral(n, Case::Lower),
-            Self::UpperRoman => roman_numeral(n, Case::Upper),
-            Self::Symbol => {
-                if n == 0 {
-                    return '-'.into();
-                }
-
-                const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
-                let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
-                let amount = ((n - 1) / SYMBOLS.len()) + 1;
-                std::iter::repeat(symbol).take(amount).collect()
-            }
-            Self::Hebrew => hebrew_numeral(n),
-            Self::LowerSimplifiedChinese => {
-                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Lower, n).into()
-            }
-            Self::UpperSimplifiedChinese => {
-                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Upper, n).into()
-            }
-            Self::LowerTraditionalChinese => {
-                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Lower, n)
-                    .into()
-            }
-            Self::UpperTraditionalChinese => {
-                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
-                    .into()
-            }
             Self::KoreanJamo => zeroless(
                 [
                     'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
@@ -470,10 +457,6 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::EasternArabic => decimal('\u{0660}', n),
-            Self::EasternArabicPersian => decimal('\u{06F0}', n),
-            Self::DevanagariNumber => decimal('\u{0966}', n),
-            Self::BengaliNumber => decimal('\u{09E6}', n),
             Self::BengaliLetter => zeroless(
                 [
                     'ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট', 'ঠ', 'ড', 'ঢ',
@@ -495,6 +478,26 @@ impl NumberingKind {
             Self::DoubleCircledNumber => {
                 zeroless(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
             }
+
+            Self::LowerSimplifiedChinese => {
+                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Lower, n).into()
+            }
+            Self::UpperSimplifiedChinese => {
+                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Upper, n).into()
+            }
+            Self::LowerTraditionalChinese => {
+                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Lower, n)
+                    .into()
+            }
+            Self::UpperTraditionalChinese => {
+                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
+                    .into()
+            }
+
+            Self::EasternArabic => decimal('\u{0660}', n),
+            Self::EasternArabicPersian => decimal('\u{06F0}', n),
+            Self::DevanagariNumber => decimal('\u{0966}', n),
+            Self::BengaliNumber => decimal('\u{09E6}', n),
         }
     }
 }
