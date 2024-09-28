@@ -5,7 +5,6 @@ use chinese_number::{
 };
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
-use smallvec::{smallvec, SmallVec};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -375,57 +374,59 @@ impl NumberingKind {
     /// Apply the numbering to the given number.
     pub fn apply(self, n: usize) -> EcoString {
         match self {
-            Self::Arabic => {
-                eco_format!("{n}")
-            }
-            Self::LowerLatin => zeroless::<26>(|x| char::from(b'a' + x as u8), n),
-            Self::UpperLatin => zeroless::<26>(|x| char::from(b'A' + x as u8), n),
-            Self::HiraganaAiueo => zeroless::<46>(
-                |x| {
-                    [
-                        'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ',
-                        'し', 'す', 'せ', 'そ', 'た', 'ち', 'つ', 'て', 'と', 'な', 'に',
-                        'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み', 'む',
-                        'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ',
-                        'を', 'ん',
-                    ][x]
-                },
+            Self::Arabic => eco_format!("{n}"),
+            Self::LowerLatin => zeroless(
+                [
+                    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                    'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                ],
                 n,
             ),
-            Self::HiraganaIroha => zeroless::<47>(
-                |x| {
-                    [
-                        'い', 'ろ', 'は', 'に', 'ほ', 'へ', 'と', 'ち', 'り', 'ぬ', 'る',
-                        'を', 'わ', 'か', 'よ', 'た', 'れ', 'そ', 'つ', 'ね', 'な', 'ら',
-                        'む', 'う', 'ゐ', 'の', 'お', 'く', 'や', 'ま', 'け', 'ふ', 'こ',
-                        'え', 'て', 'あ', 'さ', 'き', 'ゆ', 'め', 'み', 'し', 'ゑ', 'ひ',
-                        'も', 'せ', 'す',
-                    ][x]
-                },
+            Self::UpperLatin => zeroless(
+                [
+                    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
+                    'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                ],
                 n,
             ),
-            Self::KatakanaAiueo => zeroless::<46>(
-                |x| {
-                    [
-                        'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ',
-                        'シ', 'ス', 'セ', 'ソ', 'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ',
-                        'ヌ', 'ネ', 'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'マ', 'ミ', 'ム',
-                        'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ',
-                        'ヲ', 'ン',
-                    ][x]
-                },
+            Self::HiraganaAiueo => zeroless(
+                [
+                    'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ',
+                    'し', 'す', 'せ', 'そ', 'た', 'ち', 'つ', 'て', 'と', 'な', 'に',
+                    'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み', 'む',
+                    'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ',
+                    'を', 'ん',
+                ],
                 n,
             ),
-            Self::KatakanaIroha => zeroless::<47>(
-                |x| {
-                    [
-                        'イ', 'ロ', 'ハ', 'ニ', 'ホ', 'ヘ', 'ト', 'チ', 'リ', 'ヌ', 'ル',
-                        'ヲ', 'ワ', 'カ', 'ヨ', 'タ', 'レ', 'ソ', 'ツ', 'ネ', 'ナ', 'ラ',
-                        'ム', 'ウ', 'ヰ', 'ノ', 'オ', 'ク', 'ヤ', 'マ', 'ケ', 'フ', 'コ',
-                        'エ', 'テ', 'ア', 'サ', 'キ', 'ユ', 'メ', 'ミ', 'シ', 'ヱ', 'ヒ',
-                        'モ', 'セ', 'ス',
-                    ][x]
-                },
+            Self::HiraganaIroha => zeroless(
+                [
+                    'い', 'ろ', 'は', 'に', 'ほ', 'へ', 'と', 'ち', 'り', 'ぬ', 'る',
+                    'を', 'わ', 'か', 'よ', 'た', 'れ', 'そ', 'つ', 'ね', 'な', 'ら',
+                    'む', 'う', 'ゐ', 'の', 'お', 'く', 'や', 'ま', 'け', 'ふ', 'こ',
+                    'え', 'て', 'あ', 'さ', 'き', 'ゆ', 'め', 'み', 'し', 'ゑ', 'ひ',
+                    'も', 'せ', 'す',
+                ],
+                n,
+            ),
+            Self::KatakanaAiueo => zeroless(
+                [
+                    'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ',
+                    'シ', 'ス', 'セ', 'ソ', 'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ',
+                    'ヌ', 'ネ', 'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'マ', 'ミ', 'ム',
+                    'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ',
+                    'ヲ', 'ン',
+                ],
+                n,
+            ),
+            Self::KatakanaIroha => zeroless(
+                [
+                    'イ', 'ロ', 'ハ', 'ニ', 'ホ', 'ヘ', 'ト', 'チ', 'リ', 'ヌ', 'ル',
+                    'ヲ', 'ワ', 'カ', 'ヨ', 'タ', 'レ', 'ソ', 'ツ', 'ネ', 'ナ', 'ラ',
+                    'ム', 'ウ', 'ヰ', 'ノ', 'オ', 'ク', 'ヤ', 'マ', 'ケ', 'フ', 'コ',
+                    'エ', 'テ', 'ア', 'サ', 'キ', 'ユ', 'メ', 'ミ', 'シ', 'ヱ', 'ヒ',
+                    'モ', 'セ', 'ス',
+                ],
                 n,
             ),
             Self::LowerRoman => roman_numeral(n, Case::Lower),
@@ -455,54 +456,45 @@ impl NumberingKind {
                 usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
                     .into()
             }
-            Self::KoreanJamo => zeroless::<14>(
-                |x| {
-                    [
-                        'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
-                        'ㅌ', 'ㅍ', 'ㅎ',
-                    ][x]
-                },
+            Self::KoreanJamo => zeroless(
+                [
+                    'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
+                    'ㅌ', 'ㅍ', 'ㅎ',
+                ],
                 n,
             ),
-            Self::KoreanSyllable => zeroless::<14>(
-                |x| {
-                    [
-                        '가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카',
-                        '타', '파', '하',
-                    ][x]
-                },
+            Self::KoreanSyllable => zeroless(
+                [
+                    '가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카',
+                    '타', '파', '하',
+                ],
                 n,
             ),
             Self::EasternArabic => decimal('\u{0660}', n),
             Self::EasternArabicPersian => decimal('\u{06F0}', n),
             Self::DevanagariNumber => decimal('\u{0966}', n),
             Self::BengaliNumber => decimal('\u{09E6}', n),
-            Self::BengaliLetter => zeroless::<32>(
-                |x| {
-                    [
-                        'ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট', 'ঠ', 'ড',
-                        'ঢ', 'ণ', 'ত', 'থ', 'দ', 'ধ', 'ন', 'প', 'ফ', 'ব', 'ভ', 'ম', 'য',
-                        'র', 'ল', 'শ', 'ষ', 'স', 'হ',
-                    ][x]
-                },
+            Self::BengaliLetter => zeroless(
+                [
+                    'ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট', 'ঠ', 'ড', 'ঢ',
+                    'ণ', 'ত', 'থ', 'দ', 'ধ', 'ন', 'প', 'ফ', 'ব', 'ভ', 'ম', 'য', 'র', 'ল',
+                    'শ', 'ষ', 'স', 'হ',
+                ],
                 n,
             ),
-            Self::CircledNumber => zeroless::<50>(
-                |x| {
-                    [
-                        '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬',
-                        '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕',
-                        '㉖', '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱',
-                        '㊲', '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼',
-                        '㊽', '㊾', '㊿',
-                    ][x]
-                },
+            Self::CircledNumber => zeroless(
+                [
+                    '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭',
+                    '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕', '㉖',
+                    '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱', '㊲',
+                    '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼', '㊽',
+                    '㊾', '㊿',
+                ],
                 n,
             ),
-            Self::DoubleCircledNumber => zeroless::<10>(
-                |x| ['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'][x],
-                n,
-            ),
+            Self::DoubleCircledNumber => {
+                zeroless(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
+            }
         }
     }
 }
@@ -632,19 +624,19 @@ fn roman_numeral(mut n: usize, case: Case) -> EcoString {
 /// You might be familiar with this scheme from the way spreadsheet software
 /// tends to label its columns.
 fn zeroless<const N_DIGITS: usize>(
-    mk_digit: impl Fn(usize) -> char,
+    alphabet: [char; N_DIGITS],
     mut n: usize,
 ) -> EcoString {
     if n == 0 {
         return '-'.into();
     }
-    let mut cs: SmallVec<[char; 8]> = smallvec![];
+    let mut cs = EcoString::new();
     while n > 0 {
         n -= 1;
-        cs.push(mk_digit(n % N_DIGITS));
+        cs.push(alphabet[n % N_DIGITS]);
         n /= N_DIGITS;
     }
-    cs.into_iter().rev().collect()
+    cs.chars().rev().collect()
 }
 
 /// Stringify a number using a base-10 counting system with a zero digit.
@@ -654,10 +646,10 @@ fn decimal(start: char, mut n: usize) -> EcoString {
     if n == 0 {
         return start.into();
     }
-    let mut cs: SmallVec<[char; 8]> = smallvec![];
+    let mut cs = EcoString::new();
     while n > 0 {
         cs.push(char::from_u32((start as u32) + ((n % 10) as u32)).unwrap());
         n /= 10;
     }
-    cs.into_iter().rev().collect()
+    cs.chars().rev().collect()
 }
