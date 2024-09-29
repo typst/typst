@@ -139,16 +139,15 @@ pub fn write_catalog(
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
-    // Write the named destination tree.
-    let mut name_dict = catalog.names();
-    let mut dests_name_tree = name_dict.destinations();
-    let mut names = dests_name_tree.names();
-    for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
-        names.insert(Str(name.as_str().as_bytes()), dest_ref);
+    // Write the named destination tree if there are any entries.
+    if !ctx.references.named_destinations.dests.is_empty() {
+        let mut name_dict = catalog.names();
+        let mut dests_name_tree = name_dict.destinations();
+        let mut names = dests_name_tree.names();
+        for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
+            names.insert(Str(name.as_str().as_bytes()), dest_ref);
+        }
     }
-    names.finish();
-    dests_name_tree.finish();
-    name_dict.finish();
 
     // Insert the page labels.
     if !page_labels.is_empty() {
