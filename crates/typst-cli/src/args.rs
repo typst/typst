@@ -123,8 +123,8 @@ pub struct CompileCommand {
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
 
-    /// One (or multiple comma-separated) PDF standards that Typst should try to
-    /// conform with.
+    /// One (or multiple comma-separated) PDF standards that Typst will enforce
+    /// conformance with.
     #[arg(long = "pdf-standard", value_delimiter = ',')]
     pub pdf_standard: Vec<PdfStandard>,
 }

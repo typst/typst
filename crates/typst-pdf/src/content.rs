@@ -745,7 +745,8 @@ fn write_image(
 ) -> SourceResult<()> {
     let index = ctx.resources.images.insert(image.clone());
     ctx.resources.deferred_images.entry(index).or_insert_with(|| {
-        let (image, color_space) = deferred_image(image.clone());
+        let (image, color_space) =
+            deferred_image(image.clone(), ctx.options.standards.pdfa);
         if let Some(color_space) = color_space {
             ctx.resources.colors.mark_as_used(color_space);
         }

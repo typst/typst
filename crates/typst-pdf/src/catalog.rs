@@ -119,25 +119,23 @@ pub fn write_catalog(
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.rendition_class(RenditionClass::Proof);
 
-    if let Some(date) = date {
-        if let Some(xmp_date) = xmp_date(date, tz) {
-            xmp.create_date(xmp_date);
-            xmp.modify_date(xmp_date);
+    if let Some(xmp_date) = date.and_then(|date| xmp_date(date, tz)) {
+        xmp.create_date(xmp_date);
+        xmp.modify_date(xmp_date);
 
-            if ctx.options.standards.pdfa {
-                let mut history = xmp.history();
-                history
-                    .add_event()
-                    .action(xmp_writer::ResourceEventAction::Saved)
-                    .when(xmp_date)
-                    .instance_id(&eco_format!("{instance_id}_source"));
-                history
-                    .add_event()
-                    .action(xmp_writer::ResourceEventAction::Converted)
-                    .when(xmp_date)
-                    .instance_id(&instance_id)
-                    .software_agent(&creator);
-            }
+        if ctx.options.standards.pdfa {
+            let mut history = xmp.history();
+            history
+                .add_event()
+                .action(xmp_writer::ResourceEventAction::Saved)
+                .when(xmp_date)
+                .instance_id(&eco_format!("{instance_id}_source"));
+            history
+                .add_event()
+                .action(xmp_writer::ResourceEventAction::Converted)
+                .when(xmp_date)
+                .instance_id(&instance_id)
+                .software_agent(&creator);
         }
     }
 
@@ -150,7 +148,6 @@ pub fn write_catalog(
             .describe_instance_id();
         extension_schemas.pdf().properties().describe_all();
         extension_schemas.finish();
-
         xmp.pdfa_part(2);
         xmp.pdfa_conformance("B");
     }
@@ -161,7 +158,8 @@ pub fn write_catalog(
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
-    pdf.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+    // Set IDs only now, so that we don't need to clone them.
+    pdf.set_file_id((doc_id.into_bytes(), instance_id.into_bytes()));
 
     // Write the document catalog.
     let catalog_ref = alloc.bump();

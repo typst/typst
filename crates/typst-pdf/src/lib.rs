@@ -95,7 +95,7 @@ pub struct PdfOptions<'a> {
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
     pub page_ranges: Option<PageRanges>,
-    /// A list of PDF standards that Typst should try to conform with.
+    /// A list of PDF standards that Typst will enforce conformance with.
     pub standards: PdfStandards,
 }
 
