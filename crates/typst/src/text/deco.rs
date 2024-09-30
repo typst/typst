@@ -95,6 +95,8 @@ impl Show for Packed<UnderlineElem> {
                 evade: self.evade(styles),
                 background: self.background(styles),
             },
+            baseline: TextElem::baseline_in(styles),
+            size: TextElem::size_in(styles),
             extent: self.extent(styles),
         }])))
     }
@@ -187,6 +189,8 @@ impl Show for Packed<OverlineElem> {
                 evade: self.evade(styles),
                 background: self.background(styles),
             },
+            baseline: TextElem::baseline_in(styles),
+            size: TextElem::size_in(styles),
             extent: self.extent(styles),
         }])))
     }
@@ -264,6 +268,8 @@ impl Show for Packed<StrikeElem> {
                 offset: self.offset(styles),
                 background: self.background(styles),
             },
+            baseline: TextElem::baseline_in(styles),
+            size: TextElem::size_in(styles),
             extent: self.extent(styles),
         }])))
     }
@@ -363,6 +369,8 @@ impl Show for Packed<HighlightElem> {
                 bottom_edge: self.bottom_edge(styles),
                 radius: self.radius(styles).unwrap_or_default(),
             },
+            baseline: TextElem::baseline_in(styles),
+            size: TextElem::size_in(styles),
             extent: self.extent(styles),
         }])))
     }
@@ -375,6 +383,8 @@ impl Show for Packed<HighlightElem> {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     line: DecoLine,
+    baseline: Abs,
+    size: Abs,
     extent: Abs,
 }
 
@@ -421,10 +431,10 @@ pub(crate) fn decorate(
     if let DecoLine::Highlight { fill, stroke, top_edge, bottom_edge, radius } =
         &deco.line
     {
-        let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
+        let (top, bottom) = determine_edges(text, deco.size, *top_edge, *bottom_edge);
         let size = Size::new(width + 2.0 * deco.extent, top - bottom);
         let rects = styled_rect(size, radius, fill.clone(), stroke);
-        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
+        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift + deco.baseline);
         frame.prepend_multiple(
             rects
                 .into_iter()
@@ -446,10 +456,11 @@ pub(crate) fn decorate(
         _ => return,
     };
 
-    let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
+    let offset =
+        offset.unwrap_or(-metrics.position.at(deco.size)) - shift + deco.baseline;
     let stroke = stroke.clone().unwrap_or(FixedStroke::from_pair(
         text.fill.as_decoration(),
-        metrics.thickness.at(text.size),
+        metrics.thickness.at(deco.size),
     ));
 
     let gap_padding = 0.08 * text.size;
@@ -537,6 +548,7 @@ pub(crate) fn decorate(
 // Return the top/bottom edge of the text given the metric of the font.
 fn determine_edges(
     text: &TextItem,
+    deco_size: Abs,
     top_edge: TopEdge,
     bottom_edge: BottomEdge,
 ) -> (Abs, Abs) {
@@ -554,8 +566,8 @@ fn determine_edges(
             });
     }
 
-    let top = top_edge.resolve(text.size, &text.font, bbox);
-    let bottom = bottom_edge.resolve(text.size, &text.font, bbox);
+    let top = top_edge.resolve(deco_size, &text.font, bbox);
+    let bottom = bottom_edge.resolve(deco_size, &text.font, bbox);
     (top, bottom)
 }
 
