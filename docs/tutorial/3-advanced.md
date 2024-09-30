@@ -10,11 +10,11 @@ base a conference paper on it! The report will of course have to comply with the
 conference's style guide. Let's see how we can achieve that.
 
 Before we start, let's create a team, invite your supervisor and add them to the
-team. You can do this by going back to the app dashboard with the four-circles
-icon in the top left corner of the editor. Then, choose the plus icon in the
-left toolbar and create a team. Finally, click on the new team and go to its
-settings by clicking 'manage team' next to the team name. Now you can invite
-your supervisor by email.
+team. You can do this by going back to the app dashboard with the back icon in 
+the top left corner of the editor. Then, choose the plus icon in the left
+toolbar and create a team. Finally, click on the new team and go to its settings
+by clicking 'manage team' next to the team name. Now you can invite your
+supervisor by email.
 
 ![The team settings](3-advanced-team-settings.png)
 
