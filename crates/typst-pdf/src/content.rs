@@ -5,26 +5,30 @@
 //! See also [`pdf_writer::Content`].
 
 use ecow::eco_format;
-use pdf_writer::{
-    types::{ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode},
-    Content, Finish, Name, Rect, Str,
+use pdf_writer::types::{
+    ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode,
 };
+use pdf_writer::{Content, Finish, Name, Rect, Str};
+use typst::diag::SourceResult;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst::model::Destination;
-use typst::text::{color::is_color_glyph, Font, TextItem, TextItemView};
+use typst::syntax::Span;
+use typst::text::color::is_color_glyph;
+use typst::text::{Font, TextItem, TextItemView};
 use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem,
     Shape,
 };
 
+use crate::color::PaintEncode;
 use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{color::PaintEncode, resources::Resources};
-use crate::{deflate_deferred, AbsExt, EmExt};
+use crate::resources::Resources;
+use crate::{deflate_deferred, AbsExt, EmExt, PdfOptions};
 
 /// Encode a [`Frame`] into a content stream.
 ///
@@ -35,13 +39,14 @@ use crate::{deflate_deferred, AbsExt, EmExt};
 ///
 /// [color glyph]: `crate::color_font`
 pub fn build(
+    options: &PdfOptions,
     resources: &mut Resources<()>,
     frame: &Frame,
     fill: Option<Paint>,
     color_glyph_width: Option<f32>,
-) -> Encoded {
+) -> SourceResult<Encoded> {
     let size = frame.size();
-    let mut ctx = Builder::new(resources, size);
+    let mut ctx = Builder::new(options, resources, size);
 
     if let Some(width) = color_glyph_width {
         ctx.content.start_color_glyph(width);
@@ -57,18 +62,18 @@ pub fn build(
 
     if let Some(fill) = fill {
         let shape = Geometry::Rect(frame.size()).filled(fill);
-        write_shape(&mut ctx, Point::zero(), &shape);
+        write_shape(&mut ctx, Point::zero(), &shape)?;
     }
 
     // Encode the frame into the content stream.
-    write_frame(&mut ctx, frame);
+    write_frame(&mut ctx, frame)?;
 
-    Encoded {
+    Ok(Encoded {
         size,
         content: deflate_deferred(ctx.content.finish()),
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
-    }
+    })
 }
 
 /// An encoded content stream.
@@ -91,6 +96,8 @@ pub struct Encoded {
 /// Content streams can be used for page contents, but also to describe color
 /// glyphs and patterns.
 pub struct Builder<'a, R = ()> {
+    /// Settings for PDF export.
+    pub(crate) options: &'a PdfOptions<'a>,
     /// A list of all resources that are used in the content stream.
     pub(crate) resources: &'a mut Resources<R>,
     /// The PDF content stream that is being built.
@@ -107,8 +114,13 @@ pub struct Builder<'a, R = ()> {
 
 impl<'a, R> Builder<'a, R> {
     /// Create a new content builder.
-    pub fn new(resources: &'a mut Resources<R>, size: Size) -> Self {
+    pub fn new(
+        options: &'a PdfOptions<'a>,
+        resources: &'a mut Resources<R>,
+        size: Size,
+    ) -> Self {
         Builder {
+            options,
             resources,
             uses_opacities: false,
             content: Content::new(),
@@ -187,9 +199,10 @@ pub(super) struct Transforms {
 }
 
 impl Builder<'_, ()> {
-    fn save_state(&mut self) {
+    fn save_state(&mut self) -> SourceResult<()> {
         self.saves.push(self.state.clone());
         self.content.save_state();
+        Ok(())
     }
 
     fn restore_state(&mut self) {
@@ -267,13 +280,19 @@ impl Builder<'_, ()> {
         self.state.size = size;
     }
 
-    fn set_fill(&mut self, fill: &Paint, on_text: bool, transforms: Transforms) {
+    fn set_fill(
+        &mut self,
+        fill: &Paint,
+        on_text: bool,
+        transforms: Transforms,
+    ) -> SourceResult<()> {
         if self.state.fill.as_ref() != Some(fill)
             || matches!(self.state.fill, Some(Paint::Gradient(_)))
         {
-            fill.set_as_fill(self, on_text, transforms);
+            fill.set_as_fill(self, on_text, transforms)?;
             self.state.fill = Some(fill.clone());
         }
+        Ok(())
     }
 
     pub fn set_fill_color_space(&mut self, space: Name<'static>) {
@@ -292,7 +311,7 @@ impl Builder<'_, ()> {
         stroke: &FixedStroke,
         on_text: bool,
         transforms: Transforms,
-    ) {
+    ) -> SourceResult<()> {
         if self.state.stroke.as_ref() != Some(stroke)
             || matches!(
                 self.state.stroke.as_ref().map(|s| &s.paint),
@@ -300,7 +319,7 @@ impl Builder<'_, ()> {
             )
         {
             let FixedStroke { paint, thickness, cap, join, dash, miter_limit } = stroke;
-            paint.set_as_stroke(self, on_text, transforms);
+            paint.set_as_stroke(self, on_text, transforms)?;
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.cap) != Some(cap) {
@@ -324,6 +343,8 @@ impl Builder<'_, ()> {
             }
             self.state.stroke = Some(stroke.clone());
         }
+
+        Ok(())
     }
 
     pub fn set_stroke_color_space(&mut self, space: Name<'static>) {
@@ -346,26 +367,29 @@ impl Builder<'_, ()> {
 }
 
 /// Encode a frame into the content stream.
-pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) {
+pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) -> SourceResult<()> {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
         match item {
-            FrameItem::Group(group) => write_group(ctx, pos, group),
-            FrameItem::Text(text) => write_text(ctx, pos, text),
-            FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
-            FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
+            FrameItem::Group(group) => write_group(ctx, pos, group)?,
+            FrameItem::Text(text) => write_text(ctx, pos, text)?,
+            FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape)?,
+            FrameItem::Image(image, size, span) => {
+                write_image(ctx, x, y, image, *size, *span)?
+            }
             FrameItem::Link(dest, size) => write_link(ctx, pos, dest, *size),
             FrameItem::Tag(_) => {}
         }
     }
+    Ok(())
 }
 
 /// Encode a group into the content stream.
-fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) {
+fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult<()> {
     let translation = Transform::translate(pos.x, pos.y);
 
-    ctx.save_state();
+    ctx.save_state()?;
 
     if group.frame.kind().is_hard() {
         ctx.group_transform(
@@ -385,12 +409,14 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) {
         ctx.content.end_path();
     }
 
-    write_frame(ctx, &group.frame);
+    write_frame(ctx, &group.frame)?;
     ctx.restore_state();
+
+    Ok(())
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) {
+fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()> {
     let ttf = text.font.ttf();
     let tables = ttf.tables();
 
@@ -401,17 +427,17 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) {
         || tables.svg.is_some()
         || tables.colr.is_some();
     if !has_color_glyphs {
-        write_normal_text(ctx, pos, TextItemView::all_of(text));
-        return;
+        write_normal_text(ctx, pos, TextItemView::all_of(text))?;
+        return Ok(());
     }
 
     let color_glyph_count =
         text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
 
     if color_glyph_count == text.glyphs.len() {
-        write_color_glyphs(ctx, pos, TextItemView::all_of(text));
+        write_color_glyphs(ctx, pos, TextItemView::all_of(text))?;
     } else if color_glyph_count == 0 {
-        write_normal_text(ctx, pos, TextItemView::all_of(text));
+        write_normal_text(ctx, pos, TextItemView::all_of(text))?;
     } else {
         // Otherwise we need to split it in smaller text runs
         let mut offset = 0;
@@ -430,16 +456,22 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) {
             offset = end;
             // Actually write the sub text-run
             if color {
-                write_color_glyphs(ctx, pos, text_item_view);
+                write_color_glyphs(ctx, pos, text_item_view)?;
             } else {
-                write_normal_text(ctx, pos, text_item_view);
+                write_normal_text(ctx, pos, text_item_view)?;
             }
         }
     }
+
+    Ok(())
 }
 
 /// Encodes a text run (without any color glyph) into the content stream.
-fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
+fn write_normal_text(
+    ctx: &mut Builder,
+    pos: Point,
+    text: TextItemView,
+) -> SourceResult<()> {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -453,7 +485,7 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     }
 
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
-    ctx.set_fill(&text.item.fill, true, fill_transform);
+    ctx.set_fill(&text.item.fill, true, fill_transform)?;
 
     let stroke = text.item.stroke.as_ref().and_then(|stroke| {
         if stroke.thickness.to_f32() > 0.0 {
@@ -464,7 +496,7 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     });
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke, true, fill_transform);
+        ctx.set_stroke(stroke, true, fill_transform)?;
         ctx.set_text_rendering_mode(TextRenderingMode::FillStroke);
     } else {
         ctx.set_text_rendering_mode(TextRenderingMode::Fill);
@@ -539,10 +571,16 @@ fn write_normal_text(ctx: &mut Builder, pos: Point, text: TextItemView) {
     items.finish();
     positioned.finish();
     ctx.content.end_text();
+
+    Ok(())
 }
 
 /// Encodes a text run made only of color glyphs into the content stream
-fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
+fn write_color_glyphs(
+    ctx: &mut Builder,
+    pos: Point,
+    text: TextItemView,
+) -> SourceResult<()> {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -568,7 +606,7 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
             .resources
             .color_fonts
             .get_or_insert_with(|| Box::new(ColorFontMap::new()));
-        let (font, index) = color_fonts.get(&text.item.font, glyph.id);
+        let (font, index) = color_fonts.get(ctx.options, &text.item.font, glyph.id)?;
 
         if last_font != Some(font) {
             ctx.content.set_font(
@@ -585,10 +623,12 @@ fn write_color_glyphs(ctx: &mut Builder, pos: Point, text: TextItemView) {
             .or_insert_with(|| text.text()[glyph.range()].into());
     }
     ctx.content.end_text();
+
+    Ok(())
 }
 
 /// Encode a geometrical shape into the content stream.
-fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
+fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()> {
     let x = pos.x.to_f32();
     let y = pos.y.to_f32();
 
@@ -601,11 +641,11 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
     });
 
     if shape.fill.is_none() && stroke.is_none() {
-        return;
+        return Ok(());
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(fill, false, ctx.state.transforms(shape.geometry.bbox_size(), pos));
+        ctx.set_fill(fill, false, ctx.state.transforms(shape.geometry.bbox_size(), pos))?;
     }
 
     if let Some(stroke) = stroke {
@@ -613,7 +653,7 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
             stroke,
             false,
             ctx.state.transforms(shape.geometry.bbox_size(), pos),
-        );
+        )?;
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());
@@ -645,6 +685,8 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) {
         (Some(_), FillRule::NonZero, Some(_)) => ctx.content.fill_nonzero_and_stroke(),
         (Some(_), FillRule::EvenOdd, Some(_)) => ctx.content.fill_even_odd_and_stroke(),
     };
+
+    Ok(())
 }
 
 /// Encode a bezier path into the content stream.
@@ -671,14 +713,21 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
 }
 
 /// Encode a vector or raster image into the content stream.
-fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
+fn write_image(
+    ctx: &mut Builder,
+    x: f32,
+    y: f32,
+    image: &Image,
+    size: Size,
+    span: Span,
+) -> SourceResult<()> {
     let index = ctx.resources.images.insert(image.clone());
     ctx.resources.deferred_images.entry(index).or_insert_with(|| {
         let (image, color_space) = deferred_image(image.clone());
         if let Some(color_space) = color_space {
             ctx.resources.colors.mark_as_used(color_space);
         }
-        image
+        (image, span)
     });
 
     ctx.reset_opacities();
@@ -693,7 +742,7 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
         let mut image_span =
             ctx.content.begin_marked_content_with_properties(Name(b"Span"));
         let mut image_alt = image_span.properties();
-        image_alt.pair(Name(b"Alt"), pdf_writer::Str(alt.as_bytes()));
+        image_alt.pair(Name(b"Alt"), Str(alt.as_bytes()));
         image_alt.finish();
         image_span.finish();
 
@@ -704,6 +753,7 @@ fn write_image(ctx: &mut Builder, x: f32, y: f32, image: &Image, size: Size) {
     }
 
     ctx.content.restore_state();
+    Ok(())
 }
 
 /// Save a link for later writing in the annotations dictionary.

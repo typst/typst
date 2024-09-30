@@ -9,20 +9,18 @@ use std::collections::HashMap;
 
 use ecow::eco_format;
 use indexmap::IndexMap;
-use pdf_writer::Filter;
-use pdf_writer::{types::UnicodeCmap, Finish, Name, Rect, Ref};
+use pdf_writer::types::UnicodeCmap;
+use pdf_writer::{Filter, Finish, Name, Rect, Ref};
 use ttf_parser::name_id;
-
+use typst::diag::SourceResult;
 use typst::layout::Em;
-use typst::text::{color::frame_for_glyph, Font};
+use typst::text::color::frame_for_glyph;
+use typst::text::Font;
 
+use crate::content;
+use crate::font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
 use crate::resources::{Resources, ResourcesRefs};
-use crate::WithGlobalRefs;
-use crate::{
-    content,
-    font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
-    EmExt, PdfChunk,
-};
+use crate::{EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
 
 /// Write color fonts in the PDF document.
 ///
@@ -30,12 +28,12 @@ use crate::{
 /// instructions.
 pub fn write_color_fonts(
     context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<ColorFontSlice, Ref>) {
+) -> SourceResult<(PdfChunk, HashMap<ColorFontSlice, Ref>)> {
     let mut out = HashMap::new();
     let mut chunk = PdfChunk::new();
     context.resources.traverse(&mut |resources: &Resources| {
         let Some(color_fonts) = &resources.color_fonts else {
-            return;
+            return Ok(());
         };
 
         for (color_font, font_slice) in color_fonts.iter() {
@@ -151,9 +149,11 @@ pub fn write_color_fonts(
 
             out.insert(font_slice, subfont_id);
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
 /// A mapping between `Font`s and all the corresponding `ColorFont`s.
@@ -213,7 +213,12 @@ impl ColorFontMap<()> {
     ///
     /// If this is the first occurrence of this glyph in this font, it will
     /// start its encoding and add it to the list of known glyphs.
-    pub fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
+    pub fn get(
+        &mut self,
+        options: &PdfOptions,
+        font: &Font,
+        gid: u16,
+    ) -> SourceResult<(usize, u8)> {
         let color_font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
             let bbox = Rect::new(
@@ -230,7 +235,7 @@ impl ColorFontMap<()> {
             }
         });
 
-        if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
+        Ok(if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
             // If we already know this glyph, return it.
             (color_font.slice_ids[index_of_glyph / 256], *index_of_glyph as u8)
         } else {
@@ -245,13 +250,18 @@ impl ColorFontMap<()> {
             let frame = frame_for_glyph(font, gid);
             let width =
                 font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
-            let instructions =
-                content::build(&mut self.resources, &frame, None, Some(width as f32));
+            let instructions = content::build(
+                options,
+                &mut self.resources,
+                &frame,
+                None,
+                Some(width as f32),
+            )?;
             color_font.glyphs.push(ColorGlyph { gid, instructions });
             color_font.glyph_indices.insert(gid, index);
 
             (color_font.slice_ids[index / 256], index as u8)
-        }
+        })
     }
 
     /// Assign references to the resource dictionary used by this set of color

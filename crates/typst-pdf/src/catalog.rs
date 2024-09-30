@@ -1,26 +1,24 @@
 use std::num::NonZeroUsize;
 
 use ecow::eco_format;
-use pdf_writer::{
-    types::Direction, writers::PageLabel, Finish, Name, Pdf, Ref, Str, TextStr,
-};
-use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
-
+use pdf_writer::types::Direction;
+use pdf_writer::writers::PageLabel;
+use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use typst::diag::SourceResult;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::Dir;
 use typst::text::Lang;
+use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
-use crate::WithEverything;
-use crate::{hash_base64, outline, page::PdfPageLabel};
+use crate::page::PdfPageLabel;
+use crate::{hash_base64, outline, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
     ctx: WithEverything,
-    ident: Smart<&str>,
-    timestamp: Option<Datetime>,
     pdf: &mut Pdf,
     alloc: &mut Ref,
-) {
+) -> SourceResult<()> {
     let lang = ctx
         .resources
         .languages
@@ -83,7 +81,7 @@ pub fn write_catalog(
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.info.date.unwrap_or(timestamp) {
+    if let Some(date) = ctx.document.info.date.unwrap_or(ctx.options.timestamp) {
         let tz = ctx.document.info.date.is_auto();
         if let Some(pdf_date) = pdf_date(date, tz) {
             info.creation_date(pdf_date);
@@ -106,7 +104,7 @@ pub fn write_catalog(
 
     // Determine the document's ID. It should be as stable as possible.
     const PDF_VERSION: &str = "PDF-1.7";
-    let doc_id = if let Smart::Custom(ident) = ident {
+    let doc_id = if let Smart::Custom(ident) = ctx.options.ident {
         // We were provided with a stable ID. Yay!
         hash_base64(&(PDF_VERSION, ident))
     } else if ctx.document.info.title.is_some() && !ctx.document.info.author.is_empty() {
@@ -167,6 +165,8 @@ pub fn write_catalog(
     }
 
     catalog.finish();
+
+    Ok(())
 }
 
 /// Write the page labels.
@@ -184,8 +184,8 @@ pub(crate) fn write_page_labels(
         return Vec::new();
     }
 
-    let mut result = vec![];
     let empty_label = PdfPageLabel::default();
+    let mut result = vec![];
     let mut prev: Option<&PdfPageLabel> = None;
 
     // Skip non-exported pages for numbering.

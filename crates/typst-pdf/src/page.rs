@@ -2,30 +2,33 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-use pdf_writer::{
-    types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle},
-    Filter, Finish, Name, Rect, Ref, Str,
-};
+use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
+use pdf_writer::{Filter, Finish, Name, Rect, Ref, Str};
+use typst::diag::SourceResult;
 use typst::foundations::Label;
 use typst::introspection::Location;
 use typst::layout::{Abs, Page};
 use typst::model::{Destination, Numbering};
 use typst::text::Case;
 
-use crate::Resources;
-use crate::{content, AbsExt, PdfChunk, WithDocument, WithRefs, WithResources};
+use crate::content;
+use crate::{
+    AbsExt, PdfChunk, PdfOptions, Resources, WithDocument, WithRefs, WithResources,
+};
 
 /// Construct page objects.
 #[typst_macros::time(name = "construct pages")]
+#[allow(clippy::type_complexity)]
 pub fn traverse_pages(
     state: &WithDocument,
-) -> (PdfChunk, (Vec<Option<EncodedPage>>, Resources<()>)) {
+) -> SourceResult<(PdfChunk, (Vec<Option<EncodedPage>>, Resources<()>))> {
     let mut resources = Resources::default();
     let mut pages = Vec::with_capacity(state.document.pages.len());
     let mut skipped_pages = 0;
     for (i, page) in state.document.pages.iter().enumerate() {
         if state
-            .exported_pages
+            .options
+            .page_ranges
             .as_ref()
             .is_some_and(|ranges| !ranges.includes_page_index(i))
         {
@@ -33,7 +36,7 @@ pub fn traverse_pages(
             pages.push(None);
             skipped_pages += 1;
         } else {
-            let mut encoded = construct_page(&mut resources, page);
+            let mut encoded = construct_page(state.options, &mut resources, page)?;
             encoded.label = page
                 .numbering
                 .as_ref()
@@ -52,29 +55,43 @@ pub fn traverse_pages(
         }
     }
 
-    (PdfChunk::new(), (pages, resources))
+    Ok((PdfChunk::new(), (pages, resources)))
 }
 
 /// Construct a page object.
 #[typst_macros::time(name = "construct page")]
-fn construct_page(out: &mut Resources<()>, page: &Page) -> EncodedPage {
-    let content = content::build(out, &page.frame, page.fill_or_transparent(), None);
-    EncodedPage { content, label: None }
+fn construct_page(
+    options: &PdfOptions,
+    out: &mut Resources<()>,
+    page: &Page,
+) -> SourceResult<EncodedPage> {
+    Ok(EncodedPage {
+        content: content::build(
+            options,
+            out,
+            &page.frame,
+            page.fill_or_transparent(),
+            None,
+        )?,
+        label: None,
+    })
 }
 
 /// Allocate a reference for each exported page.
-pub fn alloc_page_refs(context: &WithResources) -> (PdfChunk, Vec<Option<Ref>>) {
+pub fn alloc_page_refs(
+    context: &WithResources,
+) -> SourceResult<(PdfChunk, Vec<Option<Ref>>)> {
     let mut chunk = PdfChunk::new();
     let page_refs = context
         .pages
         .iter()
         .map(|p| p.as_ref().map(|_| chunk.alloc()))
         .collect();
-    (chunk, page_refs)
+    Ok((chunk, page_refs))
 }
 
 /// Write the page tree.
-pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, Ref) {
+pub fn write_page_tree(ctx: &WithRefs) -> SourceResult<(PdfChunk, Ref)> {
     let mut chunk = PdfChunk::new();
     let page_tree_ref = chunk.alloc.bump();
 
@@ -95,7 +112,7 @@ pub fn write_page_tree(ctx: &WithRefs) -> (PdfChunk, Ref) {
         .count(ctx.pages.len() as i32)
         .kids(ctx.globals.pages.iter().filter_map(Option::as_ref).copied());
 
-    (chunk, page_tree_ref)
+    Ok((chunk, page_tree_ref))
 }
 
 /// Write a page tree node.

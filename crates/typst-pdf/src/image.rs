@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
+use ecow::eco_format;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
+use typst::diag::{At, SourceResult, StrResult};
 use typst::utils::Deferred;
 use typst::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
@@ -12,7 +14,9 @@ use crate::{color, deflate, PdfChunk, WithGlobalRefs};
 
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
-pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>) {
+pub fn write_images(
+    context: &WithGlobalRefs,
+) -> SourceResult<(PdfChunk, HashMap<Image, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
@@ -21,8 +25,10 @@ pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>)
                 continue;
             }
 
-            let handle = resources.deferred_images.get(&i).unwrap();
-            match handle.wait() {
+            let (handle, span) = resources.deferred_images.get(&i).unwrap();
+            let encoded = handle.wait().as_ref().map_err(Clone::clone).at(*span)?;
+
+            match encoded {
                 EncodedImage::Raster {
                     data,
                     filter,
@@ -99,16 +105,20 @@ pub fn write_images(context: &WithGlobalRefs) -> (PdfChunk, HashMap<Image, Ref>)
                 }
             }
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
 /// Creates a new PDF image from the given image.
 ///
 /// Also starts the deferred encoding of the image.
 #[comemo::memoize]
-pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpace>) {
+pub fn deferred_image(
+    image: Image,
+) -> (Deferred<StrResult<EncodedImage>>, Option<ColorSpace>) {
     let color_space = match image.kind() {
         ImageKind::Raster(raster) if raster.icc().is_none() => {
             if raster.dynamic().color().channel_count() > 2 {
@@ -130,11 +140,20 @@ pub fn deferred_image(image: Image) -> (Deferred<EncodedImage>, Option<ColorSpac
             let alpha =
                 raster.dynamic().color().has_alpha().then(|| encode_alpha(&raster));
 
-            EncodedImage::Raster { data, filter, has_color, width, height, icc, alpha }
+            Ok(EncodedImage::Raster {
+                data,
+                filter,
+                has_color,
+                width,
+                height,
+                icc,
+                alpha,
+            })
         }
         ImageKind::Svg(svg) => {
-            let (chunk, id) = encode_svg(svg);
-            EncodedImage::Svg(chunk, id)
+            let (chunk, id) = encode_svg(svg)
+                .map_err(|err| eco_format!("failed to convert SVG to PDF: {err}"))?;
+            Ok(EncodedImage::Svg(chunk, id))
         }
     });
 
@@ -182,9 +201,8 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 
 /// Encode an SVG into a chunk of PDF objects.
 #[typst_macros::time(name = "encode svg")]
-fn encode_svg(svg: &SvgImage) -> (Chunk, Ref) {
-    // TODO: Don't unwrap once we have export diagnostics.
-    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default()).unwrap()
+fn encode_svg(svg: &SvgImage) -> Result<(Chunk, Ref), svg2pdf::ConversionError> {
+    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default())
 }
 
 /// A pre-encoded image.

@@ -636,7 +636,7 @@ impl Repr for EcoString {
     }
 }
 
-impl Repr for &str {
+impl Repr for str {
     fn repr(&self) -> EcoString {
         let mut r = EcoString::with_capacity(self.len() + 2);
         r.push('"');
