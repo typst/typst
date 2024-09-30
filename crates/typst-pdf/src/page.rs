@@ -9,7 +9,6 @@ use typst::foundations::Label;
 use typst::introspection::Location;
 use typst::layout::{Abs, Page};
 use typst::model::{Destination, Numbering};
-use typst::text::Case;
 
 use crate::content;
 use crate::{
@@ -246,26 +245,23 @@ impl PdfPageLabel {
             return None;
         };
 
-        let (prefix, kind, case) = pat.pieces.first()?;
+        let (prefix, kind) = pat.pieces.first()?;
 
         // If there is a suffix, we cannot use the common style optimisation,
         // since PDF does not provide a suffix field.
-        let mut style = None;
-        if pat.suffix.is_empty() {
+        let style = if pat.suffix.is_empty() {
             use {typst::model::NumberingKind as Kind, PdfPageLabelStyle as Style};
-            match (kind, case) {
-                (Kind::Arabic, _) => style = Some(Style::Arabic),
-                (Kind::Roman, Case::Lower) => style = Some(Style::LowerRoman),
-                (Kind::Roman, Case::Upper) => style = Some(Style::UpperRoman),
-                (Kind::Letter, Case::Lower) if number <= 26 => {
-                    style = Some(Style::LowerAlpha)
-                }
-                (Kind::Letter, Case::Upper) if number <= 26 => {
-                    style = Some(Style::UpperAlpha)
-                }
-                _ => {}
+            match kind {
+                Kind::Arabic => Some(Style::Arabic),
+                Kind::LowerRoman => Some(Style::LowerRoman),
+                Kind::UpperRoman => Some(Style::UpperRoman),
+                Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
+                Kind::LowerLatin if number <= 26 => Some(Style::UpperAlpha),
+                _ => None,
             }
-        }
+        } else {
+            None
+        };
 
         // Prefix and offset depend on the style: If it is supported by the PDF
         // spec, we use the given prefix and an offset. Otherwise, everything
