@@ -43,7 +43,7 @@ downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
 packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]
 
 # Embeds some fonts into the binary:
-# - For text: Linux Libertine, New Computer Modern
+# - For text: Libertinus Serif, New Computer Modern
 # - For math: New Computer Modern Math
 # - For code: Deja Vu Sans Mono
 #

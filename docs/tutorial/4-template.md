@@ -97,7 +97,7 @@ previous chapter.
   )
   set par(justify: true)
   set text(
-    font: "Linux Libertine",
+    font: "Libertinus Serif",
     size: 11pt,
   )
 
@@ -270,7 +270,7 @@ want to import.
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(font: "Linux Libertine", 11pt)
+>>>  set text(font: "Libertinus Serif", 11pt)
 >>>  set par(justify: true)
 >>>  set page(
 >>>    "us-letter",

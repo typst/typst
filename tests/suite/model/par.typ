@@ -49,7 +49,7 @@ starts a paragraph, also with indent.
 
   Except if you have another paragraph in them.
 
-#set text(8pt, lang: "ar", font: ("Noto Sans Arabic", "Linux Libertine"))
+#set text(8pt, lang: "ar", font: ("Noto Sans Arabic", "Libertinus Serif"))
 #set par(leading: 8pt)
 
 = Arabic

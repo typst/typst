@@ -66,9 +66,9 @@ Emoji: 🐪, 🌋, 🏞
 #set text(something: "invalid")
 
 --- text-unknown-font-family-warning ---
-#text(font: "linux libertine", "I exist, ")
+#text(font: "libertinus serif")[I exist,]
 // Warning: 13-26 unknown font family: nonexistent
-#text(font: "nonexistent", "but")
+#text(font: "nonexistent")[but]
 // Warning: 17-35 unknown font family: also-nonexistent
 #set text(font: "also-nonexistent")
 I
@@ -76,3 +76,8 @@ I
 // Warning: 23-55 unknown font family: nonexistent-fonts
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
+
+--- text-font-linux-libertine ---
+// Warning: 17-34 Typst's default font has changed from Linux Libertine to its successor Libertinus Serif
+// Hint: 17-34 please set the font to `"Libertinus Serif"` instead
+#set text(font: "Linux Libertine")
