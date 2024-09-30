@@ -106,3 +106,9 @@ Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
 #h(0pt) #box[] <a>
 
 #context test(query(<a>).len(), 1)
+
+--- show-par-set-block-hint ---
+// Warning: 2-36 `show par: set block(spacing: ..)` has no effect anymore
+// Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
+// Hint: 2-36 write `set par(spacing: ..)` instead
+#show par: set block(spacing: 12pt)

@@ -488,6 +488,11 @@ impl Recipe {
         &self.transform
     }
 
+    /// The recipe's span.
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
     /// Apply the recipe to the given content.
     pub fn apply(
         &self,
