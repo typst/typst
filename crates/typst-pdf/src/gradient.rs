@@ -13,7 +13,9 @@ use typst::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
 
-use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
+use crate::color::{
+    self, check_cmyk_allowed, ColorSpaceExt, PaintEncode, QuantizedColor,
+};
 use crate::{content, WithGlobalRefs};
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
 
@@ -55,6 +57,10 @@ pub fn write_gradients(
             } else {
                 gradient.space()
             };
+
+            if color_space == ColorSpace::Cmyk {
+                check_cmyk_allowed(context.options)?;
+            }
 
             let mut shading_pattern = match &gradient {
                 Gradient::Linear(_) => {

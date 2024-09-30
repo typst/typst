@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
-use pdf_writer::writers::FontDescriptor;
+use pdf_writer::writers::{FontDescriptor, WMode};
 use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str};
 use subsetter::GlyphRemapper;
 use ttf_parser::{name_id, GlyphId, Tag};
@@ -13,10 +13,14 @@ use typst::syntax::Span;
 use typst::text::Font;
 use typst::utils::SliceExt;
 
-use crate::{deflate, EmExt, PdfChunk, WithGlobalRefs};
+use crate::{deflate, EmExt, NameExt, PdfChunk, WithGlobalRefs};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
+
+const SUBSET_TAG_LEN: usize = 6;
+const IDENTITY_H: &str = "Identity-H";
+
 pub(crate) const CMAP_NAME: Name = Name(b"Custom");
 pub(crate) const SYSTEM_INFO: SystemInfo = SystemInfo {
     registry: Str(b"Adobe"),
@@ -58,14 +62,9 @@ pub fn write_fonts(
                 .or_else(|| ttf.raw_face().table(CFF2))
                 .is_some();
 
-            let postscript_name = font
-                .find_name(name_id::POST_SCRIPT_NAME)
-                .unwrap_or_else(|| "unknown".to_string());
-
-            let subset_tag = subset_tag(glyph_set);
-            let base_font = eco_format!("{subset_tag}+{postscript_name}");
+            let base_font = base_font_name(font, glyph_set);
             let base_font_type0 = if is_cff {
-                eco_format!("{base_font}-Identity-H")
+                eco_format!("{base_font}-{IDENTITY_H}")
             } else {
                 base_font.clone()
             };
@@ -74,7 +73,7 @@ pub fn write_fonts(
             chunk
                 .type0_font(type0_ref)
                 .base_font(Name(base_font_type0.as_bytes()))
-                .encoding_predefined(Name(b"Identity-H"))
+                .encoding_predefined(Name(IDENTITY_H.as_bytes()))
                 .descendant_font(cid_ref)
                 .to_unicode(cmap_ref);
 
@@ -118,7 +117,10 @@ pub fn write_fonts(
             // Write the /ToUnicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
             let cmap = create_cmap(glyph_set, glyph_remapper);
-            chunk.cmap(cmap_ref, &cmap).filter(Filter::FlateDecode);
+            chunk
+                .cmap(cmap_ref, &cmap)
+                .writing_mode(WMode::Horizontal)
+                .filter(Filter::FlateDecode);
 
             let subset = subset_font(font, glyph_remapper)
                 .map_err(|err| {
@@ -224,12 +226,31 @@ fn subset_font(
     Ok(Arc::new(deflate(data)))
 }
 
+/// Creates the base font name for a font with a specific glyph subset.
+/// Consists of a subset tag and the PostScript name of the font.
+///
+/// Returns a string of length maximum 116, so that even with `-Identity-H`
+/// added it does not exceed the maximum PDF/A name length of 127.
+pub(crate) fn base_font_name<T: Hash>(font: &Font, glyphs: &T) -> EcoString {
+    const MAX_LEN: usize = Name::PDFA_LIMIT - REST_LEN;
+    const REST_LEN: usize = SUBSET_TAG_LEN + 1 + 1 + IDENTITY_H.len();
+
+    let postscript_name = font.find_name(name_id::POST_SCRIPT_NAME);
+    let name = postscript_name.as_deref().unwrap_or("unknown");
+    let trimmed = &name[..name.len().min(MAX_LEN)];
+
+    // Hash the full name (we might have trimmed) and the glyphs to produce
+    // a fairly unique subset tag.
+    let subset_tag = subset_tag(&(name, glyphs));
+
+    eco_format!("{subset_tag}+{trimmed}")
+}
+
 /// Produce a unique 6 letter tag for a glyph set.
 pub(crate) fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
-    const LEN: usize = 6;
     const BASE: u128 = 26;
     let mut hash = typst::utils::hash128(&glyphs);
-    let mut letter = [b'A'; LEN];
+    let mut letter = [b'A'; SUBSET_TAG_LEN];
     for l in letter.iter_mut() {
         *l = b'A' + (hash % BASE) as u8;
         hash /= BASE;

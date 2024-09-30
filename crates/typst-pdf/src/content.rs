@@ -8,8 +8,10 @@ use ecow::eco_format;
 use pdf_writer::types::{
     ColorSpaceOperand, LineCapStyle, LineJoinStyle, TextRenderingMode,
 };
+use pdf_writer::writers::PositionedItems;
 use pdf_writer::{Content, Finish, Name, Rect, Str};
-use typst::diag::SourceResult;
+use typst::diag::{bail, SourceResult};
+use typst::foundations::Repr;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
 };
@@ -28,7 +30,7 @@ use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
 use crate::resources::Resources;
-use crate::{deflate_deferred, AbsExt, EmExt, PdfOptions};
+use crate::{deflate_deferred, AbsExt, ContentExt, EmExt, PdfOptions, StrExt};
 
 /// Encode a [`Frame`] into a content stream.
 ///
@@ -201,8 +203,7 @@ pub(super) struct Transforms {
 impl Builder<'_, ()> {
     fn save_state(&mut self) -> SourceResult<()> {
         self.saves.push(self.state.clone());
-        self.content.save_state();
-        Ok(())
+        self.content.save_state_checked()
     }
 
     fn restore_state(&mut self) {
@@ -417,6 +418,19 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()> {
+    if ctx.options.standards.pdfa {
+        let last_resort = text.font.info().is_last_resort();
+        for g in &text.glyphs {
+            if last_resort || g.id == 0 {
+                bail!(
+                    g.span.0,
+                    "the text {} could not be displayed with any font",
+                    text.text[g.range()].repr()
+                );
+            }
+        }
+    }
+
     let ttf = text.font.ttf();
     let tables = ttf.tables();
 
@@ -526,7 +540,7 @@ fn write_normal_text(
 
         if !adjustment.is_zero() {
             if !encoded.is_empty() {
-                items.show(Str(&encoded));
+                show_text(&mut items, &encoded);
                 encoded.clear();
             }
 
@@ -565,7 +579,7 @@ fn write_normal_text(
     }
 
     if !encoded.is_empty() {
-        items.show(Str(&encoded));
+        show_text(&mut items, &encoded);
     }
 
     items.finish();
@@ -573,6 +587,14 @@ fn write_normal_text(
     ctx.content.end_text();
 
     Ok(())
+}
+
+/// Shows text, ensuring that each individual string doesn't exceed the
+/// implementation limits.
+fn show_text(items: &mut PositionedItems, encoded: &[u8]) {
+    for chunk in encoded.chunks(Str::PDFA_LIMIT) {
+        items.show(Str(chunk));
+    }
 }
 
 /// Encodes a text run made only of color glyphs into the content stream
@@ -735,10 +757,14 @@ fn write_image(
     let name = eco_format!("Im{index}");
     let w = size.x.to_f32();
     let h = size.y.to_f32();
-    ctx.content.save_state();
+    ctx.content.save_state_checked()?;
     ctx.content.transform([w, 0.0, 0.0, -h, x, y + h]);
 
     if let Some(alt) = image.alt() {
+        if ctx.options.standards.pdfa && alt.len() > Str::PDFA_LIMIT {
+            bail!(span, "the image's alt text is too long");
+        }
+
         let mut image_span =
             ctx.content.begin_marked_content_with_properties(Name(b"Span"));
         let mut image_alt = image_span.properties();

@@ -10,15 +10,15 @@ use std::collections::HashMap;
 use ecow::eco_format;
 use indexmap::IndexMap;
 use pdf_writer::types::UnicodeCmap;
+use pdf_writer::writers::WMode;
 use pdf_writer::{Filter, Finish, Name, Rect, Ref};
-use ttf_parser::name_id;
 use typst::diag::SourceResult;
 use typst::layout::Em;
 use typst::text::color::frame_for_glyph;
 use typst::text::Font;
 
 use crate::content;
-use crate::font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
+use crate::font::{base_font_name, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
 use crate::resources::{Resources, ResourcesRefs};
 use crate::{EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
 
@@ -84,12 +84,7 @@ pub fn write_color_fonts(
 
             // Determine the base font name.
             gids.sort();
-            let subset_tag = subset_tag(&gids);
-            let postscript_name = font_slice
-                .font
-                .find_name(name_id::POST_SCRIPT_NAME)
-                .unwrap_or_else(|| "unknown".to_string());
-            let base_font = eco_format!("{subset_tag}+{postscript_name}");
+            let base_font = base_font_name(&font_slice.font, &gids);
 
             // Write the Type3 font object.
             let mut pdf_font = chunk.type3_font(subfont_id);
@@ -134,7 +129,7 @@ pub fn write_color_fonts(
                     cmap.pair_with_multiple(index as u8, text.chars());
                 }
             }
-            chunk.cmap(cmap_ref, &cmap.finish());
+            chunk.cmap(cmap_ref, &cmap.finish()).writing_mode(WMode::Horizontal);
 
             // Write the font descriptor.
             write_font_descriptor(

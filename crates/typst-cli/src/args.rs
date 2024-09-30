@@ -122,6 +122,23 @@ pub struct CompileCommand {
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
+
+    /// One (or multiple comma-separated) PDF standards that Typst should try to
+    /// conform with.
+    #[arg(long = "pdf-standard", value_delimiter = ',')]
+    pub pdf_standard: Vec<PdfStandard>,
+}
+
+/// A PDF standard.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[allow(non_camel_case_types)]
+pub enum PdfStandard {
+    /// PDF 1.7.
+    #[value(name = "1.7")]
+    V_1_7,
+    /// PDF/A-2b.
+    #[value(name = "a-2b")]
+    A_2b,
 }
 
 /// Initializes a new project from a template

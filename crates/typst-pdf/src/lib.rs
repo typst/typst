@@ -15,15 +15,17 @@ mod pattern;
 mod resources;
 
 use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
-use pdf_writer::{Chunk, Pdf, Ref};
-use typst::diag::SourceResult;
+use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
+use typst::diag::{bail, SourceResult, StrResult};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, PageRanges, Transform};
 use typst::model::Document;
+use typst::syntax::Span;
 use typst::text::Font;
 use typst::utils::Deferred;
 use typst::visualize::Image;
@@ -45,25 +47,6 @@ use crate::resources::{
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
-///
-/// The `ident` parameter, if given, shall be a string that uniquely and stably
-/// identifies the document. It should not change between compilations of the
-/// same document.  **If you cannot provide such a stable identifier, just pass
-/// `Smart::Auto` rather than trying to come up with one.** The CLI, for
-/// example, does not have a well-defined notion of a long-lived project and as
-/// such just passes `Smart::Auto`.
-///
-/// If an `ident` is given, the hash of it will be used to create a PDF document
-/// identifier (the identifier itself is not leaked). If `ident` is `Auto`, a
-/// hash of the document's title and author is used instead (which is reasonably
-/// unique and stable).
-///
-/// The `timestamp`, if given, is expected to be the creation date of the
-/// document as a UTC datetime. It will only be used if `set document(date: ..)`
-/// is `auto`.
-///
-/// The `page_ranges` option specifies which ranges of pages should be exported
-/// in the PDF. When `None`, all pages should be exported.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &Document, options: &PdfOptions) -> SourceResult<Vec<u8>> {
     PdfBuilder::new(document, options)
@@ -92,26 +75,70 @@ pub fn pdf(document: &Document, options: &PdfOptions) -> SourceResult<Vec<u8>> {
 }
 
 /// Settings for PDF export.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PdfOptions<'a> {
-    /// If given, shall be a string that uniquely and stably identifies the
-    /// document. It should not change between compilations of the same
-    /// document.  **If you cannot provide such a stable identifier, just pass
-    /// `Smart::Auto` rather than trying to come up with one.** The CLI, for
-    /// example, does not have a well-defined notion of a long-lived project and
-    /// as such just passes `Smart::Auto`.
+    /// If not `Smart::Auto`, shall be a string that uniquely and stably
+    /// identifies the document. It should not change between compilations of
+    /// the same document.  **If you cannot provide such a stable identifier,
+    /// just pass `Smart::Auto` rather than trying to come up with one.** The
+    /// CLI, for example, does not have a well-defined notion of a long-lived
+    /// project and as such just passes `Smart::Auto`.
     ///
     /// If an `ident` is given, the hash of it will be used to create a PDF
     /// document identifier (the identifier itself is not leaked). If `ident` is
     /// `Auto`, a hash of the document's title and author is used instead (which
     /// is reasonably unique and stable).
     pub ident: Smart<&'a str>,
-    /// If given, is expected to be the creation date of the document as a UTC
+    /// If not `None`, shall be the creation date of the document as a UTC
     /// datetime. It will only be used if `set document(date: ..)` is `auto`.
     pub timestamp: Option<Datetime>,
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
     pub page_ranges: Option<PageRanges>,
+    /// A list of PDF standards that Typst should try to conform with.
+    pub standards: PdfStandards,
+}
+
+/// Encapsulates a list of compatible PDF standards.
+#[derive(Clone)]
+pub struct PdfStandards {
+    /// For now, we simplify to just PDF/A, since we only support PDF/A-2b. But
+    /// it can be more fine-grained in the future.
+    pub(crate) pdfa: bool,
+}
+
+impl PdfStandards {
+    /// Validates a list of PDF standards for compatibility and returns their
+    /// encapsulated representation.
+    pub fn new(list: &[PdfStandard]) -> StrResult<Self> {
+        Ok(Self { pdfa: list.contains(&PdfStandard::A_2b) })
+    }
+}
+
+impl Debug for PdfStandards {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.pad("PdfStandards(..)")
+    }
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for PdfStandards {
+    fn default() -> Self {
+        Self { pdfa: false }
+    }
+}
+
+/// A PDF standard.
+///
+/// Support for more standards is planned.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[allow(non_camel_case_types)]
+#[non_exhaustive]
+pub enum PdfStandard {
+    /// PDF 1.7.
+    V_1_7,
+    /// PDF/A-2b.
+    A_2b,
 }
 
 /// A struct to build a PDF following a fixed succession of phases.
@@ -512,6 +539,63 @@ trait EmExt {
 impl EmExt for Em {
     fn to_font_units(self) -> f32 {
         1000.0 * self.get() as f32
+    }
+}
+
+trait NameExt<'a> {
+    /// The maximum length of a name in PDF/A.
+    const PDFA_LIMIT: usize = 127;
+}
+
+impl<'a> NameExt<'a> for Name<'a> {}
+
+/// Additional methods for [`Str`].
+trait StrExt<'a>: Sized {
+    /// The maximum length of a string in PDF/A.
+    const PDFA_LIMIT: usize = 32767;
+
+    /// Create a string that satisfies the constraints of PDF/A.
+    #[allow(unused)]
+    fn trimmed(string: &'a [u8]) -> Self;
+}
+
+impl<'a> StrExt<'a> for Str<'a> {
+    fn trimmed(string: &'a [u8]) -> Self {
+        Self(&string[..string.len().min(Self::PDFA_LIMIT)])
+    }
+}
+
+/// Additional methods for [`TextStr`].
+trait TextStrExt<'a>: Sized {
+    /// The maximum length of a string in PDF/A.
+    const PDFA_LIMIT: usize = Str::PDFA_LIMIT;
+
+    /// Create a text string that satisfies the constraints of PDF/A.
+    fn trimmed(string: &'a str) -> Self;
+}
+
+impl<'a> TextStrExt<'a> for TextStr<'a> {
+    fn trimmed(string: &'a str) -> Self {
+        Self(&string[..string.len().min(Self::PDFA_LIMIT)])
+    }
+}
+
+/// Extension trait for [`Content`](pdf_writer::Content).
+trait ContentExt {
+    fn save_state_checked(&mut self) -> SourceResult<()>;
+}
+
+impl ContentExt for pdf_writer::Content {
+    fn save_state_checked(&mut self) -> SourceResult<()> {
+        self.save_state();
+        if self.state_nesting_depth() > 28 {
+            bail!(
+                Span::detached(),
+                "maximum PDF grouping depth exceeding";
+                hint: "try to avoid excessive nesting of layout containers",
+            );
+        }
+        Ok(())
     }
 }
 

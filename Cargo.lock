@@ -1681,9 +1681,9 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pdf-writer"
-version = "0.10.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af6a7882fda7808481d43c51cadfc3ec934c6af72612a1fe6985ce329a2f0469"
+checksum = "be17f48d7fbbd22c6efedb58af5d409aa578e407f40b29a0bcb4e66ed84c5c98"
 dependencies = [
  "bitflags 2.6.0",
  "itoa",
@@ -2354,13 +2354,15 @@ dependencies = [
 
 [[package]]
 name = "subsetter"
-version = "0.11.0"
-source = "git+https://github.com/typst/subsetter?rev=4e0058b#4e0058b4b9a0948a5f79894111948d95e59ba350"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74f98178f34057d4d4de93d68104007c6dea4dfac930204a69ab4622daefa648"
 
 [[package]]
 name = "svg2pdf"
-version = "0.11.0"
-source = "git+https://github.com/typst/svg2pdf?rev=5963e1e#5963e1e890ac89fbf6b4750b3470ebd5765ef606"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5014c9dadcf318fb7ef8c16438e95abcc9de1ae24d60d5bccc64c55100c50364"
 dependencies = [
  "fontdb",
  "image",
@@ -3489,9 +3491,9 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xmp-writer"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4543ba138f64a94b19e1e9c66c165bca7e03d470e1c066cb76ea279d9d0e1989"
+checksum = "8254499146a4fd0c86e3e99cf4a9f468f595808fb49ff8f3e495f2b117bf4ebc"
 
 [[package]]
 name = "xz2"

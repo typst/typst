@@ -182,7 +182,7 @@ cast! {
 pub struct Url(EcoString);
 
 impl Url {
-    /// Create an URL from a string, checking the maximum length.
+    /// Create a URL from a string, checking the maximum length.
     pub fn new(url: impl Into<EcoString>) -> StrResult<Self> {
         let url = url.into();
         if url.len() > 8000 {
