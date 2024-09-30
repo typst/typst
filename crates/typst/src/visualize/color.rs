@@ -544,6 +544,9 @@ impl Color {
     /// These components are also available using the
     /// [`components`]($color.components) method.
     ///
+    /// Note that CMYK colors are not currently supported when PDF/A output is
+    /// enabled.
+    ///
     /// ```example
     /// #square(
     ///   fill: cmyk(27%, 0%, 3%, 5%)
