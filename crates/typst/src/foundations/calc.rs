@@ -615,28 +615,26 @@ pub fn lcm(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will return the same type as the operand. That is,
-/// applying `floor` to a [`float`] will return a `float`, and to a [`decimal`],
-/// another `decimal`. You may explicitly convert the output of this function to
-/// an integer with [`int`], but note that such a conversion will error if the
-/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// Note that this function will always return an [integer]($int), and will
+/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
+/// 64-bit signed integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #assert(calc.floor(3) == 3)
-/// #assert(calc.floor(3.14) == 3.0)
-/// #assert(calc.floor(decimal("-3.14")) == decimal("-4"))
+/// #assert(calc.floor(3.14) == 3)
+/// #assert(calc.floor(decimal("-3.14")) == -4)
 /// #calc.floor(500.1)
 /// ```
 #[func]
 pub fn floor(
     /// The number to round down.
     value: DecNum,
-) -> DecNum {
+) -> StrResult<i64> {
     match value {
-        DecNum::Int(n) => DecNum::Int(n),
-        DecNum::Float(n) => DecNum::Float(n.floor()),
-        DecNum::Decimal(n) => DecNum::Decimal(n.floor()),
+        DecNum::Int(n) => Ok(n),
+        DecNum::Float(n) => Ok(crate::foundations::convert_float_to_int(n.floor())
+            .map_err(|_| too_large())?),
+        DecNum::Decimal(n) => Ok(i64::try_from(n.floor()).map_err(|_| too_large())?),
     }
 }
 
@@ -644,28 +642,26 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will return the same type as the operand. That is,
-/// applying `ceil` to a [`float`] will return a `float`, and to a [`decimal`],
-/// another `decimal`. You may explicitly convert the output of this function to
-/// an integer with [`int`], but note that such a conversion will error if the
-/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// Note that this function will always return an [integer]($int), and will
+/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
+/// 64-bit signed integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #assert(calc.ceil(3) == 3)
 /// #assert(calc.ceil(3.14) == 4)
-/// #assert(calc.ceil(decimal("-3.14")) == decimal("-3"))
+/// #assert(calc.ceil(decimal("-3.14")) == -3)
 /// #calc.ceil(500.1)
 /// ```
 #[func]
 pub fn ceil(
     /// The number to round up.
     value: DecNum,
-) -> DecNum {
+) -> StrResult<i64> {
     match value {
-        DecNum::Int(n) => DecNum::Int(n),
-        DecNum::Float(n) => DecNum::Float(n.ceil()),
-        DecNum::Decimal(n) => DecNum::Decimal(n.ceil()),
+        DecNum::Int(n) => Ok(n),
+        DecNum::Float(n) => Ok(crate::foundations::convert_float_to_int(n.ceil())
+            .map_err(|_| too_large())?),
+        DecNum::Decimal(n) => Ok(i64::try_from(n.ceil()).map_err(|_| too_large())?),
     }
 }
 
@@ -673,28 +669,26 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will return the same type as the operand. That is,
-/// applying `trunc` to a [`float`] will return a `float`, and to a [`decimal`],
-/// another `decimal`. You may explicitly convert the output of this function to
-/// an integer with [`int`], but note that such a conversion will error if the
-/// `float` or `decimal` is larger than the maximum 64-bit signed integer or
-/// smaller than the minimum integer.
+/// Note that this function will always return an [integer]($int), and will
+/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
+/// 64-bit signed integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #assert(calc.trunc(3) == 3)
-/// #assert(calc.trunc(-3.7) == -3.0)
-/// #assert(calc.trunc(decimal("8493.12949582390")) == decimal("8493"))
+/// #assert(calc.trunc(-3.7) == -3)
+/// #assert(calc.trunc(decimal("8493.12949582390")) == 8493)
 /// #calc.trunc(15.9)
 /// ```
 #[func(title = "Truncate")]
 pub fn trunc(
     /// The number to truncate.
     value: DecNum,
-) -> DecNum {
+) -> StrResult<i64> {
     match value {
-        DecNum::Int(n) => DecNum::Int(n),
-        DecNum::Float(n) => DecNum::Float(n.trunc()),
-        DecNum::Decimal(n) => DecNum::Decimal(n.trunc()),
+        DecNum::Int(n) => Ok(n),
+        DecNum::Float(n) => Ok(crate::foundations::convert_float_to_int(n.trunc())
+            .map_err(|_| too_large())?),
+        DecNum::Decimal(n) => Ok(i64::try_from(n.trunc()).map_err(|_| too_large())?),
     }
 }
 
@@ -1006,6 +1000,10 @@ pub fn rem_euclid(
 
 /// Calculates the quotient (floored division) of two numbers.
 ///
+/// Note that this function will always return an [integer]($int), and will
+/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
+/// 64-bit signed integer or smaller than the minimum for that type.
+///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
 ///   "quo"(14, 5) &= #calc.quo(14, 5) \
@@ -1019,7 +1017,7 @@ pub fn quo(
     dividend: DecNum,
     /// The divisor of the quotient.
     divisor: Spanned<DecNum>,
-) -> SourceResult<DecNum> {
+) -> SourceResult<i64> {
     if divisor.v.is_zero() {
         bail!(divisor.span, "divisor must not be zero");
     }
@@ -1036,7 +1034,7 @@ pub fn quo(
         .ok_or_else(too_large)
         .at(span)?;
 
-    Ok(floor(divided))
+    floor(divided).at(span)
 }
 
 /// A value which can be passed to functions that work with integers and floats.

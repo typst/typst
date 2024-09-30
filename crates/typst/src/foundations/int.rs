@@ -368,7 +368,7 @@ cast! {
     v: Str => Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
 }
 
-fn convert_float_to_int(f: f64) -> StrResult<i64> {
+pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
     if f <= i64::MIN as f64 - 1.0 || f >= i64::MAX as f64 + 1.0 {
         Err(eco_format!("number too large"))
     } else {
