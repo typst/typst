@@ -1,6 +1,7 @@
 use arrayvec::ArrayVec;
 use once_cell::sync::Lazy;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
+use typst::diag::SourceResult;
 use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::{content, deflate, PdfChunk, Renumber, WithResources};
@@ -142,20 +143,21 @@ impl Renumber for ColorFunctionRefs {
 /// Allocate all necessary [`ColorFunctionRefs`].
 pub fn alloc_color_functions_refs(
     context: &WithResources,
-) -> (PdfChunk, ColorFunctionRefs) {
+) -> SourceResult<(PdfChunk, ColorFunctionRefs)> {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
 
     context.resources.traverse(&mut |r| {
         used_color_spaces.merge(&r.colors);
-    });
+        Ok(())
+    })?;
 
     let refs = ColorFunctionRefs {
         srgb: if used_color_spaces.use_srgb { Some(chunk.alloc()) } else { None },
         d65_gray: if used_color_spaces.use_d65_gray { Some(chunk.alloc()) } else { None },
     };
 
-    (chunk, refs)
+    Ok((chunk, refs))
 }
 
 /// Encodes the color into four f32s, which can be used in a PDF file.
@@ -193,7 +195,7 @@ pub(super) trait PaintEncode {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    );
+    ) -> SourceResult<()>;
 
     /// Set the paint as the stroke color.
     fn set_as_stroke(
@@ -201,7 +203,7 @@ pub(super) trait PaintEncode {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    );
+    ) -> SourceResult<()>;
 }
 
 impl PaintEncode for Paint {
@@ -210,7 +212,7 @@ impl PaintEncode for Paint {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         match self {
             Self::Solid(c) => c.set_as_fill(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_fill(ctx, on_text, transforms),
@@ -223,7 +225,7 @@ impl PaintEncode for Paint {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         match self {
             Self::Solid(c) => c.set_as_stroke(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_stroke(ctx, on_text, transforms),
@@ -233,7 +235,12 @@ impl PaintEncode for Paint {
 }
 
 impl PaintEncode for Color {
-    fn set_as_fill(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
+    fn set_as_fill(
+        &self,
+        ctx: &mut content::Builder,
+        _: bool,
+        _: content::Transforms,
+    ) -> SourceResult<()> {
         match self {
             Color::Luma(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::D65Gray);
@@ -268,9 +275,15 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_cmyk(c, m, y, k);
             }
         }
+        Ok(())
     }
 
-    fn set_as_stroke(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
+    fn set_as_stroke(
+        &self,
+        ctx: &mut content::Builder,
+        _: bool,
+        _: content::Transforms,
+    ) -> SourceResult<()> {
         match self {
             Color::Luma(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::D65Gray);
@@ -305,6 +318,7 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_cmyk(c, m, y, k);
             }
         }
+        Ok(())
     }
 }
 

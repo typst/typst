@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use pdf_writer::{writers::Destination, Ref};
+use pdf_writer::writers::Destination;
+use pdf_writer::Ref;
+use typst::diag::SourceResult;
 use typst::foundations::{Label, NativeElement};
 use typst::introspection::Location;
 use typst::layout::Abs;
@@ -34,7 +36,7 @@ impl Renumber for NamedDestinations {
 /// destination objects.
 pub fn write_named_destinations(
     context: &WithGlobalRefs,
-) -> (PdfChunk, NamedDestinations) {
+) -> SourceResult<(PdfChunk, NamedDestinations)> {
     let mut chunk = PdfChunk::new();
     let mut out = NamedDestinations::default();
     let mut seen = HashSet::new();
@@ -74,5 +76,5 @@ pub fn write_named_destinations(
         }
     }
 
-    (chunk, out)
+    Ok((chunk, out))
 }
