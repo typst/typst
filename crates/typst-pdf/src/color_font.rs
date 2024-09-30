@@ -84,8 +84,18 @@ pub fn write_color_fonts(
                 gids.push(color_glyph.gid);
             }
 
+            // Determine the base font name.
+            gids.sort();
+            let subset_tag = subset_tag(&gids);
+            let postscript_name = font_slice
+                .font
+                .find_name(name_id::POST_SCRIPT_NAME)
+                .unwrap_or_else(|| "unknown".to_string());
+            let base_font = eco_format!("{subset_tag}+{postscript_name}");
+
             // Write the Type3 font object.
             let mut pdf_font = chunk.type3_font(subfont_id);
+            pdf_font.name(Name(base_font.as_bytes()));
             pdf_font.pair(Name(b"Resources"), color_fonts.resources.reference);
             pdf_font.bbox(color_font.bbox);
             pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
@@ -129,13 +139,6 @@ pub fn write_color_fonts(
             chunk.cmap(cmap_ref, &cmap.finish());
 
             // Write the font descriptor.
-            gids.sort();
-            let subset_tag = subset_tag(&gids);
-            let postscript_name = font_slice
-                .font
-                .find_name(name_id::POST_SCRIPT_NAME)
-                .unwrap_or_else(|| "unknown".to_string());
-            let base_font = eco_format!("{subset_tag}+{postscript_name}");
             write_font_descriptor(
                 &mut chunk,
                 descriptor_ref,
