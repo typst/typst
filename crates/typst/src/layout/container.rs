@@ -925,18 +925,22 @@ fn breakable_pod<'a>(
 /// height and a new backlog.
 fn distribute<'a>(
     height: Abs,
-    regions: Regions,
+    mut regions: Regions,
     buf: &'a mut SmallVec<[Abs; 2]>,
 ) -> (Abs, &'a mut [Abs]) {
     // Build new region heights from old regions.
     let mut remaining = height;
-    for region in regions.iter() {
-        let limited = region.y.min(remaining);
+    loop {
+        let limited = regions.size.y.clamp(Abs::zero(), remaining);
         buf.push(limited);
         remaining -= limited;
-        if remaining.approx_empty() {
+        if remaining.approx_empty()
+            || !regions.may_break()
+            || (!regions.may_progress() && limited.approx_empty())
+        {
             break;
         }
+        regions.next();
     }
 
     // If there is still something remaining, apply it to the

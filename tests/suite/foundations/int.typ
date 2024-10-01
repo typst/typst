@@ -21,14 +21,33 @@
 #test(int("-834"), -834)
 #test(int("\u{2212}79"), -79)
 #test(int(10 / 3), 3)
+#test(int(-58.34), -58)
+#test(int(decimal("92492.193848921")), 92492)
+#test(int(decimal("-224.342211")), -224)
 
 --- int-constructor-bad-type ---
-// Error: 6-10 expected integer, boolean, float, or string, found length
+// Error: 6-10 expected integer, boolean, float, decimal, or string, found length
 #int(10pt)
 
 --- int-constructor-bad-value ---
 // Error: 6-12 invalid integer: nope
 #int("nope")
+
+--- int-constructor-float-too-large ---
+// Error: 6-27 number too large
+#int(9223372036854775809.5)
+
+--- int-constructor-float-too-large-min ---
+// Error: 6-28 number too large
+#int(-9223372036854775809.5)
+
+--- int-constructor-decimal-too-large ---
+// Error: 6-38 number too large
+#int(decimal("9223372036854775809.5"))
+
+--- int-constructor-decimal-too-large-min ---
+// Error: 6-39 number too large
+#int(decimal("-9223372036854775809.5"))
 
 --- int-signum ---
 // Test int `signum()`
@@ -58,15 +77,15 @@
 
 --- int-repr ---
 // Test the `repr` function with integers.
-#repr(12) \
-#repr(1234567890) \
-#repr(0123456789) \
-#repr(0) \
-#repr(-0) \
-#repr(-1) \
-#repr(-9876543210) \
-#repr(-0987654321) \
-#repr(4 - 8)
+#test(repr(12), "12")
+#test(repr(1234567890), "1234567890")
+#test(repr(0123456789), "123456789")
+#test(repr(0), "0")
+#test(repr(-0), "0")
+#test(repr(-1), "-1")
+#test(repr(-9876543210), "-9876543210")
+#test(repr(-0987654321), "-987654321")
+#test(repr(4 - 8), "-4")
 
 --- int-display ---
 // Test integers.

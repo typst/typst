@@ -23,7 +23,7 @@ $ pi(a,b,) $
 $ pi(a;b) $
 
 --- math-call-2d-semicolon-priority ---
-// If the semicolon directlry follows a hash expression, it terminates that
+// If the semicolon directly follows a hash expression, it terminates that
 // instead of indicating 2d arguments.
 $ mat(#"math" ; "wins") $
 $ mat(#"code"; "wins") $
@@ -80,6 +80,12 @@ $
   eq(x y)  &&quad  eq(x (y z))  &quad  eq(x y^z) \
   bx(x y)  &&quad  bx(x (y z))  &quad  bx(x y^z) \
 $
+
+--- math-call-unknown-var-hint ---
+// Error: 4-6 unknown variable: ab
+// Hint: 4-6 if you meant to display multiple letters as is, try adding spaces between each letter: `a b`
+// Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
+$ 5ab $
 
 --- issue-3774-math-call-empty-2d-args ---
 $ mat(;,) $

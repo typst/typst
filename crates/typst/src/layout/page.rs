@@ -652,7 +652,7 @@ cast! {
 }
 
 /// A list of page ranges to be exported.
-
+#[derive(Debug, Clone)]
 pub struct PageRanges(Vec<PageRange>);
 
 /// A range of pages to export.

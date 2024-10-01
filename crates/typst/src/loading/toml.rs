@@ -32,6 +32,8 @@ pub fn toml(
     /// The engine.
     engine: &mut Engine,
     /// Path to a TOML file.
+    ///
+    /// For more details, see the [Paths section]($syntax/#paths).
     path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;

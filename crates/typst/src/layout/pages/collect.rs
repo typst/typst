@@ -117,7 +117,7 @@ pub fn collect<'a>(
     items
 }
 
-/// Migrates trailing start tags without accompanying end tags tags from before
+/// Migrates trailing start tags without accompanying end tags from before
 /// a pagebreak to after it. Returns the position right after the last
 /// non-migrated tag.
 ///

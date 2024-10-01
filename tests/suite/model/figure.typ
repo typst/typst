@@ -49,7 +49,7 @@ We can clearly see that @fig-cylinder and
 
 #figure(
   placement: auto,
-  scope: "page",
+  scope: "parent",
   caption: [I],
   rect(height: 15pt, width: 80%),
 )
@@ -70,7 +70,7 @@ We can clearly see that @fig-cylinder and
 
 #figure(
   placement: auto,
-  scope: "page",
+  scope: "parent",
   caption: [IV],
   rect(width: 80%),
 )

@@ -544,6 +544,9 @@ impl Color {
     /// These components are also available using the
     /// [`components`]($color.components) method.
     ///
+    /// Note that CMYK colors are not currently supported when PDF/A output is
+    /// enabled.
+    ///
     /// ```example
     /// #square(
     ///   fill: cmyk(27%, 0%, 3%, 5%)
@@ -1947,7 +1950,7 @@ fn map() -> Module {
     Module::new("map", scope)
 }
 
-/// Defines a tradient preset as a series of colors expressed as u32s.
+/// Defines a gradient preset as a series of colors expressed as u32s.
 macro_rules! preset {
     ($name:ident; $($colors:literal),* $(,)*) => {
         fn $name() -> Array {

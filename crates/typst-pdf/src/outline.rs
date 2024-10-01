@@ -1,12 +1,11 @@
 use std::num::NonZeroUsize;
 
 use pdf_writer::{Finish, Pdf, Ref, TextStr};
-
 use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, WithEverything};
+use crate::{AbsExt, TextStrExt, WithEverything};
 
 /// Construct the outline for the document.
 pub(crate) fn write_outline(
@@ -25,7 +24,7 @@ pub(crate) fn write_outline(
     let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
 
     for elem in elements.iter() {
-        if let Some(page_ranges) = &ctx.exported_pages {
+        if let Some(page_ranges) = &ctx.options.page_ranges {
             if !page_ranges
                 .includes_page(ctx.document.introspector.page(elem.location().unwrap()))
             {
@@ -186,7 +185,7 @@ fn write_outline_item(
     }
 
     let body = node.element.body();
-    outline.title(TextStr(body.plain_text().trim()));
+    outline.title(TextStr::trimmed(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);

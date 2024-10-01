@@ -60,7 +60,7 @@ pub enum Command {
     Fonts(FontsCommand),
 
     /// Self update the Typst CLI
-    #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
+    #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
 }
 
@@ -122,6 +122,23 @@ pub struct CompileCommand {
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
+
+    /// One (or multiple comma-separated) PDF standards that Typst will enforce
+    /// conformance with.
+    #[arg(long = "pdf-standard", value_delimiter = ',')]
+    pub pdf_standard: Vec<PdfStandard>,
+}
+
+/// A PDF standard.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[allow(non_camel_case_types)]
+pub enum PdfStandard {
+    /// PDF 1.7.
+    #[value(name = "1.7")]
+    V_1_7,
+    /// PDF/A-2b.
+    #[value(name = "a-2b")]
+    A_2b,
 }
 
 /// Initializes a new project from a template
@@ -225,7 +242,7 @@ pub struct SharedArgs {
     pub package_storage_args: PackageStorageArgs,
 
     /// Number of parallel jobs spawned during compilation,
-    /// defaults to number of CPUs.
+    /// defaults to number of CPUs. Setting it to 1 disables parallelism.
     #[clap(long, short)]
     pub jobs: Option<usize>,
 }

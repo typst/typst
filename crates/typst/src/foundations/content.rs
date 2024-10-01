@@ -72,7 +72,7 @@ use crate::utils::{fat, singleton, LazyHash, SmallBitSet};
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
-    /// The partially element-dependant inner data.
+    /// The partially element-dependent inner data.
     inner: Arc<Inner<dyn Bounds>>,
     /// The element's source code location.
     span: Span,
@@ -245,16 +245,14 @@ impl Content {
 
     /// Create a new sequence element from multiples elements.
     pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
-        let mut iter = iter.into_iter();
-        let Some(first) = iter.next() else { return Self::empty() };
-        let Some(second) = iter.next() else { return first };
-        SequenceElem::new(
-            std::iter::once(first)
-                .chain(std::iter::once(second))
-                .chain(iter)
-                .collect(),
-        )
-        .into()
+        let vec: Vec<_> = iter.into_iter().collect();
+        if vec.is_empty() {
+            Self::empty()
+        } else if vec.len() == 1 {
+            vec.into_iter().next().unwrap()
+        } else {
+            SequenceElem::new(vec).into()
+        }
     }
 
     /// Whether the contained element is of type `T`.

@@ -322,15 +322,14 @@ fn layout_equation_block(
         .layout_into_run(&elem.body, styles)?
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
-    let can_break =
-        BlockElem::breakable_in(styles) && full_equation_builder.frames.len() > 1;
 
-    let equation_builders = if can_break {
+    let equation_builders = if BlockElem::breakable_in(styles) {
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
+        let mut regions = regions;
 
-        for region in regions.iter() {
+        loop {
             // Keep track of the position of the first row in this region,
             // so that the offset can be reverted later.
             let Some(&(_, first_pos)) = rows.peek() else { break };
@@ -346,8 +345,9 @@ fn layout_equation_block(
                 // we placed at least one line _or_ we still have non-last
                 // regions. Crucially, we don't want to infinitely create
                 // new regions which are too small.
-                if !region.y.fits(sub.height() + pos.y)
-                    && (!frames.is_empty() || !regions.in_last())
+                if !regions.size.y.fits(sub.height() + pos.y)
+                    && (regions.may_progress()
+                        || (regions.may_break() && !frames.is_empty()))
                 {
                     break;
                 }
@@ -359,6 +359,7 @@ fn layout_equation_block(
 
             equation_builders
                 .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
+            regions.next();
         }
 
         // Append remaining rows to the equation builder of the last region.
@@ -513,7 +514,7 @@ fn add_equation_number(
     equation
 }
 
-/// Resize the equation's frame accordingly so that it emcompasses the number.
+/// Resize the equation's frame accordingly so that it encompasses the number.
 fn resize_equation(
     equation: &mut Frame,
     number: &Frame,

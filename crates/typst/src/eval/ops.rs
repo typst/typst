@@ -139,6 +139,7 @@ pub fn pos(value: Value) -> HintedStrResult<Value> {
     Ok(match value {
         Int(v) => Int(v),
         Float(v) => Float(v),
+        Decimal(v) => Decimal(v),
         Length(v) => Length(v),
         Angle(v) => Angle(v),
         Ratio(v) => Ratio(v),
@@ -164,6 +165,7 @@ pub fn neg(value: Value) -> HintedStrResult<Value> {
     Ok(match value {
         Int(v) => Int(v.checked_neg().ok_or_else(too_large)?),
         Float(v) => Float(-v),
+        Decimal(v) => Decimal(-v),
         Length(v) => Length(-v),
         Angle(v) => Angle(-v),
         Ratio(v) => Ratio(-v),
@@ -186,6 +188,17 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
         (Float(a), Float(b)) => Float(a + b),
+
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_add(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_add(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_add(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Angle(a), Angle(b)) => Angle(a + b),
 
@@ -260,6 +273,17 @@ pub fn sub(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Float(a), Int(b)) => Float(a - b as f64),
         (Float(a), Float(b)) => Float(a - b),
 
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_sub(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_sub(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_sub(b)
+                .ok_or_else(too_large)?,
+        ),
+
         (Angle(a), Angle(b)) => Angle(a - b),
 
         (Length(a), Length(b)) => Length(a - b),
@@ -292,6 +316,17 @@ pub fn mul(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
         (Float(a), Float(b)) => Float(a * b),
+
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_mul(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_mul(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_mul(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Length(a), Int(b)) => Length(a * b as f64),
         (Length(a), Float(b)) => Length(a * b),
@@ -356,6 +391,17 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Float(a), Int(b)) => Float(a / b as f64),
         (Float(a), Float(b)) => Float(a / b),
 
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_div(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_div(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_div(b)
+                .ok_or_else(too_large)?,
+        ),
+
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),
         (Length(a), Length(b)) => Float(try_div_length(a, b)?),
@@ -394,6 +440,7 @@ fn is_zero(v: &Value) -> bool {
     match *v {
         Int(v) => v == 0,
         Float(v) => v == 0.0,
+        Decimal(v) => v.is_zero(),
         Length(v) => v.is_zero(),
         Angle(v) => v.is_zero(),
         Ratio(v) => v.is_zero(),
@@ -474,6 +521,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Bool(a), Bool(b)) => a == b,
         (Int(a), Int(b)) => a == b,
         (Float(a), Float(b)) => a == b,
+        (Decimal(a), Decimal(b)) => a == b,
         (Length(a), Length(b)) => a == b,
         (Angle(a), Angle(b)) => a == b,
         (Ratio(a), Ratio(b)) => a == b,
@@ -499,6 +547,9 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
 
         // Some technically different things should compare equal.
         (&Int(i), &Float(f)) | (&Float(f), &Int(i)) => i as f64 == f,
+        (&Int(i), &Decimal(d)) | (&Decimal(d), &Int(i)) => {
+            crate::foundations::Decimal::from(i) == d
+        }
         (&Length(len), &Relative(rel)) | (&Relative(rel), &Length(len)) => {
             len == rel.abs && rel.rel.is_zero()
         }
@@ -520,6 +571,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Bool(a), Bool(b)) => a.cmp(b),
         (Int(a), Int(b)) => a.cmp(b),
         (Float(a), Float(b)) => try_cmp_values(a, b)?,
+        (Decimal(a), Decimal(b)) => a.cmp(b),
         (Length(a), Length(b)) => try_cmp_values(a, b)?,
         (Angle(a), Angle(b)) => a.cmp(b),
         (Ratio(a), Ratio(b)) => a.cmp(b),
@@ -531,6 +583,8 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         // Some technically different things should be comparable.
         (Int(a), Float(b)) => try_cmp_values(&(*a as f64), b)?,
         (Float(a), Int(b)) => try_cmp_values(a, &(*b as f64))?,
+        (Int(a), Decimal(b)) => crate::foundations::Decimal::from(*a).cmp(b),
+        (Decimal(a), Int(b)) => a.cmp(&crate::foundations::Decimal::from(*b)),
         (Length(a), Relative(b)) if b.rel.is_zero() => try_cmp_values(a, &b.abs)?,
         (Ratio(a), Relative(b)) if b.abs.is_zero() => a.cmp(&b.rel),
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,

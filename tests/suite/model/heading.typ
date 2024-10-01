@@ -75,6 +75,6 @@ Not in heading
 --- heading-numbering-hint ---
 = Heading <intro>
 
-// Error: 1:20-1:26 cannot reference heading without numbering
-// Hint: 1:20-1:26 you can enable heading numbering with `#set heading(numbering: "1.")`
-Can not be used as @intro
+// Error: 1:19-1:25 cannot reference heading without numbering
+// Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
+Cannot be used as @intro

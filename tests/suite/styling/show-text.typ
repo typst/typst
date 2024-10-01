@@ -199,3 +199,12 @@ $a^2 + b^2 = c^2$ is Pythagoras' theorem.
 a \ #h(0pt, weak: true)
 b \ #h(0pt, weak: true)
 $x$ c $y$
+
+--- issue-5014-show-text-tags ---
+#{
+  let c = counter("c")
+  show "b": context c.get().first()
+  [a]
+  c.step()
+  [bc]
+}

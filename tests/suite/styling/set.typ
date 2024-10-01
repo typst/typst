@@ -19,7 +19,7 @@ Hello *#x*
 - No more fruit
 
 --- set-text-override ---
-// Test that that block spacing and text style are respected from
+// Test that block spacing and text style are respected from
 // the outside, but the more specific fill is respected.
 #set par(spacing: 4pt)
 #set text(style: "italic", fill: eastern)

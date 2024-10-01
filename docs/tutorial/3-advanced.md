@@ -10,11 +10,11 @@ base a conference paper on it! The report will of course have to comply with the
 conference's style guide. Let's see how we can achieve that.
 
 Before we start, let's create a team, invite your supervisor and add them to the
-team. You can do this by going back to the app dashboard with the four-circles
-icon in the top left corner of the editor. Then, choose the plus icon in the
-left toolbar and create a team. Finally, click on the new team and go to its
-settings by clicking 'manage team' next to the team name. Now you can invite
-your supervisor by email.
+team. You can do this by going back to the app dashboard with the back icon in 
+the top left corner of the editor. Then, choose the plus icon in the left
+toolbar and create a team. Finally, click on the new team and go to its settings
+by clicking 'manage team' next to the team name. Now you can invite your
+supervisor by email.
 
 ![The team settings](3-advanced-team-settings.png)
 
@@ -61,7 +61,7 @@ Let's start by writing some set rules for the document.
 )
 #set par(justify: true)
 #set text(
-  font: "Linux Libertine",
+  font: "Libertinus Serif",
   size: 11pt,
 )
 
@@ -69,7 +69,7 @@ Let's start by writing some set rules for the document.
 ```
 
 You are already familiar with most of what is going on here. We set the text
-size to `{11pt}` and the font to Linux Libertine. We also enable paragraph
+size to `{11pt}` and the font to Libertinus Serif. We also enable paragraph
 justification and set the page size to US letter.
 
 The `header` argument is new: With it, we can provide content to fill the top
@@ -90,7 +90,7 @@ align it and increase its font weight by enclosing it in `[*stars*]`.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 #align(center, text(17pt)[
   *A fluid dynamic model
   for glacier flow*
@@ -104,7 +104,7 @@ supervisor, we'll add our own and their name.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 >>> #align(center, text(17pt)[
 >>>   *A fluid dynamic model
@@ -141,7 +141,7 @@ Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
 
 ```example:0,0,612,317.5
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -200,7 +200,7 @@ keyword:
 
 <<< ...
 
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 #set page(
 >>>   "us-letter",
@@ -266,7 +266,7 @@ content. In our case, it passes it on to the `columns` function.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -325,7 +325,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -401,7 +401,7 @@ differentiate between section and subsection headings:
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",

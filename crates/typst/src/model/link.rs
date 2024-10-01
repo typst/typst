@@ -1,7 +1,9 @@
+use std::ops::Deref;
+
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Label, Packed, Repr, Show, Smart, StyleChain,
@@ -89,7 +91,7 @@ pub struct LinkElem {
 
 impl LinkElem {
     /// Create a link element from a URL with its bare text.
-    pub fn from_url(url: EcoString) -> Self {
+    pub fn from_url(url: Url) -> Self {
         let body = body_from_url(&url);
         Self::new(LinkTarget::Dest(Destination::Url(url)), body)
     }
@@ -112,13 +114,13 @@ impl Show for Packed<LinkElem> {
     }
 }
 
-fn body_from_url(url: &EcoString) -> Content {
+fn body_from_url(url: &Url) -> Content {
     let mut text = url.as_str();
     for prefix in ["mailto:", "tel:"] {
         text = text.trim_start_matches(prefix);
     }
     let shorter = text.len() < url.len();
-    TextElem::packed(if shorter { text.into() } else { url.clone() })
+    TextElem::packed(if shorter { text.into() } else { (**url).clone() })
 }
 
 /// A target where a link can go.
@@ -148,12 +150,14 @@ impl From<Destination> for LinkTarget {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Destination {
     /// A link to a URL.
-    Url(EcoString),
+    Url(Url),
     /// A link to a point on a page.
     Position(Position),
     /// An unresolved link to a location in the document.
     Location(Location),
 }
+
+impl Destination {}
 
 impl Repr for Destination {
     fn repr(&self) -> EcoString {
@@ -168,7 +172,41 @@ cast! {
         Self::Position(v) => v.into_value(),
         Self::Location(v) => v.into_value(),
     },
-    v: EcoString => Self::Url(v),
+    v: Url => Self::Url(v),
     v: Position => Self::Position(v),
     v: Location => Self::Location(v),
+}
+
+/// A uniform resource locator with a maximum length.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Url(EcoString);
+
+impl Url {
+    /// Create a URL from a string, checking the maximum length.
+    pub fn new(url: impl Into<EcoString>) -> StrResult<Self> {
+        let url = url.into();
+        if url.len() > 8000 {
+            bail!("URL is too long")
+        }
+        Ok(Self(url))
+    }
+
+    /// Extract the underlying [`EcoString`].
+    pub fn into_inner(self) -> EcoString {
+        self.0
+    }
+}
+
+impl Deref for Url {
+    type Target = EcoString;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+cast! {
+    Url,
+    self => self.0.into_value(),
+    v: EcoString => Self::new(v)?,
 }

@@ -188,7 +188,7 @@ conditionally remove the header on the first page:
 This example may look intimidating, but let's break it down: By using the
 `{context}` keyword, we are telling Typst that the header depends on where we
 are in the document. We then ask Typst if the page [counter] is larger than one
-at our (context-dependant) current position. The page counter starts at one, so
+at our (context-dependent) current position. The page counter starts at one, so
 we are skipping the header on a single page. Counters may have multiple levels.
 This feature is used for items like headings, but the page counter will always
 have a single level, so we can just look at the first one.
@@ -406,7 +406,7 @@ the `gutter` parameter.
 Very commonly, scientific papers have a single-column title and abstract, while
 the main body is set in two-columns. To achieve this effect, Typst's [`place`
 function]($place) can temporarily escape the two-column layout by specifying
-`{float: true}` and `{scope: "page"}`:
+`{float: true}` and `{scope: "parent"}`:
 
 ```example:single
 >>> #set page(height: 180pt)
@@ -416,7 +416,7 @@ function]($place) can temporarily escape the two-column layout by specifying
 #place(
   top + center,
   float: true,
-  scope: "page",
+  scope: "parent",
   text(1.4em, weight: "bold")[
     Impacts of Odobenidae
   ],

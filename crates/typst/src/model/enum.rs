@@ -140,7 +140,7 @@ pub struct EnumElem {
     /// #set enum(numbering: "1.a)", full: true)
     /// + Cook
     ///   + Heat water
-    ///   + Add integredients
+    ///   + Add ingredients
     /// + Eat
     /// ```
     #[default(false)]

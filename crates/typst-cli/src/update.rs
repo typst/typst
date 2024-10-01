@@ -28,7 +28,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
 
         if version < &Version::new(0, 8, 0) {
             eprintln!(
-                "Note: Versions older than 0.8.0 will not have \
+                "note: versions older than 0.8.0 will not have \
                  the update command available."
             );
         }

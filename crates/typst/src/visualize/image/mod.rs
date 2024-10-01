@@ -54,7 +54,9 @@ use crate::World;
 /// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file.
+    /// Path to an image file
+    ///
+    /// For more details, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
         let Spanned { v: path, span } =
@@ -368,7 +370,7 @@ impl Image {
         Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
-    /// Create a possibly font-dependant image from a buffer and a format.
+    /// Create a possibly font-dependent image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn with_fonts(

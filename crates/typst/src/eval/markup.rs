@@ -1,4 +1,4 @@
-use crate::diag::{warning, SourceResult};
+use crate::diag::{warning, At, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{
     Content, Label, NativeElement, Repr, Smart, Unlabellable, Value,
@@ -6,7 +6,7 @@ use crate::foundations::{
 use crate::math::EquationElem;
 use crate::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
-    StrongElem, Supplement, TermItem,
+    StrongElem, Supplement, TermItem, Url,
 };
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
@@ -195,7 +195,8 @@ impl Eval for ast::Link<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(LinkElem::from_url(self.get().clone()).pack())
+        let url = Url::new(self.get().clone()).at(self.span())?;
+        Ok(LinkElem::from_url(url).pack())
     }
 }
 
