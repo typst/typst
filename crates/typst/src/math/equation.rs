@@ -322,10 +322,8 @@ fn layout_equation_block(
         .layout_into_run(&elem.body, styles)?
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
-    let can_break =
-        BlockElem::breakable_in(styles) && full_equation_builder.frames.len() > 1;
 
-    let equation_builders = if can_break {
+    let equation_builders = if BlockElem::breakable_in(styles) {
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
