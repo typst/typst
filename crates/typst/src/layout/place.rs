@@ -39,8 +39,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// )
 /// ```
 ///
-/// # Effect on the position of other elements
-///
+/// # Effect on the position of other elements { #effect-on-other-elements }
 /// Overlaid elements don't take space in the flow of content, but a `place`
 /// call inserts an invisible block-level element in the flow. This can
 /// affect the layout by breaking the current paragraph. To avoid this,
@@ -53,6 +52,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// to the following word:
 ///
 /// ```example
+/// >>> #set page(height: 70pt)
 /// #let annotate(..args) = {
 ///   box(place(..args))
 ///   sym.zwj
@@ -64,7 +64,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// ```
 ///
 /// The zero-width weak spacing serves to discard spaces between the function
-/// call and the next word in markup.
+/// call and the next word.
 #[elem(scope)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
@@ -89,6 +89,18 @@ pub struct PlaceElem {
     ///
     /// Note that parent-scoped placement is currently only supported if `float`
     /// is `{true}`. This may change in the future.
+    ///
+    /// ```example
+    /// #set page(height: 150pt, columns: 2)
+    /// #place(
+    ///   top + center,
+    ///   scope: "parent",
+    ///   float: true,
+    ///   rect(width: 80%, fill: aqua),
+    /// )
+    ///
+    /// #lorem(25)
+    /// ```
     pub scope: PlacementScope,
 
     /// Whether the placed element has floating layout.
@@ -174,24 +186,18 @@ pub enum PlacementScope {
 /// into the next section.
 ///
 /// ```example
-/// #set page(height: 165pt, width: 150pt)
-///
-/// Some introductory text: #lorem(15)
+/// >>> #set page(height: 160pt, width: 150pt)
+/// #lorem(15)
 ///
 /// #figure(
-///   rect(
-///     width: 100%,
-///     height: 64pt,
-///     [I float with a caption!],
-///   ),
+///   rect(width: 100%, height: 50pt),
 ///   placement: auto,
-///   caption: [A self-describing figure],
+///   caption: [A rectangle],
 /// )
 ///
 /// #place.flush()
 ///
-/// Some conclusive text that must occur
-/// after the figure.
+/// This text appears after the figure.
 /// ```
 #[elem]
 pub struct FlushElem {}

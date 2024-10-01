@@ -9,7 +9,7 @@ use crate::utils::LazyHash;
 /// ```example
 /// $ bold(A) := B^+ $
 /// ```
-#[func]
+#[func(keywords = ["mathbf"])]
 pub fn bold(
     /// The content to style.
     body: Content,
@@ -22,7 +22,7 @@ pub fn bold(
 /// ```example
 /// $ upright(A) != A $
 /// ```
-#[func]
+#[func(keywords = ["mathup"])]
 pub fn upright(
     /// The content to style.
     body: Content,
@@ -33,7 +33,7 @@ pub fn upright(
 /// Italic font style in math.
 ///
 /// For roman letters and greek lowercase letters, this is already the default.
-#[func]
+#[func(keywords = ["mathit"])]
 pub fn italic(
     /// The content to style.
     body: Content,
@@ -44,7 +44,7 @@ pub fn italic(
 /// Serif (roman) font style in math.
 ///
 /// This is already the default.
-#[func]
+#[func(keywords = ["mathrm"])]
 pub fn serif(
     /// The content to style.
     body: Content,
@@ -57,7 +57,7 @@ pub fn serif(
 /// ```example
 /// $ sans(A B C) $
 /// ```
-#[func(title = "Sans Serif")]
+#[func(title = "Sans Serif", keywords = ["mathsf"])]
 pub fn sans(
     /// The content to style.
     body: Content,
@@ -70,7 +70,7 @@ pub fn sans(
 /// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
-#[func(title = "Calligraphic")]
+#[func(title = "Calligraphic", keywords = ["mathcal"])]
 pub fn cal(
     /// The content to style.
     body: Content,
@@ -83,7 +83,7 @@ pub fn cal(
 /// ```example
 /// $ frak(P) $
 /// ```
-#[func(title = "Fraktur")]
+#[func(title = "Fraktur", keywords = ["mathfrak"])]
 pub fn frak(
     /// The content to style.
     body: Content,
@@ -96,7 +96,7 @@ pub fn frak(
 /// ```example
 /// $ mono(x + y = z) $
 /// ```
-#[func(title = "Monospace")]
+#[func(title = "Monospace", keywords = ["mathtt"])]
 pub fn mono(
     /// The content to style.
     body: Content,
@@ -114,7 +114,7 @@ pub fn mono(
 /// $ bb(N) = NN $
 /// $ f: NN -> RR $
 /// ```
-#[func(title = "Blackboard Bold")]
+#[func(title = "Blackboard Bold", keywords = ["mathbb"])]
 pub fn bb(
     /// The content to style.
     body: Content,
@@ -129,7 +129,7 @@ pub fn bb(
 /// ```example
 /// $sum_i x_i/2 = display(sum_i x_i/2)$
 /// ```
-#[func(title = "Display Size")]
+#[func(title = "Display Size", keywords = ["displaystyle"])]
 pub fn display(
     /// The content to size.
     body: Content,
@@ -151,7 +151,7 @@ pub fn display(
 /// $ sum_i x_i/2
 ///     = inline(sum_i x_i/2) $
 /// ```
-#[func(title = "Inline Size")]
+#[func(title = "Inline Size", keywords = ["textstyle"])]
 pub fn inline(
     /// The content to size.
     body: Content,
@@ -172,7 +172,7 @@ pub fn inline(
 /// ```example
 /// $sum_i x_i/2 = script(sum_i x_i/2)$
 /// ```
-#[func(title = "Script Size")]
+#[func(title = "Script Size", keywords = ["scripstyle"])]
 pub fn script(
     /// The content to size.
     body: Content,
@@ -194,7 +194,7 @@ pub fn script(
 /// ```example
 /// $sum_i x_i/2 = sscript(sum_i x_i/2)$
 /// ```
-#[func(title = "Script-Script Size")]
+#[func(title = "Script-Script Size", keywords = ["scriptscriptstyle"])]
 pub fn sscript(
     /// The content to size.
     body: Content,

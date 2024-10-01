@@ -133,8 +133,9 @@ pub struct TableElem {
     #[borrowed]
     pub rows: TrackSizings,
 
-    /// The gaps between rows and columns. See the [grid documentation]($grid)
-    /// for more information on gutters.
+    /// The gaps between rows and columns. This is a shorthand for setting
+    /// `column-gutter` and `row-gutter` to the same value. See the [grid
+    /// documentation]($grid) for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
@@ -679,15 +680,17 @@ pub struct TableVLine {
 ///
 /// ```example
 /// >>> #set page(width: auto)
-/// >>> #show table.cell.where(y: 0): strong
-/// >>> #set table(
-/// >>>   stroke: (x, y) => if y == 0 {
-/// >>>     (bottom: 0.7pt + black)
-/// >>>   },
-/// >>>   align: (x, y) =>
-/// >>>     if x > 0 { center }
-/// >>>     else { left }
-/// >>> )
+/// #show table.cell.where(y: 0): strong
+/// #set table(
+///   stroke: (x, y) => if y == 0 {
+///     (bottom: 0.7pt + black)
+///   },
+///   align: (x, y) => (
+///     if x > 0 { center }
+///     else { left }
+///   )
+/// )
+///
 /// #table(
 ///   columns: 3,
 ///   table.header(

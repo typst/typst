@@ -56,6 +56,12 @@ type ThemeArgType = Smart<Option<EcoString>>;
 /// also trimmed.
 /// ````
 ///
+/// You can also construct a [`raw`] element programmatically from a string (and
+/// provide the language tag via the optional [`lang`]($raw.lang) argument).
+/// ```example
+/// #raw("fn " + "main() {}", lang: "rust")
+/// ```
+///
 /// # Syntax
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.

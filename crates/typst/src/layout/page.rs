@@ -41,9 +41,11 @@ use crate::visualize::{Color, Paint};
 #[elem(Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
+    ///
+    /// This is just a shorthand for setting `width` and `height` and, as such,
+    /// cannot be retrieved in a context expression.
     #[external]
     #[default(Paper::A4)]
-    #[ghost]
     pub paper: Paper,
 
     /// The width of the page.

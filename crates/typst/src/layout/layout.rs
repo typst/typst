@@ -30,6 +30,10 @@ use crate::syntax::Span;
 /// ])
 /// ```
 ///
+/// Note that the `layout` function forces its contents into a [block]-level
+/// container, so placement relative to the page or pagebreaks are not possible
+/// within it.
+///
 /// If the `layout` call is placed inside a box with a width of `{800pt}` and a
 /// height of `{400pt}`, then the specified function will be given the argument
 /// `{(width: 800pt, height: 400pt)}`. If it is placed directly into the page, it

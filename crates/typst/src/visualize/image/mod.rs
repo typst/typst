@@ -34,11 +34,11 @@ use crate::World;
 
 /// A raster or vector graphic.
 ///
-/// Supported formats are PNG, JPEG, GIF and SVG.
+/// You can wrap the image in a [`figure`] to give it a number and caption.
 ///
-/// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
-/// in the resulting PDF. Make sure to double-check embedded SVG images. If you
-/// have an issue, also feel free to report it on [GitHub][gh-svg].
+/// Like most elements, images are _block-level_ by default and thus do not
+/// integrate themselves into adjacent paragraphs. To force an image to become
+/// inline, put it into a [`box`].
 ///
 /// # Example
 /// ```example
@@ -50,8 +50,6 @@ use crate::World;
 ///   ],
 /// )
 /// ```
-///
-/// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
     /// Path to an image file
@@ -75,6 +73,9 @@ pub struct ImageElem {
     pub data: Readable,
 
     /// The image's format. Detected automatically by default.
+    ///
+    /// Supported formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
+    /// is [not currently supported](https://github.com/typst/typst/issues/145).
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
