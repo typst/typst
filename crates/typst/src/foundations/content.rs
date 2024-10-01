@@ -245,16 +245,14 @@ impl Content {
 
     /// Create a new sequence element from multiples elements.
     pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
-        let mut iter = iter.into_iter();
-        let Some(first) = iter.next() else { return Self::empty() };
-        let Some(second) = iter.next() else { return first };
-        SequenceElem::new(
-            std::iter::once(first)
-                .chain(std::iter::once(second))
-                .chain(iter)
-                .collect(),
-        )
-        .into()
+        let vec: Vec<_> = iter.into_iter().collect();
+        if vec.is_empty() {
+            Self::empty()
+        } else if vec.len() == 1 {
+            vec.into_iter().next().unwrap()
+        } else {
+            SequenceElem::new(vec).into()
+        }
     }
 
     /// Whether the contained element is of type `T`.
