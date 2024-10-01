@@ -1,10 +1,11 @@
 use arrayvec::ArrayVec;
 use once_cell::sync::Lazy;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
-use typst::diag::SourceResult;
+use typst::diag::{bail, SourceResult};
+use typst::syntax::Span;
 use typst::visualize::{Color, ColorSpace, Paint};
 
-use crate::{content, deflate, PdfChunk, Renumber, WithResources};
+use crate::{content, deflate, PdfChunk, PdfOptions, Renumber, WithResources};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -65,18 +66,18 @@ impl ColorSpaces {
     /// PDF file.
     pub fn write_functions(&self, chunk: &mut Chunk, refs: &ColorFunctionRefs) {
         // Write the sRGB color space.
-        if self.use_srgb {
+        if let Some(id) = refs.srgb {
             chunk
-                .icc_profile(refs.srgb.unwrap(), &SRGB_ICC_DEFLATED)
+                .icc_profile(id, &SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
         // Write the gray color space.
-        if self.use_d65_gray {
+        if let Some(id) = refs.d65_gray {
             chunk
-                .icc_profile(refs.d65_gray.unwrap(), &GRAY_ICC_DEFLATED)
+                .icc_profile(id, &GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -125,7 +126,7 @@ pub fn write(
 /// needed) in the final document, and be shared by all color space
 /// dictionaries.
 pub struct ColorFunctionRefs {
-    srgb: Option<Ref>,
+    pub srgb: Option<Ref>,
     d65_gray: Option<Ref>,
 }
 
@@ -146,6 +147,10 @@ pub fn alloc_color_functions_refs(
 ) -> SourceResult<(PdfChunk, ColorFunctionRefs)> {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
+
+    if context.options.standards.pdfa {
+        used_color_spaces.mark_as_used(ColorSpace::Srgb);
+    }
 
     context.resources.traverse(&mut |r| {
         used_color_spaces.merge(&r.colors);
@@ -269,6 +274,7 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Cmyk(_) => {
+                check_cmyk_allowed(ctx.options)?;
                 ctx.reset_fill_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
@@ -312,6 +318,7 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Cmyk(_) => {
+                check_cmyk_allowed(ctx.options)?;
                 ctx.reset_stroke_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
@@ -372,4 +379,15 @@ impl QuantizedColor for f32 {
     fn quantize(color: f32, [min, max]: [f32; 2]) -> Self {
         color.clamp(min, max)
     }
+}
+
+/// Fails with an error if PDF/A processing is enabled.
+pub(super) fn check_cmyk_allowed(options: &PdfOptions) -> SourceResult<()> {
+    if options.standards.pdfa {
+        bail!(
+            Span::detached(),
+            "cmyk colors are not currently supported by PDF/A export"
+        );
+    }
+    Ok(())
 }

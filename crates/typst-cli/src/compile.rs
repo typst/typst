@@ -16,10 +16,11 @@ use typst::layout::{Frame, Page, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::PdfOptions;
+use typst_pdf::{PdfOptions, PdfStandards};
 
 use crate::args::{
     CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
+    PdfStandard,
 };
 use crate::timings::Timer;
 use crate::watch::Status;
@@ -77,6 +78,19 @@ impl CompileCommand {
                 export_ranges.iter().map(PageRangeArgument::to_range).collect(),
             )
         })
+    }
+
+    /// The PDF standards to try to conform with.
+    pub fn pdf_standards(&self) -> StrResult<PdfStandards> {
+        let list = self
+            .pdf_standard
+            .iter()
+            .map(|standard| match standard {
+                PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+                PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            })
+            .collect::<Vec<_>>();
+        PdfStandards::new(&list)
     }
 }
 
@@ -179,6 +193,7 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> SourceResult<()>
             command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
         ),
         page_ranges: command.exported_page_ranges(),
+        standards: command.pdf_standards().at(Span::detached())?,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     command

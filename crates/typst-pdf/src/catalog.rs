@@ -4,14 +4,15 @@ use ecow::eco_format;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst::diag::SourceResult;
+use typst::diag::{bail, SourceResult};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::Dir;
+use typst::syntax::Span;
 use typst::text::Lang;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, WithEverything};
+use crate::{hash_base64, outline, TextStrExt, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -43,7 +44,7 @@ pub fn write_catalog(
     let mut info = pdf.document_info(info_ref);
     let mut xmp = XmpWriter::new();
     if let Some(title) = &ctx.document.info.title {
-        info.title(TextStr(title));
+        info.title(TextStr::trimmed(title));
         xmp.title([(None, title.as_str())]);
     }
 
@@ -66,7 +67,7 @@ pub fn write_catalog(
         // bit weird to not use the array (and it makes Acrobat show the author
         // list in quotes), but there's not much we can do about that.
         let joined = authors.join(", ");
-        info.author(TextStr(&joined));
+        info.author(TextStr::trimmed(&joined));
         xmp.creator([joined.as_str()]);
     }
 
@@ -77,26 +78,20 @@ pub fn write_catalog(
     let keywords = &ctx.document.info.keywords;
     if !keywords.is_empty() {
         let joined = keywords.join(", ");
-        info.keywords(TextStr(&joined));
+        info.keywords(TextStr::trimmed(&joined));
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.info.date.unwrap_or(ctx.options.timestamp) {
-        let tz = ctx.document.info.date.is_auto();
+    let date = ctx.document.info.date.unwrap_or(ctx.options.timestamp);
+    let tz = ctx.document.info.date.is_auto();
+    if let Some(date) = date {
         if let Some(pdf_date) = pdf_date(date, tz) {
             info.creation_date(pdf_date);
             info.modified_date(pdf_date);
         }
-        if let Some(xmp_date) = xmp_date(date, tz) {
-            xmp.create_date(xmp_date);
-            xmp.modify_date(xmp_date);
-        }
     }
 
     info.finish();
-    xmp.num_pages(ctx.document.pages.len() as u32);
-    xmp.format("application/pdf");
-    xmp.language(ctx.resources.languages.keys().map(|lang| LangId(lang.as_str())));
 
     // A unique ID for this instance of the document. Changes if anything
     // changes in the frames.
@@ -116,19 +111,55 @@ pub fn write_catalog(
         instance_id.clone()
     };
 
-    // Write IDs.
     xmp.document_id(&doc_id);
     xmp.instance_id(&instance_id);
-    pdf.set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
-
-    xmp.rendition_class(RenditionClass::Proof);
+    xmp.format("application/pdf");
     xmp.pdf_version("1.7");
+    xmp.language(ctx.resources.languages.keys().map(|lang| LangId(lang.as_str())));
+    xmp.num_pages(ctx.document.pages.len() as u32);
+    xmp.rendition_class(RenditionClass::Proof);
+
+    if let Some(xmp_date) = date.and_then(|date| xmp_date(date, tz)) {
+        xmp.create_date(xmp_date);
+        xmp.modify_date(xmp_date);
+
+        if ctx.options.standards.pdfa {
+            let mut history = xmp.history();
+            history
+                .add_event()
+                .action(xmp_writer::ResourceEventAction::Saved)
+                .when(xmp_date)
+                .instance_id(&eco_format!("{instance_id}_source"));
+            history
+                .add_event()
+                .action(xmp_writer::ResourceEventAction::Converted)
+                .when(xmp_date)
+                .instance_id(&instance_id)
+                .software_agent(&creator);
+        }
+    }
+
+    // Assert dominance.
+    if ctx.options.standards.pdfa {
+        let mut extension_schemas = xmp.extension_schemas();
+        extension_schemas
+            .xmp_media_management()
+            .properties()
+            .describe_instance_id();
+        extension_schemas.pdf().properties().describe_all();
+        extension_schemas.finish();
+        xmp.pdfa_part(2);
+        xmp.pdfa_conformance("B");
+    }
 
     let xmp_buf = xmp.finish(None);
     let meta_ref = alloc.bump();
     pdf.stream(meta_ref, xmp_buf.as_bytes())
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
+
+    // Set IDs only now, so that we don't need to clone them.
+    pdf.set_file_id((doc_id.into_bytes(), instance_id.into_bytes()));
 
     // Write the document catalog.
     let catalog_ref = alloc.bump();
@@ -164,7 +195,22 @@ pub fn write_catalog(
         catalog.lang(TextStr(lang.as_str()));
     }
 
+    if ctx.options.standards.pdfa {
+        catalog
+            .output_intents()
+            .push()
+            .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
+            .output_condition(TextStr("sRGB"))
+            .output_condition_identifier(TextStr("Custom"))
+            .info(TextStr("sRGB IEC61966-2.1"))
+            .dest_output_profile(ctx.globals.color_functions.srgb.unwrap());
+    }
+
     catalog.finish();
+
+    if ctx.options.standards.pdfa && pdf.refs().count() > 8388607 {
+        bail!(Span::detached(), "too many PDF objects");
+    }
 
     Ok(())
 }
@@ -211,7 +257,7 @@ pub(crate) fn write_page_labels(
         // Only add what is actually provided. Don't add empty prefix string if
         // it wasn't given for example.
         if let Some(prefix) = &label.prefix {
-            entry.prefix(TextStr(prefix));
+            entry.prefix(TextStr::trimmed(prefix));
         }
 
         if let Some(style) = label.style {

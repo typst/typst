@@ -118,6 +118,7 @@ pub fn write_images(
 #[comemo::memoize]
 pub fn deferred_image(
     image: Image,
+    pdfa: bool,
 ) -> (Deferred<StrResult<EncodedImage>>, Option<ColorSpace>) {
     let color_space = match image.kind() {
         ImageKind::Raster(raster) if raster.icc().is_none() => {
@@ -151,7 +152,7 @@ pub fn deferred_image(
             })
         }
         ImageKind::Svg(svg) => {
-            let (chunk, id) = encode_svg(svg)
+            let (chunk, id) = encode_svg(svg, pdfa)
                 .map_err(|err| eco_format!("failed to convert SVG to PDF: {err}"))?;
             Ok(EncodedImage::Svg(chunk, id))
         }
@@ -201,8 +202,14 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 
 /// Encode an SVG into a chunk of PDF objects.
 #[typst_macros::time(name = "encode svg")]
-fn encode_svg(svg: &SvgImage) -> Result<(Chunk, Ref), svg2pdf::ConversionError> {
-    svg2pdf::to_chunk(svg.tree(), svg2pdf::ConversionOptions::default())
+fn encode_svg(
+    svg: &SvgImage,
+    pdfa: bool,
+) -> Result<(Chunk, Ref), svg2pdf::ConversionError> {
+    svg2pdf::to_chunk(
+        svg.tree(),
+        svg2pdf::ConversionOptions { pdfa, ..Default::default() },
+    )
 }
 
 /// A pre-encoded image.
