@@ -1,6 +1,10 @@
-use crate::diag::{At, SourceResult};
+use crate::diag::{warning, At, SourceResult};
 use crate::eval::{Eval, Vm};
-use crate::foundations::{Func, Recipe, ShowableSelector, Styles, Transformation};
+use crate::foundations::{
+    Element, Fields, Func, Recipe, Selector, ShowableSelector, Styles, Transformation,
+};
+use crate::layout::BlockElem;
+use crate::model::ParElem;
 use crate::syntax::ast::{self, AstNode};
 
 impl Eval for ast::SetRule<'_> {
@@ -39,13 +43,33 @@ impl Eval for ast::ShowRule<'_> {
             .map(|selector| selector.0);
 
         let transform = self.transform();
-        let span = transform.span();
-
         let transform = match transform {
             ast::Expr::Set(set) => Transformation::Style(set.eval(vm)?),
-            expr => expr.eval(vm)?.cast::<Transformation>().at(span)?,
+            expr => expr.eval(vm)?.cast::<Transformation>().at(transform.span())?,
         };
 
-        Ok(Recipe::new(selector, transform, span))
+        let recipe = Recipe::new(selector, transform, self.span());
+        check_show_par_set_block(vm, &recipe);
+
+        Ok(recipe)
+    }
+}
+
+/// Migration hint for `show par: set block(spacing: ..)`.
+fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
+    if_chain::if_chain! {
+        if let Some(Selector::Elem(elem, _)) = recipe.selector();
+        if *elem == Element::of::<ParElem>();
+        if let Transformation::Style(styles) = recipe.transform();
+        if styles.has::<BlockElem>(<BlockElem as Fields>::Enum::Above as _) ||
+           styles.has::<BlockElem>(<BlockElem as Fields>::Enum::Below as _);
+        then {
+            vm.engine.sink.warn(warning!(
+                recipe.span(),
+                "`show par: set block(spacing: ..)` has no effect anymore";
+                hint: "write `set par(spacing: ..)` instead";
+                hint: "this is specific to paragraphs as they are not considered blocks anymore"
+            ))
+        }
     }
 }
