@@ -13,8 +13,8 @@ $ H stretch(=)^"define" U + p V \
   f : X stretch(arrow.hook, size: #150%)_"injective" Y \
   V stretch(->, size: #(100% + 1.5em))^("surjection") ZZ $
 
---- math-stretch-attach ---
-// Test stretch interactions with attachments.
+--- math-stretch-horizontal-attach ---
+// Test horizontal stretch interactions with attachments.
 #set page(width: auto)
 
 $stretch(stretch(=, size: #4em))_A$
@@ -27,6 +27,13 @@ $ P = Q
     stretch(=, size: #2mm)^(k = 0)_(forall i) T \
   U stretch(equiv)^(forall i)_"Chern-Weil" V
     stretch(equiv, size: #(120% + 2mm))^(forall i)_"Chern-Weil" W $
+
+--- math-stretch-vertical-attach ---
+// Test vertical stretch interactions with attachments.
+$arrow.t$
+$stretch(arrow.t)^"map"$
+$stretch(arrow.t, size: #2em)^"map"$
+$stretch(arrow.t, size: #200%)^"map"$
 
 --- math-stretch-horizontal ---
 // Test stretching along horizontal axis.
