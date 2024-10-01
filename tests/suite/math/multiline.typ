@@ -130,6 +130,23 @@ $ a &+ b + & c \
     &      & c && + d \
     &= 0 $
 
+--- math-pagebreaking-single-line ---
+// Test breaking of single line equations.
+#set page(height: 4em)
+#show math.equation: set block(breakable: true)
+
+Shouldn't overflow:
+$ a + b $
+
+--- math-pagebreaking-single-line-numbered ---
+// Test breaking of single line equations with numbering.
+#set page(height: 4em)
+#show math.equation: set block(breakable: true)
+#set math.equation(numbering: "(1)")
+
+Shouldn't overflow:
+$ a + b $
+
 --- issue-1948-math-text-break ---
 // Test text with linebreaks in math.
 $ x := "a\nb\nc\nd\ne" $
