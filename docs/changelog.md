@@ -7,32 +7,34 @@ description: |
 # Changelog
 
 ## Unreleased
-- Highlights
-  - Added support for multi-column floating placement and figures via
-    [`place.scope`] and [`figure.scope`]. Two-column documents should now prefer
-    `{set page(columns: 2)}` over `{show: column.with(2)}` (see the
-    [page setup guide]($guides/page-setup-guide/#columns))
-  - Added support for automatic [line numbering]($par.line) (often used in
-    academic papers)
-  - Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
-    larger documents. The multi-threading operates on page break boundaries, so
-    explicit page breaks are necessary for it to kick in.
-  - Paragraph justification was optimized with a new two-pass algorithm.
-    Speedups are larger for shorter paragraphs and range from 1-6x.
-  - Highly reduced PDF file sizes due to better font subsetting (thanks to
-    [@LaurenzV](https://github.com/LaurenzV))
-  - Emoji are now exported properly in PDF
-  - Text show rules now match across multiple text elements
-  - Block-level equations can now break over multiple pages. This behaviour can
-    be disabled via `{show math.equation: set block(breakable: false)}`
-  - Fixed a bug where some fonts would not print correctly on professional
-    printers
-  - Fixed a long-standing bug which could cause headings to be orphaned at the
-    bottom of the page
+### Highlights { #_ }
+- Added support for multi-column floating [placement]($place.scope) and
+  [figures]($figure.scope)
+- Added support for automatic [line numbering]($par.line) (often used in
+  academic papers)
+- Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
+  larger documents. The multi-threading operates on page break boundaries, so
+  explicit page breaks are necessary for it to kick in.
+- Paragraph justification was optimized with a new two-pass algorithm. Speedups
+  are larger for shorter paragraphs and range from 1-6x.
+- Highly reduced PDF file sizes due to better font subsetting (thanks to
+  [@LaurenzV](https://github.com/LaurenzV))
+- Emoji are now exported properly in PDF
+- Added initial support for PDF/A. For now, only the standard PDF/A-2b is
+  supported, but more is planned for the future.
+- Text show rules now match across multiple text elements
+- Block-level equations can now break over multiple pages
+- Fixed a bug where some fonts would not print correctly on professional
+  printers
+- Fixed a long-standing bug which could cause headings to be orphaned at the
+  bottom of the page
 
+### All changes { #_ }
 - Layout
   - Added support for multi-column floating placement and figures via
-    [`place.scope`] and [`figure.scope`]
+    [`place.scope`] and [`figure.scope`].  Two-column documents should now
+    prefer `{set page(columns: 2)}` over `{show: column.with(2)}` (see the [page
+    setup guide]($guides/page-setup-guide/#columns)).
   - Added support for automatic [line numbering]($par.line) (often used in
     academic papers)
   - Added [`par.spacing`] property for configuring paragraph spacing. This
@@ -110,7 +112,7 @@ description: |
 
 - Math
   - Block-level equations can now break over multiple pages. This behaviour can
-    be disabled via `{show math.equation: set block(breakable: false)}`
+    be disabled via `{show math.equation: set block(breakable: false)}`.
   - Matrix and vector sizing is now more consistent across different cell
     contents
   - Added [`stretch`]($math.stretch) function for manually or automatically
@@ -248,9 +250,9 @@ description: |
 - Export
   - Highly reduced PDF file sizes due to better font subsetting
   - Emoji are now exported properly in PDF
-  - Initial support for PDF/A. For now, only the standard PDF/A-2b is supported,
-    but more is planned for the future. Enabled via `--pdf-standard a-2b` in the
-    CLI and via File > Export as > PDF in the web app.
+  - Added initial support for PDF/A. For now, only the standard PDF/A-2b is
+    supported, but more is planned for the future. Enabled via `--pdf-standard
+    a-2b` in the CLI and via the UI in File > Export as > PDF in the web app.
   - Setting [`page.fill`] to `{none}` will now lead to transparent pages instead
     of white ones in PNG and SVG. The new default of `{auto}` means transparent
     for PDF and white for PNG and SVG.
