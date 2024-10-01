@@ -78,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_time() {
+    fn test_format_duration() {
         test(Duration::from_secs(1000000), "11 d 13 h 46 min");
         test(Duration::from_secs(3600 * 24), "1 d");
         test(Duration::from_secs(3600), "1 h");
