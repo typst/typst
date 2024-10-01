@@ -403,6 +403,7 @@ impl<'a> MultiChild<'a> {
                 full: regions.full,
                 first: regions.size.y,
                 backlog: vec![],
+                min_backlog_len: regions.backlog.len(),
             });
         }
 
@@ -474,6 +475,7 @@ pub struct MultiSpill<'a, 'b> {
     first: Abs,
     full: Abs,
     backlog: Vec<Abs>,
+    min_backlog_len: usize,
 }
 
 impl MultiSpill<'_, '_> {
@@ -483,17 +485,18 @@ impl MultiSpill<'_, '_> {
         engine: &mut Engine,
         regions: Regions,
     ) -> SourceResult<(Frame, Option<Self>)> {
-        // We build regions for the whole `MultiChild` with the sizes passed to
-        // earlier parts of it plus the new regions. Then, we layout the
-        // complete block, but extract only the suffix that interests us.
+        // The first region becomes unchangable and committed to our backlog.
         self.backlog.push(regions.size.y);
 
+        // The remaining regions are ephemeral and may be replaced.
         let mut backlog: Vec<_> =
             self.backlog.iter().chain(regions.backlog).copied().collect();
 
-        // Remove unnecessary backlog items (also to prevent it from growing
-        // unnecessarily, which would change the region's hash).
-        while !backlog.is_empty() && backlog.last().copied() == regions.last {
+        // Remove unnecessary backlog items to prevent it from growing
+        // unnecessarily, changing the region's hash.
+        while backlog.len() > self.min_backlog_len
+            && backlog.last().copied() == regions.last
+        {
             backlog.pop();
         }
 
@@ -512,6 +515,16 @@ impl MultiSpill<'_, '_> {
             .layout_full(engine, pod)?
             .into_iter()
             .skip(self.backlog.len());
+
+        // Ensure that the backlog never shrinks, so that unwrapping below is at
+        // least fairly safe. Note that the whole region juggling here is
+        // fundamentally not ideal: It is a compatibility layer between the old
+        // (all regions provided upfront) & new (each region provided on-demand,
+        // like an iterator) layout model. This approach is not 100% correct, as
+        // in the old model later regions could have an effect on earlier
+        // frames, but it's the best we can do for now, until the multi
+        // layouters are refactored to the new model.
+        self.min_backlog_len = self.min_backlog_len.max(backlog.len());
 
         // Save the first frame.
         let frame = frames.next().unwrap();
