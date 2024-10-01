@@ -71,11 +71,14 @@ description: |
     lines in a paragraph (only at the start and end of paragraphs)
   - Fixed interaction of weak page break and [`pagebreak.to`]
   - Fixed compilation output of a single weak page break
+  - Fixed crash when [padding]($pad) by `{100%}`
 
 - Text
   - Tuned hyphenation: It is less eager by default and hyphenations close to the
     edges of words are now discouraged more strongly
     (**May lead to larger layout reflows**)
+  - New default font: Libertinus Serif. This is the maintained successor to the
+    old default font Linux Libertine. (**May lead to smaller reflows**)
   - Setting the font to an unavailable family will now result in a warning
   - Implemented a new smart quote algorithm, fixing various bugs where smart
     quotes weren't all that smart
@@ -101,13 +104,17 @@ description: |
   - Fixed [`text.historical-ligatures`] not working correctly
   - Fixed accidental repetition of Thai characters around line breaks in some
     circumstances
+  - Fixed [smart quotes]($smartquote) for Swiss French
   - New font metadata exceptions for Archivo, Kaiti SC, and Kaiti TC
+  - Updated bundled New Computer Modern fonts to version 6.0
 
 - Math
   - Block-level equations can now break over multiple pages. This behaviour can
     be disabled via `{show math.equation: set block(breakable: false)}`
   - Matrix and vector sizing is now more consistent across different cell
     contents
+  - Added [`stretch`]($math.stretch) function for manually or automatically
+    stretching characters like arrows or parentheses horizontally or vertically
   - Improved layout of attachments on parenthesized as well as under- or
     overlined expressions
   - Improved layout of nested attachments resulting from code like
@@ -122,6 +129,8 @@ description: |
     is considered a delimiter or "fence" (e.g. |) by Unicode. The
     `{delim: "||"}` notation is _not_ supported anymore and should be replaced
     by `{delim: bar.double}` (**Minor breaking change**)
+  - Added [`vec.align`]($math.vec.align) and [`mat.align`]($math.mat.align)
+    parameters
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
     [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
   - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
@@ -133,6 +142,8 @@ description: |
   - Fixed that spaces could show up between text and invisible elements like
     [`metadata`] in math
   - Fixed a crash with recursive show rules in math
+  - Fixed [`lr.size`]($math.lr.size) not affecting characters enclosed in
+    [`mid`] in some cases
 
 - Introspection
   - Implemented a new system by which Typst tracks where elements end up on the
@@ -166,8 +177,8 @@ description: |
   - The [`quote`] element is now locatable (can be used in queries)
   - The bibliography heading now uses `depth` instead of `level` so that its
     level can still be configured via a show-set rule
-  - Added support for more [numbering] formats: Devanagari, Eastern Arabic, and
-    circled numbers
+  - Added support for more [numbering] formats: Devanagari, Eastern Arabic,
+    Bengali, and circled numbers
   - Added [`hanging-indent`]($heading.hanging-indent) parameter to heading
     function to tweak the appearance of multi-line headings and improved default
     appearance of multi-line headings
@@ -179,6 +190,7 @@ description: |
     now a show-set rule, it is not revoked by `{show figure: it => it.body}`
     anymore. (**Minor breaking change**)
   - Fixed numbering of footnote references
+  - Fixed spacing after bibliography heading
 
 - Visualization
   - Added `fill-rule` parameter to [`path`]($path.fill-rule) and
@@ -201,12 +213,18 @@ description: |
   - Fixed rare crash in parsing of parenthesized expressions
 
 - Scripting
+  - Added new fixed-point [`decimal`] number type for when highly precise
+    arithmetic is needed, such as for finance
   - Added `std` module for accessing standard library definitions even when a
     variable with the same name shadows/overwrites it
   - Added [`array.to-dict`], [`array.reduce`], [`array.windows`] methods
   - Added `exact` argument to [`array.zip`]
   - Added [`arguments.at`] method
-  - Added [`int.from-bytes`] and [`int.to-bytes`]
+  - Added [`int.from-bytes`], [`int.to-bytes`], [`float.from-bytes`], and
+    [`float.to-bytes`]
+  - [`calc.round`] no longer accepts negative digits (**Minor breaking change**)
+  - Conversions from [`int`] to [`float`] will now error instead of saturating
+    if the float is too large (**Minor breaking change**)
   - Added `float.nan` and `float.inf`, removed `calc.nan`
     (**Minor breaking change**)
   - Certain symbols are now generally callable like functions and not only
@@ -215,6 +233,8 @@ description: |
     `{type(none)}` and `{type(auto)}`
   - Fixed crash on whole packages (rather than just files) cyclically importing
     each other
+  - Fixed behaviour of [`calc.round`] on integers when a non-zero value is
+    provided for `digits`
 
 - Styling
   - Text show rules now match across multiple text elements
@@ -228,6 +248,9 @@ description: |
 - Export
   - Highly reduced PDF file sizes due to better font subsetting
   - Emoji are now exported properly in PDF
+  - Initial support for PDF/A. For now, only the standard PDF/A-2b is supported,
+    but more is planned for the future. Enabled via `--pdf-standard a-2b` in the
+    CLI and via File > Export as > PDF in the web app.
   - Setting [`page.fill`] to `{none}` will now lead to transparent pages instead
     of white ones in PNG and SVG. The new default of `{auto}` means transparent
     for PDF and white for PNG and SVG.
@@ -239,6 +262,7 @@ description: |
   - Fixed a bug where transparency could leak from one PDF object to another
   - Fixed a bug with CMYK gradients in PDF
   - Fixed various bugs with export of Oklab gradients in PDF
+  - Two small fixes for PDF standard conformance
 
 - Performance
   - Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
@@ -304,21 +328,24 @@ description: |
 
 - Symbols
   - New: `parallelogram`, `original`, `image`, `crossmark`, `rest`, `natural`,
-    `flat`, `sharp`, `tiny`, `miny`, `copyleft`, `trademark`
+    `flat`, `sharp`, `tiny`, `miny`, `copyleft`, `trademark`, `emoji.beet`,
+    `emoji.fingerprint`, `emoji.harp`, `emoji.shovel`, `emoji.splatter`,
+    `emoji.tree.leafless`,
   - New variants: `club.stroked`, `diamond.stroked`, `heart.stroked`,
     `spade.stroked`, `gt.neq`, `lt.neq`, `checkmark.heavy`, `paren.double`,
     `brace.double`, `shell.double`, `arrow.turn`, `plus.double`, `plus.triple`,
     `infinity.bar`, `infinity.incomplete`, `infinity.tie`, `multimap.double`,
     `ballot.check`, `ballot.check.heavy`, `emptyset.bar`, `emptyset.circle`,
-    `emptyset.larrow`, `emptyset.rarrow`, `parallel.struck`, `parallel.eq`,
+    `emptyset.arrow.l`, `emptyset.arrow.r`, `parallel.struck`, `parallel.eq`,
     `parallel.equiv`, `parallel.slanted`, `parallel.tilde`, `angle.l.curly`,
     `angle.l.dot`, `angle.r.curly`, `angle.r.dot`, `angle.oblique`, `angle.s`,
     `em.two`, `em.three`
   - Renamed: `turtle` to `shell`, `notes` to `note`, `ballot.x` to
     `ballot.cross`, `succ.eq` to `succ.curly.eq`, `prec.eq` to `prec.curly.eq`,
-    `servicemark` to `trademark.service` (**Breaking change**)
+    `servicemark` to `trademark.service`, `emoji.face.tired` to
+    `emoji.face.distress` (**Breaking change**)
   - Changed codepoint: `prec.eq`, `prec.neq`, `succ.eq`, `succ.neq`, `triangle`
-    from ▷ to △ (**Breaking change**)
+    from ▷ to △, `emoji.face.tired` (**Breaking change**)
   - Removed: `lt.curly` in favor of `prec`, `gt.curly` in favor of `succ`
     (**Breaking change**)
 
