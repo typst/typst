@@ -128,19 +128,21 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&Vec<PackageInfo>> {
-        self.index.get_or_try_init(|| {
-            let url = format!("{DEFAULT_REGISTRY}/preview/index.json");
-            match self.downloader.download(&url) {
-                Ok(response) => response
-                    .into_json()
-                    .map_err(|err| eco_format!("failed to parse package index: {err}")),
-                Err(ureq::Error::Status(404, _)) => {
-                    bail!("failed to fetch package index (not found)")
+    pub fn download_index(&self) -> StrResult<&[PackageInfo]> {
+        self.index
+            .get_or_try_init(|| {
+                let url = format!("{DEFAULT_REGISTRY}/preview/index.json");
+                match self.downloader.download(&url) {
+                    Ok(response) => response.into_json().map_err(|err| {
+                        eco_format!("failed to parse package index: {err}")
+                    }),
+                    Err(ureq::Error::Status(404, _)) => {
+                        bail!("failed to fetch package index (not found)")
+                    }
+                    Err(err) => bail!("failed to fetch package index ({err})"),
                 }
-                Err(err) => bail!("failed to fetch package index ({err})"),
-            }
-        })
+            })
+            .map(AsRef::as_ref)
     }
 
     /// Download a package over the network.
