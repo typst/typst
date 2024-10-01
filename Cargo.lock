@@ -150,8 +150,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "biblatex"
 version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27fe7285040d0227cd8b5395e1c4783f44f0b673eca5a657f4432ae401f2b7b8"
+source = "git+https://github.com/typst/biblatex.git?rev=06d0c2b10a749fd3b2c799b32077382b796a5609#06d0c2b10a749fd3b2c799b32077382b796a5609"
 dependencies = [
  "numerals",
  "paste",
@@ -317,9 +316,8 @@ dependencies = [
 
 [[package]]
 name = "citationberg"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d259fe9fd78ffa05a119581d20fddb50bfba428311057b12741ffb9015123d0b"
+version = "0.3.0"
+source = "git+https://github.com/typst/citationberg.git?rev=e3fd3f08e0e16983b7c3514b791b64c704dc2524#e3fd3f08e0e16983b7c3514b791b64c704dc2524"
 dependencies = [
  "quick-xml 0.31.0",
  "serde",
@@ -866,9 +864,8 @@ dependencies = [
 
 [[package]]
 name = "hayagriva"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d0d20c98b77b86ce737876b2a1653e2e6abbeee84afbb39d72111091191c97a"
+version = "0.5.2"
+source = "git+https://github.com/typst/hayagriva?rev=2f8a083b7ee74093fe7aa1bce292023800e02e6b#2f8a083b7ee74093fe7aa1bce292023800e02e6b"
 dependencies = [
  "biblatex",
  "ciborium",
