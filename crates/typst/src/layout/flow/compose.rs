@@ -282,7 +282,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let need = frame.height() + clearance;
 
         // If the float doesn't fit, queue it for the next region.
-        if !remaining.fits(need) && !regions.in_last() {
+        if !remaining.fits(need) && regions.may_progress() {
             self.work.floats.push(placed);
             return Ok(());
         }
@@ -343,7 +343,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let mut relayout = false;
         let mut regions = *regions;
-        let mut migratable = !breakable && !regions.in_last();
+        let mut migratable = !breakable && regions.may_progress();
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the

@@ -194,9 +194,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes a line of a paragraph.
     fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
-        // If the line doesn't fit and we're allowed to break, finish the
-        // region.
-        if !self.regions.size.y.fits(line.frame.height()) && !self.regions.in_last() {
+        // If the line doesn't fit and a followup region may improve things,
+        // finish the region.
+        if !self.regions.size.y.fits(line.frame.height()) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 
@@ -228,9 +228,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Lay out the block.
         let frame = single.layout(self.composer.engine, self.regions.base())?;
 
-        // If the block doesn't fit and we're allowed to break, finish the
-        // region.
-        if !self.regions.size.y.fits(frame.height()) && !self.regions.in_last() {
+        // If the block doesn't fit and a followup region may improve things,
+        // finish the region.
+        if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 

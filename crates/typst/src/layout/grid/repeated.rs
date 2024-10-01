@@ -57,7 +57,7 @@ impl<'a> GridLayouter<'a> {
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_rows.height + self.footer_height)
-            && !self.regions.in_last()
+            && self.regions.may_progress()
         {
             // Advance regions without any output until we can place the
             // header and the footer.
@@ -124,7 +124,7 @@ impl<'a> GridLayouter<'a> {
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(footer_height)
-            && !self.regions.in_last()
+            && self.regions.may_progress()
         {
             // Advance regions without any output until we can place the
             // footer.

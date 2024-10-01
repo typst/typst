@@ -96,14 +96,18 @@ impl Regions<'_> {
 
     /// Whether the first region is full and a region break is called for.
     pub fn is_full(&self) -> bool {
-        Abs::zero().fits(self.size.y) && !self.in_last()
+        Abs::zero().fits(self.size.y) && self.may_progress()
     }
 
-    /// Whether the first region is the last usable region.
-    ///
-    /// If this is true, calling `next()` will have no effect.
-    pub fn in_last(&self) -> bool {
-        self.backlog.is_empty() && self.last.map_or(true, |height| self.size.y == height)
+    /// Whether a region break is permitted.
+    pub fn may_break(&self) -> bool {
+        !self.backlog.is_empty() || self.last.is_some()
+    }
+
+    /// Whether calling `next()` may improve a situation where there is a lack
+    /// of space.
+    pub fn may_progress(&self) -> bool {
+        !self.backlog.is_empty() || self.last.is_some_and(|height| self.size.y != height)
     }
 
     /// Advance to the next region if there is any.

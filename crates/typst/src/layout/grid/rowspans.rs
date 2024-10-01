@@ -1147,7 +1147,7 @@ impl<'a> RowspanSimulator<'a> {
 
         // Skip until we reach a fitting region for both header and footer.
         while !self.regions.size.y.fits(header_height + footer_height)
-            && !self.regions.in_last()
+            && self.regions.may_progress()
         {
             self.regions.next();
             self.finished += 1;
