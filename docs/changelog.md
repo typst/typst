@@ -143,7 +143,7 @@ description: |
     [`metadata`] in math
   - Fixed a crash with recursive show rules in math
   - Fixed [`lr.size`]($math.lr.size) not affecting characters enclosed in
-    [`mid`] in some cases
+    [`mid`]($math.mid) in some cases
 
 - Introspection
   - Implemented a new system by which Typst tracks where elements end up on the
