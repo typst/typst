@@ -10,6 +10,7 @@ use crate::eval::ops;
 use crate::foundations::{cast, func, Decimal, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
+use crate::utils::round_with_precision;
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -743,10 +744,9 @@ pub fn round(
 ) -> DecNum {
     match value {
         DecNum::Int(n) => DecNum::Int(n),
-        DecNum::Float(n) => DecNum::Float(crate::utils::format::round_with_precision(
-            n,
-            digits.saturating_as::<u8>(),
-        )),
+        DecNum::Float(n) => {
+            DecNum::Float(round_with_precision(n, digits.saturating_as::<u8>()))
+        }
         DecNum::Decimal(n) => DecNum::Decimal(n.round(digits)),
     }
 }

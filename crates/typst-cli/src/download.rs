@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
-use typst::utils::format;
+use typst::utils::format_duration;
 use typst_kit::download::{DownloadState, Downloader, Progress};
 
 use crate::terminal::{self, TermOut};
@@ -62,9 +62,7 @@ pub fn display_download_progress(
 
     let total_downloaded = as_bytes_unit(state.total_downloaded);
     let speed_h = as_throughput_unit(speed);
-    let elapsed = format::time_starting_with_seconds(
-        &Instant::now().saturating_duration_since(state.start_time),
-    );
+    let elapsed = Instant::now().saturating_duration_since(state.start_time);
 
     match state.content_len {
         Some(content_len) => {
@@ -72,20 +70,26 @@ pub fn display_download_progress(
             let remaining = content_len - state.total_downloaded;
 
             let download_size = as_bytes_unit(content_len);
-            let eta =
-                format::time_starting_with_seconds(&Duration::from_secs(if speed == 0 {
-                    0
-                } else {
-                    (remaining / speed) as u64
-                }));
+            let eta = Duration::from_secs(if speed == 0 {
+                0
+            } else {
+                (remaining / speed) as u64
+            });
+
             writeln!(
                 out,
-                "{total_downloaded} / {download_size} ({percent:3.0} %) {speed_h} in {elapsed} ETA: {eta}",
+                "{total_downloaded} / {download_size} ({percent:3.0} %) \
+                {speed_h} in {elapsed} ETA: {eta}",
+                elapsed = format_duration(elapsed),
+                eta = format_duration(eta),
             )?;
         }
         None => writeln!(
             out,
-            "Total downloaded: {total_downloaded} Speed: {speed_h} Elapsed: {elapsed}",
+            "Total downloaded: {total_downloaded} \
+             Speed: {speed_h} \
+             Elapsed: {elapsed}",
+            elapsed = format_duration(elapsed),
         )?,
     };
     Ok(())

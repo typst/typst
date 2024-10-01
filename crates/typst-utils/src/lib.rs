@@ -1,20 +1,23 @@
 //! Utilities for Typst.
 
 pub mod fat;
-pub mod format;
 
 #[macro_use]
 mod macros;
 mod bitset;
 mod deferred;
+mod duration;
 mod hash;
 mod pico;
+mod round;
 mod scalar;
 
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
+pub use self::duration::format_duration;
 pub use self::hash::LazyHash;
 pub use self::pico::PicoStr;
+pub use self::round::round_with_precision;
 pub use self::scalar::Scalar;
 
 use std::fmt::{Debug, Formatter};
@@ -297,9 +300,4 @@ pub trait Numeric:
 
     /// Whether `self` consists only of finite parts.
     fn is_finite(self) -> bool;
-}
-
-/// Round a float to two decimal places.
-pub fn round_2(value: f64) -> f64 {
-    (value * 100.0).round() / 100.0
 }

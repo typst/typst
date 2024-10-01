@@ -3,7 +3,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::foundations::{func, Str, Value};
-use crate::utils::format::round_with_precision;
+use crate::utils::round_with_precision;
 
 /// The Unicode minus sign.
 pub const MINUS_SIGN: &str = "\u{2212}";
