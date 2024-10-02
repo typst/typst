@@ -426,7 +426,7 @@ pub struct BlockElem {
     ///
     /// ```example
     /// >>> #set page(height: 140pt)
-    /// // Disable stickyness of headings.
+    /// // Disable stickiness of headings.
     /// #show heading: set block(sticky: false)
     /// #lorem(20)
     ///
