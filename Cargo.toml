@@ -79,7 +79,7 @@ parking_lot = "0.12.1"
 pathdiff = "0.2"
 pdf-writer = "0.12"
 phf = { version = "0.11", features = ["macros"] }
-pixglyph = "0.5"
+pixglyph = "0.5.1"
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
