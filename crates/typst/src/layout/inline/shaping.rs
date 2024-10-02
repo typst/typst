@@ -15,8 +15,8 @@ use crate::engine::Engine;
 use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::text::{
-    decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
-    TextElem, TextItem,
+    decorate, families, features, is_default_ignorable, variant, Font, FontVariant,
+    Glyph, Lang, Region, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -725,8 +725,11 @@ fn shape_segment<'a>(
     text: &str,
     mut families: impl Iterator<Item = &'a str> + Clone,
 ) {
-    // Fonts dont have newlines and tabs.
-    if text.chars().all(|c| c == '\n' || c == '\t') {
+    // Don't try shaping newlines, tabs, or default ignorables.
+    if text
+        .chars()
+        .all(|c| c == '\n' || c == '\t' || is_default_ignorable(c))
+    {
         return;
     }
 
