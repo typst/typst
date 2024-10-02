@@ -643,11 +643,10 @@ Although Typst can be a LaTeX replacement for many today, there are still
 features that Typst does not (yet) support. Here is a list of them which, where
 applicable, contains possible workarounds.
 
-- **Well-established plotting exposystem.** LaTeX users often create elaborate
+- **Well-established plotting ecosystem.** LaTeX users often create elaborate
   charts along with their documents in PGF/TikZ. The Typst ecosystem does not
   yet offer the same breadth of available options, but the ecosystem around the
-  [`cetz`](https://github.com/johannes-wolf/typst-canvas) package is catching up
-  quickly.
+  [`cetz`](https://github.com/cetz-package/cetz) package is catching up quickly.
 
 - **Change page margins without a pagebreak.** In LaTeX, margins can always be
   adjusted, even without a pagebreak. To change margins in Typst, you use the
