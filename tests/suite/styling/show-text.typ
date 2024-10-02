@@ -160,7 +160,7 @@ hi
 @netwok hey " dis
 
 #show bibliography: none
-#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
 --- show-text-in-citation ---
 #show "A": "B"

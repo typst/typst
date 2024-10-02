@@ -779,8 +779,11 @@ impl<'a> Generator<'a> {
             let content = if info.subinfos.iter().all(|sub| sub.hidden) {
                 Content::empty()
             } else {
-                let mut content =
-                    renderer.display_elem_children(&citation.citation, &mut None)?;
+                let mut content = renderer.display_elem_children(
+                    &citation.citation,
+                    &mut None,
+                    true,
+                )?;
 
                 if info.footnote {
                     content = FootnoteElem::with_content(content).pack();
@@ -835,7 +838,8 @@ impl<'a> Generator<'a> {
                 .first_field
                 .as_ref()
                 .map(|elem| {
-                    let mut content = renderer.display_elem_child(elem, &mut None)?;
+                    let mut content =
+                        renderer.display_elem_child(elem, &mut None, false)?;
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
                         let dest = Destination::Location(*location);
                         content = content.linked(dest);
@@ -846,7 +850,7 @@ impl<'a> Generator<'a> {
 
             // Render the main reference content.
             let mut reference =
-                renderer.display_elem_children(&item.content, &mut prefix)?;
+                renderer.display_elem_children(&item.content, &mut prefix, false)?;
 
             // Attach a backlink to either the prefix or the reference so that
             // we can link to the bibliography entry.
@@ -876,16 +880,24 @@ impl ElemRenderer<'_> {
     ///
     /// The `prefix` can be a separate content storage where `left-margin`
     /// elements will be accumulated into.
+    ///
+    /// `is_citation` dictates whether whitespace at the start of the citation
+    /// will be eliminated. Some CSL styles yield whitespace at the start of
+    /// their citations, which should instead be handled by Typst.
     fn display_elem_children(
         &self,
         elems: &hayagriva::ElemChildren,
         prefix: &mut Option<Content>,
+        is_citation: bool,
     ) -> StrResult<Content> {
         Ok(Content::sequence(
             elems
                 .0
                 .iter()
-                .map(|elem| self.display_elem_child(elem, prefix))
+                .enumerate()
+                .map(|(i, elem)| {
+                    self.display_elem_child(elem, prefix, is_citation && i == 0)
+                })
                 .collect::<StrResult<Vec<_>>>()?,
         ))
     }
@@ -895,9 +907,12 @@ impl ElemRenderer<'_> {
         &self,
         elem: &hayagriva::ElemChild,
         prefix: &mut Option<Content>,
+        trim_start: bool,
     ) -> StrResult<Content> {
         Ok(match elem {
-            hayagriva::ElemChild::Text(formatted) => self.display_formatted(formatted),
+            hayagriva::ElemChild::Text(formatted) => {
+                self.display_formatted(formatted, trim_start)
+            }
             hayagriva::ElemChild::Elem(elem) => self.display_elem(elem, prefix)?,
             hayagriva::ElemChild::Markup(markup) => self.display_math(markup),
             hayagriva::ElemChild::Link { text, url } => self.display_link(text, url)?,
@@ -921,6 +936,7 @@ impl ElemRenderer<'_> {
         let mut content = self.display_elem_children(
             &elem.children,
             if block_level { &mut suf_prefix } else { prefix },
+            false,
         )?;
 
         if let Some(prefix) = suf_prefix {
@@ -976,7 +992,7 @@ impl ElemRenderer<'_> {
     /// Display a link.
     fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> StrResult<Content> {
         let dest = Destination::Url(Url::new(url)?);
-        Ok(LinkElem::new(dest.into(), self.display_formatted(text))
+        Ok(LinkElem::new(dest.into(), self.display_formatted(text, false))
             .pack()
             .spanned(self.span))
     }
@@ -988,8 +1004,18 @@ impl ElemRenderer<'_> {
     }
 
     /// Display formatted hayagriva text as content.
-    fn display_formatted(&self, formatted: &hayagriva::Formatted) -> Content {
-        let content = TextElem::packed(formatted.text.as_str()).spanned(self.span);
+    fn display_formatted(
+        &self,
+        formatted: &hayagriva::Formatted,
+        trim_start: bool,
+    ) -> Content {
+        let formatted_text = if trim_start {
+            formatted.text.trim_start()
+        } else {
+            formatted.text.as_str()
+        };
+
+        let content = TextElem::packed(formatted_text).spanned(self.span);
         apply_formatting(content, &formatted.formatting)
     }
 }
