@@ -1,6 +1,8 @@
 use std::num::NonZeroUsize;
 
-use super::{distribute, Config, FlowResult, PlacedChild, Skip, Stop, Work};
+use super::{
+    distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Skip, Stop, Work,
+};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{Content, NativeElement, Packed, Resolve, Smart};
@@ -13,7 +15,7 @@ use crate::layout::{
     OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use crate::model::{
-    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLine, ParLineMarker,
+    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
@@ -198,10 +200,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut output = insertions.finalize(self.work, self.config, inner);
 
         // Lay out per-column line numbers.
-        if self.config.root {
+        if let Some(line_config) = &self.config.line_numbers {
             layout_line_numbers(
                 self.engine,
                 self.config,
+                line_config,
                 locator,
                 self.column,
                 &mut output,
@@ -647,6 +650,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
 fn layout_line_numbers(
     engine: &mut Engine,
     config: &Config,
+    line_config: &LineNumberConfig,
     locator: Locator,
     column: usize,
     output: &mut Frame,
@@ -654,9 +658,7 @@ fn layout_line_numbers(
     let mut locator = locator.split();
 
     // Reset page-scoped line numbers if currently at the first column.
-    if column == 0
-        && ParLine::numbering_scope_in(config.shared) == LineNumberingScope::Page
-    {
+    if column == 0 && line_config.scope == LineNumberingScope::Page {
         let reset = layout_line_number_reset(engine, config, &mut locator)?;
         output.push_frame(Point::zero(), reset);
     }
@@ -711,9 +713,11 @@ fn layout_line_numbers(
                 .resolve(config.shared)
         };
 
-        // Compute the marker's horizontal position. Will be adjusted based on
-        // the maximum number width later.
-        let clearance = marker.number_clearance.resolve(config.shared);
+        // Determine how much space to leave between the column and the number.
+        let clearance = match marker.number_clearance {
+            Smart::Auto => line_config.default_clearance,
+            Smart::Custom(rel) => rel.resolve(config.shared),
+        };
 
         // Compute the base X position.
         let x = match margin {

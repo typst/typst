@@ -19,14 +19,14 @@ use self::compose::{compose, Composer};
 use self::distribute::distribute;
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
-use crate::foundations::{Content, Packed, StyleChain};
+use crate::foundations::{Content, Packed, Resolve, StyleChain};
 use crate::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use crate::layout::{
-    Abs, Dir, Fragment, Frame, PlacementScope, Region, Regions, Rel, Size,
+    Abs, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region, Regions, Rel, Size,
 };
-use crate::model::{FootnoteElem, FootnoteEntry};
+use crate::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use crate::realize::{realize, Arenas, Pair, RealizationKind};
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
@@ -187,6 +187,18 @@ pub(crate) fn layout_flow(
             gap: FootnoteEntry::gap_in(shared),
             expand: regions.expand.x,
         },
+        line_numbers: root.then(|| LineNumberConfig {
+            scope: ParLine::numbering_scope_in(shared),
+            default_clearance: {
+                let width = if PageElem::flipped_in(shared) {
+                    PageElem::height_in(shared)
+                } else {
+                    PageElem::width_in(shared)
+                };
+                (0.026 * width.unwrap_or_default())
+                    .clamp(Em::new(0.75).resolve(shared), Em::new(2.5).resolve(shared))
+            },
+        }),
     };
 
     // Collect the elements into pre-processed children. These are much easier
@@ -311,6 +323,8 @@ struct Config<'x> {
     columns: ColumnConfig,
     /// Settings for footnotes.
     footnote: FootnoteConfig,
+    /// Settings for line numbers.
+    line_numbers: Option<LineNumberConfig>,
 }
 
 /// Configuration of footnotes.
@@ -336,6 +350,14 @@ struct ColumnConfig {
     /// The horizontal direction in which columns progress. Defined by
     /// `text.dir`.
     dir: Dir,
+}
+
+/// Configuration of line numbers.
+struct LineNumberConfig {
+    /// Where line numbers are reset.
+    scope: LineNumberingScope,
+    /// The default clearance for `auto`.
+    default_clearance: Abs,
 }
 
 /// The result type for flow layout.

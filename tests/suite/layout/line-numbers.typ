@@ -1,5 +1,5 @@
 --- line-numbers-enable ---
-#set page(margin: (left: 1.5cm))
+#set page(margin: (left: 2.5em))
 #set par.line(numbering: "1")
 
 First line \
@@ -23,13 +23,13 @@ Second line \
 Third line
 
 --- line-numbers-default-alignment ---
-#set page(margin: (left: 2cm))
+#set page(margin: (left: 3em))
 #set par.line(numbering: "1")
 a
 #([\ a] * 15)
 
 --- line-numbers-start-alignment ---
-#set page(margin: (left: 2cm))
+#set page(margin: (left: 3em))
 #set par.line(numbering: "i", number-align: start)
 a \
 a
@@ -47,7 +47,7 @@ Second line \
 Third line
 
 --- line-numbers-rtl ---
-#set page(margin: (right: 2cm))
+#set page(margin: (right: 3em))
 #set text(dir: rtl)
 #set par.line(numbering: "1")
 a
@@ -120,7 +120,7 @@ In the \
 Sky
 
 --- line-numbers-page-scope ---
-#set page(margin: (left: 2cm))
+#set page(margin: (left: 2.5em))
 #set par.line(numbering: "1", numbering-scope: "page")
 
 First line \
