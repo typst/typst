@@ -194,6 +194,20 @@ description: |
   - Fixed numbering of footnote references
   - Fixed spacing after bibliography heading
 
+- Bibliography
+  - The Hayagriva YAML `publisher` field can now accept a dictionary with a
+    `location` key. The top-level `location` key is now primarily intended for
+    event and item locations.
+  - Multiple page ranges with prefixes and suffixes are now allowed
+  - Added `director` and catch-all editor types to BibLaTeX parsing
+  - Fixes for sorting of bibliography entries
+  - Fixed pluralization of page range labels
+  - Fixed sorting of citations by their number
+  - Fixed how citation number ranges collapse
+  - Fixed when the short form of a title is used
+  - Fixed parsing of unbalanced dollars in BibLaTeX `url` field
+  - Updated built-in citation styles
+
 - Visualization
   - Added `fill-rule` parameter to [`path`]($path.fill-rule) and
     [`polygon`]($polygon.fill-rule) functions
