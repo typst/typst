@@ -225,6 +225,8 @@ pub struct ParLine {
     /// [numbering pattern or function]($numbering).
     ///
     /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// >>> #set par.line(number-clearance: 1em)
     /// #set par.line(numbering: "1")
     ///
     /// Roses are red. \
@@ -241,6 +243,8 @@ pub struct ParLine {
     /// the current text direction.
     ///
     /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// >>> #set par.line(number-clearance: 1em)
     /// #set par.line(numbering: "I", number-align: left)
     ///
     /// Hello world! \
@@ -253,6 +257,8 @@ pub struct ParLine {
     /// The margin at which line numbers appear.
     ///
     /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// >>> #set par.line(number-clearance: 1em)
     /// #set par.line(numbering: "1", number-margin: right)
     ///
     /// = Report
@@ -266,6 +272,7 @@ pub struct ParLine {
     /// The distance between line numbers and text.
     ///
     /// ```example
+    /// >>> #set page(margin: (left: 3em))
     /// #set par.line(
     ///   numbering: "1",
     ///   number-clearance: 0.5pt
@@ -285,6 +292,8 @@ pub struct ParLine {
     /// is never reset, or `"page"`, indicating it is reset on every page.
     ///
     /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// >>> #set par.line(number-clearance: 1em)
     /// #set par.line(
     ///   numbering: "1.",
     ///   numbering-scope: "page"
