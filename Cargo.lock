@@ -149,8 +149,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "biblatex"
-version = "0.9.3"
-source = "git+https://github.com/typst/biblatex.git?rev=06d0c2b10a749fd3b2c799b32077382b796a5609#06d0c2b10a749fd3b2c799b32077382b796a5609"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a35a7317fcbdbef94b60d0dd0a658711a936accfce4a631fea4bf8e527eff3c2"
 dependencies = [
  "numerals",
  "paste",
@@ -316,10 +317,11 @@ dependencies = [
 
 [[package]]
 name = "citationberg"
-version = "0.3.0"
-source = "git+https://github.com/typst/citationberg.git?rev=e3fd3f08e0e16983b7c3514b791b64c704dc2524#e3fd3f08e0e16983b7c3514b791b64c704dc2524"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92fea693c83bd967604be367dc1e1b4895625eabafec2eec66c51092e18e700e"
 dependencies = [
- "quick-xml 0.31.0",
+ "quick-xml 0.36.2",
  "serde",
 ]
 
@@ -864,8 +866,9 @@ dependencies = [
 
 [[package]]
 name = "hayagriva"
-version = "0.5.2"
-source = "git+https://github.com/typst/hayagriva?rev=2f8a083b7ee74093fe7aa1bce292023800e02e6b#2f8a083b7ee74093fe7aa1bce292023800e02e6b"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e1ae4b9c0537119755702dfb6f838bf6ff5976ddc84501630783f0d7b5ce5e"
 dependencies = [
  "biblatex",
  "ciborium",
@@ -1860,21 +1863,21 @@ checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
 
 [[package]]
 name = "quick-xml"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
-dependencies = [
- "memchr",
- "serde",
-]
-
-[[package]]
-name = "quick-xml"
 version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d3a6e5838b60e0e8fa7a43f22ade549a37d61f8bdbe636d0d7816191de969c2"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.36.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7649a7b4df05aed9ea7ec6f628c67c9953a43869b8bc50929569b2999d443fe"
+dependencies = [
+ "memchr",
+ "serde",
 ]
 
 [[package]]
