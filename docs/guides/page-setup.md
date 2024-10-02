@@ -38,7 +38,7 @@ in your template.
   number-align: center,
 )
 
-#rect(fill: aqua)
+#rect(fill: aqua.lighten(40%))
 ```
 
 This example visualizes the dimensions for page content, headers, and footers.
