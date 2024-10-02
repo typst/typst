@@ -149,9 +149,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "biblatex"
-version = "0.9.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27fe7285040d0227cd8b5395e1c4783f44f0b673eca5a657f4432ae401f2b7b8"
+checksum = "a35a7317fcbdbef94b60d0dd0a658711a936accfce4a631fea4bf8e527eff3c2"
 dependencies = [
  "numerals",
  "paste",
@@ -317,11 +317,11 @@ dependencies = [
 
 [[package]]
 name = "citationberg"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d259fe9fd78ffa05a119581d20fddb50bfba428311057b12741ffb9015123d0b"
+checksum = "92fea693c83bd967604be367dc1e1b4895625eabafec2eec66c51092e18e700e"
 dependencies = [
- "quick-xml 0.31.0",
+ "quick-xml 0.36.2",
  "serde",
 ]
 
@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "hayagriva"
-version = "0.5.3"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d0d20c98b77b86ce737876b2a1653e2e6abbeee84afbb39d72111091191c97a"
+checksum = "c9e1ae4b9c0537119755702dfb6f838bf6ff5976ddc84501630783f0d7b5ce5e"
 dependencies = [
  "biblatex",
  "ciborium",
@@ -1747,9 +1747,9 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pixglyph"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96b0695748573e44602168d46b47cd15d9e10ebfa1e775986fe5452f1c1b40b3"
+checksum = "d15afa937836bf3d876f5a04ce28810c06045857bf46c3d0d31073b8aada5494"
 dependencies = [
  "ttf-parser",
 ]
@@ -1863,21 +1863,21 @@ checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
 
 [[package]]
 name = "quick-xml"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
-dependencies = [
- "memchr",
- "serde",
-]
-
-[[package]]
-name = "quick-xml"
 version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d3a6e5838b60e0e8fa7a43f22ade549a37d61f8bdbe636d0d7816191de969c2"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.36.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7649a7b4df05aed9ea7ec6f628c67c9953a43869b8bc50929569b2999d443fe"
+dependencies = [
+ "memchr",
+ "serde",
 ]
 
 [[package]]

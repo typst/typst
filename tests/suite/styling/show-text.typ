@@ -160,6 +160,18 @@ hi
 @netwok hey " dis
 
 #show bibliography: none
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
+
+--- show-text-in-citation ---
+#show "A": "B"
+#show "[": "("
+#show "]": ")"
+#show "[2]": set text(red)
+
+@netwok A \
+@arrgh B
+
+#show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
 --- show-text-linebreak ---

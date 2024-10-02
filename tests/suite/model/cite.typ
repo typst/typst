@@ -30,7 +30,7 @@ A @netwok @arrgh @quark B. \
 A @netwok @arrgh @quark, B.
 
 #set text(0pt)
-#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
 --- cite-grouping-and-ordering ---
 @mcintosh_anxiety
@@ -47,7 +47,7 @@ A @netwok @arrgh @quark, B.
 @restful
 
 #show bibliography: none
-#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
 --- issue-785-cite-locate ---
 // Test citation in other introspection.
