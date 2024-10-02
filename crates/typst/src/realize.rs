@@ -873,38 +873,39 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
 ///   as part of a paragraph grouping,
 /// - if that's not possible because another grouping is active, temporarily
 ///   disables textual grouping and revisits the elements.
-fn finish_textual(Grouped { s, start }: Grouped) -> SourceResult<()> {
-    // Try to find a regex match in the grouped textual elements.
+fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
+    // Try to find a regex match in the grouped textual elements. Returns early
+    // if there is one.
     if visit_textual(s, start)? {
         return Ok(());
     }
 
-    // No regex match.
-    match s.groupings.last() {
-        // Transparently apply the grouped content to an active paragraph. This
-        // is more efficient than revisiting everything. Checking the priority
-        // is a bit of a hack, but the simplest way to check which rule is
-        // active for now.
-        Some(grouping) if std::ptr::eq(grouping.rule, &PAR) => {}
+    // There was no regex match, so we need to collect the text into a paragraph
+    // grouping. To do that, we first terminate all non-paragraph groupings.
+    if in_non_par_grouping(s) {
+        let elems = s.store_slice(&s.sink[start..]);
+        s.sink.truncate(start);
+        finish_grouping_while(s, in_non_par_grouping)?;
+        start = s.sink.len();
+        s.sink.extend(elems);
+    }
 
-        // Start a new paragraph based on this textual group.
-        None => s.groupings.push(Grouping { rule: &PAR, start }),
-
-        // If a non-paragraph grouping is top-level, revisit the grouped
-        // content with the `TEXTUAL` rule disabled.
-        _ => {
-            let elems = s.store_slice(&s.sink[start..]);
-            let rules = s.rules;
-            s.sink.truncate(start);
-            s.rules = &s.rules[1..];
-            for &(content, styles) in &elems {
-                visit(s, content, styles)?;
-            }
-            s.rules = rules;
-        }
+    // Now, there are only two options:
+    // 1. We are already in a paragraph group. In this case, the elements just
+    //    transparently become part of it.
+    // 2. There is no group at all. In this case, we create one.
+    if s.groupings.is_empty() {
+        s.groupings.push(Grouping { start, rule: &PAR });
     }
 
     Ok(())
+}
+
+/// Whether there is an active grouping, but it is not a `PAR` grouping.
+fn in_non_par_grouping(s: &State) -> bool {
+    s.groupings
+        .last()
+        .is_some_and(|grouping| !std::ptr::eq(grouping.rule, &PAR))
 }
 
 /// Builds the `ParElem` from inline-level elements.
