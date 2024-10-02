@@ -425,7 +425,7 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
                 bail!(
                     g.span.0,
                     "the text {} could not be displayed with any font",
-                    text.text[g.range()].repr()
+                    TextItemView::full(text).glyph_text(g).repr(),
                 );
             }
         }
@@ -493,9 +493,7 @@ fn write_normal_text(
 
     let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
     for g in text.glyphs() {
-        let t = text.text();
-        let segment = &t[g.range()];
-        glyph_set.entry(g.id).or_insert_with(|| segment.into());
+        glyph_set.entry(g.id).or_insert_with(|| text.glyph_text(&g));
     }
 
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
@@ -640,9 +638,7 @@ fn write_color_glyphs(
 
         ctx.content.show(Str(&[index]));
 
-        glyph_set
-            .entry(glyph.id)
-            .or_insert_with(|| text.text()[glyph.range()].into());
+        glyph_set.entry(glyph.id).or_insert_with(|| text.glyph_text(&glyph));
     }
     ctx.content.end_text();
 

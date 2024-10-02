@@ -5,7 +5,7 @@ use ecow::EcoString;
 
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
-use crate::text::{Font, Lang, Region};
+use crate::text::{is_default_ignorable, Font, Lang, Region};
 use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.
@@ -104,9 +104,13 @@ impl<'a> TextItemView<'a> {
         })
     }
 
-    /// The plain text that this slice represents
-    pub fn text(&self) -> &str {
-        &self.item.text[self.text_range()]
+    /// The plain text for the given glyph. This is an approximation since
+    /// glyphs do not correspond 1-1 with codepoints.
+    pub fn glyph_text(&self, glyph: &Glyph) -> EcoString {
+        self.item.text[glyph.range()]
+            .chars()
+            .filter(|&c| !is_default_ignorable(c))
+            .collect()
     }
 
     /// The total width of this text slice
