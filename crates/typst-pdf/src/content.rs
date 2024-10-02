@@ -441,7 +441,7 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
         || tables.svg.is_some()
         || tables.colr.is_some();
     if !has_color_glyphs {
-        write_normal_text(ctx, pos, TextItemView::all_of(text))?;
+        write_normal_text(ctx, pos, TextItemView::full(text))?;
         return Ok(());
     }
 
@@ -449,9 +449,9 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
         text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
 
     if color_glyph_count == text.glyphs.len() {
-        write_color_glyphs(ctx, pos, TextItemView::all_of(text))?;
+        write_color_glyphs(ctx, pos, TextItemView::full(text))?;
     } else if color_glyph_count == 0 {
-        write_normal_text(ctx, pos, TextItemView::all_of(text))?;
+        write_normal_text(ctx, pos, TextItemView::full(text))?;
     } else {
         // Otherwise we need to split it in smaller text runs
         let mut offset = 0;
