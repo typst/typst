@@ -183,7 +183,7 @@ fn layout_rotate(
 #[elem(Show)]
 pub struct ScaleElem {
     /// The scaling factor for both axes, as a positional argument. This is just
-    /// an optional shorthand notation for settingq `x` and `y` to the same
+    /// an optional shorthand notation for setting `x` and `y` to the same
     /// value.
     #[external]
     #[positional]

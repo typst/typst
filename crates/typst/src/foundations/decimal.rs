@@ -59,9 +59,13 @@ use crate::World;
 /// # Displaying decimals
 /// To display a decimal, simply insert the value into the document. To only
 /// display a certain number of digits, [round]($calc.round) the decimal first.
-///
 /// Localized formatting of decimals and other numbers is not yet supported, but
 /// planned for the future.
+///
+/// You can convert decimals to strings using the [`str`] constructor. This way,
+/// you can post-process the displayed representation, e.g. to replace the
+/// period with a comma (as a stand-in for proper built-in localization to
+/// languages that use the comma).
 ///
 /// # Precision and limits
 /// A `decimal` number has a limit of 28 to 29 significant base-10 digits. This
@@ -238,7 +242,6 @@ impl Decimal {
     /// fractional digits are fully preserved; if that's not possible due to the
     /// limit of significant digits (around 28 to 29) having been reached, an
     /// error is raised as the given decimal number wouldn't be representable.
-    /// For example,  is a valid decimal number.
     ///
     /// While this constructor can be used with [floating-point numbers]($float)
     /// to cast them to `decimal`, doing so is **discouraged** as **this cast is

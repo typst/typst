@@ -49,8 +49,7 @@ pub struct PadElem {
     #[external]
     pub x: Rel<Length>,
 
-    /// A  shorthand to set `top` and `bottom` to
-    /// the same value.
+    /// A shorthand to set `top` and `bottom` to the same value.
     #[external]
     pub y: Rel<Length>,
 

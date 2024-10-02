@@ -14,7 +14,7 @@ use crate::text::TextElem;
 /// Aligns content horizontally and vertically.
 ///
 /// # Example
-/// Let's start with centering our content:
+/// Let's start with centering our content horizontally:
 /// ```example
 /// #set page(height: 120pt)
 /// #set align(center)
@@ -25,7 +25,7 @@ use crate::text::TextElem;
 /// A work of art, a visual throne
 /// ```
 ///
-/// To center something vertically, use _horizon_ alignment.
+/// To center something vertically, use _horizon_ alignment:
 /// ```example
 /// #set page(height: 120pt)
 /// #set align(horizon)

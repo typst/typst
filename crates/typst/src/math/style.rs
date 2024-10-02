@@ -70,7 +70,7 @@ pub fn sans(
 /// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
-#[func(title = "Calligraphic", keywords = ["mathcal"])]
+#[func(title = "Calligraphic", keywords = ["mathcal", "mathscr"])]
 pub fn cal(
     /// The content to style.
     body: Content,
@@ -172,7 +172,7 @@ pub fn inline(
 /// ```example
 /// $sum_i x_i/2 = script(sum_i x_i/2)$
 /// ```
-#[func(title = "Script Size", keywords = ["scripstyle"])]
+#[func(title = "Script Size", keywords = ["scriptstyle"])]
 pub fn script(
     /// The content to size.
     body: Content,
