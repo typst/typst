@@ -162,6 +162,18 @@ hi
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
+--- show-text-in-citation ---
+#show "A": "B"
+#show "[": "("
+#show "]": ")"
+#show "[2]": set text(red)
+
+@netwok A \
+@arrgh B
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
 --- show-text-linebreak ---
 #show "lo\nwo": set text(red)
 Hello #[ ] \
