@@ -7,7 +7,7 @@ use crate::foundations::{
     StyleVec, Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
-use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment};
+use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 use crate::utils::singleton;
 
@@ -276,7 +276,7 @@ pub struct ParLine {
     /// Layout
     /// ```
     #[ghost]
-    #[default(Length::from(Abs::cm(1.0)))]
+    #[default(Length::from(Em::new(2.5)))]
     pub number_clearance: Length,
 
     /// Controls when to reset line numbering.
