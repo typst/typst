@@ -70,6 +70,27 @@ pub fn sans(
 /// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
+///
+/// This corresponds both to LaTeX's `\mathcal` and `\mathscr` as both of these
+/// styles share the same Unicode codepoints. Switching between the styles is
+/// thus only possible if supported by the font via
+/// [font features]($text.features).
+///
+/// For the default math font, the roundhand style is available through the
+/// `ss01` feature. Therefore, you could define your own version of `\mathscr`
+/// like this:
+///
+/// ```example
+/// #let scr(it) = text(
+///   features: ("ss01",),
+///   box($cal(it)$),
+/// )
+///
+/// We establish $cal(P) != scr(P)$.
+/// ```
+///
+/// (The box is not conceptually necessary, but unfortunately currently needed
+/// due to limitations in Typst's text style handling in math.)
 #[func(title = "Calligraphic", keywords = ["mathcal", "mathscr"])]
 pub fn cal(
     /// The content to style.
