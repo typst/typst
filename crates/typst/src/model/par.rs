@@ -219,19 +219,27 @@ impl Unlabellable for Packed<ParbreakElem> {}
 ///
 /// This element is exclusively used for line number configuration and cannot
 /// be placed.
-#[elem(name = "line", title = "Paragraph Line", Construct, Locatable)]
+///
+/// ```example
+/// >>> #set page(margin: (left: 3em))
+/// #set par.line(numbering: "1")
+///
+/// Roses are red. \
+/// Violets are blue. \
+/// Typst is there for you.
+/// ```
+#[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
 pub struct ParLine {
     /// How to number each line. Accepts a
     /// [numbering pattern or function]($numbering).
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
-    /// >>> #set par.line(number-clearance: 1em)
-    /// #set par.line(numbering: "1")
+    /// #set par.line(numbering: "I")
     ///
     /// Roses are red. \
     /// Violets are blue. \
-    /// Typst is awesome.
+    /// Typst is there for you.
     /// ```
     #[ghost]
     pub numbering: Option<Numbering>,
@@ -244,7 +252,6 @@ pub struct ParLine {
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
-    /// >>> #set par.line(number-clearance: 1em)
     /// #set par.line(numbering: "I", number-align: left)
     ///
     /// Hello world! \
@@ -257,8 +264,7 @@ pub struct ParLine {
     /// The margin at which line numbers appear.
     ///
     /// ```example
-    /// >>> #set page(margin: (left: 3em))
-    /// >>> #set par.line(number-clearance: 1em)
+    /// >>> #set page(margin: (right: 3em))
     /// #set par.line(numbering: "1", number-margin: right)
     ///
     /// = Report
@@ -271,11 +277,14 @@ pub struct ParLine {
 
     /// The distance between line numbers and text.
     ///
+    /// The default value of `{auto}` results in a clearance that is adaptive to
+    /// the page width and yields reasonable results in most cases.
+    ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
     /// #set par.line(
     ///   numbering: "1",
-    ///   number-clearance: 0.5pt
+    ///   number-clearance: 4pt
     /// )
     ///
     /// Typesetting \
@@ -283,8 +292,8 @@ pub struct ParLine {
     /// Layout
     /// ```
     #[ghost]
-    #[default(Length::from(Em::new(2.5)))]
-    pub number_clearance: Length,
+    #[default]
+    pub number_clearance: Smart<Length>,
 
     /// Controls when to reset line numbering.
     ///
@@ -293,9 +302,8 @@ pub struct ParLine {
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
-    /// >>> #set par.line(number-clearance: 1em)
     /// #set par.line(
-    ///   numbering: "1.",
+    ///   numbering: "1",
     ///   numbering-scope: "page"
     /// )
     ///
@@ -348,7 +356,7 @@ pub struct ParLineMarker {
 
     #[internal]
     #[required]
-    pub number_clearance: Length,
+    pub number_clearance: Smart<Length>,
 }
 
 impl Construct for ParLineMarker {
