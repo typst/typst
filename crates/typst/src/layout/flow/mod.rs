@@ -1,9 +1,9 @@
 //! Layout of content into a [`Frame`] or [`Fragment`].
 
+mod balance;
 mod collect;
 mod compose;
 mod distribute;
-mod balance;
 
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
@@ -13,11 +13,11 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 
+use self::balance::Balancer;
+pub use self::balance::Mode as BalanceMode;
 use self::collect::{
     collect, Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild,
 };
-use self::balance::Balancer;
-pub use self::balance::Mode as BalanceMode;
 use self::compose::{compose, Composer};
 use self::distribute::distribute;
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
@@ -34,6 +34,8 @@ use crate::realize::{realize, Arenas, Pair, RealizationKind};
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
+
+use super::Axes;
 
 /// Lays out content into multiple regions.
 ///
@@ -210,12 +212,16 @@ pub(crate) fn layout_flow(
         Size::new(config.columns.width, regions.full),
         regions.expand.x,
     )?;
-    
-    let mut balancer = Balancer::new(
-        &children,
-        &config,
-        balance,
-    );
+
+    let balancer = Balancer::new(&children, &config, balance);
+
+    let mut balaced_bounds = regions.base();
+    balaced_bounds.y *= Into::<usize>::into(columns) as f64;
+    let mut balancer = balancer.measure(
+        engine,
+        locator.next(&()),
+        Region::new(balaced_bounds, regions.expand),
+    )?;
     let mut finished = vec![];
 
     // This loop runs once per region produced by the flow layout.
