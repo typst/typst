@@ -570,7 +570,7 @@ pub struct TextElem {
     /// corresponding OpenType feature(s) from `ss01` to `ss20`.
     /// Setting this to `{none}` will disable all stylistic sets.
     ///
-    /// ```
+    /// ```example
     /// #set text(font: "IBM Plex Serif")
     /// ß vs #text(stylistic-set: 5)[ß] \
     /// 10 years ago vs #text(stylistic-set: (1, 2, 3))[10 years ago]

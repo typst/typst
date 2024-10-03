@@ -215,7 +215,7 @@ pub struct RawElem {
     pub syntaxes_data: Vec<Bytes>,
 
     /// The theme to use for syntax highlighting. Theme files should be in the
-    /// in the [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
+    /// [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
     ///
     /// Applying a theme only affects the color of specifically highlighted
     /// text. It does not consider the theme's foreground and background
