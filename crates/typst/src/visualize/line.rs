@@ -33,13 +33,13 @@ pub struct LineElem {
     #[resolve]
     pub end: Option<Axes<Rel<Length>>>,
 
-    /// The line's length. This is only respected if `end` is `none`.
+    /// The line's length. This is only respected if `end` is `{none}`.
     #[resolve]
     #[default(Abs::pt(30.0).into())]
     pub length: Rel<Length>,
 
     /// The angle at which the line points away from the origin. This is only
-    /// respected if `end` is `none`.
+    /// respected if `end` is `{none}`.
     pub angle: Angle,
 
     /// How to [stroke] the line.

@@ -568,7 +568,7 @@ pub struct TextElem {
     /// This can be set to an integer or an array of integers, all
     /// of which must be between `{1}` and `{20}`, enabling the
     /// corresponding OpenType feature(s) from `ss01` to `ss20`.
-    /// Setting this to `none` will disable all stylistic sets.
+    /// Setting this to `{none}` will disable all stylistic sets.
     ///
     /// ```
     /// #set text(font: "IBM Plex Serif")

@@ -224,7 +224,7 @@ pub struct RawElem {
     /// the background with a [filled block]($block.fill). You could also use
     /// the [`xml`] function to extract these properties from the theme.
     ///
-    /// Additionally, you can set the theme to `none` to disable highlighting.
+    /// Additionally, you can set the theme to `{none}` to disable highlighting.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
