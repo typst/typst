@@ -501,11 +501,11 @@ pub struct TextElem {
     /// Text layout prevents widows and orphans by default because they are
     /// generally discouraged by style guides. However, in some contexts they
     /// are allowed because the prevention method, which moves a line to the
-    /// next page, can result in an uneven number of lines between pages.
-    /// The `widow` and `orphan` costs allow disabling these modifications.
+    /// next page, can result in an uneven number of lines between pages. The
+    /// `widow` and `orphan` costs allow disabling these modifications.
     /// (Currently, 0% allows widows/orphans; anything else, including the
-    /// default of `auto`, prevents them. More nuanced cost specification for
-    /// these modifications is planned for the future.)
+    /// default, prevents them. More nuanced cost specification for these
+    /// modifications is planned for the future.)
     ///
     /// ```example
     /// #set text(hyphenate: true, size: 11.4pt)
