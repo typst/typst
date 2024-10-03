@@ -21,6 +21,7 @@ use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
 use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
+use serde::{Deserialize, Serialize};
 use typst::diag::{bail, SourceResult, StrResult};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Abs, Em, PageRanges, Transform};
@@ -128,16 +129,18 @@ impl Default for PdfStandards {
     }
 }
 
-/// A PDF standard.
+/// A PDF standard that Typst can enforce conformance with.
 ///
 /// Support for more standards is planned.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 #[non_exhaustive]
 pub enum PdfStandard {
     /// PDF 1.7.
+    #[serde(rename = "1.7")]
     V_1_7,
     /// PDF/A-2b.
+    #[serde(rename = "a-2b")]
     A_2b,
 }
 
