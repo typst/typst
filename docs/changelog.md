@@ -22,6 +22,8 @@ description: |
 - Emoji are now exported properly in PDF
 - Added initial support for PDF/A. For now, only the standard PDF/A-2b is
   supported, but more is planned for the future.
+- Added various options for configuring the CLI's environment (fonts, package
+  paths, etc.)
 - Text show rules now match across multiple text elements
 - Block-level equations can now break over multiple pages
 - Fixed a bug where some fonts would not print correctly on professional
