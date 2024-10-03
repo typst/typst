@@ -4,7 +4,7 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, SequenceElem, Show, StyleChain};
 use crate::layout::{Em, Length};
-use crate::text::{variant, SpaceElem, TextElem, TextSize};
+use crate::text::{variant, TextElem, TextSize};
 use crate::World;
 
 /// Renders text in subscript.
@@ -128,9 +128,7 @@ impl Show for Packed<SuperElem> {
 /// Find and transform the text contained in `content` to the given script kind
 /// if and only if it only consists of `Text`, `Space`, and `Empty` leaves.
 fn convert_script(content: &Content, sub: bool) -> Option<EcoString> {
-    if content.is::<SpaceElem>() {
-        Some(' '.into())
-    } else if let Some(elem) = content.to_packed::<TextElem>() {
+    if let Some(elem) = content.to_packed::<TextElem>() {
         if sub {
             elem.text().chars().map(to_subscript_codepoint).collect()
         } else {
@@ -178,7 +176,6 @@ fn to_superscript_codepoint(c: char) -> Option<char> {
         ')' => Some('⁾'),
         'n' => Some('ⁿ'),
         'i' => Some('ⁱ'),
-        ' ' => Some(' '),
         _ => None,
     }
 }
@@ -204,7 +201,6 @@ fn to_subscript_codepoint(c: char) -> Option<char> {
         'p' => Some('ₚ'),
         's' => Some('ₛ'),
         't' => Some('ₜ'),
-        ' ' => Some(' '),
         _ => None,
     }
 }
