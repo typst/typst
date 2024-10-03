@@ -53,12 +53,12 @@ pub fn measure(
     span: Span,
     /// The width available to layout the content.
     ///
-    /// Defaults to `{auto}`, which denotes an infinite width.
+    /// `{auto}` denotes an infinite width.
     ///
-    /// Using the `width` and `height` parameters of this function is
-    /// different from measuring a [`box`] containing the content;
-    /// the former will get the dimensions of the inner content
-    /// instead of the dimensions of the box:
+    /// Using the `width` and `height` parameters of this function is different
+    /// from measuring a [`box`] containing the content; in the following
+    /// example, the former will get the dimensions of the inner content instead
+    /// of the dimensions of the box.
     ///
     /// ```example
     /// #context measure(lorem(100), width: 400pt)
@@ -70,7 +70,7 @@ pub fn measure(
     width: Smart<Length>,
     /// The height available to layout the content.
     ///
-    /// Defaults to `{auto}`, which denotes an infinite height.
+    /// `{auto}` denotes an infinite height.
     #[named]
     #[default(Smart::Auto)]
     height: Smart<Length>,
