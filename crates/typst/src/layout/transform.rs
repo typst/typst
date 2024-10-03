@@ -182,6 +182,14 @@ fn layout_rotate(
 /// ```
 #[elem(Show)]
 pub struct ScaleElem {
+    /// The scaling factor for both axes, as a positional argument. This is just
+    /// an optional shorthand notation for setting `x` and `y` to the same
+    /// value.
+    #[external]
+    #[positional]
+    #[default(Smart::Custom(ScaleAmount::Ratio(Ratio::one())))]
+    pub factor: Smart<ScaleAmount>,
+
     /// The horizontal scaling factor.
     ///
     /// The body will be mirrored horizontally if the parameter is negative.
@@ -342,7 +350,9 @@ cast! {
 ///
 /// # Example
 /// ```example
-/// #skew(ax: -12deg)[This is some fake italic text.]
+/// #skew(ax: -12deg)[
+///   This is some fake italic text.
+/// ]
 /// ```
 #[elem(Show)]
 pub struct SkewElem {

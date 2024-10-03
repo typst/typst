@@ -170,11 +170,15 @@ pub struct GridElem {
 
     /// The gaps between rows and columns.
     ///
-    /// If there are more gutters than defined sizes, the last gutter is repeated.
+    /// If there are more gutters than defined sizes, the last gutter is
+    /// repeated.
+    ///
+    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
+    /// value.
     #[external]
     pub gutter: TrackSizings,
 
-    /// The gaps between columns. Takes precedence over `gutter`.
+    /// The gaps between columns.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -182,7 +186,7 @@ pub struct GridElem {
     #[borrowed]
     pub column_gutter: TrackSizings,
 
-    /// The gaps between rows. Takes precedence over `gutter`.
+    /// The gaps between rows.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,

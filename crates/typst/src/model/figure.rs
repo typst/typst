@@ -133,12 +133,25 @@ pub struct FigureElem {
     /// ```
     pub placement: Option<Smart<VAlignment>>,
 
-    /// Relative to which containing scope something is placed.
+    /// Relative to which containing scope the figure is placed.
     ///
     /// Set this to `{"parent"}` to create a full-width figure in a two-column
     /// document.
     ///
     /// Has no effect if `placement` is `{none}`.
+    ///
+    /// ```example
+    /// #set page(height: 250pt, columns: 2)
+    ///
+    /// = Introduction
+    /// #figure(
+    ///   placement: bottom,
+    ///   scope: "parent",
+    ///   caption: [A glacier],
+    ///   image("glacier.jpg", width: 60%),
+    /// )
+    /// #lorem(60)
+    /// ```
     pub scope: PlacementScope,
 
     /// The figure's caption.

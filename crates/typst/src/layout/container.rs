@@ -423,6 +423,16 @@ pub struct BlockElem {
     /// at the bottom of the page.
     ///
     /// Marking a block as sticky makes it unbreakable.
+    ///
+    /// ```example
+    /// >>> #set page(height: 140pt)
+    /// // Disable stickiness of headings.
+    /// #show heading: set block(sticky: false)
+    /// #lorem(20)
+    ///
+    /// = Chapter
+    /// #lorem(10)
+    /// ```
     #[default(false)]
     pub sticky: bool,
 

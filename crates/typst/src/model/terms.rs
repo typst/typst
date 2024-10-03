@@ -35,7 +35,8 @@ pub struct TermsElem {
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
     /// each other, this is set to `{true}`; if items are separated by a blank
-    /// line, this is set to `{false}`.
+    /// line, this is set to `{false}`. The markup-defined tightness cannot be
+    /// overridden with set rules.
     ///
     /// ```example
     /// / Fact: If a term list has a lot

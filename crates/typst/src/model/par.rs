@@ -48,7 +48,7 @@ pub struct ParElem {
     /// By setting top edge, bottom edge, and leading, you can also configure a
     /// consistent baseline-to-baseline distance. You could, for instance, set
     /// the leading to `{1em}`, the top-edge to `{0.8em}`, and the bottom-edge
-    /// to `-{0.2em}` to get a baseline gap of exactly `{2em}`. The exact
+    /// to `{-0.2em}` to get a baseline gap of exactly `{2em}`. The exact
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
     #[resolve]

@@ -249,14 +249,15 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
 
     let mut skip = HashSet::new();
     if category == MATH {
-        // Already documented in the text category.
-        skip.insert("text");
         skip = GROUPS
             .iter()
             .filter(|g| g.category == category.name())
             .flat_map(|g| &g.filter)
             .map(|s| s.as_str())
             .collect();
+
+        // Already documented in the text category.
+        skip.insert("text");
     }
 
     // Add values and types.

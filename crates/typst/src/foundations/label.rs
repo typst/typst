@@ -35,8 +35,11 @@ use crate::utils::PicoStr;
 /// the heading and thus attaches to the heading's text.
 ///
 /// ```typ
-/// = Intro <a>         // Equivalent to `#heading[Intro] <a>`.
-/// = Concl #label("b") // Equivalent to `#heading[Concl #label("b")]`.
+/// // Equivalent to `#heading[Introduction] <a>`.
+/// = Introduction <a>
+///
+/// // Equivalent to `#heading[Conclusion #label("b")]`.
+/// = Conclusion #label("b")
 /// ```
 ///
 /// Currently, labels can only be attached to elements in markup mode, not in

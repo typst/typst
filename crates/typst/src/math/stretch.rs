@@ -33,7 +33,8 @@ pub struct StretchElem {
     #[required]
     pub body: Content,
 
-    /// The size to stretch to, relative to the glyph's current size.
+    /// The size to stretch to, relative to the maximum size of the glyph and
+    /// its attachments.
     pub size: Smart<Rel<Length>>,
 }
 

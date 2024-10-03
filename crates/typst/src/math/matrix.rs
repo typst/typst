@@ -167,6 +167,8 @@ pub struct MatElem {
 
     /// The gap between rows and columns.
     ///
+    /// This is a shorthand to set `row-gap` and `column-gap` to the same value.
+    ///
     /// ```example
     /// #set math.mat(gap: 1em)
     /// $ mat(1, 2; 3, 4) $
@@ -174,7 +176,7 @@ pub struct MatElem {
     #[external]
     pub gap: Rel<Length>,
 
-    /// The gap between rows. Takes precedence over `gap`.
+    /// The gap between rows.
     ///
     /// ```example
     /// #set math.mat(row-gap: 1em)
@@ -188,7 +190,7 @@ pub struct MatElem {
     #[default(DEFAULT_ROW_GAP.into())]
     pub row_gap: Rel<Length>,
 
-    /// The gap between columns. Takes precedence over `gap`.
+    /// The gap between columns.
     ///
     /// ```example
     /// #set math.mat(column-gap: 1em)

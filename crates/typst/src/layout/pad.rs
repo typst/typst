@@ -45,17 +45,15 @@ pub struct PadElem {
     #[parse(args.named("bottom")?.or(y))]
     pub bottom: Rel<Length>,
 
-    /// The horizontal padding. Both `left` and `right` take precedence over
-    /// this.
+    /// A shorthand to set `left` and `right` to the same value.
     #[external]
     pub x: Rel<Length>,
 
-    /// The vertical padding. Both `top` and `bottom` take precedence over this.
+    /// A shorthand to set `top` and `bottom` to the same value.
     #[external]
     pub y: Rel<Length>,
 
-    /// The padding for all sides. All other parameters take precedence over
-    /// this.
+    /// A shorthand to set all four sides to the same value.
     #[external]
     pub rest: Rel<Length>,
 
