@@ -89,33 +89,27 @@ impl<'a> TextItemView<'a> {
 
     /// Returns an iterator over the glyphs of the slice.
     ///
-    /// The range of text that each glyph represents is remapped to be relative
-    /// to the start of the slice.
-    pub fn glyphs(&self) -> impl Iterator<Item = Glyph> + '_ {
-        let first = self.item.glyphs[self.glyph_range.start].range();
-        let last = self.item.glyphs[self.glyph_range.end - 1].range();
-        let base = first.start.min(last.start) as u16;
-        (0..self.glyph_range.len()).map(move |index| {
-            let g = &self.item.glyphs[self.glyph_range.start + index];
-            Glyph {
-                range: g.range.start - base..g.range.end - base,
-                ..*g
-            }
-        })
+    /// Note that the ranges are not remapped. They still point into the
+    /// original text.
+    pub fn glyphs(&self) -> &[Glyph] {
+        &self.item.glyphs[self.glyph_range.clone()]
     }
 
-    /// The plain text for the given glyph. This is an approximation since
-    /// glyphs do not correspond 1-1 with codepoints.
+    /// The plain text for the given glyph from `glyphs()`. This is an
+    /// approximation since glyphs do not correspond 1-1 with codepoints.
     pub fn glyph_text(&self, glyph: &Glyph) -> EcoString {
+        // Trim default ignorables which might have ended up in the glyph's
+        // cluster. Keep interior ones so that joined emojis work. All of this
+        // is a hack and needs to be reworked. See
+        // https://github.com/typst/typst/pull/5099
         self.item.text[glyph.range()]
-            .chars()
-            .filter(|&c| !is_default_ignorable(c))
-            .collect()
+            .trim_matches(is_default_ignorable)
+            .into()
     }
 
     /// The total width of this text slice
     pub fn width(&self) -> Abs {
-        self.item.glyphs[self.glyph_range.clone()]
+        self.glyphs()
             .iter()
             .map(|g| g.x_advance)
             .sum::<Em>()
