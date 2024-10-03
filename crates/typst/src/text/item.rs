@@ -5,7 +5,7 @@ use ecow::EcoString;
 
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
-use crate::text::{Font, Lang, Region};
+use crate::text::{is_default_ignorable, Font, Lang, Region};
 use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.
@@ -78,7 +78,7 @@ pub struct TextItemView<'a> {
 
 impl<'a> TextItemView<'a> {
     /// Build a TextItemView for the whole contents of a TextItem.
-    pub fn all_of(text: &'a TextItem) -> Self {
+    pub fn full(text: &'a TextItem) -> Self {
         Self::from_glyph_range(text, 0..text.glyphs.len())
     }
 
@@ -87,28 +87,30 @@ impl<'a> TextItemView<'a> {
         TextItemView { item: text, glyph_range }
     }
 
-    /// Obtains a glyph in this slice, remapping the range that it represents in
-    /// the original text so that it is relative to the start of the slice
-    pub fn glyph_at(&self, index: usize) -> Glyph {
-        let g = &self.item.glyphs[self.glyph_range.start + index];
-        let base = self.text_range().start as u16;
-        Glyph {
-            range: g.range.start - base..g.range.end - base,
-            ..*g
-        }
-    }
-
     /// Returns an iterator over the glyphs of the slice.
     ///
     /// The range of text that each glyph represents is remapped to be relative
     /// to the start of the slice.
     pub fn glyphs(&self) -> impl Iterator<Item = Glyph> + '_ {
-        (0..self.glyph_range.len()).map(|index| self.glyph_at(index))
+        let first = self.item.glyphs[self.glyph_range.start].range();
+        let last = self.item.glyphs[self.glyph_range.end - 1].range();
+        let base = first.start.min(last.start) as u16;
+        (0..self.glyph_range.len()).map(move |index| {
+            let g = &self.item.glyphs[self.glyph_range.start + index];
+            Glyph {
+                range: g.range.start - base..g.range.end - base,
+                ..*g
+            }
+        })
     }
 
-    /// The plain text that this slice represents
-    pub fn text(&self) -> &str {
-        &self.item.text[self.text_range()]
+    /// The plain text for the given glyph. This is an approximation since
+    /// glyphs do not correspond 1-1 with codepoints.
+    pub fn glyph_text(&self, glyph: &Glyph) -> EcoString {
+        self.item.text[glyph.range()]
+            .chars()
+            .filter(|&c| !is_default_ignorable(c))
+            .collect()
     }
 
     /// The total width of this text slice
@@ -118,13 +120,5 @@ impl<'a> TextItemView<'a> {
             .map(|g| g.x_advance)
             .sum::<Em>()
             .at(self.item.size)
-    }
-
-    /// The range of text in the original TextItem that this slice corresponds
-    /// to.
-    fn text_range(&self) -> Range<usize> {
-        let first = self.item.glyphs[self.glyph_range.start].range();
-        let last = self.item.glyphs[self.glyph_range.end - 1].range();
-        first.start.min(last.start)..first.end.max(last.end)
     }
 }

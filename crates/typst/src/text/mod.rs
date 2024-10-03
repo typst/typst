@@ -31,6 +31,10 @@ pub use self::space::*;
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, EcoString};
+use icu_properties::sets::CodePointSetData;
+use icu_provider::AsDeserializingBufferProvider;
+use icu_provider_blob::BlobDataProvider;
+use once_cell::sync::Lazy;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::{Rect, Tag};
@@ -1308,6 +1312,20 @@ cast! {
         v.finish(&["hyphenation", "runt", "widow", "orphan"])?;
         ret
     },
+}
+
+/// Whether a codepoint is Unicode `Default_Ignorable`.
+pub(crate) fn is_default_ignorable(c: char) -> bool {
+    /// The set of Unicode default ignorables.
+    static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
+        icu_properties::sets::load_default_ignorable_code_point(
+            &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
+                .unwrap()
+                .as_deserializing(),
+        )
+        .unwrap()
+    });
+    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
 }
 
 /// Pushes `text` wrapped in LRE/RLE + PDF to `out`.

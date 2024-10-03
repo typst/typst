@@ -2,7 +2,6 @@ use std::ops::{Add, Sub};
 
 use az::SaturatingAs;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
-use icu_properties::sets::CodePointSetData;
 use icu_properties::LineBreak;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
@@ -16,7 +15,7 @@ use crate::engine::Engine;
 use crate::layout::{Abs, Em};
 use crate::model::Linebreaks;
 use crate::syntax::link_prefix;
-use crate::text::{Lang, TextElem};
+use crate::text::{is_default_ignorable, Lang, TextElem};
 
 /// The cost of a line or paragraph layout.
 type Cost = f64;
@@ -58,12 +57,6 @@ static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
 
-/// The set of Unicode default ignorables.
-static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
-    icu_properties::sets::load_default_ignorable_code_point(&blob().as_deserializing())
-        .unwrap()
-});
-
 /// A line break opportunity.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Breakpoint {
@@ -80,8 +73,7 @@ impl Breakpoint {
     /// Trim a line before this breakpoint.
     pub fn trim(self, line: &str) -> &str {
         // Trim default ignorables.
-        let ignorable = DEFAULT_IGNORABLE_DATA.as_borrowed();
-        let line = line.trim_end_matches(|c| ignorable.contains(c));
+        let line = line.trim_end_matches(is_default_ignorable);
 
         match self {
             // Trim whitespace.
@@ -985,9 +977,4 @@ where
             Some(i) => self.summed[i],
         }
     }
-}
-
-/// Whether a codepoint is Unicode `Default_Ignorable`.
-pub fn is_default_ignorable(c: char) -> bool {
-    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
 }

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use az::SaturatingAs;
 use ecow::EcoString;
-use rustybuzz::{ShapePlan, UnicodeBuffer};
+use rustybuzz::{BufferFlags, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
@@ -15,8 +15,8 @@ use crate::engine::Engine;
 use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::text::{
-    decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
-    TextElem, TextItem,
+    decorate, families, features, is_default_ignorable, variant, Font, FontVariant,
+    Glyph, Lang, Region, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -725,8 +725,11 @@ fn shape_segment<'a>(
     text: &str,
     mut families: impl Iterator<Item = &'a str> + Clone,
 ) {
-    // Fonts dont have newlines and tabs.
-    if text.chars().all(|c| c == '\n' || c == '\t') {
+    // Don't try shaping newlines, tabs, or default ignorables.
+    if text
+        .chars()
+        .all(|c| c == '\n' || c == '\t' || is_default_ignorable(c))
+    {
         return;
     }
 
@@ -773,6 +776,12 @@ fn shape_segment<'a>(
         _ => unimplemented!("vertical text layout"),
     });
     buffer.guess_segment_properties();
+
+    // By default, Harfbuzz will create zero-width space glyphs for default
+    // ignorables. This is probably useful for GUI apps that want noticable
+    // effects on the cursor for those, but for us it's not useful and hurts
+    // text extraction.
+    buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
     // Prepare the shape plan. This plan depends on direction, script, language,
     // and features, but is independent from the text and can thus be memoized.

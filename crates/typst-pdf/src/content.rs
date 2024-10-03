@@ -425,7 +425,7 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
                 bail!(
                     g.span.0,
                     "the text {} could not be displayed with any font",
-                    text.text[g.range()].repr()
+                    TextItemView::full(text).glyph_text(g).repr(),
                 );
             }
         }
@@ -441,7 +441,7 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
         || tables.svg.is_some()
         || tables.colr.is_some();
     if !has_color_glyphs {
-        write_normal_text(ctx, pos, TextItemView::all_of(text))?;
+        write_normal_text(ctx, pos, TextItemView::full(text))?;
         return Ok(());
     }
 
@@ -449,9 +449,9 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
         text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
 
     if color_glyph_count == text.glyphs.len() {
-        write_color_glyphs(ctx, pos, TextItemView::all_of(text))?;
+        write_color_glyphs(ctx, pos, TextItemView::full(text))?;
     } else if color_glyph_count == 0 {
-        write_normal_text(ctx, pos, TextItemView::all_of(text))?;
+        write_normal_text(ctx, pos, TextItemView::full(text))?;
     } else {
         // Otherwise we need to split it in smaller text runs
         let mut offset = 0;
@@ -493,9 +493,7 @@ fn write_normal_text(
 
     let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
     for g in text.glyphs() {
-        let t = text.text();
-        let segment = &t[g.range()];
-        glyph_set.entry(g.id).or_insert_with(|| segment.into());
+        glyph_set.entry(g.id).or_insert_with(|| text.glyph_text(&g));
     }
 
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
@@ -640,9 +638,7 @@ fn write_color_glyphs(
 
         ctx.content.show(Str(&[index]));
 
-        glyph_set
-            .entry(glyph.id)
-            .or_insert_with(|| text.text()[glyph.range()].into());
+        glyph_set.entry(glyph.id).or_insert_with(|| text.glyph_text(&glyph));
     }
     ctx.content.end_text();
 

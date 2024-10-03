@@ -8,7 +8,8 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::{
-    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
+    SpaceElem, TextElem,
 };
 use crate::utils::Numeric;
 
