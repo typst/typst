@@ -46,7 +46,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// you can wrap the `place` call in a [`box`] when the call is made
 /// in the middle of a paragraph. The alignment and offsets will then be
 /// relative to this zero-size box. To make sure it doesn't interfere with
-/// spacing, the box should be attached to a word using a zero-width joiner.
+/// spacing, the box should be attached to a word using a word joiner.
 ///
 /// For example, the following defines a function for attaching an annotation
 /// to the following word:
@@ -55,7 +55,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// >>> #set page(height: 70pt)
 /// #let annotate(..args) = {
 ///   box(place(..args))
-///   sym.zwj
+///   sym.wj
 ///   h(0pt, weak: true)
 /// }
 ///
