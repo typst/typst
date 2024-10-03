@@ -258,7 +258,7 @@ pub fn sin(
 /// radians.
 ///
 /// ```example
-/// #calc.cos(90deg) \
+/// #assert(calc.cos(90deg) == calc.cos(-270deg))
 /// #calc.cos(1.5) \
 /// #calc.cos(90deg)
 /// ```
@@ -280,6 +280,7 @@ pub fn cos(
 /// radians.
 ///
 /// ```example
+/// #assert(calc.tan(90deg) == calc.tan(-270deg))
 /// #calc.tan(1.5) \
 /// #calc.tan(90deg)
 /// ```
