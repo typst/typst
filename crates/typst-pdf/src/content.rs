@@ -493,7 +493,7 @@ fn write_normal_text(
 
     let glyph_set = ctx.resources.glyph_sets.entry(text.item.font.clone()).or_default();
     for g in text.glyphs() {
-        glyph_set.entry(g.id).or_insert_with(|| text.glyph_text(&g));
+        glyph_set.entry(g.id).or_insert_with(|| text.glyph_text(g));
     }
 
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
@@ -638,7 +638,7 @@ fn write_color_glyphs(
 
         ctx.content.show(Str(&[index]));
 
-        glyph_set.entry(glyph.id).or_insert_with(|| text.glyph_text(&glyph));
+        glyph_set.entry(glyph.id).or_insert_with(|| text.glyph_text(glyph));
     }
     ctx.content.end_text();
 
