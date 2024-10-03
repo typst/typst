@@ -129,7 +129,7 @@ pub struct CompileCommand {
     pub pdf_standard: Vec<PdfStandard>,
 }
 
-/// A PDF standard.
+/// A PDF standard that Typst can enforce conformance with.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum PdfStandard {
