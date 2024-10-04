@@ -126,8 +126,8 @@ description: |
   - Improved layout of primes close to superscripts
   - Typst now makes use of math-specific height-dependant kerning information in
     some fonts for better attachment layout
-  - The `floor` and `ceil` functions in math are now callable symbols instead,
-    such that `[$ floor(x) = lr(floor.l x floor.r) $]`
+  - The `floor` and `ceil` functions in math are now callable symbols, such that
+    `[$ floor(x) = lr(floor.l x floor.r) $]`
   - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
     [`cases.delim`]($math.cases.delim) parameters now allow any character that
     is considered a delimiter or "fence" (e.g. |) by Unicode. The
