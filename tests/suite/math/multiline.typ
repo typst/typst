@@ -147,10 +147,14 @@ $ a + b $
 Shouldn't overflow:
 $ a + b $
 
+--- issue-5113-pagebreaking-empty ---
+// Test empty breakable equations.
+#show math.equation: set block(breakable: true)
+#math.equation(block: true, [])
+
 --- issue-1948-math-text-break ---
 // Test text with linebreaks in math.
 $ x := "a\nb\nc\nd\ne" $
-
 
 --- issue-4829-math-pagebreaking-wrong-number ---
 // Test numbering of empty regions of broken equations.
