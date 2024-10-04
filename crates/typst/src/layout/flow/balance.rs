@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
+    diag::SourceResult,
     engine::Engine,
     introspection::Locator,
-    layout::{Abs, Axes, Region, Regions, Size}, diag::SourceResult,
+    layout::{Abs, Axes, Region, Regions, Size},
 };
 
 use super::{collect::Child, compose, Config as FlowConfig, Work};
@@ -44,7 +45,7 @@ impl<'a, 'b> BalancerStage<'a, 'b> for Measured
 where
     'a: 'b,
 {
-    type Data = ChildrenMetadata<'a, 'b>;
+    type Data = ChildrenMetadata;
 
     #[inline]
     fn mode(balancer: &Balancer<'a, 'b, '_, Self>) -> Mode {
@@ -53,12 +54,15 @@ where
 }
 
 #[repr(u8, C)]
-enum ChildrenMetadata<'a, 'b> {
+enum ChildrenMetadata {
     PackStart = Mode::PackStart as u8,
-    Even { children_size: HashMap<&'b Child<'a>, Axes<Abs>> } = Mode::Even as u8,
+    Even {
+        ideal_height: Abs,
+        children_size: HashMap<usize, Axes<Abs>>,
+    } = Mode::Even as u8,
 }
 
-impl<'a, 'b> ChildrenMetadata<'a, 'b> {
+impl ChildrenMetadata {
     #[inline]
     fn mode(&self) -> Mode {
         unsafe {
@@ -115,15 +119,41 @@ impl<'a, 'b, 'x> Balancer<'a, 'b, 'x, Initialized> {
         engine: &mut Engine,
         locator: Locator,
         bounds: Region,
-    ) -> SourceResult<ChildrenMetadata<'a, 'b>> {
+    ) -> SourceResult<ChildrenMetadata> {
         let regions = Regions::from(bounds);
         let mut work = Work::new(&self.children);
-        let frame =
-            compose(engine, &mut work, &self.config, locator.relayout(), regions)?;
+        let frame = compose(engine, &mut work, self.config, locator.relayout(), regions)?;
 
-        let children_size = HashMap::new();
+        let total_height = frame.height();
+        let ideal_height =
+            Abs::raw(total_height.to_raw() / self.config.columns.count as f64);
 
-        Ok(ChildrenMetadata::Even { children_size })
+        let mut children_size = HashMap::new();
+
+        let mut children = self.children.iter().enumerate();
+        let mut frame_items = frame.items().map(|it| it.1);
+        'outer: while let Some((i, child)) = children.next() {
+            let size = loop {
+                let item = match frame_items.next() {
+                    Some(it) => it,
+                    None => break 'outer,
+                };
+
+                // TODO: case where frame_items doesn't contain child will drain
+                // frame_items and leave all children unmeasured. This inner
+                // loop must never break to 'outer, i.e. every child must be in frame_items.
+
+                if true
+                /* FIXME: item == child */
+                {
+                    break item.size();
+                }
+            };
+            let size = size.unwrap_or_default();
+            children_size.insert(i, size);
+        }
+
+        Ok(ChildrenMetadata::Even { ideal_height, children_size })
     }
 
     pub fn measure(

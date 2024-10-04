@@ -533,6 +533,40 @@ pub enum FrameItem {
     Tag(Tag),
 }
 
+impl FrameItem {
+    pub(in crate::layout) fn size(&self) -> Option<Size> {
+        match self {
+            FrameItem::Group(group) => {
+                Some(group.frame.size())
+            },
+            FrameItem::Text(text) => {
+                // FIXME: NEEDED
+                None
+            },
+            Self::Shape(shape, _) => {
+                Some(shape.geometry.bbox_size())
+            },
+            Self::Image(image, _, _) => {
+                Some(image.dpi().map(|dpi| Axes {
+                    x: Abs::inches(image.width() / dpi),
+                    y: Abs::inches(image.height() / dpi),
+                }).unwrap_or_else(|| Axes {
+                    // FIXME: Likely incorrect. pt size is relative?
+                    x: Abs::pt(image.width()),
+                    y: Abs::pt(image.height()),
+                }))
+            },
+            Self::Link(_, size) => {
+                Some(*size)
+            },
+            Self::Tag(tag) => {
+                // Tags are unsized
+                None
+            },
+        }
+    }
+}
+
 impl Debug for FrameItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
