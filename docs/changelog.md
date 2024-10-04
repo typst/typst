@@ -137,7 +137,7 @@ description: |
     parameters
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
     [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
-  - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
+  - Added `~` shorthand for `tilde.op` in math mode (**Minor breaking change**)
   - Fixed baseline alignment of equation numbers
   - Fixed positioning of corner brackets (⌜, ⌝, ⌞, ⌟)
   - Fixed baseline of large roots
