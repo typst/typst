@@ -33,9 +33,9 @@ use crate::World;
 /// constructing a decimal from a [floating-point number]($float), while
 /// supported, **is an imprecise conversion and therefore discouraged.** A
 /// warning will be raised if Typst detects that there was an accidental `float`
-/// to `decimal` cast through its constructor (e.g. if writing `{decimal(3.14)}`
-/// - note the lack of double quotes, indicating this is an accidental `float`
-/// cast and therefore imprecise).
+/// to `decimal` cast through its constructor (e.g. if writing
+/// `{decimal(3.14)}` - note the lack of double quotes, indicating this is an
+/// accidental `float` cast and therefore imprecise).
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
 /// rounding the result to 15 digits with [`calc.round`]($calc.round), but there
@@ -69,18 +69,18 @@ use crate::World;
 ///
 /// # Precision and limits
 /// A `decimal` number has a limit of 28 to 29 significant base-10 digits. This
-/// includes the sum of digits before and after the decimal point. As such,
-/// numbers with more fractional digits have a smaller range. The maximum and
-/// minimum `decimal` numbers have a value of `{79228162514264337593543950335}`
-/// and `{-79228162514264337593543950335}` respectively. In contrast with
-/// [`float`], this type does not support infinity or NaN, so overflowing or
-/// underflowing operations will raise an error.
+/// includes digits both before and after the decimal point. As such, numbers
+/// with more fractional digits have a smaller range. The maximum and minimum
+/// `decimal` numbers have a value of `{79228162514264337593543950335}` and
+/// `{-79228162514264337593543950335}` respectively. In contrast with [`float`],
+/// this type does not support infinity or NaN, so overflowing or underflowing
+/// operations will raise an error.
 ///
 /// Typical operations between `decimal` numbers, such as addition,
 /// multiplication, and [power]($calc.pow) to an integer, will be highly precise
 /// due to their fixed-point representation. Note, however, that multiplication
 /// and division may not preserve all digits in some edge cases: while they are
-/// considered precise, digits past the limits specified below are rounded off
+/// considered precise, digits past the limits specified above are rounded off
 /// and lost, so some loss of precision beyond the maximum representable digits
 /// is possible. Note that this behavior can be observed not only when dividing,
 /// but also when multiplying by numbers between 0 and 1, as both operations can
@@ -249,7 +249,7 @@ impl Decimal {
     /// writing `{decimal(1.234)}` (note the lack of double quotes), which is
     /// why Typst will emit a warning in that case. Please write
     /// `{decimal("1.234")}` instead for that particular case (initialization of
-    /// a constant decimal). Also note that floats equal to NaN and infinity
+    /// a constant decimal). Also note that floats that are NaN or infinite
     /// cannot be cast to decimals and will raise an error.
     ///
     /// ```example
