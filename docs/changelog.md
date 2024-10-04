@@ -136,7 +136,7 @@ description: |
   - Added [`vec.align`]($math.vec.align) and [`mat.align`]($math.mat.align)
     parameters
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
-    [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
+    [`undershell`]($math.undershell), and [`overshell`]($math.overshell)
   - Added `~` shorthand for `tilde.op` in math mode (**Minor breaking change**)
   - Fixed baseline alignment of equation numbers
   - Fixed positioning of corner brackets (⌜, ⌝, ⌞, ⌟)
