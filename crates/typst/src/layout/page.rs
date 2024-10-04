@@ -189,8 +189,11 @@ pub struct PageElem {
     ///
     /// When set to `{none}`, the background becomes transparent. Note that PDF
     /// pages will still appear with a (usually white) background in viewers,
-    /// but they are conceptually transparent. (If you print them, no color is
-    /// used for the background.)
+    /// but they are actually transparent. (If you print them, no color is used
+    /// for the background.)
+    ///
+    /// If you select white explicitly, will it physically color it in white? If
+    /// not, then the last sentence is misleading and should be removed.
     ///
     /// The default of `{auto}` results in `{none}` for PDF output, and
     /// `{white}` for PNG and SVG.
@@ -245,7 +248,7 @@ pub struct PageElem {
     /// The page's header. Fills the top margin of each page.
     ///
     /// - Content: Shows the content as the header.
-    /// - `{auto}`: Shows the page number if a `numbering` is set and
+    /// - `{auto}`: Shows the page number if the `numbering` is set and
     ///   `number-align` is `top`.
     /// - `{none}`: Suppresses the header.
     ///
@@ -275,7 +278,7 @@ pub struct PageElem {
     /// The page's footer. Fills the bottom margin of each page.
     ///
     /// - Content: Shows the content as the footer.
-    /// - `{auto}`: Shows the page number if a `numbering` is set and
+    /// - `{auto}`: Shows the page number if the `numbering` is set and
     ///   `number-align` is `bottom`.
     /// - `{none}`: Suppresses the footer.
     ///

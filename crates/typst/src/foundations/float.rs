@@ -97,7 +97,9 @@ impl f64 {
     ///
     /// - If the number is positive (including `{+0.0}`), returns `{1.0}`.
     /// - If the number is negative (including `{-0.0}`), returns `{-1.0}`.
-    /// - If the number is `{float.nan}`, returns `{float.nan}`.
+    /// - If the number is NaN, returns `{float.nan}`.
+    /// or
+    /// - If the number `{float.is-nan()}`, returns `{float.nan}`.
     ///
     /// ```example
     /// #(5.0).signum() \

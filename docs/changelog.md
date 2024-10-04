@@ -12,8 +12,8 @@ description: |
   [figures]($figure.scope)
 - Added support for automatic [line numbering]($par.line) (often used in
   academic papers)
-- Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
-  larger documents. The multi-threading operates on page break boundaries, so
+- Typst's layout engine is now multithreaded. Typical speedups are 2-3x for
+  larger documents. The multithreading operates on page break boundaries, so
   explicit page breaks are necessary for it to kick in.
 - Paragraph justification was optimized with a new two-pass algorithm. Speedups
   are larger for shorter paragraphs and range from 1-6x.
@@ -55,8 +55,14 @@ description: |
     combination with [`layout`].
   - The height of a `block`, `image`, `rect`, `square`, `ellipse`, or `circle`
     can now be specified in [fractional units]($fraction)
-  - The [`scale`] function now supports non-relative lengths for `x` and `y`.
-    This way an element of unknown size can be scaled to a fixed size.
+    <!--
+        Add "for example/use case see" and link some `fraction` example,
+        so that new users would understand. Maybe an interesting example to add
+        is with floats.
+        See https://forum.typst.app/t/how-can-i-get-a-box-to-use-all-height-under-a-floating-element/639/8
+    -->
+  - The [`scale`] function now supports non-relative lengths for `x`, `y`,
+    `factor`. This way an element of unknown size can be scaled to a fixed size.
   - The values of `block.above` and `block.below` can now be retrieved in
     context expressions.
   - Fixed a bug which could cause headings to be orphaned at the bottom of the
@@ -66,7 +72,8 @@ description: |
   - Fixed empty pages appearing when a [context] expression wraps whole pages
   - Fixed `{set block(spacing: x)}` behaving differently from
     `{set block(above: x, below: x)}`
-  - Fixed behaviour of [`rotate`] and [`scale`] with `{reflow: true}`
+  - Fixed behavior of [`rotate`] and [`scale`] with `{reflow: true}`
+    <!-- Why this is still not `true` by default? -->
   - Fixed interaction of `{align(horizon)}` and `{v(1fr)}`
   - Fixed various bugs where floating placement would yield overlapping results
   - Fixed a bug where widow/orphan prevention would unnecessarily move text into
@@ -89,11 +96,13 @@ description: |
   - Added [`text.costs`] parameter for tweaking various parameters that affect
     the choices of the layout engine during text layout
   - Added `typm` highlighting mode for math in [raw blocks]($raw.lang)
+    <!-- Update guidelines in the forum to include `typm` too. -->
   - Added basic i18n for Galician, Catalan, Latin, Icelandic, Hebrew
   - Implemented hyphenation duplication for Czech, Croatian, Lower Sorbian,
     Polish, Portuguese, Slovak, and Spanish.
   - The [`smallcaps`] function is now an element function and can thereby be
     used in show(-set) rules.
+    <!-- Can we have `capitalize()`? -->
   - The [`raw.theme`] parameter can now be set to `{none}` to disable
     highlighting even in the presence of a language tag, and to `{auto}` to
     reset to the default
@@ -111,9 +120,10 @@ description: |
   - Fixed [smart quotes]($smartquote) for Swiss French
   - New font metadata exceptions for Archivo, Kaiti SC, and Kaiti TC
   - Updated bundled New Computer Modern fonts to version 6.0
+    <!-- How to correctly enable bold for math if `strong()` is used? -->
 
 - Math
-  - Block-level equations can now break over multiple pages. This behaviour can
+  - Block-level equations can now break over multiple pages. This behavior can
     be disabled via `{show math.equation: set block(breakable: false)}`.
   - Matrix and vector sizing is now more consistent across different cell
     contents
@@ -126,21 +136,31 @@ description: |
   - Improved layout of primes close to superscripts
   - Typst now makes use of math-specific height-dependant kerning information in
     some fonts for better attachment layout
-  - The `floor` and `ceil` functions in math are now callable symbols instead,
+  - The `floor` and `ceil` functions in math are now callable symbols instead <of what>,
     such that `[$ floor(x) = lr(floor.l x floor.r) $]`
   - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
     [`cases.delim`]($math.cases.delim) parameters now allow any character that
-    is considered a delimiter or "fence" (e.g. |) by Unicode. The
+    is considered a delimiter or "fence" (e.g., |) by Unicode. The
     `{delim: "||"}` notation is _not_ supported anymore and should be replaced
     by `{delim: bar.double}` (**Minor breaking change**)
   - Added [`vec.align`]($math.vec.align) and [`mat.align`]($math.mat.align)
     parameters
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
     [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
-  - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
-  - Fixed baseline alignment of equation numbers
+  - Added `~` shorthand for `tilde.op`. See
+    [#4706](https://github.com/typst/typst/pull/4706) for details. (**Minor
+    breaking change**)
+    <!-- Maybe add somewhere how you can get the previous output? -->
+    <!-- $a ~ b$ -->
+    <!-- $a "~" b$ -->
+    <!-- $a class("normal", ~) b$ -->
+    <!-- $a class("normal", "~") b$ -->
+    <!-- $a class("binary", "~") b$ -->
+  - Fixed baseline alignment of equation numbers. See
+    [#4014](https://github.com/typst/typst/issues/4014) for details.
   - Fixed positioning of corner brackets (⌜, ⌝, ⌞, ⌟)
-  - Fixed baseline of large roots
+  - Fixed baseline of large roots. See
+    [#2809](https://github.com/typst/typst/issues/2809) for details.
   - Fixed multiple minor layout bugs with attachments
   - Fixed that alignment points could affect line height in math
   - Fixed that spaces could show up between text and invisible elements like
@@ -151,18 +171,20 @@ description: |
 
 - Introspection
   - Implemented a new system by which Typst tracks where elements end up on the
-    pages. This may lead to subtly different behaviour in introspections.
+    pages. This may lead to subtly different behavior in introspections.
     (**Breaking change**)
-  - Fixed various bugs with wrong counter behaviour in complex layout
+  - Fixed various bugs with wrong counter behavior in complex layout
     situations, through a new, more principled implementation
   - Counter updates can now be before the first, in between, and after the last
     page when isolated by weak page breaks. This allows, for instance, updating
     a counter before the first page header and background.
+    <!-- Counter updates can now be in between pages?
+         Isn't that every counter ever? -->
   - Fixed incorrect [`here().position()`]($here) when [`place`] was used in a
     context expression
   - Fixed resolved positions of elements (in particular, headings) whose show
     rule emits an invisible element (like a state update) before a page break
-  - Fixed behaviour of stepping a counter at a deeper level that its current
+  - Fixed behavior of stepping a counter at a deeper level than its current
     state has
   - Fixed citation formatting not working in table headers and a few other
     places
@@ -222,6 +244,10 @@ description: |
 
 - Syntax
   - Added support for nested imports like `{import "file.typ": module.item}`
+    <!-- Add docs for this in
+         https://staging.typst.app/docs/reference/foundations/module/ or
+         https://staging.typst.app/docs/reference/scripting/#modules
+    -->
   - Added support for parenthesized imports like
     `{import "file.typ": (a, b, c)}`. With those, the import list can break over
     multiple lines.
@@ -235,30 +261,41 @@ description: |
     arithmetic is needed, such as for finance
   - Added `std` module for accessing standard library definitions even when a
     variable with the same name shadows/overwrites it
+    <!-- I can't find this module in the search. It should have a docs page. -->
   - Added [`array.to-dict`], [`array.reduce`], [`array.windows`] methods
   - Added `exact` argument to [`array.zip`]
   - Added [`arguments.at`] method
   - Added [`int.from-bytes`], [`int.to-bytes`], [`float.from-bytes`], and
     [`float.to-bytes`]
-  - [`calc.round`] no longer accepts negative digits (**Minor breaking change**)
+  - `digits` parameter of [`calc.round`] no longer accepts negative integers
+    (**Minor breaking change**)
   - Conversions from [`int`] to [`float`] will now error instead of saturating
     if the float is too large (**Minor breaking change**)
+    <!-- Pretty sure docs should be updated here:
+         https://staging.typst.app/docs/reference/foundations/float/#constructor
+    -->
   - Added `float.nan` and `float.inf`, removed `calc.nan`
     (**Minor breaking change**)
+    <!-- Docs missing a simple example of printing and/or making these values. -->
   - Certain symbols are now generally callable like functions and not only
     specifically in math. Examples are accents or `floor` and `ceil`.
+    <!-- Add some link/examples.
+         https://staging.typst.app/docs/reference/math/lr#functions-ceil
+         https://staging.typst.app/docs/reference/foundations/calc#functions-ceil
+    -->
   - Improved [`repr`] of relative values, sequences, infinities, NaN,
     `{type(none)}` and `{type(auto)}`
   - Fixed crash on whole packages (rather than just files) cyclically importing
     each other
-  - Fixed behaviour of [`calc.round`] on integers when a non-zero value is
+  - Fixed behavior of [`calc.round`] on integers when a non-zero value is
     provided for `digits`
+    <!-- I wasn't able to reproduce this. -->
 
 - Styling
   - Text show rules now match across multiple text elements
   - The string `{"}` in a text show rule now matches smart quotes
   - Fixed a long-standing styling bug where the header and footer would
-    incorrectly inherit styles from a lone element on the page (e.g. a heading)
+    incorrectly inherit styles from a lone element on the page (e.g., a heading)
   - Fixed `{set page}` not working directly after a counter/state update
   - Page fields configured via an explicit `{page(..)[..]}` call can now be
     properly retrieved in context expressions
@@ -283,14 +320,19 @@ description: |
   - Two small fixes for PDF standard conformance
 
 - Performance
-  - Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
-    larger documents. The multi-threading operates on page break boundaries, so
+  - Typst's layout engine is now multithreaded. Typical speedups are 2-3x for
+    larger documents. The multithreading operates on page break boundaries, so
     explicit page breaks are necessary for it to kick in.
   - Paragraph justification was optimized with a new two-pass algorithm.
     Speedups are larger for shorter paragraphs and range from 1-6x.
 
 - Command Line Interface
   - Added `--pages` option to select specific page ranges to export
+    <!-- Add accepted format for the argument.
+         If I say `1,2,5-6` for a one page document it won't give any warnings.
+         It also still prints 7 pages instead of 4.
+         It's a good idea to add a CLI section in the docs where everything can
+         be explained in great details. -->
   - Added `--package-path` and `--package-cache-path` as well as
     `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variables
     for configuring where packages are loaded from and cached in, respectively
@@ -298,10 +340,12 @@ description: |
     reproducibility
   - Added `--make-deps` argument for outputting the dependencies of the current
     compilation as a Makefile
+    <!-- Doesn't work/escape for `--make-deps Makefile 2024-10-05T14:20:16Z.typ`. -->
   - Added `--pretty` option to `typst query`, with the default now being to
-    minify
+    minify (only takes effect for JSON format)
   - Added `--backup-path` to `typst update` to configure where the previous
     version is backed up
+    <!-- Maybe provide an explanation of the default value for each system? -->
   - The document can now be written to stdout by passing `-` as the output
     filename (for PDF or single-page image export)
   - Typst will now emit a proper error message instead of failing silently when
@@ -317,6 +361,10 @@ description: |
   - Fixed path completions for `typst` not working in zsh
 
 - Tooling & Diagnostics
+  - Added [go to definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition)
+    feature in the web app. Hold Ctrl/Cmd and click on the used function or
+    variable to go to its definition. `gd` in Vim mode
+    [isn't yet supported](https://github.com/typst/webapp-issues/issues/125#issuecomment-2395098031).
   - The "compiler" field for specifying the minimum Typst version required by a
     package now supports imprecise bounds like 0.11 instead of 0.11.0
   - Added warning when a label is ignored by Typst because no preceding
@@ -326,7 +374,7 @@ description: |
     shadowed/overwritten by a local definition
   - Added hint when trying to set both the language and the region in the `lang`
     parameter
-  - Added hints when trying to compile non-Typst files (e.g. after having typed
+  - Added hints when trying to compile non-Typst files (e.g., after having typed
     `typst c file.pdf` by accident)
   - Added hint when a string is used where a label is expected
   - Added hint when a stray end of a block comment (`*/`) is encountered
@@ -381,7 +429,7 @@ description: |
   - Added `typst-kit` crate which provides useful APIs for `World` implementors
   - Added go-to-definition API in `typst-ide`
   - Added package manifest parsing APIs to `typst-syntax`
-  - As the compiler is now capable of multi-threading, `World` implementations
+  - As the compiler is now capable of multithreading, `World` implementations
     must satisfy `Send` and `Sync`
   - Changed signature of `World::main` to allow for the scenario where the main
     file could not be loaded
@@ -480,8 +528,9 @@ description: |
 
 - Context
   - Added _context expressions:_ Read the chapter on [context] to get started
-  - With context, you can access settable properties, e.g. `{context text.lang}`
-    to access the language set via `{set text(lang: "..")}`
+  - With context, you can access settable properties, e.g.,
+    `{context text.lang}` to access the language set via
+    `{set text(lang: "..")}`
   - The following existing functions have been made contextual: [`query`],
     [`locate`], [`measure`], [`counter.display`], [`counter.at`],
     [`counter.final`], [`state.at`], and [`state.final`]
@@ -494,7 +543,7 @@ description: |
     remains temporarily available for compatibility.
   - The [`counter.at`] and [`state.at`] methods are now more flexible: They
     directly accept any kind of [locatable]($location/#locatable) selector with
-    a unique match (e.g. a label) instead of just locations
+    a unique match (e.g., a label) instead of just locations
   - When context is available, [`counter.display`] now directly returns the
     result of applying the numbering instead of yielding opaque content. It
     should not be used anymore without context. (Deprecation planned)
@@ -507,21 +556,21 @@ description: |
   - The [`style`] function should not be used anymore, use context instead
     (Deprecation planned)
   - The correct context is now also provided in various other places where it is
-    available, e.g. in show rules, layout callbacks, and numbering functions
+    available, e.g., in show rules, layout callbacks, and numbering functions
     in the outline
 
 - Styling
   - Fixed priority of multiple [show-set rules]($styling/#show-rules): They now
     apply in the same order as normal set rules would
   - Show-set rules on the same element
-    (e.g. `{show heading.where(level: 1): set heading(numbering: "1.")}`) now
+    (e.g., `{show heading.where(level: 1): set heading(numbering: "1.")}`) now
     work properly
-  - Setting properties on an element within a transformational show rule (e.g.
+  - Setting properties on an element within a transformational show rule (e.g.,
     `{show heading: it => { set heading(..); it }}`) is **not** supported
     anymore (previously it also only worked sometimes); use show-set rules
     instead (**Breaking change**)
   - Text show rules that match their own output now work properly
-    (e.g. `` {show "cmd": `cmd`} ``)
+    (e.g., `` {show "cmd": `cmd`} ``)
   - The elements passed to show rules and returned by queries now contain all
     fields of their respective element functions rather than just specific ones
   - All settable properties can now be used in [where]($function.where)
@@ -715,7 +764,7 @@ description: |
 
 ## Version 0.10.0 (December 4, 2023) { #v0.10.0 }
 - Bibliography management
-  - Added support for citation collapsing (e.g. `[[1]-[3]]` instead of
+  - Added support for citation collapsing (e.g., `[[1]-[3]]` instead of
     `[[1], [2], [3]]`) if requested by a CSL style
   - Fixed bug where an additional space would appear after a group of citations
   - Fixed link show rules for links in the bibliography
@@ -724,8 +773,8 @@ description: |
   - Corrected name of the GB/T 7714 family of styles from 7114 to 7714
   - Fixed missing title in some bibliography styles
   - Fixed printing of volumes in some styles
-  - Fixed delimiter order for contributors in some styles (e.g. APA)
-  - Fixed behaviour of alphanumeric style
+  - Fixed delimiter order for contributors in some styles (e.g., APA)
+  - Fixed behavior of alphanumeric style
   - Fixed multiple bugs with GB/T 7714 style
   - Fixed escaping in Hayagriva values
   - Fixed crashes with empty dates in Hayagriva files
@@ -737,7 +786,7 @@ description: |
   - Fixed error message for empty dates in `.bib` files
   - Added support for years of lengths other than 4 without leading zeros in
     `.bib` files
-  - More LaTeX commands (e.g. for quotes) are now respected in `.bib` files
+  - More LaTeX commands (e.g., for quotes) are now respected in `.bib` files
 
 - Visualization
   - Added support for [patterns]($pattern) as fills and strokes
@@ -771,7 +820,7 @@ description: |
   - The [`op`]($math.op) function can now take any content, not just strings
   - Improved documentation for [math alignment]($category/math/#alignment)
   - Fixed swallowing of trailing comma when a symbol is used in a function-like
-    way (e.g. `pi(a,b,)`)
+    way (e.g., `pi(a,b,)`)
 
 - Scripting
   - Any non-identifier dictionary key is now interpreted as an expression: For
@@ -844,7 +893,7 @@ description: |
     (Citation Style Language). Ships with about 100 commonly used citation
     styles and can load custom `.csl` files.
   - Added new [`form`]($cite.form) argument to the `cite` function to produce
-    different forms of citations (e.g. for producing a citation suitable for
+    different forms of citations (e.g., for producing a citation suitable for
     inclusion in prose)
   - The [`cite`] function now takes only a single label/key instead of allowing
     multiple. Adjacent citations are merged and formatted according to the
@@ -893,7 +942,7 @@ description: |
   - Added [`quote`] element for inserting inline and block quotes with optional
     attributions
   - Added [`raw.line`]($raw.line) element for customizing the display of
-    individual lines of raw text, e.g. to add line numbers while keeping proper
+    individual lines of raw text, e.g., to add line numbers while keeping proper
     syntax highlighting
   - Added support for per-side [inset]($table.inset) customization to table
     function
@@ -915,7 +964,7 @@ description: |
   - Fixed line breaking of composite emoji like 🏳️‍🌈
   - Fixed missing text in some SVGs
   - Fixed font fallback in SVGs
-  - Fixed behaviour of [`to`]($pagebreak.to) argument on `pagebreak` function
+  - Fixed behavior of [`to`]($pagebreak.to) argument on `pagebreak` function
   - Fixed `{set align(..)}` for equations
   - Fixed spacing around [placed]($place) elements
   - Fixed coalescing of [`above`]($block.above) and [`below`]($block.below)
@@ -971,7 +1020,7 @@ description: |
   - Error messages now state which label or citation key isn't present in the
     document or its bibliography
   - Fixed a bug where function argument parsing errors were shadowed by
-    function execution errors (e.g. when trying to call
+    function execution errors (e.g., when trying to call
     [`array.sorted`]($array.sorted) and passing the key function as a positional
     argument instead of a named one).
 
@@ -1038,7 +1087,7 @@ description: |
   - Types are now first-class values (**Breaking change**)
     - A [type] is now itself a value
     - Some types can be called like functions (those that have a constructor),
-      e.g. [`int`] and [`str`]
+      e.g., [`int`] and [`str`]
     - Type checks are now of the form `{type(10) == int}` instead of the old
       `{type(10) == "integer"}`. [Compatibility]($type/#compatibility) with the
       old way will remain for a while to give package authors time to upgrade,
@@ -1108,7 +1157,7 @@ description: |
   - Added hints when trying to call a function stored in a dictionary without
     extra parentheses
   - Fixed hint when referencing an equation without numbering
-  - Added more details to some diagnostics (e.g. when SVG decoding fails)
+  - Added more details to some diagnostics (e.g., when SVG decoding fails)
 
 - Command line interface
   - Added `typst update` command for self-updating the CLI
@@ -1159,7 +1208,7 @@ description: |
   - Added _bounds_ option to [`top-edge`]($text.top-edge) and
     [`bottom-edge`]($text.bottom-edge) arguments of text function for tight
     bounding boxes
-  - Removed nonsensical top- and bottom-edge options, e.g. _ascender_ for the
+  - Removed nonsensical top- and bottom-edge options, e.g., _ascender_ for the
     bottom edge (**Breaking change**)
   - Added [`script`]($text.script) argument to text function
   - Added [`alternative`]($smartquote.alternative) argument to smart quote
@@ -1177,11 +1226,11 @@ description: |
   - Fixed a bug with PPI (pixels per inch) for PNG export
 
 - Math
-  - Improved layout of primes (e.g. in `[$a'_1$]`)
-  - Improved display of multi-primes (e.g. in `[$a''$]`)
+  - Improved layout of primes (e.g., in `[$a'_1$]`)
+  - Improved display of multi-primes (e.g., in `[$a''$]`)
   - Improved layout of [roots]($math.root)
   - Changed relations to show attachments as [limits]($math.limits) by default
-    (e.g. in `[$a ->^x b$]`)
+    (e.g., in `[$a ->^x b$]`)
   - Large operators and delimiters are now always vertically centered
   - [Boxes]($box) in equations now sit on the baseline instead of being
     vertically centered by default. Notably, this does not affect
@@ -1435,7 +1484,7 @@ description: |
   - Fixed styling for stretchable symbols
   - Added `tack.r.double`, `tack.l.double`, `dotless.i` and `dotless.j`
     [symbols]($category/symbols/sym)
-  - Fixed show rules on symbols (e.g. `{show sym.tack: set text(blue)}`)
+  - Fixed show rules on symbols (e.g., `{show sym.tack: set text(blue)}`)
   - Fixed missing rename from `ast.op` to `ast` that should have been in the
     previous release
 
@@ -1467,7 +1516,7 @@ description: |
   - Disabled [overhang]($text.overhang) for CJK punctuation
   - Added basic translations for Traditional Chinese
   - Fixed [alignment]($raw.align) of text inside raw blocks (centering a raw
-    block, e.g. through a figure, will now keep the text itself left-aligned)
+    block, e.g., through a figure, will now keep the text itself left-aligned)
   - Added support for passing a array instead of a function to configure table
     cell [alignment]($table.align) and [fill]($table.fill) per column
   - Fixed automatic figure [`kind`]($figure.kind) detection
@@ -1513,7 +1562,7 @@ description: |
   - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
     basic dot is `dot.basic`. The same applies to `ast` and `tilde`.
   - Renamed `mod` to [`rem`]($calc.rem) to more accurately reflect the
-    behaviour. It will remain available as `mod` until the next update as a
+    behavior. It will remain available as `mod` until the next update as a
     grace period.
   - A lone underscore is not a valid identifier anymore, it can now only be used
     in patterns
@@ -1635,10 +1684,10 @@ description: |
     `{"chicago-author-title"}`
 
 - Figure improvements
-  - Figures now automatically detect their content and adapt their behaviour.
+  - Figures now automatically detect their content and adapt their behavior.
     Figures containing tables, for instance, are automatically prefixed with
     "Table X" and have a separate counter
-  - The figure's supplement (e.g. "Figure" or "Table") can now be customized
+  - The figure's supplement (e.g., "Figure" or "Table") can now be customized
   - In addition, figures can now be completely customized because the show rule
     gives access to the automatically resolved kind, supplement, and counter
 
@@ -1659,7 +1708,7 @@ description: |
   - Now returns with non-zero status code if there is an error
   - Now watches the root directory instead of the current one
   - Now puts the PDF file next to input file by default
-  - Now accepts more kinds of input files (e.g. `/dev/stdin`)
+  - Now accepts more kinds of input files (e.g., `/dev/stdin`)
   - Added `--open` flag to directly open the PDF
 
 - Miscellaneous improvements
@@ -1677,7 +1726,7 @@ description: |
   - Fixed [`first-line-indent`]($par.first-line-indent) being not applied when a
     paragraph starts with styled text
   - Fixed extraneous spacing in unary operators in equations
-  - Fixed block spacing, e.g. in `{block(above: 1cm, below: 1cm, ..)}`
+  - Fixed block spacing, e.g., in `{block(above: 1cm, below: 1cm, ..)}`
   - Fixed styling of text operators in math
   - Fixed invalid parsing of language tag in raw block with a single backtick
   - Fixed bugs with displaying counters and state
@@ -1718,7 +1767,7 @@ description: |
   - Fixed bibliography ordering in IEEE style
   - Fixed parsing of decimals in math: `[$1.2/3.4$]`
   - Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
-  - Fixed unexpected parsing of numbers as enumerations, e.g. in `[1.2]`
+  - Fixed unexpected parsing of numbers as enumerations, e.g., in `[1.2]`
   - Fixed combination of page fill and header
   - Fixed compiler crash if [`repeat`] is used in page with automatic width
   - Fixed [matrices]($math.mat) with explicit delimiter
@@ -1744,7 +1793,7 @@ description: |
     - Access and modify counters for pages, headings, figures, and equations
     - Define and use your own custom counters
     - Time travel: Find out what the counter value was or will be at some other
-      point in the document (e.g. when you're building a list of figures, you
+      point in the document (e.g., when you're building a list of figures, you
       can determine the value of the figure counter at any given figure).
     - Counters count in layout order and not in code order
   - [`state`] function
@@ -1871,7 +1920,7 @@ description: |
 - Support for widow and orphan prevention within containers
 - Support for [RTL]($text.dir) in lists, grids, and tables
 - Support for explicit `{auto}` sizing for boxes and shapes
-- Support for fractional (i.e. `{1fr}`) widths for boxes
+- Support for fractional (i.e., `{1fr}`) widths for boxes
 - Fixed bug where columns jump to next page
 - Fixed bug where list items have no leading
 - Fixed relative sizing in lists, squares and grid auto columns
@@ -1926,7 +1975,7 @@ description: |
   - Contains all math-related functions
   - Variables and function calls directly in math (without hash) access this
     module instead of the global scope, but can also access local variables
-  - Can be explicitly used in code, e.g. `[#set math.vec(delim: "[")]`
+  - Can be explicitly used in code, e.g., `[#set math.vec(delim: "[")]`
 - Delimiter matching in math
    - Any opening delimiters matches any closing one
    - When matched, they automatically scale
@@ -1948,7 +1997,7 @@ description: |
     support matrices: `[$mat(1, 2; 3, 4)$]`
 - Arbitrary content in math
   - Text, images, and other arbitrary content can now be embedded in math
-  - Math now also supports font fallback to support e.g. CJK and emoji
+  - Math now also supports font fallback to support e.g., CJK and emoji
 - More math features
   - New text operators: `op` function, `lim`, `max`, etc.
   - New matrix function: `mat`
@@ -1958,7 +2007,7 @@ description: |
   - New shorthands: `[|`, `|]`, and `||`
   - New `attach` function, overridable attachments with `script` and `limit`
   - Manual spacing in math, with `h`, `thin`, `med`, `thick` and `quad`
-  - Symbols and other content may now be used like a function, e.g.
+  - Symbols and other content may now be used like a function, e.g.,
     `[$zeta(x)$]`
   - Added Fira Math font, removed Noto Sans Math font
   - Support for alternative math fonts through `[#show math.formula: set

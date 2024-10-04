@@ -80,6 +80,19 @@ pub fn numbering(
     /// particularly useful in itself, it means that you can just give arbitrary
     /// numberings to the `numbering` function without caring whether they are
     /// defined as a pattern or function.
+    ///
+    /// Be careful when adding a suffix inside the function, as it will
+    /// introduce unwanted behavior when there is a punctuation (or any symbol)
+    /// after a reference to the element:
+    ///
+    /// ```
+    /// #set heading(numbering: "1.")
+    /// = First <a>
+    /// This is a reference: @a.
+    /// #set heading(numbering: (..n) => numbering("1.", ..n))
+    /// == Second <b>
+    /// This is a reference: @b. Did you notice the second period?
+    /// ```
     numbering: Numbering,
     /// The numbers to apply the numbering to. Must be positive.
     ///

@@ -29,7 +29,7 @@ use crate::World;
 /// raised).
 ///
 /// You can also convert any [integer]($int) to a decimal with the
-/// `{decimal(int)}` constructor, e.g. `{decimal(59)}`. However, note that
+/// `{decimal(int)}` constructor, e.g. `{decimal(69)}`. However, note that
 /// constructing a decimal from a [floating-point number]($float), while
 /// supported, **is an imprecise conversion and therefore discouraged.** A
 /// warning will be raised if Typst detects that there was an accidental `float`
@@ -80,11 +80,11 @@ use crate::World;
 /// multiplication, and [power]($calc.pow) to an integer, will be highly precise
 /// due to their fixed-point representation. Note, however, that multiplication
 /// and division may not preserve all digits in some edge cases: while they are
-/// considered precise, digits past the limits specified below are rounded off
+/// considered precise, digits past the limits specified below (where?) are rounded off
 /// and lost, so some loss of precision beyond the maximum representable digits
 /// is possible. Note that this behavior can be observed not only when dividing,
 /// but also when multiplying by numbers between 0 and 1, as both operations can
-/// push a number's fractional digits beyond the limits described below, leading
+/// push a number's fractional digits beyond the limits described below (where?), leading
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
 #[ty(scope, cast)]

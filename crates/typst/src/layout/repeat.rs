@@ -42,7 +42,7 @@ pub struct RepeatElem {
 
     /// Whether to increase the gap between instances to completely fill the
     /// available space.
-    #[default(true)]
+    #[default(true)] // Maybe disable it for `gap to work as expected?`
     pub justify: bool,
 }
 

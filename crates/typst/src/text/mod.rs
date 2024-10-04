@@ -504,7 +504,7 @@ pub struct TextElem {
     /// next page, can result in an uneven number of lines between pages.
     /// The `widow` and `orphan` costs allow disabling these modifications.
     /// (Currently, 0% allows widows/orphans; anything else, including the
-    /// default of `auto`, prevents them. More nuanced cost specification for
+    /// default of `100%`, prevents them. More nuanced cost specification for
     /// these modifications is planned for the future.)
     ///
     /// ```example
