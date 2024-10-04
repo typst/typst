@@ -86,7 +86,8 @@ pub struct TemplateInfo {
     pub entrypoint: EcoString,
     /// A path relative to the package's root that points to a PNG or lossless
     /// WebP thumbnail for the template.
-    pub thumbnail: EcoString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbnail: Option<EcoString>,
     /// All parsed but unknown fields, this can be used for validation.
     #[serde(flatten, skip_serializing)]
     pub unknown_fields: UnknownFields,
