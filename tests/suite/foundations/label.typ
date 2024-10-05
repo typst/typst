@@ -68,8 +68,8 @@ _Visible_
 #{ [A] <a> }
 
 --- label-multiple-ignored-warn ---
-// Warning: 1-8 content labelled multiple times
-// Hint: 1-8 only the last label is used, the rest are ignored
+// Warning: 1-9 content labelled multiple times
+// Hint: 1-9 only the last label is used, the rest are ignored
 = Hello <a> <b>
 
 // Warning: 12-19 content labelled multiple times
