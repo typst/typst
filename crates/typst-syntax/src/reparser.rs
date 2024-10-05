@@ -157,11 +157,8 @@ fn try_reparse(
         let new_range = shifted..shifted + new_len;
         let at_end = end == children.len();
 
-        // Stop parsing early if this kind is encountered.
-        let stop_kind = match parent_kind {
-            Some(_) => SyntaxKind::RightBracket,
-            None => SyntaxKind::End,
-        };
+        // We only continue past an open right-bracket if we had no parent.
+        let stop_at_right_bracket = parent_kind.is_some();
 
         // Reparse!
         let reparsed = reparse_markup(
@@ -169,7 +166,7 @@ fn try_reparse(
             new_range.clone(),
             &mut at_start,
             &mut nesting,
-            |kind| kind == stop_kind,
+            stop_at_right_bracket,
         );
 
         if let Some(newborns) = reparsed {

@@ -13,7 +13,7 @@ use crate::{
 /// Parses a source file.
 pub fn parse(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Markup);
-    markup(&mut p, true, 0, |_| false);
+    markup(&mut p, true, 0, syntax_set!());
     p.finish().into_iter().next().unwrap()
 }
 
@@ -22,7 +22,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
     let m = p.marker();
     p.skip();
-    code_exprs(&mut p, |_| false);
+    code_exprs(&mut p, syntax_set!());
     p.wrap_all(m, SyntaxKind::Code);
     p.finish().into_iter().next().unwrap()
 }
@@ -30,24 +30,19 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 /// Parses top-level math.
 pub fn parse_math(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Math);
-    math(&mut p, |_| false);
+    math(&mut p, syntax_set!());
     p.finish().into_iter().next().unwrap()
 }
 
 /// Parses the contents of a file or content block.
-fn markup(
-    p: &mut Parser,
-    mut at_start: bool,
-    min_indent: usize,
-    mut stop: impl FnMut(&Parser) -> bool,
-) {
+fn markup(p: &mut Parser, mut at_start: bool, min_indent: usize, stop: SyntaxSet) {
     let m = p.marker();
     let mut nesting: usize = 0;
     while !p.end() {
         match p.current() {
             SyntaxKind::LeftBracket => nesting += 1,
             SyntaxKind::RightBracket if nesting > 0 => nesting -= 1,
-            _ if stop(p) => break,
+            _ if p.at_set(stop) => break,
             _ => {}
         }
 
@@ -71,14 +66,15 @@ pub(super) fn reparse_markup(
     range: Range<usize>,
     at_start: &mut bool,
     nesting: &mut usize,
-    mut stop: impl FnMut(SyntaxKind) -> bool,
+    stop_at_right_bracket: bool,
 ) -> Option<Vec<SyntaxNode>> {
     let mut p = Parser::new(text, range.start, LexMode::Markup);
     while !p.end() && p.current_start() < range.end {
         match p.current() {
             SyntaxKind::LeftBracket => *nesting += 1,
             SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
-            _ if stop(p.current()) => break,
+            SyntaxKind::RightBracket if stop_at_right_bracket => break,
+            SyntaxKind::End if !stop_at_right_bracket => break,
             _ => {}
         }
 
@@ -145,7 +141,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
 fn strong(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Star);
-    markup(p, false, 0, |p| p.at_set(syntax_set!(Star, Parbreak, RightBracket)));
+    markup(p, false, 0, syntax_set!(Star, Parbreak, RightBracket));
     p.expect_closing_delimiter(m, SyntaxKind::Star);
     p.wrap(m, SyntaxKind::Strong);
 }
@@ -154,7 +150,7 @@ fn strong(p: &mut Parser) {
 fn emph(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Underscore);
-    markup(p, false, 0, |p| p.at_set(syntax_set!(Underscore, Parbreak, RightBracket)));
+    markup(p, false, 0, syntax_set!(Underscore, Parbreak, RightBracket));
     p.expect_closing_delimiter(m, SyntaxKind::Underscore);
     p.wrap(m, SyntaxKind::Emph);
 }
@@ -181,7 +177,7 @@ fn heading(p: &mut Parser) {
     p.assert(SyntaxKind::HeadingMarker);
     whitespace_line(p);
     // Note: usize::MAX means this stops on any newline.
-    markup(p, false, usize::MAX, |p| p.at_set(syntax_set!(Label, RightBracket)));
+    markup(p, false, usize::MAX, syntax_set!(Label, RightBracket));
     p.wrap(m, SyntaxKind::Heading);
 }
 
@@ -191,7 +187,7 @@ fn list_item(p: &mut Parser) {
     let min_indent = p.column(p.current_start()) + 1;
     p.assert(SyntaxKind::ListMarker);
     whitespace_line(p);
-    markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
+    markup(p, false, min_indent, syntax_set!(RightBracket));
     p.wrap(m, SyntaxKind::ListItem);
 }
 
@@ -201,7 +197,7 @@ fn enum_item(p: &mut Parser) {
     let min_indent = p.column(p.current_start()) + 1;
     p.assert(SyntaxKind::EnumMarker);
     whitespace_line(p);
-    markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
+    markup(p, false, min_indent, syntax_set!(RightBracket));
     p.wrap(m, SyntaxKind::EnumItem);
 }
 
@@ -211,10 +207,10 @@ fn term_item(p: &mut Parser) {
     p.assert(SyntaxKind::TermMarker);
     let min_indent = p.column(p.prev_end());
     whitespace_line(p);
-    markup(p, false, usize::MAX, |p| p.at_set(syntax_set!(Colon, RightBracket)));
+    markup(p, false, usize::MAX, syntax_set!(Colon, RightBracket));
     p.expect(SyntaxKind::Colon);
     whitespace_line(p);
-    markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
+    markup(p, false, min_indent, syntax_set!(RightBracket));
     p.wrap(m, SyntaxKind::TermItem);
 }
 
@@ -240,16 +236,16 @@ fn equation(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Math);
     p.assert(SyntaxKind::Dollar);
-    math(p, |p| p.at(SyntaxKind::Dollar));
+    math(p, syntax_set!(Dollar));
     p.expect_closing_delimiter(m, SyntaxKind::Dollar);
     p.exit();
     p.wrap(m, SyntaxKind::Equation);
 }
 
 /// Parses the contents of a mathematical equation: `x^2 + 1`.
-fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
+fn math(p: &mut Parser, stop: SyntaxSet) {
     let m = p.marker();
-    while !p.end() && !stop(p) {
+    while !p.end() && !p.at_set(stop) {
         if p.at_set(set::MATH_EXPR) {
             math_expr(p);
         } else {
@@ -589,21 +585,21 @@ fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
 }
 
 /// Parses the contents of a code block.
-fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
+fn code(p: &mut Parser, stop: SyntaxSet) {
     let m = p.marker();
     code_exprs(p, stop);
     p.wrap(m, SyntaxKind::Code);
 }
 
 /// Parses a sequence of code expressions.
-fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
-    while !p.end() && !stop(p) {
+fn code_exprs(p: &mut Parser, stop: SyntaxSet) {
+    while !p.end() && !p.at_set(stop) {
         p.enter_newline_mode(NewlineMode::Contextual);
 
         let at_expr = p.at_set(set::CODE_EXPR);
         if at_expr {
             code_expr(p);
-            if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
+            if !p.end() && !p.at_set(stop) && !p.eat_if(SyntaxKind::Semicolon) {
                 p.expected("semicolon or line break");
                 if p.at(SyntaxKind::Label) {
                     p.hint("labels can only be applied in markup mode");
@@ -804,7 +800,7 @@ fn code_block(p: &mut Parser) {
     p.enter(LexMode::Code);
     p.enter_newline_mode(NewlineMode::Continue);
     p.assert(SyntaxKind::LeftBrace);
-    code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen)));
+    code(p, syntax_set!(RightBrace, RightBracket, RightParen));
     p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
     p.exit();
     p.exit_newline_mode();
@@ -816,7 +812,7 @@ fn content_block(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Markup);
     p.assert(SyntaxKind::LeftBracket);
-    markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
+    markup(p, true, 0, syntax_set!(RightBracket));
     p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
     p.exit();
     p.wrap(m, SyntaxKind::ContentBlock);
