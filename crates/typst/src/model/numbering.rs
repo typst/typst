@@ -85,7 +85,7 @@ pub fn numbering(
     /// introduce unwanted behavior when there is a punctuation (or any symbol)
     /// after a reference to the element:
     ///
-    /// ```
+    /// ```example
     /// #set heading(numbering: "1.")
     /// = First <a>
     /// This is a reference: @a.
