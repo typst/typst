@@ -75,34 +75,6 @@ macro_rules! make_set {
 /// Syntax kinds that can start a statement.
 pub const STMT: SyntaxSet = make_set!(Let, Set, Show, Import, Include, Return);
 
-/// Syntax kinds that can start a markup expression.
-pub const MARKUP_EXPR: SyntaxSet = make_set!(
-    Space,
-    Parbreak,
-    LineComment,
-    BlockComment,
-    Text,
-    Linebreak,
-    Escape,
-    Shorthand,
-    SmartQuote,
-    RawDelim,
-    Link,
-    Label,
-    Hash,
-    Star,
-    Underscore,
-    HeadingMarker,
-    ListMarker,
-    EnumMarker,
-    TermMarker,
-    RefMarker,
-    Dollar,
-    LeftBracket,
-    RightBracket,
-    Colon,
-);
-
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = make_set!(
     Hash,

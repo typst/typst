@@ -60,11 +60,7 @@ fn markup(
             continue;
         }
 
-        if p.at_set(set::MARKUP_EXPR) {
-            markup_expr(p, &mut at_start);
-        } else {
-            p.unexpected();
-        }
+        markup_expr(p, &mut at_start);
     }
     p.wrap(m, SyntaxKind::Markup);
 }
@@ -92,11 +88,7 @@ pub(super) fn reparse_markup(
             continue;
         }
 
-        if p.at_set(set::MARKUP_EXPR) {
-            markup_expr(&mut p, at_start);
-        } else {
-            p.unexpected();
-        }
+        markup_expr(&mut p, at_start);
     }
     (p.balanced && p.current_start() == range.end).then(|| p.finish())
 }
@@ -140,7 +132,10 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::TermMarker
         | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
 
-        _ => {}
+        _ => {
+            p.unexpected();
+            return; // Don't set `at_start`
+        }
     }
 
     *at_start = false;
