@@ -364,7 +364,7 @@ description: |
   - Added [go to definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition)
     feature in the web app. Hold Ctrl/Cmd and click on the used function or
     variable to go to its definition. `gd` in Vim mode
-    [isn't yet supported](https://github.com/typst/webapp-issues/issues/125#issuecomment-2395098031).
+    [isn't yet supported](https://github.com/typst/webapp-issues/issues/451).
   - The "compiler" field for specifying the minimum Typst version required by a
     package now supports imprecise bounds like 0.11 instead of 0.11.0
   - Added warning when a label is ignored by Typst because no preceding
