@@ -92,7 +92,7 @@ cast! {
 /// Raises a value to some exponent.
 ///
 /// ```example
-/// #calc.pow(2, 3)
+/// #calc.pow(2, 3) \
 /// #calc.pow(decimal("2.5"), 2)
 /// ```
 #[func(title = "Power")]
@@ -969,7 +969,7 @@ pub fn div_euclid(
 /// #calc.rem-euclid(7, -3) \
 /// #calc.rem-euclid(-7, 3) \
 /// #calc.rem-euclid(-7, -3) \
-/// #calc.rem-euclid(1.75, 0.5)
+/// #calc.rem-euclid(1.75, 0.5) \
 /// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
 #[func(title = "Euclidean Remainder")]

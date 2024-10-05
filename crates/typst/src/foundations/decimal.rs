@@ -33,9 +33,10 @@ use crate::World;
 /// constructing a decimal from a [floating-point number]($float), while
 /// supported, **is an imprecise conversion and therefore discouraged.** A
 /// warning will be raised if Typst detects that there was an accidental `float`
-/// to `decimal` cast through its constructor (e.g. if writing `{decimal(3.14)}`
-/// - note the lack of double quotes, indicating this is an accidental `float`
-/// cast and therefore imprecise).
+/// to `decimal` cast through its constructor, e.g. if writing `{decimal(3.14)}`
+/// (note the lack of double quotes, indicating this is an accidental `float`
+/// cast and therefore imprecise). It is recommended to use strings for
+/// constant decimal values instead (e.g. `decimal("3.14")`).
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
 /// rounding the result to 15 digits with [`calc.round`]($calc.round), but there
@@ -258,6 +259,7 @@ impl Decimal {
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
+        /// The value that should be converted to a decimal.
         value: Spanned<ToDecimal>,
     ) -> SourceResult<Decimal> {
         match value.v {
