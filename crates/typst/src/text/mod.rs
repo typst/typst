@@ -446,7 +446,8 @@ pub struct TextElem {
     ///
     /// If you set this to `rtl` and experience bugs or in some way bad looking
     /// output, please do get in touch with us through the
-    /// [contact form](https://typst.app/contact) or our
+    /// [contact form](https://typst.app/contact), our
+    /// [Forum](https://forum.typst.app/) or
     /// [Discord server](https://discord.gg/2uDybryKPe)!
     ///
     /// ```example

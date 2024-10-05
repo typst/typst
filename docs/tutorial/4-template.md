@@ -361,7 +361,7 @@ want to import.
 ```
 
 We have now converted the conference paper into a reusable template for that
-conference! Why not share it on
+conference! Why not share it on [Typst Forum](https://forum.typst.app/) or on
 [Typst's Discord server](https://discord.gg/2uDybryKPe) so that others can use
 it too?
 
@@ -373,6 +373,7 @@ can now use Typst to write your own documents and share them with others.
 
 We are still a super young project and are looking for feedback. If you have any
 questions, suggestions or you found a bug, please let us know on
+[Typst Forum](https://forum.typst.app/), on
 [Typst's Discord server](https://discord.gg/2uDybryKPe), on our
 [contact form](https://typst.app/contact), or on
 [social media.](https://twitter.com/typstapp)
