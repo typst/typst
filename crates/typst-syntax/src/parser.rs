@@ -180,10 +180,8 @@ fn heading(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::HeadingMarker);
     whitespace_line(p);
-    markup(p, false, usize::MAX, |p| {
-        p.at_set(syntax_set!(Label, Space, RightBracket))
-            && (!p.at(SyntaxKind::Space) || p.lexer.clone().next() == SyntaxKind::Label)
-    });
+    // Note: usize::MAX means this stops on any newline.
+    markup(p, false, usize::MAX, |p| p.at_set(syntax_set!(Label, RightBracket)));
     p.wrap(m, SyntaxKind::Heading);
 }
 
