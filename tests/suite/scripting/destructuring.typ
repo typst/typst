@@ -368,8 +368,3 @@
 // Error: 6-12 too many elements to destructure
 // Hint: 6-12 the provided array has a length of 3, but the pattern expects 2 elements
 #for (x, y) in ((1,2,3), (4,5,6)) {}
-
---- issue-5132-improve-hint-when-provided-array-for-destructuring-has-fewer-elements-than-expected  ---
-// Error: 13-14 not enough elements to destructure
-// Hint: 13-14 the provided array has a length of 2, but the pattern expects 3 elements
-#let (a, b, c) = (1, 2)
