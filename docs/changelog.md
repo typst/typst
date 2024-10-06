@@ -134,7 +134,7 @@ description: |
   - Improved layout of nested attachments resulting from code like
     `[#let a0 = $a_0$; $a0^1$]`
   - Improved layout of primes close to superscripts
-  - Typst now makes use of math-specific height-dependant kerning information in
+  - Typst now makes use of math-specific height-dependent kerning information in
     some fonts for better attachment layout
   - The `floor` and `ceil` functions in math are now callable symbols instead <of what>,
     such that `[$ floor(x) = lr(floor.l x floor.r) $]`
