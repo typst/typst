@@ -147,7 +147,6 @@ where
     Ok(())
 }
 
-
 fn destructure_dict<F>(
     vm: &mut Vm,
     destruct: ast::Destructuring,
