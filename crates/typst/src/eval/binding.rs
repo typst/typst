@@ -91,6 +91,7 @@ where
 {
     let len = value.as_slice().len();
     let mut i = 0;
+    let expected = destruct.items().count();
 
     for p in destruct.items() {
         match p {
@@ -98,19 +99,19 @@ where
                 let Ok(v) = value.at(i as i64, None) else {
                     bail!(
                         pattern.span(), "not enough elements to destructure";
-                        hint: "the provided array has a length of {len}",
+                        hint: "the provided array has a length of {len}, but the pattern expects {expected} elements",
                     );
                 };
                 destructure_impl(vm, pattern, v, f)?;
                 i += 1;
             }
             ast::DestructuringItem::Spread(spread) => {
-                let sink_size = (1 + len).checked_sub(destruct.items().count());
+                let sink_size = (1 + len).checked_sub(expected);
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                 let (Some(sink_size), Some(sink)) = (sink_size, sink) else {
                     bail!(
                         spread.span(), "not enough elements to destructure";
-                        hint: "the provided array has a length of {len}",
+                        hint: "the provided array has a length of {len}, but the pattern expects {expected} elements",
                     );
                 };
                 if let Some(expr) = spread.sink_expr() {
@@ -138,13 +139,14 @@ where
         } else {
             bail!(
                 destruct.span(), "too many elements to destructure";
-                hint: "the provided array has a length of {len}, but the pattern expects {i} elements",
+                hint: "the provided array has a length of {len}, but the pattern expects {expected} elements",
             );
         }
     }
 
     Ok(())
 }
+
 
 fn destructure_dict<F>(
     vm: &mut Vm,
