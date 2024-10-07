@@ -91,7 +91,7 @@ where
 {
     let len = value.as_slice().len();
     let mut i = 0;
-    let expected = destruct.items().count();
+    let expected = destruct.items().filter(|p| !matches!(p, ast::DestructuringItem::Spread(_))).count();
 
     for p in destruct.items() {
         match p {
@@ -106,12 +106,12 @@ where
                 i += 1;
             }
             ast::DestructuringItem::Spread(spread) => {
-                let sink_size = (1 + len).checked_sub(expected);
+                let sink_size = len.checked_sub(expected);
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                 let (Some(sink_size), Some(sink)) = (sink_size, sink) else {
                     bail!(
                         spread.span(), "not enough elements to destructure";
-                        hint: "the provided array has a length of {len}, but the pattern expects {expected} elements",
+                        hint: "the provided array has a length of {len}, but the pattern expects at least {expected} elements",
                     );
                 };
                 if let Some(expr) = spread.sink_expr() {

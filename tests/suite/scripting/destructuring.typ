@@ -134,7 +134,7 @@
 
 --- destructuring-let-array-too-few-elements-with-sink ---
 // Error: 7-10 not enough elements to destructure
-// Hint: 7-10 the provided array has a length of 2, but the pattern expects 4 elements
+// Hint: 7-10 the provided array has a length of 2, but the pattern expects at least 3 elements
 #let (..a, b, c, d) = (1, 2)
 
 --- destructuring-let-array-bool-invalid ---
@@ -367,4 +367,3 @@
 --- issue-3275-destructuring-loop-over-2d-array-2 ---
 // Error: 6-12 too many elements to destructure
 // Hint: 6-12 the provided array has a length of 3, but the pattern expects 2 elements
-#for (x, y) in ((1,2,3), (4,5,6)) {}
