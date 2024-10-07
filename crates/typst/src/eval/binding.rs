@@ -91,7 +91,10 @@ where
 {
     let len = value.as_slice().len();
     let mut i = 0;
-    let expected = destruct.items().filter(|p| !matches!(p, ast::DestructuringItem::Spread(_))).count();
+    let expected = destruct
+        .items()
+        .filter(|p| !matches!(p, ast::DestructuringItem::Spread(_)))
+        .count();
 
     for p in destruct.items() {
         match p {
