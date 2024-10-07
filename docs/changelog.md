@@ -25,7 +25,7 @@ description: |
 - Added various options for configuring the CLI's environment (fonts, package
   paths, etc.)
 - Text show rules now match across multiple text elements
-- Block-level equations can now break over multiple pages
+- Block-level equations can now optionally break over multiple pages
 - Fixed a bug where some fonts would not print correctly on professional
   printers
 - Fixed a long-standing bug which could cause headings to be orphaned at the
@@ -113,8 +113,8 @@ description: |
   - Updated bundled New Computer Modern fonts to version 6.0
 
 - Math
-  - Block-level equations can now break over multiple pages. This behavior can
-    be disabled via `{show math.equation: set block(breakable: false)}`.
+  - Block-level equations can now break over multiple pages if enabled via
+    `{show math.equation: set block(breakable: true)}`.
   - Matrix and vector sizing is now more consistent across different cell
     contents
   - Added [`stretch`]($math.stretch) function for manually or automatically
