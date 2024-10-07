@@ -195,6 +195,7 @@ fn wrong_number_of_elements(
 
     let quantifier = if len > count { "too many" } else { "not enough" };
     let expected = match (spread, count) {
+        (true, 1) => "at least 1 element".into(),
         (true, c) => eco_format!("at least {c} elements"),
         (false, 0) => "an empty array".into(),
         (false, 1) => "a single element".into(),
