@@ -128,13 +128,13 @@
 #let () = (1, 2)
 
 --- destructuring-let-array-too-few-elements ---
-// Error: 13-14 not enough elements to destructure
-// Hint: 13-14 the provided array has a length of 2
+// Error: 6-15 not enough elements to destructure
+// Hint: 6-15 the provided array has a length of 2, but the pattern expects 3 elements
 #let (a, b, c) = (1, 2)
 
 --- destructuring-let-array-too-few-elements-with-sink ---
-// Error: 7-10 not enough elements to destructure
-// Hint: 7-10 the provided array has a length of 2
+// Error: 6-20 not enough elements to destructure
+// Hint: 6-20 the provided array has a length of 2, but the pattern expects at least 3 elements
 #let (..a, b, c, d) = (1, 2)
 
 --- destructuring-let-array-bool-invalid ---
@@ -192,8 +192,8 @@
 
 --- destructuring-let-array-trailing-placeholders ---
 // Trailing placeholders.
-// Error: 10-11 not enough elements to destructure
-// Hint: 10-11 the provided array has a length of 1
+// Error: 6-21 not enough elements to destructure
+// Hint: 6-21 the provided array has a length of 1, but the pattern expects 5 elements
 #let (a, _, _, _, _) = (1,)
 #test(a, 1)
 
@@ -360,8 +360,8 @@
 #for (x, y) in (1, 2) {}
 
 --- issue-3275-destructuring-loop-over-2d-array-1 ---
-// Error: 10-11 not enough elements to destructure
-// Hint: 10-11 the provided array has a length of 1
+// Error: 6-12 not enough elements to destructure
+// Hint: 6-12 the provided array has a length of 1, but the pattern expects 2 elements
 #for (x, y) in ((1,), (2,)) {}
 
 --- issue-3275-destructuring-loop-over-2d-array-2 ---
