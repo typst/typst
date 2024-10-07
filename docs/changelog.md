@@ -301,7 +301,7 @@ description: |
   - Added `--make-deps` argument for outputting the dependencies of the current
     compilation as a Makefile
   - Added `--pretty` option to `typst query`, with the default now being to
-    minify
+    minify (only applies to JSON format)
   - Added `--backup-path` to `typst update` to configure where the previous
     version is backed up
   - The document can now be written to stdout by passing `-` as the output
