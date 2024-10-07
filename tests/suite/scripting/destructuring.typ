@@ -137,6 +137,11 @@
 // Hint: 6-20 the provided array has a length of 2, but the pattern expects at least 3 elements
 #let (..a, b, c, d) = (1, 2)
 
+--- destructuring-let-array-too-few-elements-with-sink-1-element ---
+// Error: 6-14 not enough elements to destructure
+// Hint: 6-14 the provided array has a length of 0, but the pattern expects at least 1 element
+#let (..a, b) = ()
+
 --- destructuring-let-array-bool-invalid ---
 // Error: 6-12 cannot destructure boolean
 #let (a, b) = true
