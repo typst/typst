@@ -77,6 +77,11 @@ We can clearly see that @fig-cylinder and
 
 #lines(15)
 
+--- figure-scope-without-placement ---
+// Error: 2-27 parent-scoped placement is only available for floating figures
+// Hint: 2-27 you can enable floating placement with `figure(placement: auto, ..)`
+#figure(scope: "parent")[]
+
 --- figure-theorem ---
 // Testing show rules with figures with a simple theorem display
 #show figure.where(kind: "theorem"): it => {
