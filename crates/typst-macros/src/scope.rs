@@ -163,6 +163,7 @@ fn rewrite_primitive_base(item: &syn::ItemImpl, ident_ext: &syn::Ident) -> Token
 
     let self_ty = &item.self_ty;
     quote! {
+        #[allow(non_camel_case_types)]
         trait #ident_ext {
             #(#sigs)*
         }
