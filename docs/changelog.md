@@ -12,11 +12,11 @@ description: |
   [figures]($figure.scope)
 - Added support for automatic [line numbering]($par.line) (often used in
   academic papers)
-- Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
-  larger documents. The multi-threading operates on page break boundaries, so
+- Typst's layout engine is now multithreaded. Typical speedups are 2-3x for
+  larger documents. The multithreading operates on page break boundaries, so
   explicit page breaks are necessary for it to kick in.
 - Paragraph justification was optimized with a new two-pass algorithm. Speedups
-  are larger for shorter paragraphs and range from 1-6x.
+  are larger for shorter paragraphs and go up to 6x.
 - Highly reduced PDF file sizes due to better font subsetting (thanks to
   [@LaurenzV](https://github.com/LaurenzV))
 - Emoji are now exported properly in PDF
@@ -55,7 +55,7 @@ description: |
     combination with [`layout`].
   - The height of a `block`, `image`, `rect`, `square`, `ellipse`, or `circle`
     can now be specified in [fractional units]($fraction)
-  - The [`scale`] function now supports non-relative lengths for `x` and `y`.
+  - The [`scale`] function now supports absolute lengths for `x`, `y`, `factor`.
     This way an element of unknown size can be scaled to a fixed size.
   - The values of `block.above` and `block.below` can now be retrieved in
     context expressions.
@@ -66,7 +66,7 @@ description: |
   - Fixed empty pages appearing when a [context] expression wraps whole pages
   - Fixed `{set block(spacing: x)}` behaving differently from
     `{set block(above: x, below: x)}`
-  - Fixed behaviour of [`rotate`] and [`scale`] with `{reflow: true}`
+  - Fixed behavior of [`rotate`] and [`scale`] with `{reflow: true}`
   - Fixed interaction of `{align(horizon)}` and `{v(1fr)}`
   - Fixed various bugs where floating placement would yield overlapping results
   - Fixed a bug where widow/orphan prevention would unnecessarily move text into
@@ -113,7 +113,7 @@ description: |
   - Updated bundled New Computer Modern fonts to version 6.0
 
 - Math
-  - Block-level equations can now break over multiple pages. This behaviour can
+  - Block-level equations can now break over multiple pages. This behavior can
     be disabled via `{show math.equation: set block(breakable: false)}`.
   - Matrix and vector sizing is now more consistent across different cell
     contents
@@ -124,10 +124,10 @@ description: |
   - Improved layout of nested attachments resulting from code like
     `[#let a0 = $a_0$; $a0^1$]`
   - Improved layout of primes close to superscripts
-  - Typst now makes use of math-specific height-dependant kerning information in
+  - Typst now makes use of math-specific height-dependent kerning information in
     some fonts for better attachment layout
-  - The `floor` and `ceil` functions in math are now callable symbols instead,
-    such that `[$ floor(x) = lr(floor.l x floor.r) $]`
+  - The `floor` and `ceil` functions in math are now callable symbols, such that
+    `[$ floor(x) = lr(floor.l x floor.r) $]`
   - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
     [`cases.delim`]($math.cases.delim) parameters now allow any character that
     is considered a delimiter or "fence" (e.g. |) by Unicode. The
@@ -136,8 +136,8 @@ description: |
   - Added [`vec.align`]($math.vec.align) and [`mat.align`]($math.mat.align)
     parameters
   - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
-    [`undershell`]($math.undershell), and [`overshell`]($math.underparen)
-  - Added `~` shorthand for `tilde.op` (**Minor breaking change**)
+    [`undershell`]($math.undershell), and [`overshell`]($math.overshell)
+  - Added `~` shorthand for `tilde.op` in math mode (**Minor breaking change**)
   - Fixed baseline alignment of equation numbers
   - Fixed positioning of corner brackets (⌜, ⌝, ⌞, ⌟)
   - Fixed baseline of large roots
@@ -151,9 +151,9 @@ description: |
 
 - Introspection
   - Implemented a new system by which Typst tracks where elements end up on the
-    pages. This may lead to subtly different behaviour in introspections.
+    pages. This may lead to subtly different behavior in introspections.
     (**Breaking change**)
-  - Fixed various bugs with wrong counter behaviour in complex layout
+  - Fixed various bugs with wrong counter behavior in complex layout
     situations, through a new, more principled implementation
   - Counter updates can now be before the first, in between, and after the last
     page when isolated by weak page breaks. This allows, for instance, updating
@@ -162,7 +162,7 @@ description: |
     context expression
   - Fixed resolved positions of elements (in particular, headings) whose show
     rule emits an invisible element (like a state update) before a page break
-  - Fixed behaviour of stepping a counter at a deeper level that its current
+  - Fixed behavior of stepping a counter at a deeper level than its current
     state has
   - Fixed citation formatting not working in table headers and a few other
     places
@@ -240,18 +240,20 @@ description: |
   - Added [`arguments.at`] method
   - Added [`int.from-bytes`], [`int.to-bytes`], [`float.from-bytes`], and
     [`float.to-bytes`]
-  - [`calc.round`] no longer accepts negative digits (**Minor breaking change**)
+  - The `digits` parameter of [`calc.round`] no longer accepts negative integers
+    (**Minor breaking change**)
   - Conversions from [`int`] to [`float`] will now error instead of saturating
     if the float is too large (**Minor breaking change**)
   - Added `float.nan` and `float.inf`, removed `calc.nan`
     (**Minor breaking change**)
   - Certain symbols are now generally callable like functions and not only
-    specifically in math. Examples are accents or `floor` and `ceil`.
+    specifically in math. Examples are accents or [`floor`]($math.floor) and
+    [`ceil`]($math.ceil).
   - Improved [`repr`] of relative values, sequences, infinities, NaN,
     `{type(none)}` and `{type(auto)}`
   - Fixed crash on whole packages (rather than just files) cyclically importing
     each other
-  - Fixed behaviour of [`calc.round`] on integers when a non-zero value is
+  - Fixed behavior of [`calc.round`] on integers when a non-zero value is
     provided for `digits`
 
 - Styling
@@ -283,8 +285,8 @@ description: |
   - Two small fixes for PDF standard conformance
 
 - Performance
-  - Typst's layout engine is now multi-threaded. Typical speedups are 2-3x for
-    larger documents. The multi-threading operates on page break boundaries, so
+  - Typst's layout engine is now multithreaded. Typical speedups are 2-3x for
+    larger documents. The multithreading operates on page break boundaries, so
     explicit page breaks are necessary for it to kick in.
   - Paragraph justification was optimized with a new two-pass algorithm.
     Speedups are larger for shorter paragraphs and range from 1-6x.
@@ -381,7 +383,7 @@ description: |
   - Added `typst-kit` crate which provides useful APIs for `World` implementors
   - Added go-to-definition API in `typst-ide`
   - Added package manifest parsing APIs to `typst-syntax`
-  - As the compiler is now capable of multi-threading, `World` implementations
+  - As the compiler is now capable of multithreading, `World` implementations
     must satisfy `Send` and `Sync`
   - Changed signature of `World::main` to allow for the scenario where the main
     file could not be loaded
@@ -725,7 +727,7 @@ description: |
   - Fixed missing title in some bibliography styles
   - Fixed printing of volumes in some styles
   - Fixed delimiter order for contributors in some styles (e.g. APA)
-  - Fixed behaviour of alphanumeric style
+  - Fixed behavior of alphanumeric style
   - Fixed multiple bugs with GB/T 7714 style
   - Fixed escaping in Hayagriva values
   - Fixed crashes with empty dates in Hayagriva files
@@ -915,7 +917,7 @@ description: |
   - Fixed line breaking of composite emoji like 🏳️‍🌈
   - Fixed missing text in some SVGs
   - Fixed font fallback in SVGs
-  - Fixed behaviour of [`to`]($pagebreak.to) argument on `pagebreak` function
+  - Fixed behavior of [`to`]($pagebreak.to) argument on `pagebreak` function
   - Fixed `{set align(..)}` for equations
   - Fixed spacing around [placed]($place) elements
   - Fixed coalescing of [`above`]($block.above) and [`below`]($block.below)
@@ -1513,7 +1515,7 @@ description: |
   - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
     basic dot is `dot.basic`. The same applies to `ast` and `tilde`.
   - Renamed `mod` to [`rem`]($calc.rem) to more accurately reflect the
-    behaviour. It will remain available as `mod` until the next update as a
+    behavior. It will remain available as `mod` until the next update as a
     grace period.
   - A lone underscore is not a valid identifier anymore, it can now only be used
     in patterns
@@ -1635,7 +1637,7 @@ description: |
     `{"chicago-author-title"}`
 
 - Figure improvements
-  - Figures now automatically detect their content and adapt their behaviour.
+  - Figures now automatically detect their content and adapt their behavior.
     Figures containing tables, for instance, are automatically prefixed with
     "Table X" and have a separate counter
   - The figure's supplement (e.g. "Figure" or "Table") can now be customized

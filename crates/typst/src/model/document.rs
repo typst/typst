@@ -14,7 +14,7 @@ use crate::layout::Page;
 /// All documents are automatically wrapped in a `document` element. You cannot
 /// create a document element yourself. This function is only used with
 /// [set rules]($styling/#set-rules) to specify document metadata. Such a set
-/// rule must appear before any of the document's contents.
+/// rule must not occur inside of any layout container.
 ///
 /// ```example
 /// #set document(title: [Hello])
