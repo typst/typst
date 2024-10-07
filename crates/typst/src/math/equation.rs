@@ -379,6 +379,12 @@ fn layout_equation_block(
             equation_builder.size.y = height;
         }
 
+        // Ensure that there is at least one frame, even for empty equations.
+        if equation_builders.is_empty() {
+            equation_builders
+                .push(MathRunFrameBuilder { frames: vec![], size: Size::zero() });
+        }
+
         equation_builders
     } else {
         vec![full_equation_builder]
