@@ -106,10 +106,12 @@ pub fn write_page_tree(ctx: &WithRefs) -> SourceResult<(PdfChunk, Ref)> {
         );
     }
 
+    let page_kids = ctx.globals.pages.iter().filter_map(Option::as_ref).copied();
+
     chunk
         .pages(page_tree_ref)
-        .count(ctx.pages.len() as i32)
-        .kids(ctx.globals.pages.iter().filter_map(Option::as_ref).copied());
+        .count(page_kids.clone().count() as i32)
+        .kids(page_kids);
 
     Ok((chunk, page_tree_ref))
 }
