@@ -20,7 +20,7 @@ description: |
 - Highly reduced PDF file sizes due to better font subsetting (thanks to
   [@LaurenzV](https://github.com/LaurenzV))
 - Emoji are now exported properly in PDF
-- Added initial support for PDF/A. For now, only the standard PDF/A-2b is
+- Added initial support for PDF/A. For now, only the PDF/A-2b profile is
   supported, but more is planned for the future.
 - Added various options for configuring the CLI's environment (fonts, package
   paths, etc.)
@@ -231,8 +231,8 @@ description: |
   - Fixed rare crash in parsing of parenthesized expressions
 
 - Scripting
-  - Added new fixed-point [`decimal`] number type for when highly precise
-    arithmetic is needed, such as for finance
+  - Added new fixed-point [`decimal`] number type for highly precise arithmetic
+    on numbers in base 10, as needed for finance
   - Added `std` module for accessing standard library definitions even when a
     variable with the same name shadows/overwrites it
   - Added [`array.to-dict`], [`array.reduce`], [`array.windows`] methods
@@ -253,7 +253,7 @@ description: |
     `{type(none)}` and `{type(auto)}`
   - Fixed crash on whole packages (rather than just files) cyclically importing
     each other
-  - Fixed behavior of [`calc.round`] on integers when a non-zero value is
+  - Fixed return type of [`calc.round`] on integers when a non-zero value is
     provided for `digits`
 
 - Styling

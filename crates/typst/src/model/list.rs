@@ -47,10 +47,11 @@ use crate::text::TextElem;
 /// more than an item's marker becomes part of that item.
 #[elem(scope, title = "Bullet List", Show)]
 pub struct ListElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [list spacing]($list.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the list more compact, which
-    /// can look better if the items are short.
+    /// Defines the default [spacing]($list.spacing) of the list. If it is
+    /// `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
