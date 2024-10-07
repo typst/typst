@@ -351,6 +351,12 @@ impl Show for Packed<FigureElem> {
                 .with_float(true)
                 .pack()
                 .spanned(self.span());
+        } else if self.scope(styles) == PlacementScope::Parent {
+            bail!(
+                self.span(),
+                "parent-scoped placement is only available for floating figures";
+                hint: "you can enable floating placement with `figure(placement: auto, ..)`"
+            );
         }
 
         Ok(realized)
