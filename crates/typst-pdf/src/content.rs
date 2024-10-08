@@ -10,15 +10,15 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PositionedItems;
 use pdf_writer::{Content, Finish, Name, Rect, Str};
-use typst::diag::{bail, SourceResult};
+use typst::diag::{bail, error, SourceDiagnostic, SourceResult};
 use typst::foundations::Repr;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst::model::Destination;
 use typst::syntax::Span;
-use typst::text::color::is_color_glyph;
-use typst::text::{Font, TextItem, TextItemView};
+use typst::text::color::is_outlinable;
+use typst::text::{Font, Glyph, TextItem, TextItemView};
 use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
     FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem,
@@ -418,46 +418,26 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()> {
-    if ctx.options.standards.pdfa {
-        let last_resort = text.font.info().is_last_resort();
-        for g in &text.glyphs {
-            if last_resort || g.id == 0 {
-                bail!(
-                    g.span.0,
-                    "the text {} could not be displayed with any font",
-                    TextItemView::full(text).glyph_text(g).repr(),
-                );
-            }
-        }
+    if ctx.options.standards.pdfa && text.font.info().is_last_resort() {
+        bail!(
+            Span::find(text.glyphs.iter().map(|g| g.span.0)),
+            "the text {} could not be displayed with any font",
+            &text.text,
+        );
     }
 
-    let ttf = text.font.ttf();
-    let tables = ttf.tables();
+    let outlinable = text.glyphs.iter().filter(|g| is_outlinable(&text.font, g)).count();
 
-    // If the text run contains either only color glyphs (used for emojis for
-    // example) or normal text we can render it directly
-    let has_color_glyphs = tables.sbix.is_some()
-        || tables.cbdt.is_some()
-        || tables.svg.is_some()
-        || tables.colr.is_some();
-    if !has_color_glyphs {
+    if outlinable == text.glyphs.len() {
         write_normal_text(ctx, pos, TextItemView::full(text))?;
-        return Ok(());
-    }
-
-    let color_glyph_count =
-        text.glyphs.iter().filter(|g| is_color_glyph(&text.font, g)).count();
-
-    if color_glyph_count == text.glyphs.len() {
-        write_color_glyphs(ctx, pos, TextItemView::full(text))?;
-    } else if color_glyph_count == 0 {
-        write_normal_text(ctx, pos, TextItemView::full(text))?;
+    } else if outlinable == 0 {
+        write_complex_glyphs(ctx, pos, TextItemView::full(text))?;
     } else {
-        // Otherwise we need to split it in smaller text runs
+        // Otherwise we need to split it into smaller text runs.
         let mut offset = 0;
         let mut position_in_run = Abs::zero();
-        for (color, sub_run) in
-            text.glyphs.group_by_key(|g| is_color_glyph(&text.font, g))
+        for (outlinable, sub_run) in
+            text.glyphs.group_by_key(|g| is_outlinable(&text.font, g))
         {
             let end = offset + sub_run.len();
 
@@ -468,11 +448,12 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
             let pos = pos + Point::new(position_in_run, Abs::zero());
             position_in_run += text_item_view.width();
             offset = end;
-            // Actually write the sub text-run
-            if color {
-                write_color_glyphs(ctx, pos, text_item_view)?;
-            } else {
+
+            // Actually write the sub text-run.
+            if outlinable {
                 write_normal_text(ctx, pos, text_item_view)?;
+            } else {
+                write_complex_glyphs(ctx, pos, text_item_view)?;
             }
         }
     }
@@ -534,6 +515,10 @@ fn write_normal_text(
 
     // Write the glyphs with kerning adjustments.
     for glyph in text.glyphs() {
+        if ctx.options.standards.pdfa && glyph.id == 0 {
+            bail!(tofu(&text, glyph));
+        }
+
         adjustment += glyph.x_offset;
 
         if !adjustment.is_zero() {
@@ -596,7 +581,7 @@ fn show_text(items: &mut PositionedItems, encoded: &[u8]) {
 }
 
 /// Encodes a text run made only of color glyphs into the content stream
-fn write_color_glyphs(
+fn write_complex_glyphs(
     ctx: &mut Builder,
     pos: Point,
     text: TextItemView,
@@ -621,12 +606,17 @@ fn write_color_glyphs(
         .or_default();
 
     for glyph in text.glyphs() {
+        if ctx.options.standards.pdfa && glyph.id == 0 {
+            bail!(tofu(&text, glyph));
+        }
+
         // Retrieve the Type3 font reference and the glyph index in the font.
         let color_fonts = ctx
             .resources
             .color_fonts
             .get_or_insert_with(|| Box::new(ColorFontMap::new()));
-        let (font, index) = color_fonts.get(ctx.options, &text.item.font, glyph.id)?;
+
+        let (font, index) = color_fonts.get(ctx.options, &text, glyph)?;
 
         if last_font != Some(font) {
             ctx.content.set_font(
@@ -823,4 +813,14 @@ fn to_pdf_line_join(join: LineJoin) -> LineJoinStyle {
         LineJoin::Round => LineJoinStyle::RoundJoin,
         LineJoin::Bevel => LineJoinStyle::BevelJoin,
     }
+}
+
+/// The error when there is a tofu glyph.
+#[cold]
+fn tofu(text: &TextItemView, glyph: &Glyph) -> SourceDiagnostic {
+    error!(
+        glyph.span.0,
+        "the text {} could not be displayed with any font",
+        text.glyph_text(glyph).repr(),
+    )
 }
