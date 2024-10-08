@@ -165,3 +165,6 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 
 "test"\
 "test"
+
+--- issue-5146-smartquotes-after-equations ---
+$i$'s $i$ 's
