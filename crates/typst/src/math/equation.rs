@@ -17,7 +17,7 @@ use crate::layout::{
 use crate::math::{
     scaled_font_size, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
 };
-use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::model::{Numbering, Outlinable, ParElem, ParLine, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
     families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
@@ -180,6 +180,7 @@ impl ShowSet for Packed<EquationElem> {
         if self.block(styles) {
             out.set(AlignElem::set_alignment(Alignment::CENTER));
             out.set(BlockElem::set_breakable(false));
+            out.set(ParLine::set_numbering(None));
             out.set(EquationElem::set_size(MathSize::Display));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
