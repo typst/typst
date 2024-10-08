@@ -173,6 +173,7 @@ impl<'a> Collector<'a, '_, '_> {
     fn block(&mut self, elem: &'a Packed<BlockElem>, styles: StyleChain<'a>) {
         let locator = self.locator.next(&elem.span());
         let align = AlignElem::alignment_in(styles).resolve(styles);
+        let alone = self.children.len() == 1;
         let sticky = elem.sticky(styles);
         let breakable = elem.breakable(styles);
         let fr = match elem.height(styles) {
@@ -193,6 +194,7 @@ impl<'a> Collector<'a, '_, '_> {
             self.output.push(Child::Single(self.boxed(SingleChild {
                 align,
                 sticky,
+                alone,
                 fr,
                 elem,
                 styles,
@@ -200,7 +202,6 @@ impl<'a> Collector<'a, '_, '_> {
                 cell: CachedCell::new(),
             })));
         } else {
-            let alone = self.children.len() == 1;
             self.output.push(Child::Multi(self.boxed(MultiChild {
                 align,
                 sticky,
@@ -318,6 +319,7 @@ pub struct LineChild {
 pub struct SingleChild<'a> {
     pub align: Axes<FixedAlignment>,
     pub sticky: bool,
+    pub alone: bool,
     pub fr: Option<Fr>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
@@ -327,8 +329,10 @@ pub struct SingleChild<'a> {
 
 impl SingleChild<'_> {
     /// Build the child's frame given the region's base size.
-    pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
-        self.cell.get_or_init(base, |base| {
+    pub fn layout(&self, engine: &mut Engine, region: Region) -> SourceResult<Frame> {
+        self.cell.get_or_init(region, |mut region| {
+            // Vertical expansion is only kept if this block is the only child.
+            region.expand.y &= self.alone;
             layout_single_impl(
                 engine.world,
                 engine.introspector,
@@ -338,7 +342,7 @@ impl SingleChild<'_> {
                 self.elem,
                 self.locator.track(),
                 self.styles,
-                base,
+                region,
             )
         })
     }
@@ -356,7 +360,7 @@ fn layout_single_impl(
     elem: &Packed<BlockElem>,
     locator: Tracked<Locator>,
     styles: StyleChain,
-    base: Size,
+    region: Region,
 ) -> SourceResult<Frame> {
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
@@ -368,7 +372,7 @@ fn layout_single_impl(
         route: Route::extend(route),
     };
 
-    elem.layout_single(&mut engine, locator, styles, base)
+    elem.layout_single(&mut engine, locator, styles, region)
         .map(|frame| frame.post_processed(styles))
 }
 
