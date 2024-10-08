@@ -487,7 +487,7 @@ impl Packed<BlockElem> {
         engine: &mut Engine,
         locator: Locator,
         styles: StyleChain,
-        base: Size,
+        region: Region,
     ) -> SourceResult<Frame> {
         // Fetch sizing properties.
         let width = self.width(styles);
@@ -495,7 +495,7 @@ impl Packed<BlockElem> {
         let inset = self.inset(styles).unwrap_or_default();
 
         // Build the pod regions.
-        let pod = unbreakable_pod(&width.into(), &height, &inset, styles, base);
+        let pod = unbreakable_pod(&width.into(), &height, &inset, styles, region.size);
 
         // Layout the body.
         let body = self.body(styles);
@@ -518,6 +518,8 @@ impl Packed<BlockElem> {
             // If we have a child that wants to layout with full region access,
             // we layout it.
             Some(BlockBody::MultiLayouter(callback)) => {
+                let expand = (pod.expand | region.expand) & pod.size.map(Abs::is_finite);
+                let pod = Region { expand, ..pod };
                 callback.call(engine, locator, styles, pod.into())?.into_frame()
             }
         };

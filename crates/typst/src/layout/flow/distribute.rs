@@ -226,7 +226,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         // Lay out the block.
-        let frame = single.layout(self.composer.engine, self.regions.base())?;
+        let frame = single.layout(
+            self.composer.engine,
+            Region::new(self.regions.base(), self.regions.expand),
+        )?;
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
@@ -422,8 +425,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             for item in &self.items {
                 let Item::Fr(v, Some(single)) = item else { continue };
                 let length = v.share(frs, fr_space);
-                let base = Size::new(region.size.x, length);
-                let frame = single.layout(self.composer.engine, base)?;
+                let pod = Region::new(Size::new(region.size.x, length), region.expand);
+                let frame = single.layout(self.composer.engine, pod)?;
                 used.x.set_max(frame.width());
                 fr_frames.push(frame);
             }
