@@ -77,7 +77,7 @@
 == B
 #figure([Cat], kind: "cat", supplement: [Other])
 #heading(level: 3, outlined: false)[D]
-= E<first> // no space makes repr shorter
+= E <first>
 #figure([Frog], kind: "frog", supplement: none)
 #figure([Giraffe], kind: "giraffe", supplement: none) <second>
 #figure([GiraffeCat], kind: "cat", supplement: [Other]) <second>
