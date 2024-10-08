@@ -189,7 +189,7 @@ impl<'a> Collector<'a, '_, '_> {
 
         self.output.push(spacing(elem.above(styles)));
 
-        if !breakable || sticky || fr.is_some() {
+        if !breakable || fr.is_some() {
             self.output.push(Child::Single(self.boxed(SingleChild {
                 align,
                 sticky,
@@ -203,6 +203,7 @@ impl<'a> Collector<'a, '_, '_> {
             let alone = self.children.len() == 1;
             self.output.push(Child::Multi(self.boxed(MultiChild {
                 align,
+                sticky,
                 alone,
                 elem,
                 styles,
@@ -375,6 +376,7 @@ fn layout_single_impl(
 #[derive(Debug)]
 pub struct MultiChild<'a> {
     pub align: Axes<FixedAlignment>,
+    pub sticky: bool,
     alone: bool,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,

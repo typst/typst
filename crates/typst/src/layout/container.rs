@@ -422,8 +422,6 @@ pub struct BlockElem {
     /// This is, by default, set on heading blocks to prevent orphaned headings
     /// at the bottom of the page.
     ///
-    /// Marking a block as sticky makes it unbreakable.
-    ///
     /// ```example
     /// >>> #set page(height: 140pt)
     /// // Disable stickiness of headings.

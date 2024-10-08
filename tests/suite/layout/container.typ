@@ -180,6 +180,12 @@ A
 #colbreak()
 C
 
+--- block-sticky-breakable ---
+// Ensure that sticky blocks are still breakable.
+#set page(height: 60pt)
+#block(sticky: true, lines(4))
+E
+
 --- box-clip-rect ---
 // Test box clipping with a rectangle
 Hello #box(width: 1em, height: 1em, clip: false)[#rect(width: 3em, height: 3em, fill: red)]
