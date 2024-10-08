@@ -42,6 +42,9 @@ description: |
   - Added [`par.spacing`] property for configuring paragraph spacing. This
     should now be used instead of `{show par: set block(spacing: ..)}`
     (**Breaking change**)
+  - Block-level elements like lists, grids, and stacks now show themselves as
+    blocks and are thus affected by all block properties (e.g. `stroke`) rather
+    than just `spacing` (**Breaking change**)
   - Added [`block.sticky`] property which prevents a page break after a block
   - Added [`place.flush`] function which forces all floating figures to be
     placed before any further content
