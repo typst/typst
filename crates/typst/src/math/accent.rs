@@ -1,11 +1,11 @@
 use crate::diag::{bail, SourceResult};
 use crate::foundations::{
-    cast, elem, func, Content, NativeElement, Packed, Resolve, Smart, StyleChain, Value,
+    cast, elem, func, Content, NativeElement, Packed, Smart, StyleChain, Value,
 };
 use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
-    style_cramped, FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment,
-    Scaled,
+    scaled_font_size, style_cramped, FrameFragment, GlyphFragment, LayoutMath,
+    MathContext, MathFragment, Scaled,
 };
 use crate::text::TextElem;
 
@@ -123,7 +123,7 @@ impl LayoutMath for Packed<AccentElem> {
         let width = self
             .size(styles)
             .unwrap_or(Rel::one())
-            .resolve(styles)
+            .map(|length| length.at(scaled_font_size(ctx, styles)))
             .relative_to(base.width());
 
         // Forcing the accent to be at least as large as the base makes it too

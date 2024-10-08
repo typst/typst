@@ -1,13 +1,11 @@
 use comemo::Track;
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{
-    cast, elem, Content, Context, Func, Packed, Resolve, Smart, StyleChain,
-};
+use crate::foundations::{cast, elem, Content, Context, Func, Packed, Smart, StyleChain};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
-use crate::math::{FrameFragment, LayoutMath, MathContext};
+use crate::math::{scaled_font_size, FrameFragment, LayoutMath, MathContext};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::visualize::{FixedStroke, Geometry, Stroke};
@@ -119,8 +117,9 @@ impl LayoutMath for Packed<CancelElem> {
 
         let mut body = body.into_frame();
         let body_size = body.size();
+        let font_size = scaled_font_size(ctx, styles);
         let span = self.span();
-        let length = self.length(styles).resolve(styles);
+        let length = self.length(styles).map(|length| length.at(font_size));
 
         let stroke = self.stroke(styles).unwrap_or(FixedStroke {
             paint: TextElem::fill_in(styles).as_decoration(),
