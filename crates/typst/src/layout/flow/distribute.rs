@@ -247,7 +247,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Lay out the block.
         let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
-        self.frame(frame, multi.align, false, true)?;
+        self.frame(frame, multi.align, multi.sticky, true)?;
 
         // If the block didn't fully fit into the current region, save it into
         // the `spill` and finish the region.
@@ -292,9 +292,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         breakable: bool,
     ) -> FlowResult<()> {
         if sticky {
-            // If the frame is sticky and we haven't remember a preceding sticky
-            // element, make a checkpoint which we can restore should we end on
-            // this sticky element.
+            // If the frame is sticky and we haven't remembered a preceding
+            // sticky element, make a checkpoint which we can restore should we
+            // end on this sticky element.
             if self.stickable && self.sticky.is_none() {
                 self.sticky = Some(self.snapshot());
             }
