@@ -42,6 +42,10 @@ pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
     if draw_glyph(&mut frame, font, upem, glyph_id).is_none()
         && font.ttf().glyph_index(' ') != Some(glyph_id)
     {
+        // Generate a fallback tofu if the glyph couldn't be drawn, unless it is
+        // the space glyph. Then, an empty frame does the job. (This happens for
+        // some rare CBDT fonts, which don't define a bitmap for the space, but
+        // also don't have a glyf or CFF table.)
         draw_fallback_tofu(&mut frame, font, upem, glyph_id);
         tofu = true;
     }
