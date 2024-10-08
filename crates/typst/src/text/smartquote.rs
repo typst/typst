@@ -131,9 +131,12 @@ impl SmartQuoter {
         }
 
         // If we have a single smart quote, didn't recently open a single
-        // quotation, and are after an alphabetic char, interpret this as an
-        // apostrophe.
-        if !double && opened != Some(false) && before.is_alphabetic() {
+        // quotation, and are after an alphabetic char or an object (e.g. a
+        // math equation), interpret this as an apostrophe.
+        if !double
+            && opened != Some(false)
+            && (before.is_alphabetic() || before == '\u{FFFC}')
+        {
             return "’";
         }
 
