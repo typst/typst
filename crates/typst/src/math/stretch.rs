@@ -92,7 +92,7 @@ pub(super) fn stretch_fragment(
         glyph,
         stretch
             .unwrap_or(Rel::one())
-            .map(|length| length.at(scaled_font_size(ctx, styles)))
+            .at(scaled_font_size(ctx, styles))
             .relative_to(relative_to_size),
         short_fall,
         axis,

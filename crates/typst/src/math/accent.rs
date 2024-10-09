@@ -123,7 +123,7 @@ impl LayoutMath for Packed<AccentElem> {
         let width = self
             .size(styles)
             .unwrap_or(Rel::one())
-            .map(|length| length.at(scaled_font_size(ctx, styles)))
+            .at(scaled_font_size(ctx, styles))
             .relative_to(base.width());
 
         // Forcing the accent to be at least as large as the base makes it too

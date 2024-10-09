@@ -74,15 +74,13 @@ pub struct VecElem {
 impl LayoutMath for Packed<VecElem> {
     #[typst_macros::time(name = "math.vec", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let font_size = scaled_font_size(ctx, styles);
         let delim = self.delim(styles);
-        let gap = self.gap(styles).map(|length| length.at(font_size));
         let frame = layout_vec_body(
             ctx,
             styles,
             self.children(),
             self.align(styles),
-            gap,
+            self.gap(styles).at(scaled_font_size(ctx, styles)),
             LeftRightAlternator::Right,
         )?;
 
@@ -268,9 +266,8 @@ impl LayoutMath for Packed<MatElem> {
         }
 
         let font_size = scaled_font_size(ctx, styles);
-        let column_gap = self.column_gap(styles).map(|length| length.at(font_size));
-        let row_gap = self.row_gap(styles).map(|length| length.at(font_size));
-
+        let column_gap = self.column_gap(styles).at(font_size);
+        let row_gap = self.row_gap(styles).at(font_size);
         let delim = self.delim(styles);
         let frame = layout_mat_body(
             ctx,
@@ -336,15 +333,13 @@ pub struct CasesElem {
 impl LayoutMath for Packed<CasesElem> {
     #[typst_macros::time(name = "math.cases", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let font_size = scaled_font_size(ctx, styles);
-        let gap = self.gap(styles).map(|length| length.at(font_size));
         let delim = self.delim(styles);
         let frame = layout_vec_body(
             ctx,
             styles,
             self.children(),
             FixedAlignment::Start,
-            gap,
+            self.gap(styles).at(scaled_font_size(ctx, styles)),
             LeftRightAlternator::None,
         )?;
 

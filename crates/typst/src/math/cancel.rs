@@ -117,9 +117,8 @@ impl LayoutMath for Packed<CancelElem> {
 
         let mut body = body.into_frame();
         let body_size = body.size();
-        let font_size = scaled_font_size(ctx, styles);
         let span = self.span();
-        let length = self.length(styles).map(|length| length.at(font_size));
+        let length = self.length(styles).at(scaled_font_size(ctx, styles));
 
         let stroke = self.stroke(styles).unwrap_or(FixedStroke {
             paint: TextElem::fill_in(styles).as_decoration(),
