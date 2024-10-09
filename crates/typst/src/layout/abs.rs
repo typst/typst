@@ -256,21 +256,14 @@ pub enum AbsUnit {
 impl AbsUnit {
     /// How many raw units correspond to a value of `1.0` in this unit.
     const fn raw_scale(self) -> f64 {
-        const PT_PER_IN: f64 = 72.0;
-        const MM_PER_IN: f64 = 25.4;
-        const MM_PER_CM: f64 = 10.0;
-        const PT_PER_MM: f64 = PT_PER_IN / MM_PER_IN;
-
-        const PT_SCALE: f64 = 1.0;
-        const MM_SCALE: f64 = PT_PER_MM * PT_SCALE;
-        const CM_SCALE: f64 = MM_PER_CM * MM_SCALE;
-        const IN_SCALE: f64 = PT_PER_IN * PT_SCALE;
-
+        // We choose a raw scale which has an integer conversion value to all
+        // four units of interest, so that whole numbers in all units can be
+        // represented accurately.
         match self {
-            AbsUnit::Pt => PT_SCALE,
-            AbsUnit::Mm => MM_SCALE,
-            AbsUnit::Cm => CM_SCALE,
-            AbsUnit::In => IN_SCALE,
+            AbsUnit::Pt => 127.0,
+            AbsUnit::Mm => 360.0,
+            AbsUnit::Cm => 3600.0,
+            AbsUnit::In => 9144.0,
         }
     }
 }
