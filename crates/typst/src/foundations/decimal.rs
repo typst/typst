@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Neg;
 use std::str::FromStr;
 
@@ -88,8 +89,24 @@ use crate::World;
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
 #[ty(scope, cast)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Decimal(rust_decimal::Decimal);
+
+impl Hash for Decimal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // `rust_decimal`'s Hash implementation normalizes decimals before
+        // hashing them. This means decimals with different scales but
+        // equivalent value not only compare equal but also hash equally.
+        // Here, we hash all bytes explicitly to ensure the scale is also
+        // considered. This means that 123.314 == 123.31400, but
+        // 123.314.hash() != 123.31400.hash().
+        //
+        // Note that this implies that equal decimals can have different
+        // hashes, which might generate problems with certain data structures,
+        // such as HashSet and HashMap.
+        self.0.serialize().hash(state);
+    }
+}
 
 impl Decimal {
     pub const ZERO: Self = Self(rust_decimal::Decimal::ZERO);
@@ -385,4 +402,48 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    use std::str::FromStr;
+
+    use super::Decimal;
+
+    #[test]
+    fn test_equal_decimals_with_equal_scales_hash_identically() {
+        let decimal_first = Decimal::from_str("3.14").unwrap();
+        let decimal_second = Decimal::from_str("3.14").unwrap();
+
+        assert_eq!(decimal_first, decimal_second);
+
+        let mut hasher_first = DefaultHasher::new();
+        decimal_first.hash(&mut hasher_first);
+        let hash_first = hasher_first.finish();
+
+        let mut hasher_second = DefaultHasher::new();
+        decimal_second.hash(&mut hasher_second);
+        let hash_second = hasher_second.finish();
+
+        assert_eq!(hash_first, hash_second);
+    }
+
+    #[test]
+    fn test_equal_decimals_with_different_scales_hash_differently() {
+        let decimal_short = Decimal::from_str("3.140").unwrap();
+        let decimal_long = Decimal::from_str("3.14000").unwrap();
+
+        assert_eq!(decimal_short, decimal_long);
+
+        let mut hasher_short = DefaultHasher::new();
+        decimal_short.hash(&mut hasher_short);
+        let hash_short = hasher_short.finish();
+
+        let mut hasher_long = DefaultHasher::new();
+        decimal_long.hash(&mut hasher_long);
+        let hash_long = hasher_long.finish();
+
+        assert_ne!(hash_short, hash_long);
+    }
 }
