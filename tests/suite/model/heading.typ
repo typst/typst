@@ -35,6 +35,43 @@ multiline.
 = This
   is not.
 
+--- heading-trailing-ws ---
+// Whether headings contain trailing whitespace with or without comments/labels.
+
+// labels are special cased to immediately end headings in the parser, but also
+// have unique whitespace behavior.
+
+#let join(..xs) = xs.pos().join()
+#let head(h) = heading(depth: 1, h)
+
+// These match
+#test(head[h], [= h])
+#test(head[h], [= h/**/])
+#test(head[h], [= h<a>])
+#test(head[h], [= h/**/<b>])
+
+// These don't!
+#test(head(join[h][  ]), [= h  ])
+#test(head(join[h][  ]), [= h  /**/])
+#test(join(head[h])[  ], [= h  <c>])
+
+#test(head(join[h][  ][  ]), [= h  /**/  ])
+#test(join(head[h])[  ][  ], [= h  <d>  ])
+
+#test(head(join[h][  ]), [= h  /**/<e>])
+#test(join(head[h])[  ], [= h/**/  <f>])
+
+// The first space attaches, but not the second
+#test(join(head(join[h][  ]))[  ], [= h  /**/  <g>])
+
+--- heading-leading-ws ---
+// Test leading whitespace and comments don't matter.
+#test[= h][=        h]
+#test[= h][=   /**/  /**/   h]
+#test[= h][=   /*
+comment spans lines
+*/   h]
+
 --- heading-show-where ---
 // Test styling.
 #show heading.where(level: 5): it => block(
