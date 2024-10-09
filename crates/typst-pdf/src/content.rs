@@ -17,7 +17,7 @@ use typst::layout::{
 };
 use typst::model::Destination;
 use typst::syntax::Span;
-use typst::text::color::is_outlinable;
+use typst::text::color::should_outline;
 use typst::text::{Font, Glyph, TextItem, TextItemView};
 use typst::utils::{Deferred, Numeric, SliceExt};
 use typst::visualize::{
@@ -426,18 +426,19 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
         );
     }
 
-    let outlinable = text.glyphs.iter().filter(|g| is_outlinable(&text.font, g)).count();
+    let outline_glyphs =
+        text.glyphs.iter().filter(|g| should_outline(&text.font, g)).count();
 
-    if outlinable == text.glyphs.len() {
+    if outline_glyphs == text.glyphs.len() {
         write_normal_text(ctx, pos, TextItemView::full(text))?;
-    } else if outlinable == 0 {
+    } else if outline_glyphs == 0 {
         write_complex_glyphs(ctx, pos, TextItemView::full(text))?;
     } else {
         // Otherwise we need to split it into smaller text runs.
         let mut offset = 0;
         let mut position_in_run = Abs::zero();
-        for (outlinable, sub_run) in
-            text.glyphs.group_by_key(|g| is_outlinable(&text.font, g))
+        for (should_outline, sub_run) in
+            text.glyphs.group_by_key(|g| should_outline(&text.font, g))
         {
             let end = offset + sub_run.len();
 
@@ -450,7 +451,7 @@ fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()
             offset = end;
 
             // Actually write the sub text-run.
-            if outlinable {
+            if should_outline {
                 write_normal_text(ctx, pos, text_item_view)?;
             } else {
                 write_complex_glyphs(ctx, pos, text_item_view)?;

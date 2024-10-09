@@ -4,7 +4,7 @@ use pixglyph::Bitmap;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst::layout::{Abs, Axes, Point, Size};
-use typst::text::color::{glyph_frame, is_outlinable};
+use typst::text::color::{glyph_frame, should_outline};
 use typst::text::{Font, TextItem};
 use typst::visualize::{FixedStroke, Paint};
 
@@ -18,7 +18,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
         let id = GlyphId(glyph.id);
         let offset = x + glyph.x_offset.at(text.size).to_f32();
 
-        if is_outlinable(&text.font, glyph) {
+        if should_outline(&text.font, glyph) {
             let state =
                 state.pre_translate(Point::new(Abs::raw(offset as _), Abs::raw(0.0)));
             render_outline_glyph(canvas, state, text, id);

@@ -11,9 +11,9 @@ use crate::syntax::Span;
 use crate::text::{Font, Glyph};
 use crate::visualize::{FixedStroke, Geometry, Image};
 
-/// Whether this glyph can be rendered via simple outlining instead of via
+/// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
-pub fn is_outlinable(font: &Font, glyph: &Glyph) -> bool {
+pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
     let ttf = font.ttf();
     let glyph_id = GlyphId(glyph.id);
     (ttf.tables().glyf.is_some() || ttf.tables().cff.is_some())
@@ -27,7 +27,7 @@ pub fn is_outlinable(font: &Font, glyph: &Glyph) -> bool {
 /// Returns a frame representing a glyph and whether it is a fallback tofu
 /// frame.
 ///
-/// Should only be called on glyphs for which [`is_outlinable`] returns false.
+/// Should only be called on glyphs for which [`should_outline`] returns false.
 ///
 /// The glyphs are sized in font units, [`text.item.size`] is not taken into
 /// account.
