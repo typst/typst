@@ -205,7 +205,7 @@ mod tests {
 
     macro_rules! assert_approx_eq {
         ($l:expr, $r:expr) => {
-            assert!(($l.to_raw() - $r.to_raw()).abs() < 0.1, "{:?} ≉ {:?}", $l, $r);
+            assert!(($l.to_pt() - $r.to_pt()).abs() < 0.1, "{:?} ≉ {:?}", $l, $r);
         };
     }
 
