@@ -49,6 +49,10 @@ $integral f(x) thin dif x$,
 // Both are weak, collide
 $integral f(x) #h(0.166em, weak: true)dif x$
 
+--- math-spacing-script ---
+// Test spacing in script size
+$x^(a #h(1em) b) + x^x^(a #h(1em) b) + sscript(a #h(1em) b)$
+
 --- math-spacing-ignorant ---
 // Test spacing with ignorant elements
 $#metadata(none) "text"$ \

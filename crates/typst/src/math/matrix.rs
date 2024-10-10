@@ -63,7 +63,6 @@ pub struct VecElem {
     /// #set math.vec(gap: 1em)
     /// $ vec(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -81,7 +80,7 @@ impl LayoutMath for Packed<VecElem> {
             styles,
             self.children(),
             self.align(styles),
-            self.gap(styles),
+            self.gap(styles).at(scaled_font_size(ctx, styles)),
             LeftRightAlternator::Right,
         )?;
 
@@ -182,7 +181,6 @@ pub struct MatElem {
     /// #set math.mat(row-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(
         let gap = args.named("gap")?;
         args.named("row-gap")?.or(gap)
@@ -196,7 +194,6 @@ pub struct MatElem {
     /// #set math.mat(column-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(args.named("column-gap")?.or(gap))]
     #[default(DEFAULT_COL_GAP.into())]
     pub column_gap: Rel<Length>,
@@ -268,6 +265,9 @@ impl LayoutMath for Packed<MatElem> {
             }
         }
 
+        let font_size = scaled_font_size(ctx, styles);
+        let column_gap = self.column_gap(styles).at(font_size);
+        let row_gap = self.row_gap(styles).at(font_size);
         let delim = self.delim(styles);
         let frame = layout_mat_body(
             ctx,
@@ -275,7 +275,7 @@ impl LayoutMath for Packed<MatElem> {
             rows,
             self.align(styles),
             augment,
-            Axes::new(self.column_gap(styles), self.row_gap(styles)),
+            Axes::new(column_gap, row_gap),
             self.span(),
         )?;
 
@@ -322,7 +322,6 @@ pub struct CasesElem {
     /// #set math.cases(gap: 1em)
     /// $ x = cases(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -340,7 +339,7 @@ impl LayoutMath for Packed<CasesElem> {
             styles,
             self.children(),
             FixedAlignment::Start,
-            self.gap(styles),
+            self.gap(styles).at(scaled_font_size(ctx, styles)),
             LeftRightAlternator::None,
         )?;
 

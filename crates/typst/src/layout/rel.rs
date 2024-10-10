@@ -86,6 +86,12 @@ impl Rel<Length> {
             None
         }
     }
+
+    /// Convert to a relative length with the absolute part resolved at the
+    /// given font size.
+    pub fn at(self, font_size: Abs) -> Rel<Abs> {
+        self.map(|abs| abs.at(font_size))
+    }
 }
 
 impl<T: Numeric + Debug> Debug for Rel<T> {
