@@ -30,6 +30,8 @@ pub struct Introspector {
     keys: HashMap<u128, SmallVec<[Location; 1]>>,
     /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Option<Numbering>>,
+    /// The page supplements, indexed by page number minus 1.
+    page_supplements: Vec<Content>,
     /// Caches queries done on the introspector. This is important because
     /// even if all top-level queries are distinct, they often have shared
     /// subqueries. Example: Individual counter queries with `before` that
@@ -46,12 +48,14 @@ impl Introspector {
         self.labels.clear();
         self.keys.clear();
         self.page_numberings.clear();
+        self.page_supplements.clear();
         self.queries.clear();
 
         for (i, page) in pages.iter().enumerate() {
             let page_nr = NonZeroUsize::new(1 + i).unwrap();
             self.extract(&page.frame, page_nr, Transform::identity());
             self.page_numberings.push(page.numbering.clone());
+            self.page_supplements.push(page.supplement.clone());
         }
     }
 
@@ -280,6 +284,12 @@ impl Introspector {
         self.page_numberings
             .get(page.get() - 1)
             .and_then(|slot| slot.as_ref())
+    }
+
+    /// Gets the page supplement for the given location, if any.
+    pub fn page_supplement(&self, location: Location) -> Content {
+        let page = self.page(location);
+        self.page_supplements.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
     /// Find the page number for the given location.

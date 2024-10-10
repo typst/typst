@@ -5,3 +5,4 @@ bibliography = Irodalomjegyzék
 heading = Fejezet
 outline = Tartalomjegyzék
 # raw = 
+page = oldal

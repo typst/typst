@@ -5,3 +5,4 @@ bibliography = Bibliografie
 heading = Kapitola
 outline = Obsah
 raw = Seznam
+page = strana
