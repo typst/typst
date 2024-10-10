@@ -1241,9 +1241,5 @@ fn destruct_space(buf: &mut [Pair], end: &mut usize, state: &mut SpaceState) {
 
 /// Finds the first non-detached span in the list.
 fn select_span(children: &[Pair]) -> Span {
-    children
-        .iter()
-        .map(|(c, _)| c.span())
-        .find(|span| !span.is_detached())
-        .unwrap_or(Span::detached())
+    Span::find(children.iter().map(|(c, _)| c.span()))
 }
