@@ -185,7 +185,7 @@ fn heading(p: &mut Parser) {
     whitespace_line(p);
     markup(p, false, usize::MAX, |p| {
         p.at_set(syntax_set!(Label, Space, RightBracket))
-            && (!p.at(SyntaxKind::Space) || p.lexer.clone().next() == SyntaxKind::Label)
+            && (!p.at(SyntaxKind::Space) || p.lexer.clone().next().0 == SyntaxKind::Label)
     });
     p.wrap(m, SyntaxKind::Heading);
 }
@@ -282,7 +282,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             while p.directly_at(SyntaxKind::Text) && p.current_text() == "." && {
                 let mut copy = p.lexer.clone();
                 let start = copy.cursor();
-                let next = copy.next();
+                let next = copy.next().0;
                 let end = copy.cursor();
                 matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
                     && is_ident(&p.text[start..end])
@@ -686,8 +686,8 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
-        let at_field_or_method =
-            p.directly_at(SyntaxKind::Dot) && p.lexer.clone().next() == SyntaxKind::Ident;
+        let at_field_or_method = p.directly_at(SyntaxKind::Dot)
+            && p.lexer.clone().next().0 == SyntaxKind::Ident;
 
         if atomic && !at_field_or_method {
             break;
@@ -947,9 +947,8 @@ fn for_loop(p: &mut Parser) {
     let mut seen = HashSet::new();
     pattern(p, false, &mut seen, None);
 
-    let m2 = p.marker();
-    if p.eat_if(SyntaxKind::Comma) {
-        let node = &mut p[m2];
+    if p.at(SyntaxKind::Comma) {
+        let node = p.eat_and_get();
         node.unexpected();
         node.hint("destructuring patterns must be wrapped in parentheses");
         if p.at_set(set::PATTERN) {
@@ -1563,6 +1562,9 @@ struct Parser<'s> {
     current_start: usize,
     /// The [`SyntaxKind`] of the current token.
     current: SyntaxKind,
+    /// The [`SyntaxNode`] of the current token, ready to be eaten and pushed
+    /// onto the end of `nodes`.
+    current_node: SyntaxNode,
     /// Whether the parser has the expected set of open/close delimiters. This
     /// only ever transitions from `true` to `false`.
     balanced: bool,
@@ -1603,13 +1605,14 @@ impl<'s> Parser<'s> {
     fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
-        let current = lexer.next();
+        let (current, current_node) = lexer.next();
         Self {
             lexer,
             text,
             prev_end: offset,
             current_start: offset,
             current,
+            current_node,
             balanced: true,
             nodes: vec![],
             modes: vec![],
@@ -1722,7 +1725,8 @@ impl<'s> Parser<'s> {
 
     /// Convert the current token's [`SyntaxKind`] and eat it.
     fn convert_and_eat(&mut self, kind: SyntaxKind) {
-        self.current = kind;
+        // Only need to replace the node here.
+        self.current_node.convert_to_kind(kind);
         self.eat();
     }
 
@@ -1848,13 +1852,7 @@ impl<'s> Parser<'s> {
 
     /// Save the current token to the `nodes` vector as an Inner or Error node.
     fn save(&mut self) {
-        let text = self.current_text();
-        if self.at(SyntaxKind::Error) {
-            let error = self.lexer.take_error().unwrap();
-            self.nodes.push(SyntaxNode::error(error, text));
-        } else {
-            self.nodes.push(SyntaxNode::leaf(self.current, text));
-        }
+        self.nodes.push(self.current_node.clone());
 
         if self.lexer.mode() == LexMode::Markup || !self.current.is_trivia() {
             self.prev_end = self.current_end();
@@ -1864,7 +1862,7 @@ impl<'s> Parser<'s> {
     /// Find the kind of the next non-trivia token in the lexer.
     fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
         loop {
-            let next = lexer.next();
+            let next = lexer.next().0;
             // Loop is terminable, because `SyntaxKind::End` is not a trivia.
             if !next.is_trivia() {
                 break next;
@@ -1876,7 +1874,7 @@ impl<'s> Parser<'s> {
     /// might insert a temporary [`SyntaxKind::End`] based on our newline mode.
     fn lex(&mut self) {
         self.current_start = self.lexer.cursor();
-        self.current = self.lexer.next();
+        (self.current, self.current_node) = self.lexer.next();
 
         // Special cases to handle newlines in Code.
         if self.lexer.mode() == LexMode::Code
@@ -1931,6 +1929,7 @@ struct PartialState {
     prev_end: usize,
     current_start: usize,
     current: SyntaxKind,
+    current_node: SyntaxNode,
 }
 
 impl<'s> Parser<'s> {
@@ -1975,6 +1974,7 @@ impl<'s> Parser<'s> {
         self.prev_end = state.prev_end;
         self.current_start = state.current_start;
         self.current = state.current;
+        self.current_node = state.current_node;
     }
 
     /// Save a checkpoint of the parser state.
@@ -1986,6 +1986,7 @@ impl<'s> Parser<'s> {
             prev_end: self.prev_end,
             current_start: self.current_start,
             current: self.current,
+            current_node: self.current_node.clone(),
         };
         Checkpoint { node_len, state }
     }

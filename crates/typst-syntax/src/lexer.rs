@@ -4,12 +4,12 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxKind, SyntaxNode};
 
-/// Splits up a string of source code into tokens.
+/// An iterator over a source code string which returns tokens.
 #[derive(Clone)]
 pub(super) struct Lexer<'s> {
-    /// The underlying scanner.
+    /// The scanner: contains the underlying string and location as a "cursor".
     s: Scanner<'s>,
     /// The mode the lexer is in. This determines which kinds of tokens it
     /// produces.
@@ -73,11 +73,6 @@ impl<'s> Lexer<'s> {
     pub fn newline(&self) -> bool {
         self.newline
     }
-
-    /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<SyntaxError> {
-        self.error.take()
-    }
 }
 
 impl Lexer<'_> {
@@ -97,21 +92,24 @@ impl Lexer<'_> {
 
 /// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
-    /// Proceed to the next token and return its [`SyntaxKind`]. Note the
-    /// token could be a [trivia](SyntaxKind::is_trivia).
-    pub fn next(&mut self) -> SyntaxKind {
+    /// Return the next token in our text. Returns both the [`SyntaxNode`]
+    /// and the raw [`SyntaxKind`] to make it more ergonomic to check the kind
+    pub fn next(&mut self) -> (SyntaxKind, SyntaxNode) {
+        debug_assert!(self.error.is_none());
+        let start = self.s.cursor();
         if self.mode == LexMode::Raw {
-            let Some((kind, end)) = self.raw.pop() else {
-                return SyntaxKind::End;
+            let kind = if let Some((kind, end)) = self.raw.pop() {
+                self.s.jump(end);
+                kind
+            } else {
+                SyntaxKind::End
             };
-            self.s.jump(end);
-            return kind;
+            let node = SyntaxNode::leaf(kind, self.s.from(start));
+            return (kind, node);
         }
 
         self.newline = false;
-        self.error = None;
-        let start = self.s.cursor();
-        match self.s.eat() {
+        let kind = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
@@ -132,13 +130,21 @@ impl Lexer<'_> {
             },
 
             None => SyntaxKind::End,
-        }
+        };
+
+        let text = self.s.from(start);
+        let node = match self.error.take() {
+            Some(error) => SyntaxNode::error(error, text),
+            None => SyntaxNode::leaf(kind, text),
+        };
+        (kind, node)
     }
 
     /// Eat whitespace characters greedily.
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
         let newlines = match c {
+            // Optimize eating a single space.
             ' ' if more.is_empty() => 0,
             _ => count_newlines(self.s.from(start)),
         };
