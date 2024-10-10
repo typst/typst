@@ -1,5 +1,6 @@
 //! Layout of content into a [`Frame`] or [`Fragment`].
 
+mod balance;
 mod collect;
 mod compose;
 mod distribute;
@@ -12,6 +13,8 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 
+use self::balance::Balancer;
+pub use self::balance::Mode as BalanceMode;
 use self::collect::{
     collect, Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild,
 };
@@ -31,6 +34,8 @@ use crate::realize::{realize, Arenas, Pair, RealizationKind};
 use crate::text::TextElem;
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
+
+use super::Axes;
 
 /// Lays out content into multiple regions.
 ///
@@ -54,6 +59,7 @@ pub fn layout_fragment(
         regions,
         NonZeroUsize::ONE,
         Rel::zero(),
+        BalanceMode::PackStart,
     )
 }
 
@@ -61,6 +67,7 @@ pub fn layout_fragment(
 ///
 /// This is different from just laying out into column-sized regions as the
 /// columns can interact due to parent-scoped placed elements.
+#[allow(clippy::too_many_arguments)]
 pub fn layout_fragment_with_columns(
     engine: &mut Engine,
     content: &Content,
@@ -69,6 +76,7 @@ pub fn layout_fragment_with_columns(
     regions: Regions,
     count: NonZeroUsize,
     gutter: Rel<Abs>,
+    balance: BalanceMode,
 ) -> SourceResult<Fragment> {
     layout_fragment_impl(
         engine.world,
@@ -82,6 +90,7 @@ pub fn layout_fragment_with_columns(
         regions,
         count,
         gutter,
+        balance,
     )
 }
 
@@ -112,6 +121,7 @@ fn layout_fragment_impl(
     regions: Regions,
     columns: NonZeroUsize,
     column_gutter: Rel<Abs>,
+    balance: BalanceMode,
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -151,6 +161,7 @@ fn layout_fragment_impl(
         columns,
         column_gutter,
         false,
+        balance,
     )
 }
 
@@ -165,6 +176,7 @@ pub(crate) fn layout_flow(
     columns: NonZeroUsize,
     column_gutter: Rel<Abs>,
     root: bool,
+    balance: BalanceMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
     let config = Config {
@@ -213,11 +225,20 @@ pub(crate) fn layout_flow(
         regions.expand.x,
     )?;
 
-    let mut work = Work::new(&children);
+    let balancer = Balancer::new(&children, &config, balance);
+
+    let mut balaced_bounds = regions.base();
+    balaced_bounds.y *= Into::<usize>::into(columns) as f64;
+    let mut balancer = balancer.measure(
+        engine,
+        locator.next(&()),
+        Region::new(balaced_bounds, regions.expand),
+    )?;
     let mut finished = vec![];
 
     // This loop runs once per region produced by the flow layout.
     loop {
+        let mut work = balancer.borrow_work(regions);
         let frame = compose(engine, &mut work, &config, locator.next(&()), regions)?;
         finished.push(frame);
 
