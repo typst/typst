@@ -31,3 +31,7 @@ $ tilde(integral), tilde(integral)_a^b, tilde(integral_a^b) $
 --- math-accent-sized ---
 // Test accent size.
 $tilde(sum), tilde(sum, size: #50%), accent(H, hat, size: #200%)$
+
+--- math-accent-sized-script ---
+// Test accent size in script size.
+$tilde(U, size: #1.1em), x^tilde(U, size: #1.1em), sscript(tilde(U, size: #1.1em))$
