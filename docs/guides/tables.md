@@ -527,7 +527,7 @@ is useful if you are writing a template or want to style your whole document.
 ```
 
 For small tables, you sometimes want to suppress all strokes because they add
-too much visual noise. To do this, just set the stroke argument to `none`:
+too much visual noise. To do this, just set the stroke argument to `{none}`:
 
 ```example
 #table(

@@ -42,6 +42,9 @@ use crate::World;
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
+/// By default, block-level equations will not break across pages. This can be
+/// changed through `{show math.equation: set block(breakable: true)}`.
+///
 /// # Syntax
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create an equation. Starting and ending the equation with at

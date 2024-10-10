@@ -189,8 +189,8 @@ pub struct PageElem {
     ///
     /// When set to `{none}`, the background becomes transparent. Note that PDF
     /// pages will still appear with a (usually white) background in viewers,
-    /// but they are conceptually transparent. (If you print them, no color is
-    /// used for the background.)
+    /// but they are actually transparent. (If you print them, no color is used
+    /// for the background.)
     ///
     /// The default of `{auto}` results in `{none}` for PDF output, and
     /// `{white}` for PNG and SVG.

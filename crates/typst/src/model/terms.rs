@@ -27,10 +27,11 @@ use crate::utils::Numeric;
 /// followed by a term, a colon and a description creates a term list item.
 #[elem(scope, title = "Term List", Show)]
 pub struct TermsElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the term list more compact,
-    /// which can look better if the items are short.
+    /// Defines the default [spacing]($terms.spacing) of the term list. If it is
+    /// `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow

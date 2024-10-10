@@ -246,13 +246,16 @@ pub struct ParLine {
 
     /// The alignment of line numbers associated with each line.
     ///
-    /// The default of `auto` will provide a smart default where numbers grow
+    /// The default of `{auto}` indicates a smart default where numbers grow
     /// horizontally away from the text, considering the margin they're in and
     /// the current text direction.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
-    /// #set par.line(numbering: "I", number-align: left)
+    /// #set par.line(
+    ///   numbering: "I",
+    ///   number-align: left,
+    /// )
     ///
     /// Hello world! \
     /// Today is a beautiful day \
@@ -265,7 +268,10 @@ pub struct ParLine {
     ///
     /// ```example
     /// >>> #set page(margin: (right: 3em))
-    /// #set par.line(numbering: "1", number-margin: right)
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   number-margin: right,
+    /// )
     ///
     /// = Report
     /// - Brightness: Dark, yet darker
@@ -284,7 +290,7 @@ pub struct ParLine {
     /// >>> #set page(margin: (left: 3em))
     /// #set par.line(
     ///   numbering: "1",
-    ///   number-clearance: 4pt
+    ///   number-clearance: 4pt,
     /// )
     ///
     /// Typesetting \
@@ -304,7 +310,7 @@ pub struct ParLine {
     /// >>> #set page(margin: (left: 3em))
     /// #set par.line(
     ///   numbering: "1",
-    ///   numbering-scope: "page"
+    ///   numbering-scope: "page",
     /// )
     ///
     /// First line \

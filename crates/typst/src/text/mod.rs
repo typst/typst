@@ -445,9 +445,10 @@ pub struct TextElem {
     /// the other way around in `rtl` text.
     ///
     /// If you set this to `rtl` and experience bugs or in some way bad looking
-    /// output, please do get in touch with us through the
-    /// [contact form](https://typst.app/contact) or our
-    /// [Discord server](https://discord.gg/2uDybryKPe)!
+    /// output, please get in touch with us through the
+    /// [Forum](https://forum.typst.app/),
+    /// [Discord server](https://discord.gg/2uDybryKPe),
+    /// or our [contact form](https://typst.app/contact).
     ///
     /// ```example
     /// #set text(dir: rtl)
@@ -482,8 +483,9 @@ pub struct TextElem {
 
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
-    /// as a ratio of the default cost, so `50%` will make text layout twice as
-    /// eager to make a given choice, while `200%` will make it half as eager.
+    /// as a ratio of the default cost, so `{50%}` will make text layout twice
+    /// as eager to make a given choice, while `{200%}` will make it half as
+    /// eager.
     ///
     /// Currently, the following costs can be customized:
     /// - `hyphenation`: splitting a word across multiple lines
@@ -501,10 +503,10 @@ pub struct TextElem {
     /// Text layout prevents widows and orphans by default because they are
     /// generally discouraged by style guides. However, in some contexts they
     /// are allowed because the prevention method, which moves a line to the
-    /// next page, can result in an uneven number of lines between pages.
-    /// The `widow` and `orphan` costs allow disabling these modifications.
-    /// (Currently, 0% allows widows/orphans; anything else, including the
-    /// default of `auto`, prevents them. More nuanced cost specification for
+    /// next page, can result in an uneven number of lines between pages. The
+    /// `widow` and `orphan` costs allow disabling these modifications.
+    /// (Currently, `{0%}` allows widows/orphans; anything else, including the
+    /// default of `{100%}`, prevents them. More nuanced cost specification for
     /// these modifications is planned for the future.)
     ///
     /// ```example
@@ -568,9 +570,9 @@ pub struct TextElem {
     /// This can be set to an integer or an array of integers, all
     /// of which must be between `{1}` and `{20}`, enabling the
     /// corresponding OpenType feature(s) from `ss01` to `ss20`.
-    /// Setting this to `none` will disable all stylistic sets.
+    /// Setting this to `{none}` will disable all stylistic sets.
     ///
-    /// ```
+    /// ```example
     /// #set text(font: "IBM Plex Serif")
     /// ß vs #text(stylistic-set: 5)[ß] \
     /// 10 years ago vs #text(stylistic-set: (1, 2, 3))[10 years ago]

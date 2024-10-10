@@ -486,7 +486,8 @@ impl Array {
         /// function is a bit involved, so we parse the positional arguments manually).
         args: &mut Args,
         /// Whether all arrays have to have the same length.
-        /// For example, `(1, 2).zip((1, 2, 3), exact: true)` produces an error.
+        /// For example, `{(1, 2).zip((1, 2, 3), exact: true)}` produces an
+        /// error.
         #[named]
         #[default(false)]
         exact: bool,

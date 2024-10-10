@@ -361,7 +361,7 @@ want to import.
 ```
 
 We have now converted the conference paper into a reusable template for that
-conference! Why not share it on
+conference! Why not share it in the [Forum](https://forum.typst.app/) or on
 [Typst's Discord server](https://discord.gg/2uDybryKPe) so that others can use
 it too?
 
@@ -372,9 +372,10 @@ that define reusable document styles. You've made it far and learned a lot. You
 can now use Typst to write your own documents and share them with others.
 
 We are still a super young project and are looking for feedback. If you have any
-questions, suggestions or you found a bug, please let us know on
-[Typst's Discord server](https://discord.gg/2uDybryKPe), on our
-[contact form](https://typst.app/contact), or on
-[social media.](https://twitter.com/typstapp)
+questions, suggestions or you found a bug, please let us know
+in the [Forum](https://forum.typst.app/),
+on our [Discord server](https://discord.gg/2uDybryKPe),
+on [GitHub](https://github.com/typst/typst/),
+or via the web app's feedback form (always available in the Help menu).
 
 So what are you waiting for? [Sign up](https://typst.app) and write something!
