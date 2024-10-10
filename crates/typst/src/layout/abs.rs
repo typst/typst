@@ -7,9 +7,6 @@ use ecow::EcoString;
 use crate::foundations::{cast, repr, Fold, Repr, Value};
 use crate::utils::{Numeric, Scalar};
 
-/// The epsilon for approximate comparisons.
-const EPS: f64 = 1e-6;
-
 /// An absolute length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Abs(Scalar);
@@ -113,17 +110,17 @@ impl Abs {
     /// Whether the other absolute length fits into this one (i.e. is smaller).
     /// Allows for a bit of slack.
     pub fn fits(self, other: Self) -> bool {
-        self.0 + EPS >= other.0
+        self.0 + AbsUnit::EPS >= other.0
     }
 
     /// Compares two absolute lengths for whether they are approximately equal.
     pub fn approx_eq(self, other: Self) -> bool {
-        self == other || (self - other).to_raw().abs() < EPS
+        self == other || (self - other).to_raw().abs() < AbsUnit::EPS
     }
 
     /// Whether the size is close to zero or negative.
     pub fn approx_empty(self) -> bool {
-        self.to_raw() <= EPS
+        self.to_raw() <= AbsUnit::EPS
     }
 
     /// Returns a number that represent the sign of this length
@@ -254,6 +251,9 @@ pub enum AbsUnit {
 }
 
 impl AbsUnit {
+    /// The epsilon for approximate length comparisons.
+    const EPS: f64 = 1e-4;
+
     /// How many raw units correspond to a value of `1.0` in this unit.
     const fn raw_scale(self) -> f64 {
         // We choose a raw scale which has an integer conversion value to all
