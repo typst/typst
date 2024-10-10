@@ -11,7 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, Packed, Resolve, StyleChain, StyleVec};
+use crate::foundations::{Content, Packed, StyleChain, StyleVec};
 use crate::introspection::{SplitLocator, TagElem};
 use crate::layout::{
     layout_frame, Abs, Axes, BoxElem, Em, Frame, HElem, PlaceElem, Region, Size, Spacing,
@@ -220,7 +220,7 @@ impl MathContext<'_, '_, '_> {
             if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
                     self.push(MathFragment::Spacing(
-                        rel.abs.resolve(styles),
+                        rel.abs.at(scaled_font_size(self, styles)),
                         elem.weak(styles),
                     ));
                 }
