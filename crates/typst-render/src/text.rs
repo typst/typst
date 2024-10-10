@@ -13,27 +13,26 @@ use crate::{shape, AbsExt, State};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
-    let mut x = 0.0;
+    let mut x = Abs::zero();
     for glyph in &text.glyphs {
         let id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.at(text.size).to_f32();
+        let offset = x + glyph.x_offset.at(text.size);
 
         if should_outline(&text.font, glyph) {
-            let state =
-                state.pre_translate(Point::new(Abs::raw(offset as _), Abs::raw(0.0)));
+            let state = state.pre_translate(Point::with_x(offset));
             render_outline_glyph(canvas, state, text, id);
         } else {
             let upem = text.font.units_per_em();
-            let text_scale = Abs::raw(text.size.to_raw() / upem);
+            let text_scale = text.size / upem;
             let state = state
-                .pre_translate(Point::new(Abs::raw(offset as _), -text.size))
+                .pre_translate(Point::new(offset, -text.size))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
             let (glyph_frame, _) = glyph_frame(&text.font, glyph.id);
             crate::render_frame(canvas, state, &glyph_frame);
         }
 
-        x += glyph.x_advance.at(text.size).to_f32();
+        x += glyph.x_advance.at(text.size);
     }
 }
 

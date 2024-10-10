@@ -186,9 +186,8 @@ fn draw_colr_glyph(
     )
     .ok()?;
 
-    let y_shift = Abs::raw(upem.to_raw() - y_max);
-
-    let position = Point::new(Abs::raw(x_min), y_shift);
+    let y_shift = Abs::pt(upem.to_pt() - y_max);
+    let position = Point::new(Abs::pt(x_min), y_shift);
     let size = Size::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
 
