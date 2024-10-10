@@ -490,6 +490,8 @@ fn math_args(p: &mut Parser) {
     let mut has_arrays = false;
     let mut array = p.marker();
     let mut arg = p.marker();
+    // The number of math expressions per argument.
+    let mut count = 0;
 
     while !p.end() && !p.at(SyntaxKind::Dollar) {
         if namable
@@ -506,20 +508,22 @@ fn math_args(p: &mut Parser) {
         match p.current_text() {
             ")" => break,
             ";" => {
-                maybe_wrap_in_math(p, arg, named);
+                maybe_wrap_in_math(p, arg, count, named);
                 p.wrap(array, SyntaxKind::Array);
                 p.convert_and_eat(SyntaxKind::Semicolon);
                 array = p.marker();
                 arg = p.marker();
+                count = 0;
                 namable = true;
                 named = None;
                 has_arrays = true;
                 continue;
             }
             "," => {
-                maybe_wrap_in_math(p, arg, named);
+                maybe_wrap_in_math(p, arg, count, named);
                 p.convert_and_eat(SyntaxKind::Comma);
                 arg = p.marker();
+                count = 0;
                 namable = true;
                 if named.is_some() {
                     array = p.marker();
@@ -532,6 +536,7 @@ fn math_args(p: &mut Parser) {
 
         if p.at_set(set::MATH_EXPR) {
             math_expr(p);
+            count += 1;
         } else {
             p.unexpected();
         }
@@ -540,7 +545,7 @@ fn math_args(p: &mut Parser) {
     }
 
     if arg != p.marker() {
-        maybe_wrap_in_math(p, arg, named);
+        maybe_wrap_in_math(p, arg, count, named);
         if named.is_some() {
             array = p.marker();
         }
@@ -560,25 +565,26 @@ fn math_args(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Args);
 }
 
-/// Wrap math function arguments in a "Math" SyntaxKind to combine adjacent expressions
-/// or create blank content.
+/// Wrap math function arguments to join adjacent math content or create an
+/// empty 'Math' node for when we have 0 args.
 ///
-/// We don't wrap when `exprs == 1`, as there is only one expression, so the grouping
-/// isn't needed, and this would change the type of the expression from potentially
-/// non-content to content.
-///
-/// Note that `exprs` might be 0 if we have whitespace or trivia before a comma i.e.
-/// `mat(; ,)` or `sin(x, , , ,)`. This would create an empty Math element before that
-/// trivia if we called `p.wrap()` -- breaking the expected AST for 2-d arguments -- so
-/// we instead manually wrap to our current marker using `p.wrap_within()`.
-fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
-    let exprs = p.post_process(arg).filter(|node| node.is::<ast::Expr>()).count();
-    if exprs != 1 {
-        // Convert 0 exprs into a blank math element (so empty arguments are allowed).
-        // Convert 2+ exprs into a math element (so they become a joined sequence).
-        p.wrap_within(arg, p.marker(), SyntaxKind::Math);
-        // We need to update `n_trivia` since we no longer have any.
-        p.token.n_trivia = 0; // TODO: Maybe create a `flush_trivia()` method?
+/// We don't wrap when `count == 1`, since wrapping would change the type of the
+/// expression from potentially non-content to content. Ex: `$ func(#12pt) $`
+/// would change the type from size to content if wrapped.
+fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, count: usize, named: Option<Marker>) {
+    if count == 0 {
+        // Flush trivia so that the new empty Math node will be wrapped _inside_
+        // any `SyntaxKind::Array` elements created in `math_args`.
+        // (And if we don't follow by wrapping in an array, it has no effect.)
+        // The difference in node layout without this would look like:
+        // Expression: `$ mat( ;) $`
+        // - Correct:   [ .., Space(" "), Array[Math[], ], Semicolon(";"), .. ]
+        // - Incorrect: [ .., Math[], Array[], Space(" "), Semicolon(";"), .. ]
+        p.flush_trivia();
+    }
+
+    if count != 1 {
+        p.wrap(arg, SyntaxKind::Math);
     }
 
     if let Some(m) = named {
@@ -1732,14 +1738,6 @@ impl<'s> Parser<'s> {
         Marker(self.nodes.len() - self.token.n_trivia)
     }
 
-    /// Iterate over the non-trivia tokens following the marker.
-    #[track_caller]
-    fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
-        self.nodes[m.0..]
-            .iter_mut()
-            .filter(|child| !child.kind().is_error() && !child.kind().is_trivia())
-    }
-
     /// Eat the current node and return a reference for in-place mutation.
     #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
@@ -1793,17 +1791,19 @@ impl<'s> Parser<'s> {
         self.token = Self::lex(&mut self.nodes, &mut self.lexer, self.nl_mode);
     }
 
+    /// Detach the parsed trivia nodes from this token (but not newline info) so
+    /// that subsequent wrapping will include the trivia.
+    fn flush_trivia(&mut self) {
+        self.token.n_trivia = 0;
+        self.token.prev_end = self.token.start;
+    }
+
     /// Wrap the nodes from a marker up to (but excluding) the current token in
     /// a new [inner node](`SyntaxNode::inner`) of the given kind. This is an
     /// easy interface for creating nested syntax nodes _after_ having parsed
     /// their children.
     fn wrap(&mut self, from: Marker, kind: SyntaxKind) {
-        self.wrap_within(from, self.before_trivia(), kind);
-    }
-
-    fn wrap_within(&mut self, from: Marker, to: Marker, kind: SyntaxKind) {
-        let len = self.nodes.len();
-        let to = to.0.min(len);
+        let to = self.before_trivia().0;
         let from = from.0.min(to);
         let children = self.nodes.drain(from..to).collect();
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
