@@ -12,37 +12,45 @@ use crate::{ast, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, Synta
 pub fn parse(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
     let mut p = Parser::new(text, 0, LexMode::Markup);
-    markup(&mut p, true, 0, |_| false);
-    p.finish().into_iter().next().unwrap()
+    markup_exprs(&mut p, true, 0, |_| false);
+    p.finish_into(SyntaxKind::Markup)
 }
 
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse code");
     let mut p = Parser::new(text, 0, LexMode::Code);
-    let m = p.marker();
-    p.skip();
     code_exprs(&mut p, |_| false);
-    p.wrap_all(m, SyntaxKind::Code);
-    p.finish().into_iter().next().unwrap()
+    p.finish_into(SyntaxKind::Code)
 }
 
 /// Parses top-level math.
 pub fn parse_math(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse math");
     let mut p = Parser::new(text, 0, LexMode::Math);
-    math(&mut p, |_| false);
-    p.finish().into_iter().next().unwrap()
+    math_exprs(&mut p, |_| false);
+    p.finish_into(SyntaxKind::Math)
 }
 
 /// Parses markup expressions until a stop condition is met.
 fn markup(
     p: &mut Parser,
+    at_start: bool,
+    min_indent: usize,
+    stop: impl FnMut(&Parser) -> bool,
+) {
+    let m = p.marker();
+    markup_exprs(p, at_start, min_indent, stop);
+    p.wrap(m, SyntaxKind::Markup);
+}
+
+/// Parses a sequence of markup expressions.
+fn markup_exprs(
+    p: &mut Parser,
     mut at_start: bool,
     min_indent: usize,
     mut stop: impl FnMut(&Parser) -> bool,
 ) {
-    let m = p.marker();
     let mut nesting: usize = 0;
     while !p.end() {
         match p.current() {
@@ -63,7 +71,6 @@ fn markup(
 
         markup_expr(p, &mut at_start);
     }
-    p.wrap(m, SyntaxKind::Markup);
 }
 
 /// Reparses a subsection of markup incrementally.
@@ -235,8 +242,14 @@ fn equation(p: &mut Parser) {
 }
 
 /// Parses the contents of a mathematical equation: `x^2 + 1`.
-fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
+fn math(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
     let m = p.marker();
+    math_exprs(p, stop);
+    p.wrap(m, SyntaxKind::Math);
+}
+
+/// Parses a sequence of math expressions.
+fn math_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     while !p.end() && !stop(p) {
         if p.at_set(set::MATH_EXPR) {
             math_expr(p);
@@ -244,7 +257,6 @@ fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
             p.unexpected();
         }
     }
-    p.wrap(m, SyntaxKind::Math);
 }
 
 /// Parses a single math expression: This includes math elements like
@@ -1603,6 +1615,12 @@ impl<'s> Parser<'s> {
         self.nodes
     }
 
+    /// Consume the parser, generating a single top-level node.
+    fn finish_into(self, kind: SyntaxKind) -> SyntaxNode {
+        assert!(self.at(SyntaxKind::End));
+        SyntaxNode::inner(kind, self.finish())
+    }
+
     /// The offset into `text` of the previous token's end.
     fn prev_end(&self) -> usize {
         self.prev_end
@@ -1755,11 +1773,6 @@ impl<'s> Parser<'s> {
     /// their children.
     fn wrap(&mut self, from: Marker, kind: SyntaxKind) {
         self.wrap_within(from, self.before_trivia(), kind);
-    }
-
-    /// Wrap including any trailing trivia nodes.
-    fn wrap_all(&mut self, from: Marker, kind: SyntaxKind) {
-        self.wrap_within(from, Marker(self.nodes.len()), kind)
     }
 
     fn wrap_within(&mut self, from: Marker, to: Marker, kind: SyntaxKind) {
