@@ -11,7 +11,7 @@ const MAX_ITERATIONS: usize = 10_000;
 
 /// A control flow event that occurred during evaluation.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum FlowEvent {
+pub enum FlowEvent {
     /// Stop iteration in a loop.
     Break(Span),
     /// Skip the remainder of the current iteration in a loop.
