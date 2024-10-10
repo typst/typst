@@ -10,7 +10,7 @@ use crate::{
     ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode,
 };
 
-/// Parses a source file.
+/// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
     let mut p = Parser::new(text, 0, LexMode::Markup);
@@ -37,7 +37,7 @@ pub fn parse_math(text: &str) -> SyntaxNode {
     p.finish().into_iter().next().unwrap()
 }
 
-/// Parses the contents of a file or content block.
+/// Parses markup expressions until a stop condition is met.
 fn markup(
     p: &mut Parser,
     mut at_start: bool,
@@ -96,7 +96,7 @@ pub(super) fn reparse_markup(
     (p.balanced && p.current_start() == range.end).then(|| p.finish())
 }
 
-/// Parses a single markup expression: This includes markup elements like
+/// Parses a single markup expression. This includes markup elements like
 /// spaces, text, and headings, and embedded code expressions.
 fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     match p.current() {
@@ -414,6 +414,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     }
 }
 
+/// Try to parse delimiters based on the current token's unicode math class.
 fn maybe_delimited(p: &mut Parser) -> bool {
     let open = math_class(p.current_text()) == Some(MathClass::Opening);
     if open {
@@ -422,6 +423,7 @@ fn maybe_delimited(p: &mut Parser) -> bool {
     open
 }
 
+/// Parse matched delimiters in math: `[x + y]`.
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
     p.eat();
@@ -444,6 +446,8 @@ fn math_delimited(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Math);
 }
 
+/// Remove one set of parentheses (if any) from a previously parsed expression
+/// by converting to non-expression SyntaxKinds.
 fn math_unparen(p: &mut Parser, m: Marker) {
     let Some(node) = p.nodes.get_mut(m.0) else { return };
     if node.kind() != SyntaxKind::MathDelimited {
@@ -460,6 +464,10 @@ fn math_unparen(p: &mut Parser, m: Marker) {
     node.convert_to_kind(SyntaxKind::Math);
 }
 
+/// The unicode math class of a string. Only returns `Some` if `text` has
+/// exactly one unicode character or is a math shorthand string (currently just
+/// `[|`, `||`, `|]`) and then only returns `Some` if there is a math class
+/// defined for that character.
 fn math_class(text: &str) -> Option<MathClass> {
     match text {
         "[|" => return Some(MathClass::Opening),
@@ -475,6 +483,7 @@ fn math_class(text: &str) -> Option<MathClass> {
         .and_then(unicode_math_class::class)
 }
 
+/// Precedence and wrapper kinds for the binary math operators.
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
@@ -490,6 +499,7 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
     }
 }
 
+/// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
 fn math_args(p: &mut Parser) {
     let m = p.marker();
     p.convert(SyntaxKind::LeftParen);
@@ -629,7 +639,7 @@ fn code_expr(p: &mut Parser) {
     code_expr_prec(p, false, 0)
 }
 
-/// Parses a code expression embedded in markup or math.
+/// Parses an atomic code expression embedded in markup or math.
 fn embedded_code_expr(p: &mut Parser) {
     p.enter_newline_mode(NewlineMode::Stop);
     p.enter(LexMode::Code);
@@ -1130,6 +1140,21 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
         seen: HashSet::new(),
     };
 
+    // An edge case with parens is whether we can interpret a leading spread
+    // expression as a dictionary, e.g. if we want `(..dict1, ..dict2)` to join
+    // the two dicts.
+    //
+    // The issue is that we decide on the type of the parenthesized expression
+    // here in the parser by the `SyntaxKind` we wrap with, instead of in eval
+    // based on the type of the spread item.
+    //
+    // The current fix is that we allow a leading colon to force the
+    // parenthesized value into a dict:
+    // - `(..arr1, ..arr2)` is wrapped as an `Array`.
+    // - `(: ..dict1, ..dict2)` is wrapped as a `Dict`.
+    //
+    // This does allow some unexpected expressions, such as `(: key: val)`, but
+    // it's currently intentional.
     if p.eat_if(SyntaxKind::Colon) {
         state.kind = Some(SyntaxKind::Dict);
         state.maybe_just_parens = false;
@@ -1165,8 +1190,13 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
 /// State for array/dictionary parsing.
 struct GroupState {
     count: usize,
+    /// Whether this is just a single expression in parens: `(a)`. Single
+    /// element arrays require an explicit comma: `(a,)`, unless we're
+    /// spreading: `(..a)`.
     maybe_just_parens: bool,
+    /// The `SyntaxKind` to wrap as (if we've figured it out yet).
     kind: Option<SyntaxKind>,
+    /// Store named arguments so we can give an error if they're repeated.
     seen: HashSet<EcoString>,
 }
 
@@ -1484,32 +1514,90 @@ fn pattern_leaf<'s>(
     }
 }
 
-/// Manages parsing of a stream of tokens.
+/// Manages parsing a stream of tokens into a tree of [`SyntaxNode`]s.
+///
+/// The implementation presents an interface that investigates a `current` token
+/// and can take one of the following actions:
+///
+/// 1. Eat a token, pushing `current` into the `nodes` vector as a [leaf
+///    node](`SyntaxNode::leaf`) and prepare a new `current` by calling into the
+///    lexer.
+/// 2. Wrap nodes from a marker to the end of `nodes` (excluding `current`) into
+///    an [inner node](`SyntaxNode::inner`) of a specific [`SyntaxKind`].
+/// 3. Produce or convert nodes into an [error node](`SyntaxNode::error`) when
+///    something expected is missing or something unexpected is found.
+///
+/// Overall the parser produces a nested tree of SyntaxNodes as a "_Concrete_
+/// Syntax Tree." The raw Concrete Syntax Tree should contain the entire source
+/// text, and is used as-is for e.g. syntax highlighting and IDE features. In
+/// `ast.rs` the CST is interpreted as a lazy view over an "_Abstract_ Syntax
+/// Tree." The AST module skips over irrelevant tokens -- whitespace, comments,
+/// code parens, commas in function args, etc. -- as it iterates through the
+/// tree.
+///
+/// ### Modes
+///
+/// The parser manages the transitions between the three modes of Typst through
+/// stacks of [lexer modes](`LexMode`) and [newline modes](`NewlineMode`).
+///
+/// The lexer modes map to the three Typst modes and are stored in the lexer,
+/// changing which`SyntaxKind`s it will generate. The mode also affects how the
+/// parser treats trivia tokens (comments and whitespace). In Markup, trivia is
+/// handled manually to deal with list indentation and must be explicitly eaten.
+/// In Code and Math, trivia is managed internally and is implicitly eaten by
+/// pushing onto the end of the `nodes` vector until a non-trivia kind is found.
+///
+/// The newline mode is used in Code to determine whether a newline should end
+/// the current expression. If so, the parser temporarily changes the current
+/// token's kind to a fake [`SyntaxKind::End`]. When the parser exits the mode
+/// the original `SyntaxKind` is restored.
 struct Parser<'s> {
+    /// The source text shared with the lexer.
     text: &'s str,
+    /// A lexer over the source text with multiple modes. Defines the boundaries
+    /// of tokens and determines their [`SyntaxKind`].
     lexer: Lexer<'s>,
+    /// The index into `text` of the end of the previous token.
     prev_end: usize,
+    /// The index into `text` of the start of our current token (the end is
+    /// stored as the lexer's cursor).
     current_start: usize,
+    /// The [`SyntaxKind`] of the current token.
     current: SyntaxKind,
+    /// Whether the parser has the expected set of open/close delimiters. This
+    /// only ever transitions from `true` to `false`.
     balanced: bool,
+    /// Nodes representing the concrete syntax tree of previously parsed text.
+    /// In Code and Math, includes previously parsed trivia, but not `current`.
     nodes: Vec<SyntaxNode>,
+    /// Stack of lexer modes to be pushed/popped. The current mode is implicitly
+    /// stored in the lexer.
     modes: Vec<LexMode>,
+    /// Stack of newline modes to be pushed/popped. The current mode is the tail
+    /// of the vector.
     newline_modes: Vec<NewlineMode>,
+    /// Parser checkpoints for a given text index. Used for efficient parser
+    /// backtracking similar to packrat parsing. See comments above in
+    /// [`expr_with_paren`].
     memo: HashMap<usize, (Range<usize>, Checkpoint<'s>)>,
+    /// The stored parse results at each checkpoint.
     memo_arena: Vec<SyntaxNode>,
 }
 
-/// How to proceed with parsing when seeing a newline.
+/// How to proceed with parsing when at a newline in Code.
 #[derive(Clone)]
 enum NewlineMode {
-    /// Stop always.
+    /// Stop at any newline.
     Stop,
-    /// Proceed if there is no continuation with `else` or `.`
+    /// Continue only if there is no continuation with `else` or `.`.
     Contextual,
-    /// Just proceed like with normal whitespace.
+    /// Continue at newlines.
     Continue,
 }
 
+/// A marker representing a node's position in the parser. Mainly used for
+/// wrapping, but can also index into the parser to access the node, like
+/// `p[m]`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Marker(usize);
 
@@ -1523,6 +1611,7 @@ struct Checkpoint<'s> {
 }
 
 impl<'s> Parser<'s> {
+    /// Create a new parser starting from the given text offset and lexer mode.
     fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
@@ -1542,52 +1631,68 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Consume the parser, yielding the full vector of parsed SyntaxNodes.
     fn finish(self) -> Vec<SyntaxNode> {
         self.nodes
     }
 
+    /// The offset into `text` of the previous token's end.
     fn prev_end(&self) -> usize {
         self.prev_end
     }
 
+    /// Similar to a `peek()` function: returns the `kind` of the next token to
+    /// be eaten.
     fn current(&self) -> SyntaxKind {
         self.current
     }
 
+    /// The offset into `text` of the current token's start.
     fn current_start(&self) -> usize {
         self.current_start
     }
 
+    /// The offset into `text` of the current token's end.
     fn current_end(&self) -> usize {
         self.lexer.cursor()
     }
 
+    /// The current token's text.
     fn current_text(&self) -> &'s str {
         &self.text[self.current_start..self.current_end()]
     }
 
+    /// Whether the current token is a given [`SyntaxKind`].
     fn at(&self, kind: SyntaxKind) -> bool {
         self.current == kind
     }
 
+    /// Whether the current token is contained in a [`SyntaxSet`].
     fn at_set(&self, set: SyntaxSet) -> bool {
         set.contains(self.current)
     }
 
+    /// Whether we're at the end of the token stream.
+    ///
+    /// Note: This might be a fake end due to the newline mode.
     fn end(&self) -> bool {
         self.at(SyntaxKind::End)
     }
 
+    /// If we're at the given `kind` with no preceding trivia tokens.
     fn directly_at(&self, kind: SyntaxKind) -> bool {
         self.current == kind && self.prev_end == self.current_start
     }
 
+    /// Eat the current token by saving it to the `nodes` vector, then move
+    /// the lexer forward to prepare a new token.
     fn eat(&mut self) {
         self.save();
         self.lex();
         self.skip();
     }
 
+    /// Eat the current node and return a reference for in-place mutation.
     #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
         let offset = self.nodes.len();
@@ -1597,9 +1702,9 @@ impl<'s> Parser<'s> {
         &mut self.nodes[offset]
     }
 
-    /// Eats if at `kind`.
+    /// Eat the token if at `kind`. Returns `true` if eaten.
     ///
-    /// Note: In math and code mode, this will ignore trivia in front of the
+    /// Note: In Math and Code, this will ignore trivia in front of the
     /// `kind`, To forbid skipping trivia, consider using `eat_if_direct`.
     fn eat_if(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
@@ -1609,7 +1714,8 @@ impl<'s> Parser<'s> {
         at
     }
 
-    /// Eats only if currently at the start of `kind`.
+    /// Eat the token only if at `kind` with no preceding trivia. Returns `true`
+    /// if eaten.
     fn eat_if_direct(&mut self, kind: SyntaxKind) -> bool {
         let at = self.directly_at(kind);
         if at {
@@ -1618,30 +1724,39 @@ impl<'s> Parser<'s> {
         at
     }
 
+    /// Assert that we are at the given [`SyntaxKind`] and eat it. This should
+    /// be used when moving between functions that expect to start with a
+    /// specific token.
     #[track_caller]
     fn assert(&mut self, kind: SyntaxKind) {
         assert_eq!(self.current, kind);
         self.eat();
     }
 
+    /// Convert the current token's [`SyntaxKind`] and eat it.
     fn convert(&mut self, kind: SyntaxKind) {
         self.current = kind;
         self.eat();
     }
 
+    /// Whether the current token is a newline, only used in Markup.
     fn newline(&mut self) -> bool {
         self.lexer.newline()
     }
 
+    /// The number of characters until the most recent newline in `text`.
     fn column(&self, at: usize) -> usize {
         self.text[..at].chars().rev().take_while(|&c| !is_newline(c)).count()
     }
 
+    /// A marker that will point to the current token in the parser once it's
+    /// been eaten.
     fn marker(&self) -> Marker {
         Marker(self.nodes.len())
     }
 
-    /// Get a marker after the last non-trivia node.
+    /// A marker that will point to first trivia before this token in the
+    /// parser (or the token itself if no trivia precede it).
     fn before_trivia(&self) -> Marker {
         let mut i = self.nodes.len();
         if self.lexer.mode() != LexMode::Markup && self.prev_end != self.current_start {
@@ -1658,6 +1773,7 @@ impl<'s> Parser<'s> {
         m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
     }
 
+    /// Iterate over the non-trivia tokens following the marker.
     #[track_caller]
     fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
         self.nodes[m.0..]
@@ -1665,10 +1781,15 @@ impl<'s> Parser<'s> {
             .filter(|child| !child.kind().is_error() && !child.kind().is_trivia())
     }
 
+    /// Wrap the nodes from a marker up to (but excluding) the current token in
+    /// a new [inner node](`SyntaxNode::inner`) of the given kind. This is an
+    /// easy interface for creating nested syntax nodes _after_ having parsed
+    /// their children.
     fn wrap(&mut self, from: Marker, kind: SyntaxKind) {
         self.wrap_within(from, self.before_trivia(), kind);
     }
 
+    /// Wrap including any trailing trivia nodes.
     fn wrap_all(&mut self, from: Marker, kind: SyntaxKind) {
         self.wrap_within(from, Marker(self.nodes.len()), kind)
     }
@@ -1681,11 +1802,14 @@ impl<'s> Parser<'s> {
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
     }
 
+    /// Enter a new [`LexMode`] that will affect subsequent tokens (does not
+    /// modify the current token).
     fn enter(&mut self, mode: LexMode) {
         self.modes.push(self.lexer.mode());
         self.lexer.set_mode(mode);
     }
 
+    /// Exit the current [`LexMode`], possibly re-lexing the current token.
     fn exit(&mut self) {
         let mode = self.modes.pop().unwrap();
         if mode != self.lexer.mode() {
@@ -1697,10 +1821,13 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Enter a new [`NewlineMode`] that will affect subsequent tokens (does not
+    /// modify the current token).
     fn enter_newline_mode(&mut self, stop: NewlineMode) {
         self.newline_modes.push(stop);
     }
 
+    /// Exit the current [`NewlineMode`], possibly re-lexing the current token.
     fn exit_newline_mode(&mut self) {
         self.unskip();
         self.newline_modes.pop();
@@ -1709,6 +1836,7 @@ impl<'s> Parser<'s> {
         self.skip();
     }
 
+    /// Save a checkpoint of the parser state.
     fn checkpoint(&self) -> Checkpoint<'s> {
         Checkpoint {
             lexer: self.lexer.clone(),
@@ -1719,6 +1847,7 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Reset the parser from a checkpoint.
     fn restore(&mut self, checkpoint: Checkpoint<'s>) {
         self.lexer = checkpoint.lexer;
         self.prev_end = checkpoint.prev_end;
@@ -1727,6 +1856,7 @@ impl<'s> Parser<'s> {
         self.nodes.truncate(checkpoint.nodes);
     }
 
+    /// Move past trivia nodes in Code/Math.
     fn skip(&mut self) {
         if self.lexer.mode() != LexMode::Markup {
             while self.current.is_trivia() {
@@ -1736,6 +1866,8 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Move the parser back to the start of this token or its leading trivia
+    /// (in Code/Math).
     fn unskip(&mut self) {
         if self.lexer.mode() != LexMode::Markup && self.prev_end != self.current_start {
             while self.nodes.last().is_some_and(|last| last.kind().is_trivia()) {
@@ -1747,6 +1879,7 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Save the current token to the `nodes` vector as an Inner or Error node.
     fn save(&mut self) {
         let text = self.current_text();
         if self.at(SyntaxKind::Error) {
@@ -1761,21 +1894,24 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Find the kind of the next non-trivia token in the lexer.
     fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
         loop {
             let next = lexer.next();
-            // Loop is terminable, because SyntaxKind::End is not a trivia.
+            // Loop is terminable, because `SyntaxKind::End` is not a trivia.
             if !next.is_trivia() {
                 break next;
             }
         }
     }
 
+    /// Move the lexer forward and prepare the current token. In Code, this
+    /// might insert a temporary [`SyntaxKind::End`] based on our newline mode.
     fn lex(&mut self) {
         self.current_start = self.lexer.cursor();
         self.current = self.lexer.next();
 
-        // Special cases to handle newlines in code mode.
+        // Special cases to handle newlines in Code.
         if self.lexer.mode() == LexMode::Code
             && self.lexer.newline()
             && match self.newline_modes.last() {
@@ -1794,7 +1930,7 @@ impl<'s> Parser<'s> {
 }
 
 impl<'s> Parser<'s> {
-    /// Consume the given syntax `kind` or produce an error.
+    /// Consume the given `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
         if at {
@@ -1833,7 +1969,7 @@ impl<'s> Parser<'s> {
         self.nodes.insert(m.0, error);
     }
 
-    /// Produce a hint.
+    /// Add a hint to a trailing error.
     fn hint(&mut self, hint: &str) {
         let m = self.before_trivia();
         if let Some(error) = self.nodes.get_mut(m.0 - 1) {
