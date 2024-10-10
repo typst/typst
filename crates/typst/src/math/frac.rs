@@ -130,8 +130,9 @@ fn layout(
     )?;
 
     let around = FRAC_AROUND.at(font_size);
-    let num_gap = (shift_up - axis - num.descent()).max(num_min + thickness / 2.0);
-    let denom_gap = (shift_down + axis - denom.ascent()).max(denom_min + thickness / 2.0);
+    let num_gap = (shift_up - (axis + thickness / 2.0) - num.descent()).max(num_min);
+    let denom_gap =
+        (shift_down + (axis - thickness / 2.0) - denom.ascent()).max(denom_min);
 
     let line_width = num.width().max(denom.width());
     let width = line_width + 2.0 * around;
