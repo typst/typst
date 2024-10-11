@@ -17,6 +17,15 @@ $ x + 1 &= a^2 + b^2 \
 $ a + b &= 2 + 3 &= 5 \
       b &= c     &= 3 $
 
+--- math-align-columns ---
+// Test columns created with alignment points.
+$ A &= B &= C \
+  D &= E &= F $
+$ A &= B B B B &= C \
+  D &= E       &= F $
+$ A &= B & &= C \
+  D &= E & &= F $
+
 --- math-align-cases ---
 // Test in case distinction.
 $ f := cases(
@@ -54,6 +63,12 @@ $
 "abc" &= c \ \ \
 $
 Multiple trailing line breaks.
+
+--- math-multiline-line-spacing ---
+// Test modifying spacing between lines.
+#set par(leading: 2em)
+$ a &=b & c&=d \
+  e &=f & g&=h $
 
 --- math-linebreaking-after-binop-and-rel ---
 // Basic breaking after binop, rel
@@ -110,6 +125,7 @@ Nothing: $ $, just empty.
 --- math-pagebreaking ---
 // Test breaking of equations at page boundaries.
 #set page(height: 5em)
+#set math.equation(column-gap: 0em)
 #show math.equation: set block(breakable: true)
 
 $ a &+ b + & c \
@@ -121,7 +137,7 @@ $ a &+ b + & c \
 --- math-pagebreaking-numbered ---
 // Test breaking of equations with numbering.
 #set page(height: 5em)
-#set math.equation(numbering: "1")
+#set math.equation(column-gap: 0em, numbering: "1")
 #show math.equation: set block(breakable: true)
 
 $ a &+ b + & c \
