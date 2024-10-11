@@ -1057,29 +1057,25 @@ fn return_stmt(p: &mut Parser) {
 
 /// An expression that starts with a parenthesis.
 fn expr_with_paren(p: &mut Parser, atomic: bool) {
-    // If we've seen this position before and have a memoized result, just use
-    // it. See below for more explanation about this memoization.
-    let start = p.current_start();
-    if let Some((range, end_point)) = p.memo.get(&start).cloned() {
-        // Restore the end point first, so that it doesn't truncate our freshly
-        // pushed nodes. If the current length of `p.nodes` doesn't match what
-        // we had in the memoized run, this might otherwise happen.
-        p.restore(end_point);
-        p.nodes.extend(p.memo_arena[range].iter().cloned());
+    if atomic {
+        // Atomic expressions aren't modified by operators that follow them, so
+        // our first guess of array/dict will be correct.
+        parenthesized_or_array_or_dict(p);
         return;
     }
 
-    let m = p.marker();
-    let checkpoint = p.checkpoint();
+    // If we've seen this position before and have a memoized result, restore it
+    // and return. Otherwise, get a key to this position and a checkpoint to
+    // restart from in case we make a wrong prediction.
+    let Some((memo_key, checkpoint)) = p.restore_memo_or_checkpoint() else { return };
+    // The node length from when we restored.
+    let prev_len = checkpoint.node_len;
 
     // When we reach a '(', we can't be sure what it is. First, we attempt to
     // parse as a simple parenthesized expression, array, or dictionary as
     // these are the most likely things. We can handle all of those in a single
     // pass.
     let kind = parenthesized_or_array_or_dict(p);
-    if atomic {
-        return;
-    }
 
     // If, however, '=>' or '=' follows, we must backtrack and reparse as either
     // a parameter list or a destructuring. To be able to do that, we created a
@@ -1100,6 +1096,7 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
     // case running time of O(2n).
     if p.at(SyntaxKind::Arrow) {
         p.restore(checkpoint);
+        let m = p.marker();
         params(p);
         if !p.expect(SyntaxKind::Arrow) {
             return;
@@ -1108,6 +1105,7 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
         p.wrap(m, SyntaxKind::Closure);
     } else if p.at(SyntaxKind::Eq) && kind != SyntaxKind::Parenthesized {
         p.restore(checkpoint);
+        let m = p.marker();
         destructuring_or_parenthesized(p, true, &mut HashSet::new());
         if !p.expect(SyntaxKind::Eq) {
             return;
@@ -1119,9 +1117,7 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
     }
 
     // Memoize result if we backtracked.
-    let offset = p.memo_arena.len();
-    p.memo_arena.extend(p.nodes[m.0..].iter().cloned());
-    p.memo.insert(start, (offset..p.memo_arena.len(), p.checkpoint()));
+    p.memoize_parsed_nodes(memo_key, prev_len);
 }
 
 /// Parses either
@@ -1456,6 +1452,9 @@ fn destructuring_item<'s>(
 
     // Parse a normal positional pattern or a destructuring key.
     let was_at_pat = p.at_set(set::PATTERN);
+
+    // We must use a full checkpoint here (can't just clone the lexer) because
+    // there may be trivia between the identifier and the colon we need to skip.
     let checkpoint = p.checkpoint();
     if !(p.eat_if(SyntaxKind::Ident) && p.at(SyntaxKind::Colon)) {
         p.restore(checkpoint);
@@ -1579,9 +1578,7 @@ struct Parser<'s> {
     /// Parser checkpoints for a given text index. Used for efficient parser
     /// backtracking similar to packrat parsing. See comments above in
     /// [`expr_with_paren`].
-    memo: HashMap<usize, (Range<usize>, Checkpoint<'s>)>,
-    /// The stored parse results at each checkpoint.
-    memo_arena: Vec<SyntaxNode>,
+    memo: MemoArena<'s>,
 }
 
 /// How to proceed with parsing when at a newline in Code.
@@ -1601,15 +1598,6 @@ enum NewlineMode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Marker(usize);
 
-#[derive(Clone)]
-struct Checkpoint<'s> {
-    lexer: Lexer<'s>,
-    prev_end: usize,
-    current_start: usize,
-    current: SyntaxKind,
-    nodes: usize,
-}
-
 impl<'s> Parser<'s> {
     /// Create a new parser starting from the given text offset and lexer mode.
     fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
@@ -1626,8 +1614,7 @@ impl<'s> Parser<'s> {
             nodes: vec![],
             modes: vec![],
             newline_modes: vec![],
-            memo: HashMap::new(),
-            memo_arena: vec![],
+            memo: Default::default(),
         }
     }
 
@@ -1836,26 +1823,6 @@ impl<'s> Parser<'s> {
         self.skip();
     }
 
-    /// Save a checkpoint of the parser state.
-    fn checkpoint(&self) -> Checkpoint<'s> {
-        Checkpoint {
-            lexer: self.lexer.clone(),
-            prev_end: self.prev_end,
-            current_start: self.current_start,
-            current: self.current,
-            nodes: self.nodes.len(),
-        }
-    }
-
-    /// Reset the parser from a checkpoint.
-    fn restore(&mut self, checkpoint: Checkpoint<'s>) {
-        self.lexer = checkpoint.lexer;
-        self.prev_end = checkpoint.prev_end;
-        self.current_start = checkpoint.current_start;
-        self.current = checkpoint.current;
-        self.nodes.truncate(checkpoint.nodes);
-    }
-
     /// Move past trivia nodes in Code/Math.
     fn skip(&mut self) {
         if self.lexer.mode() != LexMode::Markup {
@@ -1925,6 +1892,90 @@ impl<'s> Parser<'s> {
             }
         {
             self.current = SyntaxKind::End;
+        }
+    }
+}
+
+/// Extra parser state for efficiently recovering from mispredicted parses.
+///
+/// This is the same idea as packrat parsing, but we use it only in the limited
+/// case of parenthesized structures. See [`expr_with_paren`] for more.
+#[derive(Default)]
+struct MemoArena<'s> {
+    /// A single arena of previously parsed nodes (to reduce allocations).
+    /// Memoized ranges refer to unique sections of the arena.
+    arena: Vec<SyntaxNode>,
+    /// A map from the parser's current position to a range of previously parsed
+    /// nodes in the arena and a checkpoint of the parser's state. These allow
+    /// us to reset the parser to avoid parsing the same location again.
+    memo_map: HashMap<MemoKey, (Range<usize>, Checkpoint<'s>)>,
+}
+
+/// A type alias for the memo key so it doesn't get confused with other usizes.
+///
+/// The memo is keyed by the index into `text` of the current token's start.
+type MemoKey = usize;
+
+/// A checkpoint of the parser which can fully restore it to a previous state.
+#[derive(Clone)]
+struct Checkpoint<'s> {
+    lexer: Lexer<'s>,
+    prev_end: usize,
+    current_start: usize,
+    current: SyntaxKind,
+    node_len: usize,
+}
+
+impl<'s> Parser<'s> {
+    /// Store the already parsed nodes and the parser state into the memo map by
+    /// extending the arena and storing the extended range and a checkpoint.
+    fn memoize_parsed_nodes(&mut self, key: MemoKey, prev_len: usize) {
+        let memo_start = self.memo.arena.len();
+        self.memo.arena.extend_from_slice(&self.nodes[prev_len..]);
+        let arena_range = memo_start..self.memo.arena.len();
+        self.memo.memo_map.insert(key, (arena_range, self.checkpoint()));
+    }
+
+    /// Try to load a memoized result, return `None` if we did or `Some` (with a
+    /// checkpoint and a key for the memo map) if we didn't.
+    fn restore_memo_or_checkpoint(&mut self) -> Option<(MemoKey, Checkpoint<'s>)> {
+        // We use the starting index of the current token as our key.
+        let key: MemoKey = self.current_start();
+        match self.memo.memo_map.get(&key).cloned() {
+            Some((range, checkpoint)) => {
+                self.nodes.extend_from_slice(&self.memo.arena[range]);
+                // It's important that we don't truncate the nodes vector since
+                // it may have grown or shrunk (due to other memoization or
+                // error reporting) since we made this checkpoint.
+                self.restore_partial(checkpoint);
+                None
+            }
+            None => Some((key, self.checkpoint())),
+        }
+    }
+
+    /// Restore the parser to the state at a checkpoint.
+    fn restore(&mut self, checkpoint: Checkpoint<'s>) {
+        self.nodes.truncate(checkpoint.node_len);
+        self.restore_partial(checkpoint);
+    }
+
+    /// Restore parts of the checkpoint excluding the nodes vector.
+    fn restore_partial(&mut self, checkpoint: Checkpoint<'s>) {
+        self.lexer = checkpoint.lexer;
+        self.prev_end = checkpoint.prev_end;
+        self.current_start = checkpoint.current_start;
+        self.current = checkpoint.current;
+    }
+
+    /// Save a checkpoint of the parser state.
+    fn checkpoint(&self) -> Checkpoint<'s> {
+        Checkpoint {
+            lexer: self.lexer.clone(),
+            prev_end: self.prev_end,
+            current_start: self.current_start,
+            current: self.current,
+            node_len: self.nodes.len(),
         }
     }
 }
