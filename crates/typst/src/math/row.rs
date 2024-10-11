@@ -198,12 +198,14 @@ impl MathRun {
     ) -> MathRunFrameBuilder {
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
-        let alignments = alignments(&rows);
+
+        let font_size = scaled_font_size(ctx, styles);
+        let column_gap = EquationElem::column_gap_in(styles).at(font_size);
+        let alignments = alignments(&rows, column_gap);
 
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
             ParElem::leading_in(styles)
         } else {
-            let font_size = scaled_font_size(ctx, styles);
             TIGHT_LEADING.at(font_size)
         };
 

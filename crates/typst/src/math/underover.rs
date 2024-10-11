@@ -458,7 +458,7 @@ pub(super) fn stack(
     minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
-    let AlignmentResult { points, width } = alignments(&rows);
+    let AlignmentResult { points, width } = alignments(&rows, Abs::zero());
     let rows: Vec<_> = rows
         .into_iter()
         .map(|row| row.into_line_frame(&points, alternator))
