@@ -303,8 +303,10 @@ pub struct ParLine {
 
     /// Controls when to reset line numbering.
     ///
-    /// Possible options are `"document"`, indicating the line number counter
-    /// is never reset, or `"page"`, indicating it is reset on every page.
+    /// _Note:_ The line numbering scope must be uniform across each page run (a
+    /// page run is a sequence of pages without an explicit pagebreak in
+    /// between). For this reason, set rules for it should be defined before any
+    /// page content, typically at the very start of the document.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
