@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Neg;
 use std::str::FromStr;
 
@@ -88,7 +89,7 @@ use crate::World;
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
 #[ty(scope, cast)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Decimal(rust_decimal::Decimal);
 
 impl Decimal {
@@ -370,6 +371,22 @@ impl Neg for Decimal {
     }
 }
 
+impl Hash for Decimal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // `rust_decimal`'s Hash implementation normalizes decimals before
+        // hashing them. This means decimals with different scales but
+        // equivalent value not only compare equal but also hash equally. Here,
+        // we hash all bytes explicitly to ensure the scale is also considered.
+        // This means that 123.314 == 123.31400, but 123.314.hash() !=
+        // 123.31400.hash().
+        //
+        // Note that this implies that equal decimals can have different hashes,
+        // which might generate problems with certain data structures, such as
+        // HashSet and HashMap.
+        self.0.serialize().hash(state);
+    }
+}
+
 /// A value that can be cast to a decimal.
 pub enum ToDecimal {
     /// A string with the decimal's representation.
@@ -385,4 +402,28 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::Decimal;
+    use crate::utils::hash128;
+
+    #[test]
+    fn test_decimals_with_equal_scales_hash_identically() {
+        let a = Decimal::from_str("3.14").unwrap();
+        let b = Decimal::from_str("3.14").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(hash128(&a), hash128(&b));
+    }
+
+    #[test]
+    fn test_decimals_with_different_scales_hash_differently() {
+        let a = Decimal::from_str("3.140").unwrap();
+        let b = Decimal::from_str("3.14000").unwrap();
+        assert_eq!(a, b);
+        assert_ne!(hash128(&a), hash128(&b));
+    }
 }
