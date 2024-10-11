@@ -192,7 +192,9 @@ impl MathRun {
     pub fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder {
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
-        let alignments = alignments(&rows);
+
+        let column_gap = EquationElem::column_gap_in(styles).resolve(styles);
+        let alignments = alignments(&rows, column_gap);
 
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
             ParElem::leading_in(styles)
