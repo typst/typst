@@ -5,3 +5,4 @@ bibliography = Bibliographie
 heading = Abschnitt
 outline = Inhaltsverzeichnis
 raw = Listing
+page = Seite

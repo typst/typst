@@ -5,3 +5,4 @@ bibliography = Literatura
 heading = Poglavje
 outline = Kazalo
 raw = Program
+page = stran

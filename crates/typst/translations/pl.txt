@@ -5,3 +5,4 @@ bibliography = Bibliografia
 heading = Sekcja
 outline = Spis treści
 raw = Program
+page = strona
