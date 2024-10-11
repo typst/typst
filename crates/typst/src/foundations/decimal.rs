@@ -92,22 +92,6 @@ use crate::World;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Decimal(rust_decimal::Decimal);
 
-impl Hash for Decimal {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // `rust_decimal`'s Hash implementation normalizes decimals before
-        // hashing them. This means decimals with different scales but
-        // equivalent value not only compare equal but also hash equally.
-        // Here, we hash all bytes explicitly to ensure the scale is also
-        // considered. This means that 123.314 == 123.31400, but
-        // 123.314.hash() != 123.31400.hash().
-        //
-        // Note that this implies that equal decimals can have different
-        // hashes, which might generate problems with certain data structures,
-        // such as HashSet and HashMap.
-        self.0.serialize().hash(state);
-    }
-}
-
 impl Decimal {
     pub const ZERO: Self = Self(rust_decimal::Decimal::ZERO);
     pub const ONE: Self = Self(rust_decimal::Decimal::ONE);
@@ -384,6 +368,22 @@ impl Neg for Decimal {
 
     fn neg(self) -> Self {
         Self(-self.0)
+    }
+}
+
+impl Hash for Decimal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // `rust_decimal`'s Hash implementation normalizes decimals before
+        // hashing them. This means decimals with different scales but
+        // equivalent value not only compare equal but also hash equally. Here,
+        // we hash all bytes explicitly to ensure the scale is also considered.
+        // This means that 123.314 == 123.31400, but 123.314.hash() !=
+        // 123.31400.hash().
+        //
+        // Note that this implies that equal decimals can have different hashes,
+        // which might generate problems with certain data structures, such as
+        // HashSet and HashMap.
+        self.0.serialize().hash(state);
     }
 }
 
