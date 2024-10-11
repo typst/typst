@@ -104,7 +104,7 @@ pub const ATOMIC_CODE_PRIMARY: SyntaxSet = syntax_set!(
     Numeric,
     Str,
     Label,
-    RawDelim,
+    Raw,
 );
 
 /// Syntax kinds that are unary operators.

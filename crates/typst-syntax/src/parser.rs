@@ -116,10 +116,11 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
+        SyntaxKind::Raw => p.eat(), // Raw is handled entirely in the Lexer.
+
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
-        SyntaxKind::RawDelim => raw(p),
         SyntaxKind::HeadingMarker if *at_start => heading(p),
         SyntaxKind::ListMarker if *at_start => list_item(p),
         SyntaxKind::EnumMarker if *at_start => enum_item(p),
@@ -160,22 +161,6 @@ fn emph(p: &mut Parser) {
     markup(p, false, 0, |p| p.at_set(syntax_set!(Underscore, Parbreak, RightBracket)));
     p.expect_closing_delimiter(m, SyntaxKind::Underscore);
     p.wrap(m, SyntaxKind::Emph);
-}
-
-/// Parses raw text with optional syntax highlighting: `` `...` ``.
-fn raw(p: &mut Parser) {
-    let m = p.marker();
-    p.enter(LexMode::Raw);
-    p.assert(SyntaxKind::RawDelim);
-
-    // Eats until the closing delimiter.
-    while !p.end() && !p.at(SyntaxKind::RawDelim) {
-        p.eat();
-    }
-
-    p.expect(SyntaxKind::RawDelim);
-    p.exit();
-    p.wrap(m, SyntaxKind::Raw);
 }
 
 /// Parses a section heading: `= Introduction`.
@@ -767,7 +752,6 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftParen => expr_with_paren(p, atomic),
-        SyntaxKind::RawDelim => raw(p),
         SyntaxKind::Dollar => equation(p),
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
@@ -781,6 +765,8 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::Break => break_stmt(p),
         SyntaxKind::Continue => continue_stmt(p),
         SyntaxKind::Return => return_stmt(p),
+
+        SyntaxKind::Raw => p.eat(), // Raw is handled entirely in the Lexer.
 
         SyntaxKind::None
         | SyntaxKind::Auto
