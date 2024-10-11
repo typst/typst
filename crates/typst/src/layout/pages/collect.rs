@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::foundations::StyleChain;
-use crate::introspection::{Locator, SplitLocator, TagElem, TagKind};
+use crate::introspection::{Locator, SplitLocator, Tag, TagElem};
 use crate::layout::{PagebreakElem, Parity};
 use crate::realize::Pair;
 
@@ -121,7 +121,7 @@ pub fn collect<'a>(
 /// a pagebreak to after it. Returns the position right after the last
 /// non-migrated tag.
 ///
-/// This is important because we want the positions of introspectible elements
+/// This is important because we want the positions of introspectable elements
 /// that technically started before a pagebreak, but have no visible content
 /// yet, to be after the pagebreak. A typical case where this happens is `show
 /// heading: it => pagebreak() + it`.
@@ -136,9 +136,10 @@ fn migrate_unterminated_tags(children: &mut [Pair], mid: usize) -> usize {
     // are terminated).
     let excluded: HashSet<_> = children[start..mid]
         .iter()
-        .filter_map(|(c, _)| c.to_packed::<TagElem>())
-        .filter(|elem| elem.tag.kind() == TagKind::End)
-        .map(|elem| elem.tag.location())
+        .filter_map(|(c, _)| match c.to_packed::<TagElem>()?.tag {
+            Tag::Start(_) => None,
+            Tag::End(loc, _) => Some(loc),
+        })
         .collect();
 
     // A key function that partitions the area of interest into three groups:

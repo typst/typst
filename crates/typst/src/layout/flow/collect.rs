@@ -11,7 +11,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{
-    Introspector, Locator, LocatorLink, SplitLocator, Tag, TagElem,
+    Introspector, Location, Locator, LocatorLink, SplitLocator, Tag, TagElem,
 };
 use crate::layout::{
     layout_frame, Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem,
@@ -62,7 +62,7 @@ struct Collector<'a, 'x, 'y> {
 impl<'a> Collector<'a, '_, '_> {
     /// Perform the collection.
     fn run(mut self) -> SourceResult<Vec<Child<'a>>> {
-        for (idx, &(child, styles)) in self.children.iter().enumerate() {
+        for &(child, styles) in self.children {
             if let Some(elem) = child.to_packed::<TagElem>() {
                 self.output.push(Child::Tag(&elem.tag));
             } else if let Some(elem) = child.to_packed::<VElem>() {
@@ -72,7 +72,7 @@ impl<'a> Collector<'a, '_, '_> {
             } else if let Some(elem) = child.to_packed::<BlockElem>() {
                 self.block(elem, styles);
             } else if let Some(elem) = child.to_packed::<PlaceElem>() {
-                self.place(idx, elem, styles)?;
+                self.place(elem, styles)?;
             } else if child.is::<FlushElem>() {
                 self.output.push(Child::Flush);
             } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
@@ -220,7 +220,6 @@ impl<'a> Collector<'a, '_, '_> {
     /// Collects a placed element into a [`PlacedChild`].
     fn place(
         &mut self,
-        idx: usize,
         elem: &'a Packed<PlaceElem>,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
@@ -257,7 +256,6 @@ impl<'a> Collector<'a, '_, '_> {
         let clearance = elem.clearance(styles);
         let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
         self.output.push(Child::Placed(self.boxed(PlacedChild {
-            idx,
             align_x,
             align_y,
             scope,
@@ -553,7 +551,6 @@ impl MultiSpill<'_, '_> {
 /// A child that encapsulates a prepared placed element.
 #[derive(Debug)]
 pub struct PlacedChild<'a> {
-    pub idx: usize,
     pub align_x: FixedAlignment,
     pub align_y: Smart<Option<FixedAlignment>>,
     pub scope: PlacementScope,
@@ -573,15 +570,26 @@ impl PlacedChild<'_> {
         self.cell.get_or_init(base, |base| {
             let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
             let aligned = AlignElem::set_alignment(align).wrap();
-            layout_frame(
+
+            let mut frame = layout_frame(
                 engine,
                 &self.elem.body,
                 self.locator.relayout(),
                 self.styles.chain(&aligned),
                 Region::new(base, Axes::splat(false)),
-            )
-            .map(|frame| frame.post_processed(self.styles))
+            )?;
+
+            if self.float {
+                frame.set_parent(self.elem.location().unwrap());
+            }
+
+            Ok(frame.post_processed(self.styles))
         })
+    }
+
+    /// The element's location.
+    pub fn location(&self) -> Location {
+        self.elem.location().unwrap()
     }
 }
 

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use smallvec::SmallVec;
 
 use crate::foundations::{cast, dict, Dict, Label, StyleChain, Value};
-use crate::introspection::Tag;
+use crate::introspection::{Location, Tag};
 use crate::layout::{
     Abs, Axes, Corners, FixedAlignment, HideElem, Length, Point, Rel, Sides, Size,
     Transform,
@@ -407,8 +407,21 @@ impl Frame {
         }
     }
 
+    /// Add a label to the frame.
+    pub fn label(&mut self, label: Label) {
+        self.group(|g| g.label = Some(label));
+    }
+
+    /// Set a parent for the frame. As a result, all elements in the frame
+    /// become logically ordered immediately after the given location.
+    pub fn set_parent(&mut self, parent: Location) {
+        if !self.is_empty() {
+            self.group(|g| g.parent = Some(parent));
+        }
+    }
+
     /// Wrap the frame's contents in a group and modify that group with `f`.
-    pub fn group<F>(&mut self, f: F)
+    fn group<F>(&mut self, f: F)
     where
         F: FnOnce(&mut GroupItem),
     {
@@ -557,6 +570,9 @@ pub struct GroupItem {
     pub clip_path: Option<Path>,
     /// The group's label.
     pub label: Option<Label>,
+    /// The group's logical parent. All elements in this group are logically
+    /// ordered immediately after the parent's start location.
+    pub parent: Option<Location>,
 }
 
 impl GroupItem {
@@ -567,6 +583,7 @@ impl GroupItem {
             transform: Transform::identity(),
             clip_path: None,
             label: None,
+            parent: None,
         }
     }
 }

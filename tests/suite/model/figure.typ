@@ -267,3 +267,25 @@ HI#footnote.entry(clearance: 2.5em)[There]
 // Test that figure caption separator is synthesized correctly.
 #show figure.caption: c => test(c.separator, [#": "])
 #figure(table[], caption: [This is a test caption])
+
+--- issue-4966-figure-float-counter ---
+#let c = context counter(figure.where(kind: image)).display()
+#set align(center)
+
+#c
+
+#figure(
+  square(c),
+  placement: bottom,
+  caption: [A]
+)
+
+#c
+
+#figure(
+  circle(c),
+  placement: top,
+  caption: [B]
+)
+
+#c

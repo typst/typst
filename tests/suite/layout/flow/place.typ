@@ -165,7 +165,6 @@ C
   place(auto, float: true, block(width: 100%, height: 100%, fill: aqua))
 )
 
-
 --- place-float-column-align-auto ---
 #set page(height: 150pt, columns: 2)
 #set place(auto, float: true, clearance: 10pt)

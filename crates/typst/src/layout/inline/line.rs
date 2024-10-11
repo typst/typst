@@ -575,38 +575,34 @@ fn add_par_line_marker(
     locator: &mut SplitLocator,
     top: Abs,
 ) {
-    if let Some(numbering) = ParLine::numbering_in(styles) {
-        let number_margin = ParLine::number_margin_in(styles);
-        let number_align = ParLine::number_align_in(styles);
+    let Some(numbering) = ParLine::numbering_in(styles) else { return };
+    let margin = ParLine::number_margin_in(styles);
+    let align = ParLine::number_align_in(styles);
 
-        // Delay resolving the number clearance until line numbers are laid out
-        // to avoid inconsistent spacing depending on varying font size.
-        let number_clearance = ParLine::number_clearance_in(styles);
+    // Delay resolving the number clearance until line numbers are laid out to
+    // avoid inconsistent spacing depending on varying font size.
+    let clearance = ParLine::number_clearance_in(styles);
 
-        let mut par_line =
-            ParLineMarker::new(numbering, number_align, number_margin, number_clearance)
-                .pack();
+    // Elements in tags must have a location for introspection to work. We do
+    // the work here instead of going through all of the realization process
+    // just for this, given we don't need to actually place the marker as we
+    // manually search for it in the frame later (when building a root flow,
+    // where line numbers can be displayed), so we just need it to be in a tag
+    // and to be valid (to have a location).
+    let mut marker = ParLineMarker::new(numbering, align, margin, clearance).pack();
+    let key = crate::utils::hash128(&marker);
+    let loc = locator.next_location(engine.introspector, key);
+    marker.set_location(loc);
 
-        // Elements in tags must have a location for introspection to work.
-        // We do the work here instead of going through all of the realization
-        // process just for this, given we don't need to actually place the
-        // marker as we manually search for it in the frame later (when
-        // building a root flow, where line numbers can be displayed), so we
-        // just need it to be in a tag and to be valid (to have a location).
-        let hash = crate::utils::hash128(&par_line);
-        let location = locator.next_location(engine.introspector, hash);
-        par_line.set_location(location);
-
-        // Create a tag through which we can search for this line's marker
-        // later. Its 'x' coordinate is not important, just the 'y'
-        // coordinate, as that's what is used for line numbers. We will place
-        // the tag among other subframes in the line such that it is aligned
-        // with the line's general baseline. However, the line number will
-        // still need to manually adjust its own 'y' position based on its own
-        // baseline.
-        let tag = Tag::new(par_line, hash);
-        output.push(Point::with_y(top), FrameItem::Tag(tag));
-    }
+    // Create start and end tags through which we can search for this line's
+    // marker later. The 'x' coordinate is not important, just the 'y'
+    // coordinate, as that's what is used for line numbers. We will place the
+    // tags among other subframes in the line such that it is aligned with the
+    // line's general baseline. However, the line number will still need to
+    // manually adjust its own 'y' position based on its own baseline.
+    let pos = Point::with_y(top);
+    output.push(pos, FrameItem::Tag(Tag::Start(marker)));
+    output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
 }
 
 /// How much a character should hang into the end margin.
