@@ -9,6 +9,7 @@ mod variant;
 pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
 pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
 
+use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -17,7 +18,8 @@ use ttf_parser::GlyphId;
 
 use self::book::find_name;
 use crate::foundations::{Bytes, Cast};
-use crate::layout::Em;
+use crate::layout::{Abs, Em, Frame};
+use crate::text::{BottomEdge, TopEdge};
 
 /// An OpenType font.
 ///
@@ -124,6 +126,48 @@ impl Font {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
         &self.0.rusty
+    }
+
+    /// Resolve the top and bottom edges of text.
+    pub fn edges(
+        &self,
+        top_edge: TopEdge,
+        bottom_edge: BottomEdge,
+        font_size: Abs,
+        bounds: TextEdgeBounds,
+    ) -> (Abs, Abs) {
+        let cell = OnceCell::new();
+        let bbox = |gid, f: fn(ttf_parser::Rect) -> i16| {
+            cell.get_or_init(|| self.ttf().glyph_bounding_box(GlyphId(gid)))
+                .map(|bbox| self.to_em(f(bbox)).at(font_size))
+                .unwrap_or_default()
+        };
+
+        let top = match top_edge {
+            TopEdge::Metric(metric) => match metric.try_into() {
+                Ok(metric) => self.metrics().vertical(metric).at(font_size),
+                Err(_) => match bounds {
+                    TextEdgeBounds::Zero => Abs::zero(),
+                    TextEdgeBounds::Frame(frame) => frame.ascent(),
+                    TextEdgeBounds::Glyph(gid) => bbox(gid, |b| b.y_max),
+                },
+            },
+            TopEdge::Length(length) => length.at(font_size),
+        };
+
+        let bottom = match bottom_edge {
+            BottomEdge::Metric(metric) => match metric.try_into() {
+                Ok(metric) => -self.metrics().vertical(metric).at(font_size),
+                Err(_) => match bounds {
+                    TextEdgeBounds::Zero => Abs::zero(),
+                    TextEdgeBounds::Frame(frame) => frame.descent(),
+                    TextEdgeBounds::Glyph(gid) => -bbox(gid, |b| b.y_min),
+                },
+            },
+            BottomEdge::Length(length) => -length.at(font_size),
+        };
+
+        (top, bottom)
     }
 }
 
@@ -248,4 +292,15 @@ pub enum VerticalFontMetric {
     Baseline,
     /// The font's ascender, which typically exceeds the depth of all glyphs.
     Descender,
+}
+
+/// Defines how to resolve a `Bounds` text edge.
+#[derive(Debug, Copy, Clone)]
+pub enum TextEdgeBounds<'a> {
+    /// Set the bounds to zero.
+    Zero,
+    /// Use the bounding box of the given glyph for the bounds.
+    Glyph(u16),
+    /// Use the dimension of the given frame for the bounds.
+    Frame(&'a Frame),
 }
