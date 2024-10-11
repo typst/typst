@@ -31,6 +31,13 @@
 // Error: 10-19 float is not a valid decimal: float.nan
 #decimal(float.nan)
 
+--- decimal-scale-is-observable ---
+// Ensure equal decimals with different scales produce different strings.
+#let f1(x) = str(x)
+#let f2(x) = f1(x)
+#test(f2(decimal("3.140")), "3.140")
+#test(f2(decimal("3.14000")), "3.14000")
+
 --- decimal-repr ---
 // Test the `repr` function with decimals.
 #test(repr(decimal("12.0")), "decimal(\"12.0\")")
