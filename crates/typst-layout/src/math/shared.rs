@@ -122,7 +122,7 @@ pub fn stack(
     minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
-    let AlignmentResult { points, width } = alignments(&rows);
+    let AlignmentResult { points, width } = alignments(&rows, Abs::zero());
     let rows: Vec<_> = rows
         .into_iter()
         .map(|row| row.into_line_frame(&points, alternator))
@@ -160,7 +160,7 @@ pub fn stack(
 }
 
 /// Determine the positions of the alignment points, according to the input rows combined.
-pub fn alignments(rows: &[MathRun]) -> AlignmentResult {
+pub fn alignments(rows: &[MathRun], gap: Abs) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 
     let mut pending_width = Abs::zero();
@@ -170,6 +170,9 @@ pub fn alignments(rows: &[MathRun]) -> AlignmentResult {
 
         for fragment in row.iter() {
             if matches!(fragment, MathFragment::Align) {
+                if alignment_index > 0 && alignment_index % 2 == 0 {
+                    width += gap;
+                }
                 if alignment_index < widths.len() {
                     widths[alignment_index].set_max(width);
                 } else {
