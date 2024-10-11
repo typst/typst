@@ -406,44 +406,24 @@ cast! {
 
 #[cfg(test)]
 mod tests {
-    use std::hash::{DefaultHasher, Hash, Hasher};
     use std::str::FromStr;
 
     use super::Decimal;
+    use crate::utils::hash128;
 
     #[test]
-    fn test_equal_decimals_with_equal_scales_hash_identically() {
-        let decimal_first = Decimal::from_str("3.14").unwrap();
-        let decimal_second = Decimal::from_str("3.14").unwrap();
-
-        assert_eq!(decimal_first, decimal_second);
-
-        let mut hasher_first = DefaultHasher::new();
-        decimal_first.hash(&mut hasher_first);
-        let hash_first = hasher_first.finish();
-
-        let mut hasher_second = DefaultHasher::new();
-        decimal_second.hash(&mut hasher_second);
-        let hash_second = hasher_second.finish();
-
-        assert_eq!(hash_first, hash_second);
+    fn test_decimals_with_equal_scales_hash_identically() {
+        let a = Decimal::from_str("3.14").unwrap();
+        let b = Decimal::from_str("3.14").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(hash128(&a), hash128(&b));
     }
 
     #[test]
-    fn test_equal_decimals_with_different_scales_hash_differently() {
-        let decimal_short = Decimal::from_str("3.140").unwrap();
-        let decimal_long = Decimal::from_str("3.14000").unwrap();
-
-        assert_eq!(decimal_short, decimal_long);
-
-        let mut hasher_short = DefaultHasher::new();
-        decimal_short.hash(&mut hasher_short);
-        let hash_short = hasher_short.finish();
-
-        let mut hasher_long = DefaultHasher::new();
-        decimal_long.hash(&mut hasher_long);
-        let hash_long = hasher_long.finish();
-
-        assert_ne!(hash_short, hash_long);
+    fn test_decimals_with_different_scales_hash_differently() {
+        let a = Decimal::from_str("3.140").unwrap();
+        let b = Decimal::from_str("3.14000").unwrap();
+        assert_eq!(a, b);
+        assert_ne!(hash128(&a), hash128(&b));
     }
 }
