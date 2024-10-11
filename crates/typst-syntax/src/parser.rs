@@ -226,11 +226,11 @@ fn whitespace_line(p: &mut Parser) {
 /// Parses a mathematical equation: `$x$`, `$ x^2 $`.
 fn equation(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Math);
-    p.assert(SyntaxKind::Dollar);
-    math(p, |p| p.at(SyntaxKind::Dollar));
-    p.expect_closing_delimiter(m, SyntaxKind::Dollar);
-    p.exit();
+    p.with_mode(LexMode::Math, |p| {
+        p.assert(SyntaxKind::Dollar);
+        math(p, |p| p.at(SyntaxKind::Dollar));
+        p.expect_closing_delimiter(m, SyntaxKind::Dollar);
+    });
     p.wrap(m, SyntaxKind::Equation);
 }
 
@@ -586,10 +586,11 @@ fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
 /// Parses a sequence of code expressions.
 fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     while !p.end() && !stop(p) {
-        p.enter_newline_mode(NewlineMode::Contextual);
-
-        let at_expr = p.at_set(set::CODE_EXPR);
-        if at_expr {
+        p.with_nl_mode(AtNewline::Contextual, |p| {
+            if !p.at_set(set::CODE_EXPR) {
+                p.unexpected();
+                return;
+            }
             code_expr(p);
             if !p.end() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
                 p.expected("semicolon or line break");
@@ -598,12 +599,7 @@ fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
                     p.hint("try wrapping your code in a markup block (`[ ]`)");
                 }
             }
-        }
-
-        p.exit_newline_mode();
-        if !at_expr && !p.end() {
-            p.unexpected();
-        }
+        });
     }
 }
 
@@ -614,29 +610,28 @@ fn code_expr(p: &mut Parser) {
 
 /// Parses an atomic code expression embedded in markup or math.
 fn embedded_code_expr(p: &mut Parser) {
-    p.enter_newline_mode(NewlineMode::Stop);
-    p.enter(LexMode::Code);
-    p.assert(SyntaxKind::Hash);
-    p.unskip();
+    p.with_mode(LexMode::Code, |p| {
+        p.with_nl_mode(AtNewline::Stop, |p| {
+            p.assert(SyntaxKind::Hash);
+            p.unskip();
 
-    let stmt = p.at_set(set::STMT);
-    let at = p.at_set(set::ATOMIC_CODE_EXPR);
-    code_expr_prec(p, true, 0);
+            let stmt = p.at_set(set::STMT);
+            let at = p.at_set(set::ATOMIC_CODE_EXPR);
+            code_expr_prec(p, true, 0);
 
-    // Consume error for things like `#12p` or `#"abc\"`.#
-    if !at && !p.current().is_trivia() && !p.end() {
-        p.unexpected();
-    }
+            // Consume error for things like `#12p` or `#"abc\"`.#
+            if !at && !p.current().is_trivia() && !p.end() {
+                p.unexpected();
+            }
 
-    let semi =
-        (stmt || p.directly_at(SyntaxKind::Semicolon)) && p.eat_if(SyntaxKind::Semicolon);
+            let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
+                && p.eat_if(SyntaxKind::Semicolon);
 
-    if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
-        p.expected("semicolon or line break");
-    }
-
-    p.exit();
-    p.exit_newline_mode();
+            if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
+                p.expected("semicolon or line break");
+            }
+        });
+    });
 }
 
 /// Parses a code expression with at least the given precedence.
@@ -790,24 +785,24 @@ pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNod
 /// Parses a code block: `{ let x = 1; x + 2 }`.
 fn code_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Code);
-    p.enter_newline_mode(NewlineMode::Continue);
-    p.assert(SyntaxKind::LeftBrace);
-    code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen)));
-    p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
-    p.exit();
-    p.exit_newline_mode();
+    p.with_mode(LexMode::Code, |p| {
+        p.with_nl_mode(AtNewline::Continue, |p| {
+            p.assert(SyntaxKind::LeftBrace);
+            code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen)));
+            p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
+        });
+    });
     p.wrap(m, SyntaxKind::CodeBlock);
 }
 
 /// Parses a content block: `[*Hi* there!]`.
 fn content_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Markup);
-    p.assert(SyntaxKind::LeftBracket);
-    markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
-    p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
-    p.exit();
+    p.with_mode(LexMode::Markup, |p| {
+        p.assert(SyntaxKind::LeftBracket);
+        markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
+        p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
+    });
     p.wrap(m, SyntaxKind::ContentBlock);
 }
 
@@ -950,14 +945,14 @@ fn module_import(p: &mut Parser) {
 
     if p.eat_if(SyntaxKind::Colon) {
         if p.at(SyntaxKind::LeftParen) {
-            let m1 = p.marker();
-            p.enter_newline_mode(NewlineMode::Continue);
-            p.assert(SyntaxKind::LeftParen);
+            p.with_nl_mode(AtNewline::Continue, |p| {
+                let m2 = p.marker();
+                p.assert(SyntaxKind::LeftParen);
 
-            import_items(p);
+                import_items(p);
 
-            p.expect_closing_delimiter(m1, SyntaxKind::RightParen);
-            p.exit_newline_mode();
+                p.expect_closing_delimiter(m2, SyntaxKind::RightParen);
+            });
         } else if !p.eat_if(SyntaxKind::Star) {
             import_items(p);
         }
@@ -1098,10 +1093,6 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
 /// - an array: `(1, "hi", 12cm)`, or
 /// - a dictionary: `(thickness: 3pt, pattern: dashed)`.
 fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
-    let m = p.marker();
-    p.enter_newline_mode(NewlineMode::Continue);
-    p.assert(SyntaxKind::LeftParen);
-
     let mut state = GroupState {
         count: 0,
         maybe_just_parens: true,
@@ -1124,27 +1115,29 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
     //
     // This does allow some unexpected expressions, such as `(: key: val)`, but
     // it's currently intentional.
-    if p.eat_if(SyntaxKind::Colon) {
-        state.kind = Some(SyntaxKind::Dict);
-        state.maybe_just_parens = false;
-    }
-
-    while !p.current().is_terminator() {
-        if !p.at_set(set::ARRAY_OR_DICT_ITEM) {
-            p.unexpected();
-            continue;
+    let m = p.marker();
+    p.with_nl_mode(AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::LeftParen);
+        if p.eat_if(SyntaxKind::Colon) {
+            state.kind = Some(SyntaxKind::Dict);
         }
 
-        array_or_dict_item(p, &mut state);
-        state.count += 1;
+        while !p.current().is_terminator() {
+            if !p.at_set(set::ARRAY_OR_DICT_ITEM) {
+                p.unexpected();
+                continue;
+            }
 
-        if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
-            state.maybe_just_parens = false;
+            array_or_dict_item(p, &mut state);
+            state.count += 1;
+
+            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+                state.maybe_just_parens = false;
+            }
         }
-    }
 
-    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.exit_newline_mode();
+        p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    });
 
     let kind = if state.maybe_just_parens && state.count == 1 {
         SyntaxKind::Parenthesized
@@ -1230,25 +1223,25 @@ fn args(p: &mut Parser) {
     let m = p.marker();
     if p.at(SyntaxKind::LeftParen) {
         let m2 = p.marker();
-        p.enter_newline_mode(NewlineMode::Continue);
-        p.assert(SyntaxKind::LeftParen);
+        p.with_nl_mode(AtNewline::Continue, |p| {
+            p.assert(SyntaxKind::LeftParen);
 
-        let mut seen = HashSet::new();
-        while !p.current().is_terminator() {
-            if !p.at_set(set::ARG) {
-                p.unexpected();
-                continue;
+            let mut seen = HashSet::new();
+            while !p.current().is_terminator() {
+                if !p.at_set(set::ARG) {
+                    p.unexpected();
+                    continue;
+                }
+
+                arg(p, &mut seen);
+
+                if !p.current().is_terminator() {
+                    p.expect(SyntaxKind::Comma);
+                }
             }
 
-            arg(p, &mut seen);
-
-            if !p.current().is_terminator() {
-                p.expect(SyntaxKind::Comma);
-            }
-        }
-
-        p.expect_closing_delimiter(m2, SyntaxKind::RightParen);
-        p.exit_newline_mode();
+            p.expect_closing_delimiter(m2, SyntaxKind::RightParen);
+        });
     }
 
     while p.directly_at(SyntaxKind::LeftBracket) {
@@ -1293,27 +1286,27 @@ fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
 /// Parses a closure's parameters: `(x, y)`.
 fn params(p: &mut Parser) {
     let m = p.marker();
-    p.enter_newline_mode(NewlineMode::Continue);
-    p.assert(SyntaxKind::LeftParen);
+    p.with_nl_mode(AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::LeftParen);
 
-    let mut seen = HashSet::new();
-    let mut sink = false;
+        let mut seen = HashSet::new();
+        let mut sink = false;
 
-    while !p.current().is_terminator() {
-        if !p.at_set(set::PARAM) {
-            p.unexpected();
-            continue;
+        while !p.current().is_terminator() {
+            if !p.at_set(set::PARAM) {
+                p.unexpected();
+                continue;
+            }
+
+            param(p, &mut seen, &mut sink);
+
+            if !p.current().is_terminator() {
+                p.expect(SyntaxKind::Comma);
+            }
         }
 
-        param(p, &mut seen, &mut sink);
-
-        if !p.current().is_terminator() {
-            p.expect(SyntaxKind::Comma);
-        }
-    }
-
-    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.exit_newline_mode();
+        p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    });
     p.wrap(m, SyntaxKind::Params);
 }
 
@@ -1374,25 +1367,25 @@ fn destructuring_or_parenthesized<'s>(
     let mut maybe_just_parens = true;
 
     let m = p.marker();
-    p.enter_newline_mode(NewlineMode::Continue);
-    p.assert(SyntaxKind::LeftParen);
+    p.with_nl_mode(AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::LeftParen);
 
-    while !p.current().is_terminator() {
-        if !p.at_set(set::DESTRUCTURING_ITEM) {
-            p.unexpected();
-            continue;
+        while !p.current().is_terminator() {
+            if !p.at_set(set::DESTRUCTURING_ITEM) {
+                p.unexpected();
+                continue;
+            }
+
+            destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
+            count += 1;
+
+            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+                maybe_just_parens = false;
+            }
         }
 
-        destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
-        count += 1;
-
-        if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
-            maybe_just_parens = false;
-        }
-    }
-
-    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.exit_newline_mode();
+        p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    });
 
     if maybe_just_parens && count == 1 && !sink {
         p.wrap(m, SyntaxKind::Parenthesized);
@@ -1510,7 +1503,7 @@ fn pattern_leaf<'s>(
 /// ### Modes
 ///
 /// The parser manages the transitions between the three modes of Typst through
-/// stacks of [lexer modes](`LexMode`) and [newline modes](`NewlineMode`).
+/// [lexer modes](`LexMode`) and [newline modes](`AtNewline`).
 ///
 /// The lexer modes map to the three Typst modes and are stored in the lexer,
 /// changing which`SyntaxKind`s it will generate. The mode also affects how the
@@ -1527,8 +1520,11 @@ struct Parser<'s> {
     /// The source text shared with the lexer.
     text: &'s str,
     /// A lexer over the source text with multiple modes. Defines the boundaries
-    /// of tokens and determines their [`SyntaxKind`].
+    /// of tokens and determines their [`SyntaxKind`]. Contains the [`LexMode`]
+    /// defining our current Typst mode.
     lexer: Lexer<'s>,
+    /// The newline mode: whether to insert a temporary end at newlines in Code.
+    nl_mode: AtNewline,
     /// The index into `text` of the end of the previous token.
     prev_end: usize,
     /// The index into `text` of the start of our current token (the end is
@@ -1545,12 +1541,6 @@ struct Parser<'s> {
     /// Nodes representing the concrete syntax tree of previously parsed text.
     /// In Code and Math, includes previously parsed trivia, but not `current`.
     nodes: Vec<SyntaxNode>,
-    /// Stack of lexer modes to be pushed/popped. The current mode is implicitly
-    /// stored in the lexer.
-    modes: Vec<LexMode>,
-    /// Stack of newline modes to be pushed/popped. The current mode is the tail
-    /// of the vector.
-    newline_modes: Vec<NewlineMode>,
     /// Parser checkpoints for a given text index. Used for efficient parser
     /// backtracking similar to packrat parsing. See comments above in
     /// [`expr_with_paren`].
@@ -1558,14 +1548,28 @@ struct Parser<'s> {
 }
 
 /// How to proceed with parsing when at a newline in Code.
-#[derive(Clone)]
-enum NewlineMode {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AtNewline {
+    /// Continue at newlines.
+    Continue,
     /// Stop at any newline.
     Stop,
     /// Continue only if there is no continuation with `else` or `.`.
     Contextual,
-    /// Continue at newlines.
-    Continue,
+}
+
+impl AtNewline {
+    /// Whether to stop at a newline or continue based on the current context.
+    fn stop(self, kind: impl FnOnce() -> SyntaxKind) -> bool {
+        match self {
+            AtNewline::Continue => false,
+            AtNewline::Stop => true,
+            AtNewline::Contextual => match kind() {
+                SyntaxKind::Else | SyntaxKind::Dot => false,
+                _ => true,
+            },
+        }
+    }
 }
 
 /// A marker representing a node's position in the parser. Mainly used for
@@ -1581,16 +1585,15 @@ impl<'s> Parser<'s> {
         lexer.jump(offset);
         let (current, current_node) = lexer.next();
         Self {
-            lexer,
             text,
+            lexer,
+            nl_mode: AtNewline::Continue,
             prev_end: offset,
             current_start: offset,
             current,
             current_node,
             balanced: true,
             nodes: vec![],
-            modes: vec![],
-            newline_modes: vec![],
             memo: Default::default(),
         }
     }
@@ -1767,35 +1770,33 @@ impl<'s> Parser<'s> {
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
     }
 
-    /// Enter a new [`LexMode`] that will affect subsequent tokens (does not
-    /// modify the current token).
-    fn enter(&mut self, mode: LexMode) {
-        self.modes.push(self.lexer.mode());
+    /// Parse within the [`LexMode`] for subsequent tokens (does not change the
+    /// current token). This may re-lex the final token on exit.
+    ///
+    /// This function effectively repurposes the call stack as a stack of modes.
+    fn with_mode(&mut self, mode: LexMode, func: impl FnOnce(&mut Parser<'s>)) {
+        let previous = self.lexer.mode();
         self.lexer.set_mode(mode);
-    }
-
-    /// Exit the current [`LexMode`], possibly re-lexing the current token.
-    fn exit(&mut self) {
-        let mode = self.modes.pop().unwrap();
-        if mode != self.lexer.mode() {
+        func(self);
+        if mode != previous {
             self.unskip();
-            self.lexer.set_mode(mode);
+            self.lexer.set_mode(previous);
             self.lexer.jump(self.current_start);
             self.lex();
             self.skip();
         }
     }
 
-    /// Enter a new [`NewlineMode`] that will affect subsequent tokens (does not
-    /// modify the current token).
-    fn enter_newline_mode(&mut self, stop: NewlineMode) {
-        self.newline_modes.push(stop);
-    }
-
-    /// Exit the current [`NewlineMode`], possibly re-lexing the current token.
-    fn exit_newline_mode(&mut self) {
+    /// Parse within the [`AtNewline`] mode for subsequent tokens (does not
+    /// change the current token). This may re-lex the final token on exit.
+    ///
+    /// This function effectively repurposes the call stack as a stack of modes.
+    fn with_nl_mode(&mut self, mode: AtNewline, func: impl FnOnce(&mut Parser<'s>)) {
+        let previous = self.nl_mode;
+        self.nl_mode = mode;
+        func(self);
         self.unskip();
-        self.newline_modes.pop();
+        self.nl_mode = previous;
         self.lexer.jump(self.prev_end);
         self.lex();
         self.skip();
@@ -1853,15 +1854,7 @@ impl<'s> Parser<'s> {
         // Special cases to handle newlines in Code.
         if self.lexer.mode() == LexMode::Code
             && self.lexer.newline()
-            && match self.newline_modes.last() {
-                Some(NewlineMode::Continue) => false,
-                Some(NewlineMode::Contextual) => !matches!(
-                    Self::next_non_trivia(&mut self.lexer.clone()),
-                    SyntaxKind::Else | SyntaxKind::Dot
-                ),
-                Some(NewlineMode::Stop) => true,
-                None => false,
-            }
+            && self.nl_mode.stop(|| Self::next_non_trivia(&mut self.lexer.clone()))
         {
             self.current = SyntaxKind::End;
         }
