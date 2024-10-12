@@ -37,7 +37,7 @@ use icu_provider_blob::BlobDataProvider;
 use once_cell::sync::Lazy;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::{Rect, Tag};
+use ttf_parser::Tag;
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
@@ -891,28 +891,6 @@ pub enum TopEdge {
     Length(Length),
 }
 
-impl TopEdge {
-    /// Determine if the edge is specified from bounding box info.
-    pub fn is_bounds(&self) -> bool {
-        matches!(self, Self::Metric(TopEdgeMetric::Bounds))
-    }
-
-    /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
-        match self {
-            TopEdge::Metric(metric) => {
-                if let Ok(metric) = metric.try_into() {
-                    font.metrics().vertical(metric).at(font_size)
-                } else {
-                    bbox.map(|bbox| (font.to_em(bbox.y_max)).at(font_size))
-                        .unwrap_or_default()
-                }
-            }
-            TopEdge::Length(length) => length.at(font_size),
-        }
-    }
-}
-
 cast! {
     TopEdge,
     self => match self {
@@ -959,28 +937,6 @@ pub enum BottomEdge {
     Metric(BottomEdgeMetric),
     /// An edge specified as a length.
     Length(Length),
-}
-
-impl BottomEdge {
-    /// Determine if the edge is specified from bounding box info.
-    pub fn is_bounds(&self) -> bool {
-        matches!(self, Self::Metric(BottomEdgeMetric::Bounds))
-    }
-
-    /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
-        match self {
-            BottomEdge::Metric(metric) => {
-                if let Ok(metric) = metric.try_into() {
-                    font.metrics().vertical(metric).at(font_size)
-                } else {
-                    bbox.map(|bbox| (font.to_em(bbox.y_min)).at(font_size))
-                        .unwrap_or_default()
-                }
-            }
-            BottomEdge::Length(length) => length.at(font_size),
-        }
-    }
 }
 
 cast! {

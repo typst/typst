@@ -20,7 +20,8 @@ use crate::math::{
 use crate::model::{Numbering, Outlinable, ParElem, ParLine, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
+    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextEdgeBounds,
+    TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
@@ -290,12 +291,16 @@ fn layout_equation_inline(
 
         let font_size = scaled_font_size(&ctx, styles);
         let slack = ParElem::leading_in(styles) * 0.7;
-        let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
-        let bottom_edge =
-            -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
 
-        let ascent = top_edge.max(frame.ascent() - slack);
-        let descent = bottom_edge.max(frame.descent() - slack);
+        let (t, b) = font.edges(
+            TextElem::top_edge_in(styles),
+            TextElem::bottom_edge_in(styles),
+            font_size,
+            TextEdgeBounds::Frame(frame),
+        );
+
+        let ascent = t.max(frame.ascent() - slack);
+        let descent = b.max(frame.descent() - slack);
         frame.translate(Point::with_y(ascent - frame.baseline()));
         frame.size_mut().y = ascent + descent;
     }

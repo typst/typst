@@ -16,7 +16,7 @@ use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::text::{
     decorate, families, features, is_default_ignorable, variant, Font, FontVariant,
-    Glyph, Lang, Region, TextElem, TextItem,
+    Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -338,9 +338,10 @@ impl<'a> ShapedText<'a> {
         let bottom_edge = TextElem::bottom_edge_in(self.styles);
 
         // Expand top and bottom by reading the font's vertical metrics.
-        let mut expand = |font: &Font, bbox: Option<ttf_parser::Rect>| {
-            top.set_max(top_edge.resolve(self.size, font, bbox));
-            bottom.set_max(-bottom_edge.resolve(self.size, font, bbox));
+        let mut expand = |font: &Font, bounds: TextEdgeBounds| {
+            let (t, b) = font.edges(top_edge, bottom_edge, self.size, bounds);
+            top.set_max(t);
+            bottom.set_max(b);
         };
 
         if self.glyphs.is_empty() {
@@ -353,18 +354,13 @@ impl<'a> ShapedText<'a> {
                     .select(family, self.variant)
                     .and_then(|id| world.font(id))
                 {
-                    expand(&font, None);
+                    expand(&font, TextEdgeBounds::Zero);
                     break;
                 }
             }
         } else {
             for g in self.glyphs.iter() {
-                let bbox = if top_edge.is_bounds() || bottom_edge.is_bounds() {
-                    g.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(g.glyph_id))
-                } else {
-                    None
-                };
-                expand(&g.font, bbox);
+                expand(&g.font, TextEdgeBounds::Glyph(g.glyph_id));
             }
         }
 
