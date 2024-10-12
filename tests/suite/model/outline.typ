@@ -156,14 +156,14 @@ A
 
 --- issue-2530-outline-entry-panic-text ---
 // Outline entry (pre-emptive)
-// Error: 2-48 cannot outline text
-#outline.entry(1, [Hello], [World!], none, [1])
+// Error: 2-54 cannot outline text
+#outline.entry(1, [Hello], none, [World!], none, [1])
 
 --- issue-2530-outline-entry-panic-heading ---
 // Outline entry (pre-emptive, improved error)
-// Error: 2-55 heading must have a location
-// Hint: 2-55 try using a query or a show rule to customize the outline.entry instead
-#outline.entry(1, heading[Hello], [World!], none, [1])
+// Error: 2-59 heading must have a location
+// Hint: 2-59 try using a query or a show rule to customize the outline.entry instead
+#outline.entry(1, heading[Hello], [], [World!], none, [1])
 
 --- issue-4476-rtl-title-ending-in-ltr-text ---
 #set text(lang: "he")
@@ -171,3 +171,22 @@ A
 
 = הוקוס Pocus
 = זוהי כותרת שתורגמה על ידי מחשב
+
+--- issue-3972-indent-inside-of-entry ---
+#set page(width: 5cm)
+#show outline.entry: it => {
+  v(0pt, weak: true)
+  it
+}
+
+#outline(indent: auto)
+
+#set heading(numbering: "1.")
+= Ok
+== Ok?
+=== Ok?
+==== Ok?
+
+#set heading(numbering: none)
+= Ok
+== Ok
