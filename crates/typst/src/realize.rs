@@ -18,7 +18,7 @@ use crate::foundations::{
     SequenceElem, Show, ShowSet, Style, StyleChain, StyleVec, StyledElem, Styles,
     Synthesize, Transformation,
 };
-use crate::introspection::{Locatable, SplitLocator, Tag, TagElem, TagKind};
+use crate::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use crate::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -352,9 +352,9 @@ fn visit_show_rules<'a>(
 
     // If the element isn't yet prepared (we're seeing it for the first time),
     // prepare it.
-    let mut tag = None;
+    let mut tags = None;
     if !prepared {
-        tag = prepare(s.engine, s.locator, output.to_mut(), &mut map, styles)?;
+        tags = prepare(s.engine, s.locator, output.to_mut(), &mut map, styles)?;
     }
 
     // Apply a show rule step, if there is one.
@@ -393,9 +393,9 @@ fn visit_show_rules<'a>(
     };
 
     // Push start tag.
-    if let Some(tag) = &tag {
-        let start_tag = TagElem::packed(tag.clone());
-        visit(s, s.store(start_tag), styles)?;
+    let (start, end) = tags.unzip();
+    if let Some(tag) = start {
+        visit(s, s.store(TagElem::packed(tag)), styles)?;
     }
 
     let prev_outside = s.outside;
@@ -409,9 +409,8 @@ fn visit_show_rules<'a>(
     s.engine.route.decrease();
 
     // Push end tag.
-    if let Some(tag) = tag {
-        let end_tag = TagElem::packed(tag.with_kind(TagKind::End));
-        visit(s, s.store(end_tag), styles)?;
+    if let Some(tag) = end {
+        visit(s, s.store(TagElem::packed(tag)), styles)?;
     }
 
     Ok(true)
@@ -517,21 +516,19 @@ fn prepare(
     target: &mut Content,
     map: &mut Styles,
     styles: StyleChain,
-) -> SourceResult<Option<Tag>> {
+) -> SourceResult<Option<(Tag, Tag)>> {
     // Generate a location for the element, which uniquely identifies it in
     // the document. This has some overhead, so we only do it for elements
     // that are explicitly marked as locatable and labelled elements.
     //
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
-    let mut key = None;
-    if target.location().is_some() {
-        key = Some(crate::utils::hash128(&target));
-    } else if target.can::<dyn Locatable>() || target.label().is_some() {
-        let hash = crate::utils::hash128(&target);
-        let location = locator.next_location(engine.introspector, hash);
-        target.set_location(location);
-        key = Some(hash);
+    let key = crate::utils::hash128(&target);
+    if target.location().is_none()
+        && (target.can::<dyn Locatable>() || target.label().is_some())
+    {
+        let loc = locator.next_location(engine.introspector, key);
+        target.set_location(loc);
     }
 
     // Apply built-in show-set rules. User-defined show-set rules are already
@@ -551,18 +548,20 @@ fn prepare(
     // available in rules.
     target.materialize(styles.chain(map));
 
-    // If the element is locatable, create a tag element to be able to find the
-    // element in the frames after layout. Do this after synthesis and
+    // If the element is locatable, create start and end tags to be able to find
+    // the element in the frames after layout. Do this after synthesis and
     // materialization, so that it includes the synthesized fields. Do it before
     // marking as prepared so that show-set rules will apply to this element
     // when queried.
-    let tag = key.map(|key| Tag::new(target.clone(), key));
+    let tags = target
+        .location()
+        .map(|loc| (Tag::Start(target.clone()), Tag::End(loc, key)));
 
     // Ensure that this preparation only runs once by marking the element as
     // prepared.
     target.mark_prepared();
 
-    Ok(tag)
+    Ok(tags)
 }
 
 /// Handles a styled element.

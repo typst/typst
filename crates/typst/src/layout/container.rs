@@ -190,7 +190,7 @@ impl Packed<BoxElem> {
 
         // Assign label to the frame.
         if let Some(label) = self.label() {
-            frame.group(|group| group.label = Some(label))
+            frame.label(label);
         }
 
         // Apply baseline shift. Do this after setting the size and applying the
@@ -562,7 +562,7 @@ impl Packed<BlockElem> {
 
         // Assign label to each frame in the fragment.
         if let Some(label) = self.label() {
-            frame.group(|group| group.label = Some(label));
+            frame.label(label);
         }
 
         Ok(frame)
@@ -723,7 +723,7 @@ impl Packed<BlockElem> {
         // Assign label to each frame in the fragment.
         if let Some(label) = self.label() {
             for frame in fragment.iter_mut() {
-                frame.group(|group| group.label = Some(label))
+                frame.label(label);
             }
         }
 

@@ -255,18 +255,7 @@ struct Work<'a, 'b> {
     /// Identifies floats and footnotes that can be skipped if visited because
     /// they were already handled and incorporated as column or page level
     /// insertions.
-    skips: Rc<HashSet<Skip>>,
-}
-
-/// Identifies an element that that can be skipped if visited because it was
-/// already processed.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum Skip {
-    /// Uniquely identifies a placed elements. We can't use a [`Location`]
-    /// because `PlaceElem` is not currently locatable.
-    Placed(usize),
-    /// Uniquely identifies a footnote.
-    Footnote(Location),
+    skips: Rc<HashSet<Location>>,
 }
 
 impl<'a, 'b> Work<'a, 'b> {
@@ -304,7 +293,7 @@ impl<'a, 'b> Work<'a, 'b> {
 
     /// Add skipped floats and footnotes from the insertion areas to the skip
     /// set.
-    fn extend_skips(&mut self, skips: &[Skip]) {
+    fn extend_skips(&mut self, skips: &[Location]) {
         if !skips.is_empty() {
             Rc::make_mut(&mut self.skips).extend(skips.iter().copied());
         }

@@ -12,7 +12,7 @@ use crate::foundations::{
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
     Selector, Show, Smart, Str, StyleChain, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
@@ -821,8 +821,8 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Tag(tag) => {
-                    let Some(elem) = tag.elem().to_packed::<CounterUpdateElem>() else {
+                FrameItem::Tag(Tag::Start(elem)) => {
+                    let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };
                     if *elem.key() == CounterKey::Page {

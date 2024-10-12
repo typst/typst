@@ -80,8 +80,9 @@ fn layout_document_impl(
     )?;
 
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
+    let introspector = Introspector::new(&pages);
 
-    Ok(Document { pages, info, introspector: Introspector::default() })
+    Ok(Document { pages, info, introspector })
 }
 
 /// Layouts the document's pages.
