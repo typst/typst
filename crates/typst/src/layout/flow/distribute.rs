@@ -20,7 +20,7 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
-        Ok(()) => true,
+        Ok(()) => distributor.composer.work.done(),
         Err(Stop::Finish(forced)) => forced,
         Err(err) => return Err(err),
     };
