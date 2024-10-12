@@ -85,7 +85,7 @@ pub fn format_float(
     unit: &str,
 ) -> EcoString {
     if let Some(p) = precision {
-        value = round_with_precision(value, p);
+        value = round_with_precision(value, p as i16);
     }
     // Debug for f64 always prints a decimal separator, while Display only does
     // when necessary.
