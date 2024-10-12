@@ -1284,16 +1284,6 @@ pub(crate) fn is_default_ignorable(c: char) -> bool {
     DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
 }
 
-/// Pushes `text` wrapped in LRE/RLE + PDF to `out`.
-pub(crate) fn isolate(text: Content, styles: StyleChain, out: &mut Vec<Content>) {
-    out.push(TextElem::packed(match TextElem::dir_in(styles) {
-        Dir::RTL => "\u{202B}",
-        _ => "\u{202A}",
-    }));
-    out.push(text);
-    out.push(TextElem::packed("\u{202C}"));
-}
-
 /// Checks for font families that are not available.
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();

@@ -10,7 +10,9 @@ use crate::foundations::{
     NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
-use crate::layout::{BoxElem, Em, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
+use crate::layout::{
+    BoxElem, Dir, Em, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing,
+};
 use crate::model::{
     Destination, HeadingElem, NumberingPattern, ParElem, ParbreakElem, Refable,
 };
@@ -499,12 +501,27 @@ impl Show for Packed<OutlineEntry> {
             }
         };
 
-        // The body text remains overridable.
-        crate::text::isolate(
-            self.body().clone().linked(Destination::Location(location)),
-            styles,
-            &mut seq,
-        );
+        // Isolate the entry body in RTL because the page number is typically
+        // LTR. I'm not sure whether LTR should conceptually also be isolated,
+        // but in any case we don't do it for now because the text shaping
+        // pipeline does tend to choke a bit on default ignorables (in
+        // particular the CJK-Latin spacing).
+        //
+        // See also:
+        // - https://github.com/typst/typst/issues/4476
+        // - https://github.com/typst/typst/issues/5176
+        let rtl = TextElem::dir_in(styles) == Dir::RTL;
+        if rtl {
+            // "Right-to-Left Embedding"
+            seq.push(TextElem::packed("\u{202B}"));
+        }
+
+        seq.push(self.body().clone().linked(Destination::Location(location)));
+
+        if rtl {
+            // "Pop Directional Formatting"
+            seq.push(TextElem::packed("\u{202C}"));
+        }
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
