@@ -58,6 +58,64 @@ pub fn round_with_precision(value: f64, precision: i16) -> f64 {
     }
 }
 
+/// This is used for rounding into integer digits, and is a no-op for positive
+/// `precision`.
+///
+/// If `precision` is negative, returns value with `n` less significant integer
+/// digits from the first digit where `n` is `-precision`. Standard rounding
+/// rules apply to the first remaining significant digit (if `n`th digit from
+/// the first digit >= 5, round away from zero).
+///
+/// Note that this may return `None` for negative precision when rounding
+/// beyond [`i64::MAX`] or [`i64::MIN`].
+///
+/// # Examples
+///
+/// ```
+/// # use typst_utils::round_int_with_precision;
+/// let rounded = round_int_with_precision(-154, -2);
+/// assert_eq!(Some(-200), rounded);
+///
+/// let rounded = round_int_with_precision(823543, -3);
+/// assert_eq!(Some(824000), rounded);
+/// ```
+pub fn round_int_with_precision(value: i64, precision: i16) -> Option<i64> {
+    if precision >= 0 {
+        Some(value)
+    } else {
+        let digits = -precision as u32;
+        let Some(ten_to_digits) = 10i64.checked_pow(digits - 1) else {
+            // Larger than any possible amount of integer digits.
+            return Some(0);
+        };
+
+        // Divide by 10^(digits - 1).
+        //
+        // We keep the last digit we want to remove as the first digit of this
+        // number, so we can check it with mod 10 for rounding purposes.
+        let truncated = value / ten_to_digits;
+        if truncated == 0 {
+            return Some(0);
+        }
+
+        let rounded = if (truncated % 10).abs() >= 5 {
+            // Round away from zero (towards the next multiple of 10).
+            //
+            // This may overflow in the particular case of rounding MAX/MIN
+            // with -1.
+            truncated.checked_add(truncated.signum() * (10 - (truncated % 10).abs()))?
+        } else {
+            // Just replace the last digit with zero, since it's < 5.
+            truncated - (truncated % 10)
+        };
+
+        // Multiply back by 10^(digits - 1).
+        //
+        // May overflow / underflow, in which case we fail.
+        rounded.checked_mul(ten_to_digits)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,5 +316,43 @@ mod tests {
         );
         assert_eq!(0.0, round_with_precision(1234.5678, -(max_int_digits + 1)));
         assert_eq!(-0.0, round_with_precision(-1234.5678, -(max_int_digits + 1)));
+    }
+
+    #[test]
+    fn test_round_int_with_precision_positive() {
+        assert_eq!(Some(0), round_int_with_precision(0, 0));
+        assert_eq!(Some(10), round_int_with_precision(10, 0));
+        assert_eq!(Some(23), round_int_with_precision(23, 235));
+        assert_eq!(Some(i64::MAX), round_int_with_precision(i64::MAX, 235));
+    }
+
+    #[test]
+    fn test_round_int_with_precision_negative_1() {
+        let round = |value| round_int_with_precision(value, -1);
+        assert_eq!(Some(0), round(0));
+        assert_eq!(Some(0), round(3));
+        assert_eq!(Some(10), round(5));
+        assert_eq!(Some(10), round(13));
+        assert_eq!(Some(1230), round(1234));
+        assert_eq!(Some(-1230), round(-1234));
+        assert_eq!(Some(1250), round(1245));
+        assert_eq!(Some(-1250), round(-1245));
+        assert_eq!(None, round(i64::MAX));
+        assert_eq!(None, round(i64::MIN));
+    }
+
+    #[test]
+    fn test_round_int_with_precision_negative_2() {
+        let round = |value| round_int_with_precision(value, -2);
+        assert_eq!(Some(0), round(0));
+        assert_eq!(Some(0), round(3));
+        assert_eq!(Some(0), round(5));
+        assert_eq!(Some(0), round(13));
+        assert_eq!(Some(1200), round(1243));
+        assert_eq!(Some(-1200), round(-1243));
+        assert_eq!(Some(1300), round(1253));
+        assert_eq!(Some(-1300), round(-1253));
+        assert_eq!(Some(i64::MAX - 7), round(i64::MAX));
+        assert_eq!(Some(i64::MIN + 8), round(i64::MIN));
     }
 }

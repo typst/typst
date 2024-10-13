@@ -4,14 +4,13 @@ use std::cmp;
 use std::cmp::Ordering;
 
 use az::SaturatingAs;
-use ecow::EcoString;
 
 use crate::diag::{bail, At, HintedString, SourceResult, StrResult};
 use crate::eval::ops;
 use crate::foundations::{cast, func, Decimal, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
-use crate::utils::round_with_precision;
+use crate::utils::{round_int_with_precision, round_with_precision};
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -761,19 +760,10 @@ pub fn round(
     digits: i64,
 ) -> StrResult<DecNum> {
     match value {
-        DecNum::Int(n) => {
-            if digits >= 0 {
-                Ok(DecNum::Int(n))
-            } else {
-                // Round into integer digits using decimals.
-                Decimal::from(n)
-                    .round(digits.saturating_as::<i32>())
-                    .and_then(|n| i64::try_from(n).ok())
-                    .map(DecNum::Int)
-                    .ok_or_else(too_large)
-                    .map_err(EcoString::from)
-            }
-        }
+        DecNum::Int(n) => Ok(DecNum::Int(
+            round_int_with_precision(n, digits.saturating_as::<i16>())
+                .ok_or_else(too_large)?,
+        )),
         DecNum::Float(n) => {
             Ok(DecNum::Float(round_with_precision(n, digits.saturating_as::<i16>())))
         }
