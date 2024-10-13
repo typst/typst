@@ -348,8 +348,8 @@ mod tests {
         assert_eq!(Some(0), round(3));
         assert_eq!(Some(0), round(5));
         assert_eq!(Some(0), round(13));
-        assert_eq!(Some(1200), round(1243));
-        assert_eq!(Some(-1200), round(-1243));
+        assert_eq!(Some(1200), round(1245));
+        assert_eq!(Some(-1200), round(-1245));
         assert_eq!(Some(1300), round(1253));
         assert_eq!(Some(-1300), round(-1253));
         assert_eq!(Some(i64::MAX - 7), round(i64::MAX));
