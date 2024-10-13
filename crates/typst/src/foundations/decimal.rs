@@ -482,6 +482,10 @@ mod tests {
             Decimal::from_str("312.55553").unwrap().round(3)
         );
         assert_eq!(
+            Some(Decimal::from_str("312.556").unwrap()),
+            Decimal::from_str("312.5555300000").unwrap().round(3)
+        );
+        assert_eq!(
             Some(Decimal::from_str("-312.556").unwrap()),
             Decimal::from_str("-312.55553").unwrap().round(3)
         );
@@ -504,6 +508,10 @@ mod tests {
         assert_eq!(
             Some(Decimal::from_str("4600").unwrap()),
             Decimal::from_str("4596.55553").unwrap().round(-1)
+        );
+        assert_eq!(
+            Some(Decimal::from_str("4600").unwrap()),
+            Decimal::from_str("4596.555530000000").unwrap().round(-1)
         );
         assert_eq!(
             Some(Decimal::from_str("-5000").unwrap()),
