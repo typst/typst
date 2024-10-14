@@ -4,18 +4,23 @@
 #test(type(calc.round(3.1415, digits: 2)), float)
 #test(type(calc.round(5, digits: 2)), int)
 #test(type(calc.round(decimal("3.1415"), digits: 2)), decimal)
+#test(type(calc.round(314.15, digits: -2)), float)
+#test(type(calc.round(523, digits: -2)), int)
+#test(type(calc.round(decimal("314.15"), digits: -2)), decimal)
 
 --- calc-round-large-inputs ---
 #test(calc.round(31114, digits: 4000000000), 31114)
 #test(calc.round(9223372036854775807, digits: 12), 9223372036854775807)
+#test(calc.round(9223372036854775807, digits: -20), 0)
 #test(calc.round(238959235.129590203, digits: 4000000000), 238959235.129590203)
 #test(calc.round(1.7976931348623157e+308, digits: 12), 1.7976931348623157e+308)
+#test(calc.round(1.7976931348623157e+308, digits: -308), float.inf)
+#test(calc.round(-1.7976931348623157e+308, digits: -308), -float.inf)
+#test(calc.round(12.34, digits: -312), 0.0)
 #test(calc.round(decimal("238959235.129590203"), digits: 4000000000), decimal("238959235.129590203"))
 #test(calc.round(decimal("79228162514264337593543950335"), digits: 12), decimal("79228162514264337593543950335"))
-
---- calc-round-negative-digits ---
-// Error: 29-31 number must be at least zero
-#calc.round(243.32, digits: -2)
+#test(calc.round(decimal("79228162514264337593543950335"), digits: -50), decimal("0"))
+#test(calc.round(decimal("-79228162514264337593543950335"), digits: -2), decimal("-79228162514264337593543950300"))
 
 --- calc-abs ---
 // Test the `abs` function.
@@ -330,6 +335,22 @@
 --- calc-floor-decimal-smaller-than-min-int ---
 // Error: 2-47 the result is too large
 #calc.floor(decimal("-9223372036854775809.5"))
+
+--- calc-round-int-too-large ---
+// Error: 2-45 the result is too large
+#calc.round(9223372036854775807, digits: -1)
+
+--- calc-round-int-negative-too-large ---
+// Error: 2-46 the result is too large
+#calc.round(-9223372036854775807, digits: -1)
+
+--- calc-round-decimal-too-large ---
+// Error: 2-66 the result is too large
+#calc.round(decimal("79228162514264337593543950335"), digits: -1)
+
+--- calc-round-decimal-negative-too-large ---
+// Error: 2-67 the result is too large
+#calc.round(decimal("-79228162514264337593543950335"), digits: -1)
 
 --- calc-min-nothing ---
 // Error: 2-12 expected at least one value
