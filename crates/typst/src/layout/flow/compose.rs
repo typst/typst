@@ -628,6 +628,14 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
         output.push_frame(Point::with_y(self.top_size), inner);
 
+        // We put floats first and then footnotes. This differs from what LaTeX
+        // does and is a little inconsistent w.r.t column vs page floats (page
+        // floats are below footnotes because footnotes are per column), but
+        // it's what most people (including myself) seem to intuitively expect.
+        // We experimented with the LaTeX ordering in 0.12.0-rc1, but folks were
+        // surprised and considered this strange. In LaTeX, it can be changed
+        // with `\usepackage[bottom]{footmisc}`. We could also consider adding
+        // configuration in the future.
         for (placed, frame) in self.bottom_floats {
             offset_bottom += placed.clearance;
             let x = placed.align_x.position(size.x - frame.width());
