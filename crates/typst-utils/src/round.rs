@@ -166,27 +166,27 @@ mod tests {
     #[test]
     fn test_round_with_precision_negative_1() {
         let round = |value| rp(value, -1);
-        assert_eq!(0.0, round(0.0));
-        assert_eq!(-0.0, round(-0.0));
-        assert_eq!(0.0, round(0.4));
-        assert_eq!(-0.0, round(-0.4));
-        assert_eq!(1230.0, round(1234.5));
-        assert_eq!(-1230.0, round(-1234.5));
-        assert_eq!(1250.0, round(1245.232));
-        assert_eq!(-1250.0, round(-1245.232));
+        assert_eq!(round(0.0), 0.0);
+        assert_eq!(round(-0.0), -0.0);
+        assert_eq!(round(0.4), 0.0);
+        assert_eq!(round(-0.4), -0.0);
+        assert_eq!(round(1234.5), 1230.0);
+        assert_eq!(round(-1234.5), -1230.0);
+        assert_eq!(round(1245.232), 1250.0);
+        assert_eq!(round(-1245.232), -1250.0);
     }
 
     #[test]
     fn test_round_with_precision_negative_2() {
         let round = |value| rp(value, -2);
-        assert_eq!(0.0, round(0.0));
-        assert_eq!(-0.0, round(-0.0));
-        assert_eq!(0.0, round(0.4));
-        assert_eq!(-0.0, round(-0.4));
-        assert_eq!(1200.0, round(1243.232));
-        assert_eq!(-1200.0, round(-1243.232));
-        assert_eq!(1300.0, round(1253.232));
-        assert_eq!(-1300.0, round(-1253.232));
+        assert_eq!(round(0.0), 0.0);
+        assert_eq!(round(-0.0), -0.0);
+        assert_eq!(round(0.4), 0.0);
+        assert_eq!(round(-0.4), -0.0);
+        assert_eq!(round(1243.232), 1200.0);
+        assert_eq!(round(-1243.232), -1200.0);
+        assert_eq!(round(1253.232), 1300.0);
+        assert_eq!(round(-1253.232), -1300.0);
     }
 
     #[test]
@@ -196,8 +196,8 @@ mod tests {
         let max_digits = f64::DIGITS as i16;
 
         // Special cases.
-        assert_eq!(round(f64::INFINITY), f64::INFINITY,);
-        assert_eq!(round(f64::NEG_INFINITY), f64::NEG_INFINITY,);
+        assert_eq!(round(f64::INFINITY), f64::INFINITY);
+        assert_eq!(round(f64::NEG_INFINITY), f64::NEG_INFINITY);
         assert!(round(f64::NAN).is_nan());
 
         // Max
@@ -221,8 +221,8 @@ mod tests {
         let max_down = max_digits - 1;
 
         // Special cases.
-        assert_eq!(f64::INFINITY, rp(f64::INFINITY, -1));
-        assert_eq!(f64::NEG_INFINITY, rp(f64::NEG_INFINITY, -1));
+        assert_eq!(rp(f64::INFINITY, -1), f64::INFINITY);
+        assert_eq!(rp(f64::NEG_INFINITY, -1), f64::NEG_INFINITY);
         assert!(rp(f64::NAN, -1).is_nan());
 
         // Max
@@ -248,8 +248,8 @@ mod tests {
         // Max - 1
         assert_eq!(rp(f64::MAX, -max_down), f64::INFINITY);
         assert_eq!(rp(f64::MIN, -max_down), f64::NEG_INFINITY);
-        assert_eq!(2.0 * exp10(max_down), rp(1.66 * exp10(max_down), -(max_down)));
-        assert_eq!(-2.0 * exp10(max_down), rp(-1.66 * exp10(max_down), -(max_down)));
+        assert_eq!(rp(1.66 * exp10(max_down), -max_down), 2.0 * exp10(max_down));
+        assert_eq!(rp(-1.66 * exp10(max_down), -max_down), -2.0 * exp10(max_down));
         assert_eq!(rp(1234.5678, -max_down), 0.0);
         assert_eq!(rp(-1234.5678, -max_down), -0.0);
 
@@ -267,10 +267,10 @@ mod tests {
 
     #[test]
     fn test_round_int_with_precision_positive() {
-        assert_eq!(Some(0), rip(0, 0));
-        assert_eq!(Some(10), rip(10, 0));
-        assert_eq!(Some(23), rip(23, 235));
-        assert_eq!(Some(i64::MAX), rip(i64::MAX, 235));
+        assert_eq!(rip(0, 0), Some(0));
+        assert_eq!(rip(10, 0), Some(10));
+        assert_eq!(rip(23, 235), Some(23));
+        assert_eq!(rip(i64::MAX, 235), Some(i64::MAX));
     }
 
     #[test]
