@@ -1,18 +1,16 @@
 use std::num::NonZeroUsize;
 
-use super::{
-    distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Skip, Stop, Work,
-};
+use super::{distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Stop, Work};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{Content, NativeElement, Packed, Resolve, Smart};
 use crate::introspection::{
-    Counter, CounterDisplayElem, CounterState, CounterUpdate, Locator, SplitLocator,
-    TagKind,
+    Counter, CounterDisplayElem, CounterState, CounterUpdate, Location, Locator,
+    SplitLocator, Tag,
 };
 use crate::layout::{
-    layout_fragment, layout_frame, Abs, Axes, Dir, FixedAlignment, Frame, FrameItem,
-    OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
+    layout_fragment, layout_frame, Abs, Axes, Dir, FixedAlignment, Fragment, Frame,
+    FrameItem, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use crate::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
@@ -223,7 +221,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Process pending floats.
         for placed in std::mem::take(&mut self.work.floats) {
-            self.float(placed, &regions, true)?;
+            self.float(placed, &regions, false)?;
         }
 
         distribute(self, regions)
@@ -246,7 +244,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         clearance: bool,
     ) -> FlowResult<()> {
         // If the float is already processed, skip it.
-        if self.skipped(Skip::Placed(placed.idx)) {
+        let loc = placed.location();
+        if self.skipped(loc) {
             return Ok(());
         }
 
@@ -281,7 +280,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         };
 
         // We only require clearance if there is other content.
-        let clearance = if clearance { Abs::zero() } else { placed.clearance };
+        let clearance = if clearance { placed.clearance } else { Abs::zero() };
         let need = frame.height() + clearance;
 
         // If the float doesn't fit, queue it for the next region.
@@ -317,7 +316,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Put the float there.
         area.push_float(placed, frame, align_y);
-        area.skips.push(Skip::Placed(placed.idx));
+        area.skips.push(loc);
 
         // Trigger relayout.
         Err(Stop::Relayout(placed.scope))
@@ -339,7 +338,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Search for footnotes.
-        let notes = find_in_frame::<FootnoteElem>(frame);
+        let mut notes = vec![];
+        for tag in &self.work.tags {
+            let Tag::Start(elem) = tag else { continue };
+            let Some(note) = elem.to_packed::<FootnoteElem>() else { continue };
+            notes.push((Abs::zero(), note.clone()));
+        }
+        find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
         if notes.is_empty() {
             return Ok(());
         }
@@ -391,7 +396,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     ) -> FlowResult<()> {
         // Ignore reference footnotes and already processed ones.
         let loc = elem.location().unwrap();
-        if elem.is_ref() || self.skipped(Skip::Footnote(loc)) {
+        if elem.is_ref() || self.skipped(loc) {
             return Ok(());
         }
 
@@ -420,14 +425,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         pod.size.y -= flow_need + separator_need + self.config.footnote.gap;
 
         // Layout the footnote entry.
-        let frames = layout_fragment(
-            self.engine,
-            &FootnoteEntry::new(elem.clone()).pack(),
-            Locator::synthesize(elem.location().unwrap()),
-            self.config.shared,
-            pod,
-        )?
-        .into_frames();
+        let frames = layout_footnote(self.engine, self.config, &elem, pod)?.into_frames();
 
         // Find nested footnotes in the entry.
         let nested = find_in_frames::<FootnoteElem>(&frames);
@@ -458,7 +456,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Save the footnote's frame.
         area.push_footnote(self.config, first);
-        area.skips.push(Skip::Footnote(loc));
+        area.skips.push(loc);
         regions.size.y -= note_need;
 
         // Save the spill.
@@ -501,10 +499,10 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
     /// Checks whether an insertion was already processed and doesn't need to be
     /// handled again.
-    fn skipped(&self, skip: Skip) -> bool {
-        self.work.skips.contains(&skip)
-            || self.page_insertions.skips.contains(&skip)
-            || self.column_insertions.skips.contains(&skip)
+    fn skipped(&self, loc: Location) -> bool {
+        self.work.skips.contains(&loc)
+            || self.page_insertions.skips.contains(&loc)
+            || self.column_insertions.skips.contains(&loc)
     }
 
     /// The amount of width needed by insertions.
@@ -528,6 +526,29 @@ fn layout_footnote_separator(
     )
 }
 
+/// Lay out a footnote.
+fn layout_footnote(
+    engine: &mut Engine,
+    config: &Config,
+    elem: &Packed<FootnoteElem>,
+    pod: Regions,
+) -> SourceResult<Fragment> {
+    let loc = elem.location().unwrap();
+    layout_fragment(
+        engine,
+        &FootnoteEntry::new(elem.clone()).pack(),
+        Locator::synthesize(loc),
+        config.shared,
+        pod,
+    )
+    .map(|mut fragment| {
+        for frame in &mut fragment {
+            frame.set_parent(loc);
+        }
+        fragment
+    })
+}
+
 /// An additive list of insertions.
 #[derive(Default)]
 struct Insertions<'a, 'b> {
@@ -538,7 +559,7 @@ struct Insertions<'a, 'b> {
     top_size: Abs,
     bottom_size: Abs,
     width: Abs,
-    skips: Vec<Skip>,
+    skips: Vec<Location>,
 }
 
 impl<'a, 'b> Insertions<'a, 'b> {
@@ -613,6 +634,23 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
         output.push_frame(Point::with_y(self.top_size), inner);
 
+        // We put floats first and then footnotes. This differs from what LaTeX
+        // does and is a little inconsistent w.r.t column vs page floats (page
+        // floats are below footnotes because footnotes are per column), but
+        // it's what most people (including myself) seem to intuitively expect.
+        // We experimented with the LaTeX ordering in 0.12.0-rc1, but folks were
+        // surprised and considered this strange. In LaTeX, it can be changed
+        // with `\usepackage[bottom]{footmisc}`. We could also consider adding
+        // configuration in the future.
+        for (placed, frame) in self.bottom_floats {
+            offset_bottom += placed.clearance;
+            let x = placed.align_x.position(size.x - frame.width());
+            let y = offset_bottom;
+            let delta = placed.delta.zip_map(size, Rel::relative_to).to_point();
+            offset_bottom += frame.height();
+            output.push_frame(Point::new(x, y) + delta, frame);
+        }
+
         if let Some(frame) = self.footnote_separator {
             offset_bottom += config.footnote.clearance;
             let y = offset_bottom;
@@ -625,15 +663,6 @@ impl<'a, 'b> Insertions<'a, 'b> {
             let y = offset_bottom;
             offset_bottom += frame.height();
             output.push_frame(Point::with_y(y), frame);
-        }
-
-        for (placed, frame) in self.bottom_floats {
-            offset_bottom += placed.clearance;
-            let x = placed.align_x.position(size.x - frame.width());
-            let y = offset_bottom;
-            let delta = placed.delta.zip_map(size, Rel::relative_to).to_point();
-            offset_bottom += frame.height();
-            output.push_frame(Point::new(x, y) + delta, frame);
         }
 
         output
@@ -836,8 +865,8 @@ fn find_in_frame_impl<T: NativeElement>(
         let y = y_offset + pos.y;
         match item {
             FrameItem::Group(group) => find_in_frame_impl(output, &group.frame, y),
-            FrameItem::Tag(tag) if tag.kind() == TagKind::Start => {
-                if let Some(elem) = tag.elem().to_packed::<T>() {
+            FrameItem::Tag(Tag::Start(elem)) => {
+                if let Some(elem) = elem.to_packed::<T>() {
                     output.push((y, elem.clone()));
                 }
             }

@@ -6,51 +6,138 @@ use ttf_parser::{GlyphId, RgbaColor};
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
-use crate::layout::{Abs, Axes, Frame, FrameItem, Point, Size};
+use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{Font, Glyph};
-use crate::visualize::Image;
+use crate::visualize::{FixedStroke, Geometry, Image};
 
-/// Tells if a glyph is a color glyph or not in a given font.
-pub fn is_color_glyph(font: &Font, g: &Glyph) -> bool {
+/// Whether this glyph should be rendered via simple outlining instead of via
+/// `glyph_frame`.
+pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
     let ttf = font.ttf();
-    let glyph_id = GlyphId(g.id);
-    ttf.glyph_raster_image(glyph_id, 160).is_some()
-        || ttf.glyph_svg_image(glyph_id).is_some()
-        || ttf.is_color_glyph(glyph_id)
+    let glyph_id = GlyphId(glyph.id);
+    (ttf.tables().glyf.is_some() || ttf.tables().cff.is_some())
+        && !ttf
+            .glyph_raster_image(glyph_id, u16::MAX)
+            .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
+        && !ttf.is_color_glyph(glyph_id)
+        && ttf.glyph_svg_image(glyph_id).is_none()
 }
 
-/// Returns a frame with the glyph drawn inside.
+/// Returns a frame representing a glyph and whether it is a fallback tofu
+/// frame.
+///
+/// Should only be called on glyphs for which [`should_outline`] returns false.
 ///
 /// The glyphs are sized in font units, [`text.item.size`] is not taken into
 /// account.
 #[comemo::memoize]
-pub fn frame_for_glyph(font: &Font, glyph_id: u16) -> Frame {
-    let ttf = font.ttf();
-    let upem = Abs::pt(ttf.units_per_em() as f64);
+pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
+    let upem = Abs::pt(font.units_per_em());
     let glyph_id = GlyphId(glyph_id);
 
     let mut frame = Frame::soft(Size::splat(upem));
+    let mut tofu = false;
 
-    if let Some(raster_image) = ttf.glyph_raster_image(glyph_id, u16::MAX) {
-        draw_raster_glyph(&mut frame, font, upem, raster_image);
-    } else if ttf.is_color_glyph(glyph_id) {
-        draw_colr_glyph(&mut frame, upem, ttf, glyph_id);
-    } else if ttf.glyph_svg_image(glyph_id).is_some() {
-        draw_svg_glyph(&mut frame, upem, font, glyph_id);
+    if draw_glyph(&mut frame, font, upem, glyph_id).is_none()
+        && font.ttf().glyph_index(' ') != Some(glyph_id)
+    {
+        // Generate a fallback tofu if the glyph couldn't be drawn, unless it is
+        // the space glyph. Then, an empty frame does the job. (This happens for
+        // some rare CBDT fonts, which don't define a bitmap for the space, but
+        // also don't have a glyf or CFF table.)
+        draw_fallback_tofu(&mut frame, font, upem, glyph_id);
+        tofu = true;
     }
 
-    frame
+    (frame, tofu)
 }
 
+/// Tries to draw a glyph.
+fn draw_glyph(
+    frame: &mut Frame,
+    font: &Font,
+    upem: Abs,
+    glyph_id: GlyphId,
+) -> Option<()> {
+    let ttf = font.ttf();
+    if let Some(raster_image) = ttf
+        .glyph_raster_image(glyph_id, u16::MAX)
+        .filter(|img| img.format == ttf_parser::RasterImageFormat::PNG)
+    {
+        draw_raster_glyph(frame, font, upem, raster_image)
+    } else if ttf.is_color_glyph(glyph_id) {
+        draw_colr_glyph(frame, font, upem, glyph_id)
+    } else if ttf.glyph_svg_image(glyph_id).is_some() {
+        draw_svg_glyph(frame, font, upem, glyph_id)
+    } else {
+        None
+    }
+}
+
+/// Draws a fallback tofu box with the advance width of the glyph.
+fn draw_fallback_tofu(frame: &mut Frame, font: &Font, upem: Abs, glyph_id: GlyphId) {
+    let advance = font
+        .ttf()
+        .glyph_hor_advance(glyph_id)
+        .map(|advance| Abs::pt(advance as f64))
+        .unwrap_or(upem / 3.0);
+    let inset = 0.15 * advance;
+    let height = 0.7 * upem;
+    let pos = Point::new(inset, upem - height);
+    let size = Size::new(advance - inset * 2.0, height);
+    let thickness = upem / 20.0;
+    let stroke = FixedStroke { thickness, ..Default::default() };
+    let shape = Geometry::Rect(size).stroked(stroke);
+    frame.push(pos, FrameItem::Shape(shape, Span::detached()));
+}
+
+/// Draws a raster glyph in a frame.
+///
+/// Supports only PNG images.
+fn draw_raster_glyph(
+    frame: &mut Frame,
+    font: &Font,
+    upem: Abs,
+    raster_image: ttf_parser::RasterGlyphImage,
+) -> Option<()> {
+    let image = Image::new(
+        raster_image.data.into(),
+        typst::visualize::ImageFormat::Raster(typst::visualize::RasterFormat::Png),
+        None,
+    )
+    .ok()?;
+
+    // Apple Color emoji doesn't provide offset information (or at least
+    // not in a way ttf-parser understands), so we artificially shift their
+    // baseline to make it look good.
+    let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
+        20.0
+    } else {
+        -(raster_image.y as f64)
+    };
+
+    let position = Point::new(
+        upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
+        upem * y_offset / raster_image.pixels_per_em as f64,
+    );
+    let aspect_ratio = image.width() / image.height();
+    let size = Size::new(upem, upem * aspect_ratio);
+    frame.push(position, FrameItem::Image(image, size, Span::detached()));
+
+    Some(())
+}
+
+/// Draws a glyph from the COLR table into the frame.
 fn draw_colr_glyph(
     frame: &mut Frame,
+    font: &Font,
     upem: Abs,
-    ttf: &ttf_parser::Face,
     glyph_id: GlyphId,
 ) -> Option<()> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
+    let ttf = font.ttf();
     let width = ttf.global_bounding_box().width() as f64;
     let height = ttf.global_bounding_box().height() as f64;
     let x_min = ttf.global_bounding_box().x_min as f64;
@@ -87,8 +174,7 @@ fn draw_colr_glyph(
         transforms_stack: vec![ttf_parser::Transform::default()],
     };
 
-    ttf.paint_color_glyph(glyph_id, 0, RgbaColor::new(0, 0, 0, 255), &mut glyph_painter)
-        .unwrap();
+    ttf.paint_color_glyph(glyph_id, 0, RgbaColor::new(0, 0, 0, 255), &mut glyph_painter)?;
     svg.end_element();
 
     let data = svg.end_document().into_bytes();
@@ -98,54 +184,21 @@ fn draw_colr_glyph(
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
     )
-    .unwrap();
+    .ok()?;
 
-    let y_shift = Abs::raw(upem.to_raw() - y_max);
-
-    let position = Point::new(Abs::raw(x_min), y_shift);
-    let size = Axes::new(Abs::pt(width), Abs::pt(height));
+    let y_shift = Abs::pt(upem.to_pt() - y_max);
+    let position = Point::new(Abs::pt(x_min), y_shift);
+    let size = Size::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
 
     Some(())
 }
 
-/// Draws a raster glyph in a frame.
-fn draw_raster_glyph(
-    frame: &mut Frame,
-    font: &Font,
-    upem: Abs,
-    raster_image: ttf_parser::RasterGlyphImage,
-) {
-    let image = Image::new(
-        raster_image.data.into(),
-        typst::visualize::ImageFormat::Raster(typst::visualize::RasterFormat::Png),
-        None,
-    )
-    .unwrap();
-
-    // Apple Color emoji doesn't provide offset information (or at least
-    // not in a way ttf-parser understands), so we artificially shift their
-    // baseline to make it look good.
-    let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
-        20.0
-    } else {
-        -(raster_image.y as f64)
-    };
-
-    let position = Point::new(
-        upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
-        upem * y_offset / raster_image.pixels_per_em as f64,
-    );
-    let aspect_ratio = image.width() / image.height();
-    let size = Axes::new(upem, upem * aspect_ratio);
-    frame.push(position, FrameItem::Image(image, size, Span::detached()));
-}
-
 /// Draws an SVG glyph in a frame.
 fn draw_svg_glyph(
     frame: &mut Frame,
-    upem: Abs,
     font: &Font,
+    upem: Abs,
     glyph_id: GlyphId,
 ) -> Option<()> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
@@ -211,9 +264,10 @@ fn draw_svg_glyph(
         typst::visualize::ImageFormat::Vector(typst::visualize::VectorFormat::Svg),
         None,
     )
-    .unwrap();
+    .ok()?;
+
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
-    let size = Axes::new(Abs::pt(width), Abs::pt(height));
+    let size = Size::new(Abs::pt(width), Abs::pt(height));
     frame.push(position, FrameItem::Image(image, size, Span::detached()));
 
     Some(())

@@ -40,7 +40,7 @@ pub fn finalize(
     }
 
     // Add the "before" marginals. The order in which we push things here is
-    // important as it affects the relative ordering of introspectible elements
+    // important as it affects the relative ordering of introspectable elements
     // and thus how counters resolve.
     if let Some(background) = background {
         frame.push_frame(Point::zero(), background);

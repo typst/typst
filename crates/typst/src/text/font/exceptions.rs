@@ -181,6 +181,9 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .family("New Computer Modern"),
     "NewCM10-Regular" => Exception::new()
         .family("New Computer Modern"),
+    "NewCMMath-Bold" => Exception::new()
+        .family("New Computer Modern Math")
+        .weight(700),
     "NewCMMath-Book" => Exception::new()
         .family("New Computer Modern Math")
         .weight(450),

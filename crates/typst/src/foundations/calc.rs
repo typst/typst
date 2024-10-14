@@ -10,7 +10,7 @@ use crate::eval::ops;
 use crate::foundations::{cast, func, Decimal, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
-use crate::utils::round_with_precision;
+use crate::utils::{round_int_with_precision, round_with_precision};
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -712,9 +712,12 @@ pub fn fract(
     }
 }
 
-/// Rounds a number to the nearest integer.
+/// Rounds a number to the nearest integer away from zero.
 ///
 /// Optionally, a number of decimal places can be specified.
+///
+/// If the number of digits is negative, its absolute value will indicate the
+/// amount of significant integer digits to remove before the decimal point.
 ///
 /// Note that this function will return the same type as the operand. That is,
 /// applying `round` to a [`float`] will return a `float`, and to a [`decimal`],
@@ -723,29 +726,48 @@ pub fn fract(
 /// `float` or `decimal` is larger than the maximum 64-bit signed integer or
 /// smaller than the minimum integer.
 ///
+/// In addition, this function can error if there is an attempt to round beyond
+/// the maximum or minimum integer or `decimal`. If the number is a `float`,
+/// such an attempt will cause `{float.inf}` or `{-float.inf}` to be returned
+/// for maximum and minimum respectively.
+///
 /// ```example
 /// #calc.round(3.1415, digits: 2)
 /// #assert(calc.round(3) == 3)
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4.0)
+/// #assert(calc.round(3333.45, digits: -2) == 3300.0)
+/// #assert(calc.round(-48953.45, digits: -3) == -49000.0)
+/// #assert(calc.round(3333, digits: -2) == 3300)
+/// #assert(calc.round(-48953, digits: -3) == -49000)
 /// #assert(calc.round(decimal("-6.5")) == decimal("-7"))
 /// #assert(calc.round(decimal("7.123456789"), digits: 6) == decimal("7.123457"))
+/// #assert(calc.round(decimal("3333.45"), digits: -2) == decimal("3300"))
+/// #assert(calc.round(decimal("-48953.45"), digits: -3) == decimal("-49000"))
 /// ```
 #[func]
 pub fn round(
     /// The number to round.
     value: DecNum,
-    /// The number of decimal places. Must not be negative.
+    /// If positive, the number of decimal places.
+    ///
+    /// If negative, the number of significant integer digits that should be
+    /// removed before the decimal point.
     #[named]
     #[default(0)]
-    digits: u32,
-) -> DecNum {
+    digits: i64,
+) -> StrResult<DecNum> {
     match value {
-        DecNum::Int(n) => DecNum::Int(n),
+        DecNum::Int(n) => Ok(DecNum::Int(
+            round_int_with_precision(n, digits.saturating_as::<i16>())
+                .ok_or_else(too_large)?,
+        )),
         DecNum::Float(n) => {
-            DecNum::Float(round_with_precision(n, digits.saturating_as::<u8>()))
+            Ok(DecNum::Float(round_with_precision(n, digits.saturating_as::<i16>())))
         }
-        DecNum::Decimal(n) => DecNum::Decimal(n.round(digits)),
+        DecNum::Decimal(n) => Ok(DecNum::Decimal(
+            n.round(digits.saturating_as::<i32>()).ok_or_else(too_large)?,
+        )),
     }
 }
 

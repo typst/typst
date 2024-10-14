@@ -92,3 +92,10 @@
   table(columns: 5, u(17), it, u(1), it, u(5))
   [#size.width] // 17pt
 }
+
+--- issue-5180-measure-inline-math-bounds ---
+#context {
+  let height = measure(text(top-edge: "bounds", $x$)).height
+  assert(height > 4pt)
+  assert(height < 5pt)
+}

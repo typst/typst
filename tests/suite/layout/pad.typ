@@ -32,3 +32,7 @@ Hi #box(pad(left: 10pt)[A]) there
 --- issue-5044-pad-100-percent ---
 #set page(width: 30pt, height: 30pt)
 #pad(100%, block(width: 1cm, height: 1cm, fill: red))
+
+--- issue-5160-unbreakable-pad ---
+#set block(breakable: false)
+#block(width: 100%, pad(x: 20pt, align(right)[A]))

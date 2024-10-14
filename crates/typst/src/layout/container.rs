@@ -190,7 +190,7 @@ impl Packed<BoxElem> {
 
         // Assign label to the frame.
         if let Some(label) = self.label() {
-            frame.group(|group| group.label = Some(label))
+            frame.label(label);
         }
 
         // Apply baseline shift. Do this after setting the size and applying the
@@ -422,8 +422,6 @@ pub struct BlockElem {
     /// This is, by default, set on heading blocks to prevent orphaned headings
     /// at the bottom of the page.
     ///
-    /// Marking a block as sticky makes it unbreakable.
-    ///
     /// ```example
     /// >>> #set page(height: 140pt)
     /// // Disable stickiness of headings.
@@ -489,7 +487,7 @@ impl Packed<BlockElem> {
         engine: &mut Engine,
         locator: Locator,
         styles: StyleChain,
-        base: Size,
+        region: Region,
     ) -> SourceResult<Frame> {
         // Fetch sizing properties.
         let width = self.width(styles);
@@ -497,7 +495,7 @@ impl Packed<BlockElem> {
         let inset = self.inset(styles).unwrap_or_default();
 
         // Build the pod regions.
-        let pod = unbreakable_pod(&width.into(), &height, &inset, styles, base);
+        let pod = unbreakable_pod(&width.into(), &height, &inset, styles, region.size);
 
         // Layout the body.
         let body = self.body(styles);
@@ -520,6 +518,8 @@ impl Packed<BlockElem> {
             // If we have a child that wants to layout with full region access,
             // we layout it.
             Some(BlockBody::MultiLayouter(callback)) => {
+                let expand = (pod.expand | region.expand) & pod.size.map(Abs::is_finite);
+                let pod = Region { expand, ..pod };
                 callback.call(engine, locator, styles, pod.into())?.into_frame()
             }
         };
@@ -562,7 +562,7 @@ impl Packed<BlockElem> {
 
         // Assign label to each frame in the fragment.
         if let Some(label) = self.label() {
-            frame.group(|group| group.label = Some(label));
+            frame.label(label);
         }
 
         Ok(frame)
@@ -723,7 +723,7 @@ impl Packed<BlockElem> {
         // Assign label to each frame in the fragment.
         if let Some(label) = self.label() {
             for frame in fragment.iter_mut() {
-                frame.group(|group| group.label = Some(label))
+                frame.label(label);
             }
         }
 

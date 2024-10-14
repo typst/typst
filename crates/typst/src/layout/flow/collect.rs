@@ -11,7 +11,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{
-    Introspector, Locator, LocatorLink, SplitLocator, Tag, TagElem,
+    Introspector, Location, Locator, LocatorLink, SplitLocator, Tag, TagElem,
 };
 use crate::layout::{
     layout_frame, Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem,
@@ -62,7 +62,7 @@ struct Collector<'a, 'x, 'y> {
 impl<'a> Collector<'a, '_, '_> {
     /// Perform the collection.
     fn run(mut self) -> SourceResult<Vec<Child<'a>>> {
-        for (idx, &(child, styles)) in self.children.iter().enumerate() {
+        for &(child, styles) in self.children {
             if let Some(elem) = child.to_packed::<TagElem>() {
                 self.output.push(Child::Tag(&elem.tag));
             } else if let Some(elem) = child.to_packed::<VElem>() {
@@ -72,7 +72,7 @@ impl<'a> Collector<'a, '_, '_> {
             } else if let Some(elem) = child.to_packed::<BlockElem>() {
                 self.block(elem, styles);
             } else if let Some(elem) = child.to_packed::<PlaceElem>() {
-                self.place(idx, elem, styles)?;
+                self.place(elem, styles)?;
             } else if child.is::<FlushElem>() {
                 self.output.push(Child::Flush);
             } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
@@ -173,6 +173,7 @@ impl<'a> Collector<'a, '_, '_> {
     fn block(&mut self, elem: &'a Packed<BlockElem>, styles: StyleChain<'a>) {
         let locator = self.locator.next(&elem.span());
         let align = AlignElem::alignment_in(styles).resolve(styles);
+        let alone = self.children.len() == 1;
         let sticky = elem.sticky(styles);
         let breakable = elem.breakable(styles);
         let fr = match elem.height(styles) {
@@ -189,10 +190,11 @@ impl<'a> Collector<'a, '_, '_> {
 
         self.output.push(spacing(elem.above(styles)));
 
-        if !breakable || sticky || fr.is_some() {
+        if !breakable || fr.is_some() {
             self.output.push(Child::Single(self.boxed(SingleChild {
                 align,
                 sticky,
+                alone,
                 fr,
                 elem,
                 styles,
@@ -200,9 +202,9 @@ impl<'a> Collector<'a, '_, '_> {
                 cell: CachedCell::new(),
             })));
         } else {
-            let alone = self.children.len() == 1;
             self.output.push(Child::Multi(self.boxed(MultiChild {
                 align,
+                sticky,
                 alone,
                 elem,
                 styles,
@@ -218,7 +220,6 @@ impl<'a> Collector<'a, '_, '_> {
     /// Collects a placed element into a [`PlacedChild`].
     fn place(
         &mut self,
-        idx: usize,
         elem: &'a Packed<PlaceElem>,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
@@ -255,7 +256,6 @@ impl<'a> Collector<'a, '_, '_> {
         let clearance = elem.clearance(styles);
         let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
         self.output.push(Child::Placed(self.boxed(PlacedChild {
-            idx,
             align_x,
             align_y,
             scope,
@@ -317,6 +317,7 @@ pub struct LineChild {
 pub struct SingleChild<'a> {
     pub align: Axes<FixedAlignment>,
     pub sticky: bool,
+    pub alone: bool,
     pub fr: Option<Fr>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
@@ -326,8 +327,10 @@ pub struct SingleChild<'a> {
 
 impl SingleChild<'_> {
     /// Build the child's frame given the region's base size.
-    pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
-        self.cell.get_or_init(base, |base| {
+    pub fn layout(&self, engine: &mut Engine, region: Region) -> SourceResult<Frame> {
+        self.cell.get_or_init(region, |mut region| {
+            // Vertical expansion is only kept if this block is the only child.
+            region.expand.y &= self.alone;
             layout_single_impl(
                 engine.world,
                 engine.introspector,
@@ -337,7 +340,7 @@ impl SingleChild<'_> {
                 self.elem,
                 self.locator.track(),
                 self.styles,
-                base,
+                region,
             )
         })
     }
@@ -355,7 +358,7 @@ fn layout_single_impl(
     elem: &Packed<BlockElem>,
     locator: Tracked<Locator>,
     styles: StyleChain,
-    base: Size,
+    region: Region,
 ) -> SourceResult<Frame> {
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
@@ -367,7 +370,7 @@ fn layout_single_impl(
         route: Route::extend(route),
     };
 
-    elem.layout_single(&mut engine, locator, styles, base)
+    elem.layout_single(&mut engine, locator, styles, region)
         .map(|frame| frame.post_processed(styles))
 }
 
@@ -375,6 +378,7 @@ fn layout_single_impl(
 #[derive(Debug)]
 pub struct MultiChild<'a> {
     pub align: Axes<FixedAlignment>,
+    pub sticky: bool,
     alone: bool,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
@@ -547,7 +551,6 @@ impl MultiSpill<'_, '_> {
 /// A child that encapsulates a prepared placed element.
 #[derive(Debug)]
 pub struct PlacedChild<'a> {
-    pub idx: usize,
     pub align_x: FixedAlignment,
     pub align_y: Smart<Option<FixedAlignment>>,
     pub scope: PlacementScope,
@@ -567,15 +570,26 @@ impl PlacedChild<'_> {
         self.cell.get_or_init(base, |base| {
             let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
             let aligned = AlignElem::set_alignment(align).wrap();
-            layout_frame(
+
+            let mut frame = layout_frame(
                 engine,
                 &self.elem.body,
                 self.locator.relayout(),
                 self.styles.chain(&aligned),
                 Region::new(base, Axes::splat(false)),
-            )
-            .map(|frame| frame.post_processed(self.styles))
+            )?;
+
+            if self.float {
+                frame.set_parent(self.elem.location().unwrap());
+            }
+
+            Ok(frame.post_processed(self.styles))
         })
+    }
+
+    /// The element's location.
+    pub fn location(&self) -> Location {
+        self.elem.location().unwrap()
     }
 }
 

@@ -152,7 +152,6 @@ fn compile_impl(
 
         // Layout!
         document = crate::layout::layout_document(&mut engine, &content, styles)?;
-        document.introspector.rebuild(&document.pages);
         iter += 1;
 
         if timed!("check stabilized", document.introspector.validate(&constraint)) {

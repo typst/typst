@@ -20,7 +20,7 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
-        Ok(()) => true,
+        Ok(()) => distributor.composer.work.done(),
         Err(Stop::Finish(forced)) => forced,
         Err(err) => return Err(err),
     };
@@ -54,6 +54,8 @@ struct DistributionSnapshot<'a, 'b> {
 
 /// A laid out item in a distribution.
 enum Item<'a, 'b> {
+    /// An introspection tag.
+    Tag(&'a Tag),
     /// Absolute spacing and its weakness level.
     Abs(Abs, u8),
     /// Fractional spacing or a fractional block.
@@ -69,6 +71,7 @@ impl Item<'_, '_> {
     /// consists solely of such items.
     fn migratable(&self) -> bool {
         match self {
+            Self::Tag(_) => true,
             Self::Frame(frame, _) => {
                 frame.size().is_zero()
                     && frame.items().all(|(_, item)| {
@@ -126,6 +129,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         self.composer.work.tags.push(tag);
     }
 
+    /// Generate items for pending tags.
+    fn flush_tags(&mut self) {
+        if !self.composer.work.tags.is_empty() {
+            let tags = &mut self.composer.work.tags;
+            self.items.extend(tags.iter().copied().map(Item::Tag));
+            tags.clear();
+        }
+    }
+
     /// Processes relative spacing.
     fn rel(&mut self, amount: Rel<Abs>, weakness: u8) {
         let amount = amount.relative_to(self.regions.base().y);
@@ -157,7 +169,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     }
                     return false;
                 }
-                Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Fr(.., None) => return false,
                 Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
             }
@@ -174,7 +186,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     self.items.remove(i);
                     break;
                 }
-                Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
@@ -185,7 +197,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for item in self.items.iter().rev() {
             match *item {
                 Item::Abs(amount, 1..) => return amount,
-                Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
@@ -219,14 +231,19 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes an unbreakable block.
     fn single(&mut self, single: &'b SingleChild<'a>) -> FlowResult<()> {
+        // Lay out the block.
+        let frame = single.layout(
+            self.composer.engine,
+            Region::new(self.regions.base(), self.regions.expand),
+        )?;
+
         // Handle fractionally sized blocks.
         if let Some(fr) = single.fr {
+            self.composer.footnotes(&self.regions, &frame, Abs::zero(), false)?;
+            self.flush_tags();
             self.items.push(Item::Fr(fr, Some(single)));
             return Ok(());
         }
-
-        // Lay out the block.
-        let frame = single.layout(self.composer.engine, self.regions.base())?;
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
@@ -247,7 +264,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Lay out the block.
         let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
-        self.frame(frame, multi.align, false, true)?;
+        self.frame(frame, multi.align, multi.sticky, true)?;
 
         // If the block didn't fully fit into the current region, save it into
         // the `spill` and finish the region.
@@ -286,15 +303,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes an in-flow frame, generated from a line or block.
     fn frame(
         &mut self,
-        mut frame: Frame,
+        frame: Frame,
         align: Axes<FixedAlignment>,
         sticky: bool,
         breakable: bool,
     ) -> FlowResult<()> {
         if sticky {
-            // If the frame is sticky and we haven't remember a preceding sticky
-            // element, make a checkpoint which we can restore should we end on
-            // this sticky element.
+            // If the frame is sticky and we haven't remembered a preceding
+            // sticky element, make a checkpoint which we can restore should we
+            // end on this sticky element.
             if self.stickable && self.sticky.is_none() {
                 self.sticky = Some(self.snapshot());
             }
@@ -304,26 +321,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.sticky = None;
         }
 
-        if !frame.is_empty() {
-            // Drain tags.
-            let tags = &mut self.composer.work.tags;
-            if !tags.is_empty() {
-                frame.prepend_multiple(
-                    tags.iter().map(|&tag| (Point::zero(), FrameItem::Tag(tag.clone()))),
-                );
-            }
-
-            // Handle footnotes.
-            self.composer
-                .footnotes(&self.regions, &frame, frame.height(), breakable)?;
-
-            // Clear the drained tags _after_ the footnotes are handled because
-            // a [`Stop::Finish`] could otherwise lose them.
-            self.composer.work.tags.clear();
-        }
+        // Handle footnotes.
+        self.composer
+            .footnotes(&self.regions, &frame, frame.height(), breakable)?;
 
         // Push an item for the frame.
         self.regions.size.y -= frame.height();
+        self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
     }
@@ -338,11 +342,16 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // ends up at a break due to the float.
             let weak_spacing = self.weak_spacing();
             self.regions.size.y += weak_spacing;
-            self.composer.float(placed, &self.regions, self.items.is_empty())?;
+            self.composer.float(
+                placed,
+                &self.regions,
+                self.items.iter().any(|item| matches!(item, Item::Frame(..))),
+            )?;
             self.regions.size.y -= weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
             self.composer.footnotes(&self.regions, &frame, Abs::zero(), true)?;
+            self.flush_tags();
             self.items.push(Item::Placed(frame, placed));
         }
         Ok(())
@@ -379,17 +388,18 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         init: DistributionSnapshot<'a, 'b>,
         forced: bool,
     ) -> FlowResult<Frame> {
-        if !forced {
-            if !self.items.is_empty() && self.items.iter().all(Item::migratable) {
-                // Restore the initial state of all items are migratable.
-                self.restore(init);
-            } else {
-                // If we ended on a sticky block, but are not yet at the end of
-                // the flow, restore the saved checkpoint to move the sticky
-                // suffix to the next region.
-                if let Some(snapshot) = self.sticky.take() {
-                    self.restore(snapshot)
-                }
+        if forced {
+            // If this is the very end of the flow, flush pending tags.
+            self.flush_tags();
+        } else if !self.items.is_empty() && self.items.iter().all(Item::migratable) {
+            // Restore the initial state of all items are migratable.
+            self.restore(init);
+        } else {
+            // If we ended on a sticky block, but are not yet at the end of
+            // the flow, restore the saved checkpoint to move the sticky
+            // suffix to the next region.
+            if let Some(snapshot) = self.sticky.take() {
+                self.restore(snapshot)
             }
         }
 
@@ -397,33 +407,39 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         let mut frs = Fr::zero();
         let mut used = Size::zero();
+        let mut has_fr_child = false;
 
         // Determine the amount of used space and the sum of fractionals.
         for item in &self.items {
             match item {
                 Item::Abs(v, _) => used.y += *v,
-                Item::Fr(v, _) => frs += *v,
+                Item::Fr(v, child) => {
+                    frs += *v;
+                    has_fr_child |= child.is_some();
+                }
                 Item::Frame(frame, _) => {
                     used.y += frame.height();
                     used.x.set_max(frame.width());
                 }
-                Item::Placed(..) => {}
+                Item::Tag(_) | Item::Placed(..) => {}
             }
         }
 
         // When we have fractional spacing, occupy the remaining space with it.
         let mut fr_space = Abs::zero();
-        let mut fr_frames = vec![];
         if frs.get() > 0.0 && region.size.y.is_finite() {
             fr_space = region.size.y - used.y;
             used.y = region.size.y;
+        }
 
-            // Lay out fractionally sized blocks.
+        // Lay out fractionally sized blocks.
+        let mut fr_frames = vec![];
+        if has_fr_child {
             for item in &self.items {
                 let Item::Fr(v, Some(single)) = item else { continue };
                 let length = v.share(frs, fr_space);
-                let base = Size::new(region.size.x, length);
-                let frame = single.layout(self.composer.engine, base)?;
+                let pod = Region::new(Size::new(region.size.x, length), region.expand);
+                let frame = single.layout(self.composer.engine, pod)?;
                 used.x.set_max(frame.width());
                 fr_frames.push(frame);
             }
@@ -436,6 +452,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Determine the region's size.
         let size = region.expand.select(region.size, used.min(region.size));
+        let free = size.y - used.y;
 
         let mut output = Frame::soft(size);
         let mut ruler = FixedAlignment::Start;
@@ -445,6 +462,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Position all items.
         for item in self.items {
             match item {
+                Item::Tag(tag) => {
+                    let y = offset + ruler.position(free);
+                    let pos = Point::with_y(y);
+                    output.push(pos, FrameItem::Tag(tag.clone()));
+                }
                 Item::Abs(v, _) => {
                     offset += v;
                 }
@@ -462,7 +484,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     ruler = ruler.max(align.y);
 
                     let x = align.x.position(size.x - frame.width());
-                    let y = offset + ruler.position(size.y - used.y);
+                    let y = offset + ruler.position(free);
                     let pos = Point::new(x, y);
                     offset += frame.height();
 
@@ -472,7 +494,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     let x = placed.align_x.position(size.x - frame.width());
                     let y = match placed.align_y.unwrap_or_default() {
                         Some(align) => align.position(size.y - frame.height()),
-                        _ => offset + ruler.position(size.y - used.y),
+                        _ => offset + ruler.position(free),
                     };
 
                     let pos = Point::new(x, y)
@@ -481,16 +503,6 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     output.push_frame(pos, frame);
                 }
             }
-        }
-
-        // If this is the very end of the flow, drain trailing tags.
-        if forced && !self.composer.work.tags.is_empty() {
-            let tags = &mut self.composer.work.tags;
-            let pos = Point::with_y(offset);
-            output.push_multiple(
-                tags.iter().map(|&tag| (pos, FrameItem::Tag(tag.clone()))),
-            );
-            tags.clear();
         }
 
         Ok(output)

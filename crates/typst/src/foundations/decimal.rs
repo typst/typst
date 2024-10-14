@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Neg;
 use std::str::FromStr;
 
@@ -89,12 +90,14 @@ use crate::World;
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
 #[ty(scope, cast)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Decimal(rust_decimal::Decimal);
 
 impl Decimal {
     pub const ZERO: Self = Self(rust_decimal::Decimal::ZERO);
     pub const ONE: Self = Self(rust_decimal::Decimal::ONE);
+    pub const MIN: Self = Self(rust_decimal::Decimal::MIN);
+    pub const MAX: Self = Self(rust_decimal::Decimal::MAX);
 
     /// Whether this decimal value is zero.
     pub const fn is_zero(self) -> bool {
@@ -146,11 +149,46 @@ impl Decimal {
     /// Rounds this decimal up to the specified amount of digits with the
     /// traditional rounding rules, using the "midpoint away from zero"
     /// strategy (6.5 -> 7, -6.5 -> -7).
-    pub fn round(self, digits: u32) -> Self {
-        Self(self.0.round_dp_with_strategy(
-            digits,
+    ///
+    /// If given a negative amount of digits, rounds to integer digits instead
+    /// with the same rounding strategy. For example, rounding to -3 digits
+    /// will turn 34567.89 into 35000.00 and -34567.89 into -35000.00.
+    ///
+    /// Note that this can return `None` when using negative digits where the
+    /// rounded number would overflow the available range for decimals.
+    pub fn round(self, digits: i32) -> Option<Self> {
+        // Positive digits can be handled by just rounding with rust_decimal.
+        if let Ok(positive_digits) = u32::try_from(digits) {
+            return Some(Self(self.0.round_dp_with_strategy(
+                positive_digits,
+                rust_decimal::RoundingStrategy::MidpointAwayFromZero,
+            )));
+        }
+
+        // We received negative digits, so we round to integer digits.
+        let mut num = self.0;
+        let old_scale = num.scale();
+        let digits = -digits as u32;
+
+        let (Ok(_), Some(ten_to_digits)) = (
+            // Same as dividing by 10^digits.
+            num.set_scale(old_scale + digits),
+            rust_decimal::Decimal::TEN.checked_powi(digits as i64),
+        ) else {
+            // Scaling more than any possible amount of integer digits.
+            let mut zero = rust_decimal::Decimal::ZERO;
+            zero.set_sign_negative(self.is_negative());
+            return Some(Self(zero));
+        };
+
+        // Round to this integer digit.
+        num = num.round_dp_with_strategy(
+            0,
             rust_decimal::RoundingStrategy::MidpointAwayFromZero,
-        ))
+        );
+
+        // Multiply by 10^digits again, which can overflow and fail.
+        num.checked_mul(ten_to_digits).map(Self)
     }
 
     /// Attempts to add two decimals.
@@ -372,6 +410,22 @@ impl Neg for Decimal {
     }
 }
 
+impl Hash for Decimal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // `rust_decimal`'s Hash implementation normalizes decimals before
+        // hashing them. This means decimals with different scales but
+        // equivalent value not only compare equal but also hash equally. Here,
+        // we hash all bytes explicitly to ensure the scale is also considered.
+        // This means that 123.314 == 123.31400, but 123.314.hash() !=
+        // 123.31400.hash().
+        //
+        // Note that this implies that equal decimals can have different hashes,
+        // which might generate problems with certain data structures, such as
+        // HashSet and HashMap.
+        self.0.serialize().hash(state);
+    }
+}
+
 /// A value that can be cast to a decimal.
 pub enum ToDecimal {
     /// A string with the decimal's representation.
@@ -387,4 +441,57 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::Decimal;
+    use crate::utils::hash128;
+
+    #[test]
+    fn test_decimals_with_equal_scales_hash_identically() {
+        let a = Decimal::from_str("3.14").unwrap();
+        let b = Decimal::from_str("3.14").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(hash128(&a), hash128(&b));
+    }
+
+    #[test]
+    fn test_decimals_with_different_scales_hash_differently() {
+        let a = Decimal::from_str("3.140").unwrap();
+        let b = Decimal::from_str("3.14000").unwrap();
+        assert_eq!(a, b);
+        assert_ne!(hash128(&a), hash128(&b));
+    }
+
+    #[track_caller]
+    fn test_round(value: &str, digits: i32, expected: &str) {
+        assert_eq!(
+            Decimal::from_str(value).unwrap().round(digits),
+            Some(Decimal::from_str(expected).unwrap()),
+        );
+    }
+
+    #[test]
+    fn test_decimal_positive_round() {
+        test_round("312.55553", 0, "313.00000");
+        test_round("312.55553", 3, "312.556");
+        test_round("312.5555300000", 3, "312.556");
+        test_round("-312.55553", 3, "-312.556");
+        test_round("312.55553", 28, "312.55553");
+        test_round("312.55553", 2341, "312.55553");
+        test_round("-312.55553", 2341, "-312.55553");
+    }
+
+    #[test]
+    fn test_decimal_negative_round() {
+        test_round("4596.55553", -1, "4600");
+        test_round("4596.555530000000", -1, "4600");
+        test_round("-4596.55553", -3, "-5000");
+        test_round("4596.55553", -28, "0");
+        test_round("-4596.55553", -2341, "0");
+        assert_eq!(Decimal::MAX.round(-1), None);
+    }
 }

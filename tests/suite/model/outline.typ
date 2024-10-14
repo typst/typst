@@ -171,3 +171,12 @@ A
 
 = הוקוס Pocus
 = זוהי כותרת שתורגמה על ידי מחשב
+
+--- issue-5176-cjk-title ---
+#set text(font: "Noto Serif CJK SC")
+#show heading: none
+
+#outline(title: none)
+
+= 测
+= 很
