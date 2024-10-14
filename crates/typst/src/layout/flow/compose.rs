@@ -221,7 +221,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Process pending floats.
         for placed in std::mem::take(&mut self.work.floats) {
-            self.float(placed, &regions, true)?;
+            self.float(placed, &regions, false)?;
         }
 
         distribute(self, regions)
@@ -280,7 +280,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         };
 
         // We only require clearance if there is other content.
-        let clearance = if clearance { Abs::zero() } else { placed.clearance };
+        let clearance = if clearance { placed.clearance } else { Abs::zero() };
         let need = frame.height() + clearance;
 
         // If the float doesn't fit, queue it for the next region.
@@ -338,7 +338,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Search for footnotes.
-        let notes = find_in_frame::<FootnoteElem>(frame);
+        let mut notes = vec![];
+        for tag in &self.work.tags {
+            let Tag::Start(elem) = tag else { continue };
+            let Some(note) = elem.to_packed::<FootnoteElem>() else { continue };
+            notes.push((Abs::zero(), note.clone()));
+        }
+        find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
         if notes.is_empty() {
             return Ok(());
         }
