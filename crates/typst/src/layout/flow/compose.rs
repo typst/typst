@@ -628,6 +628,15 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
         output.push_frame(Point::with_y(self.top_size), inner);
 
+        for (placed, frame) in self.bottom_floats {
+            offset_bottom += placed.clearance;
+            let x = placed.align_x.position(size.x - frame.width());
+            let y = offset_bottom;
+            let delta = placed.delta.zip_map(size, Rel::relative_to).to_point();
+            offset_bottom += frame.height();
+            output.push_frame(Point::new(x, y) + delta, frame);
+        }
+
         if let Some(frame) = self.footnote_separator {
             offset_bottom += config.footnote.clearance;
             let y = offset_bottom;
@@ -640,15 +649,6 @@ impl<'a, 'b> Insertions<'a, 'b> {
             let y = offset_bottom;
             offset_bottom += frame.height();
             output.push_frame(Point::with_y(y), frame);
-        }
-
-        for (placed, frame) in self.bottom_floats {
-            offset_bottom += placed.clearance;
-            let x = placed.align_x.position(size.x - frame.width());
-            let y = offset_bottom;
-            let delta = placed.delta.zip_map(size, Rel::relative_to).to_point();
-            offset_bottom += frame.height();
-            output.push_frame(Point::new(x, y) + delta, frame);
         }
 
         output
