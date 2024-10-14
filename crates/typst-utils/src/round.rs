@@ -81,114 +81,91 @@ pub fn round_with_precision(value: f64, precision: i16) -> f64 {
 /// ```
 pub fn round_int_with_precision(value: i64, precision: i16) -> Option<i64> {
     if precision >= 0 {
-        Some(value)
-    } else {
-        let digits = -precision as u32;
-        let Some(ten_to_digits) = 10i64.checked_pow(digits - 1) else {
-            // Larger than any possible amount of integer digits.
-            return Some(0);
-        };
-
-        // Divide by 10^(digits - 1).
-        //
-        // We keep the last digit we want to remove as the first digit of this
-        // number, so we can check it with mod 10 for rounding purposes.
-        let truncated = value / ten_to_digits;
-        if truncated == 0 {
-            return Some(0);
-        }
-
-        let rounded = if (truncated % 10).abs() >= 5 {
-            // Round away from zero (towards the next multiple of 10).
-            //
-            // This may overflow in the particular case of rounding MAX/MIN
-            // with -1.
-            truncated.checked_add(truncated.signum() * (10 - (truncated % 10).abs()))?
-        } else {
-            // Just replace the last digit with zero, since it's < 5.
-            truncated - (truncated % 10)
-        };
-
-        // Multiply back by 10^(digits - 1).
-        //
-        // May overflow / underflow, in which case we fail.
-        rounded.checked_mul(ten_to_digits)
+        return Some(value);
     }
+
+    let digits = -precision as u32;
+    let Some(ten_to_digits) = 10i64.checked_pow(digits - 1) else {
+        // Larger than any possible amount of integer digits.
+        return Some(0);
+    };
+
+    // Divide by 10^(digits - 1).
+    //
+    // We keep the last digit we want to remove as the first digit of this
+    // number, so we can check it with mod 10 for rounding purposes.
+    let truncated = value / ten_to_digits;
+    if truncated == 0 {
+        return Some(0);
+    }
+
+    let rounded = if (truncated % 10).abs() >= 5 {
+        // Round away from zero (towards the next multiple of 10).
+        //
+        // This may overflow in the particular case of rounding MAX/MIN
+        // with -1.
+        truncated.checked_add(truncated.signum() * (10 - (truncated % 10).abs()))?
+    } else {
+        // Just replace the last digit with zero, since it's < 5.
+        truncated - (truncated % 10)
+    };
+
+    // Multiply back by 10^(digits - 1).
+    //
+    // May overflow / underflow, in which case we fail.
+    rounded.checked_mul(ten_to_digits)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{round_int_with_precision as rip, round_with_precision as rp};
 
     #[test]
     fn test_round_with_precision_0() {
-        let round = |value| round_with_precision(value, 0);
-        assert_eq!(0.0, round(0.0));
-        assert_eq!(-0.0, round(-0.0));
-        assert_eq!(0.0, round(0.4));
-        assert_eq!(-0.0, round(-0.4));
-        assert_eq!(1.0, round(0.56453));
-        assert_eq!(-1.0, round(-0.56453));
+        let round = |value| rp(value, 0);
+        assert_eq!(round(0.0), 0.0);
+        assert_eq!(round(-0.0), -0.0);
+        assert_eq!(round(0.4), 0.0);
+        assert_eq!(round(-0.4), -0.0);
+        assert_eq!(round(0.56453), 1.0);
+        assert_eq!(round(-0.56453), -1.0);
     }
 
     #[test]
     fn test_round_with_precision_1() {
-        let round = |value| round_with_precision(value, 1);
-        assert_eq!(0.0, round(0.0));
-        assert_eq!(-0.0, round(-0.0));
-        assert_eq!(0.4, round(0.4));
-        assert_eq!(-0.4, round(-0.4));
-        assert_eq!(0.4, round(0.44));
-        assert_eq!(-0.4, round(-0.44));
-        assert_eq!(0.6, round(0.56453));
-        assert_eq!(-0.6, round(-0.56453));
-        assert_eq!(1.0, round(0.96453));
-        assert_eq!(-1.0, round(-0.96453));
+        let round = |value| rp(value, 1);
+        assert_eq!(round(0.0), 0.0);
+        assert_eq!(round(-0.0), -0.0);
+        assert_eq!(round(0.4), 0.4);
+        assert_eq!(round(-0.4), -0.4);
+        assert_eq!(round(0.44), 0.4);
+        assert_eq!(round(-0.44), -0.4);
+        assert_eq!(round(0.56453), 0.6);
+        assert_eq!(round(-0.56453), -0.6);
+        assert_eq!(round(0.96453), 1.0);
+        assert_eq!(round(-0.96453), -1.0);
     }
 
     #[test]
     fn test_round_with_precision_2() {
-        let round = |value| round_with_precision(value, 2);
-        assert_eq!(0.0, round(0.0));
-        assert_eq!(-0.0, round(-0.0));
-        assert_eq!(0.4, round(0.4));
-        assert_eq!(-0.4, round(-0.4));
-        assert_eq!(0.44, round(0.44));
-        assert_eq!(-0.44, round(-0.44));
-        assert_eq!(0.44, round(0.444));
-        assert_eq!(-0.44, round(-0.444));
-        assert_eq!(0.57, round(0.56553));
-        assert_eq!(-0.57, round(-0.56553));
-        assert_eq!(1.0, round(0.99553));
-        assert_eq!(-1.0, round(-0.99553));
-    }
-
-    #[test]
-    fn test_round_with_precision_fuzzy() {
-        let round = |value| round_with_precision(value, 0);
-        assert_eq!(f64::INFINITY, round(f64::INFINITY));
-        assert_eq!(f64::NEG_INFINITY, round(f64::NEG_INFINITY));
-        assert!(round(f64::NAN).is_nan());
-
-        let max_int = (1_i64 << f64::MANTISSA_DIGITS) as f64;
-        let f64_digits = f64::DIGITS as i16;
-
-        // max
-        assert_eq!(max_int, round(max_int));
-        assert_eq!(0.123456, round_with_precision(0.123456, f64_digits));
-        assert_eq!(max_int, round_with_precision(max_int, f64_digits));
-
-        // max - 1
-        assert_eq!(max_int - 1f64, round(max_int - 1f64));
-        assert_eq!(0.123456, round_with_precision(0.123456, f64_digits - 1));
-        assert_eq!(max_int - 1f64, round_with_precision(max_int - 1f64, f64_digits));
-        assert_eq!(max_int, round_with_precision(max_int, f64_digits - 1));
-        assert_eq!(max_int - 1f64, round_with_precision(max_int - 1f64, f64_digits - 1));
+        let round = |value| rp(value, 2);
+        assert_eq!(round(0.0), 0.0);
+        assert_eq!(round(-0.0), -0.0);
+        assert_eq!(round(0.4), 0.4);
+        assert_eq!(round(-0.4), -0.4);
+        assert_eq!(round(0.44), 0.44);
+        assert_eq!(round(-0.44), -0.44);
+        assert_eq!(round(0.444), 0.44);
+        assert_eq!(round(-0.444), -0.44);
+        assert_eq!(round(0.56553), 0.57);
+        assert_eq!(round(-0.56553), -0.57);
+        assert_eq!(round(0.99553), 1.0);
+        assert_eq!(round(-0.99553), -1.0);
     }
 
     #[test]
     fn test_round_with_precision_negative_1() {
-        let round = |value| round_with_precision(value, -1);
+        let round = |value| rp(value, -1);
         assert_eq!(0.0, round(0.0));
         assert_eq!(-0.0, round(-0.0));
         assert_eq!(0.0, round(0.4));
@@ -201,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_round_with_precision_negative_2() {
-        let round = |value| round_with_precision(value, -2);
+        let round = |value| rp(value, -2);
         assert_eq!(0.0, round(0.0));
         assert_eq!(-0.0, round(-0.0));
         assert_eq!(0.0, round(0.4));
@@ -213,146 +190,116 @@ mod tests {
     }
 
     #[test]
-    fn test_round_with_precision_fuzzy_negative() {
-        let round = |value| round_with_precision(value, -1);
-        assert_eq!(f64::INFINITY, round(f64::INFINITY));
-        assert_eq!(f64::NEG_INFINITY, round(f64::NEG_INFINITY));
+    fn test_round_with_precision_fuzzy() {
+        let round = |value| rp(value, 0);
+        let max_int = (1_i64 << f64::MANTISSA_DIGITS) as f64;
+        let max_digits = f64::DIGITS as i16;
+
+        // Special cases.
+        assert_eq!(round(f64::INFINITY), f64::INFINITY,);
+        assert_eq!(round(f64::NEG_INFINITY), f64::NEG_INFINITY,);
         assert!(round(f64::NAN).is_nan());
 
-        let max_int_digits = f64::MAX_10_EXP as i16;
-        let ten_exp = |exponent: i16| 10_f64.powi(exponent.into());
+        // Max
+        assert_eq!(round(max_int), max_int);
+        assert_eq!(rp(0.123456, max_digits), 0.123456);
+        assert_eq!(rp(max_int, max_digits), max_int);
 
-        // max
-        assert_eq!(f64::INFINITY, round_with_precision(f64::MAX, -max_int_digits));
-        assert_eq!(f64::NEG_INFINITY, round_with_precision(f64::MIN, -max_int_digits));
-        assert_eq!(
-            f64::INFINITY,
-            round_with_precision(1.66 * ten_exp(max_int_digits), -max_int_digits)
-        );
-        assert_eq!(
-            f64::NEG_INFINITY,
-            round_with_precision(-1.66 * ten_exp(max_int_digits), -max_int_digits)
-        );
-        assert_eq!(
-            0.0,
-            round_with_precision(1.66 * ten_exp(max_int_digits - 1), -max_int_digits)
-        );
-        assert_eq!(
-            -0.0,
-            round_with_precision(-1.66 * ten_exp(max_int_digits - 1), -max_int_digits)
-        );
-        assert_eq!(0.0, round_with_precision(1234.5678, -max_int_digits));
-        assert_eq!(-0.0, round_with_precision(-1234.5678, -max_int_digits));
+        // Max - 1
+        assert_eq!(round(max_int - 1.0), max_int - 1.0);
+        assert_eq!(rp(0.123456, max_digits - 1), 0.123456);
+        assert_eq!(rp(max_int - 1.0, max_digits), max_int - 1.0);
+        assert_eq!(rp(max_int, max_digits - 1), max_int);
+        assert_eq!(rp(max_int - 1.0, max_digits - 1), max_int - 1.0);
+    }
 
-        // max - 1
-        assert_eq!(f64::INFINITY, round_with_precision(f64::MAX, -(max_int_digits - 1)));
+    #[test]
+    fn test_round_with_precision_fuzzy_negative() {
+        let exp10 = |exponent: i16| 10_f64.powi(exponent.into());
+        let max_digits = f64::MAX_10_EXP as i16;
+        let max_up = max_digits + 1;
+        let max_down = max_digits - 1;
+
+        // Special cases.
+        assert_eq!(f64::INFINITY, rp(f64::INFINITY, -1));
+        assert_eq!(f64::NEG_INFINITY, rp(f64::NEG_INFINITY, -1));
+        assert!(rp(f64::NAN, -1).is_nan());
+
+        // Max
+        assert_eq!(rp(f64::MAX, -max_digits), f64::INFINITY);
+        assert_eq!(rp(f64::MIN, -max_digits), f64::NEG_INFINITY);
+        assert_eq!(rp(1.66 * exp10(max_digits), -max_digits), f64::INFINITY);
+        assert_eq!(rp(-1.66 * exp10(max_digits), -max_digits), f64::NEG_INFINITY);
+        assert_eq!(rp(1.66 * exp10(max_down), -max_digits), 0.0);
+        assert_eq!(rp(-1.66 * exp10(max_down), -max_digits), -0.0);
+        assert_eq!(rp(1234.5678, -max_digits), 0.0);
+        assert_eq!(rp(-1234.5678, -max_digits), -0.0);
+
+        // Max + 1
+        assert_eq!(rp(f64::MAX, -max_up), 0.0);
+        assert_eq!(rp(f64::MIN, -max_up), -0.0);
+        assert_eq!(rp(1.66 * exp10(max_digits), -max_up), 0.0);
+        assert_eq!(rp(-1.66 * exp10(max_digits), -max_up), -0.0);
+        assert_eq!(rp(1.66 * exp10(max_down), -max_up), 0.0);
+        assert_eq!(rp(-1.66 * exp10(max_down), -max_up), -0.0);
+        assert_eq!(rp(1234.5678, -max_up), 0.0);
+        assert_eq!(rp(-1234.5678, -max_up), -0.0);
+
+        // Max - 1
+        assert_eq!(rp(f64::MAX, -max_down), f64::INFINITY);
+        assert_eq!(rp(f64::MIN, -max_down), f64::NEG_INFINITY);
+        assert_eq!(2.0 * exp10(max_down), rp(1.66 * exp10(max_down), -(max_down)));
+        assert_eq!(-2.0 * exp10(max_down), rp(-1.66 * exp10(max_down), -(max_down)));
+        assert_eq!(rp(1234.5678, -max_down), 0.0);
+        assert_eq!(rp(-1234.5678, -max_down), -0.0);
+
+        // Must be approx equal to 1.7e308. Using some division and flooring
+        // to avoid weird results due to imprecision.
         assert_eq!(
-            f64::NEG_INFINITY,
-            round_with_precision(f64::MIN, -(max_int_digits - 1))
-        );
-        assert_eq!(
-            // Must be approx equal to 1.7e308.
-            //
-            // Using some division and flooring to avoid weird results due to
-            // imprecision.
+            (rp(1.66 * exp10(max_digits), -max_down) / exp10(max_down)).floor(),
             17.0,
-            (round_with_precision(1.66 * ten_exp(max_int_digits), -(max_int_digits - 1))
-                / ten_exp(max_int_digits - 1))
-            .floor()
         );
         assert_eq!(
-            // Must be approx equal to -1.7e308.
-            //
-            // Using some division and flooring to avoid weird results due to
-            // imprecision.
+            (rp(-1.66 * exp10(max_digits), -max_down) / exp10(max_down)).floor(),
             -17.0,
-            (round_with_precision(
-                -1.66 * ten_exp(max_int_digits),
-                -(max_int_digits - 1)
-            ) / ten_exp(max_int_digits - 1))
-            .floor()
         );
-        assert_eq!(
-            2.0 * ten_exp(max_int_digits - 1),
-            round_with_precision(
-                1.66 * ten_exp(max_int_digits - 1),
-                -(max_int_digits - 1)
-            )
-        );
-        assert_eq!(
-            -2.0 * ten_exp(max_int_digits - 1),
-            round_with_precision(
-                -1.66 * ten_exp(max_int_digits - 1),
-                -(max_int_digits - 1)
-            )
-        );
-        assert_eq!(0.0, round_with_precision(1234.5678, -(max_int_digits - 1)));
-        assert_eq!(-0.0, round_with_precision(-1234.5678, -(max_int_digits - 1)));
-
-        // max + 1
-        assert_eq!(0.0, round_with_precision(f64::MAX, -(max_int_digits + 1)));
-        assert_eq!(-0.0, round_with_precision(f64::MIN, -(max_int_digits + 1)));
-        assert_eq!(
-            0.0,
-            round_with_precision(1.66 * ten_exp(max_int_digits), -(max_int_digits + 1))
-        );
-        assert_eq!(
-            -0.0,
-            round_with_precision(-1.66 * ten_exp(max_int_digits), -(max_int_digits + 1))
-        );
-        assert_eq!(
-            0.0,
-            round_with_precision(
-                1.66 * ten_exp(max_int_digits - 1),
-                -(max_int_digits + 1)
-            )
-        );
-        assert_eq!(
-            -0.0,
-            round_with_precision(
-                -1.66 * ten_exp(max_int_digits - 1),
-                -(max_int_digits + 1)
-            )
-        );
-        assert_eq!(0.0, round_with_precision(1234.5678, -(max_int_digits + 1)));
-        assert_eq!(-0.0, round_with_precision(-1234.5678, -(max_int_digits + 1)));
     }
 
     #[test]
     fn test_round_int_with_precision_positive() {
-        assert_eq!(Some(0), round_int_with_precision(0, 0));
-        assert_eq!(Some(10), round_int_with_precision(10, 0));
-        assert_eq!(Some(23), round_int_with_precision(23, 235));
-        assert_eq!(Some(i64::MAX), round_int_with_precision(i64::MAX, 235));
+        assert_eq!(Some(0), rip(0, 0));
+        assert_eq!(Some(10), rip(10, 0));
+        assert_eq!(Some(23), rip(23, 235));
+        assert_eq!(Some(i64::MAX), rip(i64::MAX, 235));
     }
 
     #[test]
     fn test_round_int_with_precision_negative_1() {
-        let round = |value| round_int_with_precision(value, -1);
-        assert_eq!(Some(0), round(0));
-        assert_eq!(Some(0), round(3));
-        assert_eq!(Some(10), round(5));
-        assert_eq!(Some(10), round(13));
-        assert_eq!(Some(1230), round(1234));
-        assert_eq!(Some(-1230), round(-1234));
-        assert_eq!(Some(1250), round(1245));
-        assert_eq!(Some(-1250), round(-1245));
-        assert_eq!(None, round(i64::MAX));
-        assert_eq!(None, round(i64::MIN));
+        let round = |value| rip(value, -1);
+        assert_eq!(round(0), Some(0));
+        assert_eq!(round(3), Some(0));
+        assert_eq!(round(5), Some(10));
+        assert_eq!(round(13), Some(10));
+        assert_eq!(round(1234), Some(1230));
+        assert_eq!(round(-1234), Some(-1230));
+        assert_eq!(round(1245), Some(1250));
+        assert_eq!(round(-1245), Some(-1250));
+        assert_eq!(round(i64::MAX), None);
+        assert_eq!(round(i64::MIN), None);
     }
 
     #[test]
     fn test_round_int_with_precision_negative_2() {
-        let round = |value| round_int_with_precision(value, -2);
-        assert_eq!(Some(0), round(0));
-        assert_eq!(Some(0), round(3));
-        assert_eq!(Some(0), round(5));
-        assert_eq!(Some(0), round(13));
-        assert_eq!(Some(1200), round(1245));
-        assert_eq!(Some(-1200), round(-1245));
-        assert_eq!(Some(1300), round(1253));
-        assert_eq!(Some(-1300), round(-1253));
-        assert_eq!(Some(i64::MAX - 7), round(i64::MAX));
-        assert_eq!(Some(i64::MIN + 8), round(i64::MIN));
+        let round = |value| rip(value, -2);
+        assert_eq!(round(0), Some(0));
+        assert_eq!(round(3), Some(0));
+        assert_eq!(round(5), Some(0));
+        assert_eq!(round(13), Some(0));
+        assert_eq!(round(1245), Some(1200));
+        assert_eq!(round(-1245), Some(-1200));
+        assert_eq!(round(1253), Some(1300));
+        assert_eq!(round(-1253), Some(-1300));
+        assert_eq!(round(i64::MAX), Some(i64::MAX - 7));
+        assert_eq!(round(i64::MIN), Some(i64::MIN + 8));
     }
 }
