@@ -114,6 +114,14 @@ Beautiful footnotes. #footnote[Wonderful, aren't they?]
 A
 #block(footnote[hello])
 
+--- footnote-block-fr ---
+#set page(height: 110pt)
+A
+#block(width: 100%, height: 1fr, fill: aqua)[
+  B #footnote[I] #footnote[II]
+]
+C
+
 --- footnote-float-priority ---
 #set page(height: 100pt)
 
