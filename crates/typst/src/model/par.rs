@@ -217,8 +217,11 @@ impl Unlabellable for Packed<ParbreakElem> {}
 
 /// A paragraph line.
 ///
-/// This element is exclusively used for line number configuration and cannot
-/// be placed.
+/// This element is exclusively used for line number configuration through set
+/// rules and cannot be placed.
+///
+/// The [`numbering`]($par.line.numbering) option is used to enable line
+/// numbers by specifying a numbering format.
 ///
 /// ```example
 /// >>> #set page(margin: (left: 3em))
@@ -228,6 +231,40 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// Violets are blue. \
 /// Typst is there for you.
 /// ```
+///
+/// The `numbering` option may also be used to specify custom styles for the
+/// displayed numbering by using a numbering function returning styled content
+/// instead of using a plain string format. In addition, you can override that
+/// option through local set rules to disable line numbers for text inside
+/// certain elements.
+///
+/// ```example
+/// >>> #set page(margin: (left: 3em))
+/// // 1. Style line numbers as red;
+/// // 2. Disable line numbers inside figures.
+/// #set par.line(numbering: n => text(red)[#n])
+/// #show figure: set par.line(numbering: none)
+///
+/// Roses are red. \
+/// Violets are blue.
+///
+/// #figure(
+///   [
+///     Lorem ipsum \
+///     dolor sit amet
+///   ],
+///   caption: [A paragraph without line numbers.]
+/// )
+///
+/// The text above is a sample \
+/// originating from distant times.
+/// ```
+///
+/// This element also exposes other options which may be used to control other
+/// aspects of line numbering, such as its [alignment]($par.line.number-align)
+/// or [margin]($par.line.number-margin). In addition, you can control whether
+/// the numbering is reset on each page through the
+/// [`numbering-scope`]($par.line.numbering-scope) option.
 #[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
 pub struct ParLine {
     /// How to number each line. Accepts a
@@ -265,6 +302,12 @@ pub struct ParLine {
     pub number_align: Smart<HAlignment>,
 
     /// The margin at which line numbers appear.
+    ///
+    /// _Note:_ In a multi-column document, the line numbers for paragraphs
+    /// inside the last column will always appear on the `{end}` margin (right
+    /// margin for left-to-right text and left margin for right-to-left),
+    /// regardless of this configuration. That behavior cannot be changed at
+    /// this moment.
     ///
     /// ```example
     /// >>> #set page(margin: (right: 3em))
