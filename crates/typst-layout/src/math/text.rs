@@ -36,10 +36,10 @@ pub fn layout_text(
         // A single letter that is available in the math font.
         match math_size {
             MathSize::Script => {
-                glyph.make_scriptsize(ctx);
+                glyph.make_script_size(ctx);
             }
             MathSize::ScriptScript => {
-                glyph.make_scriptscriptsize(ctx);
+                glyph.make_script_script_size(ctx);
             }
             _ => (),
         }

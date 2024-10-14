@@ -2,9 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::gsub::{
-    AlternateSet, AlternateSubstitution, SingleSubstitution, SubstitutionSubtable,
-};
+use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::opentype_layout::LayoutTable;
 use ttf_parser::{GlyphId, Rect};
 use typst_library::foundations::StyleChain;
@@ -390,20 +388,35 @@ impl GlyphFragment {
         frame
     }
 
-    pub fn make_scriptsize(&mut self, ctx: &MathContext) {
+    pub fn make_script_size(&mut self, ctx: &MathContext) {
         let alt_id =
-            script_alternatives(ctx, self.id).and_then(|alts| alts.alternates.get(0));
-
+            ctx.ssty_table.as_ref().and_then(|ssty| ssty.try_apply(self.id, None));
         if let Some(alt_id) = alt_id {
             self.set_id(ctx, alt_id);
         }
     }
 
-    pub fn make_scriptscriptsize(&mut self, ctx: &MathContext) {
-        let alts = script_alternatives(ctx, self.id);
-        let alt_id = alts
-            .and_then(|alts| alts.alternates.get(1).or_else(|| alts.alternates.get(0)));
+    pub fn make_script_script_size(&mut self, ctx: &MathContext) {
+        let alt_id = ctx.ssty_table.as_ref().and_then(|ssty| {
+            ssty.try_apply(self.id, Some(1))
+                .or_else(|| ssty.try_apply(self.id, None))
+        });
+        if let Some(alt_id) = alt_id {
+            self.set_id(ctx, alt_id);
+        }
+    }
 
+    pub fn make_dotless_form(&mut self, ctx: &MathContext) {
+        let alt_id =
+            ctx.dtls_table.as_ref().and_then(|dtls| dtls.try_apply(self.id, None));
+        if let Some(alt_id) = alt_id {
+            self.set_id(ctx, alt_id);
+        }
+    }
+
+    pub fn make_flattened_accent_form(&mut self, ctx: &MathContext) {
+        let alt_id =
+            ctx.flac_table.as_ref().and_then(|flac| flac.try_apply(self.id, None));
         if let Some(alt_id) = alt_id {
             self.set_id(ctx, alt_id);
         }
@@ -561,16 +574,6 @@ fn accent_attach(ctx: &MathContext, id: GlyphId, font_size: Abs) -> Option<Abs> 
     )
 }
 
-/// Look up the script/scriptscript alternates for a glyph
-fn script_alternatives<'a>(
-    ctx: &MathContext<'a, '_, '_>,
-    id: GlyphId,
-) -> Option<AlternateSet<'a>> {
-    ctx.ssty_table.and_then(|ssty| {
-        ssty.coverage.get(id).and_then(|index| ssty.alternate_sets.get(index))
-    })
-}
-
 /// Look up whether a glyph is an extended shape.
 fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
     ctx.table
@@ -662,10 +665,11 @@ pub enum GlyphwiseSubsts<'a> {
 }
 
 impl<'a> GlyphwiseSubsts<'a> {
-    pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
+    pub fn new(gsub: Option<LayoutTable<'a>>, feature: Feature) -> Option<Self> {
+        let gsub = gsub?;
         let table = gsub
             .features
-            .find(ttf_parser::Tag(feature.tag.0))
+            .find(feature.tag)
             .and_then(|feature| feature.lookup_indices.get(0))
             .and_then(|index| gsub.lookups.get(index))?;
         let table = table.subtables.get::<SubstitutionSubtable>(0)?;
@@ -680,7 +684,11 @@ impl<'a> GlyphwiseSubsts<'a> {
         }
     }
 
-    pub fn try_apply(&self, glyph_id: GlyphId) -> Option<GlyphId> {
+    pub fn try_apply(
+        &self,
+        glyph_id: GlyphId,
+        alt_value: Option<u32>,
+    ) -> Option<GlyphId> {
         match self {
             Self::Single(single) => match single {
                 SingleSubstitution::Format1 { coverage, delta } => coverage
@@ -694,11 +702,11 @@ impl<'a> GlyphwiseSubsts<'a> {
                 .coverage
                 .get(glyph_id)
                 .and_then(|idx| alternate.alternate_sets.get(idx))
-                .and_then(|set| set.alternates.get(*value as u16)),
+                .and_then(|set| set.alternates.get(alt_value.unwrap_or(*value) as u16)),
         }
     }
 
     pub fn apply(&self, glyph_id: GlyphId) -> GlyphId {
-        self.try_apply(glyph_id).unwrap_or(glyph_id)
+        self.try_apply(glyph_id, None).unwrap_or(glyph_id)
     }
 }

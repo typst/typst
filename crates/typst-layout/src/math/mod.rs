@@ -13,7 +13,8 @@ mod stretch;
 mod text;
 mod underover;
 
-use ttf_parser::gsub::SubstitutionSubtable;
+use rustybuzz::Feature;
+use ttf_parser::Tag;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, NativeElement, Packed, Resolve, StyleChain};
@@ -369,7 +370,9 @@ struct MathContext<'a, 'v, 'e> {
     ttf: &'a ttf_parser::Face<'a>,
     table: ttf_parser::math::Table<'a>,
     constants: ttf_parser::math::Constants<'a>,
-    ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
+    dtls_table: Option<GlyphwiseSubsts<'a>>,
+    flac_table: Option<GlyphwiseSubsts<'a>>,
+    ssty_table: Option<GlyphwiseSubsts<'a>>,
     glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
     space_width: Em,
     // Mutable.
@@ -389,26 +392,17 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         let gsub_table = font.ttf().tables().gsub;
         let constants = math_table.constants.unwrap();
 
-        let ssty_table = gsub_table
-            .and_then(|gsub| {
-                gsub.features
-                    .find(ttf_parser::Tag::from_bytes(b"ssty"))
-                    .and_then(|feature| feature.lookup_indices.get(0))
-                    .and_then(|index| gsub.lookups.get(index))
-            })
-            .and_then(|ssty| ssty.subtables.get::<SubstitutionSubtable>(0))
-            .and_then(|ssty| match ssty {
-                SubstitutionSubtable::Alternate(alt_glyphs) => Some(alt_glyphs),
-                _ => None,
-            });
+        let feat = |tag: &[u8; 4]| {
+            GlyphwiseSubsts::new(gsub_table, Feature::new(Tag::from_bytes(tag), 0, ..))
+        };
 
         let features = features(styles);
-        let glyphwise_tables = gsub_table.map(|gsub| {
+        let glyphwise_tables = Some(
             features
                 .into_iter()
-                .filter_map(|feature| GlyphwiseSubsts::new(gsub, feature))
-                .collect()
-        });
+                .filter_map(|feature| GlyphwiseSubsts::new(gsub_table, feature))
+                .collect(),
+        );
 
         let ttf = font.ttf();
         let space_width = ttf
@@ -422,10 +416,12 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             locator,
             region: Region::new(base, Axes::splat(false)),
             font,
-            ttf: font.ttf(),
+            ttf,
             table: math_table,
             constants,
-            ssty_table,
+            dtls_table: feat(b"dtls"),
+            flac_table: feat(b"flac"),
+            ssty_table: feat(b"ssty"),
             glyphwise_tables,
             space_width,
             fragments: vec![],
