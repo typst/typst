@@ -191,22 +191,21 @@ mod tests {
 
     #[test]
     fn test_round_with_precision_fuzzy() {
-        let round = |value| rp(value, 0);
         let max_int = (1_i64 << f64::MANTISSA_DIGITS) as f64;
         let max_digits = f64::DIGITS as i16;
 
         // Special cases.
-        assert_eq!(round(f64::INFINITY), f64::INFINITY);
-        assert_eq!(round(f64::NEG_INFINITY), f64::NEG_INFINITY);
-        assert!(round(f64::NAN).is_nan());
+        assert_eq!(rp(f64::INFINITY, 0), f64::INFINITY);
+        assert_eq!(rp(f64::NEG_INFINITY, 0), f64::NEG_INFINITY);
+        assert!(rp(f64::NAN, 0).is_nan());
 
         // Max
-        assert_eq!(round(max_int), max_int);
+        assert_eq!(rp(max_int, 0), max_int);
         assert_eq!(rp(0.123456, max_digits), 0.123456);
         assert_eq!(rp(max_int, max_digits), max_int);
 
         // Max - 1
-        assert_eq!(round(max_int - 1.0), max_int - 1.0);
+        assert_eq!(rp(max_int - 1.0, 0), max_int - 1.0);
         assert_eq!(rp(0.123456, max_digits - 1), 0.123456);
         assert_eq!(rp(max_int - 1.0, max_digits), max_int - 1.0);
         assert_eq!(rp(max_int, max_digits - 1), max_int);
