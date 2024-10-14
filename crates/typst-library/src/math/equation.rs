@@ -198,12 +198,12 @@ impl Show for Packed<EquationElem> {
 impl ShowSet for Packed<EquationElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(EquationElem::set_column_gap(self.column_gap(styles)));
         if self.block(styles) {
             out.set(AlignElem::set_alignment(Alignment::CENTER));
             out.set(BlockElem::set_breakable(false));
             out.set(ParLine::set_numbering(None));
             out.set(EquationElem::set_size(MathSize::Display));
+            out.set(EquationElem::set_column_gap(self.column_gap(styles)));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
         }
