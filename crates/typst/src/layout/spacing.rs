@@ -11,13 +11,23 @@ use crate::utils::Numeric;
 /// # Example
 /// ```example
 /// First #h(1cm) Second \
-/// First #h(30%) Second \
+/// First #h(30%) Second
+/// ```
+///
+/// # Fractional spacing
+/// With fractional spacing, you can align things within a line without forcing
+/// a paragraph break (like [`align`] would). Each fractionally sized element
+/// gets space based on the ratio of its fraction to the sum of all fractions.
+///
+/// ```example
+/// First #h(1fr) Second \
+/// First #h(1fr) Second #h(1fr) Third \
 /// First #h(2fr) Second #h(1fr) Third
 /// ```
 ///
 /// # Mathematical Spacing { #math-spacing }
 /// In [mathematical formulas]($category/math), you can additionally use these
-/// constants to add spacing between elements: `thin` (1/6 em), `med`(2/9 em),
+/// constants to add spacing between elements: `thin` (1/6 em), `med` (2/9 em),
 /// `thick` (5/18 em), `quad` (1 em), `wide` (2 em).
 #[elem(title = "Spacing (H)")]
 pub struct HElem {

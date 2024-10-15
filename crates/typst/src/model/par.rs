@@ -232,35 +232,38 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// Typst is there for you.
 /// ```
 ///
-/// The `numbering` option may also be used to specify custom styles for the
-/// displayed numbering by using a numbering function returning styled content
-/// instead of using a plain string format. In addition, you can override that
-/// option through local set rules to disable line numbers for text inside
-/// certain elements.
+/// The `numbering` option takes either a predefined
+/// [numbering pattern]($numbering) or a function returning styled content. You
+/// can disable line numbers for text inside certain elements by setting the
+/// numbering to `{none}` using show-set rules.
 ///
 /// ```example
 /// >>> #set page(margin: (left: 3em))
-/// // 1. Style line numbers as red;
-/// // 2. Disable line numbers inside figures.
-/// #set par.line(numbering: n => text(red)[#n])
-/// #show figure: set par.line(numbering: none)
+/// // Styled red line numbers.
+/// #set par.line(
+///   numbering: n => text(red)[#n]
+/// )
+///
+/// // Disable numbers inside figures.
+/// #show figure: set par.line(
+///   numbering: none
+/// )
 ///
 /// Roses are red. \
 /// Violets are blue.
 ///
 /// #figure(
-///   [
-///     Lorem ipsum \
-///     dolor sit amet
-///   ],
-///   caption: [A paragraph without line numbers.]
-/// )
+///   caption: [Without line numbers.]
+/// )[
+///   Lorem ipsum \
+///   dolor sit amet
+/// ]
 ///
 /// The text above is a sample \
 /// originating from distant times.
 /// ```
 ///
-/// This element also exposes other options which may be used to control other
+/// This element exposes further options which may be used to control other
 /// aspects of line numbering, such as its [alignment]($par.line.number-align)
 /// or [margin]($par.line.number-margin). In addition, you can control whether
 /// the numbering is reset on each page through the
