@@ -64,6 +64,15 @@ use crate::text::TextElem;
 ///   left.
 /// ])
 /// ```
+///
+/// # Alignment within the same line
+/// The `align` function performs block-level alignment and thus always
+/// interrupts the current paragraph. To have different alignment for parts
+/// of the same line, you should use [fractional spacing]($h) instead:
+///
+/// ```example
+/// Start #h(1fr) End
+/// ```
 #[elem(Show)]
 pub struct AlignElem {
     /// The [alignment] along both axes.

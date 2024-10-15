@@ -217,8 +217,11 @@ impl Unlabellable for Packed<ParbreakElem> {}
 
 /// A paragraph line.
 ///
-/// This element is exclusively used for line number configuration and cannot
-/// be placed.
+/// This element is exclusively used for line number configuration through set
+/// rules and cannot be placed.
+///
+/// The [`numbering`]($par.line.numbering) option is used to enable line
+/// numbers by specifying a numbering format.
 ///
 /// ```example
 /// >>> #set page(margin: (left: 3em))
@@ -228,6 +231,43 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// Violets are blue. \
 /// Typst is there for you.
 /// ```
+///
+/// The `numbering` option takes either a predefined
+/// [numbering pattern]($numbering) or a function returning styled content. You
+/// can disable line numbers for text inside certain elements by setting the
+/// numbering to `{none}` using show-set rules.
+///
+/// ```example
+/// >>> #set page(margin: (left: 3em))
+/// // Styled red line numbers.
+/// #set par.line(
+///   numbering: n => text(red)[#n]
+/// )
+///
+/// // Disable numbers inside figures.
+/// #show figure: set par.line(
+///   numbering: none
+/// )
+///
+/// Roses are red. \
+/// Violets are blue.
+///
+/// #figure(
+///   caption: [Without line numbers.]
+/// )[
+///   Lorem ipsum \
+///   dolor sit amet
+/// ]
+///
+/// The text above is a sample \
+/// originating from distant times.
+/// ```
+///
+/// This element exposes further options which may be used to control other
+/// aspects of line numbering, such as its [alignment]($par.line.number-align)
+/// or [margin]($par.line.number-margin). In addition, you can control whether
+/// the numbering is reset on each page through the
+/// [`numbering-scope`]($par.line.numbering-scope) option.
 #[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
 pub struct ParLine {
     /// How to number each line. Accepts a
@@ -246,13 +286,16 @@ pub struct ParLine {
 
     /// The alignment of line numbers associated with each line.
     ///
-    /// The default of `auto` will provide a smart default where numbers grow
+    /// The default of `{auto}` indicates a smart default where numbers grow
     /// horizontally away from the text, considering the margin they're in and
     /// the current text direction.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
-    /// #set par.line(numbering: "I", number-align: left)
+    /// #set par.line(
+    ///   numbering: "I",
+    ///   number-align: left,
+    /// )
     ///
     /// Hello world! \
     /// Today is a beautiful day \
@@ -263,9 +306,18 @@ pub struct ParLine {
 
     /// The margin at which line numbers appear.
     ///
+    /// _Note:_ In a multi-column document, the line numbers for paragraphs
+    /// inside the last column will always appear on the `{end}` margin (right
+    /// margin for left-to-right text and left margin for right-to-left),
+    /// regardless of this configuration. That behavior cannot be changed at
+    /// this moment.
+    ///
     /// ```example
     /// >>> #set page(margin: (right: 3em))
-    /// #set par.line(numbering: "1", number-margin: right)
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   number-margin: right,
+    /// )
     ///
     /// = Report
     /// - Brightness: Dark, yet darker
@@ -284,7 +336,7 @@ pub struct ParLine {
     /// >>> #set page(margin: (left: 3em))
     /// #set par.line(
     ///   numbering: "1",
-    ///   number-clearance: 4pt
+    ///   number-clearance: 4pt,
     /// )
     ///
     /// Typesetting \
@@ -297,14 +349,16 @@ pub struct ParLine {
 
     /// Controls when to reset line numbering.
     ///
-    /// Possible options are `"document"`, indicating the line number counter
-    /// is never reset, or `"page"`, indicating it is reset on every page.
+    /// _Note:_ The line numbering scope must be uniform across each page run (a
+    /// page run is a sequence of pages without an explicit pagebreak in
+    /// between). For this reason, set rules for it should be defined before any
+    /// page content, typically at the very start of the document.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
     /// #set par.line(
     ///   numbering: "1",
-    ///   numbering-scope: "page"
+    ///   numbering-scope: "page",
     /// )
     ///
     /// First line \

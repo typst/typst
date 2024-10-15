@@ -129,7 +129,7 @@ Typst's CLI is available from different sources:
     `nix run github:typst/typst -- --version`.
 
 - Docker users can run a prebuilt image with
-  `docker run -it ghcr.io/typst/typst:latest`.
+  `docker run ghcr.io/typst/typst:latest --help`.
 
 ## Usage
 Once you have installed Typst, you can use it like this:

@@ -34,9 +34,10 @@ use crate::World;
 /// constructing a decimal from a [floating-point number]($float), while
 /// supported, **is an imprecise conversion and therefore discouraged.** A
 /// warning will be raised if Typst detects that there was an accidental `float`
-/// to `decimal` cast through its constructor (e.g. if writing `{decimal(3.14)}`
-/// - note the lack of double quotes, indicating this is an accidental `float`
-/// cast and therefore imprecise).
+/// to `decimal` cast through its constructor, e.g. if writing `{decimal(3.14)}`
+/// (note the lack of double quotes, indicating this is an accidental `float`
+/// cast and therefore imprecise). It is recommended to use strings for
+/// constant decimal values instead (e.g. `{decimal("3.14")}`).
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
 /// rounding the result to 15 digits with [`calc.round`]($calc.round), but there
@@ -81,11 +82,11 @@ use crate::World;
 /// multiplication, and [power]($calc.pow) to an integer, will be highly precise
 /// due to their fixed-point representation. Note, however, that multiplication
 /// and division may not preserve all digits in some edge cases: while they are
-/// considered precise, digits past the limits specified below are rounded off
+/// considered precise, digits past the limits specified above are rounded off
 /// and lost, so some loss of precision beyond the maximum representable digits
 /// is possible. Note that this behavior can be observed not only when dividing,
 /// but also when multiplying by numbers between 0 and 1, as both operations can
-/// push a number's fractional digits beyond the limits described below, leading
+/// push a number's fractional digits beyond the limits described above, leading
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
 #[ty(scope, cast)]
@@ -287,7 +288,7 @@ impl Decimal {
     /// writing `{decimal(1.234)}` (note the lack of double quotes), which is
     /// why Typst will emit a warning in that case. Please write
     /// `{decimal("1.234")}` instead for that particular case (initialization of
-    /// a constant decimal). Also note that floats equal to NaN and infinity
+    /// a constant decimal). Also note that floats that are NaN or infinite
     /// cannot be cast to decimals and will raise an error.
     ///
     /// ```example
@@ -296,6 +297,7 @@ impl Decimal {
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
+        /// The value that should be converted to a decimal.
         value: Spanned<ToDecimal>,
     ) -> SourceResult<Decimal> {
         match value.v {
