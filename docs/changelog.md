@@ -62,7 +62,7 @@ description: |
     This way an element of unknown size can be scaled to a fixed size.
   - The values of `block.above` and `block.below` can now be retrieved in
     context expressions.
-  - Increased accuracy of conversion between absolute units (pt, mm, cm, in)
+  - Increased accuracy of conversions between absolute units (pt, mm, cm, in)
   - Fixed a bug which could cause headings to be orphaned at the bottom of the
     page
   - Fixed footnotes within breakable blocks appearing on the page where the
