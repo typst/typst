@@ -13,9 +13,36 @@ use semver::Version;
 /// in environment variables.
 const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
-/// The Typst compiler.
+/// The overall structure of the help.
+#[rustfmt::skip]
+const HELP_TEMPLATE: &str = color_print::cstr!("\
+Typst {version}
+
+{usage-heading} {usage}
+
+{all-args}{after-help}\
+");
+
+/// Adds a list of useful links after the normal help.
+#[rustfmt::skip]
+const AFTER_HELP: &str = color_print::cstr!("\
+<s><u>Resources:</></>
+  <s>Tutorial:</>                 https://typst.app/docs/tutorial/
+  <s>Reference documentation:</>  https://typst.app/docs/reference/
+  <s>Templates & Packages:</>     https://typst.app/universe/
+  <s>Forum for questions:</>      https://forum.typst.app/
+");
+
+/// The Typst compiler
 #[derive(Debug, Clone, Parser)]
-#[clap(name = "typst", version = crate::typst_version(), author)]
+#[clap(
+    name = "typst",
+    version = crate::typst_version(),
+    author,
+    help_template = HELP_TEMPLATE,
+    after_help = AFTER_HELP,
+    max_term_width = 80,
+)]
 pub struct CliArguments {
     /// The command to run
     #[command(subcommand)]
