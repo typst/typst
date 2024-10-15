@@ -6,7 +6,7 @@ description: |
 
 # Changelog
 
-## Version 0.12.0, Release Candidate 1 (October 3, 2024) { #v0.12.0-rc1 }
+## Version 0.12.0, Release Candidate 2 (October 15, 2024) { #v0.12.0-rc2 }
 ### Highlights { #_ }
 - Added support for multi-column floating [placement]($place.scope) and
   [figures]($figure.scope)
@@ -406,7 +406,7 @@ description: |
   - The `xz2` dependency used by the self-updater is now statically linked
   - The Dockerfile now has an `ENTRYPOINT` directive
 
-<contributors from="v0.11.0" to="v0.12.0-rc1" />
+<contributors from="v0.11.0" to="v0.12.0-rc2" />
 
 ## Version 0.11.1 (May 17, 2024) { #v0.11.1 }
 - Security
