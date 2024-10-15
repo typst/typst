@@ -11,19 +11,16 @@ Let's start with a broad overview of the directories in this repository:
   and library.
 - `crates/typst-cli`: Typst's command line interface. This is a relatively small
   layer on top of the compiler and the exporters.
-- `crates/typst-docs`: Generates the content of the official
-  [documentation][docs] from the content of the `docs` folder and the inline
-  Rust documentation. Only generates the content and structure, not the concrete
-  HTML (that part is currently closed source).
 - `crates/typst-ide`: Exposes IDE functionality.
 - `crates/typst-macros`: Procedural macros for the compiler.
 - `crates/typst-pdf`: The PDF exporter.
 - `crates/typst-render`: A renderer for Typst frames.
 - `crates/typst-svg`: The SVG exporter.
 - `crates/typst-syntax`: Home to the parser and syntax tree definition.
-- `docs`: Source files for longer-form parts of the documentation. Individual
-  elements and functions are documented inline with the Rust source code.
-- `assets`: Fonts and files used for tests and the documentation.
+- `docs`: Generates the content of the official
+  [documentation][docs] from markdown files and the inline
+  Rust documentation. Only generates the content and structure, not the concrete
+  HTML (that part is currently closed source).
 - `tests`: Integration tests for Typst compilation.
 - `tools`: Tooling for development.
 
