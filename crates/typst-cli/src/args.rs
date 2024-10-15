@@ -166,6 +166,9 @@ pub enum PdfStandard {
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
+    /// PDF/A-3b.
+    #[value(name = "a-3b")]
+    A_3b,
 }
 
 /// Initializes a new project from a template

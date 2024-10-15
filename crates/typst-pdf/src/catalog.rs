@@ -123,7 +123,7 @@ pub fn write_catalog(
         xmp.create_date(xmp_date);
         xmp.modify_date(xmp_date);
 
-        if ctx.options.standards.pdfa {
+        if ctx.options.standards.pdfa.is_some() {
             let mut history = xmp.history();
             history
                 .add_event()
@@ -140,7 +140,7 @@ pub fn write_catalog(
     }
 
     // Assert dominance.
-    if ctx.options.standards.pdfa {
+    if let Some(compliance_level) = ctx.options.standards.pdfa {
         let mut extension_schemas = xmp.extension_schemas();
         extension_schemas
             .xmp_media_management()
@@ -148,7 +148,7 @@ pub fn write_catalog(
             .describe_instance_id();
         extension_schemas.pdf().properties().describe_all();
         extension_schemas.finish();
-        xmp.pdfa_part(2);
+        xmp.pdfa_part(compliance_level.into());
         xmp.pdfa_conformance("B");
     }
 
@@ -212,7 +212,7 @@ pub fn write_catalog(
         catalog.lang(TextStr(lang.as_str()));
     }
 
-    if ctx.options.standards.pdfa {
+    if ctx.options.standards.pdfa.is_some() {
         catalog
             .output_intents()
             .push()
@@ -225,7 +225,7 @@ pub fn write_catalog(
 
     catalog.finish();
 
-    if ctx.options.standards.pdfa && pdf.refs().count() > 8388607 {
+    if ctx.options.standards.pdfa.is_some() && pdf.refs().count() > 8388607 {
         bail!(Span::detached(), "too many PDF objects");
     }
 

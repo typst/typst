@@ -108,14 +108,22 @@ pub struct PdfOptions<'a> {
 pub struct PdfStandards {
     /// For now, we simplify to just PDF/A, since we only support PDF/A-2b. But
     /// it can be more fine-grained in the future.
-    pub(crate) pdfa: bool,
+    pub(crate) pdfa: Option<PdfAConformanceLevel>,
 }
 
 impl PdfStandards {
     /// Validates a list of PDF standards for compatibility and returns their
     /// encapsulated representation.
     pub fn new(list: &[PdfStandard]) -> StrResult<Self> {
-        Ok(Self { pdfa: list.contains(&PdfStandard::A_2b) })
+        let pdfa = if list.contains(&PdfStandard::A_2b) {
+            Some(PdfAConformanceLevel::A_2)
+        } else if list.contains(&PdfStandard::A_3b) {
+            Some(PdfAConformanceLevel::A_3)
+        } else {
+            None
+        };
+
+        Ok(Self { pdfa })
     }
 }
 
@@ -128,7 +136,7 @@ impl Debug for PdfStandards {
 #[allow(clippy::derivable_impls)]
 impl Default for PdfStandards {
     fn default() -> Self {
-        Self { pdfa: false }
+        Self { pdfa: None }
     }
 }
 
@@ -145,6 +153,29 @@ pub enum PdfStandard {
     /// PDF/A-2b.
     #[serde(rename = "a-2b")]
     A_2b,
+    /// PDF/A-3b.
+    #[serde(rename = "a-3b")]
+    A_3b,
+}
+
+/// Conformance levels of PDF/A
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
+#[non_exhaustive]
+pub enum PdfAConformanceLevel {
+    /// PDF/A-2
+    A_2,
+    /// PDF/A-3
+    A_3,
+}
+
+impl From<PdfAConformanceLevel> for i32 {
+    fn from(value: PdfAConformanceLevel) -> Self {
+        match value {
+            PdfAConformanceLevel::A_2 => 2,
+            PdfAConformanceLevel::A_3 => 3,
+        }
+    }
 }
 
 /// A struct to build a PDF following a fixed succession of phases.
