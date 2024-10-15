@@ -15,13 +15,13 @@ const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
 /// The overall structure of the help.
 #[rustfmt::skip]
-const HELP_TEMPLATE: &str = color_print::cstr!("\
+const HELP_TEMPLATE: &str = "\
 Typst {version}
 
 {usage-heading} {usage}
 
 {all-args}{after-help}\
-");
+";
 
 /// Adds a list of useful links after the normal help.
 #[rustfmt::skip]
