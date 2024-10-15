@@ -38,13 +38,14 @@ bytemuck = "1"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 ciborium = "0.2.1"
-clap = { version = "4.4", features = ["derive", "env"] }
+clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
-ctrlc = "3.4.1"
 codespan-reporting = "0.11"
+color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
+ctrlc = "3.4.1"
 dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
@@ -84,8 +85,8 @@ png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
 pulldown-cmark = "0.9"
-quote = "1"
 qcms = "0.3.0"
+quote = "1"
 rayon = "1.7.0"
 regex = "1"
 resvg = { version = "0.43", default-features = false, features = ["raster-images"] }
