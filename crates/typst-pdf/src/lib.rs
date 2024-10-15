@@ -4,6 +4,7 @@ mod catalog;
 mod color;
 mod color_font;
 mod content;
+mod embed;
 mod extg;
 mod font;
 mod gradient;
@@ -34,6 +35,7 @@ use typst::visualize::Image;
 use crate::catalog::write_catalog;
 use crate::color::{alloc_color_functions_refs, ColorFunctionRefs};
 use crate::color_font::{write_color_fonts, ColorFontSlice};
+use crate::embed::build_embedded_files_references;
 use crate::extg::{write_graphic_states, ExtGState};
 use crate::font::write_fonts;
 use crate::gradient::{write_gradients, PdfGradient};
@@ -68,6 +70,7 @@ pub fn pdf(document: &Document, options: &PdfOptions) -> SourceResult<Vec<u8>> {
                 gradients: builder.run(write_gradients)?,
                 patterns: builder.run(write_patterns)?,
                 ext_gs: builder.run(write_graphic_states)?,
+                embedded_files: builder.run(build_embedded_files_references)?,
             })
         })?
         .phase(|builder| builder.run(write_page_tree))?
@@ -272,6 +275,8 @@ struct References {
     patterns: HashMap<PdfPattern, Ref>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
+    /// The names and references for embedded files
+    embedded_files: HashMap<String, Ref>,
 }
 
 /// At this point, the references have been assigned to all resources. The page

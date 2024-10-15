@@ -219,6 +219,7 @@ impl SVGRenderer {
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
                 FrameItem::Link(_, _) => unreachable!(),
                 FrameItem::Tag(_) => unreachable!(),
+                FrameItem::Embed(_) => todo!("is this unreachable, too?"),
             };
 
             self.xml.end_element();

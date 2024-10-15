@@ -13,6 +13,7 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::{Dict, Finish, Name, Ref};
 use subsetter::GlyphRemapper;
 use typst::diag::{SourceResult, StrResult};
+use typst::embed::EmbedElem;
 use typst::syntax::Span;
 use typst::text::{Font, Lang};
 use typst::utils::Deferred;
@@ -97,6 +98,8 @@ pub struct Resources<R = Ref> {
     pub color_glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     /// Stores the glyph remapper for each font for the subsetter.
     pub glyph_remappers: HashMap<Font, GlyphRemapper>,
+    /// Embedded files associated with the document as a whole
+    pub embeds: Vec<EmbedElem>,
 }
 
 impl<R: Renumber> Renumber for Resources<R> {
@@ -129,6 +132,7 @@ impl Default for Resources<()> {
             glyph_sets: HashMap::new(),
             color_glyph_sets: HashMap::new(),
             glyph_remappers: HashMap::new(),
+            embeds: Vec::new(),
         }
     }
 }
@@ -157,6 +161,7 @@ impl Resources<()> {
             glyph_sets: self.glyph_sets,
             color_glyph_sets: self.color_glyph_sets,
             glyph_remappers: self.glyph_remappers,
+            embeds: self.embeds,
         }
     }
 }

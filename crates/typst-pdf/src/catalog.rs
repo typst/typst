@@ -178,6 +178,23 @@ pub fn write_catalog(
         }
     }
 
+    if !ctx.references.embedded_files.is_empty() {
+        {
+            let mut name_dict = catalog.names();
+            let mut embedded_files = name_dict.embedded_files();
+            let mut names = embedded_files.names();
+            for (name, file_ref) in &ctx.references.embedded_files {
+                names.insert(Str(name.as_bytes()), *file_ref);
+            }
+        }
+
+        // Todo: this is for PDF 2.0; we should probably check the exporting version
+        let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
+        for (_, file_ref) in ctx.references.embedded_files {
+            associated_files.item(file_ref).finish();
+        }
+    }
+
     // Insert the page labels.
     if !page_labels.is_empty() {
         let mut num_tree = catalog.page_labels();
