@@ -62,10 +62,12 @@ description: |
     This way an element of unknown size can be scaled to a fixed size.
   - The values of `block.above` and `block.below` can now be retrieved in
     context expressions.
+  - Increased accuracy of conversion between absolute units (pt, mm, cm, in)
   - Fixed a bug which could cause headings to be orphaned at the bottom of the
     page
   - Fixed footnotes within breakable blocks appearing on the page where the
     breakable block ends instead of at the page where the footnote marker is
+  - Fixed numbering of nested footnotes and footnotes in floats
   - Fixed empty pages appearing when a [context] expression wraps whole pages
   - Fixed `{set block(spacing: x)}` behaving differently from
     `{set block(above: x, below: x)}`
@@ -127,6 +129,7 @@ description: |
   - Improved layout of nested attachments resulting from code like
     `[#let a0 = $a_0$; $a0^1$]`
   - Improved layout of primes close to superscripts
+  - Improved layout of fractions
   - Typst now makes use of math-specific height-dependent kerning information in
     some fonts for better attachment layout
   - The `floor` and `ceil` functions in math are now callable symbols, such that
@@ -151,6 +154,9 @@ description: |
   - Fixed a crash with recursive show rules in math
   - Fixed [`lr.size`]($math.lr.size) not affecting characters enclosed in
     [`mid`]($math.mid) in some cases
+  - Fixed resolving of em units in sub- and superscripts
+  - Fixed bounding box of inline equations when a [text edge]($text.top-edge) is
+    set to `{"bounds"}`
 
 - Introspection
   - Implemented a new system by which Typst tracks where elements end up on the
@@ -161,6 +167,7 @@ description: |
   - Counter updates can now be before the first, in between, and after the last
     page when isolated by weak page breaks. This allows, for instance, updating
     a counter before the first page header and background.
+  - Fixed logical ordering of introspections within footnotes and figures
   - Fixed incorrect [`here().position()`]($here) when [`place`] was used in a
     context expression
   - Fixed resolved positions of elements (in particular, headings) whose show
@@ -243,8 +250,8 @@ description: |
   - Added [`arguments.at`] method
   - Added [`int.from-bytes`], [`int.to-bytes`], [`float.from-bytes`], and
     [`float.to-bytes`]
-  - The `digits` parameter of [`calc.round`] no longer accepts negative integers
-    (**Minor breaking change**)
+  - Added proper support for negative values of the `digits` parameter of
+    [`calc.round`] (the behaviour existed before but was subtly broken)
   - Conversions from [`int`] to [`float`] will now error instead of saturating
     if the float is too large (**Minor breaking change**)
   - Added `float.nan` and `float.inf`, removed `calc.nan`
@@ -285,6 +292,7 @@ description: |
   - Fixed a bug where transparency could leak from one PDF object to another
   - Fixed a bug with CMYK gradients in PDF
   - Fixed various bugs with export of Oklab gradients in PDF
+  - Fixed crashes related to rendering of non-outline glyphs
   - Two small fixes for PDF standard conformance
 
 - Performance
@@ -307,6 +315,8 @@ description: |
     minify (only applies to JSON format)
   - Added `--backup-path` to `typst update` to configure where the previous
     version is backed up
+  - Added useful links to help output
+  - The CLI will now greet users who invoke just `typst` for the first time
   - The document can now be written to stdout by passing `-` as the output
     filename (for PDF or single-page image export)
   - Typst will now emit a proper error message instead of failing silently when
