@@ -14,8 +14,9 @@ use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
-    PlaceElem, PlacementScope, VAlignment, VElem,
+    AlignElem, Alignment, BlockBody, BlockElem, Em, GridCell, GridChild, GridElem,
+    GridFooter, GridHeader, GridItem, HAlignment, Length, OuterVAlignment, PlaceElem,
+    PlacementScope, Sizing, TrackSizings, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
@@ -330,10 +331,27 @@ impl Show for Packed<FigureElem> {
 
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
-            let v = VElem::new(self.gap(styles).into()).with_weak(true).pack();
-            realized = match caption.position(styles) {
-                OuterVAlignment::Top => caption.pack() + v + realized,
-                OuterVAlignment::Bottom => realized + v + caption.pack(),
+            let gap = self.gap(styles);
+            let v = || VElem::new(gap.into()).with_weak(true).pack();
+            realized = match (caption.repeat(styles), caption.position(styles)) {
+                (true, OuterVAlignment::Top) => GridElem::new(vec![
+                    GridChild::Header(Packed::new(GridHeader::new(vec![
+                        GridItem::Cell(Packed::new(GridCell::new(caption.pack()))),
+                    ]))),
+                    GridChild::Item(GridItem::Cell(Packed::new(GridCell::new(realized)))),
+                ])
+                .with_row_gutter(TrackSizings::from(Sizing::from(gap)))
+                .pack(),
+                (true, OuterVAlignment::Bottom) => GridElem::new(vec![
+                    GridChild::Item(GridItem::Cell(Packed::new(GridCell::new(realized)))),
+                    GridChild::Footer(Packed::new(GridFooter::new(vec![
+                        GridItem::Cell(Packed::new(GridCell::new(caption.pack()))),
+                    ]))),
+                ])
+                .with_row_gutter(TrackSizings::from(Sizing::from(gap)))
+                .pack(),
+                (false, OuterVAlignment::Top) => caption.pack() + v() + realized,
+                (false, OuterVAlignment::Bottom) => realized + v() + caption.pack(),
             };
         }
 
@@ -496,6 +514,25 @@ pub struct FigureCaption {
     /// ```
     #[default(OuterVAlignment::Bottom)]
     pub position: OuterVAlignment,
+
+    /// Whether the figure caption should be repeated if the figure breaks.
+    ///
+    /// ```example
+    /// #show figure.where(kind: table): set block(breakable: true)
+    /// #set page(height: 7em)
+    /// #figure(
+    ///   table(
+    ///     columns: 3,
+    ///     [A], [B], [C],
+    ///     [D], [E], [F],
+    ///     [G], [H], [I],
+    ///     [J], [K], [L]
+    ///   ),
+    ///   caption: figure.caption(repeat: true)[A nice table.]
+    /// )
+    /// ```
+    #[default(false)]
+    pub repeat: bool,
 
     /// The separator which will appear between the number and body.
     ///

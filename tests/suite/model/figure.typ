@@ -219,6 +219,34 @@ We can clearly see that @fig-cylinder and
 // Error: 31-38 expected `top` or `bottom`, found horizon
 #set figure.caption(position: horizon)
 
+--- figure-caption-repeat-bottom ---
+#show figure.where(kind: table): set block(breakable: true)
+#set page(height: 7em)
+#figure(
+  table(
+    columns: 3,
+    [A], [B], [C],
+    [D], [E], [F],
+    [G], [H], [I],
+    [J], [K], [L]
+  ),
+  caption: figure.caption(repeat: true)[A nice table.]
+)
+
+--- figure-caption-repeat-top ---
+#show figure.where(kind: table): set block(breakable: true)
+#set page(height: 7em)
+#figure(
+  table(
+    columns: 3,
+    [A], [B], [C],
+    [D], [E], [F],
+    [G], [H], [I],
+    [J], [K], [L]
+  ),
+  caption: figure.caption(position: top, repeat: true)[A nice table.]
+)
+
 --- figure-localization-fr ---
 // Test French
 #set text(lang: "fr")
