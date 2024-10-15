@@ -172,7 +172,7 @@ pub struct OutlineElem {
     pub indent: Option<Smart<OutlineIndent>>,
 
     /// Content to fill the space between the title and the page number. Can be
-    /// set to `none` to disable filling.
+    /// set to `{none}` to disable filling.
     ///
     /// ```example
     /// #outline(fill: line(length: 100%))

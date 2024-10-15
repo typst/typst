@@ -85,8 +85,8 @@ impl Location {
     /// local numbering. This is useful if you are building custom indices or
     /// outlines.
     ///
-    /// If the page numbering is set to `none` at that location, this function
-    /// returns `none`.
+    /// If the page numbering is set to `{none}` at that location, this function
+    /// returns `{none}`.
     #[func]
     pub fn page_numbering(self, engine: &mut Engine) -> Option<Numbering> {
         engine.introspector.page_numbering(self).cloned()

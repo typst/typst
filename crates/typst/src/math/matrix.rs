@@ -40,6 +40,10 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 pub struct VecElem {
     /// The delimiter to use.
     ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
     /// ```example
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
@@ -112,6 +116,10 @@ impl LayoutMath for Packed<VecElem> {
 #[elem(title = "Matrix", LayoutMath)]
 pub struct MatElem {
     /// The delimiter to use.
+    ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
     ///
     /// ```example
     /// #set math.mat(delim: "[")
@@ -299,6 +307,10 @@ impl LayoutMath for Packed<MatElem> {
 #[elem(LayoutMath)]
 pub struct CasesElem {
     /// The delimiter to use.
+    ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
     ///
     /// ```example
     /// #set math.cases(delim: "[")

@@ -24,7 +24,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 ///
 /// # Examples
 /// ```example
-/// #set page(height: 60pt)
+/// #set page(height: 120pt)
 /// Hello, world!
 ///
 /// #rect(

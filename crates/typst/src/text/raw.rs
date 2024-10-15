@@ -215,7 +215,7 @@ pub struct RawElem {
     pub syntaxes_data: Vec<Bytes>,
 
     /// The theme to use for syntax highlighting. Theme files should be in the
-    /// in the [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
+    /// [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
     ///
     /// Applying a theme only affects the color of specifically highlighted
     /// text. It does not consider the theme's foreground and background
@@ -224,7 +224,7 @@ pub struct RawElem {
     /// the background with a [filled block]($block.fill). You could also use
     /// the [`xml`] function to extract these properties from the theme.
     ///
-    /// Additionally, you can set the theme to `none` to disable highlighting.
+    /// Additionally, you can set the theme to `{none}` to disable highlighting.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")

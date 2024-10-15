@@ -75,9 +75,10 @@ use crate::text::TextElem;
 /// part of that item.
 #[elem(scope, title = "Numbered List", Show)]
 pub struct EnumElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the enumeration more
+    /// Defines the default [spacing]($enum.spacing) of the enumeration. If it
+    /// is `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
     /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
