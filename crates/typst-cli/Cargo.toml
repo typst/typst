@@ -28,6 +28,7 @@ typst-svg = { workspace = true }
 typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+color-print = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
 dirs = { workspace = true }
@@ -59,6 +60,7 @@ chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 clap_mangen = { workspace = true }
+color-print = { workspace = true }
 semver = { workspace = true }
 
 [features]
