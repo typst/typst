@@ -212,6 +212,8 @@ description: |
     event and item locations.
   - Multiple page ranges with prefixes and suffixes are now allowed
   - Added `director` and catch-all editor types to BibLaTeX parsing
+  - Added support for disambiguation to alphanumeric citation style
+  - The year 0 will now render as 1BC
   - Fixes for sorting of bibliography entries
   - Fixed pluralization of page range labels
   - Fixed sorting of citations by their number
