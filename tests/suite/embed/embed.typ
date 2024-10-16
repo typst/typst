@@ -1,17 +1,17 @@
 // Test embeddings.
 
---- basic-document-embedding ---
+--- embed-basic-document- ---
 #embed("test.txt")
 
---- document-embedding ---
+--- embed-document ---
 #embed("test.txt", name: "blub.foo", description: "A test file")
 
---- basic-raw-document-embedding ---
+--- embed-raw-basic-document ---
 
 #let raw_file = read("test.txt")
 #embed.decode(raw_file, "test.txt")
 
---- raw-document-embedding ---
+--- embed-raw-document ---
 
 #let raw_file = read("test.txt")
 #embed.decode(raw_file, "dir/a_file_name.txt", name: "a_file_name.txt", description: "A description")
