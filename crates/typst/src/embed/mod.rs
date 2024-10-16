@@ -1,4 +1,4 @@
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{Bytes, Content, Packed, Scope, Show, Smart, StyleChain};
 use crate::introspection::Locator;
@@ -10,7 +10,7 @@ use ecow::EcoString;
 use std::sync::Arc;
 use typst::foundations::NativeElement;
 use typst_macros::{elem, func, scope};
-use typst_syntax::Spanned;
+use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
 /// Hook up the embed definition.
@@ -26,7 +26,7 @@ pub struct EmbedElem {
     #[required]
     #[parse(
         let Spanned { v: path, span } =
-        args.expect::<Spanned<EcoString>>("path to image file")?;
+        args.expect::<Spanned<EcoString>>("path to the file to be embedded")?;
         let id = span.resolve_path(&path).at(span)?;
         let data = engine.world.file(id).at(span)?;
         path
@@ -53,19 +53,30 @@ pub struct EmbedElem {
 
 #[scope]
 impl EmbedElem {
-    #[func(title = "Embed the given file")]
-    fn file(
-        /// The engine.
-        engine: &mut Engine,
-        /// Path to a file.
+    #[func(title = "Embed the given data as a file")]
+    fn decode(
+        /// The call span of this function.
+        span: Span,
+        /// The data to embed as a file
+        data: Readable,
+        /// The path of the file embedding
+        path: EcoString,
+        /// The name of the attached file
         ///
-        /// For more details, see the [Paths section]($syntax/#paths).
-        path: Spanned<EcoString>,
-    ) -> SourceResult<Content> {
-        let Spanned { v: path, span } = path;
-        let id = span.resolve_path(&path).at(span)?;
-        let data = engine.world.file(id).at(span)?;
-        let elem = EmbedElem::new(path, Readable::Bytes(data));
+        /// If no name is given, the path is used instead
+        #[named]
+        name: Option<Option<EcoString>>,
+        /// A description for the attached file
+        #[named]
+        description: Option<Option<EcoString>>,
+    ) -> StrResult<Content> {
+        let mut elem = EmbedElem::new(path, data);
+        if let Some(name) = name {
+            elem.push_name(name);
+        }
+        if let Some(description) = description {
+            elem.push_description(description);
+        }
 
         Ok(elem.pack().spanned(span))
     }
