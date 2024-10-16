@@ -1,22 +1,21 @@
 use crate::{PdfChunk, WithGlobalRefs};
+use ecow::EcoString;
 use pdf_writer::{Date, Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst::diag::SourceResult;
-use typst::foundations::Bytes;
 
-pub fn build_embedded_files_references(
+pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
-) -> SourceResult<(PdfChunk, HashMap<String, Ref>)> {
+) -> SourceResult<(PdfChunk, HashMap<EcoString, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut embedded_files = HashMap::default();
     for embed in &ctx.resources.embeds {
         let embedded_file_stream_ref = chunk.alloc.bump();
         let file_spec_dict_ref = chunk.alloc.bump();
 
-        let bytes: Bytes = embed.data.clone().into();
-        let length = bytes.len();
+        let length = embed.data().len();
         let mut embedded_file =
-            chunk.embedded_file(embedded_file_stream_ref, bytes.as_ref());
+            chunk.embedded_file(embedded_file_stream_ref, embed.data().as_ref());
         embedded_file
             .subtype(Name(b"text/xml"))
             .pair(Name(b"Length"), length as i32);
@@ -25,10 +24,12 @@ pub fn build_embedded_files_references(
 
         let mut file_spec = chunk.file_spec(file_spec_dict_ref);
         file_spec
-            .path(Str(embed.path.as_bytes()))
-            .unic_file(TextStr(embed.path.as_str()))
-            .description(TextStr(embed.path.as_str())) // Todo
-            .pair(Name(b"AFRelationship"), Name(b"Data")); // Todo
+            .path(Str(embed.path().as_bytes()))
+            .unic_file(TextStr(embed.path().as_str()))
+            .pair(Name(b"AFRelationship"), Name(b"Data")); // Todo this is PDF 2.0
+        if let Some(description) = embed.description() {
+            file_spec.description(TextStr(description));
+        }
         file_spec
             .insert(Name(b"EF"))
             .dict()
@@ -37,7 +38,7 @@ pub fn build_embedded_files_references(
             .finish();
         file_spec.finish();
 
-        embedded_files.insert(embed.path.to_string(), file_spec_dict_ref);
+        embedded_files.insert(embed.name().clone(), file_spec_dict_ref);
     }
     Ok((chunk, embedded_files))
 }

@@ -13,7 +13,7 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::{Dict, Finish, Name, Ref};
 use subsetter::GlyphRemapper;
 use typst::diag::{SourceResult, StrResult};
-use typst::embed::EmbedElem;
+use typst::embed::Embed;
 use typst::syntax::Span;
 use typst::text::{Font, Lang};
 use typst::utils::Deferred;
@@ -99,7 +99,7 @@ pub struct Resources<R = Ref> {
     /// Stores the glyph remapper for each font for the subsetter.
     pub glyph_remappers: HashMap<Font, GlyphRemapper>,
     /// Embedded files associated with the document as a whole
-    pub embeds: Vec<EmbedElem>,
+    pub embeds: Vec<Embed>,
 }
 
 impl<R: Renumber> Renumber for Resources<R> {

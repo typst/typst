@@ -1,15 +1,17 @@
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{Content, Packed, Scope, Show, Smart, StyleChain};
+use crate::foundations::{Bytes, Content, Packed, Scope, Show, Smart, StyleChain};
 use crate::introspection::Locator;
 use crate::layout::{BlockElem, Frame, FrameItem, Point, Region, Rel, Size, Sizing};
 use crate::loading::Readable;
 use crate::text::LocalName;
 use crate::World;
 use ecow::EcoString;
+use std::sync::Arc;
 use typst::foundations::NativeElement;
 use typst_macros::{elem, func, scope};
 use typst_syntax::Spanned;
+use typst_utils::LazyHash;
 
 /// Hook up the embed definition.
 pub(super) fn define(global: &mut Scope) {
@@ -37,6 +39,16 @@ pub struct EmbedElem {
     #[required]
     #[parse(Readable::Bytes(data))]
     pub data: Readable,
+
+    /// The name of the attached file
+    ///
+    /// If no name is given, the path is used instead
+    #[borrowed]
+    pub name: Option<EcoString>,
+
+    /// A description for the attached file
+    #[borrowed]
+    pub description: Option<EcoString>,
 }
 
 #[scope]
@@ -82,8 +94,68 @@ fn layout_embedding(
     _: StyleChain,
     _: Region,
 ) -> SourceResult<Frame> {
-    let mut frame = Frame::soft(Size::zero());
-    frame.push(Point::zero(), FrameItem::Embed(elem.clone().unpack()));
+    let mut frame = Frame::hard(Size::zero());
+    frame.push(Point::zero(), FrameItem::Embed(Embed::from_element(elem)));
 
     Ok(frame)
+}
+
+/// A loaded file to be embedded.
+///
+/// Values of this type are cheap to clone and hash.
+#[derive(Clone, Hash, Eq, PartialEq)]
+pub struct Embed(Arc<LazyHash<Repr>>);
+
+/// The internal representation of a file embedding
+#[derive(Hash)]
+struct Repr {
+    /// The raw file data.
+    data: Bytes,
+    /// Path of this embedding
+    path: EcoString,
+    /// Name of this embedding
+    name: EcoString,
+    /// Name of this embedding
+    description: Option<EcoString>,
+}
+
+impl Embed {
+    fn from_element(element: &Packed<EmbedElem>) -> Self {
+        let repr = Repr {
+            data: element.data.clone().into(),
+            path: element.path.clone(),
+            name: if let Some(Some(name)) = element.name.as_ref() {
+                name.clone()
+            } else {
+                element.path.clone()
+            },
+            description: if let Some(Some(description)) = element.description.as_ref() {
+                Some(description.clone())
+            } else {
+                None
+            },
+        };
+
+        Embed(Arc::new(LazyHash::new(repr)))
+    }
+
+    /// The raw file data.
+    pub fn data(&self) -> &Bytes {
+        &self.0.data
+    }
+
+    /// The name of the file embedding
+    pub fn name(&self) -> &EcoString {
+        &self.0.name
+    }
+
+    /// The path of the file embedding
+    pub fn path(&self) -> &EcoString {
+        &self.0.path
+    }
+
+    /// The description of the file embedding
+    pub fn description(&self) -> Option<&str> {
+        self.0.description.as_deref()
+    }
 }
