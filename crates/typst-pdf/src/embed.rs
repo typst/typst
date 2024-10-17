@@ -1,6 +1,7 @@
+use crate::catalog::pdf_date;
 use crate::{PdfAConformanceLevel, PdfChunk, WithGlobalRefs};
 use ecow::EcoString;
-use pdf_writer::{Date, Finish, Name, Ref, Str, TextStr};
+use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst::diag::SourceResult;
 
@@ -19,7 +20,16 @@ pub fn write_embedded_files(
         embedded_file
             .subtype(Name(b"text/xml"))
             .pair(Name(b"Length"), length as i32);
-        embedded_file.params().modification_date(Date::new(2023)).finish(); // Todo: can we just let this out?
+
+        let date = ctx
+            .document
+            .info
+            .date
+            .unwrap_or(ctx.options.timestamp)
+            .and_then(|date| pdf_date(date, ctx.document.info.date.is_auto()));
+        if let Some(pdf_date) = date {
+            embedded_file.params().modification_date(pdf_date).finish();
+        }
         embedded_file.finish();
 
         let mut file_spec = chunk.file_spec(file_spec_dict_ref);

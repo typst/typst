@@ -295,7 +295,7 @@ pub(crate) fn write_page_labels(
 }
 
 /// Converts a datetime to a pdf-writer date.
-fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
+pub fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut pdf_date = pdf_writer::Date::new(year);
