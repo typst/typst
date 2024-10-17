@@ -3,13 +3,23 @@ use crate::{PdfAConformanceLevel, PdfChunk, WithGlobalRefs};
 use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
-use typst::diag::SourceResult;
+use typst::diag::{bail, SourceResult};
+use typst::syntax::Span;
 
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
 ) -> SourceResult<(PdfChunk, HashMap<EcoString, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut embedded_files = HashMap::default();
+    if !ctx.resources.embeds.is_empty()
+        && Some(PdfAConformanceLevel::A_2) == ctx.options.standards.pdfa
+    {
+        bail!(
+            Span::detached(),
+            "file embeddings are currently only supported for PDF/A-3"
+        );
+    }
+
     for embed in &ctx.resources.embeds {
         let embedded_file_stream_ref = chunk.alloc.bump();
         let file_spec_dict_ref = chunk.alloc.bump();
