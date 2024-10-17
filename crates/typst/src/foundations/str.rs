@@ -361,9 +361,19 @@ impl Str {
         &self,
         /// The pattern to search for.
         pattern: StrPattern,
+        /// Whether to look for a match in the reversed order.
+        #[named]
+        #[default(false)]
+        rev: bool,
     ) -> Option<usize> {
         match pattern {
-            StrPattern::Str(pat) => self.0.find(pat.as_str()),
+            StrPattern::Str(pat) => {
+                if rev {
+                    self.0.rfind(pat.as_str())
+                } else {
+                    self.0.find(pat.as_str())
+                }
+            }
             StrPattern::Regex(re) => re.find(self).map(|m| m.start()),
         }
     }

@@ -182,6 +182,10 @@
 #test("It's 12:13 now".find(date), "12:13")
 #test("It's 12:13 now".position(date), 5)
 
+--- string-find-and-position-rev ---
+#test("World World".position("World"), 0)
+#test("World World".position("World", rev: true), 6)
+
 --- string-match ---
 // Test the `match` method.
 #test("Is there a".match("for this?"), none)

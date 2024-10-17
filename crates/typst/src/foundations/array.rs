@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign};
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
+use rayon::iter::Either;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -308,8 +309,18 @@ impl Array {
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
+        /// Whether to look for a match in the reversed order.
+        #[named]
+        #[default(false)]
+        rev: bool,
     ) -> SourceResult<Option<Value>> {
-        for item in self.iter() {
+        let iter = if rev {
+            Either::Right(self.iter().rev())
+        } else {
+            Either::Left(self.iter())
+        };
+
+        for item in iter {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
@@ -332,8 +343,17 @@ impl Array {
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
+        /// Whether to look for a match in the reversed order.
+        #[named]
+        #[default(false)]
+        rev: bool,
     ) -> SourceResult<Option<i64>> {
-        for (i, item) in self.iter().enumerate() {
+        let iter = if rev {
+            Either::Right(self.iter().enumerate().rev())
+        } else {
+            Either::Left(self.iter().enumerate())
+        };
+        for (i, item) in iter {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
