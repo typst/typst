@@ -169,6 +169,7 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             }
             FrameItem::Link(_, _) => {}
             FrameItem::Tag(_) => {}
+            FrameItem::Embed(_) => {}
         }
     }
 }
