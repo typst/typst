@@ -1,5 +1,6 @@
 use comemo::Tracked;
 
+use crate::diag::warning;
 use crate::engine::Engine;
 use crate::eval::FlowEvent;
 use crate::foundations::{Context, IntoValue, Scopes, Value};
@@ -48,6 +49,16 @@ impl<'a> Vm<'a> {
             self.trace(value.clone());
         }
         self.scopes.top.define_ident(var, value);
+        // This will become an error in the parser if 'is' becomes a keyword.
+        if var.get() == "is" {
+            self.engine.sink.warn(warning!(
+                var.span(),
+                "'`is` will likely become a keyword in future versions and will \
+                not be allowed as an identifier";
+                hint: "rename this variable to avoid future errors";
+                hint: "try `is_` instead"
+            ));
+        }
     }
 
     /// Trace a value.
