@@ -1,4 +1,4 @@
-use crate::{PdfChunk, WithGlobalRefs};
+use crate::{PdfAConformanceLevel, PdfChunk, WithGlobalRefs};
 use ecow::EcoString;
 use pdf_writer::{Date, Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
@@ -25,8 +25,11 @@ pub fn write_embedded_files(
         let mut file_spec = chunk.file_spec(file_spec_dict_ref);
         file_spec
             .path(Str(embed.path().as_bytes()))
-            .unic_file(TextStr(embed.path().as_str()))
-            .pair(Name(b"AFRelationship"), Name(b"Data")); // Todo this is PDF 2.0
+            .unic_file(TextStr(embed.path().as_str()));
+        if Some(PdfAConformanceLevel::A_3) == ctx.options.standards.pdfa {
+            // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
+            file_spec.pair(Name(b"AFRelationship"), Name(b"Data"));
+        }
         if let Some(description) = embed.description() {
             file_spec.description(TextStr(description));
         }

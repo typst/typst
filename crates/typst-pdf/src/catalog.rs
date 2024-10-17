@@ -12,7 +12,7 @@ use typst::text::Lang;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, TextStrExt, WithEverything};
+use crate::{hash_base64, outline, PdfAConformanceLevel, TextStrExt, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -188,10 +188,12 @@ pub fn write_catalog(
             }
         }
 
-        // Todo: this is for PDF 2.0; we should probably check the exporting version
-        let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
-        for (_, file_ref) in ctx.references.embedded_files {
-            associated_files.item(file_ref).finish();
+        if Some(PdfAConformanceLevel::A_3) == ctx.options.standards.pdfa {
+            // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
+            let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
+            for (_, file_ref) in ctx.references.embedded_files {
+                associated_files.item(file_ref).finish();
+            }
         }
     }
 
