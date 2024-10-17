@@ -335,6 +335,7 @@ function. The following example illustrates how it works:
 >>>      title
 >>>    ),
 >>>    numbering: "1",
+>>>    columns: 2
 >>>  )
 >>>
 >>>  show heading.where(
@@ -359,27 +360,28 @@ function. The following example illustrates how it works:
 >>>    )
 >>>  )
 >>>
->>>  set align(center)
->>>  text(17pt, title)
+>>>  place(top, float: true, {
+>>>    set align(center)
+>>>    text(17pt, title)
 >>>
->>>  let count = calc.min(authors.len(), 3)
->>>  grid(
->>>    columns: (1fr,) * count,
->>>    row-gutter: 24pt,
->>>    ..authors.map(author => [
->>>      #author.name \
->>>      #author.affiliation \
->>>      #link("mailto:" + author.email)
->>>    ]),
->>>  )
+>>>    let count = calc.min(authors.len(), 3)
+>>>    grid(
+>>>      columns: (1fr,) * count,
+>>>      row-gutter: 24pt,
+>>>      ..authors.map(author => [
+>>>        #author.name \
+>>>        #author.affiliation \
+>>>        #link("mailto:" + author.email)
+>>>      ]),
+>>>    )
 >>>
->>>  par(justify: false)[
->>>    *Abstract* \
->>>    #abstract
->>>  ]
+>>>    par(justify: false)[
+>>>      *Abstract* \
+>>>      #abstract
+>>>    ]
+>>> })
 >>>
 >>>  set align(left)
->>>  columns(2, doc)
 >>>}
 <<< #import "conf.typ": conf
 #show: conf.with(
@@ -406,12 +408,19 @@ article by putting insightful
 paragraphs right here!
 ```
 
-The [`{import}`]($scripting/#modules) statement makes
-[functions]($function) (and other definitions) from another file available.
-In this example, it imports the `conf` function from the `conf.typ` file. This
-function formats a document as a conference article. We use a show rule to apply
-it to the document and also configure some metadata of the article. After
-applying the show rule, we can start writing our article right away!
+The [`{import}`]($scripting/#modules) statement makes [functions]($function)
+(and other definitions) from another file available. In this example, it imports
+the `conf` function from the `conf.typ` file. This function formats a document
+as a conference article. We use a show rule to apply it to the document and also
+configure some metadata of the article. After applying the show rule, we can
+start writing our article right away!
+
+You can also use templates from Typst Universe, which is Typst's equivalent of
+CTAN using an import statement like this: `[#import
+"@preview/elsearticle:0.2.1": elsearticle]`. Check the documentation of an
+individual template to learn the name of its template function. Templates and
+packages from Typst Universe are automatically downloaded when you first use
+them.
 
 <div class="info-box">
 
@@ -428,13 +437,13 @@ function and pre-configures some if its arguments before passing it on to the
 show rule.
 </div>
 
-In the web app, you can choose from predefined templates or even
-create your own using the template wizard. Locally, you can use the
-`typst init` CLI to create a new project from a template. Check out
-[the list of templates]($universe/search/?kind=templates) published on Typst
-Universe, our official package ecosystem. You can also take a look at the
-[`awesome-typst` repository](https://github.com/qjcg/awesome-typst) to find
-community templates that aren't yet available as packages.
+In the web app, you can choose to create a project from a template on Typst
+Universe or even create your own using the template wizard. Locally, you can use
+the `typst init` CLI to create a new project from a template. Check out [the
+list of templates]($universe/search/?kind=templates) published on Typst
+Universe. You can also take a look at the [`awesome-typst`
+repository](https://github.com/qjcg/awesome-typst) to find community templates
+that aren't available through Universe.
 
 You can also [create your own, custom templates.]($tutorial/making-a-template)
 They are shorter and more readable than the corresponding LaTeX `.sty` files by
