@@ -361,20 +361,26 @@ impl Str {
         &self,
         /// The pattern to search for.
         pattern: StrPattern,
-        /// Whether to look for a match in the reversed order.
+        /// Whether to look for a match in the reversed order. Currently not supported for regexes.
         #[named]
         #[default(false)]
         rev: bool,
-    ) -> Option<usize> {
+    ) -> StrResult<Option<usize>> {
         match pattern {
             StrPattern::Str(pat) => {
                 if rev {
-                    self.0.rfind(pat.as_str())
+                    Ok(self.0.rfind(pat.as_str()))
                 } else {
-                    self.0.find(pat.as_str())
+                    Ok(self.0.find(pat.as_str()))
                 }
             }
-            StrPattern::Regex(re) => re.find(self).map(|m| m.start()),
+            StrPattern::Regex(re) => {
+                if rev {
+                    Err(cant_reverse_regex_search())
+                } else {
+                    Ok(re.find(self).map(|m| m.start()))
+                }
+            }
         }
     }
 
@@ -843,6 +849,12 @@ fn not_a_char_boundary(index: i64) -> EcoString {
 #[cold]
 fn string_is_empty() -> EcoString {
     "string is empty".into()
+}
+
+/// The error message when a reverse regex search is needed.
+#[cold]
+fn cant_reverse_regex_search() -> EcoString {
+    "reverse regex search is not yet implemented".into()
 }
 
 /// A regular expression.
