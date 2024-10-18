@@ -5,9 +5,9 @@ use std::ops::{Add, AddAssign};
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
-use rayon::iter::Either;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use typst_utils::MaybeReverseIter;
 
 use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -314,13 +314,7 @@ impl Array {
         #[default(false)]
         rev: bool,
     ) -> SourceResult<Option<Value>> {
-        let iter = if rev {
-            Either::Right(self.iter().rev())
-        } else {
-            Either::Left(self.iter())
-        };
-
-        for item in iter {
+        for item in self.iter().rev_if(rev) {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
@@ -348,12 +342,7 @@ impl Array {
         #[default(false)]
         rev: bool,
     ) -> SourceResult<Option<i64>> {
-        let iter = if rev {
-            Either::Right(self.iter().enumerate().rev())
-        } else {
-            Either::Left(self.iter().enumerate())
-        };
-        for (i, item) in iter {
+        for (i, item) in self.iter().enumerate().rev_if(rev) {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
