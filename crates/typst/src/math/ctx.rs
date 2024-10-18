@@ -17,7 +17,7 @@ use crate::layout::{
     layout_frame, Abs, Axes, BoxElem, Em, Frame, HElem, PlaceElem, Region, Size, Spacing,
 };
 use crate::math::{
-    scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
+    dtls_char, scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
     LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
 use crate::realize::{realize, Arenas, RealizationKind};
@@ -287,13 +287,19 @@ impl MathContext<'_, '_, '_> {
         let span = elem.span();
         let mut chars = text.chars();
         let math_size = EquationElem::size_in(styles);
+        let mut dtls = self.dtls_table.is_some();
         let fragment = if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
+            .map(|c| dtls_char(c, &mut dtls))
             .map(|c| styled_char(styles, c, true))
             .and_then(|c| GlyphFragment::try_new(self, styles, c, span))
         {
             // A single letter that is available in the math font.
+            if dtls {
+                glyph.make_dotless_form(self);
+            }
+
             match math_size {
                 MathSize::Script => {
                     glyph.make_script_size(self);
