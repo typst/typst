@@ -568,7 +568,7 @@ fn layout_mat_body(
     let mut x = Abs::zero();
 
     for (index, col) in cols.into_iter().enumerate() {
-        let AlignmentResult { points, width: rcol } = alignments(&col);
+        let AlignmentResult { points, width: rcol } = alignments(&col, Abs::zero());
 
         let mut y = Abs::zero();
 
