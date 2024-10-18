@@ -38,10 +38,10 @@ description: Changes that are not yet released
   academic papers)
 - Added [`par.spacing`] property for configuring paragraph spacing. This should
   now be used instead of `{show par: set block(spacing: ..)}`
-  (**Breaking change**)
+  **(Breaking change)**
 - Block-level elements like lists, grids, and stacks now show themselves as
   blocks and are thus affected by all block properties (e.g. `stroke`) rather
-  than just `spacing` (**Breaking change**)
+  than just `spacing` **(Breaking change)**
 - Added [`block.sticky`] property which prevents a page break after a block
 - Added [`place.flush`] function which forces all floating figures to be placed
   before any further content
@@ -82,9 +82,9 @@ description: Changes that are not yet released
 ## Text
 - Tuned hyphenation: It is less eager by default and hyphenations close to the
   edges of words are now discouraged more strongly
-  (**May lead to larger layout reflows**)
+  **(May lead to larger layout reflows)**
 - New default font: Libertinus Serif. This is the maintained successor to the
-  old default font Linux Libertine. (**May lead to smaller reflows**)
+  old default font Linux Libertine. **(May lead to smaller reflows)**
 - Setting the font to an unavailable family will now result in a warning
 - Implemented a new smart quote algorithm, fixing various bugs where smart
   quotes weren't all that smart
@@ -134,12 +134,12 @@ description: Changes that are not yet released
   [`cases.delim`]($math.cases.delim) parameters now allow any character that is
   considered a delimiter or "fence" (e.g. |) by Unicode. The `{delim: "||"}`
   notation is _not_ supported anymore and should be replaced by
-  `{delim: bar.double}` (**Minor breaking change**)
+  `{delim: bar.double}` **(Minor breaking change)**
 - Added [`vec.align`]($math.vec.align) and [`mat.align`]($math.mat.align)
   parameters
 - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
   [`undershell`]($math.undershell), and [`overshell`]($math.overshell)
-- Added `~` shorthand for `tilde.op` in math mode (**Minor breaking change**)
+- Added `~` shorthand for `tilde.op` in math mode **(Minor breaking change)**
 - Fixed baseline alignment of equation numbers
 - Fixed positioning of corner brackets (⌜, ⌝, ⌞, ⌟)
 - Fixed baseline of large roots
@@ -157,7 +157,7 @@ description: Changes that are not yet released
 ## Introspection
 - Implemented a new system by which Typst tracks where elements end up on the
   pages. This may lead to subtly different behavior in introspections.
-  (**Breaking change**)
+  **(Breaking change)**
 - Fixed various bugs with wrong counter behavior in complex layout situations,
   through a new, more principled implementation
 - Counter updates can now be before the first, in between, and after the last
@@ -196,7 +196,7 @@ description: Changes that are not yet released
 - Fixed bad interaction between `{set document}` and `{set page}`
 - Fixed `{show figure: set align(..)}`. Since the default figure alignment is
   now a show-set rule, it is not revoked by `{show figure: it => it.body}`
-  anymore. (**Minor breaking change**)
+  anymore. **(Minor breaking change)**
 - Fixed numbering of footnote references
 - Fixed spacing after bibliography heading
 
@@ -248,9 +248,9 @@ description: Changes that are not yet released
 - Added proper support for negative values of the `digits` parameter of
   [`calc.round`] (the behaviour existed before but was subtly broken)
 - Conversions from [`int`] to [`float`] will now error instead of saturating if
-  the float is too large (**Minor breaking change**)
+  the float is too large **(Minor breaking change)**
 - Added `float.nan` and `float.inf`, removed `calc.nan`
-  (**Minor breaking change**)
+  **(Minor breaking change)**
 - Certain symbols are now generally callable like functions and not only
   specifically in math. Examples are accents or [`floor`]($math.floor) and
   [`ceil`]($math.ceil).
@@ -370,11 +370,11 @@ description: Changes that are not yet released
 - Renamed: `turtle` to `shell`, `notes` to `note`, `ballot.x` to `ballot.cross`,
   `succ.eq` to `succ.curly.eq`, `prec.eq` to `prec.curly.eq`, `servicemark` to
   `trademark.service`, `emoji.face.tired` to `emoji.face.distress`
-  (**Breaking change**)
+  **(Breaking change)**
 - Changed codepoint: `prec.eq`, `prec.neq`, `succ.eq`, `succ.neq`, `triangle`
-  from ▷ to △, `emoji.face.tired` (**Breaking change**)
+  from ▷ to △, `emoji.face.tired` **(Breaking change)**
 - Removed: `lt.curly` in favor of `prec`, `gt.curly` in favor of `succ`
-  (**Breaking change**)
+  **(Breaking change)**
 
 ## Deprecations
 - [`counter.display`] without an established context
