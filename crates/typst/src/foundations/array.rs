@@ -7,6 +7,7 @@ use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use typst_utils::MaybeReverseIter;
 
 use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -308,8 +309,12 @@ impl Array {
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
+        /// Whether to look for a match in the reversed order.
+        #[named]
+        #[default(false)]
+        rev: bool,
     ) -> SourceResult<Option<Value>> {
-        for item in self.iter() {
+        for item in self.iter().rev_if(rev) {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
@@ -332,8 +337,12 @@ impl Array {
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
+        /// Whether to look for a match in the reversed order.
+        #[named]
+        #[default(false)]
+        rev: bool,
     ) -> SourceResult<Option<i64>> {
-        for (i, item) in self.iter().enumerate() {
+        for (i, item) in self.iter().enumerate().rev_if(rev) {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
