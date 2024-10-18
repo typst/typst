@@ -3,8 +3,8 @@ Licenses for third party components used by this project can be found below.
 ================================================================================
 The MIT License applies to:
 
-* The default color set defined in `crates/typst/src/geom/color.rs` which is
-  adapted from the colors.css project
+* The default color set defined in `crates/typst/src/visualize/color.rs` which
+  is adapted from the colors.css project
   (https://clrs.cc/)
 
 * The `RemoteReader` defined in `crates/typst-kit/src/download.rs` which is
