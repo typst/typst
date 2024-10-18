@@ -26,14 +26,19 @@ pub fn layout_text(
     let span = elem.span();
     let mut chars = text.chars();
     let math_size = EquationElem::size_in(styles);
-
+    let mut dtls = ctx.dtls_table.is_some();
     let fragment: MathFragment = if let Some(mut glyph) = chars
         .next()
         .filter(|_| chars.next().is_none())
+        .map(|c| dtls_char(c, &mut dtls))
         .map(|c| styled_char(styles, c, true))
         .and_then(|c| GlyphFragment::try_new(ctx, styles, c, span))
     {
         // A single letter that is available in the math font.
+        if dtls {
+            glyph.make_dotless_form(ctx);
+        }
+
         match math_size {
             MathSize::Script => {
                 glyph.make_script_size(ctx);
@@ -341,4 +346,17 @@ fn greek_exception(
         (Bb, ..) => list[5],
         _ => return None,
     })
+}
+
+/// Switch dotless character to non dotless character for use of the dtls
+/// OpenType feature.
+pub fn dtls_char(c: char, dtls: &mut bool) -> char {
+    match (c, *dtls) {
+        ('ı', true) => 'i',
+        ('ȷ', true) => 'j',
+        _ => {
+            *dtls = false;
+            c
+        }
+    }
 }
