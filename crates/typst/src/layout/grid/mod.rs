@@ -413,9 +413,15 @@ pub struct TrackSizings(pub SmallVec<[Sizing; 4]>);
 cast! {
     TrackSizings,
     self => self.0.into_value(),
-    sizing: Sizing => Self(smallvec![sizing]),
+    sizing: Sizing => Self::from(sizing),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
+}
+
+impl From<Sizing> for TrackSizings {
+    fn from(sizing: Sizing) -> Self {
+        Self(smallvec![sizing])
+    }
 }
 
 /// Any child of a grid element.
