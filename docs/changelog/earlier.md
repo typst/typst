@@ -222,8 +222,8 @@ description: Changes in early, unversioned Typst
 - New expression syntax in markup/math
   - Blocks cannot be directly embedded in markup anymore
   - Like other expressions, they now require a leading hash
-  - More expressions available with hash, including literals (`[#"string"]`)
-    as well as field access and method call without space: `[#emoji.face]`
+  - More expressions available with hash, including literals (`[#"string"]`) as
+    well as field access and method call without space: `[#emoji.face]`
 - New import syntax
   - `[#import "module.typ"]` creates binding named `module`
   - `[#import "module.typ": a, b]` or `[#import "module.typ": *]` to import

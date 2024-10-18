@@ -31,34 +31,34 @@ description: Changes that are not yet released
 
 ## Layout
 - Added support for multi-column floating placement and figures via
-  [`place.scope`] and [`figure.scope`].  Two-column documents should now
-  prefer `{set page(columns: 2)}` over `{show: column.with(2)}` (see the [page
-  setup guide]($guides/page-setup-guide/#columns)).
+  [`place.scope`] and [`figure.scope`].  Two-column documents should now prefer
+  `{set page(columns: 2)}` over `{show: column.with(2)}` (see the
+  [page setup guide]($guides/page-setup-guide/#columns)).
 - Added support for automatic [line numbering]($par.line) (often used in
   academic papers)
-- Added [`par.spacing`] property for configuring paragraph spacing. This
-  should now be used instead of `{show par: set block(spacing: ..)}`
+- Added [`par.spacing`] property for configuring paragraph spacing. This should
+  now be used instead of `{show par: set block(spacing: ..)}`
   (**Breaking change**)
 - Block-level elements like lists, grids, and stacks now show themselves as
   blocks and are thus affected by all block properties (e.g. `stroke`) rather
   than just `spacing` (**Breaking change**)
 - Added [`block.sticky`] property which prevents a page break after a block
-- Added [`place.flush`] function which forces all floating figures to be
-  placed before any further content
+- Added [`place.flush`] function which forces all floating figures to be placed
+  before any further content
 - Added [`skew`] function
-- Added `{auto}` option for [`page.header`] and [`page.footer`] which results
-  in an automatic header/footer based on the numbering (which was previously
+- Added `{auto}` option for [`page.header`] and [`page.footer`] which results in
+  an automatic header/footer based on the numbering (which was previously
   inaccessible after a change)
 - Added `gap` and `justify` parameters to [`repeat`] function
 - Added `width` and `height` parameters to the [`measure`] function to define
   the space in which the content should be measured. Especially useful in
   combination with [`layout`].
-- The height of a `block`, `image`, `rect`, `square`, `ellipse`, or `circle`
-  can now be specified in [fractional units]($fraction)
+- The height of a `block`, `image`, `rect`, `square`, `ellipse`, or `circle` can
+  now be specified in [fractional units]($fraction)
 - The [`scale`] function now supports absolute lengths for `x`, `y`, `factor`.
   This way an element of unknown size can be scaled to a fixed size.
-- The values of `block.above` and `block.below` can now be retrieved in
-  context expressions.
+- The values of `block.above` and `block.below` can now be retrieved in context
+  expressions.
 - Increased accuracy of conversions between absolute units (pt, mm, cm, in)
 - Fixed a bug which could cause headings to be orphaned at the bottom of the
   page
@@ -73,8 +73,8 @@ description: Changes that are not yet released
 - Fixed various bugs where floating placement would yield overlapping results
 - Fixed a bug where widow/orphan prevention would unnecessarily move text into
   the next column
-- Fixed [weak spacing]($h.weak) not being trimmed at the start and end of
-  lines in a paragraph (only at the start and end of paragraphs)
+- Fixed [weak spacing]($h.weak) not being trimmed at the start and end of lines
+  in a paragraph (only at the start and end of paragraphs)
 - Fixed interaction of weak page break and [`pagebreak.to`]
 - Fixed compilation output of a single weak page break
 - Fixed crash when [padding]($pad) by `{100%}`
@@ -88,17 +88,17 @@ description: Changes that are not yet released
 - Setting the font to an unavailable family will now result in a warning
 - Implemented a new smart quote algorithm, fixing various bugs where smart
   quotes weren't all that smart
-- Added [`text.costs`] parameter for tweaking various parameters that affect
-  the choices of the layout engine during text layout
+- Added [`text.costs`] parameter for tweaking various parameters that affect the
+  choices of the layout engine during text layout
 - Added `typm` highlighting mode for math in [raw blocks]($raw.lang)
 - Added basic i18n for Galician, Catalan, Latin, Icelandic, Hebrew
 - Implemented hyphenation duplication for Czech, Croatian, Lower Sorbian,
   Polish, Portuguese, Slovak, and Spanish.
-- The [`smallcaps`] function is now an element function and can thereby be
-  used in show(-set) rules.
-- The [`raw.theme`] parameter can now be set to `{none}` to disable
-  highlighting even in the presence of a language tag, and to `{auto}` to
-  reset to the default
+- The [`smallcaps`] function is now an element function and can thereby be used
+  in show(-set) rules.
+- The [`raw.theme`] parameter can now be set to `{none}` to disable highlighting
+  even in the presence of a language tag, and to `{auto}` to reset to the
+  default
 - Multiple [stylistic sets]($text.stylistic-set) can now be enabled at once
 - Fixed the Chinese translation for "Equation"
 - Fixed that hyphenation could occur outside of words
@@ -117,12 +117,11 @@ description: Changes that are not yet released
 ## Math
 - Block-level equations can now break over multiple pages if enabled via
   `{show math.equation: set block(breakable: true)}`.
-- Matrix and vector sizing is now more consistent across different cell
-  contents
+- Matrix and vector sizing is now more consistent across different cell contents
 - Added [`stretch`]($math.stretch) function for manually or automatically
   stretching characters like arrows or parentheses horizontally or vertically
-- Improved layout of attachments on parenthesized as well as under- or
-  overlined expressions
+- Improved layout of attachments on parenthesized as well as under- or overlined
+  expressions
 - Improved layout of nested attachments resulting from code like
   `[#let a0 = $a_0$; $a0^1$]`
 - Improved layout of primes close to superscripts
@@ -132,10 +131,10 @@ description: Changes that are not yet released
 - The `floor` and `ceil` functions in math are now callable symbols, such that
   `[$ floor(x) = lr(floor.l x floor.r) $]`
 - The [`mat.delim`]($math.mat.delim), [`vec.delim`]($math.vec.delim), and
-  [`cases.delim`]($math.cases.delim) parameters now allow any character that
-  is considered a delimiter or "fence" (e.g. |) by Unicode. The
-  `{delim: "||"}` notation is _not_ supported anymore and should be replaced
-  by `{delim: bar.double}` (**Minor breaking change**)
+  [`cases.delim`]($math.cases.delim) parameters now allow any character that is
+  considered a delimiter or "fence" (e.g. |) by Unicode. The `{delim: "||"}`
+  notation is _not_ supported anymore and should be replaced by
+  `{delim: bar.double}` (**Minor breaking change**)
 - Added [`vec.align`]($math.vec.align) and [`mat.align`]($math.mat.align)
   parameters
 - Added [`underparen`]($math.underparen), [`overparen`]($math.overparen),
@@ -159,22 +158,20 @@ description: Changes that are not yet released
 - Implemented a new system by which Typst tracks where elements end up on the
   pages. This may lead to subtly different behavior in introspections.
   (**Breaking change**)
-- Fixed various bugs with wrong counter behavior in complex layout
-  situations, through a new, more principled implementation
+- Fixed various bugs with wrong counter behavior in complex layout situations,
+  through a new, more principled implementation
 - Counter updates can now be before the first, in between, and after the last
-  page when isolated by weak page breaks. This allows, for instance, updating
-  a counter before the first page header and background.
+  page when isolated by weak page breaks. This allows, for instance, updating a
+  counter before the first page header and background.
 - Fixed logical ordering of introspections within footnotes and figures
 - Fixed incorrect [`here().position()`]($here) when [`place`] was used in a
   context expression
-- Fixed resolved positions of elements (in particular, headings) whose show
-  rule emits an invisible element (like a state update) before a page break
-- Fixed behavior of stepping a counter at a deeper level than its current
-  state has
-- Fixed citation formatting not working in table headers and a few other
-  places
-- Displaying the footnote counter will now respect the footnote numbering
-  style
+- Fixed resolved positions of elements (in particular, headings) whose show rule
+  emits an invisible element (like a state update) before a page break
+- Fixed behavior of stepping a counter at a deeper level than its current state
+  has
+- Fixed citation formatting not working in table headers and a few other places
+- Displaying the footnote counter will now respect the footnote numbering style
 
 ## Model
 - Document set rules do not need to be at the very start of the document
@@ -186,8 +183,8 @@ description: Changes that are not yet released
 - Tight lists now only attach (with tighter spacing) to preceding paragraphs,
   not arbitrary blocks
 - The [`quote`] element is now locatable (can be used in queries)
-- The bibliography heading now uses `depth` instead of `level` so that its
-  level can still be configured via a show-set rule
+- The bibliography heading now uses `depth` instead of `level` so that its level
+  can still be configured via a show-set rule
 - Added support for more [numbering] formats: Devanagari, Eastern Arabic,
   Bengali, and circled numbers
 - Added [`hanging-indent`]($heading.hanging-indent) parameter to heading
@@ -226,22 +223,21 @@ description: Changes that are not yet released
 - Fixed conversion from Luma to CMYK colors
 - Fixed offset gradient strokes in PNG export
 - Fixed unintended cropping of some SVGs
-- SVGs with foreign objects now produce a warning as they will likely not
-  render correctly in Typst
+- SVGs with foreign objects now produce a warning as they will likely not render
+  correctly in Typst
 
 ## Syntax
 - Added support for nested imports like `{import "file.typ": module.item}`
-- Added support for parenthesized imports like
-  `{import "file.typ": (a, b, c)}`. With those, the import list can break over
-  multiple lines.
+- Added support for parenthesized imports like `{import "file.typ": (a, b, c)}`.
+  With those, the import list can break over multiple lines.
 - Fixed edge case in parsing of reference syntax
 - Fixed edge case in parsing of heading, list, enum, and term markers
   immediately followed by comments
 - Fixed rare crash in parsing of parenthesized expressions
 
 ## Scripting
-- Added new fixed-point [`decimal`] number type for highly precise arithmetic
-  on numbers in base 10, as needed for finance
+- Added new fixed-point [`decimal`] number type for highly precise arithmetic on
+  numbers in base 10, as needed for finance
 - Added `std` module for accessing standard library definitions even when a
   variable with the same name shadows/overwrites it
 - Added [`array.to-dict`], [`array.reduce`], [`array.windows`] methods
@@ -251,8 +247,8 @@ description: Changes that are not yet released
   [`float.to-bytes`]
 - Added proper support for negative values of the `digits` parameter of
   [`calc.round`] (the behaviour existed before but was subtly broken)
-- Conversions from [`int`] to [`float`] will now error instead of saturating
-  if the float is too large (**Minor breaking change**)
+- Conversions from [`int`] to [`float`] will now error instead of saturating if
+  the float is too large (**Minor breaking change**)
 - Added `float.nan` and `float.inf`, removed `calc.nan`
   (**Minor breaking change**)
 - Certain symbols are now generally callable like functions and not only
@@ -284,8 +280,8 @@ description: Changes that are not yet released
   of white ones in PNG and SVG. The new default of `{auto}` means transparent
   for PDF and white for PNG and SVG.
 - Improved text copy-paste from PDF in complex scenarios
-- Exported SVGs now contain the `data-typst-label` attribute on groups
-  resulting from labelled [boxes]($box) and [blocks]($block)
+- Exported SVGs now contain the `data-typst-label` attribute on groups resulting
+  from labelled [boxes]($box) and [blocks]($block)
 - Fixed a bug where some fonts would not print correctly on professional
   printers
 - Fixed a bug where transparency could leak from one PDF object to another
@@ -298,20 +294,20 @@ description: Changes that are not yet released
 - Typst's layout engine is now multithreaded. Typical speedups are 2-3x for
   larger documents. The multithreading operates on page break boundaries, so
   explicit page breaks are necessary for it to kick in.
-- Paragraph justification was optimized with a new two-pass algorithm.
-  Speedups are larger for shorter paragraphs and range from 1-6x.
+- Paragraph justification was optimized with a new two-pass algorithm. Speedups
+  are larger for shorter paragraphs and range from 1-6x.
 
 ## Command Line Interface
 - Added `--pages` option to select specific page ranges to export
 - Added `--package-path` and `--package-cache-path` as well as
-  `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variables
-  for configuring where packages are loaded from and cached in, respectively
+  `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variables for
+  configuring where packages are loaded from and cached in, respectively
 - Added `--ignore-system-fonts` flag to disable system fonts fully for better
   reproducibility
 - Added `--make-deps` argument for outputting the dependencies of the current
   compilation as a Makefile
-- Added `--pretty` option to `typst query`, with the default now being to
-  minify (only applies to JSON format)
+- Added `--pretty` option to `typst query`, with the default now being to minify
+  (only applies to JSON format)
 - Added `--backup-path` to `typst update` to configure where the previous
   version is backed up
 - Added useful links to help output
@@ -333,8 +329,8 @@ description: Changes that are not yet released
 ## Tooling and Diagnostics
 - The "compiler" field for specifying the minimum Typst version required by a
   package now supports imprecise bounds like 0.11 instead of 0.11.0
-- Added warning when a label is ignored by Typst because no preceding
-  labellable element exists
+- Added warning when a label is ignored by Typst because no preceding labellable
+  element exists
 - Added hint when trying to apply labels in code mode
 - Added hint when trying to call a standard library function that has been
   shadowed/overwritten by a local definition
@@ -345,16 +341,15 @@ description: Changes that are not yet released
 - Added hint when a string is used where a label is expected
 - Added hint when a stray end of a block comment (`*/`) is encountered
 - Added hints when destructuring arrays with the wrong number of elements
-- Improved error message when trying to use a keyword as an identifier in a
-  let binding
+- Improved error message when trying to use a keyword as an identifier in a let
+  binding
 - Improved error messages when accessing nonexistent fields
 - Improved error message when a package exists, but not the specified version
 - Improved hints for unknown variables
-- Improved hint when trying to convert a length with non-zero em component to
-  an absolute unit
+- Improved hint when trying to convert a length with non-zero em component to an
+  absolute unit
 - Fixed a crash that could be triggered by certain hover tooltips
-- Fixed an off-by-one error in to-source jumps when first-line-indent is
-  enabled
+- Fixed an off-by-one error in to-source jumps when first-line-indent is enabled
 - Fixed suggestions for `.` after the end of an inline code expressions
 - Fixed autocompletions being duplicated in a specific case
 
@@ -372,10 +367,10 @@ description: Changes that are not yet released
   `parallel.equiv`, `parallel.slanted`, `parallel.tilde`, `angle.l.curly`,
   `angle.l.dot`, `angle.r.curly`, `angle.r.dot`, `angle.oblique`, `angle.s`,
   `em.two`, `em.three`
-- Renamed: `turtle` to `shell`, `notes` to `note`, `ballot.x` to
-  `ballot.cross`, `succ.eq` to `succ.curly.eq`, `prec.eq` to `prec.curly.eq`,
-  `servicemark` to `trademark.service`, `emoji.face.tired` to
-  `emoji.face.distress` (**Breaking change**)
+- Renamed: `turtle` to `shell`, `notes` to `note`, `ballot.x` to `ballot.cross`,
+  `succ.eq` to `succ.curly.eq`, `prec.eq` to `prec.curly.eq`, `servicemark` to
+  `trademark.service`, `emoji.face.tired` to `emoji.face.distress`
+  (**Breaking change**)
 - Changed codepoint: `prec.eq`, `prec.neq`, `succ.eq`, `succ.neq`, `triangle`
   from ▷ to △, `emoji.face.tired` (**Breaking change**)
 - Removed: `lt.curly` in favor of `prec`, `gt.curly` in favor of `succ`
@@ -395,8 +390,8 @@ description: Changes that are not yet released
 - Added `typst-kit` crate which provides useful APIs for `World` implementors
 - Added go-to-definition API in `typst-ide`
 - Added package manifest parsing APIs to `typst-syntax`
-- As the compiler is now capable of multithreading, `World` implementations
-  must satisfy `Send` and `Sync`
+- As the compiler is now capable of multithreading, `World` implementations must
+  satisfy `Send` and `Sync`
 - Changed signature of `World::main` to allow for the scenario where the main
   file could not be loaded
 - Removed `Tracer` in favor of `Warned<T>` and `typst::trace` function
