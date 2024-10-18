@@ -597,7 +597,7 @@ fn raw_cost(
     let badness = if ratio < metrics.min_ratio(approx) {
         // Overfull line always has maximum cost.
         1_000_000.0
-    } else if justify || ratio < 0.0 {
+    } else if breakpoint != Breakpoint::Mandatory || justify || ratio < 0.0 {
         // If the line shall be justified or needs shrinking, it has normal
         // badness with cost 100|ratio|^3. We limit the ratio to 10 as to not
         // get to close to our maximum cost.
