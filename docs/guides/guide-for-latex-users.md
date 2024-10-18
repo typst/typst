@@ -325,64 +325,65 @@ function. The following example illustrates how it works:
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(font: "Libertinus Serif", 11pt)
->>>  set par(justify: true)
->>>  set page(
->>>    "us-letter",
->>>    margin: auto,
->>>    header: align(
->>>      right + horizon,
->>>      title
->>>    ),
->>>    numbering: "1",
->>>    columns: 2
->>>  )
+>>>   set text(font: "Libertinus Serif", 11pt)
+>>>   set par(justify: true)
+>>>   set page(
+>>>     "us-letter",
+>>>     margin: auto,
+>>>     header: align(
+>>>       right + horizon,
+>>>       title
+>>>     ),
+>>>     numbering: "1",
+>>>     columns: 2
+>>>   )
 >>>
->>>  show heading.where(
->>>    level: 1
->>>  ): it => block(
->>>    align(center,
->>>      text(
->>>        13pt,
->>>        weight: "regular",
->>>        smallcaps(it.body),
->>>      )
->>>    ),
->>>  )
->>>  show heading.where(
->>>    level: 2
->>>  ): it => box(
->>>    text(
->>>      11pt,
->>>      weight: "regular",
->>>      style: "italic",
->>>      it.body + [.],
->>>    )
->>>  )
+>>>   show heading.where(
+>>>     level: 1
+>>>   ): it => block(
+>>>     align(center,
+>>>       text(
+>>>         13pt,
+>>>         weight: "regular",
+>>>         smallcaps(it.body),
+>>>       )
+>>>     ),
+>>>   )
+>>>   show heading.where(
+>>>     level: 2
+>>>   ): it => box(
+>>>     text(
+>>>       11pt,
+>>>       weight: "regular",
+>>>       style: "italic",
+>>>       it.body + [.],
+>>>     )
+>>>   )
 >>>
->>>  place(top, float: true, {
->>>    set align(center)
->>>    text(17pt, title)
+>>>   place(top, float: true, scope: "parent", {
+>>>     set align(center)
+>>>     text(17pt, title)
 >>>
->>>    let count = calc.min(authors.len(), 3)
->>>    grid(
->>>      columns: (1fr,) * count,
->>>      row-gutter: 24pt,
->>>      ..authors.map(author => [
->>>        #author.name \
->>>        #author.affiliation \
->>>        #link("mailto:" + author.email)
->>>      ]),
->>>    )
+>>>     let count = calc.min(authors.len(), 3)
+>>>     grid(
+>>>       columns: (1fr,) * count,
+>>>       row-gutter: 24pt,
+>>>       ..authors.map(author => [
+>>>         #author.name \
+>>>         #author.affiliation \
+>>>         #link("mailto:" + author.email)
+>>>       ]),
+>>>     )
 >>>
->>>    par(justify: false)[
->>>      *Abstract* \
->>>      #abstract
->>>    ]
->>> })
+>>>     par(justify: false)[
+>>>       *Abstract* \
+>>>       #abstract
+>>>     ]
+>>>   })
 >>>
->>>  set align(left)
->>>}
+>>>   set align(left)
+>>>   doc
+>>> }
 <<< #import "conf.typ": conf
 #show: conf.with(
   title: [
@@ -406,6 +407,7 @@ function. The following example illustrates how it works:
 Let's get started writing this
 article by putting insightful
 paragraphs right here!
+>>> #lorem(500)
 ```
 
 The [`{import}`]($scripting/#modules) statement makes [functions]($function)
@@ -415,12 +417,24 @@ as a conference article. We use a show rule to apply it to the document and also
 configure some metadata of the article. After applying the show rule, we can
 start writing our article right away!
 
-You can also use templates from Typst Universe, which is Typst's equivalent of
-CTAN using an import statement like this: `[#import
+You can also use templates from Typst Universe (which is Typst's equivalent of
+CTAN) using an import statement like this: `[#import
 "@preview/elsearticle:0.2.1": elsearticle]`. Check the documentation of an
 individual template to learn the name of its template function. Templates and
 packages from Typst Universe are automatically downloaded when you first use
 them.
+
+In the web app, you can choose to create a project from a template on Typst
+Universe or even create your own using the template wizard. Locally, you can use
+the `typst init` CLI to create a new project from a template. Check out [the
+list of templates]($universe/search/?kind=templates) published on Typst
+Universe. You can also take a look at the [`awesome-typst`
+repository](https://github.com/qjcg/awesome-typst) to find community templates
+that aren't available through Universe.
+
+You can also [create your own, custom templates.]($tutorial/making-a-template)
+They are shorter and more readable than the corresponding LaTeX `.sty` files by
+orders of magnitude, so give it a try!
 
 <div class="info-box">
 
@@ -436,18 +450,6 @@ result as an argument. The `.with` part is a _method_ that takes the `conf`
 function and pre-configures some if its arguments before passing it on to the
 show rule.
 </div>
-
-In the web app, you can choose to create a project from a template on Typst
-Universe or even create your own using the template wizard. Locally, you can use
-the `typst init` CLI to create a new project from a template. Check out [the
-list of templates]($universe/search/?kind=templates) published on Typst
-Universe. You can also take a look at the [`awesome-typst`
-repository](https://github.com/qjcg/awesome-typst) to find community templates
-that aren't available through Universe.
-
-You can also [create your own, custom templates.]($tutorial/making-a-template)
-They are shorter and more readable than the corresponding LaTeX `.sty` files by
-orders of magnitude, so give it a try!
 
 ## How do I load packages? { #packages }
 Typst is "batteries included," so the equivalent of many popular LaTeX packages

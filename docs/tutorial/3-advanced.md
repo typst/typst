@@ -264,15 +264,18 @@ positions it over the other content without affecting the layout of other
 content in its container:
 
 ```example
-#place(top + center, square())
+#place(
+  top + center,
+  rect(fill: black),
+)
 #lorem(30)
 ```
 
-If we did not use the `{place}` function, the square would be on its own line,
-but here, it overlaps the few lines of text following it. Likewise, that text
-acts like as if there was no square. To change this behavior, we can pass the
-argument `{float: true}` to ensure that the space taken up by the placed item at
-the top or bottom of the page is not occupied by any other content.
+If we hadn't used `{place}` here, the square would be in its own line, but here
+it overlaps the few lines of text following it. Likewise, that text acts like as
+if there was no square. To change this behavior, we can pass the argument
+`{float: true}` to ensure that the space taken up by the placed item at the top
+or bottom of the page is not occupied by any other content.
 
 ```example:single
 >>> #let title = [
@@ -284,8 +287,8 @@ the top or bottom of the page is not occupied by any other content.
 >>> #set par(justify: true)
 >>>
 #set page(
-  "us-letter",
-  margin: auto,
+>>> margin: auto,
+  paper: "us-letter",
   header: align(
     right + horizon,
     title
@@ -295,25 +298,25 @@ the top or bottom of the page is not occupied by any other content.
 )
 
 #place(
-  top,
+  top + center,
   float: true,
   scope: "parent",
-  clearance: 4mm,
+  clearance: 2em,
 )[
->>>  #align(center, text(
+>>>  #text(
 >>>    17pt,
 >>>    weight: "bold",
 >>>    title,
->>>  ))
+>>>  )
 >>>
 >>>  #grid(
 >>>    columns: (1fr, 1fr),
->>>    align(center)[
+>>>    [
 >>>      Therese Tungsten \
 >>>      Artos Institute \
 >>>      #link("mailto:tung@artos.edu")
 >>>    ],
->>>    align(center)[
+>>>    [
 >>>      Dr. John Doe \
 >>>      Artos Institute \
 >>>      #link("mailto:doe@artos.edu")
@@ -321,8 +324,7 @@ the top or bottom of the page is not occupied by any other content.
 >>>  )
 <<<   ...
 
-  #align(center)[
-    #set par(justify: false)
+  #par(justify: false)[
     *Abstract* \
     #lorem(80)
   ]
@@ -335,9 +337,10 @@ the top or bottom of the page is not occupied by any other content.
 #lorem(200)
 ```
 
-In this example, we also used the `clearance` argument of the `{place}`
-function to provide the space between it and the body instead of using the
-[`{v}`]($v) function.
+In this example, we also used the `clearance` argument of the `{place}` function
+to provide the space between it and the body instead of using the [`{v}`]($v)
+function. We can also remove the explicit `{align(center, ..)}` calls around the
+various parts since they inherit the center alignment from the placement.
 
 Now there is only one thing left to do: Style our headings. We need to make them
 centered and use small capitals. Because the `heading` function does not offer
@@ -370,33 +373,32 @@ a way to set any of that, we need to write our own heading show rule.
 <<< ...
 >>>
 >>> #place(
->>>   top,
+>>>   top + center,
 >>>   float: true,
 >>>   scope: "parent",
->>>   clearance: 4mm,
+>>>   clearance: 2em,
 >>> )[
->>>   #align(center, text(
+>>>   #text(
 >>>     17pt,
 >>>     weight: "bold",
 >>>     title,
->>>   ))
+>>>   )
 >>>
->>>  #grid(
->>>    columns: (1fr, 1fr),
->>>    align(center)[
->>>      Therese Tungsten \
->>>      Artos Institute \
->>>      #link("mailto:tung@artos.edu")
->>>    ],
->>>    align(center)[
->>>      Dr. John Doe \
->>>      Artos Institute \
->>>      #link("mailto:doe@artos.edu")
->>>    ]
->>>  )
+>>>   #grid(
+>>>     columns: (1fr, 1fr),
+>>>     [
+>>>       Therese Tungsten \
+>>>       Artos Institute \
+>>>       #link("mailto:tung@artos.edu")
+>>>     ],
+>>>     [
+>>>       Dr. John Doe \
+>>>       Artos Institute \
+>>>       #link("mailto:doe@artos.edu")
+>>>     ]
+>>>   )
 >>>
->>>   #align(center)[
->>>     #set par(justify: false)
+>>>   #par(justify: false)[
 >>>     *Abstract* \
 >>>     #lorem(80)
 >>>   ]
@@ -461,33 +463,32 @@ differentiate between section and subsection headings:
 )
 >>>
 >>> #place(
->>>   top,
+>>>   top + center,
 >>>   float: true,
 >>>   scope: "parent",
->>>   clearance: 4mm,
+>>>   clearance: 2em,
 >>> )[
->>>   #align(center, text(
+>>>   #text(
 >>>     17pt,
 >>>     weight: "bold",
 >>>     title,
->>>   ))
+>>>   )
 >>>
 >>>  #grid(
 >>>    columns: (1fr, 1fr),
->>>    align(center)[
+>>>    [
 >>>      Therese Tungsten \
 >>>      Artos Institute \
 >>>      #link("mailto:tung@artos.edu")
 >>>    ],
->>>    align(center)[
+>>>    [
 >>>      Dr. John Doe \
 >>>      Artos Institute \
 >>>      #link("mailto:doe@artos.edu")
 >>>    ]
 >>>  )
 >>>
->>>   #align(center)[
->>>     #set par(justify: false)
+>>>   #par(justify: false)[
 >>>     *Abstract* \
 >>>     #lorem(80)
 >>>   ]

@@ -161,10 +161,9 @@ are this:
    The function applies a few set and show rules and echoes the content it has
    been passed at the end.
 
-2. Moreover, we used a curly-braced code block
-   instead of a content block. This way, we don't need to prefix all set rules
-   and function calls with a `#`. In exchange, we cannot write markup directly
-   in the code block anymore.
+2. Moreover, we used a curly-braced code block instead of a content block. This
+   way, we don't need to prefix all set rules and function calls with a `#`. In
+   exchange, we cannot write markup directly in the code block anymore.
 
 Also note where the title comes from: We previously had it inside of a variable.
 Now, we are receiving it as the first parameter of the template function. To do
@@ -175,11 +174,11 @@ only pass the body. Therefore, we add a new function definition that allows us
 to set a paper title and use the single parameter from the show rule.
 
 ## Templates with named arguments { #named-arguments }
-Our paper in the previous chapter had a title and an author list. Let's add these
-things to our template. In addition to the title, we want our template to accept
-a list of authors with their affiliations and the paper's abstract. To keep
-things readable, we'll add those as named arguments. In the end, we want it to
-work like this:
+Our paper in the previous chapter had a title and an author list. Let's add
+these things to our template. In addition to the title, we want our template to
+accept a list of authors with their affiliations and the paper's abstract. To
+keep things readable, we'll add those as named arguments. In the end, we want it
+to work like this:
 
 ```typ
 #show: doc => conf(
@@ -278,12 +277,12 @@ definition inside of that new file. Now you can access it from your main file by
 adding an import before the show rule. Specify the path of the file between the
 `{import}` keyword and a colon, then name the function that you want to import.
 
-Another thing that you can do to make using template's just a bit more elegant
-is to use [`.with`]($function.with) to avoid spelling out a closure and
-appending the content argument at the bottom of your template list. Instead, you
-can just pass a function with all the named arguments pre-populated by using the
-with method of a function. Templates on [Typst Universe]($universe) are designed
-to work with this style of function call.
+Another thing that you can do to make applying templates just a bit more elegant
+is to use the [`.with`]($function.with) method on functions to pre-populate all
+the named arguments. This way, you can avoid spelling out a closure and
+appending the content argument at the bottom of your template list. Templates on
+[Typst Universe]($universe) are designed to work with this style of function
+call.
 
 ```example:single
 >>> #let conf(
@@ -331,7 +330,7 @@ to work with this style of function call.
 >>>    top,
 >>>    float: true,
 >>>    scope: "parent",
->>>    clearance: 4mm,
+>>>    clearance: 2em,
 >>>    {
 >>>      set align(center)
 >>>      text(17pt, title)
