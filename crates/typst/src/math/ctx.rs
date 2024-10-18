@@ -5,7 +5,7 @@ use rustybuzz::Feature;
 use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::math::MathValue;
 use ttf_parser::opentype_layout::LayoutTable;
-use ttf_parser::GlyphId;
+use ttf_parser::{GlyphId, Tag};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -17,7 +17,7 @@ use crate::layout::{
     layout_frame, Abs, Axes, BoxElem, Em, Frame, HElem, PlaceElem, Region, Size, Spacing,
 };
 use crate::math::{
-    scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
+    dtls_char, scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
     LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
 use crate::realize::{realize, Arenas, RealizationKind};
@@ -58,7 +58,9 @@ pub struct MathContext<'a, 'v, 'e> {
     pub ttf: &'a ttf_parser::Face<'a>,
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
-    pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
+    pub dtls_table: Option<GlyphwiseSubsts<'a>>,
+    pub flac_table: Option<GlyphwiseSubsts<'a>>,
+    pub ssty_table: Option<GlyphwiseSubsts<'a>>,
     pub glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
     pub space_width: Em,
     // Mutable.
@@ -78,26 +80,17 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         let gsub_table = font.ttf().tables().gsub;
         let constants = math_table.constants.unwrap();
 
-        let ssty_table = gsub_table
-            .and_then(|gsub| {
-                gsub.features
-                    .find(ttf_parser::Tag::from_bytes(b"ssty"))
-                    .and_then(|feature| feature.lookup_indices.get(0))
-                    .and_then(|index| gsub.lookups.get(index))
-            })
-            .and_then(|ssty| ssty.subtables.get::<SubstitutionSubtable>(0))
-            .and_then(|ssty| match ssty {
-                SubstitutionSubtable::Alternate(alt_glyphs) => Some(alt_glyphs),
-                _ => None,
-            });
+        let feat = |tag: &[u8; 4]| {
+            GlyphwiseSubsts::new(gsub_table, Feature::new(Tag::from_bytes(tag), 0, ..))
+        };
 
         let features = features(styles);
-        let glyphwise_tables = gsub_table.map(|gsub| {
+        let glyphwise_tables = Some(
             features
                 .into_iter()
-                .filter_map(|feature| GlyphwiseSubsts::new(gsub, feature))
-                .collect()
-        });
+                .filter_map(|feature| GlyphwiseSubsts::new(gsub_table, feature))
+                .collect(),
+        );
 
         let ttf = font.ttf();
         let space_width = ttf
@@ -111,10 +104,12 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             locator,
             region: Region::new(base, Axes::splat(false)),
             font,
-            ttf: font.ttf(),
+            ttf,
             table: math_table,
             constants,
-            ssty_table,
+            dtls_table: feat(b"dtls"),
+            flac_table: feat(b"flac"),
+            ssty_table: feat(b"ssty"),
             glyphwise_tables,
             space_width,
             fragments: vec![],
@@ -292,19 +287,25 @@ impl MathContext<'_, '_, '_> {
         let span = elem.span();
         let mut chars = text.chars();
         let math_size = EquationElem::size_in(styles);
+        let mut dtls = self.dtls_table.is_some();
         let fragment = if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
+            .map(|c| dtls_char(c, &mut dtls))
             .map(|c| styled_char(styles, c, true))
             .and_then(|c| GlyphFragment::try_new(self, styles, c, span))
         {
             // A single letter that is available in the math font.
+            if dtls {
+                glyph.make_dotless_form(self);
+            }
+
             match math_size {
                 MathSize::Script => {
-                    glyph.make_scriptsize(self);
+                    glyph.make_script_size(self);
                 }
                 MathSize::ScriptScript => {
-                    glyph.make_scriptscriptsize(self);
+                    glyph.make_script_script_size(self);
                 }
                 _ => (),
             }
@@ -427,10 +428,11 @@ pub enum GlyphwiseSubsts<'a> {
 }
 
 impl<'a> GlyphwiseSubsts<'a> {
-    pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
+    pub fn new(gsub: Option<LayoutTable<'a>>, feature: Feature) -> Option<Self> {
+        let gsub = gsub?;
         let table = gsub
             .features
-            .find(ttf_parser::Tag(feature.tag.0))
+            .find(feature.tag)
             .and_then(|feature| feature.lookup_indices.get(0))
             .and_then(|index| gsub.lookups.get(index))?;
         let table = table.subtables.get::<SubstitutionSubtable>(0)?;
@@ -445,7 +447,11 @@ impl<'a> GlyphwiseSubsts<'a> {
         }
     }
 
-    pub fn try_apply(&self, glyph_id: GlyphId) -> Option<GlyphId> {
+    pub fn try_apply(
+        &self,
+        glyph_id: GlyphId,
+        alt_value: Option<u32>,
+    ) -> Option<GlyphId> {
         match self {
             Self::Single(single) => match single {
                 SingleSubstitution::Format1 { coverage, delta } => coverage
@@ -459,11 +465,11 @@ impl<'a> GlyphwiseSubsts<'a> {
                 .coverage
                 .get(glyph_id)
                 .and_then(|idx| alternate.alternate_sets.get(idx))
-                .and_then(|set| set.alternates.get(*value as u16)),
+                .and_then(|set| set.alternates.get(alt_value.unwrap_or(*value) as u16)),
         }
     }
 
     pub fn apply(&self, glyph_id: GlyphId) -> GlyphId {
-        self.try_apply(glyph_id).unwrap_or(glyph_id)
+        self.try_apply(glyph_id, None).unwrap_or(glyph_id)
     }
 }
