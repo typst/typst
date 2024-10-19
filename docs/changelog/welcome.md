@@ -10,7 +10,7 @@ forward. This section documents all changes to Typst since its initial public
 release.
 
 ## Versions
-- [Unreleased]($changelog/unreleased)
+- [Typst 0.12.0]($changelog/0.12.0)
 - [Typst 0.11.1]($changelog/0.11.1)
 - [Typst 0.11.0]($changelog/0.11.0)
 - [Typst 0.10.0]($changelog/0.10.0)
