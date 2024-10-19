@@ -380,13 +380,16 @@ impl Construct for ParLine {
 
 /// Possible line numbering scope options, indicating how often the line number
 /// counter should be reset.
+///
+/// Note that currently the manual reset of the line number counter is not
+/// supported.
 #[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LineNumberingScope {
-    /// Indicates the line number counter spans the whole document, that is,
-    /// is never automatically reset.
+    /// Indicates that the line number counter spans the whole document, i.e.,
+    /// it's never automatically reset.
     Document,
-    /// Indicates the line number counter should be reset at the start of every
-    /// new page.
+    /// Indicates that the line number counter should be reset at the start of
+    /// every new page.
     Page,
 }
 
