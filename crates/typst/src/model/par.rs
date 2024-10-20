@@ -381,7 +381,7 @@ impl Construct for ParLine {
 /// Possible line numbering scope options, indicating how often the line number
 /// counter should be reset.
 ///
-/// Note that currently the manual reset of the line number counter is not
+/// Note that, currently, manually resetting the line number counter is not
 /// supported.
 #[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LineNumberingScope {
