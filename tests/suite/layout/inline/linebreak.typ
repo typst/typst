@@ -123,3 +123,19 @@ For info see #link("https://myhost.tld").
 // - shaping that results in multiple glyphs in the same cluster
 #set text(font: "Noto Sans Thai")
 #h(85pt) งบิก
+
+--- issue-5235-linebreak-optimized-without-justify ---
+#set page(width: 207pt, margin: 15pt)
+#set text(11pt)
+
+#set par(linebreaks: "simple")
+Some texts feature many longer
+words. Those are often exceedingly
+challenging to break in a visually
+pleasing way.
+
+#set par(linebreaks: "optimized")
+Some texts feature many longer
+words. Those are often exceedingly
+challenging to break in a visually
+pleasing way.
