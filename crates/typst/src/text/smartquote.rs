@@ -248,7 +248,7 @@ impl<'s> SmartQuotes<'s> {
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
-            "gr" => ("‘", "’", "«", "»"),
+            "el" => ("‘", "’", "«", "»"),
             "he" => ("’", "’", "”", "”"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
