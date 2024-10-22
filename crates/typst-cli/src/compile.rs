@@ -82,12 +82,19 @@ impl CompileCommand {
 
     /// The PDF standards to try to conform with.
     pub fn pdf_standards(&self) -> StrResult<PdfStandards> {
+        if self.pdf_standard.contains(&PdfStandard::A_2b)
+            && self.pdf_standard.contains(&PdfStandard::A_3b)
+        {
+            bail!("PDF can not conform to A-2B and A-3B at the same time")
+        }
+
         let list = self
             .pdf_standard
             .iter()
             .map(|standard| match standard {
                 PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
                 PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+                PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
             })
             .collect::<Vec<_>>();
         PdfStandards::new(&list)
