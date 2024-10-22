@@ -5,3 +5,4 @@ bibliography = רשימת מקורות
 heading = חלק
 outline = תוכן עניינים
 raw = קטע מקור
+page = עמוד

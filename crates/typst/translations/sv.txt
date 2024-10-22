@@ -5,3 +5,4 @@ bibliography = Bibliografi
 heading = Kapitel
 outline = Innehåll
 raw = Listing
+page = sida

@@ -47,7 +47,7 @@ const TRANSLATIONS: [(&str, &str); 36] = [
     translation!("sv"),
     translation!("tl"),
     translation!("tr"),
-    translation!("ua"),
+    translation!("uk"),
     translation!("vi"),
     translation!("zh-TW"),
     translation!("zh"),
@@ -93,7 +93,7 @@ impl Lang {
     pub const SPANISH: Self = Self(*b"es ", 2);
     pub const SWEDISH: Self = Self(*b"sv ", 2);
     pub const TURKISH: Self = Self(*b"tr ", 2);
-    pub const UKRAINIAN: Self = Self(*b"ua ", 2);
+    pub const UKRAINIAN: Self = Self(*b"uk ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 
     /// Return the language code as an all lowercase string slice.
