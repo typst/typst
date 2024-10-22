@@ -247,7 +247,7 @@ impl<'s> SmartQuotes<'s> {
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,
-            "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
+            "ru" | "no" | "nb" | "nn" | "uk" => ("’", "’", "«", "»"),
             "el" => ("‘", "’", "«", "»"),
             "he" => ("’", "’", "”", "”"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
