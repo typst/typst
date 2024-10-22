@@ -135,6 +135,18 @@ pub const PATTERN: SyntaxSet =
 /// Syntax kinds that can start a pattern leaf.
 pub const PATTERN_LEAF: SyntaxSet = ATOMIC_CODE_EXPR;
 
+/// Syntax kinds that can end an argument in a math function call.
+pub const MATH_ARG_END: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Comma)
+    .add(SyntaxKind::Semicolon)
+    .add(SyntaxKind::RightParen);
+
+/// Syntax kinds that can end a math function call.
+pub const MATH_ARGS_END: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::End)
+    .add(SyntaxKind::Dollar)
+    .add(SyntaxKind::RightParen);
+
 #[cfg(test)]
 mod tests {
     use super::*;
