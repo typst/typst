@@ -774,7 +774,7 @@ fn shape_segment<'a>(
     buffer.guess_segment_properties();
 
     // By default, Harfbuzz will create zero-width space glyphs for default
-    // ignorables. This is probably useful for GUI apps that want noticable
+    // ignorables. This is probably useful for GUI apps that want noticeable
     // effects on the cursor for those, but for us it's not useful and hurts
     // text extraction.
     buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
