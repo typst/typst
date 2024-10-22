@@ -1578,7 +1578,7 @@ struct Parser<'s> {
     /// Parser checkpoints for a given text index. Used for efficient parser
     /// backtracking similar to packrat parsing. See comments above in
     /// [`expr_with_paren`].
-    memo: MemoArena<'s>,
+    memo: MemoArena,
 }
 
 /// How to proceed with parsing when at a newline in Code.
@@ -1901,14 +1901,14 @@ impl<'s> Parser<'s> {
 /// This is the same idea as packrat parsing, but we use it only in the limited
 /// case of parenthesized structures. See [`expr_with_paren`] for more.
 #[derive(Default)]
-struct MemoArena<'s> {
+struct MemoArena {
     /// A single arena of previously parsed nodes (to reduce allocations).
     /// Memoized ranges refer to unique sections of the arena.
     arena: Vec<SyntaxNode>,
     /// A map from the parser's current position to a range of previously parsed
     /// nodes in the arena and a checkpoint of the parser's state. These allow
     /// us to reset the parser to avoid parsing the same location again.
-    memo_map: HashMap<MemoKey, (Range<usize>, Checkpoint<'s>)>,
+    memo_map: HashMap<MemoKey, (Range<usize>, PartialState)>,
 }
 
 /// A type alias for the memo key so it doesn't get confused with other usizes.
@@ -1917,37 +1917,45 @@ struct MemoArena<'s> {
 type MemoKey = usize;
 
 /// A checkpoint of the parser which can fully restore it to a previous state.
+struct Checkpoint {
+    node_len: usize,
+    state: PartialState,
+}
+
+/// State needed to restore the parser's current token and the lexer (but not
+/// the nodes vector).
 #[derive(Clone)]
-struct Checkpoint<'s> {
-    lexer: Lexer<'s>,
+struct PartialState {
+    cursor: usize,
+    lex_mode: LexMode,
     prev_end: usize,
     current_start: usize,
     current: SyntaxKind,
-    node_len: usize,
 }
 
 impl<'s> Parser<'s> {
     /// Store the already parsed nodes and the parser state into the memo map by
     /// extending the arena and storing the extended range and a checkpoint.
     fn memoize_parsed_nodes(&mut self, key: MemoKey, prev_len: usize) {
+        let Checkpoint { state, node_len } = self.checkpoint();
         let memo_start = self.memo.arena.len();
-        self.memo.arena.extend_from_slice(&self.nodes[prev_len..]);
+        self.memo.arena.extend_from_slice(&self.nodes[prev_len..node_len]);
         let arena_range = memo_start..self.memo.arena.len();
-        self.memo.memo_map.insert(key, (arena_range, self.checkpoint()));
+        self.memo.memo_map.insert(key, (arena_range, state));
     }
 
     /// Try to load a memoized result, return `None` if we did or `Some` (with a
     /// checkpoint and a key for the memo map) if we didn't.
-    fn restore_memo_or_checkpoint(&mut self) -> Option<(MemoKey, Checkpoint<'s>)> {
+    fn restore_memo_or_checkpoint(&mut self) -> Option<(MemoKey, Checkpoint)> {
         // We use the starting index of the current token as our key.
         let key: MemoKey = self.current_start();
         match self.memo.memo_map.get(&key).cloned() {
-            Some((range, checkpoint)) => {
+            Some((range, state)) => {
                 self.nodes.extend_from_slice(&self.memo.arena[range]);
                 // It's important that we don't truncate the nodes vector since
                 // it may have grown or shrunk (due to other memoization or
                 // error reporting) since we made this checkpoint.
-                self.restore_partial(checkpoint);
+                self.restore_partial(state);
                 None
             }
             None => Some((key, self.checkpoint())),
@@ -1955,28 +1963,31 @@ impl<'s> Parser<'s> {
     }
 
     /// Restore the parser to the state at a checkpoint.
-    fn restore(&mut self, checkpoint: Checkpoint<'s>) {
+    fn restore(&mut self, checkpoint: Checkpoint) {
         self.nodes.truncate(checkpoint.node_len);
-        self.restore_partial(checkpoint);
+        self.restore_partial(checkpoint.state);
     }
 
     /// Restore parts of the checkpoint excluding the nodes vector.
-    fn restore_partial(&mut self, checkpoint: Checkpoint<'s>) {
-        self.lexer = checkpoint.lexer;
-        self.prev_end = checkpoint.prev_end;
-        self.current_start = checkpoint.current_start;
-        self.current = checkpoint.current;
+    fn restore_partial(&mut self, state: PartialState) {
+        self.lexer.jump(state.cursor);
+        self.lexer.set_mode(state.lex_mode);
+        self.prev_end = state.prev_end;
+        self.current_start = state.current_start;
+        self.current = state.current;
     }
 
     /// Save a checkpoint of the parser state.
-    fn checkpoint(&self) -> Checkpoint<'s> {
-        Checkpoint {
-            lexer: self.lexer.clone(),
+    fn checkpoint(&self) -> Checkpoint {
+        let node_len = self.nodes.len();
+        let state = PartialState {
+            cursor: self.lexer.cursor(),
+            lex_mode: self.lexer.mode(),
             prev_end: self.prev_end,
             current_start: self.current_start,
             current: self.current,
-            node_len: self.nodes.len(),
-        }
+        };
+        Checkpoint { node_len, state }
     }
 }
 
