@@ -516,3 +516,16 @@ fn greek_exception(
         _ => return None,
     })
 }
+
+/// Switch dotless character to non dotless character for use of the dtls
+/// OpenType feature.
+pub fn dtls_char(c: char, dtls: &mut bool) -> char {
+    match (c, *dtls) {
+        ('ı', true) => 'i',
+        ('ȷ', true) => 'j',
+        _ => {
+            *dtls = false;
+            c
+        }
+    }
+}

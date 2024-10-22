@@ -114,7 +114,12 @@ impl LayoutMath for Packed<AccentElem> {
     #[typst_macros::time(name = "math.accent", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let cramped = style_cramped();
-        let base = ctx.layout_into_fragment(self.base(), styles.chain(&cramped))?;
+        let mut base = ctx.layout_into_fragment(self.base(), styles.chain(&cramped))?;
+
+        // Try replace a glyph with its dotless variant.
+        if let MathFragment::Glyph(ref mut glyph) = &mut base {
+            glyph.make_dotless_form(ctx)
+        }
 
         // Preserve class to preserve automatic spacing.
         let base_class = base.class();
@@ -126,10 +131,17 @@ impl LayoutMath for Packed<AccentElem> {
             .at(scaled_font_size(ctx, styles))
             .relative_to(base.width());
 
+        let Accent(c) = self.accent();
+        let mut glyph = GlyphFragment::new(ctx, styles, *c, self.span());
+
+        // Try replace accent glyph with flattened variant.
+        let flattened_base_height = scaled!(ctx, styles, flattened_accent_base_height);
+        if base.height() > flattened_base_height {
+            glyph.make_flattened_accent_form(ctx)
+        }
+
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
-        let Accent(c) = self.accent();
-        let glyph = GlyphFragment::new(ctx, styles, *c, self.span());
         let short_fall = ACCENT_SHORT_FALL.at(glyph.font_size);
         let variant = glyph.stretch_horizontal(ctx, width, short_fall);
         let accent = variant.frame;

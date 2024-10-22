@@ -1,7 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
 use smallvec::SmallVec;
-use ttf_parser::gsub::AlternateSet;
 use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
@@ -388,20 +387,35 @@ impl GlyphFragment {
         frame
     }
 
-    pub fn make_scriptsize(&mut self, ctx: &MathContext) {
+    pub fn make_script_size(&mut self, ctx: &MathContext) {
         let alt_id =
-            script_alternatives(ctx, self.id).and_then(|alts| alts.alternates.get(0));
-
+            ctx.ssty_table.as_ref().and_then(|ssty| ssty.try_apply(self.id, None));
         if let Some(alt_id) = alt_id {
             self.set_id(ctx, alt_id);
         }
     }
 
-    pub fn make_scriptscriptsize(&mut self, ctx: &MathContext) {
-        let alts = script_alternatives(ctx, self.id);
-        let alt_id = alts
-            .and_then(|alts| alts.alternates.get(1).or_else(|| alts.alternates.get(0)));
+    pub fn make_script_script_size(&mut self, ctx: &MathContext) {
+        let alt_id = ctx.ssty_table.as_ref().and_then(|ssty| {
+            ssty.try_apply(self.id, Some(1))
+                .or_else(|| ssty.try_apply(self.id, None))
+        });
+        if let Some(alt_id) = alt_id {
+            self.set_id(ctx, alt_id);
+        }
+    }
 
+    pub fn make_dotless_form(&mut self, ctx: &MathContext) {
+        let alt_id =
+            ctx.dtls_table.as_ref().and_then(|dtls| dtls.try_apply(self.id, None));
+        if let Some(alt_id) = alt_id {
+            self.set_id(ctx, alt_id);
+        }
+    }
+
+    pub fn make_flattened_accent_form(&mut self, ctx: &MathContext) {
+        let alt_id =
+            ctx.flac_table.as_ref().and_then(|flac| flac.try_apply(self.id, None));
         if let Some(alt_id) = alt_id {
             self.set_id(ctx, alt_id);
         }
@@ -538,16 +552,6 @@ fn accent_attach(ctx: &MathContext, id: GlyphId, font_size: Abs) -> Option<Abs> 
             .get(id)?
             .scaled(ctx, font_size),
     )
-}
-
-/// Look up the script/scriptscript alternates for a glyph
-fn script_alternatives<'a>(
-    ctx: &MathContext<'a, '_, '_>,
-    id: GlyphId,
-) -> Option<AlternateSet<'a>> {
-    ctx.ssty_table.and_then(|ssty| {
-        ssty.coverage.get(id).and_then(|index| ssty.alternate_sets.get(index))
-    })
 }
 
 /// Look up whether a glyph is an extended shape.
