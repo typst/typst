@@ -495,7 +495,7 @@ impl MultiSpill<'_, '_> {
         engine: &mut Engine,
         regions: Regions,
     ) -> SourceResult<(Frame, Option<Self>)> {
-        // The first region becomes unchangable and committed to our backlog.
+        // The first region becomes unchangeable and committed to our backlog.
         self.backlog.push(regions.size.y);
 
         // The remaining regions are ephemeral and may be replaced.
