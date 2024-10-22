@@ -109,7 +109,10 @@ impl Lexer<'_> {
             Some('`') if self.mode != LexMode::Math => return self.raw(),
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
-                LexMode::Math => self.math(start, c),
+                LexMode::Math => match self.math(start, c) {
+                    (kind, None) => kind,
+                    (kind, Some(node)) => return (kind, node),
+                },
                 LexMode::Code => self.code(start, c),
             },
 
@@ -507,8 +510,8 @@ impl Lexer<'_> {
 
 /// Math.
 impl Lexer<'_> {
-    fn math(&mut self, start: usize, c: char) -> SyntaxKind {
-        match c {
+    fn math(&mut self, start: usize, c: char) -> (SyntaxKind, Option<SyntaxNode>) {
+        let kind = match c {
             '\\' => self.backslash(),
             '"' => self.string(),
 
@@ -561,11 +564,41 @@ impl Lexer<'_> {
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                SyntaxKind::MathIdent
+                let (kind, node) = self.math_ident_or_field(start);
+                return (kind, Some(node));
             }
 
             // Other math atoms.
             _ => self.math_text(start, c),
+        };
+        (kind, None)
+    }
+
+    /// Parse a single `MathIdent` or an entire `FieldAccess`.
+    fn math_ident_or_field(&mut self, start: usize) -> (SyntaxKind, SyntaxNode) {
+        let mut kind = SyntaxKind::MathIdent;
+        let mut node = SyntaxNode::leaf(kind, self.s.from(start));
+        while let Some(ident) = self.maybe_dot_ident() {
+            kind = SyntaxKind::FieldAccess;
+            let field_children = vec![
+                node,
+                SyntaxNode::leaf(SyntaxKind::Dot, '.'),
+                SyntaxNode::leaf(SyntaxKind::Ident, ident),
+            ];
+            node = SyntaxNode::inner(kind, field_children);
+        }
+        (kind, node)
+    }
+
+    /// If at a dot and a math identifier, eat and return the identifier.
+    fn maybe_dot_ident(&mut self) -> Option<&str> {
+        if self.s.scout(1).is_some_and(is_math_id_start) && self.s.eat_if('.') {
+            let ident_start = self.s.cursor();
+            self.s.eat();
+            self.s.eat_while(is_math_id_continue);
+            Some(self.s.from(ident_start))
+        } else {
+            None
         }
     }
 

@@ -6,9 +6,7 @@ use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
 use crate::set::{syntax_set, SyntaxSet};
-use crate::{
-    ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode,
-};
+use crate::{ast, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -261,21 +259,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
-        SyntaxKind::MathIdent => {
+        // The lexer manages creating full FieldAccess nodes if needed.
+        SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
             continuable = true;
             p.eat();
-            while p.directly_at(SyntaxKind::Text) && p.current_text() == "." && {
-                let mut copy = p.lexer.clone();
-                let start = copy.cursor();
-                let next = copy.next().0;
-                let end = copy.cursor();
-                matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
-                    && is_ident(&p.text[start..end])
-            } {
-                p.convert_and_eat(SyntaxKind::Dot);
-                p.convert_and_eat(SyntaxKind::Ident);
-                p.wrap(m, SyntaxKind::FieldAccess);
-            }
+            // Parse a function call for an identifier or field access.
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
             {
                 math_args(p);
