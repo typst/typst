@@ -11,6 +11,7 @@ use crate::layout::{
     Dir, Frame, HAlignment, Length, OuterVAlignment, PageElem, Paper, Region, Regions,
     Rel, Sides, Size, VAlignment,
 };
+use crate::layout::flow::BalanceMode;
 use crate::model::Numbering;
 use crate::realize::Pair;
 use crate::text::TextElem;
@@ -171,6 +172,7 @@ fn layout_page_run_impl(
         PageElem::columns_in(styles),
         ColumnsElem::gutter_in(styles),
         true,
+        BalanceMode::PackStart, // FIXME: Page balancing?
     )?;
 
     // Layouts a single marginal.

@@ -3,10 +3,12 @@ use std::num::NonZeroUsize;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
-use crate::introspection::Locator;
+use crate::introspection::{Locator, Locatable};
 use crate::layout::{
     layout_fragment_with_columns, BlockElem, Fragment, Length, Ratio, Regions, Rel,
 };
+
+use super::BalanceMode;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -44,7 +46,7 @@ use crate::layout::{
 ///
 /// #lorem(40)
 /// ```
-#[elem(Show)]
+#[elem(Show, Locatable)]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -55,6 +57,10 @@ pub struct ColumnsElem {
     #[resolve]
     #[default(Ratio::new(0.04).into())]
     pub gutter: Rel<Length>,
+
+    /// Whether column content should be balanced.
+    #[default(false)]
+    pub balanced: bool,
 
     /// The content that should be layouted into the columns.
     #[required]
@@ -86,6 +92,11 @@ fn layout_columns(
         regions,
         elem.count(styles),
         elem.gutter(styles),
+        if elem.balanced(styles) {
+            BalanceMode::Even
+        } else {
+            BalanceMode::PackStart
+        },
     )
 }
 
