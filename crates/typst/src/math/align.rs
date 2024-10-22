@@ -28,7 +28,7 @@ pub(super) struct AlignmentResult {
 }
 
 /// Determine the positions of the alignment points, according to the input rows combined.
-pub(super) fn alignments(rows: &[MathRun]) -> AlignmentResult {
+pub(super) fn alignments(rows: &[MathRun], gap: Abs) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 
     let mut pending_width = Abs::zero();
@@ -38,6 +38,9 @@ pub(super) fn alignments(rows: &[MathRun]) -> AlignmentResult {
 
         for fragment in row.iter() {
             if matches!(fragment, MathFragment::Align) {
+                if alignment_index > 0 && alignment_index % 2 == 0 {
+                    width += gap;
+                }
                 if alignment_index < widths.len() {
                     widths[alignment_index].set_max(width);
                 } else {
