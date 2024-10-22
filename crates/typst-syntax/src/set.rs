@@ -39,22 +39,13 @@ const fn bit(kind: SyntaxKind) -> u128 {
     1 << (kind as usize)
 }
 
-/// Generate an inline const syntax set of the given kinds.
-///
-/// Example: `if syntax_set!(Plus, Minus).contains(SyntaxKind::Plus) { }`
-/// `if {const SET:SyntaxSet = SyntaxSet::new()
-///     .add(SyntaxKind::Plus)
-///     .add(SyntaxKind::Minus);
-///     SET
-/// }.contains(SyntaxKind::Plus) { }`
+/// Generate a compile-time constant `SyntaxSet` of the given kinds.
 macro_rules! syntax_set {
-    ( $($kind:ident),* $(,)? ) => {
-        { // 'SET' never escapes this inner block
-            const SET: crate::set::SyntaxSet = crate::set::SyntaxSet::new()
-                $(.add(crate::SyntaxKind:: $kind))*;
-            SET
-        }
-    }
+    ($($kind:ident),* $(,)?) => {{
+        const SET: crate::set::SyntaxSet = crate::set::SyntaxSet::new()
+            $(.add(crate::SyntaxKind:: $kind))*;
+        SET
+    }}
 }
 
 // Export so other modules can import as: `use set::syntax_set`

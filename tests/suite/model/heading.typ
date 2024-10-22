@@ -35,37 +35,36 @@ multiline.
 = This
   is not.
 
---- heading-trailing-ws ---
+--- heading-trailing-whitespace ---
 // Whether headings contain trailing whitespace with or without comments/labels.
-
-// labels are special cased to immediately end headings in the parser, but also
+// Labels are special cased to immediately end headings in the parser, but also
 // have unique whitespace behavior.
 
 #let join(..xs) = xs.pos().join()
 #let head(h) = heading(depth: 1, h)
 
-// These match
+// No whitespace.
 #test(head[h], [= h])
 #test(head[h], [= h/**/])
 #test(head[h], [= h<a>])
 #test(head[h], [= h/**/<b>])
 
-// These don't!
-#test(head(join[h][  ]), [= h  ])
-#test(head(join[h][  ]), [= h  /**/])
-#test(join(head[h])[  ], [= h  <c>])
+// Label behaves differently than normal trailing space and comment.
+#test(head(join[h][ ]), [= h  ])
+#test(head(join[h][ ]), [= h  /**/])
+#test(join(head[h])[ ], [= h  <c>])
 
-#test(head(join[h][  ][  ]), [= h  /**/  ])
-#test(join(head[h])[  ][  ], [= h  <d>  ])
-
-#test(head(join[h][  ]), [= h  /**/<e>])
-#test(join(head[h])[  ], [= h/**/  <f>])
+// Combinations.
+#test(head(join[h][ ][ ]), [= h  /**/  ])
+#test(join(head[h])[ ][ ], [= h  <d>  ])
+#test(head(join[h][ ]), [= h  /**/<e>])
+#test(join(head[h])[ ], [= h/**/  <f>])
 
 // The first space attaches, but not the second
-#test(join(head(join[h][  ]))[  ], [= h  /**/  <g>])
+#test(join(head(join[h][ ]))[ ], [= h  /**/  <g>])
 
---- heading-leading-ws ---
-// Test leading whitespace and comments don't matter.
+--- heading-leading-whitespace ---
+// Test that leading whitespace and comments don't matter.
 #test[= h][=        h]
 #test[= h][=   /**/  /**/   h]
 #test[= h][=   /*
