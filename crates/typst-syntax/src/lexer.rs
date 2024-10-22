@@ -68,6 +68,11 @@ impl<'s> Lexer<'s> {
     pub fn newline(&self) -> bool {
         self.newline
     }
+
+    /// The number of characters until the most recent newline.
+    pub fn column(&self) -> usize {
+        self.s.before().chars().rev().take_while(|&c| !is_newline(c)).count()
+    }
 }
 
 impl Lexer<'_> {
