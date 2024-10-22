@@ -13,15 +13,15 @@ use crate::World;
 /// new virtual machine is created for each module evaluation and function call.
 pub struct Vm<'a> {
     /// The underlying virtual typesetter.
-    pub(crate) engine: Engine<'a>,
+    pub engine: Engine<'a>,
     /// A control flow event that is currently happening.
-    pub(crate) flow: Option<FlowEvent>,
+    pub flow: Option<FlowEvent>,
     /// The stack of scopes.
-    pub(crate) scopes: Scopes<'a>,
+    pub scopes: Scopes<'a>,
     /// A span that is currently under inspection.
-    pub(crate) inspected: Option<Span>,
+    pub inspected: Option<Span>,
     /// Data that is contextually made accessible to code behind the scenes.
-    pub(crate) context: Tracked<'a, Context<'a>>,
+    pub context: Tracked<'a, Context<'a>>,
 }
 
 impl<'a> Vm<'a> {
