@@ -60,23 +60,11 @@ macro_rules! syntax_set {
 // Export so other modules can import as: `use set::syntax_set`
 pub(crate) use syntax_set;
 
-/// Just build a syntax set of the given kinds. Only used in this file.
-///
-/// Example: `const SET: SyntaxSet = make_set!(Plus, Minus);`
-/// Becomes:
-/// `SyntaxSet::new().add(SyntaxKind::Plus).add(SyntaxKind::Minus)`
-macro_rules! make_set {
-    ( $($kind:ident),* $(,)? ) => {
-        SyntaxSet::new()
-        $(.add(SyntaxKind::$kind))*
-    }
-}
-
 /// Syntax kinds that can start a statement.
-pub const STMT: SyntaxSet = make_set!(Let, Set, Show, Import, Include, Return);
+pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return);
 
 /// Syntax kinds that can start a math expression.
-pub const MATH_EXPR: SyntaxSet = make_set!(
+pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
     MathIdent,
     Text,
@@ -99,7 +87,7 @@ pub const ATOMIC_CODE_EXPR: SyntaxSet = ATOMIC_CODE_PRIMARY;
 pub const CODE_PRIMARY: SyntaxSet = ATOMIC_CODE_PRIMARY.add(SyntaxKind::Underscore);
 
 /// Syntax kinds that can start an atomic code primary.
-pub const ATOMIC_CODE_PRIMARY: SyntaxSet = make_set!(
+pub const ATOMIC_CODE_PRIMARY: SyntaxSet = syntax_set!(
     Ident,
     LeftBrace,
     LeftBracket,
@@ -129,10 +117,10 @@ pub const ATOMIC_CODE_PRIMARY: SyntaxSet = make_set!(
 );
 
 /// Syntax kinds that are unary operators.
-pub const UNARY_OP: SyntaxSet = make_set!(Plus, Minus, Not);
+pub const UNARY_OP: SyntaxSet = syntax_set!(Plus, Minus, Not);
 
 /// Syntax kinds that are binary operators.
-pub const BINARY_OP: SyntaxSet = make_set!(
+pub const BINARY_OP: SyntaxSet = syntax_set!(
     Plus, Minus, Star, Slash, And, Or, EqEq, ExclEq, Lt, LtEq, Gt, GtEq, Eq, In, PlusEq,
     HyphEq, StarEq, SlashEq,
 );
