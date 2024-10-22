@@ -235,8 +235,18 @@
 --- array-position ---
 // Test the `position` method.
 #test(("Hi", "❤️", "Love").position(s => s == "❤️"), 1)
+#test(("Hi", "❤️", "Love").position(s => s == "❤️", rev: false), 1)
 #test(("Bye", "💘", "Apart").position(s => s == "❤️"), none)
 #test(("A", "B", "CDEF", "G").position(v => v.len() > 2), 2)
+
+--- array-position-rev ---
+// Test the `position` method with reversed.
+#test(("Hi", "❤️", "Love").position(s => s == "❤️", rev: true), 1)
+#test(("A", "B", "B", "A").position(s => s == "A", rev: true), 3)
+
+--- array-find-rev ---
+#test(("AB", "AC").find(s => s.at(0) == "A", rev: false), "AB")
+#test(("AB", "AC").find(s => s.at(0) == "A", rev: true), "AC")
 
 --- array-filter ---
 // Test the `filter` method.
