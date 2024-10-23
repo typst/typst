@@ -34,6 +34,28 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --no-run
       - run: cargo test --workspace --no-fail-fast
+      - if: failure()
+        name: Upload rendered test output
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-${{ matrix.os }}
+          path: tests/store/render/**
+          retention-days: 3
+
+      - if: failure()
+        name: Update test artifacts
+        run: |
+          : Update test artifacts
+          cargo test --all --test tests -- --update
+          echo 'updated_artifacts=1' >> "$GITHUB_ENV"
+
+      - if: failure() && env.updated_artifacts
+        name: Upload updated reference output (for use if the test changes are desired)
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-artifacts-${{ matrix.os }}
+          path: tests/ref/**
+          retention-days: 3
 
   checks:
     name: Check clippy, formatting, and documentation
