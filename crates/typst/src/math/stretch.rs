@@ -248,8 +248,22 @@ fn assemble(
                     .min(next.start_connector_length)
                     .scaled(ctx, base.font_size);
 
+                // Using max_overlap even when it is less than min_overlap may
+                // be considered incorrect behaviour according to the spec, but
+                // some fonts have glyphs where this is the case and they are
+                // handled just fine by other typesetting engines.
                 advance -= max_overlap;
-                growable += max_overlap - min_overlap;
+                // If max_overlap is less than min_overlap then we don't allow
+                // any growth.
+                growable += (max_overlap - min_overlap).max(Abs::zero());
+            } else {
+                // Final part's advance may not be the actual size of the part.
+                let mut fragment = base.clone();
+                fragment.set_id(ctx, part.glyph_id);
+                advance = match axis {
+                    Axis::X => fragment.width,
+                    Axis::Y => fragment.height(),
+                };
             }
 
             full += advance;
@@ -278,7 +292,7 @@ fn assemble(
                 .min(next.start_connector_length)
                 .scaled(ctx, base.font_size);
             advance -= max_overlap;
-            advance += ratio * (max_overlap - min_overlap);
+            advance += ratio * (max_overlap - min_overlap).max(Abs::zero());
         }
 
         let mut fragment = base.clone();
