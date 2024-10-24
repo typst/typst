@@ -82,3 +82,9 @@ $ body^"text" $
 // Test that the glyph assembly has the correct height.
 #show math.equation: set text(font: "Concrete Math")
 $ sqrt((sum_(j = 1)^d)^2) $
+
+--- math-stretch-assembly-overlap ---
+// Test that glyph assembly still works when the max overlap is less than the
+// minConnectorOverlap constant.
+#show math.equation: set text(font: "Noto Sans Math")
+$ dash(x+y) $
