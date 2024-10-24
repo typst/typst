@@ -4,7 +4,7 @@
 // Text direction affects author positioning
 And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
-#set text(lang: "ar")
+#set text(font: "Noto Sans Arabic", lang: "ar")
 #quote(attribution: [عالم])[مرحبًا]
 
 --- quote-dir-align ---
@@ -12,7 +12,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set quote(block: true)
 #quote(attribution: [René Descartes])[cogito, ergo sum]
 
-#set text(lang: "ar")
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"), lang: "ar")
 #quote(attribution: [عالم])[مرحبًا]
 
 --- quote-block-spacing ---

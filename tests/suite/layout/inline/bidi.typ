@@ -45,6 +45,7 @@ Lריווח #h(1cm) R
 
 --- bidi-whitespace-reset ---
 // Test whether L1 whitespace resetting destroys stuff.
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 الغالب #h(70pt) ن#" "ة
 
 --- bidi-explicit-dir ---
