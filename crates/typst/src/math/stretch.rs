@@ -250,6 +250,14 @@ fn assemble(
 
                 advance -= max_overlap;
                 growable += max_overlap - min_overlap;
+            } else {
+                // Final part's advance may not be the actual size of the part.
+                let mut fragment = base.clone();
+                fragment.set_id(ctx, part.glyph_id);
+                advance = match axis {
+                    Axis::X => fragment.width,
+                    Axis::Y => fragment.height(),
+                };
             }
 
             full += advance;
