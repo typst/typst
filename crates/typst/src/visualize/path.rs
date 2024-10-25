@@ -1,10 +1,12 @@
 use kurbo::{CubicBez, ParamCurveExtrema};
+use typst_macros::scope;
+use typst_syntax::Spanned;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Resolve, Show,
-    Smart, StyleChain,
+    array, cast, elem, Args, Array, Content, FromValue, NativeElement, Packed, Reflect,
+    Resolve, Show, Smart, StyleChain, Value,
 };
 use crate::introspection::Locator;
 use crate::layout::{
@@ -12,7 +14,10 @@ use crate::layout::{
 };
 use crate::visualize::{FillRule, FixedStroke, Geometry, Paint, Shape, Stroke};
 
-use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
+use PathComponent::{
+    AllControlPoints, ClosePath, CubicTo, LineTo, MirroredControlPoint, MoveTo,
+    QuadraticTo, Vertex,
+};
 
 /// A path through a list of points, connected by Bezier curves.
 ///
@@ -27,7 +32,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-#[elem(Show)]
+#[elem(scope, Show)]
 pub struct PathElem {
     /// How to fill the path.
     ///
@@ -66,7 +71,7 @@ pub struct PathElem {
     pub stroke: Smart<Option<Stroke>>,
 
     /// Whether to close this path with one last bezier curve. This curve will
-    /// takes into account the adjacent control points. If you want to close
+    /// take into account the adjacent control points. If you want to close
     /// with a straight line, simply add one last point that's the same as the
     /// start point.
     #[default(false)]
@@ -87,7 +92,7 @@ pub struct PathElem {
     ///   being the control points (control point for curves coming in and out,
     ///   respectively).
     #[variadic]
-    pub vertices: Vec<PathVertex>,
+    pub vertices: Vec<PathComponent>,
 }
 
 impl Show for Packed<PathElem> {
@@ -96,6 +101,24 @@ impl Show for Packed<PathElem> {
             .pack()
             .spanned(self.span()))
     }
+}
+
+#[scope]
+impl PathElem {
+    #[elem]
+    type PathMoveTo;
+
+    #[elem]
+    type PathLineTo;
+
+    #[elem]
+    type PathQuadraticTo;
+
+    #[elem]
+    type PathCubicTo;
+
+    #[elem]
+    type PathClose;
 }
 
 /// Layout the path.
@@ -111,25 +134,14 @@ fn layout_path(
         axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
     };
 
-    let vertices = elem.vertices();
-    let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
-
-    let mut size = Size::zero();
-    if points.is_empty() {
-        return Ok(Frame::soft(size));
-    }
-
-    // Only create a path if there are more than zero points.
-    // Construct a closed path given all points.
-    let mut path = Path::new();
-    path.move_to(points[0]);
-
-    let mut add_cubic = |from_point: Point,
-                         to_point: Point,
-                         from: PathVertex,
-                         to: PathVertex| {
-        let from_control_point = resolve(from.control_point_from()) + from_point;
-        let to_control_point = resolve(to.control_point_to()) + to_point;
+    fn add_cubic(
+        path: &mut Path,
+        size: &mut Size,
+        from_point: Point,
+        to_point: Point,
+        from_control_point: Point,
+        to_control_point: Point,
+    ) {
         path.cubic_to(from_control_point, to_control_point, to_point);
 
         let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
@@ -143,25 +155,160 @@ fn layout_path(
         let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
         size.x.set_max(Abs::raw(extrema.x1));
         size.y.set_max(Abs::raw(extrema.y1));
-    };
-
-    for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
-        let from = vertex_window[0];
-        let to = vertex_window[1];
-        let from_point = point_window[0];
-        let to_point = point_window[1];
-
-        add_cubic(from_point, to_point, from, to);
     }
 
-    if elem.closed(styles) {
-        let from = *vertices.last().unwrap(); // We checked that we have at least one element.
-        let to = vertices[0];
-        let from_point = *points.last().unwrap();
-        let to_point = points[0];
+    let vertices = elem.vertices();
+    let mut size = Size::zero();
 
-        add_cubic(from_point, to_point, from, to);
-        path.close_path();
+    let mut path = Path::new();
+    let path_closed = elem.closed(styles);
+    let mut items = vertices.as_slice();
+
+    while !items.is_empty() {
+        if items[0].old_style() {
+            let len = items.iter().take_while(|i| i.old_style()).count();
+
+            let points: Vec<Point> =
+                items[..len].iter().map(|c| resolve(c.vertex())).collect();
+            path.move_to(points[0]);
+
+            for (vertex_window, point_window) in
+                items[..len].windows(2).zip(points.windows(2))
+            {
+                let from = vertex_window[0];
+                let to = vertex_window[1];
+                let from_point = point_window[0];
+                let to_point = point_window[1];
+
+                let from = resolve(from.control_point_from()) + from_point;
+                let to = resolve(to.control_point_to()) + to_point;
+                add_cubic(&mut path, &mut size, from_point, to_point, from, to);
+            }
+
+            if path_closed {
+                let from = *items[..len].last().unwrap(); // We checked that we have at least one element.
+                let to = items[0];
+                let from_point = *points.last().unwrap();
+                let to_point = points[0];
+
+                let from = resolve(from.control_point_from()) + from_point;
+                let to = resolve(to.control_point_to()) + to_point;
+                add_cubic(&mut path, &mut size, from_point, to_point, from, to);
+                path.close_path();
+            }
+
+            items = &items[len..];
+        } else {
+            let len = items.iter().take_while(|i| !i.old_style()).count();
+            let mut start = Point::default();
+            let mut last = Point::default();
+            let mut last_control = Point::default();
+
+            for item in &items[..len] {
+                match item {
+                    MoveTo(point, rel) => {
+                        if path_closed && last != start {
+                            path.close_path();
+                        }
+                        let mut p = resolve(*point);
+                        if *rel {
+                            p += last;
+                        }
+                        path.move_to(p);
+                        size.x.set_max(p.x);
+                        size.y.set_max(p.y);
+                        last = p;
+                        last_control = p;
+                        start = p;
+                    }
+                    LineTo(point, rel) => {
+                        let mut p = resolve(*point);
+                        if *rel {
+                            p += last;
+                        }
+                        if path.is_empty() {
+                            path.move_to(start);
+                        }
+                        path.line_to(p);
+                        size.x.set_max(p.x);
+                        size.y.set_max(p.y);
+                        last = p;
+                        last_control = p;
+                    }
+                    QuadraticTo(end, c, rel) => {
+                        let mut end = resolve(*end);
+                        if *rel {
+                            end += last;
+                        }
+                        let c = match c {
+                            Some(Smart::Custom(c)) => {
+                                let mut c = resolve(*c);
+                                if *rel {
+                                    c += last;
+                                }
+                                c
+                            }
+                            Some(Smart::Auto) => 2. * last - last_control,
+                            None => end,
+                        };
+                        let c1 = last + (2. / 3.) * (c - last);
+                        let c2 = end + (2. / 3.) * (c - end);
+                        if path.is_empty() {
+                            path.move_to(start);
+                        }
+                        add_cubic(&mut path, &mut size, last, end, c1, c2);
+                        last = end;
+                        last_control = c;
+                    }
+                    CubicTo(end, c1, c2, rel) => {
+                        let mut end = resolve(*end);
+                        if *rel {
+                            end += last;
+                        }
+                        let c1 = match c1 {
+                            Some(Smart::Custom(c)) => {
+                                let mut c = resolve(*c);
+                                if *rel {
+                                    c += last;
+                                }
+                                c
+                            }
+                            Some(Smart::Auto) => 2. * last - last_control,
+                            None => last,
+                        };
+                        let mut c2 = resolve(*c2);
+                        if *rel {
+                            c2 += last;
+                        }
+                        if path.is_empty() {
+                            path.move_to(start);
+                        }
+                        add_cubic(&mut path, &mut size, last, end, c1, c2);
+                        last = end;
+                        last_control = c2;
+                    }
+                    ClosePath => {
+                        if !path.is_empty() {
+                            path.close_path();
+                        }
+                        last = start;
+                        last_control = start;
+                    }
+                    Vertex(..) | MirroredControlPoint(..) | AllControlPoints(..) => {
+                        unreachable!()
+                    }
+                }
+            }
+            if path_closed && last != start {
+                path.close_path();
+            }
+
+            items = &items[len..];
+        }
+    }
+
+    if path.is_empty() {
+        return Ok(Frame::soft(size));
     }
 
     // Prepare fill and stroke.
@@ -186,18 +333,30 @@ fn layout_path(
 
 /// A component used for path creation.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PathVertex {
+pub enum PathComponent {
+    /// Old style syntax.
     Vertex(Axes<Rel<Length>>),
     MirroredControlPoint(Axes<Rel<Length>>, Axes<Rel<Length>>),
     AllControlPoints(Axes<Rel<Length>>, Axes<Rel<Length>>, Axes<Rel<Length>>),
+    /// New style syntax.
+    MoveTo(Axes<Rel<Length>>, bool),
+    LineTo(Axes<Rel<Length>>, bool),
+    QuadraticTo(Axes<Rel<Length>>, Option<Smart<Axes<Rel<Length>>>>, bool),
+    CubicTo(Axes<Rel<Length>>, Option<Smart<Axes<Rel<Length>>>>, Axes<Rel<Length>>, bool),
+    ClosePath,
 }
 
-impl PathVertex {
+impl PathComponent {
+    pub fn old_style(&self) -> bool {
+        matches!(self, Vertex(..) | MirroredControlPoint(..) | AllControlPoints(..))
+    }
+
     pub fn vertex(&self) -> Axes<Rel<Length>> {
         match self {
             Vertex(x) => *x,
             MirroredControlPoint(x, _) => *x,
             AllControlPoints(x, _, _) => *x,
+            _ => unreachable!(),
         }
     }
 
@@ -206,6 +365,7 @@ impl PathVertex {
             Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
             MirroredControlPoint(_, a) => a.map(|x| -x),
             AllControlPoints(_, _, b) => *b,
+            _ => unreachable!(),
         }
     }
 
@@ -214,16 +374,24 @@ impl PathVertex {
             Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
             MirroredControlPoint(_, a) => *a,
             AllControlPoints(_, a, _) => *a,
+            _ => unreachable!(),
         }
     }
 }
 
 cast! {
-    PathVertex,
+    PathComponent,
     self => match self {
         Vertex(x) => x.into_value(),
         MirroredControlPoint(x, c) => array![x, c].into_value(),
         AllControlPoints(x, c1, c2) => array![x, c1, c2].into_value(),
+        MoveTo(p, rel) => PathMoveTo { start: Some(p), relative: Some(rel) }.into_value(),
+        LineTo(p, rel) => PathLineTo { end: Some(p), relative: Some(rel) }.into_value(),
+        QuadraticTo(end, control, rel) =>
+            PathQuadraticTo { end: Some(end), control, relative: Some(rel) }.into_value(),
+        CubicTo(end, cstart, cend, rel) =>
+            PathCubicTo { end: Some(end), cstart, cend: Some(cend), relative: Some(rel) }.into_value(),
+        ClosePath => PathClose{}.into_value(),
     },
     array: Array => {
         let mut iter = array.into_iter();
@@ -244,7 +412,277 @@ cast! {
             _ => bail!("path vertex must have 1, 2, or 3 points"),
         }
     },
+    v: Content => {
+        v.try_into()?
+    }
 }
+
+impl TryFrom<Content> for PathComponent {
+    type Error = HintedString;
+    fn try_from(value: Content) -> HintedStrResult<Self> {
+        value
+            .into_packed::<PathMoveTo>()
+            .map(|p| {
+                Self::MoveTo(p.start.unwrap_or_default(), p.relative.unwrap_or_default())
+            })
+            .or_else(|value| {
+                value.into_packed::<PathLineTo>().map(|p| {
+                    Self::LineTo(
+                        p.end.unwrap_or_default(),
+                        p.relative.unwrap_or_default(),
+                    )
+                })
+            })
+            .or_else(|value| {
+                value.into_packed::<PathQuadraticTo>().map(|p| {
+                    Self::QuadraticTo(
+                        p.end.unwrap_or_default(),
+                        p.control,
+                        p.relative.unwrap_or_default(),
+                    )
+                })
+            })
+            .or_else(|value| {
+                value.into_packed::<PathCubicTo>().map(|p| {
+                    Self::CubicTo(
+                        p.end.unwrap_or_default(),
+                        p.cstart,
+                        p.cend.or(p.end).unwrap_or_default(),
+                        p.relative.unwrap_or_default(),
+                    )
+                })
+            })
+            .or_else(|value| value.into_packed::<PathClose>().map(|_| Self::ClosePath))
+            .or_else(|_| bail!("expecting a path element"))
+    }
+}
+
+// Returns the number of point coordinates available as positional arguments.
+// Allows two lengths or an array of two lengths for a point.
+fn count_coordinates(args: &Args) -> usize {
+    let mut n = 0;
+    for a in &args.items {
+        if a.name.is_none() {
+            match a.value.v {
+                Value::Length(..) => n += 1,
+                Value::Array(..) | Value::Auto => n += 2,
+                _ => return 0,
+            }
+        }
+    }
+    n
+}
+
+// Removes a point from positional arguments.
+// Allows two lengths or an array of two lengths for a point.
+fn take_point(args: &mut Args) -> SourceResult<Option<Axes<Rel<Length>>>> {
+    if args.remaining() == 0 {
+        Ok(None)
+    } else {
+        let v: Spanned<Value> = args.expect("point")?;
+        if matches!(v.v, Value::Array(..)) {
+            Ok(Some(<Axes<Rel<Length>> as FromValue>::from_value(v.v).at(v.span)?))
+        } else {
+            Ok(Some(Axes::new(
+                <Rel<Length> as FromValue>::from_value(v.v).at(v.span)?,
+                args.expect("coordinate")?,
+            )))
+        }
+    }
+}
+
+// Removes a point from positional arguments.
+// Allows two lengths or an array of two lengths for a point.
+fn take_smart_point(args: &mut Args) -> SourceResult<Option<Smart<Axes<Rel<Length>>>>> {
+    if args.remaining() == 0 {
+        Ok(None)
+    } else {
+        let v: Spanned<Value> = args.expect("point")?;
+        if matches!(v.v, Value::Auto) {
+            Ok(Some(Smart::Auto))
+        } else if matches!(v.v, Value::Array(..)) {
+            Ok(Some(Smart::Custom(
+                <Axes<Rel<Length>> as FromValue>::from_value(v.v).at(v.span)?,
+            )))
+        } else {
+            Ok(Some(Smart::Custom(Axes::new(
+                <Rel<Length> as FromValue>::from_value(v.v).at(v.span)?,
+                args.expect("coordinate")?,
+            ))))
+        }
+    }
+}
+
+/// An element used to start a new path component.
+///
+/// If no `path.moveto` element is provided, the component will
+/// start at `(0pt, 0pt)`.
+///
+/// If `closed` is `true` in the containing path, previous components
+/// will be closed.
+#[elem(name = "moveto", title = "Path Move To")]
+pub struct PathMoveTo {
+    /// The starting point for the new component.
+    #[parse(
+        // If there is no named argument, use positional arguments.
+        if let Some(start) = args.named("start")? {
+            Some(start)
+        } else {
+            take_point(args)?
+        }
+    )]
+    #[resolve]
+    pub start: Axes<Rel<Length>>,
+
+    /// Are the coordinates relative to the previous point?
+    #[default(false)]
+    pub relative: bool,
+}
+
+/// An element used to add a segment from the last point to
+/// the `end`point.
+#[elem(name = "lineto", title = "Path Line To")]
+pub struct PathLineTo {
+    #[parse(
+        // If there is no named argument, use positional arguments.
+        if let Some(end) = args.named("end")? {
+            Some(end)
+        } else {
+            take_point(args)?
+        }
+    )]
+    #[resolve]
+    pub end: Axes<Rel<Length>>,
+
+    /// Are the coordinates relative to the previous point?
+    #[default(false)]
+    pub relative: bool,
+}
+
+/// An element used to add a quadratic Bezier curve from the last
+/// point to `end`, using `control` as the control point.
+///
+/// If no control point is specified, it defaults to `end`, and
+/// the curve will be a straight line.
+///
+/// If set to `auto` and this curve follows an other quadratic Bezier curve,
+/// the previous control point will be mirrored.
+#[elem(name = "quadto", title = "Path Quadratic Curve To")]
+pub struct PathQuadraticTo {
+    /// The control point of the Bezier curve.
+    #[parse(
+        // If there is no named argument, use positional arguments, but only if there
+        // are enough arguments for both this control point and the end point.
+        if let Some(c) = args.named("control")? {
+            Some(c)
+        } else {
+            let mut n = count_coordinates(args);
+            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("end")) {
+                // We need two arguments for the end point.
+                n = n.saturating_sub(2);
+            }
+            if n >= 2 {
+                take_smart_point(args)?
+            } else {
+                None
+            }
+        }
+    )]
+    #[resolve]
+    pub control: Smart<Axes<Rel<Length>>>,
+
+    /// The end point.
+    #[parse(
+        if let Some(c) = args.named("end")? {
+            Some(c)
+        } else {
+            take_point(args)?
+        }
+    )]
+    #[resolve]
+    pub end: Axes<Rel<Length>>,
+
+    /// Are the coordinates of the `end`and `control` points relative to the previous point?
+    #[default(false)]
+    pub relative: bool,
+}
+
+/// An element used to add a cubic Bezier curve from the last
+/// point to `end`, using `cstart` and 'cend' as the control points.
+#[elem(name = "cubicto", title = "Path Cubic Curve To")]
+pub struct PathCubicTo {
+    /// The first control point.
+    ///
+    /// If set to `auto` and this element follows another `path.cubicto` element,
+    /// the last control point will be mirrored.
+    ///
+    /// Defaults to the last used point.
+    #[parse(
+        // If there is no named argument, use positional arguments, but only if there
+        // are enough arguments for both control points and the end point.
+        if let Some(c) = args.named("cstart")? {
+            Some(c)
+        } else {
+            let mut n = count_coordinates(args);
+            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("end")) {
+                n = n.saturating_sub(2);
+            }
+            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("cend")) {
+                n = n.saturating_sub(2);
+            }
+            if n >= 2 {
+                take_smart_point(args)?
+            } else {
+                None
+            }
+        }
+    )]
+    #[resolve]
+    pub cstart: Smart<Axes<Rel<Length>>>,
+
+    /// The second control point.
+    ///
+    /// Defaults to the end point.
+    #[parse(
+        if let Some(c) = args.named("cend")? {
+            Some(c)
+        } else {
+            let mut n = count_coordinates(args);
+            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("end")) {
+                n = n.saturating_sub(2);
+            }
+            if n >= 2 {
+                take_point(args)?
+            } else {
+                None
+            }
+        }
+    )]
+    #[resolve]
+    pub cend: Axes<Rel<Length>>,
+
+    /// The end point.
+    #[parse(
+        if let Some(end) = args.named("end")? {
+            Some(end)
+        } else {
+            take_point(args)?
+        }
+    )]
+    #[resolve]
+    pub end: Axes<Rel<Length>>,
+
+    /// Are the coordinates of the `end`and `control` points relative to the previous point?
+    pub relative: bool,
+}
+
+/// An element used to close a component. A segment from last point to the last `path.moveto()`
+/// point will be added.
+///
+/// If the containing path has the `closed` attribute set, all components will
+/// be closed anyway.
+#[elem(name = "close", title = "Path Close")]
+pub struct PathClose {}
 
 /// A bezier path.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
@@ -296,6 +734,11 @@ impl Path {
     /// Push a [`ClosePath`](PathItem::ClosePath) item.
     pub fn close_path(&mut self) {
         self.0.push(PathItem::ClosePath);
+    }
+
+    /// Check if the path is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Computes the size of bounding box of this path.
