@@ -206,12 +206,10 @@ fn reference(p: &mut Parser) {
 /// Parses a mathematical equation: `$x$`, `$ x^2 $`.
 fn equation(p: &mut Parser) {
     let m = p.marker();
-    p.with_mode(LexMode::Math, |p| {
-        p.with_nl_mode(AtNewline::Continue, |p| {
-            p.assert(SyntaxKind::Dollar);
-            math(p, |p| p.at(SyntaxKind::Dollar));
-            p.expect_closing_delimiter(m, SyntaxKind::Dollar);
-        });
+    p.enter_modes(LexMode::Math, AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::Dollar);
+        math(p, |p| p.at(SyntaxKind::Dollar));
+        p.expect_closing_delimiter(m, SyntaxKind::Dollar);
     });
     p.wrap(m, SyntaxKind::Equation);
 }
@@ -596,30 +594,28 @@ fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
 
 /// Parses an atomic code expression embedded in markup or math.
 fn embedded_code_expr(p: &mut Parser) {
-    p.with_mode(LexMode::Code, |p| {
-        p.with_nl_mode(AtNewline::Stop, |p| {
-            p.assert(SyntaxKind::Hash);
-            if p.had_trivia() {
-                p.expected("expression");
-                return;
-            }
+    p.enter_modes(LexMode::Code, AtNewline::Stop, |p| {
+        p.assert(SyntaxKind::Hash);
+        if p.had_trivia() {
+            p.expected("expression");
+            return;
+        }
 
-            let stmt = p.at_set(set::STMT);
-            let at = p.at_set(set::ATOMIC_CODE_EXPR);
-            code_expr_prec(p, true, 0);
+        let stmt = p.at_set(set::STMT);
+        let at = p.at_set(set::ATOMIC_CODE_EXPR);
+        code_expr_prec(p, true, 0);
 
-            // Consume error for things like `#12p` or `#"abc\"`.#
-            if !at && !p.end() {
-                p.unexpected();
-            }
+        // Consume error for things like `#12p` or `#"abc\"`.#
+        if !at && !p.end() {
+            p.unexpected();
+        }
 
-            let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
-                && p.eat_if(SyntaxKind::Semicolon);
+        let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
+            && p.eat_if(SyntaxKind::Semicolon);
 
-            if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
-                p.expected("semicolon or line break");
-            }
-        });
+        if stmt && !semi && !p.end() && !p.at(SyntaxKind::RightBracket) {
+            p.expected("semicolon or line break");
+        }
     });
 }
 
@@ -779,12 +775,10 @@ fn block(p: &mut Parser) {
 /// Parses a code block: `{ let x = 1; x + 2 }`.
 fn code_block(p: &mut Parser) {
     let m = p.marker();
-    p.with_mode(LexMode::Code, |p| {
-        p.with_nl_mode(AtNewline::Continue, |p| {
-            p.assert(SyntaxKind::LeftBrace);
-            code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen)));
-            p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
-        });
+    p.enter_modes(LexMode::Code, AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::LeftBrace);
+        code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen)));
+        p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
     });
     p.wrap(m, SyntaxKind::CodeBlock);
 }
@@ -792,12 +786,10 @@ fn code_block(p: &mut Parser) {
 /// Parses a content block: `[*Hi* there!]`.
 fn content_block(p: &mut Parser) {
     let m = p.marker();
-    p.with_mode(LexMode::Markup, |p| {
-        p.with_nl_mode(AtNewline::Continue, |p| {
-            p.assert(SyntaxKind::LeftBracket);
-            markup(p, true, true, |p| p.at(SyntaxKind::RightBracket));
-            p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
-        });
+    p.enter_modes(LexMode::Markup, AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::LeftBracket);
+        markup(p, true, true, |p| p.at(SyntaxKind::RightBracket));
+        p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
     });
     p.wrap(m, SyntaxKind::ContentBlock);
 }
@@ -1815,10 +1807,15 @@ impl<'s> Parser<'s> {
     /// current token). This may re-lex the final token on exit.
     ///
     /// This function effectively repurposes the call stack as a stack of modes.
-    fn with_mode(&mut self, mode: LexMode, func: impl FnOnce(&mut Parser<'s>)) {
+    fn enter_modes(
+        &mut self,
+        mode: LexMode,
+        stop: AtNewline,
+        func: impl FnOnce(&mut Parser<'s>),
+    ) {
         let previous = self.lexer.mode();
         self.lexer.set_mode(mode);
-        func(self);
+        self.with_nl_mode(stop, func);
         if mode != previous {
             self.lexer.set_mode(previous);
             self.lexer.jump(self.token.prev_end);
