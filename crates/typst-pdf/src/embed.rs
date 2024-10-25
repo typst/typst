@@ -4,6 +4,7 @@ use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst::diag::{bail, SourceResult};
+use typst::embed::EmbeddedFileRelationship;
 use typst::syntax::Span;
 
 pub fn write_embedded_files(
@@ -25,12 +26,13 @@ pub fn write_embedded_files(
         let file_spec_dict_ref = chunk.alloc.bump();
 
         let length = embed.data().len();
+
         let mut embedded_file =
             chunk.embedded_file(embedded_file_stream_ref, embed.data().as_ref());
-        embedded_file
-            .subtype(Name(b"text/xml"))
-            .pair(Name(b"Length"), length as i32);
-
+        embedded_file.pair(Name(b"Length"), length as i32);
+        if let Some(mime_type) = embed.mime_type() {
+            embedded_file.subtype(Name(mime_type.as_bytes()));
+        }
         let date = ctx
             .document
             .info
@@ -45,20 +47,31 @@ pub fn write_embedded_files(
         let mut file_spec = chunk.file_spec(file_spec_dict_ref);
         file_spec
             .path(Str(embed.path().as_bytes()))
-            .unic_file(TextStr(embed.path().as_str()));
-        if Some(PdfAConformanceLevel::A_3) == ctx.options.standards.pdfa {
-            // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
-            file_spec.pair(Name(b"AFRelationship"), Name(b"Data"));
-        }
-        if let Some(description) = embed.description() {
-            file_spec.description(TextStr(description));
-        }
-        file_spec
+            .unic_file(TextStr(embed.path().as_str()))
             .insert(Name(b"EF"))
             .dict()
             .pair(Name(b"F"), embedded_file_stream_ref)
             .pair(Name(b"UF"), embedded_file_stream_ref)
             .finish();
+        if let Some(relationship) = embed.relationship() {
+            if Some(PdfAConformanceLevel::A_3) == ctx.options.standards.pdfa {
+                let name = match relationship {
+                    EmbeddedFileRelationship::Source => "Source",
+                    EmbeddedFileRelationship::Data => "Data",
+                    EmbeddedFileRelationship::Alternative => "Alternative",
+                    EmbeddedFileRelationship::Supplement => "Supplement",
+                    EmbeddedFileRelationship::EncryptedPayload => "EncryptedPayload",
+                    EmbeddedFileRelationship::FormData => "FormData",
+                    EmbeddedFileRelationship::Schema => "Schema",
+                    EmbeddedFileRelationship::Unspecified => "Unspecified",
+                };
+                // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
+                file_spec.pair(Name(b"AFRelationship"), Name(name.as_bytes()));
+            }
+        }
+        if let Some(description) = embed.description() {
+            file_spec.description(TextStr(description));
+        }
         file_spec.finish();
 
         embedded_files.insert(embed.name().clone(), file_spec_dict_ref);
