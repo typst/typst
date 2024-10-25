@@ -179,8 +179,7 @@ impl Packed<BoxElem> {
 
         // Clip the contents, if requested.
         if self.clip(styles) {
-            let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
-            frame.clip(clip_rect(size, &radius, &stroke));
+            frame.clip(clip_rect(frame.size(), &radius, &stroke, &outset));
         }
 
         // Add fill and/or stroke.
@@ -551,8 +550,7 @@ impl Packed<BlockElem> {
 
         // Clip the contents, if requested.
         if self.clip(styles) {
-            let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
-            frame.clip(clip_rect(size, &radius, &stroke));
+            frame.clip(clip_rect(frame.size(), &radius, &stroke, &outset));
         }
 
         // Add fill and/or stroke.
@@ -704,8 +702,7 @@ impl Packed<BlockElem> {
 
             // Clip the contents, if requested.
             if clip {
-                let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
-                frame.clip(clip_rect(size, &radius, &stroke));
+                frame.clip(clip_rect(frame.size(), &radius, &stroke, &outset));
             }
 
             // Add fill and/or stroke.

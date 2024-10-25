@@ -10,6 +10,7 @@ use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, Frame, FrameItem, Length, Point, Region, Rel, Size,
 };
+use crate::utils::Numeric;
 use crate::visualize::{FillRule, FixedStroke, Geometry, Paint, Shape, Stroke};
 
 use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
@@ -296,6 +297,25 @@ impl Path {
     /// Push a [`ClosePath`](PathItem::ClosePath) item.
     pub fn close_path(&mut self) {
         self.0.push(PathItem::ClosePath);
+    }
+
+    /// Translate all points in this path by the given offset.
+    pub fn translate(&mut self, offset: Point) {
+        if offset.is_zero() {
+            return;
+        }
+        for item in self.0.iter_mut() {
+            match item {
+                PathItem::MoveTo(p) => *p += offset,
+                PathItem::LineTo(p) => *p += offset,
+                PathItem::CubicTo(p1, p2, p3) => {
+                    *p1 += offset;
+                    *p2 += offset;
+                    *p3 += offset;
+                }
+                PathItem::ClosePath => (),
+            }
+        }
     }
 
     /// Computes the size of bounding box of this path.

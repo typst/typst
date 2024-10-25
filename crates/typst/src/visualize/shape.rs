@@ -676,7 +676,11 @@ pub(crate) fn clip_rect(
     size: Size,
     radius: &Corners<Rel<Abs>>,
     stroke: &Sides<Option<FixedStroke>>,
+    outset: &Sides<Rel<Abs>>,
 ) -> Path {
+    let outset = outset.relative_to(size);
+    let size = size + outset.sum_by_axis();
+
     let stroke_widths = stroke
         .as_ref()
         .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
@@ -705,6 +709,7 @@ pub(crate) fn clip_rect(
         }
     }
     path.close_path();
+    path.translate(Point::new(-outset.left, -outset.top));
     path
 }
 
