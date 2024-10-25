@@ -13,9 +13,10 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-typst = { workspace = true }
+typst-library = { workspace = true }
 typst-macros = { workspace = true }
 typst-timing = { workspace = true }
+typst-utils = { workspace = true }
 base64 = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

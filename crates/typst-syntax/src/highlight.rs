@@ -411,8 +411,9 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::ops::Range;
+
+    use super::*;
 
     #[test]
     fn test_highlighting() {

@@ -2,7 +2,8 @@
 
 use std::hash::Hash;
 use std::io::Write;
-use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
 use std::thread::ThreadId;
 use std::time::{Duration, SystemTime};
 

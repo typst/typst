@@ -15,6 +15,7 @@ harness = false
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
+typst-library = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
@@ -27,7 +28,6 @@ parking_lot = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 tiny-skia = { workspace = true }
-ttf-parser = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }
 

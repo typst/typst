@@ -6,11 +6,11 @@ mod shape;
 mod text;
 
 use tiny_skia as sk;
-use typst::layout::{
+use typst_library::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Size, Transform,
 };
-use typst::model::Document;
-use typst::visualize::{Color, Geometry, Paint};
+use typst_library::model::Document;
+use typst_library::visualize::{Color, Geometry, Paint};
 
 /// Export a page into a raster image.
 ///
