@@ -176,7 +176,7 @@ impl Embed {
             },
             relationship: if let Some(Some(relationship)) = element.relationship.as_ref()
             {
-                Some(relationship.clone())
+                Some(*relationship)
             } else {
                 None
             },
