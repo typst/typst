@@ -81,5 +81,5 @@ fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref 
     }
     file_spec.finish();
 
-    return file_spec_dict_ref;
+    file_spec_dict_ref
 }
