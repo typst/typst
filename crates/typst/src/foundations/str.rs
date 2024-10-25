@@ -131,6 +131,8 @@ impl Str {
     /// - Integers are formatted in base 10. This can be overridden with the
     ///   optional `base` parameter.
     /// - Floats are formatted in base 10 and never in exponential notation.
+    /// - Negative integers and floats are formatted with the Unicode minus sign
+    ///   ("−" U+2212) instead of the ASCII minus sign ("-" U+002D).
     /// - From labels the name is extracted.
     /// - Bytes are decoded as UTF-8.
     ///
