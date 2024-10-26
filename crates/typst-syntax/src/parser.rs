@@ -133,7 +133,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::ListMarker
         | SyntaxKind::EnumMarker
         | SyntaxKind::TermMarker
-        | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
+        | SyntaxKind::Colon => p.convert_and_eat(SyntaxKind::Text),
 
         _ => {
             p.unexpected();
@@ -287,8 +287,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
                     && is_ident(&p.text[start..end])
             } {
-                p.convert(SyntaxKind::Dot);
-                p.convert(SyntaxKind::Ident);
+                p.convert_and_eat(SyntaxKind::Dot);
+                p.convert_and_eat(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
@@ -502,7 +502,7 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
 fn math_args(p: &mut Parser) {
     let m = p.marker();
-    p.convert(SyntaxKind::LeftParen);
+    p.convert_and_eat(SyntaxKind::LeftParen);
 
     let mut namable = true;
     let mut named = None;
@@ -515,8 +515,8 @@ fn math_args(p: &mut Parser) {
             && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
             && p.text[p.current_end()..].starts_with(':')
         {
-            p.convert(SyntaxKind::Ident);
-            p.convert(SyntaxKind::Colon);
+            p.convert_and_eat(SyntaxKind::Ident);
+            p.convert_and_eat(SyntaxKind::Colon);
             named = Some(arg);
             arg = p.marker();
             array = p.marker();
@@ -527,7 +527,7 @@ fn math_args(p: &mut Parser) {
             ";" => {
                 maybe_wrap_in_math(p, arg, named);
                 p.wrap(array, SyntaxKind::Array);
-                p.convert(SyntaxKind::Semicolon);
+                p.convert_and_eat(SyntaxKind::Semicolon);
                 array = p.marker();
                 arg = p.marker();
                 namable = true;
@@ -537,7 +537,7 @@ fn math_args(p: &mut Parser) {
             }
             "," => {
                 maybe_wrap_in_math(p, arg, named);
-                p.convert(SyntaxKind::Comma);
+                p.convert_and_eat(SyntaxKind::Comma);
                 arg = p.marker();
                 namable = true;
                 if named.is_some() {
@@ -570,7 +570,7 @@ fn math_args(p: &mut Parser) {
     }
 
     if p.at(SyntaxKind::Text) && p.current_text() == ")" {
-        p.convert(SyntaxKind::RightParen);
+        p.convert_and_eat(SyntaxKind::RightParen);
     } else {
         p.expected("closing paren");
         p.balanced = false;
@@ -1734,7 +1734,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Convert the current token's [`SyntaxKind`] and eat it.
-    fn convert(&mut self, kind: SyntaxKind) {
+    fn convert_and_eat(&mut self, kind: SyntaxKind) {
         self.current = kind;
         self.eat();
     }
