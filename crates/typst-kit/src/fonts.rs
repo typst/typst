@@ -46,7 +46,7 @@ impl FontSlot {
     pub fn get(&self) -> Option<Font> {
         self.font
             .get_or_init(|| {
-                let _scope = TimingScope::new("load font", None);
+                let _scope = TimingScope::new("load font");
                 let data = fs::read(
                     self.path
                         .as_ref()

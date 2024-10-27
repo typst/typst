@@ -111,7 +111,7 @@ fn compile_impl(
         // The name of the iterations for timing scopes.
         const ITER_NAMES: &[&str] =
             &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
-        let _scope = TimingScope::new(ITER_NAMES[iter], None);
+        let _scope = TimingScope::new(ITER_NAMES[iter]);
 
         subsink = Sink::new();
 

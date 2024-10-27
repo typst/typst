@@ -2,6 +2,7 @@
 
 use std::hash::Hash;
 use std::io::Write;
+use std::num::NonZeroU64;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::thread::ThreadId;
@@ -10,7 +11,6 @@ use std::time::{Duration, SystemTime};
 use parking_lot::Mutex;
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
-use typst_syntax::Span;
 
 /// Whether the timer is enabled. Defaults to `false`.
 static ENABLED: AtomicBool = AtomicBool::new(false);
@@ -44,8 +44,8 @@ struct Event {
     id: u64,
     /// The name of this event.
     name: &'static str,
-    /// The span of code that this event was recorded in.
-    span: Option<Span>,
+    /// The raw value of the span of code that this event was recorded in.
+    span: Option<NonZeroU64>,
     /// The thread ID of this event.
     thread_id: ThreadId,
 }
@@ -80,18 +80,34 @@ pub fn clear() {
 /// A scope that records an event when it is dropped.
 pub struct TimingScope {
     name: &'static str,
-    span: Option<Span>,
+    span: Option<NonZeroU64>,
     id: u64,
     thread_id: ThreadId,
 }
 
 impl TimingScope {
     /// Create a new scope if timing is enabled.
-    pub fn new(name: &'static str, span: Option<Span>) -> Option<Self> {
-        if !is_enabled() {
-            return None;
-        }
+    #[inline]
+    pub fn new(name: &'static str) -> Option<Self> {
+        Self::with_span(name, None)
+    }
 
+    /// Create a new scope with a span if timing is enabled.
+    ///
+    /// The span is a raw number because `typst-timing` can't depend on
+    /// `typst-syntax` (or else `typst-syntax` couldn't depend on
+    /// `typst-timing`).
+    #[inline]
+    pub fn with_span(name: &'static str, span: Option<NonZeroU64>) -> Option<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if is_enabled() {
+            return Some(Self::new_impl(name, span));
+        }
+        None
+    }
+
+    /// Create a new scope without checking if timing is enabled.
+    fn new_impl(name: &'static str, span: Option<NonZeroU64>) -> Self {
         let timestamp = SystemTime::now();
         let thread_id = std::thread::current().id();
 
@@ -107,7 +123,7 @@ impl TimingScope {
             thread_id,
         });
 
-        Some(TimingScope { name, span, id, thread_id })
+        Self { name, span, id, thread_id }
     }
 }
 
@@ -152,11 +168,11 @@ impl Drop for TimingScope {
 #[macro_export]
 macro_rules! timed {
     ($name:expr, span = $span:expr, $body:expr $(,)?) => {{
-        let __scope = $crate::TimingScope::new($name, Some($span));
+        let __scope = $crate::TimingScope::with_span($name, Some($span));
         $body
     }};
     ($name:expr, $body:expr $(,)?) => {{
-        let __scope = $crate::TimingScope::new($name, None);
+        let __scope = $crate::TimingScope::new($name);
         $body
     }};
 }
@@ -168,7 +184,7 @@ macro_rules! timed {
 /// the second element is the line number.
 pub fn export_json<W: Write>(
     writer: W,
-    mut source: impl FnMut(Span) -> (String, u32),
+    mut source: impl FnMut(NonZeroU64) -> (String, u32),
 ) -> Result<(), String> {
     #[derive(Serialize)]
     struct Entry {
