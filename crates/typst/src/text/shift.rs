@@ -157,7 +157,11 @@ fn is_shapable(engine: &Engine, text: &str, styles: StyleChain) -> bool {
             .select(family.as_str(), variant(styles))
             .and_then(|id| world.font(id))
         {
-            return text.chars().all(|c| font.ttf().glyph_index(c).is_some());
+            let coverage = family.coverage();
+            return text.chars().all(|c| {
+                coverage.map_or(true, |cov| cov.contains(c.into()))
+                    && font.ttf().glyph_index(c).is_some()
+            });
         }
     }
 

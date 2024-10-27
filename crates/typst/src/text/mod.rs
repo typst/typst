@@ -94,7 +94,16 @@ pub(super) fn define(global: &mut Scope) {
 /// ```
 #[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
-    /// A font family name or priority list of font family names.
+    /// A font family descriptor or priority list of font family descriptor.
+    /// 
+    /// The font family descriptor can be a string representing the family name
+    /// or a dictionary with the following keys:
+    /// 
+    /// - `name` (required): The font family name.
+    /// - `unicode-range` (optional): A string in [CSS unicode-range value][urange] format.
+    ///   Note that wildcard range is not supported, and the ranges should not
+    ///   exceed U+10FFFF.
+    /// [urange]: https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/unicode-range#values
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -129,6 +138,12 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
+    /// 
+    /// #set text(font: (
+    ///   (name: "Noto Serif CJK SC", unicode-range: "U+00B7, U+2014-3134F"),
+    ///   "Inria Serif",
+    /// ))
+    /// 分别设置“中文”和English字体
     /// ```
     #[parse({
         let font_list: Option<Spanned<FontList>> = args.named("font")?;
@@ -764,31 +779,88 @@ impl PlainText for Packed<TextElem> {
 }
 
 /// A lowercased font family like "arial".
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct FontFamily(EcoString);
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FontFamily {
+    name: EcoString,
+    coverage: Option<Coverage>,
+}
 
 impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self(string.to_lowercase().into())
+        Self::new_with_coverage(string, None)
+    }
+
+    pub fn new_with_coverage(string: &str, coverage: Option<Coverage>) -> Self {
+        Self { name: string.to_lowercase().into(), coverage }
     }
 
     /// The lowercased family name.
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.name
+    }
+
+    /// The user-set coverage of the font family.
+    pub fn coverage(&self) -> Option<&Coverage> {
+        self.coverage.as_ref()
     }
 }
 
-impl Debug for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+// Parse unicode-range expression
+fn parse_unicode_range(text: &str) -> Option<Vec<(u32, u32)>> {
+    let mut ranges = Vec::new();
+    for range in text.split(',') {
+        if range.trim().is_empty() {
+            continue;
+        }
+        let mut parts = range.split('-');
+        let start = parts.next()?.trim().strip_prefix("U+")?;
+        let start = u32::from_str_radix(start, 16).ok()?;
+        let end = if let Some(end) = parts.next() {
+            u32::from_str_radix(end, 16).ok()?
+        } else {
+            start
+        };
+        if start > end || end > 0x10FFFF {
+            return None;
+        }
+        ranges.push((start, end));
     }
+    Some(ranges)
+}
+
+#[test]
+fn test_parse_unicode_range() {
+    assert_eq!(
+        parse_unicode_range("U+0-7F, U+80-FF"),
+        Some(vec![(0x0000, 0x007F), (0x0080, 0x00FF)])
+    );
+    assert_eq!(
+        parse_unicode_range("U+007F, U+80-80"),
+        Some(vec![(0x007F, 0x007F), (0x0080, 0x0080)])
+    );
+    assert_eq!(
+        parse_unicode_range("U+0, U+1,"),
+        Some(vec![(0x0000, 0x0000), (0x0001, 0x0001)]),
+    );
 }
 
 cast! {
     FontFamily,
-    self => self.0.into_value(),
+    self => self.name.into_value(),
     string: EcoString => Self::new(&string),
+    mut v: Dict => {
+        let ret = Self::new_with_coverage(
+            &v.take("name")?.cast::<String>()?,
+            v.take("unicode-range").ok().map(|s| -> HintedStrResult<_> {
+                let ranges = parse_unicode_range(&s.cast::<String>()?)
+                    .ok_or("invalid unicode-range")?;
+                Ok(Coverage::from_ranges(ranges))
+            }).transpose()?,
+        );
+        v.finish(&["name", "unicode-range"])?;
+        ret
+    },
 }
 
 /// Font family fallback list.
@@ -807,7 +879,7 @@ impl<'a> IntoIterator for &'a FontList {
 cast! {
     FontList,
     self => if self.0.len() == 1 {
-        self.0.into_iter().next().unwrap().0.into_value()
+        self.0.into_iter().next().unwrap().name.into_value()
     } else {
         self.0.into_value()
     },
@@ -816,20 +888,22 @@ cast! {
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub(crate) fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
-    const FALLBACKS: &[&str] = &[
-        "libertinus serif",
-        "twitter color emoji",
-        "noto color emoji",
-        "apple color emoji",
-        "segoe ui emoji",
-    ];
-
-    let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
-    TextElem::font_in(styles)
+pub(crate) fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone {
+    static FALLBACKS: Lazy<Vec<FontFamily>> = Lazy::new(|| {
+        [
+            "libertinus serif",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
         .into_iter()
-        .map(|family| family.as_str())
-        .chain(tail.iter().copied())
+        .map(FontFamily::new)
+        .collect()
+    });
+
+    let tail = if TextElem::fallback_in(styles) { FALLBACKS.as_slice() } else { &[] };
+    TextElem::font_in(styles).into_iter().chain(tail.iter())
 }
 
 /// Resolve the font variant.

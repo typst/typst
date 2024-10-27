@@ -15,8 +15,8 @@ use crate::engine::Engine;
 use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::text::{
-    decorate, families, features, is_default_ignorable, variant, Font, FontVariant,
-    Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
+    decorate, families, features, is_default_ignorable, variant, Font, FontFamily,
+    FontVariant, Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -351,7 +351,7 @@ impl<'a> ShapedText<'a> {
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
-                    .select(family, self.variant)
+                    .select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
                 {
                     expand(&font, TextEdgeBounds::Zero);
@@ -463,7 +463,13 @@ impl<'a> ShapedText<'a> {
             None
         };
         let mut chain = families(self.styles)
-            .map(|family| book.select(family, self.variant))
+            .map(|family| {
+                family
+                    .coverage()
+                    .map_or(true, |c| c.contains('-'.into()))
+                    .then(|| book.select(family.as_str(), self.variant))
+                    .flatten()
+            })
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
@@ -719,7 +725,7 @@ fn shape_segment<'a>(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,
-    mut families: impl Iterator<Item = &'a str> + Clone,
+    mut families: impl Iterator<Item = &'a FontFamily> + Clone,
 ) {
     // Don't try shaping newlines, tabs, or default ignorables.
     if text
@@ -732,11 +738,18 @@ fn shape_segment<'a>(
     // Find the next available family.
     let world = ctx.engine.world;
     let book = world.book();
-    let mut selection = families.find_map(|family| {
-        book.select(family, ctx.variant)
+    let mut selection = None;
+    let mut coverage = None;
+    for family in families.by_ref() {
+        selection = book
+            .select(family.as_str(), ctx.variant)
             .and_then(|id| world.font(id))
-            .filter(|font| !ctx.used.contains(font))
-    });
+            .filter(|font| !ctx.used.contains(font));
+        if selection.is_some() {
+            coverage = family.coverage();
+            break;
+        }
+    }
 
     // Do font fallback if the families are exhausted and fallback is enabled.
     if selection.is_none() && ctx.fallback {
@@ -802,16 +815,17 @@ fn shape_segment<'a>(
         let info = &infos[i];
         let cluster = info.cluster as usize;
 
-        // Add the glyph to the shaped output.
-        if info.glyph_id != 0 {
-            // Determine the text range of the glyph.
-            let start = base + cluster;
-            let end = base
-                + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
-                    .and_then(|last| infos.get(last))
-                    .map_or(text.len(), |info| info.cluster as usize);
+        // Determine the text range of the glyph.
+        let start = base + cluster;
+        let end = base
+            + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
+                .and_then(|last| infos.get(last))
+                .map_or(text.len(), |info| info.cluster as usize);
 
-            let c = text[cluster..].chars().next().unwrap();
+        let c = text[cluster..].chars().next().unwrap();
+
+        // Add the glyph to the shaped output.
+        if info.glyph_id != 0 && coverage.map_or(true, |cov| cov.contains(c.into())) {
             let script = c.script();
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
