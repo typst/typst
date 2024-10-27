@@ -26,7 +26,7 @@ use crate::World;
 /// [WASI ABI](https://wasi.dev/) by default or as their only option (e.g.
 /// emscripten), which allows printing, reading files, etc. This ABI will not
 /// directly work with Typst. You will either need to compile to a different
-/// target or [stub all functions](https://github.com/astrale-sharp/wasm-minimal-protocol/blob/master/wasi-stub).
+/// target or [stub all functions](https://github.com/astrale-sharp/wasm-minimal-protocol/tree/master/crates/wasi-stub).
 ///
 /// # Plugins and Packages
 /// Plugins are distributed as packages. A package can make use of a plugin
