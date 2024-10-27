@@ -95,10 +95,10 @@ pub(super) fn define(global: &mut Scope) {
 #[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family descriptor or priority list of font family descriptor.
-    /// 
+    ///
     /// The font family descriptor can be a string representing the family name
     /// or a dictionary with the following keys:
-    /// 
+    ///
     /// - `name` (required): The font family name.
     /// - `unicode-range` (optional): A string in [CSS unicode-range value][urange] format.
     ///   Note that wildcard range is not supported, and the ranges should not
@@ -138,7 +138,7 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
-    /// 
+    ///
     /// #set text(font: (
     ///   (name: "Noto Serif CJK SC", unicode-range: "U+00B7, U+2014-3134F"),
     ///   "Inria Serif",
