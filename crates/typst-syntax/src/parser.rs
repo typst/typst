@@ -395,6 +395,22 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     }
 }
 
+/// Precedence and wrapper kinds for the binary math operators.
+fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
+    match kind {
+        SyntaxKind::Underscore => {
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
+        }
+        SyntaxKind::Hat => {
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
+        }
+        SyntaxKind::Slash => {
+            Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
+        }
+        _ => None,
+    }
+}
+
 /// Try to parse delimiters based on the current token's unicode math class.
 fn maybe_delimited(p: &mut Parser) -> bool {
     let open = math_class(p.current_text()) == Some(MathClass::Opening);
@@ -462,22 +478,6 @@ fn math_class(text: &str) -> Option<MathClass> {
         .next()
         .filter(|_| chars.next().is_none())
         .and_then(unicode_math_class::class)
-}
-
-/// Precedence and wrapper kinds for the binary math operators.
-fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
-    match kind {
-        SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
-        }
-        SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
-        }
-        SyntaxKind::Slash => {
-            Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
-        }
-        _ => None,
-    }
 }
 
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
@@ -613,11 +613,6 @@ fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     }
 }
 
-/// Parses a single code expression.
-fn code_expr(p: &mut Parser) {
-    code_expr_prec(p, false, 0)
-}
-
 /// Parses an atomic code expression embedded in markup or math.
 fn embedded_code_expr(p: &mut Parser) {
     p.with_mode(LexMode::Code, |p| {
@@ -645,6 +640,11 @@ fn embedded_code_expr(p: &mut Parser) {
             }
         });
     });
+}
+
+/// Parses a single code expression.
+fn code_expr(p: &mut Parser) {
+    code_expr_prec(p, false, 0)
 }
 
 /// Parses a code expression with at least the given precedence.
@@ -777,15 +777,6 @@ fn code_primary(p: &mut Parser, atomic: bool) {
     }
 }
 
-/// Parses a content or code block.
-fn block(p: &mut Parser) {
-    match p.current() {
-        SyntaxKind::LeftBracket => content_block(p),
-        SyntaxKind::LeftBrace => code_block(p),
-        _ => p.expected("block"),
-    }
-}
-
 /// Reparses a full content or code block.
 pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
     let mut p = Parser::new(text, range.start, LexMode::Code);
@@ -793,6 +784,15 @@ pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNod
     block(&mut p);
     (p.balanced && p.prev_end() == range.end)
         .then(|| p.finish().into_iter().next().unwrap())
+}
+
+/// Parses a content or code block.
+fn block(p: &mut Parser) {
+    match p.current() {
+        SyntaxKind::LeftBracket => content_block(p),
+        SyntaxKind::LeftBrace => code_block(p),
+        _ => p.expected("block"),
+    }
 }
 
 /// Parses a code block: `{ let x = 1; x + 2 }`.
@@ -1608,6 +1608,22 @@ impl AtNewline {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Marker(usize);
 
+// Index into the parser with markers.
+impl Index<Marker> for Parser<'_> {
+    type Output = SyntaxNode;
+
+    fn index(&self, m: Marker) -> &Self::Output {
+        &self.nodes[m.0]
+    }
+}
+
+impl IndexMut<Marker> for Parser<'_> {
+    fn index_mut(&mut self, m: Marker) -> &mut Self::Output {
+        &mut self.nodes[m.0]
+    }
+}
+
+/// Creating/Consuming the parser and getting info about the current token.
 impl<'s> Parser<'s> {
     /// Create a new parser starting from the given text offset and lexer mode.
     fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
@@ -1638,30 +1654,10 @@ impl<'s> Parser<'s> {
         SyntaxNode::inner(kind, self.finish())
     }
 
-    /// The offset into `text` of the previous token's end.
-    fn prev_end(&self) -> usize {
-        self.token.prev_end
-    }
-
     /// Similar to a `peek()` function: returns the `kind` of the next token to
     /// be eaten.
     fn current(&self) -> SyntaxKind {
         self.token.kind
-    }
-
-    /// The offset into `text` of the current token's start.
-    fn current_start(&self) -> usize {
-        self.token.start
-    }
-
-    /// The offset into `text` of the current token's end.
-    fn current_end(&self) -> usize {
-        self.lexer.cursor()
-    }
-
-    /// The current token's text.
-    fn current_text(&self) -> &'s str {
-        &self.text[self.token.start..self.current_end()]
     }
 
     /// Whether the current token is a given [`SyntaxKind`].
@@ -1686,11 +1682,62 @@ impl<'s> Parser<'s> {
         self.token.kind == kind && !self.had_trivia()
     }
 
-    /// Eat the current token by saving it to the `nodes` vector, then move
-    /// the lexer forward to prepare a new token.
-    fn eat(&mut self) {
-        self.nodes.push(std::mem::take(&mut self.token.node));
-        self.token = Self::lex(&mut self.nodes, &mut self.lexer, self.nl_mode);
+    /// Whether `token` had any trivia before it in Code/Math.
+    fn had_trivia(&self) -> bool {
+        self.token.n_trivia > 0
+    }
+
+    /// Whether the current token is a newline, only used in Markup.
+    fn newline(&self) -> bool {
+        self.token.had_newline
+    }
+
+    /// The number of characters until the most recent newline in `text`.
+    fn column(&self, at: usize) -> usize {
+        self.text[..at].chars().rev().take_while(|&c| !is_newline(c)).count()
+    }
+
+    /// The current token's text.
+    fn current_text(&self) -> &'s str {
+        &self.text[self.token.start..self.current_end()]
+    }
+
+    /// The offset into `text` of the current token's start.
+    fn current_start(&self) -> usize {
+        self.token.start
+    }
+
+    /// The offset into `text` of the current token's end.
+    fn current_end(&self) -> usize {
+        self.lexer.cursor()
+    }
+
+    /// The offset into `text` of the previous token's end.
+    fn prev_end(&self) -> usize {
+        self.token.prev_end
+    }
+}
+
+// The main parsing interface for generating tokens and eating/modifying nodes.
+impl<'s> Parser<'s> {
+    /// A marker that will point to the current token in the parser once it's
+    /// been eaten.
+    fn marker(&self) -> Marker {
+        Marker(self.nodes.len())
+    }
+
+    /// A marker that will point to first trivia before this token in the
+    /// parser (or the token itself if no trivia precede it).
+    fn before_trivia(&self) -> Marker {
+        Marker(self.nodes.len() - self.token.n_trivia)
+    }
+
+    /// Iterate over the non-trivia tokens following the marker.
+    #[track_caller]
+    fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
+        self.nodes[m.0..]
+            .iter_mut()
+            .filter(|child| !child.kind().is_error() && !child.kind().is_trivia())
     }
 
     /// Eat the current node and return a reference for in-place mutation.
@@ -1739,45 +1786,11 @@ impl<'s> Parser<'s> {
         self.eat();
     }
 
-    /// Whether the current token is a newline, only used in Markup.
-    fn newline(&self) -> bool {
-        self.token.had_newline
-    }
-
-    /// Whether `token` had any trivia before it in Code/Math.
-    fn had_trivia(&self) -> bool {
-        self.token.n_trivia > 0
-    }
-
-    /// The number of characters until the most recent newline in `text`.
-    fn column(&self, at: usize) -> usize {
-        self.text[..at].chars().rev().take_while(|&c| !is_newline(c)).count()
-    }
-
-    /// A marker that will point to the current token in the parser once it's
-    /// been eaten.
-    fn marker(&self) -> Marker {
-        Marker(self.nodes.len())
-    }
-
-    /// A marker that will point to first trivia before this token in the
-    /// parser (or the token itself if no trivia precede it).
-    fn before_trivia(&self) -> Marker {
-        Marker(self.nodes.len() - self.token.n_trivia)
-    }
-
-    /// Whether the last non-trivia node is an error.
-    fn after_error(&mut self) -> bool {
-        let m = self.before_trivia();
-        m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
-    }
-
-    /// Iterate over the non-trivia tokens following the marker.
-    #[track_caller]
-    fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
-        self.nodes[m.0..]
-            .iter_mut()
-            .filter(|child| !child.kind().is_error() && !child.kind().is_trivia())
+    /// Eat the current token by saving it to the `nodes` vector, then move
+    /// the lexer forward to prepare a new token.
+    fn eat(&mut self) {
+        self.nodes.push(std::mem::take(&mut self.token.node));
+        self.token = Self::lex(&mut self.nodes, &mut self.lexer, self.nl_mode);
     }
 
     /// Wrap the nodes from a marker up to (but excluding) the current token in
@@ -1898,6 +1911,7 @@ struct PartialState {
     token: Token,
 }
 
+/// The Memoization interface.
 impl<'s> Parser<'s> {
     /// Store the already parsed nodes and the parser state into the memo map by
     /// extending the arena and storing the extended range and a checkpoint.
@@ -1952,6 +1966,8 @@ impl<'s> Parser<'s> {
     }
 }
 
+/// Functions for eating expected or unexpected tokens and generating errors if
+/// we don't get what we expect.
 impl<'s> Parser<'s> {
     /// Consume the given `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
@@ -1982,6 +1998,12 @@ impl<'s> Parser<'s> {
         if !self.after_error() {
             self.expected_at(self.before_trivia(), thing);
         }
+    }
+
+    /// Whether the last non-trivia node is an error.
+    fn after_error(&mut self) -> bool {
+        let m = self.before_trivia();
+        m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
     }
 
     /// Produce an error that the given `thing` was expected at the position
@@ -2019,19 +2041,5 @@ impl<'s> Parser<'s> {
             start -= 1;
         }
         self.nodes.drain(start..end);
-    }
-}
-
-impl Index<Marker> for Parser<'_> {
-    type Output = SyntaxNode;
-
-    fn index(&self, m: Marker) -> &Self::Output {
-        &self.nodes[m.0]
-    }
-}
-
-impl IndexMut<Marker> for Parser<'_> {
-    fn index_mut(&mut self, m: Marker) -> &mut Self::Output {
-        &mut self.nodes[m.0]
     }
 }
