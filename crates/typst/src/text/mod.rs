@@ -103,6 +103,7 @@ pub struct TextElem {
     /// - `unicode-range` (optional): A string in [CSS unicode-range value][urange] format.
     ///   Note that wildcard range is not supported, and the ranges should not
     ///   exceed U+10FFFF.
+    ///
     /// [urange]: https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/unicode-range#values
     ///
     /// When processing text, Typst tries all specified font families in order
