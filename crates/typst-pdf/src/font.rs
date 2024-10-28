@@ -8,10 +8,10 @@ use pdf_writer::writers::{FontDescriptor, WMode};
 use pdf_writer::{Chunk, Filter, Finish, Name, Rect, Ref, Str};
 use subsetter::GlyphRemapper;
 use ttf_parser::{name_id, GlyphId, Tag};
-use typst::diag::{At, SourceResult};
-use typst::syntax::Span;
-use typst::text::Font;
-use typst::utils::SliceExt;
+use typst_library::diag::{At, SourceResult};
+use typst_library::text::Font;
+use typst_syntax::Span;
+use typst_utils::SliceExt;
 
 use crate::{deflate, EmExt, NameExt, PdfChunk, WithGlobalRefs};
 
@@ -249,7 +249,7 @@ pub(crate) fn base_font_name<T: Hash>(font: &Font, glyphs: &T) -> EcoString {
 /// Produce a unique 6 letter tag for a glyph set.
 pub(crate) fn subset_tag<T: Hash>(glyphs: &T) -> EcoString {
     const BASE: u128 = 26;
-    let mut hash = typst::utils::hash128(&glyphs);
+    let mut hash = typst_utils::hash128(&glyphs);
     let mut letter = [b'A'; SUBSET_TAG_LEN];
     for l in letter.iter_mut() {
         *l = b'A' + (hash % BASE) as u8;

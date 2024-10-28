@@ -12,6 +12,7 @@ use crate::{
 
 /// Parses a source file.
 pub fn parse(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse");
     let mut p = Parser::new(text, 0, LexMode::Markup);
     markup(&mut p, true, 0, |_| false);
     p.finish().into_iter().next().unwrap()
@@ -19,6 +20,7 @@ pub fn parse(text: &str) -> SyntaxNode {
 
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse code");
     let mut p = Parser::new(text, 0, LexMode::Code);
     let m = p.marker();
     p.skip();
@@ -29,6 +31,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 
 /// Parses top-level math.
 pub fn parse_math(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse math");
     let mut p = Parser::new(text, 0, LexMode::Math);
     math(&mut p, |_| false);
     p.finish().into_iter().next().unwrap()

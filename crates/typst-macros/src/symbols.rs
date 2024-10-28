@@ -5,6 +5,8 @@ use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::{Ident, LitChar, Path, Result, Token};
 
+use crate::util::foundations;
+
 /// Expand the `symbols!` macro.
 pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
     let list: Punctuated<Symbol, Token![,]> =
@@ -14,7 +16,7 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
         let kind = match &symbol.kind {
             Kind::Single(c, h) => {
                 let symbol = construct_sym_char(c, h);
-                quote! { ::typst::symbols::Symbol::single(#symbol), }
+                quote! { #foundations::Symbol::single(#symbol), }
             }
             Kind::Multiple(variants) => {
                 let variants = variants.iter().map(|variant| {
@@ -24,7 +26,7 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
                     quote! { (#name, #symbol) }
                 });
                 quote! {
-                    ::typst::symbols::Symbol::list(&[#(#variants),*])
+                    #foundations::Symbol::list(&[#(#variants),*])
                 }
             }
         };
@@ -35,11 +37,11 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
 
 fn construct_sym_char(ch: &LitChar, handler: &Handler) -> TokenStream {
     match &handler.0 {
-        None => quote! { ::typst::symbols::SymChar::pure(#ch), },
+        None => quote! {  #foundations::SymChar::pure(#ch), },
         Some(path) => quote! {
-            ::typst::symbols::SymChar::with_func(
+             #foundations::SymChar::with_func(
                 #ch,
-                <#path as ::typst::foundations::NativeFunc>::func,
+                <#path as ::typst_library::foundations::NativeFunc>::func,
             ),
         },
     }
