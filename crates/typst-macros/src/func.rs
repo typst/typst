@@ -262,6 +262,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
         let ident_data = quote::format_ident!("{ident}_data");
         quote! {
             #[doc(hidden)]
+            #[allow(non_snake_case)]
             #vis fn #ident_data() -> &'static #foundations::NativeFuncData {
                 static DATA: #foundations::NativeFuncData = #data;
                 &DATA

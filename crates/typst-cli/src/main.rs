@@ -94,8 +94,9 @@ fn print_error(msg: &str) -> io::Result<()> {
 
 #[cfg(not(feature = "self-update"))]
 mod update {
-    use crate::args::UpdateCommand;
     use typst::diag::{bail, StrResult};
+
+    use crate::args::UpdateCommand;
 
     pub fn update(_: &UpdateCommand) -> StrResult<()> {
         bail!(

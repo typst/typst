@@ -19,7 +19,7 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
-typst-assets = { workspace = true, features = ["fonts"] }
+typst-eval = { workspace = true }
 typst-kit = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
@@ -28,8 +28,8 @@ typst-svg = { workspace = true }
 typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-color-print = { workspace = true }
 codespan-reporting = { workspace = true }
+color-print = { workspace = true }
 comemo = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }

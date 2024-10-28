@@ -3,15 +3,14 @@ use std::collections::HashMap;
 use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
 use pdf_writer::{Filter, Name, Rect, Ref};
-use typst::diag::SourceResult;
-use typst::layout::{Abs, Ratio, Transform};
-use typst::utils::Numeric;
-use typst::visualize::{Pattern, RelativeTo};
+use typst_library::diag::SourceResult;
+use typst_library::layout::{Abs, Ratio, Transform};
+use typst_library::visualize::{Pattern, RelativeTo};
+use typst_utils::Numeric;
 
 use crate::color::PaintEncode;
-use crate::content;
 use crate::resources::{Remapper, ResourcesRefs};
-use crate::{transform_to_array, PdfChunk, Resources, WithGlobalRefs};
+use crate::{content, transform_to_array, PdfChunk, Resources, WithGlobalRefs};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
