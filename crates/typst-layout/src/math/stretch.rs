@@ -193,6 +193,14 @@ fn assemble(
                     .end_connector_length
                     .min(next.start_connector_length)
                     .scaled(ctx, base.font_size);
+                if max_overlap < min_overlap {
+                    // This condition happening is indicative of a bug in the
+                    // font.
+                    panic!(
+                        "glyph {:?} has assembly parts with overlap less than minConnectorOverlap",
+                        base.c,
+                    );
+                }
 
                 advance -= max_overlap;
                 growable += max_overlap - min_overlap;
