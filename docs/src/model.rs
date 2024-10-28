@@ -49,6 +49,7 @@ impl OutlineItem {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "kind", content = "content")]
+#[allow(clippy::large_enum_variant)]
 pub enum BodyModel {
     Html(Html),
     Category(CategoryModel),
