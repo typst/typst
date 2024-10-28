@@ -19,20 +19,19 @@ cli = ["clap", "typst-render", "serde_json"]
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
-comemo = { workspace = true }
+clap = { workspace = true, optional = true }
 ecow = { workspace = true }
 heck = { workspace = true }
 once_cell = { workspace = true }
 pulldown-cmark = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
 serde_yaml = { workspace = true }
 syntect = { workspace = true, features = ["html"] }
 typed-arena = { workspace = true }
+typst-render = { workspace = true, optional = true }
 unscanny = { workspace = true }
 yaml-front-matter = { workspace = true }
-clap = { workspace = true, optional = true }
-typst-render = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
 
 [lints]
 workspace = true

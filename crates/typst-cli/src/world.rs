@@ -16,7 +16,7 @@ use typst::utils::LazyHash;
 use typst::{Library, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
-use typst_timing::{timed, TimingScope};
+use typst_timing::timed;
 
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
@@ -285,8 +285,6 @@ impl FileSlot {
         self.source.get_or_init(
             || read(self.id, project_root, package_storage),
             |data, prev| {
-                let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
-                let _scope = TimingScope::new(name, None);
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);

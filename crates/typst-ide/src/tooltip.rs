@@ -3,13 +3,13 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::engine::Sink;
-use typst::eval::CapturesVisitor;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_with_precision, Numeric};
 use typst::World;
+use typst_eval::CapturesVisitor;
 
 use crate::{analyze_expr, analyze_labels, plain_docs_sentence, summarize_font_family};
 
