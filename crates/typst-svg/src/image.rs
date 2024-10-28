@@ -1,7 +1,7 @@
 use base64::Engine;
 use ecow::{eco_format, EcoString};
-use typst::layout::{Abs, Axes};
-use typst::visualize::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst_library::layout::{Abs, Axes};
+use typst_library::visualize::{Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::SVGRenderer;
 

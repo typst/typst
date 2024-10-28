@@ -22,14 +22,14 @@ use std::ops::{Deref, DerefMut};
 use base64::Engine;
 use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
 use serde::{Deserialize, Serialize};
-use typst::diag::{bail, SourceResult, StrResult};
-use typst::foundations::{Datetime, Smart};
-use typst::layout::{Abs, Em, PageRanges, Transform};
-use typst::model::Document;
-use typst::syntax::Span;
-use typst::text::Font;
-use typst::utils::Deferred;
-use typst::visualize::Image;
+use typst_library::diag::{bail, SourceResult, StrResult};
+use typst_library::foundations::{Datetime, Smart};
+use typst_library::layout::{Abs, Em, PageRanges, Transform};
+use typst_library::model::Document;
+use typst_library::text::Font;
+use typst_library::visualize::Image;
+use typst_syntax::Span;
+use typst_utils::Deferred;
 
 use crate::catalog::write_catalog;
 use crate::color::{alloc_color_functions_refs, ColorFunctionRefs};
@@ -518,7 +518,7 @@ fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
-        .encode(typst::utils::hash128(value).to_be_bytes())
+        .encode(typst_utils::hash128(value).to_be_bytes())
 }
 
 /// Additional methods for [`Abs`].

@@ -72,7 +72,8 @@ impl Timer {
         let writer = BufWriter::with_capacity(1 << 20, file);
 
         typst_timing::export_json(writer, |span| {
-            resolve_span(world, span).unwrap_or_else(|| ("unknown".to_string(), 0))
+            resolve_span(world, Span::from_raw(span))
+                .unwrap_or_else(|| ("unknown".to_string(), 0))
         })?;
 
         Ok(output)
