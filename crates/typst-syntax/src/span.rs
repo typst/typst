@@ -83,6 +83,20 @@ impl Span {
         self.0.get() & ((1 << Self::BITS) - 1)
     }
 
+    /// Construct from a raw number.
+    ///
+    /// Should only be used with numbers retrieved via
+    /// [`into_raw`](Self::into_raw). Misuse may results in panics, but no
+    /// unsafety.
+    pub const fn from_raw(v: NonZeroU64) -> Self {
+        Self(v)
+    }
+
+    /// Extract the raw underlying number.
+    pub const fn into_raw(self) -> NonZeroU64 {
+        self.0
+    }
+
     /// Return `other` if `self` is detached and `self` otherwise.
     pub fn or(self, other: Self) -> Self {
         if self.is_detached() {

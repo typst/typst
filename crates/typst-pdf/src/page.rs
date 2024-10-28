@@ -4,15 +4,15 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
 use pdf_writer::{Filter, Finish, Name, Rect, Ref, Str};
-use typst::diag::SourceResult;
-use typst::foundations::Label;
-use typst::introspection::Location;
-use typst::layout::{Abs, Page};
-use typst::model::{Destination, Numbering};
+use typst_library::diag::SourceResult;
+use typst_library::foundations::Label;
+use typst_library::introspection::Location;
+use typst_library::layout::{Abs, Page};
+use typst_library::model::{Destination, Numbering};
 
-use crate::content;
 use crate::{
-    AbsExt, PdfChunk, PdfOptions, Resources, WithDocument, WithRefs, WithResources,
+    content, AbsExt, PdfChunk, PdfOptions, Resources, WithDocument, WithRefs,
+    WithResources,
 };
 
 /// Construct page objects.
@@ -252,7 +252,8 @@ impl PdfPageLabel {
         // If there is a suffix, we cannot use the common style optimisation,
         // since PDF does not provide a suffix field.
         let style = if pat.suffix.is_empty() {
-            use {typst::model::NumberingKind as Kind, PdfPageLabelStyle as Style};
+            use typst_library::model::NumberingKind as Kind;
+            use PdfPageLabelStyle as Style;
             match kind {
                 Kind::Arabic => Some(Style::Arabic),
                 Kind::LowerRoman => Some(Style::LowerRoman),

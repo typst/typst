@@ -20,6 +20,9 @@ pub use self::pico::PicoStr;
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
 
+#[doc(hidden)]
+pub use once_cell;
+
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
@@ -28,9 +31,6 @@ use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
-
-#[doc(hidden)]
-pub use once_cell;
 
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
