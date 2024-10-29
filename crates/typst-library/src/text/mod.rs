@@ -808,9 +808,9 @@ impl FontFamily {
 // Parse unicode-range expression
 fn parse_unicode_range(text: &str) -> Option<(u32, u32)> {
     let chars: Vec<char> = text.chars().collect();
-    let (start, end) = match &chars[..] {
-        &[c] => (c as u32, c as u32),
-        &[c1, '-', c2] => (c1 as u32, c2 as u32),
+    let (start, end) = match chars[..] {
+        [c] => (c as u32, c as u32),
+        [c1, '-', c2] => (c1 as u32, c2 as u32),
         _ => return None,
     };
     if start > end || end > 0x10FFFF {
