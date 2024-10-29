@@ -147,7 +147,7 @@ impl Value {
             Self::Args(_) => Type::of::<Args>(),
             Self::Type(_) => Type::of::<Type>(),
             Self::Module(_) => Type::of::<Module>(),
-            Self::Plugin(_) => Type::of::<Module>(),
+            Self::Plugin(_) => Type::of::<Plugin>(),
             Self::Dyn(v) => v.ty(),
         }
     }
