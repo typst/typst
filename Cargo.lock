@@ -2668,68 +2668,16 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 name = "typst"
 version = "0.12.0"
 dependencies = [
- "arrayvec",
- "az",
- "bitflags 2.6.0",
- "bumpalo",
- "chinese-number",
- "ciborium",
  "comemo",
- "csv",
  "ecow",
- "flate2",
- "fontdb",
- "hayagriva",
- "hypher",
- "icu_properties",
- "icu_provider",
- "icu_provider_adapters",
- "icu_provider_blob",
- "icu_segmenter",
- "if_chain",
- "image",
- "indexmap 2.6.0",
- "kamadak-exif",
- "kurbo",
- "lipsum",
- "log",
- "once_cell",
- "palette",
- "phf",
- "png",
- "portable-atomic",
- "qcms",
- "rayon",
- "regex",
- "roxmltree",
- "rust_decimal",
- "rustybuzz",
- "serde",
- "serde_json",
- "serde_yaml 0.9.34+deprecated",
- "siphasher 1.0.1",
- "smallvec",
- "stacker",
- "syntect",
- "time",
- "toml",
- "ttf-parser",
- "two-face",
- "typed-arena",
- "typst-assets",
- "typst-dev-assets",
+ "typst-eval",
+ "typst-layout",
+ "typst-library",
  "typst-macros",
+ "typst-realize",
  "typst-syntax",
  "typst-timing",
  "typst-utils",
- "unicode-bidi",
- "unicode-math-class",
- "unicode-script",
- "unicode-segmentation",
- "unscanny",
- "usvg",
- "wasmi",
- "xmlwriter",
 ]
 
 [[package]]
@@ -2769,7 +2717,7 @@ dependencies = [
  "tempfile",
  "toml",
  "typst",
- "typst-assets",
+ "typst-eval",
  "typst-kit",
  "typst-macros",
  "typst-pdf",
@@ -2791,7 +2739,6 @@ name = "typst-docs"
 version = "0.12.0"
 dependencies = [
  "clap",
- "comemo",
  "ecow",
  "heck",
  "once_cell",
@@ -2807,6 +2754,24 @@ dependencies = [
  "typst-render",
  "unscanny",
  "yaml-front-matter",
+]
+
+[[package]]
+name = "typst-eval"
+version = "0.12.0"
+dependencies = [
+ "comemo",
+ "ecow",
+ "if_chain",
+ "indexmap 2.6.0",
+ "stacker",
+ "toml",
+ "typst-library",
+ "typst-macros",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -2834,6 +2799,7 @@ dependencies = [
  "typst",
  "typst-assets",
  "typst-dev-assets",
+ "typst-eval",
  "unscanny",
 ]
 
@@ -2850,11 +2816,101 @@ dependencies = [
  "once_cell",
  "openssl",
  "tar",
- "typst",
  "typst-assets",
+ "typst-library",
+ "typst-syntax",
  "typst-timing",
  "typst-utils",
  "ureq",
+]
+
+[[package]]
+name = "typst-layout"
+version = "0.12.0"
+dependencies = [
+ "az",
+ "bumpalo",
+ "comemo",
+ "ecow",
+ "hypher",
+ "icu_properties",
+ "icu_provider",
+ "icu_provider_adapters",
+ "icu_provider_blob",
+ "icu_segmenter",
+ "kurbo",
+ "once_cell",
+ "rustybuzz",
+ "smallvec",
+ "ttf-parser",
+ "typst-assets",
+ "typst-library",
+ "typst-macros",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+ "unicode-bidi",
+ "unicode-math-class",
+ "unicode-script",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "typst-library"
+version = "0.12.0"
+dependencies = [
+ "az",
+ "bitflags 2.6.0",
+ "bumpalo",
+ "chinese-number",
+ "ciborium",
+ "comemo",
+ "csv",
+ "ecow",
+ "flate2",
+ "fontdb",
+ "hayagriva",
+ "icu_properties",
+ "icu_provider",
+ "icu_provider_blob",
+ "image",
+ "indexmap 2.6.0",
+ "kamadak-exif",
+ "kurbo",
+ "lipsum",
+ "once_cell",
+ "palette",
+ "phf",
+ "png",
+ "qcms",
+ "rayon",
+ "regex",
+ "roxmltree",
+ "rust_decimal",
+ "rustybuzz",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.9.34+deprecated",
+ "siphasher 1.0.1",
+ "smallvec",
+ "syntect",
+ "time",
+ "toml",
+ "ttf-parser",
+ "two-face",
+ "typed-arena",
+ "typst-assets",
+ "typst-dev-assets",
+ "typst-macros",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+ "unicode-math-class",
+ "unicode-segmentation",
+ "unscanny",
+ "usvg",
+ "wasmi",
+ "xmlwriter",
 ]
 
 [[package]]
@@ -2885,12 +2941,30 @@ dependencies = [
  "subsetter",
  "svg2pdf",
  "ttf-parser",
- "typst",
  "typst-assets",
+ "typst-library",
  "typst-macros",
+ "typst-syntax",
  "typst-timing",
- "unscanny",
+ "typst-utils",
  "xmp-writer",
+]
+
+[[package]]
+name = "typst-realize"
+version = "0.12.0"
+dependencies = [
+ "arrayvec",
+ "bumpalo",
+ "comemo",
+ "ecow",
+ "once_cell",
+ "regex",
+ "typst-library",
+ "typst-macros",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
 ]
 
 [[package]]
@@ -2902,13 +2976,11 @@ dependencies = [
  "image",
  "pixglyph",
  "resvg",
- "roxmltree",
  "tiny-skia",
  "ttf-parser",
- "typst",
+ "typst-library",
  "typst-macros",
  "typst-timing",
- "usvg",
 ]
 
 [[package]]
@@ -2920,9 +2992,10 @@ dependencies = [
  "ecow",
  "flate2",
  "ttf-parser",
- "typst",
+ "typst-library",
  "typst-macros",
  "typst-timing",
+ "typst-utils",
  "xmlparser",
  "xmlwriter",
 ]
@@ -2935,6 +3008,7 @@ dependencies = [
  "once_cell",
  "serde",
  "toml",
+ "typst-timing",
  "typst-utils",
  "unicode-ident",
  "unicode-math-class",
@@ -2956,10 +3030,10 @@ dependencies = [
  "rayon",
  "regex",
  "tiny-skia",
- "ttf-parser",
  "typst",
  "typst-assets",
  "typst-dev-assets",
+ "typst-library",
  "typst-pdf",
  "typst-render",
  "typst-svg",
@@ -2974,7 +3048,6 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
- "typst-syntax",
 ]
 
 [[package]]

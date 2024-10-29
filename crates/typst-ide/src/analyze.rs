@@ -1,12 +1,12 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::engine::{Engine, Route, Sink, Traced};
-use typst::eval::Vm;
 use typst::foundations::{Context, Label, Scopes, Styles, Value};
 use typst::introspection::Introspector;
 use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
+use typst_eval::Vm;
 
 /// Try to determine a set of possible values for an expression.
 pub fn analyze_expr(
@@ -58,6 +58,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
     let traced = Traced::default();
     let mut sink = Sink::new();
     let engine = Engine {
+        routines: &typst::ROUTINES,
         world: world.track(),
         introspector: introspector.track(),
         traced: traced.track(),
@@ -73,7 +74,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         Span::detached(),
     );
 
-    typst::eval::import(&mut vm, source, source_span, true)
+    typst_eval::import(&mut vm, source, source_span, true)
         .ok()
         .map(Value::Module)
 }

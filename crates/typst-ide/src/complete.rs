@@ -1353,7 +1353,6 @@ impl<'a> CompletionContext<'a> {
 
 #[cfg(test)]
 mod tests {
-
     use super::autocomplete;
     use crate::tests::TestWorld;
 
