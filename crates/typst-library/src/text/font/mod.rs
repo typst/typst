@@ -29,10 +29,6 @@ pub struct Font(Arc<Repr>);
 
 /// The internal representation of a font.
 struct Repr {
-    /// The raw font data, possibly shared with other fonts from the same
-    /// collection. The vector's allocation must not move, because `ttf` points
-    /// into it using unsafe code.
-    data: Bytes,
     /// The font's index in the buffer.
     index: u32,
     /// Metadata about the font.
@@ -43,6 +39,14 @@ struct Repr {
     ttf: ttf_parser::Face<'static>,
     /// The underlying rustybuzz face.
     rusty: rustybuzz::Face<'static>,
+    // NOTE: `ttf` and `rusty` reference `data`, so it's important for `data`
+    // to be dropped after them or they will be left dangling while they're
+    // dropped. Fields are dropped in declaration order, so `data` needs to be
+    // declared after `ttf` and `rusty`.
+    /// The raw font data, possibly shared with other fonts from the same
+    /// collection. The vector's allocation must not move, because `ttf` points
+    /// into it using unsafe code.
+    data: Bytes,
 }
 
 impl Font {

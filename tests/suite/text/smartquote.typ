@@ -30,8 +30,8 @@
 #set text(lang: "fi")
 "Hevonen ei syö kurkkusalaattia" oli ensimmäinen koskaan 'puhelimessa' lausuttu lause.
 
---- smartquote-gr ---
-#set text(lang: "gr")
+--- smartquote-el ---
+#set text(lang: "el")
 "Το άλογο δεν τρώει αγγουροσαλάτα" ήταν η πρώτη πρόταση που ειπώθηκε στο 'τηλέφωνο'.
 
 --- smartquote-he ---
