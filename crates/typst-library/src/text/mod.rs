@@ -100,11 +100,9 @@ pub struct TextElem {
     /// or a dictionary with the following keys:
     ///
     /// - `name` (required): The font family name.
-    /// - `unicode-range` (optional): A string in [CSS unicode-range value][urange] format.
-    ///   Note that wildcard range is not supported, and the ranges should not
-    ///   exceed U+10FFFF.
-    ///
-    /// [urange]: https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/unicode-range#values
+    /// - `ranges` (optional): An array of Unicode ranges. Every range should be
+    ///   a string of single Unicode code point or a pair of Unicode code points
+    ///   separated by a dash. The ranges should not exceed U+10FFFF.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -141,7 +139,7 @@ pub struct TextElem {
     /// هذا عربي.
     ///
     /// #set text(font: (
-    ///   (name: "Noto Serif CJK SC", unicode-range: "U+00B7, U+2014-3134F"),
+    ///   (name: "Noto Serif CJK SC", ranges: ("\u{00B7}", "\u{2014}-\u{3134F}")),
     ///   "Inria Serif",
     /// ))
     /// 分别设置“中文”和English字体
@@ -808,42 +806,29 @@ impl FontFamily {
 }
 
 // Parse unicode-range expression
-fn parse_unicode_range(text: &str) -> Option<Vec<(u32, u32)>> {
-    let mut ranges = Vec::new();
-    for range in text.split(',') {
-        if range.trim().is_empty() {
-            continue;
-        }
-        let mut parts = range.split('-');
-        let start = parts.next()?.trim().strip_prefix("U+")?;
-        let start = u32::from_str_radix(start, 16).ok()?;
-        let end = if let Some(end) = parts.next() {
-            u32::from_str_radix(end, 16).ok()?
-        } else {
-            start
-        };
-        if start > end || end > 0x10FFFF {
-            return None;
-        }
-        ranges.push((start, end));
+fn parse_unicode_range(text: &str) -> Option<(u32, u32)> {
+    let chars: Vec<char> = text.chars().collect();
+    let (start, end) = match &chars[..] {
+        &[c] => (c as u32, c as u32),
+        &[c1, '-', c2] => (c1 as u32, c2 as u32),
+        _ => return None,
+    };
+    if start > end || end > 0x10FFFF {
+        return None;
     }
-    Some(ranges)
+    Some((start, end))
 }
 
 #[test]
 fn test_parse_unicode_range() {
-    assert_eq!(
-        parse_unicode_range("U+0-7F, U+80-FF"),
-        Some(vec![(0x0000, 0x007F), (0x0080, 0x00FF)])
-    );
-    assert_eq!(
-        parse_unicode_range("U+007F, U+80-80"),
-        Some(vec![(0x007F, 0x007F), (0x0080, 0x0080)])
-    );
-    assert_eq!(
-        parse_unicode_range("U+0, U+1,"),
-        Some(vec![(0x0000, 0x0000), (0x0001, 0x0001)]),
-    );
+    assert_eq!(parse_unicode_range("\u{0}-\u{7F}"), Some((0x0000, 0x007F)));
+    assert_eq!(parse_unicode_range("\u{007F}"), Some((0x007F, 0x007F)));
+    assert_eq!(parse_unicode_range("\u{80}-\u{80}"), Some((0x0080, 0x0080)));
+    assert_eq!(parse_unicode_range("a-z"), Some((0x0061, 0x007A)));
+
+    assert_eq!(parse_unicode_range(""), None);
+    assert_eq!(parse_unicode_range("a-"), None);
+    assert_eq!(parse_unicode_range("a-b-c"), None);
 }
 
 cast! {
@@ -853,11 +838,18 @@ cast! {
     mut v: Dict => {
         let ret = Self::new_with_coverage(
             &v.take("name")?.cast::<String>()?,
-            v.take("unicode-range").ok().map(|s| -> HintedStrResult<_> {
-                let ranges = parse_unicode_range(&s.cast::<String>()?)
-                    .ok_or("invalid unicode-range")?;
-                Ok(Coverage::from_ranges(ranges))
-            }).transpose()?,
+            v.take("ranges")
+                .ok()
+                .map(|s| -> HintedStrResult<_> {
+                    let ranges = s
+                        .cast::<Vec<String>>()?
+                        .iter()
+                        .map(|r| parse_unicode_range(r))
+                        .collect::<Option<Vec<_>>>()
+                        .ok_or("invalid ranges")?;
+                    Ok(Coverage::from_ranges(ranges))
+                })
+                .transpose()?,
         );
         v.finish(&["name", "unicode-range"])?;
         ret

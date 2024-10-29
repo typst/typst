@@ -82,28 +82,28 @@ I
 // Hint: 17-34 please set the font to `"Libertinus Serif"` instead
 #set text(font: "Linux Libertine")
 
---- text-font-unicode-range ---
-#let ubuntu = (name: "Ubuntu", unicode-range: "U+20-FFFF")
+--- text-font-ranges ---
+#let ubuntu = (name: "Ubuntu", ranges: ("\u{20}-\u{FFFF}",))
 #set text(font: ubuntu)
 #set text(font: (ubuntu, "Ubuntu"))
 
---- text-bad-unicode-range-1 ---
-// Error: 17-59 invalid unicode-range
-#set text(font: (name: "Ubuntu", unicode-range: "20-FFFF"))
+--- text-bad-ranges-1 ---
+// Error: 17-55 invalid ranges
+#set text(font: (name: "Ubuntu", ranges: ("20-FFFF",)))
 
---- text-bad-unicode-range-2 ---
-// Error: 17-59 invalid unicode-range
-#set text(font: (name: "Ubuntu", unicode-range: "U+20-10"))
+--- text-bad-ranges-2 ---
+// Error: 17-61 invalid ranges
+#set text(font: (name: "Ubuntu", ranges: ("\u{20}-\u{10}",)))
 
---- text-bad-unicode-range-3 ---
-// Error: 17-60 invalid unicode-range
-#set text(font: (name: "Ubuntu", unicode-range: "U+11FFFF"))
+--- text-bad-ranges-3 ---
+// Error: 17-58 invalid ranges
+#set text(font: (name: "Ubuntu", ranges: ("\u{11FFFF}",)))
 
---- text-chinese-unicode-range ---
-// Without unicode-range, the quotation marks is using Latin font.
+--- text-chinese-ranges ---
+// Without ranges, the quotation marks is using Latin font.
 #set text(font: ("Ubuntu", "Noto Serif CJK SC"))
 分别设置“中文”和English字体
 
-// With unicode-range, the quotation marks is using Chinese font.
-#set text(font: ((name: "Noto Serif CJK SC", unicode-range: "U+00B7, U+2014-3134F"), "Ubuntu"))
+// With ranges, the quotation marks is using Chinese font.
+#set text(font: ((name: "Noto Serif CJK SC", ranges: ("\u{00B7}", "\u{2014}-\u{3134F}")), "Ubuntu"))
 分别设置“中文”和English字体
