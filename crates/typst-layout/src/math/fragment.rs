@@ -398,6 +398,10 @@ impl GlyphFragment {
 
     pub fn make_script_script_size(&mut self, ctx: &MathContext) {
         let alt_id = ctx.ssty_table.as_ref().and_then(|ssty| {
+            // We explicitly request to apply the alternate set with value 1,
+            // as opposed to the default value in ssty, as the former
+            // corresponds to second level scripts and the latter corresponds
+            // to first level scripts.
             ssty.try_apply(self.id, Some(1))
                 .or_else(|| ssty.try_apply(self.id, None))
         });
