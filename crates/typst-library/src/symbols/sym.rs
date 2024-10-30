@@ -123,6 +123,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = typst_macros::symbols! {
     interrobang: '‽',
     hash: '#',
     hyph: ['‐', minus: '\u{2D}', nobreak: '\u{2011}', point: '‧', soft: '\u{ad}'],
+    numero: '№',
     percent: '%',
     permille: '‰',
     pilcrow: ['¶', rev: '⁋'],
