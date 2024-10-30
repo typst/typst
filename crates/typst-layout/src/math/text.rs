@@ -319,6 +319,13 @@ fn greek_exception(
     italic: bool,
 ) -> Option<char> {
     use MathVariant::*;
+    if c == 'Ϝ' && variant == Serif && bold {
+        return Some('𝟊');
+    }
+    if c == 'ϝ' && variant == Serif && bold {
+        return Some('𝟋');
+    }
+
     let list = match c {
         'ϴ' => ['𝚹', '𝛳', '𝜭', '𝝧', '𝞡', 'ϴ'],
         '∇' => ['𝛁', '𝛻', '𝜵', '𝝯', '𝞩', '∇'],
