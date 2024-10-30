@@ -48,8 +48,8 @@ impl Show for Packed<MoveElem> {
 
 /// Rotates content without affecting layout.
 ///
-/// Rotates an element by a given angle. The layout will act as if the element
-/// was not rotated unless you specify `{reflow: true}`.
+/// Rotates an element by a given angle. The layout will reflow the document's
+/// content unless you specify `{reflow: false}`.
 ///
 /// # Example
 /// ```example
@@ -97,9 +97,11 @@ pub struct RotateElem {
     /// rotation of the content into account and adjust the layout accordingly.
     ///
     /// ```example
-    /// Hello #rotate(90deg, reflow: true)[World]!
+    /// Hello #box(scale(x: 40%, y: 50%)[World])!
+    ///
+    /// Hello #box(scale(x: 40%, y: 50%, reflow: false)[World])!
     /// ```
-    #[default(false)]
+    #[default(true)]
     pub reflow: bool,
 
     /// The content to rotate.
@@ -121,9 +123,7 @@ impl Show for Packed<RotateElem> {
 ///
 /// # Example
 /// ```example
-/// #set align(center)
-/// #scale(x: -100%)[This is mirrored.]
-/// #scale(x: -100%, reflow: true)[This is mirrored.]
+/// The text is #box(scale(x: -150%)[mirrored]).
 /// ```
 #[elem(Show)]
 pub struct ScaleElem {
@@ -169,9 +169,11 @@ pub struct ScaleElem {
     /// the scaled content and adjust the layout accordingly.
     ///
     /// ```example
-    /// Hello #scale(x: 20%, y: 40%, reflow: true)[World]!
+    /// Hello #box(scale(x: 40%, y: 50%)[World])!
+    ///
+    /// Hello #box(scale(x: 40%, y: 50%, reflow: false)[World])!
     /// ```
-    #[default(false)]
+    #[default(true)]
     pub reflow: bool,
 
     /// The content to scale.
@@ -207,7 +209,7 @@ cast! {
 /// Skews content.
 ///
 /// Skews an element in horizontal and/or vertical direction. The layout will
-/// act as if the element was not skewed unless you specify `{reflow: true}`.
+/// reflow the document's content unless you specify `{reflow: false}`.
 ///
 /// # Example
 /// ```example
@@ -255,9 +257,11 @@ pub struct SkewElem {
     /// transformation of the content into account and adjust the layout accordingly.
     ///
     /// ```example
-    /// Hello #skew(ay: 30deg, reflow: true, "World")!
+    /// Hello #box(skew(ax: -40deg)[World])!
+    ///
+    /// Hello #box(skew(ax: -40deg, reflow: false)[World])!
     /// ```
-    #[default(false)]
+    #[default(true)]
     pub reflow: bool,
 
     /// The content to skew.
