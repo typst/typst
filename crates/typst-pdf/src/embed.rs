@@ -3,9 +3,9 @@ use crate::{PdfAConformanceLevel, PdfChunk, WithGlobalRefs};
 use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
-use typst::diag::{bail, SourceResult};
-use typst::embed::{Embed, EmbeddedFileRelationship};
-use typst::syntax::Span;
+use typst_library::diag::{bail, SourceResult};
+use typst_library::embed::{Embed, EmbeddedFileRelationship};
+use typst_syntax::Span;
 
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,

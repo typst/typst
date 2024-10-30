@@ -10,12 +10,12 @@ use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
 use ttf_parser::OutlineBuilder;
-use typst::layout::{
+use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Ratio, Size, Transform,
 };
-use typst::model::Document;
-use typst::utils::hash128;
-use typst::visualize::{Geometry, Gradient, Pattern};
+use typst_library::model::Document;
+use typst_library::visualize::{Geometry, Gradient, Pattern};
+use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, PatternRef, SVGSubGradient};

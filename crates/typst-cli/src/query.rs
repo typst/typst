@@ -2,11 +2,11 @@ use comemo::Track;
 use ecow::{eco_format, EcoString};
 use serde::Serialize;
 use typst::diag::{bail, HintedStrResult, StrResult, Warned};
-use typst::eval::{eval_string, EvalMode};
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::model::Document;
 use typst::syntax::Span;
 use typst::World;
+use typst_eval::{eval_string, EvalMode};
 
 use crate::args::{QueryCommand, SerializationFormat};
 use crate::compile::print_diagnostics;
@@ -56,6 +56,7 @@ fn retrieve(
     document: &Document,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
+        &typst::ROUTINES,
         world.track(),
         &command.selector,
         Span::detached(),

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pdf_writer::Ref;
-use typst::diag::SourceResult;
+use typst_library::diag::SourceResult;
 
 use crate::{PdfChunk, WithGlobalRefs};
 

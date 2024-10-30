@@ -244,9 +244,9 @@ We can clearly see that @fig-cylinder and
     caption: [Пятиугольник],
 )
 
---- figure-localization-gr ---
+--- figure-localization-el ---
 // Test Greek
-#set text(lang: "gr")
+#set text(lang: "el")
 #figure(
   circle(),
   caption: [Ένας κύκλος.],

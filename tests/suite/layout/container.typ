@@ -251,6 +251,19 @@ First!
   image("/assets/images/rhino.png", width: 30pt)
 )
 
+--- box-clip-outset ---
+// Test clipping with `outset`.
+#set page(height: 60pt)
+
+#box(
+  outset: 5pt,
+  stroke: 2pt + black,
+  width: 20pt,
+  height: 20pt,
+  clip: true,
+  image("/assets/images/rhino.png", width: 30pt)
+)
+
 --- container-layoutable-child ---
 // Test box/block sizing with directly layoutable child.
 //

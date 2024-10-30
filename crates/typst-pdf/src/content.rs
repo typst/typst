@@ -10,20 +10,20 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PositionedItems;
 use pdf_writer::{Content, Finish, Name, Rect, Str};
-use typst::diag::{bail, error, SourceDiagnostic, SourceResult};
-use typst::foundations::Repr;
-use typst::layout::{
+use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
+use typst_library::foundations::Repr;
+use typst_library::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Size, Transform,
 };
-use typst::model::Destination;
-use typst::syntax::Span;
-use typst::text::color::should_outline;
-use typst::text::{Font, Glyph, TextItem, TextItemView};
-use typst::utils::{Deferred, Numeric, SliceExt};
-use typst::visualize::{
+use typst_library::model::Destination;
+use typst_library::text::color::should_outline;
+use typst_library::text::{Font, Glyph, TextItem, TextItemView};
+use typst_library::visualize::{
     FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem,
     Shape,
 };
+use typst_syntax::Span;
+use typst_utils::{Deferred, Numeric, SliceExt};
 
 use crate::color::PaintEncode;
 use crate::color_font::ColorFontMap;

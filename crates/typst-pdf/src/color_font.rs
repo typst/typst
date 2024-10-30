@@ -12,16 +12,15 @@ use indexmap::IndexMap;
 use pdf_writer::types::UnicodeCmap;
 use pdf_writer::writers::WMode;
 use pdf_writer::{Filter, Finish, Name, Rect, Ref};
-use typst::diag::{bail, error, SourceDiagnostic, SourceResult};
-use typst::foundations::Repr;
-use typst::layout::Em;
-use typst::text::color::glyph_frame;
-use typst::text::{Font, Glyph, TextItemView};
+use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
+use typst_library::foundations::Repr;
+use typst_library::layout::Em;
+use typst_library::text::color::glyph_frame;
+use typst_library::text::{Font, Glyph, TextItemView};
 
-use crate::content;
 use crate::font::{base_font_name, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
 use crate::resources::{Resources, ResourcesRefs};
-use crate::{EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
+use crate::{content, EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
 
 /// Write color fonts in the PDF document.
 ///
