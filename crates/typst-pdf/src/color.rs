@@ -3,9 +3,9 @@ use std::sync::LazyLock;
 use arrayvec::ArrayVec;
 use once_cell::sync::Lazy;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
-use typst::diag::{bail, SourceResult};
-use typst::syntax::Span;
-use typst::visualize::{Color, ColorSpace, Paint};
+use typst_library::diag::{bail, SourceResult};
+use typst_library::visualize::{Color, ColorSpace, Paint};
+use typst_syntax::Span;
 
 use crate::{content, deflate, PdfChunk, PdfOptions, Renumber, WithResources};
 

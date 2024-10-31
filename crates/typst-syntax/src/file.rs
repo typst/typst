@@ -96,12 +96,16 @@ impl FileId {
     }
 
     /// Construct from a raw number.
-    pub(crate) const fn from_raw(v: u16) -> Self {
+    ///
+    /// Should only be used with numbers retrieved via
+    /// [`into_raw`](Self::into_raw). Misuse may results in panics, but no
+    /// unsafety.
+    pub const fn from_raw(v: u16) -> Self {
         Self(v)
     }
 
     /// Extract the raw underlying number.
-    pub(crate) const fn into_raw(self) -> u16 {
+    pub const fn into_raw(self) -> u16 {
         self.0
     }
 
