@@ -321,9 +321,9 @@ fn create_func_data(func: &Func) -> TokenStream {
             docs: #docs,
             keywords: &[#(#keywords),*],
             contextual: #contextual,
-            scope: #foundations::LazyLock::new(|| #scope),
-            params: #foundations::LazyLock::new(|| ::std::vec![#(#params),*]),
-            returns:  #foundations::LazyLock::new(|| <#returns as #foundations::Reflect>::output()),
+            scope: ::std::sync::LazyLock::new(|| #scope),
+            params: ::std::sync::LazyLock::new(|| ::std::vec![#(#params),*]),
+            returns:  ::std::sync::LazyLock::new(|| <#returns as #foundations::Reflect>::output()),
         }
     }
 }

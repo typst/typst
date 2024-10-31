@@ -433,7 +433,7 @@ fn create_default_static(field: &Field) -> TokenStream {
 
     quote! {
         static #const_ident: ::std::sync::LazyLock<#ty> =
-        ::std::sync::LazyLock::new(#init);
+            ::std::sync::LazyLock::new(#init);
     }
 }
 
@@ -660,8 +660,8 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             field_name: |id| id.try_into().ok().map(Fields::to_str),
             field_from_styles: <#ident as #foundations::Fields>::field_from_styles,
             local_name: #local_name,
-            scope: #foundations::LazyLock::new(|| #scope),
-            params: #foundations::LazyLock::new(|| ::std::vec![#(#params),*])
+            scope: ::std::sync::LazyLock::new(|| #scope),
+            params: ::std::sync::LazyLock::new(|| ::std::vec![#(#params),*])
         }
     };
 

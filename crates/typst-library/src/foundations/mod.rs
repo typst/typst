@@ -71,7 +71,6 @@ pub use typst_macros::{scope, ty};
 pub use {
     ecow::{eco_format, eco_vec},
     indexmap::IndexMap,
-    std::sync::LazyLock,
 };
 
 use ecow::EcoString;
