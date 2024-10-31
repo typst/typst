@@ -142,7 +142,7 @@ cast! {
 /// How to turn a number into text.
 ///
 /// A pattern consists of a prefix, followed by one of the counter symbols (see
-/// [`numbering`] docs), and then a suffix.
+/// [`numbering()`] docs), and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -622,7 +622,7 @@ fn roman_numeral(mut n: usize, case: Case) -> EcoString {
 /// [Greek Numbers][numbers].
 ///
 /// [converter]: https://www.russellcottrell.com/greek/utilities/GreekNumberConverter.htm
-/// [numbers]: (https://mathshistory.st-andrews.ac.uk/HistTopics/Greek_numbers/)
+/// [numbers]: https://mathshistory.st-andrews.ac.uk/HistTopics/Greek_numbers/
 fn greek_numeral(n: usize, case: Case) -> EcoString {
     let thousands = [
         ["͵α", "͵Α"],
