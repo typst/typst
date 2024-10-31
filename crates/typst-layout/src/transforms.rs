@@ -1,4 +1,5 @@
-use once_cell::unsync::Lazy;
+use std::cell::LazyCell;
+
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
@@ -113,7 +114,7 @@ fn resolve_scale(
         })
     }
 
-    let size = Lazy::new(|| {
+    let size = LazyCell::new(|| {
         let pod = Region::new(container, Axes::splat(false));
         let frame = crate::layout_frame(engine, &elem.body, locator, styles, pod)?;
         SourceResult::Ok(frame.size())

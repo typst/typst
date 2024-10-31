@@ -5,12 +5,12 @@
 //! further.
 
 use std::borrow::Cow;
+use std::cell::LazyCell;
 
 use arrayvec::ArrayVec;
 use bumpalo::collections::{String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use once_cell::unsync::Lazy;
 use typst_library::diag::{bail, At, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -420,7 +420,7 @@ fn verdict<'a>(
     // it to determine whether a particular show rule was already applied to the
     // `target` previously. For this purpose, show rules are indexed from the
     // top of the chain as the chain might grow to the bottom.
-    let depth = Lazy::new(|| styles.recipes().count());
+    let depth = LazyCell::new(|| styles.recipes().count());
 
     for (r, recipe) in styles.recipes().enumerate() {
         // We're not interested in recipes that don't match.
@@ -1032,7 +1032,7 @@ fn find_regex_match_in_str<'a>(
     let mut revoked = SmallBitSet::new();
     let mut leftmost: Option<(regex::Match, RecipeIndex, &Recipe)> = None;
 
-    let depth = Lazy::new(|| styles.recipes().count());
+    let depth = LazyCell::new(|| styles.recipes().count());
 
     for entry in styles.entries() {
         let recipe = match &**entry {

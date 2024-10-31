@@ -3,9 +3,9 @@ pub use typst_macros::{scope, ty};
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use typst_utils::Static;
 
 use crate::diag::StrResult;
@@ -207,8 +207,8 @@ pub struct NativeTypeData {
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],
     /// The constructor for this type.
-    pub constructor: Lazy<Option<&'static NativeFuncData>>,
-    pub scope: Lazy<Scope>,
+    pub constructor: LazyLock<Option<&'static NativeFuncData>>,
+    pub scope: LazyLock<Scope>,
 }
 
 impl From<&'static NativeTypeData> for Type {

@@ -22,7 +22,6 @@ typst-dev-assets = { workspace = true }
 clap = { workspace = true, optional = true }
 ecow = { workspace = true }
 heck = { workspace = true }
-once_cell = { workspace = true }
 pulldown-cmark = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }

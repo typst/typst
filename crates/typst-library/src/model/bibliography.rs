@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
@@ -15,7 +15,6 @@ use hayagriva::{
     SpecificLocator,
 };
 use indexmap::IndexMap;
-use once_cell::sync::Lazy;
 use smallvec::{smallvec, SmallVec};
 use typed_arena::Arena;
 use typst_syntax::{Span, Spanned};
@@ -633,8 +632,8 @@ impl<'a> Generator<'a> {
 
     /// Drives hayagriva's citation driver.
     fn drive(&mut self) -> hayagriva::Rendered {
-        static LOCALES: Lazy<Vec<citationberg::Locale>> =
-            Lazy::new(hayagriva::archive::locales);
+        static LOCALES: LazyLock<Vec<citationberg::Locale>> =
+            LazyLock::new(hayagriva::archive::locales);
 
         let database = self.bibliography.bibliography();
         let bibliography_style = self.bibliography.style(StyleChain::default());

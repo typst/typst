@@ -1,6 +1,6 @@
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::LazyArray16;
-use typst_library::diag::SourceResult;
+use typst_library::diag::{warning, SourceResult};
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::layout::{Abs, Axis, Frame, Length, Point, Rel, Size};
 use typst_library::math::StretchElem;
@@ -81,11 +81,45 @@ pub fn stretch_fragment(
     *fragment = MathFragment::Variant(variant);
 }
 
+/// Return whether the glyph is stretchable and if it is, along which axis it
+/// can be stretched.
+fn stretch_axis(ctx: &mut MathContext, base: &GlyphFragment) -> Option<Axis> {
+    let base_id = base.id;
+    let vertical = ctx
+        .table
+        .variants
+        .and_then(|variants| variants.vertical_constructions.get(base_id))
+        .map(|_| Axis::Y);
+    let horizontal = ctx
+        .table
+        .variants
+        .and_then(|variants| variants.horizontal_constructions.get(base_id))
+        .map(|_| Axis::X);
+
+    match (vertical, horizontal) {
+        (vertical, None) => vertical,
+        (None, horizontal) => horizontal,
+        _ => {
+            // As far as we know, there aren't any glyphs that have both
+            // vertical and horizontal constructions. So for the time being, we
+            // will assume that a glyph cannot have both.
+            ctx.engine.sink.warn(warning!(
+               base.span,
+               "glyph has both vertical and horizontal constructions";
+               hint: "this is probably a font bug";
+               hint: "please file an issue at https://github.com/typst/typst/issues"
+            ));
+
+            None
+        }
+    }
+}
+
 /// Try to stretch a glyph to a desired width or height.
 ///
 /// The resulting frame may not have the exact desired width.
 pub fn stretch_glyph(
-    ctx: &MathContext,
+    ctx: &mut MathContext,
     mut base: GlyphFragment,
     target: Abs,
     short_fall: Abs,
@@ -137,36 +171,9 @@ pub fn stretch_glyph(
     assemble(ctx, base, assembly, min_overlap, target, axis)
 }
 
-/// Return whether the glyph is stretchable and if it is, along which axis it
-/// can be stretched.
-fn stretch_axis(ctx: &MathContext, base: &GlyphFragment) -> Option<Axis> {
-    let base_id = base.id;
-    let vertical = ctx
-        .table
-        .variants
-        .and_then(|variants| variants.vertical_constructions.get(base_id))
-        .map(|_| Axis::Y);
-    let horizontal = ctx
-        .table
-        .variants
-        .and_then(|variants| variants.horizontal_constructions.get(base_id))
-        .map(|_| Axis::X);
-
-    match (vertical, horizontal) {
-        (vertical, None) => vertical,
-        (None, horizontal) => horizontal,
-        _ => {
-            // As far as we know, there aren't any glyphs that have both
-            // vertical and horizontal constructions. So for the time being, we
-            // will assume that a glyph cannot have both.
-            panic!("glyph {:?} has both vertical and horizontal constructions", base.c);
-        }
-    }
-}
-
 /// Assemble a glyph from parts.
 fn assemble(
-    ctx: &MathContext,
+    ctx: &mut MathContext,
     base: GlyphFragment,
     assembly: GlyphAssembly,
     min_overlap: Abs,
@@ -193,6 +200,16 @@ fn assemble(
                     .end_connector_length
                     .min(next.start_connector_length)
                     .scaled(ctx, base.font_size);
+                if max_overlap < min_overlap {
+                    // This condition happening is indicative of a bug in the
+                    // font.
+                    ctx.engine.sink.warn(warning!(
+                       base.span,
+                       "glyph has assembly parts with overlap less than minConnectorOverlap";
+                       hint: "its rendering may appear broken - this is probably a font bug";
+                       hint: "please file an issue at https://github.com/typst/typst/issues"
+                    ));
+                }
 
                 advance -= max_overlap;
                 growable += max_overlap - min_overlap;
