@@ -3,9 +3,9 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hash;
 use std::ptr::NonNull;
+use std::sync::LazyLock;
 
 use ecow::EcoString;
-use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 #[doc(inline)]
 pub use typst_macros::elem;
@@ -292,9 +292,9 @@ pub struct NativeElementData {
     pub field_from_styles: fn(u8, StyleChain) -> Result<Value, FieldAccessError>,
     /// Gets the localized name for this element (see [`LocalName`][crate::text::LocalName]).
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
-    pub scope: Lazy<Scope>,
+    pub scope: LazyLock<Scope>,
     /// A list of parameter information for each field.
-    pub params: Lazy<Vec<ParamInfo>>,
+    pub params: LazyLock<Vec<ParamInfo>>,
 }
 
 impl From<&'static NativeElementData> for Element {

@@ -2,11 +2,10 @@
 pub use typst_macros::func;
 
 use std::fmt::{self, Debug, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use typst_syntax::{ast, Span, SyntaxNode};
 use typst_utils::{singleton, LazyHash, Static};
 
@@ -463,11 +462,11 @@ pub struct NativeFuncData {
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
     pub contextual: bool,
-    pub scope: Lazy<Scope>,
+    pub scope: LazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: Lazy<Vec<ParamInfo>>,
+    pub params: LazyLock<Vec<ParamInfo>>,
     /// Information about the return value of this function.
-    pub returns: Lazy<CastInfo>,
+    pub returns: LazyLock<CastInfo>,
 }
 
 impl From<&'static NativeFuncData> for Func {

@@ -1,10 +1,9 @@
+use std::cell::LazyCell;
 use std::hash::Hash;
 use std::ops::Range;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use ecow::{eco_format, EcoString, EcoVec};
-use once_cell::sync::Lazy;
-use once_cell::unsync::Lazy as UnsyncLazy;
 use syntect::highlighting::{self as synt, Theme};
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
@@ -325,7 +324,7 @@ impl Packed<RawElem> {
             .map(|s| s.to_lowercase())
             .or(Some("txt".into()));
 
-        let extra_syntaxes = UnsyncLazy::new(|| {
+        let extra_syntaxes = LazyCell::new(|| {
             load_syntaxes(&elem.syntaxes(styles), &elem.syntaxes_data(styles)).unwrap()
         });
         let non_highlighted_result = |lines: EcoVec<(EcoString, Span)>| {
@@ -838,11 +837,11 @@ fn parse_theme(
 ///
 /// Syntax set is generated from the syntaxes from the `bat` project
 /// <https://github.com/sharkdp/bat/tree/master/assets/syntaxes>
-pub static RAW_SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(two_face::syntax::extra_no_newlines);
+pub static RAW_SYNTAXES: LazyLock<syntect::parsing::SyntaxSet> =
+    LazyLock::new(two_face::syntax::extra_no_newlines);
 
 /// The default theme used for syntax highlighting.
-pub static RAW_THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
+pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
     name: Some("Typst Light".into()),
     author: Some("The Typst Project Developers".into()),
     settings: synt::ThemeSettings::default(),

@@ -27,7 +27,6 @@ ecow = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 miniz_oxide = { workspace = true }
-once_cell = { workspace = true }
 pdf-writer = { workspace = true }
 serde = { workspace = true }
 subsetter = { workspace = true }
