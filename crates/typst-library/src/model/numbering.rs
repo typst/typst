@@ -59,7 +59,7 @@ pub fn numbering(
     context: Tracked<Context>,
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `α`, `Α`, `i`, `I`, `一`, `壹`,
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `一`, `壹`,
     /// `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, and `⓵`. They are
     /// replaced by the number in the sequence, preserving the original case.
     ///
@@ -141,9 +141,8 @@ cast! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`, `I`,
-/// `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `①`, or `⓵`, and then a
-/// suffix.
+/// A pattern consists of a prefix, followed by one of the counter symbols (see
+/// [`numbering`] docs), and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -386,8 +385,8 @@ impl NumberingKind {
             Self::Arabic => eco_format!("{n}"),
             Self::LowerRoman => roman_numeral(n, Case::Lower),
             Self::UpperRoman => roman_numeral(n, Case::Upper),
-            Self::LowerGreek => to_greek(n, Case::Lower),
-            Self::UpperGreek => to_greek(n, Case::Upper),
+            Self::LowerGreek => greek_numeral(n, Case::Lower),
+            Self::UpperGreek => greek_numeral(n, Case::Upper),
             Self::Symbol => {
                 if n == 0 {
                     return '-'.into();
@@ -513,6 +512,7 @@ impl NumberingKind {
     }
 }
 
+/// Stringify an integer to a Hebrew number.
 fn hebrew_numeral(mut n: usize) -> EcoString {
     if n == 0 {
         return '-'.into();
@@ -566,6 +566,7 @@ fn hebrew_numeral(mut n: usize) -> EcoString {
     fmt
 }
 
+/// Stringify an integer to a Roman numeral.
 fn roman_numeral(mut n: usize, case: Case) -> EcoString {
     if n == 0 {
         return match case {
@@ -613,63 +614,16 @@ fn roman_numeral(mut n: usize, case: Case) -> EcoString {
     fmt
 }
 
-/// Stringify a number using a base-N counting system with no zero digit.
+/// Stringify an integer to Greek numbers.
 ///
-/// This is best explained by example. Suppose our digits are 'A', 'B', and 'C'.
-/// We would get the following:
+/// Greek numbers use the Greek Alphabet to represent numbers; it is based on 10
+/// (decimal). Here we implement the single digit M power representation from
+/// [The Greek Number Converter][convert] and also described in
+/// [Greek Numbers][numbers].
 ///
-/// ```text
-///  1 =>   "A"
-///  2 =>   "B"
-///  3 =>   "C"
-///  4 =>  "AA"
-///  5 =>  "AB"
-///  6 =>  "AC"
-///  7 =>  "BA"
-///  8 =>  "BB"
-///  9 =>  "BC"
-/// 10 =>  "CA"
-/// 11 =>  "CB"
-/// 12 =>  "CC"
-/// 13 => "AAA"
-///    etc.
-/// ```
-///
-/// You might be familiar with this scheme from the way spreadsheet software
-/// tends to label its columns.
-fn zeroless<const N_DIGITS: usize>(
-    alphabet: [char; N_DIGITS],
-    mut n: usize,
-) -> EcoString {
-    if n == 0 {
-        return '-'.into();
-    }
-    let mut cs = EcoString::new();
-    while n > 0 {
-        n -= 1;
-        cs.push(alphabet[n % N_DIGITS]);
-        n /= N_DIGITS;
-    }
-    cs.chars().rev().collect()
-}
-
-/// Stringify a number to Greek numbers.
-///
-/// Greek numbers use the Greek Alphabet to represent numbers; it is based on 10 (decimal).
-/// Here we implement the single digit M power representation from [The Greek Number Converter](https://www.russellcottrell.com/greek/utilities/GreekNumberConverter.htm) and also described in [Greek Numbers](https://mathshistory.st-andrews.ac.uk/HistTopics/Greek_numbers/)
-/// Reference:
-///
-#[allow(non_snake_case)]
-fn to_greek(n: usize, case: Case) -> EcoString {
-    if n == 0 {
-        return '𐆊'.into(); // Greek Zero Sign https://www.compart.com/en/unicode/U+1018A
-    }
-
-    let mut fmt = EcoString::new();
-    let case = match case {
-        Case::Lower => 0,
-        Case::Upper => 1,
-    };
+/// [converter]: https://www.russellcottrell.com/greek/utilities/GreekNumberConverter.htm
+/// [numbers]: (https://mathshistory.st-andrews.ac.uk/HistTopics/Greek_numbers/)
+fn greek_numeral(n: usize, case: Case) -> EcoString {
     let thousands = [
         ["͵α", "͵Α"],
         ["͵β", "͵Β"],
@@ -714,6 +668,18 @@ fn to_greek(n: usize, case: Case) -> EcoString {
         ["η", "Η"],
         ["θ", "Θ"],
     ];
+
+    if n == 0 {
+        // Greek Zero Sign
+        return '𐆊'.into();
+    }
+
+    let mut fmt = EcoString::new();
+    let case = match case {
+        Case::Lower => 0,
+        Case::Upper => 1,
+    };
+
     // Extract a list of decimal digits from the number
     let mut decimal_digits: Vec<usize> = Vec::new();
     let mut n = n;
@@ -728,18 +694,18 @@ fn to_greek(n: usize, case: Case) -> EcoString {
     }
     decimal_digits.reverse();
 
-    let mut M_power = decimal_digits.len() / 4 - 1;
+    let mut m_power = decimal_digits.len() / 4 - 1;
 
     // M are used to represent 10000, M_power = 2 means 10000^2 = 10000 0000
     // The prefix of M is also made of Greek numerals but only be single digits, so it is 9 at max. This enables us
     // to represent up to (10000)^(9 + 1) - 1 = 10^40 -1  (9,999,999,999,999,999,999,999,999,999,999,999,999,999)
-    let get_M_prefix = |M_power: usize| {
-        if M_power == 0 {
+    let get_m_prefix = |m_power: usize| {
+        if m_power == 0 {
             None
         } else {
-            assert!(M_power <= 9);
+            assert!(m_power <= 9);
             // the prefix of M is a single digit lowercase
-            Some(ones[M_power - 1][0])
+            Some(ones[m_power - 1][0])
         }
     };
 
@@ -758,7 +724,7 @@ fn to_greek(n: usize, case: Case) -> EcoString {
             fmt.push_str(", ");
         }
 
-        if let Some(m_prefix) = get_M_prefix(M_power) {
+        if let Some(m_prefix) = get_m_prefix(m_power) {
             fmt.push_str(m_prefix);
             fmt.push_str("Μ");
         }
@@ -782,12 +748,52 @@ fn to_greek(n: usize, case: Case) -> EcoString {
         if th == 0 {
             fmt.push_str("ʹ");
         }
-        if M_power > 0 {
-            M_power = M_power.saturating_sub(1);
+        if m_power > 0 {
+            m_power = m_power.saturating_sub(1);
         }
         previous_has_number = true;
     }
     fmt
+}
+
+/// Stringify a number using a base-N counting system with no zero digit.
+///
+/// This is best explained by example. Suppose our digits are 'A', 'B', and 'C'.
+/// We would get the following:
+///
+/// ```text
+///  1 =>   "A"
+///  2 =>   "B"
+///  3 =>   "C"
+///  4 =>  "AA"
+///  5 =>  "AB"
+///  6 =>  "AC"
+///  7 =>  "BA"
+///  8 =>  "BB"
+///  9 =>  "BC"
+/// 10 =>  "CA"
+/// 11 =>  "CB"
+/// 12 =>  "CC"
+/// 13 => "AAA"
+///    etc.
+/// ```
+///
+/// You might be familiar with this scheme from the way spreadsheet software
+/// tends to label its columns.
+fn zeroless<const N_DIGITS: usize>(
+    alphabet: [char; N_DIGITS],
+    mut n: usize,
+) -> EcoString {
+    if n == 0 {
+        return '-'.into();
+    }
+    let mut cs = EcoString::new();
+    while n > 0 {
+        n -= 1;
+        cs.push(alphabet[n % N_DIGITS]);
+        n /= N_DIGITS;
+    }
+    cs.chars().rev().collect()
 }
 
 /// Stringify a number using a base-10 counting system with a zero digit.
@@ -803,45 +809,4 @@ fn decimal(start: char, mut n: usize) -> EcoString {
         n /= 10;
     }
     cs.chars().rev().collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::to_greek;
-    use super::Case;
-
-    macro_rules! greek_number_tests {
-        ($($test_name:ident: $value:expr,)*) => {
-            #[test]
-            fn greek_number_stringify_test() {
-                $(
-                    {
-                        let (number, string, case) = $value;
-                        let s: String = to_greek(number, case).to_string();
-                        assert_eq!(s, string, stringify!($test_name));
-                    }
-                )*
-            }
-        }
-    }
-
-    greek_number_tests! {
-        single_digit_1_lower: (1, "αʹ", Case::Lower),
-        single_digit_1_upper: (1, "Αʹ", Case::Upper),
-
-        three_digit_241_lower: (241, "σμαʹ", Case::Lower),
-        three_digit_241_upper: (241, "ΣΜΑʹ", Case::Upper),
-
-        four_digit_5683_lower: (5683, "͵εχπγ", Case::Lower),
-        four_digit_9184_lower: (9184, "͵θρπδ", Case::Lower),
-        four_digit_3398_lower: (3398, "͵γτϙη", Case::Lower),
-        four_digit_1005_lower: (1005, "͵αε", Case::Lower),
-
-        long_complex_0: (97_554, "αΜθʹ, ͵ζφνδ", Case::Lower),
-        long_complex_1: (2_056_839_184, "βΜκʹ, αΜ͵εχπγ, ͵θρπδ", Case::Lower),
-        long_complex_2: (12_312_398_676, "βΜρκγʹ, αΜ͵ασλθ, ͵ηχοϛ", Case::Lower),
-
-        trailing_high_digit_0: (2_000_000_000, "βΜκʹ", Case::Lower),
-        trailing_high_digit_1: (90_000_001, "αΜ͵θ, αʹ", Case::Lower),
-    }
 }
