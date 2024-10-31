@@ -22,7 +22,6 @@ arrayvec = { workspace = true }
 bumpalo = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-once_cell = { workspace = true }
 regex = { workspace = true }
 
 [lints]
