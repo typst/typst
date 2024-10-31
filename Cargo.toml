@@ -129,7 +129,7 @@ unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.43", default-features = false, features = ["text"] }
 walkdir = "2"
-wasmi = "0.35.0"
+wasmi = "0.38.0"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xmp-writer = "0.3"
