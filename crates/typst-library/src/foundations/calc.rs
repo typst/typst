@@ -50,6 +50,7 @@ pub fn module() -> Module {
     scope.define_func::<div_euclid>();
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
+    scope.define_func::<norm>();
     scope.define("inf", f64::INFINITY);
     scope.define("pi", std::f64::consts::PI);
     scope.define("tau", std::f64::consts::TAU);
@@ -1054,6 +1055,38 @@ pub fn quo(
         .at(span)?;
 
     floor(divided).at(span)
+}
+
+/// Calculates the p-norm of a sequence of values.
+///
+/// ```example
+/// #calc.norm(1, 2, -3, 0.5) \
+/// #calc.norm(p: 3, 1, 2)
+/// ```
+#[func(title = "𝑝-Norm")]
+pub fn norm(
+    /// The p value to calculate the p-norm of.
+    #[named]
+    #[default(Spanned::new(2.0, Span::detached()))]
+    p: Spanned<f64>,
+    /// The sequence of values from which to calculate the p-norm.
+    /// Returns `0.0` if empty.
+    #[variadic]
+    values: Vec<f64>,
+) -> SourceResult<f64> {
+    if p.v <= 0.0 {
+        bail!(p.span, "p must be greater than zero");
+    }
+
+    // Create an iterator over the absolute values.
+    let abs = values.into_iter().map(f64::abs);
+
+    Ok(if p.v.is_infinite() {
+        // When p is infinity, the p-norm is the maximum of the absolute values.
+        abs.max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0)
+    } else {
+        abs.map(|v| v.powf(p.v)).sum::<f64>().powf(1.0 / p.v)
+    })
 }
 
 /// A value which can be passed to functions that work with integers and floats.
