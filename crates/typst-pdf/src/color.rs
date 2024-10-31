@@ -1,9 +1,10 @@
+use std::sync::LazyLock;
+
 use arrayvec::ArrayVec;
-use once_cell::sync::Lazy;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
-use typst::diag::{bail, SourceResult};
-use typst::syntax::Span;
-use typst::visualize::{Color, ColorSpace, Paint};
+use typst_library::diag::{bail, SourceResult};
+use typst_library::visualize::{Color, ColorSpace, Paint};
+use typst_syntax::Span;
 
 use crate::{content, deflate, PdfChunk, PdfOptions, Renumber, WithResources};
 
@@ -13,10 +14,10 @@ pub const D65_GRAY: Name<'static> = Name(b"d65gray");
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
 
 // The ICC profiles.
-static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_RGB_V4));
-static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_GREY_V4));
+static SRGB_ICC_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(typst_assets::icc::S_RGB_V4));
+static GRAY_ICC_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(typst_assets::icc::S_GREY_V4));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]

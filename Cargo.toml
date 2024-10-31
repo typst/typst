@@ -4,8 +4,8 @@ default-members = ["crates/typst-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.11.0"
-rust-version = "1.77" # also change in ci.yml
+version = "0.12.0"
+rust-version = "1.80" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"
 homepage = "https://typst.app"
@@ -16,42 +16,47 @@ keywords = ["typst"]
 readme = "README.md"
 
 [workspace.dependencies]
-typst = { path = "crates/typst", version = "0.11.0" }
-typst-cli = { path = "crates/typst-cli", version = "0.11.0" }
-typst-ide = { path = "crates/typst-ide", version = "0.11.0" }
-typst-kit = { path = "crates/typst-kit", version = "0.11.0" }
-typst-macros = { path = "crates/typst-macros", version = "0.11.0" }
-typst-pdf = { path = "crates/typst-pdf", version = "0.11.0" }
-typst-render = { path = "crates/typst-render", version = "0.11.0" }
-typst-svg = { path = "crates/typst-svg", version = "0.11.0" }
-typst-syntax = { path = "crates/typst-syntax", version = "0.11.0" }
-typst-timing = { path = "crates/typst-timing", version = "0.11.0" }
-typst-utils = { path = "crates/typst-utils", version = "0.11.0" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "4afd428" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "e9f8127" }
+typst = { path = "crates/typst", version = "0.12.0" }
+typst-cli = { path = "crates/typst-cli", version = "0.12.0" }
+typst-eval = { path = "crates/typst-eval", version = "0.12.0" }
+typst-ide = { path = "crates/typst-ide", version = "0.12.0" }
+typst-kit = { path = "crates/typst-kit", version = "0.12.0" }
+typst-layout = { path = "crates/typst-layout", version = "0.12.0" }
+typst-library = { path = "crates/typst-library", version = "0.12.0" }
+typst-macros = { path = "crates/typst-macros", version = "0.12.0" }
+typst-pdf = { path = "crates/typst-pdf", version = "0.12.0" }
+typst-realize = { path = "crates/typst-realize", version = "0.12.0" }
+typst-render = { path = "crates/typst-render", version = "0.12.0" }
+typst-svg = { path = "crates/typst-svg", version = "0.12.0" }
+typst-syntax = { path = "crates/typst-syntax", version = "0.12.0" }
+typst-timing = { path = "crates/typst-timing", version = "0.12.0" }
+typst-utils = { path = "crates/typst-utils", version = "0.12.0" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "5c0dcc0" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "b07d156" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
-bumpalo = { version = "3", features = ["boxed", "collections"] }
+bumpalo = { version = "3.15.4", features = ["boxed", "collections"] }
 bytemuck = "1"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 ciborium = "0.2.1"
-clap = { version = "4.4", features = ["derive", "env"] }
+clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
-ctrlc = "3.4.1"
 codespan-reporting = "0.11"
+color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
+ctrlc = "3.4.1"
 dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
 fontdb = { version = "0.21", default-features = false }
 fs_extra = "1.3"
-hayagriva = "0.7.0"
+hayagriva = "0.8"
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }
@@ -84,8 +89,8 @@ png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
 pulldown-cmark = "0.9"
-quote = "1"
 qcms = "0.3.0"
+quote = "1"
 rayon = "1.7.0"
 regex = "1"
 resvg = { version = "0.43", default-features = false, features = ["raster-images"] }
@@ -124,7 +129,7 @@ unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.43", default-features = false, features = ["text"] }
 walkdir = "2"
-wasmi = "0.35.0"
+wasmi = "0.38.0"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xmp-writer = "0.3"
@@ -144,5 +149,8 @@ strip = true
 
 [workspace.lints.clippy]
 blocks_in_conditions = "allow"
+comparison_chain = "allow"
+manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"
+wildcard_in_or_patterns = "allow"

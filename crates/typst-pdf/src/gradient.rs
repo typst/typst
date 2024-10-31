@@ -6,18 +6,17 @@ use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
 use pdf_writer::writers::StreamShadingType;
 use pdf_writer::{Filter, Finish, Name, Ref};
-use typst::diag::SourceResult;
-use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
-use typst::utils::Numeric;
-use typst::visualize::{
+use typst_library::diag::SourceResult;
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
+use typst_library::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
+use typst_utils::Numeric;
 
 use crate::color::{
     self, check_cmyk_allowed, ColorSpaceExt, PaintEncode, QuantizedColor,
 };
-use crate::{content, WithGlobalRefs};
-use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
+use crate::{content, deflate, transform_to_array, AbsExt, PdfChunk, WithGlobalRefs};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.

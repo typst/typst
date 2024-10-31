@@ -9,12 +9,15 @@ A#footnote[A] \
 A #footnote[A]
 
 --- footnote-nested ---
-// Currently, numbers a bit out of order if a nested footnote ends up in the
-// same frame as another one. :(
 First \
 Second #footnote[A, #footnote[B, #footnote[C]]]
 Third #footnote[D, #footnote[E]] \
 Fourth #footnote[F]
+
+--- footnote-nested-break-across-pages ---
+#set page(height: 80pt)
+A #footnote([I: ] + lines(6) + footnote[II])
+B #footnote[III]
 
 --- footnote-entry ---
 // Test customization.
@@ -110,6 +113,14 @@ Beautiful footnotes. #footnote[Wonderful, aren't they?]
 #set page(height: 50pt)
 A
 #block(footnote[hello])
+
+--- footnote-block-fr ---
+#set page(height: 110pt)
+A
+#block(width: 100%, height: 1fr, fill: aqua)[
+  B #footnote[I] #footnote[II]
+]
+C
 
 --- footnote-float-priority ---
 #set page(height: 100pt)

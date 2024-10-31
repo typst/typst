@@ -1,0 +1,28 @@
+[package]
+name = "typst-realize"
+description = "Typst's realization subsystem."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+typst-library = { workspace = true }
+typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+arrayvec = { workspace = true }
+bumpalo = { workspace = true }
+comemo = { workspace = true }
+ecow = { workspace = true }
+regex = { workspace = true }
+
+[lints]
+workspace = true

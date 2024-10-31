@@ -28,17 +28,15 @@ impl Parse for Meta {
 
 fn create(meta: Meta, mut item: syn::ItemFn) -> TokenStream {
     let name = meta.name.unwrap_or_else(|| item.sig.ident.to_string());
-    let span = meta
-        .span
-        .as_ref()
-        .map(|span| quote! { Some(#span) })
-        .unwrap_or_else(|| quote! { None });
+    let construct = match meta.span.as_ref() {
+        Some(span) => quote! { with_span(#name, Some(#span.into_raw())) },
+        None => quote! { new(#name) },
+    };
 
     item.block.stmts.insert(
         0,
         parse_quote! {
-            #[cfg(not(target_arch = "wasm32"))]
-            let __scope = ::typst_timing::TimingScope::new(#name, #span);
+            let __scope = ::typst_timing::TimingScope::#construct;
         },
     );
 

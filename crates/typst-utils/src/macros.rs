@@ -2,8 +2,7 @@
 #[macro_export]
 macro_rules! singleton {
     ($ty:ty, $value:expr) => {{
-        static VALUE: $crate::once_cell::sync::Lazy<$ty> =
-            $crate::once_cell::sync::Lazy::new(|| $value);
+        static VALUE: ::std::sync::LazyLock<$ty> = ::std::sync::LazyLock::new(|| $value);
         &*VALUE
     }};
 }

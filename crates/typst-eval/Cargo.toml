@@ -1,0 +1,32 @@
+[package]
+name = "typst-eval"
+description = "Typst's code interpreter."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+typst-library = { workspace = true }
+typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+comemo = { workspace = true }
+ecow = { workspace = true }
+if_chain = { workspace = true }
+indexmap = { workspace = true }
+toml = { workspace = true }
+unicode-segmentation = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+stacker = { workspace = true }
+
+[lints]
+workspace = true

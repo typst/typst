@@ -12,9 +12,9 @@ pub use self::model::*;
 use std::collections::HashSet;
 
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_yaml as yaml;
+use std::sync::LazyLock;
 use typst::diag::{bail, StrResult};
 use typst::foundations::{
     AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
@@ -37,7 +37,7 @@ macro_rules! load {
     };
 }
 
-static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
+static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
     let mut groups: Vec<GroupData> =
         yaml::from_str(load!("reference/groups.yml")).unwrap();
     for group in &mut groups {
@@ -54,7 +54,7 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
     groups
 });
 
-static LIBRARY: Lazy<LazyHash<Library>> = Lazy::new(|| {
+static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     let mut lib = Library::default();
     let scope = lib.global.scope_mut();
 
@@ -74,7 +74,7 @@ static LIBRARY: Lazy<LazyHash<Library>> = Lazy::new(|| {
     LazyHash::new(lib)
 });
 
-static FONTS: Lazy<(LazyHash<FontBook>, Vec<Font>)> = Lazy::new(|| {
+static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
     let fonts: Vec<_> = typst_assets::fonts()
         .chain(typst_dev_assets::fonts())
         .flat_map(|data| Font::iter(Bytes::from_static(data)))
@@ -91,8 +91,7 @@ pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
         tutorial_pages(resolver),
         reference_pages(resolver),
         guide_pages(resolver),
-        packages_page(resolver),
-        md_page(resolver, base, load!("changelog.md")),
+        changelog_pages(resolver),
     ]
 }
 
@@ -120,11 +119,11 @@ pub trait Resolver {
 fn md_page(resolver: &dyn Resolver, parent: &str, md: &str) -> PageModel {
     assert!(parent.starts_with('/') && parent.ends_with('/'));
     let html = Html::markdown(resolver, md, Some(0));
-    let title: EcoString = html.title().expect("chapter lacks a title").into();
+    let title = html.title().expect("chapter lacks a title");
     PageModel {
-        route: eco_format!("{parent}{}/", urlify(&title)),
-        title,
-        description: html.description().unwrap(),
+        route: eco_format!("{parent}{}/", urlify(title)),
+        title: title.into(),
+        description: html.description().expect("chapter lacks a description"),
         part: None,
         outline: html.outline(),
         body: BodyModel::Html(html),
@@ -179,21 +178,27 @@ fn guide_pages(resolver: &dyn Resolver) -> PageModel {
     page
 }
 
-/// Build the packages section.
-fn packages_page(resolver: &dyn Resolver) -> PageModel {
-    PageModel {
-        route: eco_format!("{}packages/", resolver.base()),
-        title: "Packages".into(),
-        description: "Packages for Typst.".into(),
-        part: None,
-        outline: vec![],
-        body: BodyModel::Packages(Html::markdown(
-            resolver,
-            load!("reference/packages.md"),
-            Some(1),
-        )),
-        children: vec![],
-    }
+/// Build the changelog section.
+fn changelog_pages(resolver: &dyn Resolver) -> PageModel {
+    let mut page = md_page(resolver, resolver.base(), load!("changelog/welcome.md"));
+    let base = format!("{}changelog/", resolver.base());
+    page.children = vec![
+        md_page(resolver, &base, load!("changelog/0.12.0.md")),
+        md_page(resolver, &base, load!("changelog/0.11.1.md")),
+        md_page(resolver, &base, load!("changelog/0.11.0.md")),
+        md_page(resolver, &base, load!("changelog/0.10.0.md")),
+        md_page(resolver, &base, load!("changelog/0.9.0.md")),
+        md_page(resolver, &base, load!("changelog/0.8.0.md")),
+        md_page(resolver, &base, load!("changelog/0.7.0.md")),
+        md_page(resolver, &base, load!("changelog/0.6.0.md")),
+        md_page(resolver, &base, load!("changelog/0.5.0.md")),
+        md_page(resolver, &base, load!("changelog/0.4.0.md")),
+        md_page(resolver, &base, load!("changelog/0.3.0.md")),
+        md_page(resolver, &base, load!("changelog/0.2.0.md")),
+        md_page(resolver, &base, load!("changelog/0.1.0.md")),
+        md_page(resolver, &base, load!("changelog/earlier.md")),
+    ];
+    page
 }
 
 /// Create a page for a category.
@@ -707,7 +712,7 @@ pub fn urlify(title: &str) -> EcoString {
         .chars()
         .map(|c| c.to_ascii_lowercase())
         .map(|c| match c {
-            'a'..='z' | '0'..='9' => c,
+            'a'..='z' | '0'..='9' | '.' => c,
             _ => '-',
         })
         .collect()

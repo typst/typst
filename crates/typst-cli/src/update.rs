@@ -17,6 +17,28 @@ use crate::download::{self, PrintDownload};
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
 
+/// Determine the asset to download based on the target platform.
+///
+/// See `.github/workflows/release.yml` for the list of prebuilt assets.
+macro_rules! determine_asset {
+    () => {
+        // For some platforms, only some targets are prebuilt in the release.
+        determine_asset!(__impl: {
+            "x86_64-unknown-linux-gnu" => "x86_64-unknown-linux-musl",
+            "aarch64-unknown-linux-gnu" => "aarch64-unknown-linux-musl",
+            "armv7-unknown-linux-gnueabi" => "armv7-unknown-linux-musleabi",
+            "riscv64gc-unknown-linux-musl" => "riscv64gc-unknown-linux-gnu",
+        })
+    };
+
+    (__impl: { $($origin:literal => $target:literal),* $(,)? }) => {
+        match env!("TARGET") {
+            $($origin => concat!("typst-", $target),)*
+            _ => concat!("typst-", env!("TARGET")),
+        }
+    };
+}
+
 /// Self update the Typst CLI binary.
 ///
 /// Fetches a target release or the latest release (if no version was specified)
@@ -77,7 +99,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         return Ok(());
     }
 
-    let binary_data = release.download_binary(needed_asset()?, &downloader)?;
+    let binary_data = release.download_binary(determine_asset!(), &downloader)?;
     let mut temp_exe = NamedTempFile::new()
         .map_err(|err| eco_format!("failed to create temporary file ({err})"))?;
     temp_exe
@@ -141,11 +163,12 @@ impl Release {
         asset_name: &str,
         downloader: &Downloader,
     ) -> StrResult<Vec<u8>> {
-        let asset = self
-            .assets
-            .iter()
-            .find(|a| a.name.starts_with(asset_name))
-            .ok_or("could not find release for your target platform")?;
+        let asset = self.assets.iter().find(|a| a.name.starts_with(asset_name)).ok_or(
+            eco_format!(
+                "could not find prebuilt binary `{}` for your platform",
+                asset_name
+            ),
+        )?;
 
         let data = match downloader.download_with_progress(
             &asset.browser_download_url,
@@ -201,22 +224,6 @@ fn extract_binary_from_tar_xz(data: &[u8]) -> StrResult<Vec<u8>> {
     })?;
 
     Ok(buffer)
-}
-
-/// Determine what asset to download according to the target platform the CLI
-/// is running on.
-fn needed_asset() -> StrResult<&'static str> {
-    Ok(match env!("TARGET") {
-        "x86_64-unknown-linux-gnu" => "typst-x86_64-unknown-linux-musl",
-        "x86_64-unknown-linux-musl" => "typst-x86_64-unknown-linux-musl",
-        "aarch64-unknown-linux-musl" => "typst-aarch64-unknown-linux-musl",
-        "aarch64-unknown-linux-gnu" => "typst-aarch64-unknown-linux-musl",
-        "armv7-unknown-linux-musleabi" => "typst-armv7-unknown-linux-musleabi",
-        "x86_64-apple-darwin" => "typst-x86_64-apple-darwin",
-        "aarch64-apple-darwin" => "typst-aarch64-apple-darwin",
-        "x86_64-pc-windows-msvc" => "typst-x86_64-pc-windows-msvc",
-        target => bail!("unsupported target: {target}"),
-    })
 }
 
 /// Compare the release version to the CLI version to see if an update is needed.

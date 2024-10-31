@@ -180,6 +180,12 @@ A
 #colbreak()
 C
 
+--- block-sticky-breakable ---
+// Ensure that sticky blocks are still breakable.
+#set page(height: 60pt)
+#block(sticky: true, lines(4))
+E
+
 --- box-clip-rect ---
 // Test box clipping with a rectangle
 Hello #box(width: 1em, height: 1em, clip: false)[#rect(width: 3em, height: 3em, fill: red)]
@@ -239,6 +245,19 @@ First!
 
 #box(
   radius: 5pt,
+  width: 20pt,
+  height: 20pt,
+  clip: true,
+  image("/assets/images/rhino.png", width: 30pt)
+)
+
+--- box-clip-outset ---
+// Test clipping with `outset`.
+#set page(height: 60pt)
+
+#box(
+  outset: 5pt,
+  stroke: 2pt + black,
   width: 20pt,
   height: 20pt,
   clip: true,

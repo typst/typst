@@ -262,6 +262,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
         let ident_data = quote::format_ident!("{ident}_data");
         quote! {
             #[doc(hidden)]
+            #[allow(non_snake_case)]
             #vis fn #ident_data() -> &'static #foundations::NativeFuncData {
                 static DATA: #foundations::NativeFuncData = #data;
                 &DATA
@@ -320,9 +321,9 @@ fn create_func_data(func: &Func) -> TokenStream {
             docs: #docs,
             keywords: &[#(#keywords),*],
             contextual: #contextual,
-            scope: #foundations::Lazy::new(|| #scope),
-            params: #foundations::Lazy::new(|| ::std::vec![#(#params),*]),
-            returns:  #foundations::Lazy::new(|| <#returns as #foundations::Reflect>::output()),
+            scope: ::std::sync::LazyLock::new(|| #scope),
+            params: ::std::sync::LazyLock::new(|| ::std::vec![#(#params),*]),
+            returns:  ::std::sync::LazyLock::new(|| <#returns as #foundations::Reflect>::output()),
         }
     }
 }

@@ -200,13 +200,13 @@ impl<T: Parse> Parse for Array<T> {
     }
 }
 
-/// Shorthand for `::typst::foundations`.
+/// Shorthand for `::typst_library::foundations`.
 #[allow(non_camel_case_types)]
 pub struct foundations;
 
 impl quote::ToTokens for foundations {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        quote! { ::typst::foundations }.to_tokens(tokens);
+        quote! { ::typst_library::foundations }.to_tokens(tokens);
     }
 }
 
