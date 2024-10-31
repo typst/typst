@@ -17,10 +17,10 @@ use crate::model::Numbering;
 ///
 /// # Locatable elements { #locatable }
 /// Currently, only a subset of element functions is locatable. Aside from
-/// headings and figures, this includes equations, references and all elements
-/// with an explicit label. As a result, you _can_ query for e.g. [`strong`]
-/// elements, but you will find only those that have an explicit label attached
-/// to them. This limitation will be resolved in the future.
+/// headings and figures, this includes equations, references, quotes and all
+/// elements with an explicit label. As a result, you _can_ query for e.g.
+/// [`strong`] elements, but you will find only those that have an explicit
+/// label attached to them. This limitation will be resolved in the future.
 #[ty(scope)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location(u128);
@@ -85,8 +85,8 @@ impl Location {
     /// local numbering. This is useful if you are building custom indices or
     /// outlines.
     ///
-    /// If the page numbering is set to `none` at that location, this function
-    /// returns `none`.
+    /// If the page numbering is set to `{none}` at that location, this function
+    /// returns `{none}`.
     #[func]
     pub fn page_numbering(self, engine: &mut Engine) -> Option<Numbering> {
         engine.introspector.page_numbering(self).cloned()
@@ -105,5 +105,9 @@ impl Repr for Location {
     }
 }
 
-/// Makes this element locatable through `engine.locate`.
+/// Makes this element as locatable through the introspector.
 pub trait Locatable {}
+
+/// Marks this element as not being queryable even though it is locatable for
+/// internal reasons.
+pub trait Unqueriable {}

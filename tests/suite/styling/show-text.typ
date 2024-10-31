@@ -131,3 +131,92 @@ Heya
 #show "Heya": set text(red)
 #show   "yaho": set text(weight: "bold")
 Heyaho
+
+--- show-text-smartquote ---
+#show "up,\" she": set text(red)
+"What's up," she asked.
+
+--- show-text-apostrophe ---
+#show regex("Who's|We've"): highlight
+Who's got it? \
+We've got it.
+
+--- show-text-citation ---
+#show "hey": [@arrgh]
+@netwok hey
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
+--- show-text-list ---
+#show "hi": [- B]
+- A
+hi
+- C
+
+--- show-text-citation-smartquote ---
+#show "hey \"": [@arrgh]
+#show "dis": [@distress]
+@netwok hey " dis
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
+
+--- show-text-in-citation ---
+#show "A": "B"
+#show "[": "("
+#show "]": ")"
+#show "[2]": set text(red)
+
+@netwok A \
+@arrgh B
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
+--- show-text-linebreak ---
+#show "lo\nwo": set text(red)
+Hello #[ ] \
+#[ ] #[ ] world!
+
+--- show-text-line-wrapping ---
+#show "start end": "word"
+start
+end
+
+--- show-text-after-normal-show ---
+#show rect: "world"
+#show "lo wo": set text(red)
+hello #rect()
+
+--- show-text-space-collapsing ---
+#show "i ther": set text(red)
+hi#[ ]#[ ]the#"re"
+
+--- show-text-style-boundary ---
+#show "What's up": set text(blue)
+#show "your party": underline
+What's #[ ] up at #"your" #text(red)[party?]
+
+--- show-text-within-par ---
+#show "Pythagoras'": highlight
+$a^2 + b^2 = c^2$ is Pythagoras' theorem.
+
+--- show-text-outer-space ---
+// Spaces must be interior to strong textual elements for matching to work.
+// For outer spaces, it is hard to say whether they would collapse.
+#show "a\n": set text(blue)
+#show "b\n ": set text(blue)
+#show " c ": set text(blue)
+a \ #h(0pt, weak: true)
+b \ #h(0pt, weak: true)
+$x$ c $y$
+
+--- issue-5014-show-text-tags ---
+#{
+  let c = counter("c")
+  show "b": context c.get().first()
+  [a]
+  c.step()
+  [bc]
+}

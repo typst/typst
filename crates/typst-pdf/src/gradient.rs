@@ -3,19 +3,19 @@ use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use pdf_writer::{
-    types::{ColorSpaceOperand, FunctionShadingType},
-    writers::StreamShadingType,
-    Filter, Finish, Name, Ref,
-};
-
+use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
+use pdf_writer::writers::StreamShadingType;
+use pdf_writer::{Filter, Finish, Name, Ref};
+use typst::diag::SourceResult;
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::utils::Numeric;
 use typst::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
 
-use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
+use crate::color::{
+    self, check_cmyk_allowed, ColorSpaceExt, PaintEncode, QuantizedColor,
+};
 use crate::{content, WithGlobalRefs};
 use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
 
@@ -38,7 +38,7 @@ pub struct PdfGradient {
 /// This is performed once after writing all pages.
 pub fn write_gradients(
     context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
+) -> SourceResult<(PdfChunk, HashMap<PdfGradient, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
@@ -57,6 +57,10 @@ pub fn write_gradients(
             } else {
                 gradient.space()
             };
+
+            if color_space == ColorSpace::Cmyk {
+                check_cmyk_allowed(context.options)?;
+            }
 
             let mut shading_pattern = match &gradient {
                 Gradient::Linear(_) => {
@@ -161,12 +165,14 @@ pub fn write_gradients(
 
             shading_pattern.matrix(transform_to_array(*transform));
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
-/// Writes an expotential or stitched function that expresses the gradient.
+/// Writes an exponential or stitched function that expresses the gradient.
 fn shading_function(
     gradient: &Gradient,
     chunk: &mut PdfChunk,
@@ -181,9 +187,9 @@ fn shading_function(
     for window in gradient.stops_ref().windows(2) {
         let (first, second) = (window[0], window[1]);
 
-        // If we have a hue index, we will create several stops in-between
-        // to make the gradient smoother without interpolation issues with
-        // native color spaces.
+        // If we have a hue index or are using Oklab, we will create several
+        // stops in-between to make the gradient smoother without interpolation
+        // issues with native color spaces.
         let mut last_c = first.0;
         if gradient.space().hue_index().is_some() {
             for i in 0..=32 {
@@ -223,7 +229,7 @@ fn shading_function(
     function
 }
 
-/// Writes an expontential function that expresses a single segment (between two
+/// Writes an exponential function that expresses a single segment (between two
 /// stops) of a gradient.
 fn single_gradient(
     chunk: &mut PdfChunk,
@@ -249,7 +255,7 @@ impl PaintEncode for Gradient {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_fill_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -258,6 +264,7 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
+        Ok(())
     }
 
     fn set_as_stroke(
@@ -265,7 +272,7 @@ impl PaintEncode for Gradient {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_stroke_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -274,6 +281,7 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        Ok(())
     }
 }
 

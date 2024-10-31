@@ -127,8 +127,6 @@ Year	Month	Day
 #set page(width: 180pt)
 #set text(6pt)
 
-#lorem(20)
-
 ```py
 def something(x):
   return x
@@ -137,28 +135,47 @@ a = 342395823859823958329
 b = 324923
 ```
 
-#lorem(20)
-
 --- raw-align-specified ---
 // Text inside raw block should follow the specified alignment.
 #set page(width: 180pt)
 #set text(6pt)
 
-#lorem(20)
 #align(center, raw(
   lang: "typ",
   block: true,
   align: right,
   "#let f(x) = x\n#align(center, line(length: 1em))",
 ))
-#lorem(20)
 
 --- raw-align-invalid ---
 // Error: 17-20 expected `start`, `left`, `center`, `right`, or `end`, found top
 #set raw(align: top)
 
+--- raw-inline-multiline ---
+#set page(width: 180pt)
+#set text(6pt)
+#set raw(lang:"python")
+
+Inline raws, multiline e.g. `for i in range(10):
+  # Only this line is a comment.
+  print(i)` or otherwise e.g. `print(j)`, are colored properly.
+
+Inline raws, multiline e.g. `
+# Appears blocky due to linebreaks at the boundary.
+for i in range(10):
+  print(i)
+` or otherwise e.g. `print(j)`, are colored properly.
+
 --- raw-highlight-typ ---
-// LARGE
+```typ
+= Chapter 1
+#lorem(100)
+
+#let hi = "Hello World"
+#show heading: emph
+```
+
+--- raw-highlight-typc ---
 #set page(width: auto)
 
 ```typ
@@ -184,45 +201,35 @@ b = 324923
 #{ hello }
 #{ hello() }
 #{ hello.world() }
-$ hello $
-$ hello() $
-$ box[] $
-$ hello.world $
-$ hello.world() $
-$ hello.my.world() $
-$ f_zeta(x), f_zeta(x)/1 $
-$ emph(hello.my.world()) $
-$ emph(hello.my().world) $
-$ emph(hello.my().world()) $
-$ #hello $
-$ #hello() $
-$ #hello.world $
-$ #hello.world() $
-$ #box[] $
 #if foo []
 ```
 
---- raw-highlight ---
-#set page(width: 180pt)
-#set text(6pt)
-#show raw: it => rect(
-  width: 100%,
-  inset: (x: 4pt, y: 5pt),
-  radius: 4pt,
-  fill: rgb(239, 241, 243),
-  place(right, text(luma(110), it.lang)) + it,
-)
-
-```typ
-= Chapter 1
-#lorem(100)
-
-#let hi = "Hello World"
-#show heading: emph
+--- raw-highlight-typm ---
+#set page(width: auto)
+```typm
+1 + 2/3
+a^b
+hello
+hello()
+box[]
+hello.world
+hello.world()
+hello.my.world()
+f_zeta(x), f_zeta(x)/1
+emph(hello.my.world())
+emph(hello.my().world)
+emph(hello.my().world())
+#hello
+#hello()
+#hello.world
+#hello.world()
+#box[]
 ```
+--- raw-highlight-rust ---
+#set page(width: auto)
 
 ```rust
-/// A carefully designed state machine.
+/// A state machine.
 #[derive(Debug)]
 enum State<'a> { A(u8), B(&'a str) }
 
@@ -231,12 +238,18 @@ fn advance(state: State<'_>) -> State<'_> {
 }
 ```
 
+--- raw-highlight-py ---
+#set page(width: auto)
+
 ```py
 import this
 
 def hi():
   print("Hi!")
 ```
+
+--- raw-highlight-cpp ---
+#set page(width: auto)
 
 ```cpp
 #include <iostream>
@@ -246,46 +259,26 @@ int main() {
 }
 ```
 
-```julia
-# Add two numbers
-function add(x, y)
-    return x * y
-end
+--- raw-highlight-html ---
+#set page(width: auto)
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <h1>Topic</h1>
+    <p>The Hypertext Markup Language.</p>
+    <script>
+      function foo(a, b) {
+        return a + b + "string";
+      }
+    </script>
+  </body>
+</html>
 ```
-
-    // Try with some indent.
-    ```html
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-      </head>
-      <body>
-        <h1>Topic</h1>
-        <p>The Hypertext Markup Language.</p>
-        <script>
-          function foo(a, b) {
-            return a + b + "string";
-          }
-        </script>
-      </body>
-    </html>
-    ```
-
---- raw-inline-multiline ---
-#set page(width: 180pt)
-#set text(6pt)
-#set raw(lang:"python")
-
-Inline raws, multiline e.g. `for i in range(10):
-  # Only this line is a comment.
-  print(i)` or otherwise e.g. `print(j)`, are colored properly.
-
-Inline raws, multiline e.g. `
-# Appears blocky due to linebreaks at the boundary.
-for i in range(10):
-  print(i)
-` or otherwise e.g. `print(j)`, are colored properly.
 
 --- raw-blocky ---
 // Test various raw parsing edge cases.
@@ -448,8 +441,8 @@ test
 )
 
 #for c in cases {
-  assert.eq(c.text, c.input.text, message: "in point " + c.name + ", expect " + repr(c.text) + ", got " + repr(c.input.text) + "")
   let block = c.at("block", default: false)
+  assert.eq(c.text, c.input.text, message: "in point " + c.name + ", expect " + repr(c.text) + ", got " + repr(c.input.text) + "")
   assert.eq(block, c.input.block, message: "in point " + c.name + ", expect " + repr(block) + ", got " + repr(c.input.block) + "")
 }
 
@@ -584,6 +577,10 @@ if true {
 	f()	// typc
 }
 ```
+
+--- issue-4662-math-mode-language-for-raw ---
+// Test lang: "typm" syntax highlighting without enclosing dollar signs
+#raw("pi^2", lang: "typm")
 
 --- issue-2259-raw-color-overwrite ---
 // Test that the color of a raw block is not overwritten

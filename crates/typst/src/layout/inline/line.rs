@@ -3,7 +3,10 @@ use std::ops::{Deref, DerefMut};
 
 use super::*;
 use crate::engine::Engine;
+use crate::foundations::NativeElement;
+use crate::introspection::{SplitLocator, Tag};
 use crate::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use crate::model::{ParLine, ParLineMarker};
 use crate::text::{Lang, TextElem};
 use crate::utils::Numeric;
 
@@ -178,7 +181,7 @@ pub fn line<'a>(
 /// example, the `range` may span "hello\n", but the `trim` specifies that the
 /// linebreak is trimmed.
 ///
-/// We do not factor the `trim` diredctly into the `range` because we still want
+/// We do not factor the `trim` directly into the `range` because we still want
 /// to keep non-text items after the trim (e.g. tags).
 fn collect_items<'a>(
     engine: &Engine,
@@ -222,7 +225,7 @@ fn collect_items<'a>(
     items
 }
 
-/// Calls `f` for the the BiDi-reordered ranges of a line.
+/// Calls `f` for the BiDi-reordered ranges of a line.
 fn reorder<F>(p: &Preparation, range: Range, mut f: F)
 where
     F: FnMut(Range, bool),
@@ -256,7 +259,7 @@ where
     }
 }
 
-/// Collects / reshapes all items for the given `subrange` with continous
+/// Collects / reshapes all items for the given `subrange` with continuous
 /// direction.
 fn collect_range<'a>(
     engine: &Engine,
@@ -406,6 +409,7 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
 }
 
 /// Commit to a line and build its frame.
+#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
@@ -413,6 +417,8 @@ pub fn commit(
     width: Abs,
     full: Abs,
     shrink: bool,
+    locator: &mut SplitLocator<'_>,
+    styles: StyleChain,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
@@ -505,28 +511,25 @@ pub fn commit(
                     let region = Size::new(amount, full);
                     let mut frame =
                         elem.layout(engine, loc.relayout(), *styles, region)?;
-                    frame.post_process(*styles);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                    push(&mut offset, frame);
+                    push(&mut offset, frame.post_processed(*styles));
                 } else {
                     offset += amount;
                 }
             }
             Item::Text(shaped) => {
-                let mut frame = shaped.build(
+                let frame = shaped.build(
                     engine,
                     &p.spans,
                     justification_ratio,
                     extra_justification,
                 );
-                frame.post_process(shaped.styles);
-                push(&mut offset, frame);
+                push(&mut offset, frame.post_processed(shaped.styles));
             }
             Item::Frame(frame, styles) => {
                 let mut frame = frame.clone();
-                frame.post_process(*styles);
                 frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                push(&mut offset, frame);
+                push(&mut offset, frame.post_processed(*styles));
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
@@ -546,6 +549,8 @@ pub fn commit(
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 
+    add_par_line_marker(&mut output, styles, engine, locator, top);
+
     // Construct the line's frame.
     for (offset, frame) in frames {
         let x = offset + p.align.position(remaining);
@@ -554,6 +559,50 @@ pub fn commit(
     }
 
     Ok(output)
+}
+
+/// Adds a paragraph line marker to a paragraph line's output frame if
+/// line numbering is not `None` at this point. Ensures other style properties,
+/// namely number margin, number align and number clearance, are stored in the
+/// marker as well.
+///
+/// The `top` parameter is used to ensure the marker, and thus the line's
+/// number in the margin, is aligned to the line's baseline.
+fn add_par_line_marker(
+    output: &mut Frame,
+    styles: StyleChain,
+    engine: &mut Engine,
+    locator: &mut SplitLocator,
+    top: Abs,
+) {
+    let Some(numbering) = ParLine::numbering_in(styles) else { return };
+    let margin = ParLine::number_margin_in(styles);
+    let align = ParLine::number_align_in(styles);
+
+    // Delay resolving the number clearance until line numbers are laid out to
+    // avoid inconsistent spacing depending on varying font size.
+    let clearance = ParLine::number_clearance_in(styles);
+
+    // Elements in tags must have a location for introspection to work. We do
+    // the work here instead of going through all of the realization process
+    // just for this, given we don't need to actually place the marker as we
+    // manually search for it in the frame later (when building a root flow,
+    // where line numbers can be displayed), so we just need it to be in a tag
+    // and to be valid (to have a location).
+    let mut marker = ParLineMarker::new(numbering, align, margin, clearance).pack();
+    let key = crate::utils::hash128(&marker);
+    let loc = locator.next_location(engine.introspector, key);
+    marker.set_location(loc);
+
+    // Create start and end tags through which we can search for this line's
+    // marker later. The 'x' coordinate is not important, just the 'y'
+    // coordinate, as that's what is used for line numbers. We will place the
+    // tags among other subframes in the line such that it is aligned with the
+    // line's general baseline. However, the line number will still need to
+    // manually adjust its own 'y' position based on its own baseline.
+    let pos = Point::with_y(top);
+    output.push(pos, FrameItem::Tag(Tag::Start(marker)));
+    output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
 }
 
 /// How much a character should hang into the end margin.
@@ -639,6 +688,12 @@ impl<'a> Deref for Items<'a> {
 impl<'a> DerefMut for Items<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Debug for Items<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(&self.0).finish()
     }
 }
 

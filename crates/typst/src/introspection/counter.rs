@@ -12,10 +12,10 @@ use crate::foundations::{
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
     Selector, Show, Smart, Str, StyleChain, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
-use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
 use crate::World;
@@ -304,7 +304,7 @@ impl Counter {
             route: Route::extend(route).unnested(),
         };
 
-        let mut state = CounterState::init(&self.0);
+        let mut state = CounterState::init(matches!(self.0, CounterKey::Page));
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
@@ -372,6 +372,8 @@ impl Counter {
                     FigureElem::numbering_in(styles).clone()
                 } else if func == EquationElem::elem() {
                     EquationElem::numbering_in(styles).clone()
+                } else if func == FootnoteElem::elem() {
+                    Some(FootnoteElem::numbering_in(styles).clone())
                 } else {
                     None
                 }
@@ -654,12 +656,9 @@ pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
     /// Get the initial counter state for the key.
-    pub fn init(key: &CounterKey) -> Self {
-        Self(match key {
-            // special case, because pages always start at one.
-            CounterKey::Page => smallvec![1],
-            _ => smallvec![0],
-        })
+    pub fn init(page: bool) -> Self {
+        // Special case, because pages always start at one.
+        Self(smallvec![usize::from(page)])
     }
 
     /// Advance the counter and return the numbers for the given heading.
@@ -685,14 +684,12 @@ impl CounterState {
     pub fn step(&mut self, level: NonZeroUsize, by: usize) {
         let level = level.get();
 
-        if self.0.len() >= level {
-            self.0[level - 1] = self.0[level - 1].saturating_add(by);
-            self.0.truncate(level);
+        while self.0.len() < level {
+            self.0.push(0);
         }
 
-        while self.0.len() < level {
-            self.0.push(1);
-        }
+        self.0[level - 1] = self.0[level - 1].saturating_add(by);
+        self.0.truncate(level);
     }
 
     /// Get the first number of the state.
@@ -824,8 +821,8 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Tag(tag) => {
-                    let Some(elem) = tag.elem.to_packed::<CounterUpdateElem>() else {
+                FrameItem::Tag(Tag::Start(elem)) => {
+                    let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };
                     if *elem.key() == CounterKey::Page {

@@ -20,9 +20,9 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set quote(block: true)
 #set text(8pt)
 
-#lorem(10)
-#quote(lorem(10))
-#lorem(10)
+#lines(3)
+#quote(lines(3))
+#lines(3)
 
 --- quote-inline ---
 // Inline citation

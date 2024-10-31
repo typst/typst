@@ -46,6 +46,9 @@ pub struct CliArguments {
     /// Displays the syntax tree.
     #[arg(long)]
     pub syntax: bool,
+    /// Displays only one line per test, hiding details about failures.
+    #[arg(short, long)]
+    pub compact: bool,
     /// Prevents the terminal from being cleared of test names.
     #[arg(short, long)]
     pub verbose: bool,
@@ -72,4 +75,6 @@ impl CliArguments {
 pub enum Command {
     /// Clears the on-disk test artifact store.
     Clean,
+    /// Deletes all dangling reference images.
+    Undangle,
 }

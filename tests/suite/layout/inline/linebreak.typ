@@ -115,3 +115,27 @@ For info see #link("https://myhost.tld").
 // for links because it now splits on word boundaries. We avoid the link markup
 // syntax because it's show rule interferes.
 #"http://creativecommons.org/licenses/by-nc-sa/4.0/"
+
+--- issue-4468-linebreak-thai ---
+// In this bug, empty-range glyphs at line break boundaries could be duplicated.
+// This happens for Thai specifically because it has both
+// - line break opportunities
+// - shaping that results in multiple glyphs in the same cluster
+#set text(font: "Noto Sans Thai")
+#h(85pt) งบิก
+
+--- issue-5235-linebreak-optimized-without-justify ---
+#set page(width: 207pt, margin: 15pt)
+#set text(11pt)
+
+#set par(linebreaks: "simple")
+Some texts feature many longer
+words. Those are often exceedingly
+challenging to break in a visually
+pleasing way.
+
+#set par(linebreaks: "optimized")
+Some texts feature many longer
+words. Those are often exceedingly
+challenging to break in a visually
+pleasing way.

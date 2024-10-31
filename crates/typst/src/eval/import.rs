@@ -182,6 +182,12 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     // Evaluate the entry point.
     let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
     let source = vm.world().source(entrypoint_id).at(span)?;
+
+    // Prevent cyclic importing.
+    if vm.engine.route.contains(source.id()) {
+        bail!(span, "cyclic import");
+    }
+
     let point = || Tracepoint::Import;
     Ok(eval(
         vm.world(),

@@ -45,7 +45,7 @@ use crate::visualize::{Paint, Stroke};
 /// intended for presentational and layout purposes, while the
 /// [`{table}`]($table) element is intended for, in broad terms, presenting
 /// multiple related data points. In the future, Typst will annotate its output
-/// such that screenreaders will annouce content in `table` as tabular while a
+/// such that screenreaders will announce content in `table` as tabular while a
 /// grid's content will be announced no different than multiple content blocks
 /// in the document flow. Set and show rules on one of these elements do not
 /// affect the other.
@@ -170,11 +170,15 @@ pub struct GridElem {
 
     /// The gaps between rows and columns.
     ///
-    /// If there are more gutters than defined sizes, the last gutter is repeated.
+    /// If there are more gutters than defined sizes, the last gutter is
+    /// repeated.
+    ///
+    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
+    /// value.
     #[external]
     pub gutter: TrackSizings,
 
-    /// The gaps between columns. Takes precedence over `gutter`.
+    /// The gaps between columns.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -182,7 +186,7 @@ pub struct GridElem {
     #[borrowed]
     pub column_gutter: TrackSizings,
 
-    /// The gaps between rows. Takes precedence over `gutter`.
+    /// The gaps between rows.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,
@@ -967,7 +971,7 @@ impl From<Content> for GridCell {
 }
 
 /// Function with common code to display a grid cell or table cell.
-pub fn show_grid_cell(
+pub(crate) fn show_grid_cell(
     mut body: Content,
     inset: Smart<Sides<Option<Rel<Length>>>>,
     align: Smart<Alignment>,

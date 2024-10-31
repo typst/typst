@@ -17,10 +17,17 @@ impl Region {
     pub fn new(size: Size, expand: Axes<bool>) -> Self {
         Self { size, expand }
     }
+}
 
-    /// Turns this into a region sequence.
-    pub fn into_regions(self) -> Regions<'static> {
-        Regions::one(self.size, self.expand)
+impl From<Region> for Regions<'_> {
+    fn from(region: Region) -> Self {
+        Regions {
+            size: region.size,
+            expand: region.expand,
+            full: region.size.y,
+            backlog: &[],
+            last: None,
+        }
     }
 }
 
@@ -35,6 +42,9 @@ impl Region {
 pub struct Regions<'a> {
     /// The remaining size of the first region.
     pub size: Size,
+    /// Whether elements should expand to fill the regions instead of shrinking
+    /// to fit the content.
+    pub expand: Axes<bool>,
     /// The full height of the region for relative sizing.
     pub full: Abs,
     /// The height of followup regions. The width is the same for all regions.
@@ -42,29 +52,9 @@ pub struct Regions<'a> {
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
     pub last: Option<Abs>,
-    /// Whether elements should expand to fill the regions instead of shrinking
-    /// to fit the content.
-    pub expand: Axes<bool>,
-    /// Whether these are the root regions or direct descendants.
-    ///
-    /// True for the padded page regions and columns directly in the page,
-    /// false otherwise.
-    pub root: bool,
 }
 
 impl Regions<'_> {
-    /// Create a new region sequence with exactly one region.
-    pub fn one(size: Size, expand: Axes<bool>) -> Self {
-        Self {
-            size,
-            full: size.y,
-            backlog: &[],
-            last: None,
-            expand,
-            root: false,
-        }
-    }
-
     /// Create a new sequence of same-size regions that repeats indefinitely.
     pub fn repeat(size: Size, expand: Axes<bool>) -> Self {
         Self {
@@ -73,7 +63,6 @@ impl Regions<'_> {
             backlog: &[],
             last: Some(size.y),
             expand,
-            root: false,
         }
     }
 
@@ -102,25 +91,23 @@ impl Regions<'_> {
             backlog,
             last: self.last.map(|y| f(Size::new(x, y)).y),
             expand: self.expand,
-            root: self.root,
         }
     }
 
     /// Whether the first region is full and a region break is called for.
     pub fn is_full(&self) -> bool {
-        Abs::zero().fits(self.size.y) && !self.in_last()
+        Abs::zero().fits(self.size.y) && self.may_progress()
     }
 
-    /// Whether the first region is the last usable region.
-    ///
-    /// If this is true, calling `next()` will have no effect.
-    pub fn in_last(&self) -> bool {
-        self.backlog.is_empty() && self.last.map_or(true, |height| self.size.y == height)
+    /// Whether a region break is permitted.
+    pub fn may_break(&self) -> bool {
+        !self.backlog.is_empty() || self.last.is_some()
     }
 
-    /// The same regions, but with different `root` configuration.
-    pub fn with_root(self, root: bool) -> Self {
-        Self { root, ..self }
+    /// Whether calling `next()` may improve a situation where there is a lack
+    /// of space.
+    pub fn may_progress(&self) -> bool {
+        !self.backlog.is_empty() || self.last.is_some_and(|height| self.size.y != height)
     }
 
     /// Advance to the next region if there is any.

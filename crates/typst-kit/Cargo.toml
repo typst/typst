@@ -1,0 +1,57 @@
+[package]
+name = "typst-kit"
+description = "Common utilities for Typst tooling."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+typst = { workspace = true }
+typst-assets = { workspace = true, optional = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+ecow = { workspace = true }
+env_proxy = { workspace = true, optional = true }
+dirs = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+fontdb = { workspace = true, optional = true }
+native-tls = { workspace = true, optional = true }
+once_cell = { workspace = true }
+tar = { workspace = true, optional = true }
+ureq = { workspace = true, optional = true }
+
+# Explicitly depend on OpenSSL if applicable, so that we can add the
+# `openssl/vendored` feature to it if `vendor-openssl` is enabled.
+[target.'cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "watchos", target_os = "tvos")))'.dependencies]
+openssl = { workspace = true, optional = true }
+
+[features]
+default = ["fonts", "packages"]
+
+# Add font loading utilities
+fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
+
+# Add generic downloading utilities
+downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
+
+# Add package downloading utilities, implies `downloads`
+packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]
+
+# Embeds some fonts into the binary:
+# - For text: Libertinus Serif, New Computer Modern
+# - For math: New Computer Modern Math
+# - For code: Deja Vu Sans Mono
+#
+# Implies `fonts`
+embed-fonts = ["fonts", "dep:typst-assets", "typst-assets/fonts"]
+
+# Whether to vendor OpenSSL. Not applicable to Windows and macOS builds.
+vendor-openssl = ["openssl/vendored"]
+
+[lints]
+workspace = true

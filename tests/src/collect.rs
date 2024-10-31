@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
+use once_cell::sync::Lazy;
 use typst::syntax::package::PackageVersion;
 use typst::syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
 use unscanny::Scanner;
@@ -389,6 +390,18 @@ impl<'a> Parser<'a> {
 
 /// Whether a test is within the selected set to run.
 fn selected(name: &str, abs: PathBuf) -> bool {
+    static SKIPPED: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+        String::leak(std::fs::read_to_string(crate::SKIP_PATH).unwrap())
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty() && !line.starts_with("//"))
+            .collect()
+    });
+
+    if SKIPPED.contains(name) {
+        return false;
+    }
+
     let paths = &crate::ARGS.path;
     if !paths.is_empty() && !paths.iter().any(|path| abs.starts_with(path)) {
         return false;
@@ -408,8 +421,8 @@ fn selected(name: &str, abs: PathBuf) -> bool {
 
 /// An error in a test file.
 pub struct TestParseError {
-    pos: FilePos,
-    message: String,
+    pub pos: FilePos,
+    pub message: String,
 }
 
 impl Display for TestParseError {

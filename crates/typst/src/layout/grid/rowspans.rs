@@ -3,7 +3,9 @@ use super::repeated::Repeatable;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::Resolve;
-use crate::layout::{Abs, Axes, Cell, Frame, GridLayouter, Point, Regions, Size, Sizing};
+use crate::layout::{
+    Abs, Axes, Cell, Frame, GridLayouter, Point, Region, Regions, Size, Sizing,
+};
 use crate::utils::MaybeReverseIter;
 
 /// All information needed to layout a single rowspan.
@@ -123,7 +125,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions.
         let size = Size::new(width, *first_height);
-        let mut pod = Regions::one(size, Axes::splat(true));
+        let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
         pod.backlog = backlog;
 
         if !is_effectively_unbreakable
@@ -1145,7 +1147,7 @@ impl<'a> RowspanSimulator<'a> {
 
         // Skip until we reach a fitting region for both header and footer.
         while !self.regions.size.y.fits(header_height + footer_height)
-            && !self.regions.in_last()
+            && self.regions.may_progress()
         {
             self.regions.next();
             self.finished += 1;

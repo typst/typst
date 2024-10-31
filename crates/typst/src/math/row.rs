@@ -10,8 +10,6 @@ use crate::math::{
 };
 use crate::model::ParElem;
 
-use super::fragment::SpacingFragment;
-
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
 /// A linear collection of [`MathFragment`]s.
@@ -37,9 +35,21 @@ impl MathRun {
                 }
 
                 // Explicit spacing disables automatic spacing.
-                MathFragment::Spacing(_) => {
+                MathFragment::Spacing(width, weak) => {
                     last = None;
                     space = None;
+
+                    if weak {
+                        match resolved.last_mut() {
+                            None => continue,
+                            Some(MathFragment::Spacing(prev, true)) => {
+                                *prev = (*prev).max(width);
+                                continue;
+                            }
+                            Some(_) => {}
+                        }
+                    }
+
                     resolved.push(fragment);
                     continue;
                 }
@@ -89,6 +99,10 @@ impl MathRun {
             }
 
             resolved.push(fragment);
+        }
+
+        if let Some(MathFragment::Spacing(_, true)) = resolved.last() {
+            resolved.pop();
         }
 
         Self(resolved)
@@ -290,15 +304,14 @@ impl MathRun {
 
         let is_relation = |f: &MathFragment| matches!(f.class(), MathClass::Relation);
         let is_space = |f: &MathFragment| {
-            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_))
+            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_, _))
         };
 
         let mut iter = self.0.into_iter().peekable();
         while let Some(fragment) = iter.next() {
             if space_is_visible {
                 match fragment {
-                    MathFragment::Space(width)
-                    | MathFragment::Spacing(SpacingFragment { width, .. }) => {
+                    MathFragment::Space(width) | MathFragment::Spacing(width, _) => {
                         items.push(InlineItem::Space(width, true));
                         continue;
                     }
@@ -353,7 +366,7 @@ impl MathRun {
         items
     }
 
-    fn is_multiline(&self) -> bool {
+    pub fn is_multiline(&self) -> bool {
         self.iter().any(|frag| matches!(frag, MathFragment::Linebreak))
     }
 }

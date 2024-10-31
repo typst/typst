@@ -7,7 +7,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{bail, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
 use crate::syntax::{FileId, Span};
@@ -29,15 +29,11 @@ pub struct Engine<'a> {
 }
 
 impl Engine<'_> {
-    /// Performs a fallible operation that does not immediately terminate further
-    /// execution. Instead it produces a delayed error that is only promoted to
-    /// a fatal one if it remains at the end of the introspection loop.
-    pub fn delay<F, T>(&mut self, f: F) -> T
-    where
-        F: FnOnce(&mut Self) -> SourceResult<T>,
-        T: Default,
-    {
-        match f(self) {
+    /// Handles a result without immediately terminating execution. Instead, it
+    /// produces a delayed error that is only promoted to a fatal one if it
+    /// remains by the end of the introspection loop.
+    pub fn delay<T: Default>(&mut self, result: SourceResult<T>) -> T {
+        match result {
             Ok(value) => value,
             Err(errors) => {
                 self.sink.delay(errors);
@@ -160,6 +156,11 @@ impl Sink {
     pub fn values(self) -> EcoVec<(Value, Option<Styles>)> {
         self.values
     }
+
+    /// Extend from another sink.
+    pub fn extend_from_sink(&mut self, other: Sink) {
+        self.extend(other.delayed, other.warnings, other.values);
+    }
 }
 
 #[comemo::track]
@@ -185,7 +186,7 @@ impl Sink {
         }
     }
 
-    /// Extend from another sink.
+    /// Extend from parts of another sink.
     fn extend(
         &mut self,
         delayed: EcoVec<SourceDiagnostic>,
@@ -227,21 +228,6 @@ pub struct Route<'a> {
     /// because it would prevent cache reuse of some computation at different,
     /// non-exceeding depths).
     upper: AtomicUsize,
-}
-
-/// The maximum nesting depths. They are different so that even if show rule and
-/// call checks are interleaved, show rule problems we always get the show rule.
-/// The lower the max depth for a kind of error, the higher its precedence
-/// compared to the others.
-impl Route<'_> {
-    /// The maximum stack nesting depth.
-    pub const MAX_SHOW_RULE_DEPTH: usize = 64;
-
-    /// The maximum layout nesting depth.
-    pub const MAX_LAYOUT_DEPTH: usize = 72;
-
-    /// The maximum function call nesting depth.
-    pub const MAX_CALL_DEPTH: usize = 80;
 }
 
 impl<'a> Route<'a> {
@@ -294,6 +280,51 @@ impl<'a> Route<'a> {
     /// Decrease the nesting depth for this route segment.
     pub fn decrease(&mut self) {
         self.len -= 1;
+    }
+}
+
+/// The maximum nesting depths. They are different so that even if show rule and
+/// call checks are interleaved, for show rule problems we always get the show
+/// rule error. The lower the max depth for a kind of error, the higher its
+/// precedence compared to the others.
+impl Route<'_> {
+    /// The maximum stack nesting depth.
+    const MAX_SHOW_RULE_DEPTH: usize = 64;
+
+    /// The maximum layout nesting depth.
+    const MAX_LAYOUT_DEPTH: usize = 72;
+
+    /// The maximum function call nesting depth.
+    const MAX_CALL_DEPTH: usize = 80;
+
+    /// Ensures that we are within the maximum show rule depth.
+    pub fn check_show_depth(&self) -> HintedStrResult<()> {
+        if !self.within(Route::MAX_SHOW_RULE_DEPTH) {
+            bail!(
+                "maximum show rule depth exceeded";
+                hint: "check whether the show rule matches its own output"
+            );
+        }
+        Ok(())
+    }
+
+    /// Ensures that we are within the maximum layout depth.
+    pub fn check_layout_depth(&self) -> HintedStrResult<()> {
+        if !self.within(Route::MAX_LAYOUT_DEPTH) {
+            bail!(
+                "maximum layout depth exceeded";
+                hint: "try to reduce the amount of nesting in your layout",
+            );
+        }
+        Ok(())
+    }
+
+    /// Ensures that we are within the maximum function call depth.
+    pub fn check_call_depth(&self) -> StrResult<()> {
+        if !self.within(Route::MAX_CALL_DEPTH) {
+            bail!("maximum function call depth exceeded");
+        }
+        Ok(())
     }
 }
 

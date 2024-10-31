@@ -34,6 +34,7 @@ pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
+pub use self::stretch::*;
 pub use self::style::*;
 pub use self::underover::*;
 
@@ -43,15 +44,8 @@ use self::row::*;
 use self::spacing::*;
 
 use crate::diag::SourceResult;
-use crate::foundations::{
-    category, Category, Content, Module, Resolve, Scope, SequenceElem, StyleChain,
-    StyledElem,
-};
-use crate::introspection::TagElem;
-use crate::layout::{BoxElem, Frame, FrameItem, HElem, Point, Size, Spacing, VAlignment};
-use crate::realize::Behaviour;
-use crate::realize::{process, BehavedBuilder};
-use crate::text::{LinebreakElem, SpaceElem, TextElem};
+use crate::foundations::{category, Category, Module, Scope, StyleChain};
+use crate::text::TextElem;
 
 /// Typst has special [syntax]($syntax/#math) and library functions to typeset
 /// mathematical formulas. Math formulas can be displayed inline with text or as
@@ -167,6 +161,7 @@ pub fn module() -> Module {
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
     math.define_elem::<AttachElem>();
+    math.define_elem::<StretchElem>();
     math.define_elem::<ScriptsElem>();
     math.define_elem::<LimitsElem>();
     math.define_elem::<AccentElem>();
@@ -176,6 +171,10 @@ pub fn module() -> Module {
     math.define_elem::<OverbraceElem>();
     math.define_elem::<UnderbracketElem>();
     math.define_elem::<OverbracketElem>();
+    math.define_elem::<UnderparenElem>();
+    math.define_elem::<OverparenElem>();
+    math.define_elem::<UndershellElem>();
+    math.define_elem::<OvershellElem>();
     math.define_elem::<CancelElem>();
     math.define_elem::<FracElem>();
     math.define_elem::<BinomElem>();
@@ -218,119 +217,4 @@ pub fn module() -> Module {
 pub trait LayoutMath {
     /// Layout the element, producing fragment in the context.
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()>;
-}
-
-impl LayoutMath for Content {
-    #[typst_macros::time(name = "math", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        // Directly layout the body of nested equations instead of handling it
-        // like a normal equation so that things like this work:
-        // ```
-        // #let my = $pi$
-        // $ my r^2 $
-        // ```
-        if let Some(elem) = self.to_packed::<EquationElem>() {
-            return elem.layout_math(ctx, styles);
-        }
-
-        if let Some(realized) = process(ctx.engine, &mut ctx.locator, self, styles)? {
-            return realized.layout_math(ctx, styles);
-        }
-
-        if self.is::<SequenceElem>() {
-            let mut bb = BehavedBuilder::new();
-            self.sequence_recursive_for_each(&mut |child: &Content| {
-                bb.push(child, StyleChain::default());
-            });
-            for (child, _) in bb.finish().0.chain(&styles) {
-                child.layout_math(ctx, styles)?;
-            }
-            return Ok(());
-        }
-
-        if let Some(styled) = self.to_packed::<StyledElem>() {
-            let outer = styles;
-            let styles = outer.chain(&styled.styles);
-
-            if TextElem::font_in(styles) != TextElem::font_in(outer) {
-                let frame = ctx.layout_content(&styled.child, styles)?;
-                ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
-                return Ok(());
-            }
-
-            styled.child.layout_math(ctx, styles)?;
-            return Ok(());
-        }
-
-        if self.is::<SpaceElem>() {
-            let font_size = scaled_font_size(ctx, styles);
-            ctx.push(MathFragment::Space(ctx.space_width.at(font_size)));
-            return Ok(());
-        }
-
-        if self.is::<LinebreakElem>() {
-            ctx.push(MathFragment::Linebreak);
-            return Ok(());
-        }
-
-        if let Some(elem) = self.to_packed::<HElem>() {
-            if let Spacing::Rel(rel) = elem.amount() {
-                if rel.rel.is_zero() {
-                    ctx.push(SpacingFragment {
-                        width: rel.abs.resolve(styles),
-                        weak: elem.weak(styles),
-                    });
-                }
-            }
-            return Ok(());
-        }
-
-        if let Some(elem) = self.to_packed::<TextElem>() {
-            let fragment = ctx.layout_text(elem, styles)?;
-            ctx.push(fragment);
-            return Ok(());
-        }
-
-        if let Some(boxed) = self.to_packed::<BoxElem>() {
-            let frame = ctx.layout_box(boxed, styles)?;
-            ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
-            return Ok(());
-        }
-
-        if let Some(elem) = self.to_packed::<TagElem>() {
-            let mut frame = Frame::soft(Size::zero());
-            frame.push(Point::zero(), FrameItem::Tag(elem.tag.clone()));
-            ctx.push(FrameFragment::new(ctx, styles, frame).with_ignorant(true));
-            return Ok(());
-        }
-
-        if let Some(elem) = self.with::<dyn LayoutMath>() {
-            return elem.layout_math(ctx, styles);
-        }
-
-        let mut frame = ctx.layout_content(self, styles)?;
-        if !frame.has_baseline() {
-            let axis = scaled!(ctx, styles, axis_height);
-            frame.set_baseline(frame.height() / 2.0 + axis);
-        }
-
-        ctx.push(
-            FrameFragment::new(ctx, styles, frame)
-                .with_spaced(true)
-                .with_ignorant(matches!(
-                    self.behaviour(),
-                    Behaviour::Invisible | Behaviour::Ignorant
-                )),
-        );
-
-        Ok(())
-    }
-}
-
-fn delimiter_alignment(delimiter: char) -> VAlignment {
-    match delimiter {
-        '\u{231c}' | '\u{231d}' => VAlignment::Top,
-        '\u{231e}' | '\u{231f}' => VAlignment::Bottom,
-        _ => VAlignment::Horizon,
-    }
 }

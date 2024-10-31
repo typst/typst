@@ -1,14 +1,15 @@
 use super::*;
 use crate::diag::bail;
 use crate::foundations::{Packed, Resolve};
-use crate::introspection::{Tag, TagElem};
+use crate::introspection::{SplitLocator, Tag, TagElem};
 use crate::layout::{
     Abs, AlignElem, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing,
     Spacing,
 };
 use crate::syntax::Span;
 use crate::text::{
-    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
+    SpaceElem, TextElem,
 };
 use crate::utils::Numeric;
 
@@ -16,8 +17,6 @@ use crate::utils::Numeric;
 // paragraph's full text.
 const SPACING_REPLACE: &str = " "; // Space
 const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
-const SPACING_REPLACE_CHAR: char = ' ';
-const OBJ_REPLACE_CHAR: char = '\u{FFFC}';
 
 // Unicode BiDi control characters.
 const LTR_EMBEDDING: &str = "\u{202A}";
@@ -119,20 +118,19 @@ impl Segment<'_> {
 pub fn collect<'a>(
     children: &'a StyleVec,
     engine: &mut Engine<'_>,
-    locator: Locator<'a>,
+    locator: &mut SplitLocator<'a>,
     styles: &'a StyleChain<'a>,
     region: Size,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
-    let mut iter = children.chain(styles).peekable();
-    let mut locator = locator.split();
+    let mut quoter = SmartQuoter::new();
 
+    let outer_dir = TextElem::dir_in(*styles);
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
         && consecutive
-        && AlignElem::alignment_in(*styles).resolve(*styles).x
-            == TextElem::dir_in(*styles).start().into()
+        && AlignElem::alignment_in(*styles).resolve(*styles).x == outer_dir.start().into()
     {
         collector.push_item(Item::Absolute(first_line_indent.resolve(*styles), false));
         collector.spans.push(1, Span::detached());
@@ -144,9 +142,7 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    let outer_dir = TextElem::dir_in(*styles);
-
-    while let Some((child, styles)) = iter.next() {
+    for (child, styles) in children.iter(styles) {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
@@ -193,32 +189,16 @@ pub fn collect<'a>(
         } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
             let double = elem.double(styles);
             if elem.enabled(styles) {
-                let quotes = SmartQuotes::new(
+                let quotes = SmartQuotes::get(
                     elem.quotes(styles),
                     TextElem::lang_in(styles),
                     TextElem::region_in(styles),
                     elem.alternative(styles),
                 );
-                let peeked = iter.peek().and_then(|(child, _)| {
-                    if let Some(elem) = child.to_packed::<TextElem>() {
-                        elem.text().chars().find(|c| !is_default_ignorable(*c))
-                    } else if child.is::<SmartQuoteElem>() {
-                        Some('"')
-                    } else if child.is::<SpaceElem>()
-                        || child.is::<HElem>()
-                        || child.is::<LinebreakElem>()
-                        // This is a temporary hack. We should rather skip these
-                        // and peek at the next child.
-                        || child.is::<TagElem>()
-                    {
-                        Some(SPACING_REPLACE_CHAR)
-                    } else {
-                        Some(OBJ_REPLACE_CHAR)
-                    }
-                });
-
-                let quote = collector.quoter.quote(&quotes, double, peeked);
-                collector.push_quote(quote, styles);
+                let before =
+                    collector.full.chars().rev().find(|&c| !is_default_ignorable(c));
+                let quote = quoter.quote(before, &quotes, double);
+                collector.push_text(quote, styles);
             } else {
                 collector.push_text(if double { "\"" } else { "'" }, styles);
             }
@@ -263,7 +243,6 @@ struct Collector<'a> {
     full: String,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
-    quoter: SmartQuoter,
 }
 
 impl<'a> Collector<'a> {
@@ -272,13 +251,12 @@ impl<'a> Collector<'a> {
             full: String::new(),
             segments: Vec::with_capacity(capacity),
             spans: SpanMapper::new(),
-            quoter: SmartQuoter::new(),
         }
     }
 
     fn push_text(&mut self, text: &str, styles: StyleChain<'a>) {
         self.full.push_str(text);
-        self.push_segment(Segment::Text(text.len(), styles), false);
+        self.push_segment(Segment::Text(text.len(), styles));
     }
 
     fn build_text<F>(&mut self, styles: StyleChain<'a>, f: F)
@@ -288,34 +266,33 @@ impl<'a> Collector<'a> {
         let prev = self.full.len();
         f(&mut self.full);
         let len = self.full.len() - prev;
-        self.push_segment(Segment::Text(len, styles), false);
-    }
-
-    fn push_quote(&mut self, quote: &str, styles: StyleChain<'a>) {
-        self.full.push_str(quote);
-        self.push_segment(Segment::Text(quote.len(), styles), true);
+        self.push_segment(Segment::Text(len, styles));
     }
 
     fn push_item(&mut self, item: Item<'a>) {
         self.full.push_str(item.textual());
-        self.push_segment(Segment::Item(item), false);
+        self.push_segment(Segment::Item(item));
     }
 
-    fn push_segment(&mut self, segment: Segment<'a>, is_quote: bool) {
-        if let Some(last) = self.full.chars().rev().find(|c| !is_default_ignorable(*c)) {
-            self.quoter.last(last, is_quote);
-        }
-
-        if let (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles)) =
-            (self.segments.last_mut(), &segment)
-        {
-            if *last_styles == *styles {
+    fn push_segment(&mut self, segment: Segment<'a>) {
+        match (self.segments.last_mut(), &segment) {
+            // Merge adjacent text segments with the same styles.
+            (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles))
+                if *last_styles == *styles =>
+            {
                 *last_len += *len;
-                return;
             }
-        }
 
-        self.segments.push(segment);
+            // Merge adjacent weak spacing by taking the maximum.
+            (
+                Some(Segment::Item(Item::Absolute(prev_amount, true))),
+                Segment::Item(Item::Absolute(amount, true)),
+            ) => {
+                *prev_amount = (*prev_amount).max(*amount);
+            }
+
+            _ => self.segments.push(segment),
+        }
     }
 }
 

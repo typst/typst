@@ -5,7 +5,7 @@ use crate::foundations::{
     Styles,
 };
 use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
-use crate::model::ParElem;
+use crate::model::{ListItemLike, ListLike, ParElem};
 use crate::text::TextElem;
 use crate::utils::Numeric;
 
@@ -27,15 +27,17 @@ use crate::utils::Numeric;
 /// followed by a term, a colon and a description creates a term list item.
 #[elem(scope, title = "Term List", Show)]
 pub struct TermsElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the term list more compact,
-    /// which can look better if the items are short.
+    /// Defines the default [spacing]($terms.spacing) of the term list. If it is
+    /// `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
     /// each other, this is set to `{true}`; if items are separated by a blank
-    /// line, this is set to `{false}`.
+    /// line, this is set to `{false}`. The markup-defined tightness cannot be
+    /// overridden with set rules.
     ///
     /// ```example
     /// / Fact: If a term list has a lot
@@ -150,7 +152,8 @@ impl Show for Packed<TermsElem> {
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
-            let spacing = VElem::list_attach(leading.into()).pack();
+            let spacing =
+                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
             realized = spacing + realized;
         }
 
@@ -170,15 +173,6 @@ pub struct TermItem {
     pub description: Content,
 }
 
-impl Packed<TermItem> {
-    /// Apply styles to this term item.
-    pub fn styled(mut self, styles: Styles) -> Self {
-        self.term.style_in_place(styles.clone());
-        self.description.style_in_place(styles);
-        self
-    }
-}
-
 cast! {
     TermItem,
     array: Array => {
@@ -190,4 +184,20 @@ cast! {
         Self::new(term, description)
     },
     v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
+}
+
+impl ListLike for TermsElem {
+    type Item = TermItem;
+
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self {
+        Self::new(children).with_tight(tight)
+    }
+}
+
+impl ListItemLike for TermItem {
+    fn styled(mut item: Packed<Self>, styles: Styles) -> Packed<Self> {
+        item.term.style_in_place(styles.clone());
+        item.description.style_in_place(styles);
+        item
+    }
 }

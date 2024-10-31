@@ -53,3 +53,9 @@
 // Hint: 22-25 check whether the show rule matches its own output
 #show math.equation: $x$
 $ x $
+
+--- recursion-show-math-realize ---
+// Error: 22-33 maximum show rule depth exceeded
+// Hint: 22-33 check whether the show rule matches its own output
+#show heading: it => heading[it]
+$ #heading[hi] $

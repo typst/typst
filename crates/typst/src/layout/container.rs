@@ -9,8 +9,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, Length, Region, Regions, Rel,
-    Sides, Size, Spacing,
+    layout_fragment, layout_frame, Abs, Axes, Corners, Em, Fr, Fragment, Frame,
+    FrameKind, Length, Region, Regions, Rel, Sides, Size, Spacing,
 };
 use crate::utils::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -106,6 +106,18 @@ pub struct BoxElem {
     pub outset: Sides<Option<Rel<Length>>>,
 
     /// Whether to clip the content inside the box.
+    ///
+    /// Clipping is useful when the box's content is larger than the box itself,
+    /// as any content that exceeds the box's bounds will be hidden.
+    ///
+    /// ```example
+    /// #box(
+    ///   width: 50pt,
+    ///   height: 50pt,
+    ///   clip: true,
+    ///   image("tiger.jpg", width: 100pt, height: 100pt)
+    /// )
+    /// ```
     #[default(false)]
     pub clip: bool,
 
@@ -131,7 +143,7 @@ impl Packed<BoxElem> {
         let inset = self.inset(styles).unwrap_or_default();
 
         // Build the pod region.
-        let pod = Self::pod(&width, &height, &inset, styles, region);
+        let pod = unbreakable_pod(&width, &height.into(), &inset, styles, region);
 
         // Layout the body.
         let mut frame = match self.body(styles) {
@@ -141,9 +153,7 @@ impl Packed<BoxElem> {
 
             // If we have a child, layout it into the body. Boxes are boundaries
             // for gradient relativeness, so we set the `FrameKind` to `Hard`.
-            Some(body) => body
-                .layout(engine, locator, styles, pod.into_regions())?
-                .into_frame()
+            Some(body) => layout_frame(engine, body, locator, styles, pod)?
                 .with_kind(FrameKind::Hard),
         };
 
@@ -154,14 +164,6 @@ impl Packed<BoxElem> {
         // Apply the inset.
         if !inset.is_zero() {
             crate::layout::grow(&mut frame, &inset);
-        }
-
-        // Apply baseline shift. Do this after setting the size and applying the
-        // inset, so that a relative shift is resolved relative to the final
-        // height.
-        let shift = self.baseline(styles).relative_to(frame.height());
-        if !shift.is_zero() {
-            frame.set_baseline(frame.baseline() - shift);
         }
 
         // Prepare fill and stroke.
@@ -186,45 +188,20 @@ impl Packed<BoxElem> {
             frame.fill_and_stroke(fill, &stroke, &outset, &radius, self.span());
         }
 
-        Ok(frame)
-    }
-
-    /// Builds the pod region for box layout.
-    fn pod(
-        width: &Sizing,
-        height: &Smart<Rel>,
-        inset: &Sides<Rel<Abs>>,
-        styles: StyleChain,
-        region: Size,
-    ) -> Region {
-        // Resolve the size.
-        let mut size = Size::new(
-            match width {
-                // For auto, the whole region is available.
-                Sizing::Auto => region.x,
-                // Resolve the relative sizing.
-                Sizing::Rel(rel) => rel.resolve(styles).relative_to(region.x),
-                // Fr is handled outside and already factored into the `region`,
-                // so we can treat it equivalently to 100%.
-                Sizing::Fr(_) => region.x,
-            },
-            match height {
-                // See above. Note that fr is not supported on this axis.
-                Smart::Auto => region.y,
-                Smart::Custom(rel) => rel.resolve(styles).relative_to(region.y),
-            },
-        );
-
-        // Take the inset, if any, into account.
-        if !inset.is_zero() {
-            size = crate::layout::shrink(size, inset);
+        // Assign label to the frame.
+        if let Some(label) = self.label() {
+            frame.label(label);
         }
 
-        // If the child is not auto-sized, the size is forced and we should
-        // enable expansion.
-        let expand = Axes::new(*width != Sizing::Auto, *height != Smart::Auto);
+        // Apply baseline shift. Do this after setting the size and applying the
+        // inset, so that a relative shift is resolved relative to the final
+        // height.
+        let shift = self.baseline(styles).relative_to(frame.height());
+        if !shift.is_zero() {
+            frame.set_baseline(frame.baseline() - shift);
+        }
 
-        Region::new(size, expand)
+        Ok(frame)
     }
 }
 
@@ -341,7 +318,7 @@ pub struct BlockElem {
     ///   fill: aqua,
     /// )
     /// ```
-    pub height: Smart<Rel<Length>>,
+    pub height: Sizing,
 
     /// Whether the block can be broken and continue on the next page.
     ///
@@ -424,27 +401,43 @@ pub struct BlockElem {
     pub below: Smart<Spacing>,
 
     /// Whether to clip the content inside the block.
+    ///
+    /// Clipping is useful when the block's content is larger than the block itself,
+    /// as any content that exceeds the block's bounds will be hidden.
+    ///
+    /// ```example
+    /// #block(
+    ///   width: 50pt,
+    ///   height: 50pt,
+    ///   clip: true,
+    ///   image("tiger.jpg", width: 100pt, height: 100pt)
+    /// )
+    /// ```
     #[default(false)]
     pub clip: bool,
 
-    /// Whether this block must stick to the following one.
+    /// Whether this block must stick to the following one, with no break in
+    /// between.
     ///
-    /// Use this to prevent page breaks between e.g. a heading and its body.
-    #[internal]
+    /// This is, by default, set on heading blocks to prevent orphaned headings
+    /// at the bottom of the page.
+    ///
+    /// ```example
+    /// >>> #set page(height: 140pt)
+    /// // Disable stickiness of headings.
+    /// #show heading: set block(sticky: false)
+    /// #lorem(20)
+    ///
+    /// = Chapter
+    /// #lorem(10)
+    /// ```
     #[default(false)]
-    #[parse(None)]
     pub sticky: bool,
-
-    /// Whether this block can host footnotes.
-    #[internal]
-    #[default(false)]
-    #[parse(None)]
-    pub rootable: bool,
 
     /// The contents of the block.
     #[positional]
     #[borrowed]
-    pub body: Option<BlockChild>,
+    pub body: Option<BlockBody>,
 }
 
 impl BlockElem {
@@ -464,7 +457,7 @@ impl BlockElem {
     ) -> Self {
         Self::new()
             .with_breakable(false)
-            .with_body(Some(BlockChild::SingleLayouter(
+            .with_body(Some(BlockBody::SingleLayouter(
                 callbacks::BlockSingleCallback::new(captured, f),
             )))
     }
@@ -480,16 +473,106 @@ impl BlockElem {
             regions: Regions,
         ) -> SourceResult<Fragment>,
     ) -> Self {
-        Self::new().with_body(Some(BlockChild::MultiLayouter(
+        Self::new().with_body(Some(BlockBody::MultiLayouter(
             callbacks::BlockMultiCallback::new(captured, f),
         )))
     }
 }
 
 impl Packed<BlockElem> {
-    /// Layout this block as part of a flow.
+    /// Lay this out as an unbreakable block.
     #[typst_macros::time(name = "block", span = self.span())]
-    pub fn layout(
+    pub fn layout_single(
+        &self,
+        engine: &mut Engine,
+        locator: Locator,
+        styles: StyleChain,
+        region: Region,
+    ) -> SourceResult<Frame> {
+        // Fetch sizing properties.
+        let width = self.width(styles);
+        let height = self.height(styles);
+        let inset = self.inset(styles).unwrap_or_default();
+
+        // Build the pod regions.
+        let pod = unbreakable_pod(&width.into(), &height, &inset, styles, region.size);
+
+        // Layout the body.
+        let body = self.body(styles);
+        let mut frame = match body {
+            // If we have no body, just create one frame. Its size will be
+            // adjusted below.
+            None => Frame::hard(Size::zero()),
+
+            // If we have content as our body, just layout it.
+            Some(BlockBody::Content(body)) => {
+                layout_frame(engine, body, locator.relayout(), styles, pod)?
+            }
+
+            // If we have a child that wants to layout with just access to the
+            // base region, give it that.
+            Some(BlockBody::SingleLayouter(callback)) => {
+                callback.call(engine, locator, styles, pod)?
+            }
+
+            // If we have a child that wants to layout with full region access,
+            // we layout it.
+            Some(BlockBody::MultiLayouter(callback)) => {
+                let expand = (pod.expand | region.expand) & pod.size.map(Abs::is_finite);
+                let pod = Region { expand, ..pod };
+                callback.call(engine, locator, styles, pod.into())?.into_frame()
+            }
+        };
+
+        // Explicit blocks are boundaries for gradient relativeness.
+        if matches!(body, None | Some(BlockBody::Content(_))) {
+            frame.set_kind(FrameKind::Hard);
+        }
+
+        // Enforce a correct frame size on the expanded axes. Do this before
+        // applying the inset, since the pod shrunk.
+        frame.set_size(pod.expand.select(pod.size, frame.size()));
+
+        // Apply the inset.
+        if !inset.is_zero() {
+            crate::layout::grow(&mut frame, &inset);
+        }
+
+        // Prepare fill and stroke.
+        let fill = self.fill(styles);
+        let stroke = self
+            .stroke(styles)
+            .unwrap_or_default()
+            .map(|s| s.map(Stroke::unwrap_or_default));
+
+        // Only fetch these if necessary (for clipping or filling/stroking).
+        let outset = Lazy::new(|| self.outset(styles).unwrap_or_default());
+        let radius = Lazy::new(|| self.radius(styles).unwrap_or_default());
+
+        // Clip the contents, if requested.
+        if self.clip(styles) {
+            let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
+            frame.clip(clip_rect(size, &radius, &stroke));
+        }
+
+        // Add fill and/or stroke.
+        if fill.is_some() || stroke.iter().any(Option::is_some) {
+            frame.fill_and_stroke(fill, &stroke, &outset, &radius, self.span());
+        }
+
+        // Assign label to each frame in the fragment.
+        if let Some(label) = self.label() {
+            frame.label(label);
+        }
+
+        Ok(frame)
+    }
+}
+
+impl Packed<BlockElem> {
+    /// Lay this out as a breakable block.
+    #[typst_macros::time(name = "block", span = self.span())]
+    pub fn layout_multiple(
         &self,
         engine: &mut Engine,
         locator: Locator,
@@ -500,14 +583,13 @@ impl Packed<BlockElem> {
         let width = self.width(styles);
         let height = self.height(styles);
         let inset = self.inset(styles).unwrap_or_default();
-        let breakable = self.breakable(styles);
 
         // Allocate a small vector for backlogs.
         let mut buf = SmallVec::<[Abs; 2]>::new();
 
         // Build the pod regions.
         let pod =
-            Self::pod(&width, &height, &inset, breakable, styles, regions, &mut buf);
+            breakable_pod(&width.into(), &height, &inset, styles, regions, &mut buf);
 
         // Layout the body.
         let body = self.body(styles);
@@ -529,9 +611,9 @@ impl Packed<BlockElem> {
             }
 
             // If we have content as our body, just layout it.
-            Some(BlockChild::Content(body)) => {
+            Some(BlockBody::Content(body)) => {
                 let mut fragment =
-                    body.layout(engine, locator.relayout(), styles, pod)?;
+                    layout_fragment(engine, body, locator.relayout(), styles, pod)?;
 
                 // If the body is automatically sized and produced more than one
                 // fragment, ensure that the width was consistent across all
@@ -552,7 +634,7 @@ impl Packed<BlockElem> {
                         expand: Axes::new(true, pod.expand.y),
                         ..pod
                     };
-                    fragment = body.layout(engine, locator, styles, pod)?;
+                    fragment = layout_fragment(engine, body, locator, styles, pod)?;
                 }
 
                 fragment
@@ -560,7 +642,7 @@ impl Packed<BlockElem> {
 
             // If we have a child that wants to layout with just access to the
             // base region, give it that.
-            Some(BlockChild::SingleLayouter(callback)) => {
+            Some(BlockBody::SingleLayouter(callback)) => {
                 let pod = Region::new(pod.base(), pod.expand);
                 callback.call(engine, locator, styles, pod).map(Fragment::frame)?
             }
@@ -571,7 +653,7 @@ impl Packed<BlockElem> {
             // For auto-sized multi-layouters, we propagate the outer expansion
             // so that they can decide for themselves. We also ensure again to
             // only expand if the size is finite.
-            Some(BlockChild::MultiLayouter(callback)) => {
+            Some(BlockBody::MultiLayouter(callback)) => {
                 let expand = (pod.expand | regions.expand) & pod.size.map(Abs::is_finite);
                 let pod = Regions { expand, ..pod };
                 callback.call(engine, locator, styles, pod)?
@@ -593,7 +675,7 @@ impl Packed<BlockElem> {
         let clip = self.clip(styles);
         let has_fill_or_stroke = fill.is_some() || stroke.iter().any(Option::is_some);
         let has_inset = !inset.is_zero();
-        let is_explicit = matches!(body, None | Some(BlockChild::Content(_)));
+        let is_explicit = matches!(body, None | Some(BlockBody::Content(_)));
 
         // Skip filling/stroking the first frame if it is empty and a non-empty
         // one follows.
@@ -638,123 +720,20 @@ impl Packed<BlockElem> {
             }
         }
 
+        // Assign label to each frame in the fragment.
+        if let Some(label) = self.label() {
+            for frame in fragment.iter_mut() {
+                frame.label(label);
+            }
+        }
+
         Ok(fragment)
-    }
-
-    /// Builds the pod regions for block layout.
-    ///
-    /// If `breakable` is `false`, this will only ever return a single region.
-    fn pod<'a>(
-        width: &Smart<Rel>,
-        height: &Smart<Rel>,
-        inset: &Sides<Rel<Abs>>,
-        breakable: bool,
-        styles: StyleChain,
-        regions: Regions,
-        buf: &'a mut SmallVec<[Abs; 2]>,
-    ) -> Regions<'a> {
-        let base = regions.base();
-
-        // The vertical region sizes we're about to build.
-        let first;
-        let full;
-        let backlog: &mut [Abs];
-        let last;
-
-        // If the block has a fixed height, things are very different, so we
-        // handle that case completely separately.
-        match height {
-            Smart::Auto => {
-                if breakable {
-                    // If the block automatically sized and breakable, we can
-                    // just inherit the regions.
-                    first = regions.size.y;
-                    buf.extend_from_slice(regions.backlog);
-                    backlog = buf;
-                    last = regions.last;
-                } else {
-                    // If the block is automatically sized, but not breakable,
-                    // we provide the full base height. It doesn't really make
-                    // sense to provide just the remaining height to an
-                    // unbreakable block.
-                    first = regions.full;
-                    backlog = &mut [];
-                    last = None;
-                }
-
-                // Since we're automatically sized, we inherit the base size.
-                full = regions.full;
-            }
-
-            Smart::Custom(rel) => {
-                // Resolve the sizing to a concrete size.
-                let resolved = rel.resolve(styles).relative_to(base.y);
-
-                if breakable {
-                    // If the block is fixed-height and breakable, distribute
-                    // the fixed height across a start region and a backlog.
-                    (first, backlog) = distribute(resolved, regions, buf);
-                } else {
-                    // If the block is fixed-height, but not breakable, the
-                    // fixed height is all in the first region, and we have no
-                    // backlog.
-                    first = resolved;
-                    backlog = &mut [];
-                }
-
-                // Since we're manually sized, the resolved size is also the
-                // base height.
-                full = resolved;
-
-                // If the height is manually sized, we don't want a final
-                // repeatable region.
-                last = None;
-            }
-        };
-
-        // Resolve the horizontal sizing to a concrete width and combine
-        // `width` and `first` into `size`.
-        let mut size = Size::new(
-            match width {
-                Smart::Auto => regions.size.x,
-                Smart::Custom(rel) => rel.resolve(styles).relative_to(base.x),
-            },
-            first,
-        );
-
-        // Take the inset, if any, into account, applying it to the
-        // individual region components.
-        let (mut full, mut last) = (full, last);
-        if !inset.is_zero() {
-            crate::layout::shrink_multiple(
-                &mut size, &mut full, backlog, &mut last, inset,
-            );
-        }
-
-        // If the child is manually sized along an axis (i.e. not `auto`), then
-        // it should expand along that axis. We also ensure that we only expand
-        // if the size is finite because it just doesn't make sense to expand
-        // into infinite regions.
-        let expand = Axes::new(*width != Smart::Auto, *height != Smart::Auto)
-            & size.map(Abs::is_finite);
-
-        Regions {
-            size,
-            full,
-            backlog,
-            last,
-            expand,
-            // This will only ever be set by the flow if the block is
-            // `rootable`. It is important that we propagate this, so that
-            // columns can hold footnotes.
-            root: regions.root,
-        }
     }
 }
 
 /// The contents of a block.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum BlockChild {
+pub enum BlockBody {
     /// The block contains normal content.
     Content(Content),
     /// The block contains a layout callback that needs access to just one
@@ -765,14 +744,14 @@ pub enum BlockChild {
     MultiLayouter(callbacks::BlockMultiCallback),
 }
 
-impl Default for BlockChild {
+impl Default for BlockBody {
     fn default() -> Self {
         Self::Content(Content::default())
     }
 }
 
 cast! {
-    BlockChild,
+    BlockBody,
     self => match self {
         Self::Content(content) => content.into_value(),
         _ => Value::Auto,
@@ -840,22 +819,138 @@ cast! {
     v: Fr => Self::Fr(v),
 }
 
+/// Builds the pod region for an unbreakable sized container.
+fn unbreakable_pod(
+    width: &Sizing,
+    height: &Sizing,
+    inset: &Sides<Rel<Abs>>,
+    styles: StyleChain,
+    base: Size,
+) -> Region {
+    // Resolve the size.
+    let mut size = Size::new(
+        match width {
+            // - For auto, the whole region is available.
+            // - Fr is handled outside and already factored into the `region`,
+            //   so we can treat it equivalently to 100%.
+            Sizing::Auto | Sizing::Fr(_) => base.x,
+            // Resolve the relative sizing.
+            Sizing::Rel(rel) => rel.resolve(styles).relative_to(base.x),
+        },
+        match height {
+            Sizing::Auto | Sizing::Fr(_) => base.y,
+            Sizing::Rel(rel) => rel.resolve(styles).relative_to(base.y),
+        },
+    );
+
+    // Take the inset, if any, into account.
+    if !inset.is_zero() {
+        size = crate::layout::shrink(size, inset);
+    }
+
+    // If the child is manually, the size is forced and we should enable
+    // expansion.
+    let expand = Axes::new(
+        *width != Sizing::Auto && size.x.is_finite(),
+        *height != Sizing::Auto && size.y.is_finite(),
+    );
+
+    Region::new(size, expand)
+}
+
+/// Builds the pod regions for a breakable sized container.
+fn breakable_pod<'a>(
+    width: &Sizing,
+    height: &Sizing,
+    inset: &Sides<Rel<Abs>>,
+    styles: StyleChain,
+    regions: Regions,
+    buf: &'a mut SmallVec<[Abs; 2]>,
+) -> Regions<'a> {
+    let base = regions.base();
+
+    // The vertical region sizes we're about to build.
+    let first;
+    let full;
+    let backlog: &mut [Abs];
+    let last;
+
+    // If the block has a fixed height, things are very different, so we
+    // handle that case completely separately.
+    match height {
+        Sizing::Auto | Sizing::Fr(_) => {
+            // If the block is automatically sized, we can just inherit the
+            // regions.
+            first = regions.size.y;
+            full = regions.full;
+            buf.extend_from_slice(regions.backlog);
+            backlog = buf;
+            last = regions.last;
+        }
+
+        Sizing::Rel(rel) => {
+            // Resolve the sizing to a concrete size.
+            let resolved = rel.resolve(styles).relative_to(base.y);
+
+            // Since we're manually sized, the resolved size is the base height.
+            full = resolved;
+
+            // Distribute the fixed height across a start region and a backlog.
+            (first, backlog) = distribute(resolved, regions, buf);
+
+            // If the height is manually sized, we don't want a final repeatable
+            // region.
+            last = None;
+        }
+    };
+
+    // Resolve the horizontal sizing to a concrete width and combine
+    // `width` and `first` into `size`.
+    let mut size = Size::new(
+        match width {
+            Sizing::Auto | Sizing::Fr(_) => regions.size.x,
+            Sizing::Rel(rel) => rel.resolve(styles).relative_to(base.x),
+        },
+        first,
+    );
+
+    // Take the inset, if any, into account, applying it to the
+    // individual region components.
+    let (mut full, mut last) = (full, last);
+    if !inset.is_zero() {
+        crate::layout::shrink_multiple(&mut size, &mut full, backlog, &mut last, inset);
+    }
+
+    // If the child is manually, the size is forced and we should enable
+    // expansion.
+    let expand = Axes::new(
+        *width != Sizing::Auto && size.x.is_finite(),
+        *height != Sizing::Auto && size.y.is_finite(),
+    );
+
+    Regions { size, full, backlog, last, expand }
+}
+
 /// Distribute a fixed height spread over existing regions into a new first
 /// height and a new backlog.
 fn distribute<'a>(
     height: Abs,
-    regions: Regions,
+    mut regions: Regions,
     buf: &'a mut SmallVec<[Abs; 2]>,
 ) -> (Abs, &'a mut [Abs]) {
     // Build new region heights from old regions.
     let mut remaining = height;
-    for region in regions.iter() {
-        let limited = region.y.min(remaining);
+    loop {
+        let limited = regions.size.y.clamp(Abs::zero(), remaining);
         buf.push(limited);
         remaining -= limited;
-        if remaining.approx_empty() {
+        if remaining.approx_empty()
+            || !regions.may_break()
+            || (!regions.may_progress() && limited.approx_empty())
+        {
             break;
         }
+        regions.next();
     }
 
     // If there is still something remaining, apply it to the

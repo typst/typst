@@ -1,10 +1,12 @@
-use crate::diag::{warning, SourceResult};
+use crate::diag::{warning, At, SourceResult};
 use crate::eval::{Eval, Vm};
-use crate::foundations::{Content, Label, NativeElement, Smart, Unlabellable, Value};
+use crate::foundations::{
+    Content, Label, NativeElement, Repr, Smart, Unlabellable, Value,
+};
 use crate::math::EquationElem;
 use crate::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
-    StrongElem, Supplement, TermItem,
+    StrongElem, Supplement, TermItem, Url,
 };
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
@@ -52,7 +54,20 @@ fn eval_markup<'a>(
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
                     {
+                        if elem.label().is_some() {
+                            vm.engine.sink.warn(warning!(
+                                elem.span(), "content labelled multiple times";
+                                hint: "only the last label is used, the rest are ignored",
+                            ));
+                        }
+
                         *elem = std::mem::take(elem).labelled(label);
+                    } else {
+                        vm.engine.sink.warn(warning!(
+                            expr.span(),
+                            "label `{}` is not attached to anything",
+                            label.repr()
+                        ));
                     }
                 }
                 value => seq.push(value.display().spanned(expr.span())),
@@ -83,7 +98,7 @@ impl Eval for ast::Space<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(SpaceElem::new().pack())
+        Ok(SpaceElem::shared().clone())
     }
 }
 
@@ -91,7 +106,7 @@ impl Eval for ast::Linebreak<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(LinebreakElem::new().pack())
+        Ok(LinebreakElem::shared().clone())
     }
 }
 
@@ -99,7 +114,7 @@ impl Eval for ast::Parbreak<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(ParbreakElem::new().pack())
+        Ok(ParbreakElem::shared().clone())
     }
 }
 
@@ -180,7 +195,8 @@ impl Eval for ast::Link<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(LinkElem::from_url(self.get().clone()).pack())
+        let url = Url::new(self.get().clone()).at(self.span())?;
+        Ok(LinkElem::from_url(url).pack())
     }
 }
 

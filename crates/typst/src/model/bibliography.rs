@@ -28,11 +28,12 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockChild, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
+    BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sizing, TrackSizings, VElem,
 };
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
+    Url,
 };
 
 use crate::syntax::{Span, Spanned};
@@ -216,7 +217,7 @@ impl Show for Packed<BibliographyElem> {
         }) {
             seq.push(
                 HeadingElem::new(title)
-                    .with_level(Smart::Custom(NonZeroUsize::ONE))
+                    .with_depth(NonZeroUsize::ONE)
                     .pack()
                     .spanned(self.span()),
             );
@@ -230,7 +231,9 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        let row_gutter = ParElem::spacing_in(styles).into();
+        let row_gutter = ParElem::spacing_in(styles);
+        let row_gutter_elem = VElem::new(row_gutter.into()).with_weak(true).pack();
+
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in references {
@@ -242,19 +245,19 @@ impl Show for Packed<BibliographyElem> {
                     Packed::new(GridCell::new(reference.clone())).spanned(span),
                 )));
             }
-
-            seq.push(VElem::new(row_gutter).with_weakness(3).pack());
             seq.push(
                 GridElem::new(cells)
                     .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
                     .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
+                    .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
                     .pack()
                     .spanned(self.span()),
             );
         } else {
-            for (_, reference) in references {
-                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+            for (i, (_, reference)) in references.iter().enumerate() {
+                if i > 0 {
+                    seq.push(row_gutter_elem.clone());
+                }
                 seq.push(reference.clone());
             }
         }
@@ -738,8 +741,8 @@ impl<'a> Generator<'a> {
 
     /// Displays hayagriva's output as content for the citations and references.
     fn display(&mut self, rendered: &hayagriva::Rendered) -> StrResult<Works> {
-        let citations = self.display_citations(rendered);
-        let references = self.display_references(rendered);
+        let citations = self.display_citations(rendered)?;
+        let references = self.display_references(rendered)?;
         let hanging_indent =
             rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
         Ok(Works { citations, references, hanging_indent })
@@ -749,7 +752,7 @@ impl<'a> Generator<'a> {
     fn display_citations(
         &mut self,
         rendered: &hayagriva::Rendered,
-    ) -> HashMap<Location, SourceResult<Content>> {
+    ) -> StrResult<HashMap<Location, SourceResult<Content>>> {
         // Determine for each citation key where in the bibliography it is,
         // so that we can link there.
         let mut links = HashMap::new();
@@ -775,8 +778,11 @@ impl<'a> Generator<'a> {
             let content = if info.subinfos.iter().all(|sub| sub.hidden) {
                 Content::empty()
             } else {
-                let mut content =
-                    renderer.display_elem_children(&citation.citation, &mut None);
+                let mut content = renderer.display_elem_children(
+                    &citation.citation,
+                    &mut None,
+                    true,
+                )?;
 
                 if info.footnote {
                     content = FootnoteElem::with_content(content).pack();
@@ -788,15 +794,16 @@ impl<'a> Generator<'a> {
             output.insert(info.location, Ok(content));
         }
 
-        output
+        Ok(output)
     }
 
     /// Display the bibliography references.
+    #[allow(clippy::type_complexity)]
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> Option<Vec<(Option<Content>, Content)>> {
-        let rendered = rendered.bibliography.as_ref()?;
+    ) -> StrResult<Option<Vec<(Option<Content>, Content)>>> {
+        let Some(rendered) = &rendered.bibliography else { return Ok(None) };
 
         // Determine for each citation key where it first occurred, so that we
         // can link there.
@@ -826,18 +833,23 @@ impl<'a> Generator<'a> {
             let backlink = location.variant(k + 1);
 
             // Render the first field.
-            let mut prefix = item.first_field.as_ref().map(|elem| {
-                let mut content = renderer.display_elem_child(elem, &mut None);
-                if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                    let dest = Destination::Location(*location);
-                    content = content.linked(dest);
-                }
-                content
-            });
+            let mut prefix = item
+                .first_field
+                .as_ref()
+                .map(|elem| {
+                    let mut content =
+                        renderer.display_elem_child(elem, &mut None, false)?;
+                    if let Some(location) = first_occurrences.get(item.key.as_str()) {
+                        let dest = Destination::Location(*location);
+                        content = content.linked(dest);
+                    }
+                    StrResult::Ok(content)
+                })
+                .transpose()?;
 
             // Render the main reference content.
             let mut reference =
-                renderer.display_elem_children(&item.content, &mut prefix);
+                renderer.display_elem_children(&item.content, &mut prefix, false)?;
 
             // Attach a backlink to either the prefix or the reference so that
             // we can link to the bibliography entry.
@@ -846,7 +858,7 @@ impl<'a> Generator<'a> {
             output.push((prefix, reference));
         }
 
-        Some(output)
+        Ok(Some(output))
     }
 }
 
@@ -867,14 +879,26 @@ impl ElemRenderer<'_> {
     ///
     /// The `prefix` can be a separate content storage where `left-margin`
     /// elements will be accumulated into.
+    ///
+    /// `is_citation` dictates whether whitespace at the start of the citation
+    /// will be eliminated. Some CSL styles yield whitespace at the start of
+    /// their citations, which should instead be handled by Typst.
     fn display_elem_children(
         &self,
         elems: &hayagriva::ElemChildren,
         prefix: &mut Option<Content>,
-    ) -> Content {
-        Content::sequence(
-            elems.0.iter().map(|elem| self.display_elem_child(elem, prefix)),
-        )
+        is_citation: bool,
+    ) -> StrResult<Content> {
+        Ok(Content::sequence(
+            elems
+                .0
+                .iter()
+                .enumerate()
+                .map(|(i, elem)| {
+                    self.display_elem_child(elem, prefix, is_citation && i == 0)
+                })
+                .collect::<StrResult<Vec<_>>>()?,
+        ))
     }
 
     /// Display a rendered hayagriva element.
@@ -882,16 +906,19 @@ impl ElemRenderer<'_> {
         &self,
         elem: &hayagriva::ElemChild,
         prefix: &mut Option<Content>,
-    ) -> Content {
-        match elem {
-            hayagriva::ElemChild::Text(formatted) => self.display_formatted(formatted),
-            hayagriva::ElemChild::Elem(elem) => self.display_elem(elem, prefix),
+        trim_start: bool,
+    ) -> StrResult<Content> {
+        Ok(match elem {
+            hayagriva::ElemChild::Text(formatted) => {
+                self.display_formatted(formatted, trim_start)
+            }
+            hayagriva::ElemChild::Elem(elem) => self.display_elem(elem, prefix)?,
             hayagriva::ElemChild::Markup(markup) => self.display_math(markup),
-            hayagriva::ElemChild::Link { text, url } => self.display_link(text, url),
+            hayagriva::ElemChild::Link { text, url } => self.display_link(text, url)?,
             hayagriva::ElemChild::Transparent { cite_idx, format } => {
                 self.display_transparent(*cite_idx, format)
             }
-        }
+        })
     }
 
     /// Display a block-level element.
@@ -899,7 +926,7 @@ impl ElemRenderer<'_> {
         &self,
         elem: &hayagriva::Elem,
         prefix: &mut Option<Content>,
-    ) -> Content {
+    ) -> StrResult<Content> {
         use citationberg::Display;
 
         let block_level = matches!(elem.display, Some(Display::Block | Display::Indent));
@@ -908,7 +935,8 @@ impl ElemRenderer<'_> {
         let mut content = self.display_elem_children(
             &elem.children,
             if block_level { &mut suf_prefix } else { prefix },
-        );
+            false,
+        )?;
 
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
@@ -929,7 +957,7 @@ impl ElemRenderer<'_> {
         match elem.display {
             Some(Display::Block) => {
                 content = BlockElem::new()
-                    .with_body(Some(BlockChild::Content(content)))
+                    .with_body(Some(BlockBody::Content(content)))
                     .pack()
                     .spanned(self.span);
             }
@@ -938,7 +966,7 @@ impl ElemRenderer<'_> {
             }
             Some(Display::LeftMargin) => {
                 *prefix.get_or_insert_with(Default::default) += content;
-                return Content::empty();
+                return Ok(Content::empty());
             }
             _ => {}
         }
@@ -950,7 +978,7 @@ impl ElemRenderer<'_> {
             }
         }
 
-        content
+        Ok(content)
     }
 
     /// Display math.
@@ -961,11 +989,11 @@ impl ElemRenderer<'_> {
     }
 
     /// Display a link.
-    fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> Content {
-        let dest = Destination::Url(url.into());
-        LinkElem::new(dest.into(), self.display_formatted(text))
+    fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> StrResult<Content> {
+        let dest = Destination::Url(Url::new(url)?);
+        Ok(LinkElem::new(dest.into(), self.display_formatted(text, false))
             .pack()
-            .spanned(self.span)
+            .spanned(self.span))
     }
 
     /// Display transparent pass-through content.
@@ -975,8 +1003,18 @@ impl ElemRenderer<'_> {
     }
 
     /// Display formatted hayagriva text as content.
-    fn display_formatted(&self, formatted: &hayagriva::Formatted) -> Content {
-        let content = TextElem::packed(formatted.text.as_str()).spanned(self.span);
+    fn display_formatted(
+        &self,
+        formatted: &hayagriva::Formatted,
+        trim_start: bool,
+    ) -> Content {
+        let formatted_text = if trim_start {
+            formatted.text.trim_start()
+        } else {
+            formatted.text.as_str()
+        };
+
+        let content = TextElem::packed(formatted_text).spanned(self.span);
         apply_formatting(content, &formatted.formatting)
     }
 }

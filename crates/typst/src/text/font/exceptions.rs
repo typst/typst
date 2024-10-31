@@ -44,12 +44,14 @@ pub fn find_exception(postscript_name: &str) -> Option<&'static Exception> {
 
 /// A map which keys are PostScript name and values are override entries.
 static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
-    // The old version of Arial-Black, published by Microsoft in 1996 in their "core fonts for the web" project, has a wrong weight of 400.
+    // The old version of Arial-Black, published by Microsoft in 1996 in their
+    // "core fonts for the web" project, has a wrong weight of 400.
     // See https://corefonts.sourceforge.net/.
     "Arial-Black" => Exception::new()
         .weight(900),
-    // Archivo Narrow is different from Archivo and Archivo Black. Since Archivo Black seems
-    // identical to Archivo weight 900, only differentiate between Archivo and Archivo Narrow.
+    // Archivo Narrow is different from Archivo and Archivo Black. Since Archivo Black
+    // seems identical to Archivo weight 900, only differentiate between Archivo and
+    // Archivo Narrow.
     "ArchivoNarrow-Regular" => Exception::new()
         .family("Archivo Narrow"),
     "ArchivoNarrow-Italic" => Exception::new()
@@ -179,6 +181,9 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .family("New Computer Modern"),
     "NewCM10-Regular" => Exception::new()
         .family("New Computer Modern"),
+    "NewCMMath-Bold" => Exception::new()
+        .family("New Computer Modern Math")
+        .weight(700),
     "NewCMMath-Book" => Exception::new()
         .family("New Computer Modern Math")
         .weight(450),
@@ -321,4 +326,12 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .family("Latin Modern Sans 12"),
     "LMSans17-Oblique" => Exception::new()
         .family("Latin Modern Sans 17"),
+    // STKaiti is a set of Kai fonts. Their weight values need to be corrected
+    // according to their PostScript names.
+    "STKaitiSC-Regular" => Exception::new().weight(400),
+    "STKaitiTC-Regular" => Exception::new().weight(400),
+    "STKaitiSC-Bold" => Exception::new().weight(700),
+    "STKaitiTC-Bold" => Exception::new().weight(700),
+    "STKaitiSC-Black" => Exception::new().weight(900),
+    "STKaitiTC-Black" => Exception::new().weight(900),
 };

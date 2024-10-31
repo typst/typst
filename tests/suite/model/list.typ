@@ -142,6 +142,16 @@ Hello
 #list(tight: false)[A][B]
 World
 
+--- list-items-context ---
+#context [+ A]
+#context [+ B]
+#context [+ C]
+
+--- list-item-styling ---
+- Hello
+#text(red)[- World]
+#text(green)[- What up?]
+
 --- issue-2530-list-item-panic ---
 // List item (pre-emptive)
 #list.item[Hello]

@@ -92,6 +92,13 @@ impl Span {
         }
     }
 
+    /// Find the first non-detached span in the iterator.
+    pub fn find(iter: impl IntoIterator<Item = Self>) -> Self {
+        iter.into_iter()
+            .find(|span| !span.is_detached())
+            .unwrap_or(Span::detached())
+    }
+
     /// Resolve a file location relative to this span's source.
     pub fn resolve_path(self, path: &str) -> Result<FileId, EcoString> {
         let Some(file) = self.id() else {

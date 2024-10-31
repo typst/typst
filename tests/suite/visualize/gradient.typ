@@ -175,6 +175,22 @@
   )
 )
 
+--- gradient-linear-stroke-relative-parent ---
+// The image should look as if there is a single gradient that is being used for
+// both the circle stroke and the block fill.
+#align(
+  center + horizon,
+  block(
+    width: 50pt,
+    height: 50pt,
+    fill: gradient.linear(red, blue).sharp(4),
+    circle(
+      radius: 18pt,
+      stroke: 5pt + gradient.linear(red, blue, relative: "parent").sharp(4),
+    )
+  )
+)
+
 --- gradient-linear-line ---
 // Test gradient on lines
 #set page(width: 100pt, height: 100pt)
@@ -481,7 +497,7 @@ $ nabla dot bold(E) = frac(rho, epsilon_0) $
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
 
-$ x_"1,2" = frac(-b +- sqrt(b^2 - 4 a c), 2 a) $
+$ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 
 --- gradient-math-mat ---
 // Test on matrix
@@ -513,7 +529,7 @@ $ A = mat(
   7, 8, 9
 ) $
 
-$ x_"1,2" = frac(-b +- sqrt(b^2 - 4 a c), 2 a) $
+$ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 
 --- gradient-math-misc ---
 // Test miscellaneous
@@ -596,15 +612,6 @@ $ A = mat(
   gradient.linear(red, green, blue).repeat(2, mirror: true).stops(),
   ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
 )
-
---- gradient-repr ---
-// Gradients
-#set page(width: 400pt)
-#set text(0.8em)
-#gradient.linear(blue, red) \
-#gradient.linear(blue, red, dir: ttb) \
-#gradient.linear(blue, red, angle: 45deg, relative: "self") \
-#gradient.linear(blue, red, angle: 45deg, space: rgb)
 
 --- issue-2902-gradient-oklch-panic ---
 // Minimal reproduction of #2902

@@ -486,7 +486,8 @@ impl Array {
         /// function is a bit involved, so we parse the positional arguments manually).
         args: &mut Args,
         /// Whether all arrays have to have the same length.
-        /// For example, `(1, 2).zip((1, 2, 3), exact: true)` produces an error.
+        /// For example, `{(1, 2).zip((1, 2, 3), exact: true)}` produces an
+        /// error.
         #[named]
         #[default(false)]
         exact: bool,
@@ -913,7 +914,11 @@ impl Array {
     /// If the same key occurs multiple times, the last value is selected.
     ///
     /// ```example
-    /// (("apples", 2), ("peaches", 3), ("apples", 5)).to-dict()
+    /// #(
+    ///   ("apples", 2),
+    ///   ("peaches", 3),
+    ///   ("apples", 5),
+    /// ).to-dict()
     /// ```
     #[func]
     pub fn to_dict(self) -> StrResult<Dict> {
@@ -938,14 +943,15 @@ impl Array {
     /// Reduces the elements to a single one, by repeatedly applying a reducing
     /// operation.
     ///
-    /// If the array is empty, returns `none`, otherwise, returns the
-    /// result of the reduction.
+    /// If the array is empty, returns `{none}`, otherwise, returns the result
+    /// of the reduction.
     ///
-    /// The reducing function is a closure with two arguments: an 'accumulator', and an element.
+    /// The reducing function is a closure with two arguments: an "accumulator",
+    /// and an element.
     ///
-    /// For arrays with at least one element, this is the same as `array.fold`
-    /// with the first element of the array as the initial accumulator value, folding
-    /// every subsequent element into it.
+    /// For arrays with at least one element, this is the same as [`array.fold`]
+    /// with the first element of the array as the initial accumulator value,
+    /// folding every subsequent element into it.
     #[func]
     pub fn reduce(
         self,

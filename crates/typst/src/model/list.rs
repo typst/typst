@@ -47,15 +47,17 @@ use crate::text::TextElem;
 /// more than an item's marker becomes part of that item.
 #[elem(scope, title = "Bullet List", Show)]
 pub struct ListElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [list spacing]($list.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the list more compact, which
-    /// can look better if the items are short.
+    /// Defines the default [spacing]($list.spacing) of the list. If it is
+    /// `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
     /// each other, this is set to `{true}`; if items are separated by a blank
-    /// line, this is set to `{false}`.
+    /// line, this is set to `{false}`. The markup-defined tightness cannot be
+    /// overridden with set rules.
     ///
     /// ```example
     /// - If a list has a lot of text, and
@@ -148,7 +150,8 @@ impl Show for Packed<ListElem> {
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
-            let spacing = VElem::list_attach(leading.into()).pack();
+            let spacing =
+                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
             realized = spacing + realized;
         }
 
@@ -218,14 +221,6 @@ pub struct ListItem {
     pub body: Content,
 }
 
-impl Packed<ListItem> {
-    /// Apply styles to this list item.
-    pub fn styled(mut self, styles: Styles) -> Self {
-        self.body.style_in_place(styles);
-        self
-    }
-}
-
 cast! {
     ListItem,
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::new)
@@ -275,4 +270,34 @@ cast! {
         Self::Content(array.into_iter().map(Value::display).collect())
     },
     v: Func => Self::Func(v),
+}
+
+/// A list, enum, or term list.
+pub trait ListLike: NativeElement {
+    /// The kind of list item this list is composed of.
+    type Item: ListItemLike;
+
+    /// Create this kind of list from its children and tightness.
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self;
+}
+
+/// A list item, enum item, or term list item.
+pub trait ListItemLike: NativeElement {
+    /// Apply styles to the element's body.
+    fn styled(item: Packed<Self>, styles: Styles) -> Packed<Self>;
+}
+
+impl ListLike for ListElem {
+    type Item = ListItem;
+
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self {
+        Self::new(children).with_tight(tight)
+    }
+}
+
+impl ListItemLike for ListItem {
+    fn styled(mut item: Packed<Self>, styles: Styles) -> Packed<Self> {
+        item.body.style_in_place(styles);
+        item
+    }
 }

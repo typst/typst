@@ -6,6 +6,7 @@ use ttf_parser::{GlyphId, Rect};
 use unicode_math_class::MathClass;
 
 use crate::foundations::StyleChain;
+use crate::introspection::Tag;
 use crate::layout::{
     Abs, Corner, Em, Frame, FrameItem, HideElem, Point, Size, VAlignment,
 };
@@ -22,10 +23,11 @@ pub enum MathFragment {
     Glyph(GlyphFragment),
     Variant(VariantFragment),
     Frame(FrameFragment),
-    Spacing(SpacingFragment),
+    Spacing(Abs, bool),
     Space(Abs),
     Linebreak,
     Align,
+    Tag(Tag),
 }
 
 impl MathFragment {
@@ -38,7 +40,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.width,
             Self::Variant(variant) => variant.frame.width(),
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(spacing) => spacing.width,
+            Self::Spacing(amount, _) => *amount,
             Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
@@ -74,6 +76,7 @@ impl MathFragment {
     pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Frame(fragment) => fragment.ignorant,
+            Self::Tag(_) => true,
             _ => false,
         }
     }
@@ -83,10 +86,11 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.class,
             Self::Variant(variant) => variant.class,
             Self::Frame(fragment) => fragment.class,
-            Self::Spacing(_) => MathClass::Space,
+            Self::Spacing(_, _) => MathClass::Space,
             Self::Space(_) => MathClass::Space,
             Self::Linebreak => MathClass::Space,
             Self::Align => MathClass::Special,
+            Self::Tag(_) => MathClass::Special,
         }
     }
 
@@ -172,6 +176,11 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.into_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
+            Self::Tag(tag) => {
+                let mut frame = Frame::soft(Size::zero());
+                frame.push(Point::zero(), FrameItem::Tag(tag));
+                frame
+            }
             _ => Frame::soft(self.size()),
         }
     }
@@ -182,6 +191,18 @@ impl MathFragment {
             MathFragment::Variant(variant) => variant.limits,
             MathFragment::Frame(fragment) => fragment.limits,
             _ => Limits::Never,
+        }
+    }
+
+    /// If no kern table is provided for a corner, a kerning amount of zero is
+    /// assumed.
+    pub fn kern_at_height(&self, ctx: &MathContext, corner: Corner, height: Abs) -> Abs {
+        match self {
+            Self::Glyph(glyph) => {
+                kern_at_height(ctx, glyph.font_size, glyph.id, corner, height)
+                    .unwrap_or_default()
+            }
+            _ => Abs::zero(),
         }
     }
 }
@@ -201,12 +222,6 @@ impl From<VariantFragment> for MathFragment {
 impl From<FrameFragment> for MathFragment {
     fn from(fragment: FrameFragment) -> Self {
         Self::Frame(fragment)
-    }
-}
-
-impl From<SpacingFragment> for MathFragment {
-    fn from(fragment: SpacingFragment) -> Self {
-        Self::Spacing(fragment)
     }
 }
 
@@ -452,12 +467,11 @@ pub struct FrameFragment {
 }
 
 impl FrameFragment {
-    pub fn new(ctx: &MathContext, styles: StyleChain, mut frame: Frame) -> Self {
+    pub fn new(ctx: &MathContext, styles: StyleChain, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
         let accent_attach = frame.width() / 2.0;
-        frame.post_process(styles);
         Self {
-            frame,
+            frame: frame.post_processed(styles),
             font_size: scaled_font_size(ctx, styles),
             class: EquationElem::class_in(styles).unwrap_or(MathClass::Normal),
             math_size: EquationElem::size_in(styles),
@@ -504,12 +518,6 @@ impl FrameFragment {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct SpacingFragment {
-    pub width: Abs,
-    pub weak: bool,
-}
-
 /// Look up the italics correction for a glyph.
 fn italics_correction(ctx: &MathContext, id: GlyphId, font_size: Abs) -> Option<Abs> {
     Some(
@@ -552,10 +560,6 @@ fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
 }
 
 /// Look up a kerning value at a specific corner and height.
-///
-/// This can be integrated once we've found a font that actually provides this
-/// data.
-#[allow(unused)]
 fn kern_at_height(
     ctx: &MathContext,
     font_size: Abs,

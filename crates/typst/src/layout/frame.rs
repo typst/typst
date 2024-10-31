@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
-use crate::foundations::{cast, dict, Dict, StyleChain, Value};
-use crate::introspection::Tag;
+use crate::foundations::{cast, dict, Dict, Label, StyleChain, Value};
+use crate::introspection::{Location, Tag};
 use crate::layout::{
     Abs, Axes, Corners, FixedAlignment, HideElem, Length, Point, Rel, Sides, Size,
     Transform,
@@ -320,6 +320,12 @@ impl Frame {
     /// that result from realization will take care of it and the styles can
     /// only apply to them as a whole, not part of it (because they don't manage
     /// styles).
+    pub fn post_processed(mut self, styles: StyleChain) -> Self {
+        self.post_process(styles);
+        self
+    }
+
+    /// Post process in place.
     pub fn post_process(&mut self, styles: StyleChain) {
         if !self.is_empty() {
             self.post_process_raw(
@@ -380,7 +386,7 @@ impl Frame {
             styled_rect(size, radius, fill, stroke)
                 .into_iter()
                 .map(|x| (pos, FrameItem::Shape(x, span))),
-        )
+        );
     }
 
     /// Arbitrarily transform the contents of the frame.
@@ -398,6 +404,19 @@ impl Frame {
     pub fn clip(&mut self, clip_path: Path) {
         if !self.is_empty() {
             self.group(|g| g.clip_path = Some(clip_path));
+        }
+    }
+
+    /// Add a label to the frame.
+    pub fn label(&mut self, label: Label) {
+        self.group(|g| g.label = Some(label));
+    }
+
+    /// Set a parent for the frame. As a result, all elements in the frame
+    /// become logically ordered immediately after the given location.
+    pub fn set_parent(&mut self, parent: Location) {
+        if !self.is_empty() {
+            self.group(|g| g.parent = Some(parent));
         }
     }
 
@@ -549,6 +568,11 @@ pub struct GroupItem {
     pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
     pub clip_path: Option<Path>,
+    /// The group's label.
+    pub label: Option<Label>,
+    /// The group's logical parent. All elements in this group are logically
+    /// ordered immediately after the parent's start location.
+    pub parent: Option<Location>,
 }
 
 impl GroupItem {
@@ -558,6 +582,8 @@ impl GroupItem {
             frame,
             transform: Transform::identity(),
             clip_path: None,
+            label: None,
+            parent: None,
         }
     }
 }

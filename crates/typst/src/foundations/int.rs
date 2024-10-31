@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    bail, cast, func, repr, scope, ty, Bytes, Cast, Repr, Str, Value,
+    bail, cast, func, repr, scope, ty, Bytes, Cast, Decimal, Repr, Str, Value,
 };
 
 /// A whole number.
@@ -33,16 +33,19 @@ type i64;
 
 #[scope]
 impl i64 {
-    /// Converts a value to an integer.
+    /// Converts a value to an integer. Raises an error if there is an attempt
+    /// to produce an integer larger than the maximum 64-bit signed integer
+    /// or smaller than the minimum 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
-    /// - Floats are floored to the next 64-bit integer.
+    /// - Floats and decimals are truncated to the next 64-bit integer.
     /// - Strings are parsed in base 10.
     ///
     /// ```example
     /// #int(false) \
     /// #int(true) \
     /// #int(2.7) \
+    /// #int(decimal("3.8")) \
     /// #(int("27") + int("4"))
     /// ```
     #[func(constructor)]
@@ -62,7 +65,7 @@ impl i64 {
     /// ```example
     /// #(5).signum() \
     /// #(-5).signum() \
-    /// #(0).signum() \
+    /// #(0).signum()
     /// ```
     #[func]
     pub fn signum(self) -> i64 {
@@ -75,7 +78,7 @@ impl i64 {
     /// integer of 64 bits.
     ///
     /// ```example
-    /// #4.bit-not()
+    /// #4.bit-not() \
     /// #(-1).bit-not()
     /// ```
     #[func(title = "Bitwise NOT")]
@@ -141,7 +144,7 @@ impl i64 {
     /// fit in a 64-bit integer.
     ///
     /// ```example
-    /// #33.bit-lshift(2)
+    /// #33.bit-lshift(2) \
     /// #(-1).bit-lshift(3)
     /// ```
     #[func(title = "Bitwise Left Shift")]
@@ -162,8 +165,8 @@ impl i64 {
     /// integer of 64 bits.
     ///
     /// ```example
-    /// #64.bit-rshift(2)
-    /// #(-8).bit-rshift(2)
+    /// #64.bit-rshift(2) \
+    /// #(-8).bit-rshift(2) \
     /// #(-8).bit-rshift(2, logical: true)
     /// ```
     #[func(title = "Bitwise Right Shift")]
@@ -172,17 +175,17 @@ impl i64 {
         /// The amount of bits to shift. Must not be negative.
         ///
         /// Shifts larger than 63 are allowed and will cause the return value to
-        /// saturate. For non-negative numbers, the return value saturates at `0`,
-        /// while, for negative numbers, it saturates at `-1` if `logical` is set
-        /// to `false`, or `0` if it is `true`. This behavior is consistent with
-        /// just applying this operation multiple times. Therefore, the shift will
-        /// always succeed.
+        /// saturate. For non-negative numbers, the return value saturates at
+        /// `{0}`, while, for negative numbers, it saturates at `{-1}` if
+        /// `logical` is set to `{false}`, or `{0}` if it is `{true}`. This
+        /// behavior is consistent with just applying this operation multiple
+        /// times. Therefore, the shift will always succeed.
         shift: u32,
         /// Toggles whether a logical (unsigned) right shift should be performed
         /// instead of arithmetic right shift.
-        /// If this is `true`, negative operands will not preserve their sign bit,
-        /// and bits which appear to the left after the shift will be `0`.
-        /// This parameter has no effect on non-negative operands.
+        /// If this is `{true}`, negative operands will not preserve their sign
+        /// bit, and bits which appear to the left after the shift will be
+        /// `{0}`. This parameter has no effect on non-negative operands.
         #[named]
         #[default(false)]
         logical: bool,
@@ -341,12 +344,15 @@ impl Repr for i64 {
     }
 }
 
-/// Represents the byte order used for converting integers to bytes and vice versa.
+/// Represents the byte order used for converting integers and floats to bytes
+/// and vice versa.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Endianness {
-    /// Big-endian byte order: the highest-value byte is at the beginning of the bytes.
+    /// Big-endian byte order: The highest-value byte is at the beginning of the
+    /// bytes.
     Big,
-    /// Little-endian byte order: the lowest-value byte is at the beginning of the bytes.
+    /// Little-endian byte order: The lowest-value byte is at the beginning of
+    /// the bytes.
     Little,
 }
 
@@ -357,8 +363,17 @@ cast! {
     ToInt,
     v: i64 => Self(v),
     v: bool => Self(v as i64),
-    v: f64 => Self(v as i64),
+    v: f64 => Self(convert_float_to_int(v)?),
+    v: Decimal => Self(i64::try_from(v).map_err(|_| eco_format!("number too large"))?),
     v: Str => Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
+}
+
+pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
+    if f <= i64::MIN as f64 - 1.0 || f >= i64::MAX as f64 + 1.0 {
+        Err(eco_format!("number too large"))
+    } else {
+        Ok(f as i64)
+    }
 }
 
 fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {

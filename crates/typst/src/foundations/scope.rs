@@ -73,7 +73,12 @@ impl<'a> Scopes<'a> {
                     None => None,
                 })
             })
-            .ok_or_else(|| unknown_variable(var))
+            .ok_or_else(|| {
+                unknown_variable_math(
+                    var,
+                    self.base.is_some_and(|base| base.global.scope().get(var).is_some()),
+                )
+            })
     }
 
     /// Try to access a variable mutably.
@@ -109,13 +114,39 @@ fn cannot_mutate_constant(var: &str) -> HintedString {
 fn unknown_variable(var: &str) -> HintedString {
     let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
 
+    if var.contains('-') {
+        res.hint(eco_format!(
+            "if you meant to use subtraction, try adding spaces around the minus sign{}: `{}`",
+            if var.matches('-').count() > 1 { "s" } else { "" },
+            var.replace('-', " - ")
+        ));
+    }
+
+    res
+}
+
+#[cold]
+fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
+    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+
     if matches!(var, "none" | "auto" | "false" | "true") {
         res.hint(eco_format!(
-            "if you meant to use a literal, try adding a hash before it"
+            "if you meant to use a literal, try adding a hash before it: `#{var}`",
         ));
-    } else if var.contains('-') {
+    } else if in_global {
         res.hint(eco_format!(
-            "if you meant to use subtraction, try adding spaces around the minus sign",
+            "`{var}` is not available directly in math, try adding a hash before it: `#{var}`",
+        ));
+    } else {
+        res.hint(eco_format!(
+            "if you meant to display multiple letters as is, try adding spaces between each letter: `{}`",
+            var.chars()
+                .flat_map(|c| [' ', c])
+                .skip(1)
+                .collect::<EcoString>()
+        ));
+        res.hint(eco_format!(
+            "or if you meant to display this as text, try placing it in quotes: `\"{var}\"`"
         ));
     }
 

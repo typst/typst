@@ -21,10 +21,9 @@ use crate::foundations::{
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
-use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::utils::{fat, LazyHash, SmallBitSet};
+use crate::utils::{fat, singleton, LazyHash, SmallBitSet};
 
 /// A piece of document content.
 ///
@@ -73,7 +72,7 @@ use crate::utils::{fat, LazyHash, SmallBitSet};
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
-    /// The partially element-dependant inner data.
+    /// The partially element-dependent inner data.
     inner: Arc<Inner<dyn Bounds>>,
     /// The element's source code location.
     span: Span,
@@ -109,9 +108,9 @@ impl Content {
         }
     }
 
-    /// Creates a new empty sequence content.
+    /// Creates a empty sequence content.
     pub fn empty() -> Self {
-        Self::new(SequenceElem::default())
+        singleton!(Content, SequenceElem::default().pack()).clone()
     }
 
     /// Get the element of this content.
@@ -185,12 +184,6 @@ impl Content {
         self.make_mut().lifecycle.insert(0);
     }
 
-    /// How this element interacts with other elements in a stream.
-    pub fn behaviour(&self) -> Behaviour {
-        self.with::<dyn Behave>()
-            .map_or(Behaviour::Supportive, Behave::behaviour)
-    }
-
     /// Get a field by ID.
     ///
     /// This is the preferred way to access fields. However, you can only use it
@@ -252,16 +245,14 @@ impl Content {
 
     /// Create a new sequence element from multiples elements.
     pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
-        let mut iter = iter.into_iter();
-        let Some(first) = iter.next() else { return Self::empty() };
-        let Some(second) = iter.next() else { return first };
-        SequenceElem::new(
-            std::iter::once(first)
-                .chain(std::iter::once(second))
-                .chain(iter)
-                .collect(),
-        )
-        .into()
+        let vec: Vec<_> = iter.into_iter().collect();
+        if vec.is_empty() {
+            Self::empty()
+        } else if vec.len() == 1 {
+            vec.into_iter().next().unwrap()
+        } else {
+            SequenceElem::new(vec).into()
+        }
     }
 
     /// Whether the contained element is of type `T`.
@@ -369,7 +360,7 @@ impl Content {
         context: Tracked<Context>,
         recipe: Recipe,
     ) -> SourceResult<Self> {
-        if recipe.selector.is_none() {
+        if recipe.selector().is_none() {
             recipe.apply(engine, context, self)
         } else {
             Ok(self.styled(recipe))

@@ -10,9 +10,8 @@ use crate::foundations::{
     cast, func, repr, scope, ty, CastInfo, Content, Context, Dict, Element, FromValue,
     Func, Label, Reflect, Regex, Repr, Str, StyleChain, Type, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{Introspector, Locatable, Location, Unqueriable};
 use crate::symbols::Symbol;
-use crate::text::TextElem;
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 #[macro_export]
@@ -126,15 +125,12 @@ impl Selector {
     pub fn matches(&self, target: &Content, styles: Option<StyleChain>) -> bool {
         match self {
             Self::Elem(element, dict) => {
-                target.func() == *element
+                target.elem() == *element
                     && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
                         target.get(*id, styles).as_ref().ok() == Some(value)
                     })
             }
             Self::Label(label) => target.label() == Some(*label),
-            Self::Regex(regex) => target
-                .to_packed::<TextElem>()
-                .is_some_and(|elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => {
                 selectors.iter().any(move |sel| sel.matches(target, styles))
@@ -144,7 +140,7 @@ impl Selector {
             }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
-            Self::Before { .. } | Self::After { .. } => false,
+            Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
         }
     }
 }
@@ -343,7 +339,7 @@ impl FromValue for LocatableSelector {
         fn validate(selector: &Selector) -> StrResult<()> {
             match selector {
                 Selector::Elem(elem, _) => {
-                    if !elem.can::<dyn Locatable>() {
+                    if !elem.can::<dyn Locatable>() || elem.can::<dyn Unqueriable>() {
                         Err(eco_format!("{} is not locatable", elem.name()))?
                     }
                 }

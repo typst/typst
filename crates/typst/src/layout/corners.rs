@@ -241,7 +241,7 @@ impl<T: Resolve> Resolve for Corners<T> {
 
 impl<T: Fold> Fold for Corners<Option<T>> {
     fn fold(self, outer: Self) -> Self {
-        // Usually, folding an inner `None` with an `outer` preferres the
+        // Usually, folding an inner `None` with an `outer` prefers the
         // explicit `None`. However, here `None` means unspecified and thus
         // we want `outer`, so we use `fold_or` to opt into such behavior.
         self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))
@@ -262,6 +262,16 @@ pub enum Corner {
 }
 
 impl Corner {
+    /// The opposite corner.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::TopLeft => Self::BottomRight,
+            Self::TopRight => Self::BottomLeft,
+            Self::BottomRight => Self::TopLeft,
+            Self::BottomLeft => Self::TopRight,
+        }
+    }
+
     /// The next corner, clockwise.
     pub fn next_cw(self) -> Self {
         match self {

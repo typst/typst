@@ -8,8 +8,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Locator, SplitLocator};
 use crate::layout::{
-    Abs, AlignElem, Axes, Axis, BlockElem, Dir, FixedAlignment, Fr, Fragment, Frame,
-    HElem, Point, Regions, Size, Spacing, VElem,
+    layout_fragment, Abs, AlignElem, Axes, Axis, BlockElem, Dir, FixedAlignment, Fr,
+    Fragment, Frame, HElem, Point, Regions, Size, Spacing, VElem,
 };
 use crate::utils::{Get, Numeric};
 
@@ -257,8 +257,9 @@ impl<'a> StackLayouter<'a> {
         }
         .resolve(styles);
 
-        let fragment = block.layout(
+        let fragment = layout_fragment(
             engine,
+            block,
             self.locator.next(&block.span()),
             styles,
             self.regions,

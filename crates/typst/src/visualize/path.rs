@@ -35,7 +35,25 @@ pub struct PathElem {
     /// rectangle with both fill and stroke, you have to configure both.
     pub fill: Option<Paint>,
 
-    /// The rule used to fill the path.
+    /// The drawing rule used to fill the path.
+    ///
+    /// ```example
+    /// // We use `.with` to get a new
+    /// // function that has the common
+    /// // arguments pre-applied.
+    /// #let star = path.with(
+    ///   fill: red,
+    ///   closed: true,
+    ///   (25pt, 0pt),
+    ///   (10pt, 50pt),
+    ///   (50pt, 20pt),
+    ///   (0pt, 20pt),
+    ///   (40pt, 50pt),
+    /// )
+    ///
+    /// #star(fill-rule: "non-zero")
+    /// #star(fill-rule: "even-odd")
+    /// ```
     #[default]
     pub fill_rule: FillRule,
 

@@ -1,52 +1,115 @@
-use crate::diag::{bail, At, Hint, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{elem, scope, Content, Packed, Smart, StyleChain, Unlabellable};
-use crate::introspection::Locator;
-use crate::layout::{
-    Alignment, Axes, Em, Fragment, Length, Regions, Rel, Size, VAlignment,
-};
-use crate::realize::{Behave, Behaviour};
+use crate::foundations::{elem, scope, Cast, Content, Packed, Smart};
+use crate::introspection::{Locatable, Unqueriable};
+use crate::layout::{Alignment, Em, Length, Rel};
 
-/// Places content at an absolute position.
+/// Places content relatively to its parent container.
 ///
-/// Placed content will not affect the position of other content. Place is
-/// always relative to its parent container and will be in the foreground of all
-/// other content in the container. Page margins will be respected.
+/// Placed content can be either overlaid (the default) or floating. Overlaid
+/// content is aligned with the parent container according to the given
+/// [`alignment`]($place.alignment), and shown over any other content added so
+/// far in the container. Floating content is placed at the top or bottom of
+/// the container, displacing other content down or up respectively. In both
+/// cases, the content position can be adjusted with [`dx`]($place.dx) and
+/// [`dy`]($place.dy) offsets without affecting the layout.
 ///
+/// The parent can be any container such as a [`block`], [`box`],
+/// [`rect`], etc. A top level `place` call will place content directly
+/// in the text area of the current page. This can be used for absolute
+/// positioning on the page: with a `top + left`
+/// [`alignment`]($place.alignment), the offsets `dx` and `dy` will set the
+/// position of the element's top left corner relatively to the top left corner
+/// of the text area. For absolute positioning on the full page including
+/// margins, you can use `place` in [`page.foreground`]($page.foreground) or
+/// [`page.background`]($page.background).
 ///
-/// # Example
+/// # Examples
 /// ```example
-/// #set page(height: 60pt)
+/// #set page(height: 120pt)
 /// Hello, world!
 ///
+/// #rect(
+///   width: 100%,
+///   height: 2cm,
+///   place(horizon + right, square()),
+/// )
+///
 /// #place(
-///   top + right,
-///   square(
-///     width: 20pt,
-///     stroke: 2pt + blue
-///   ),
+///   top + left,
+///   dx: -5pt,
+///   square(size: 5pt, fill: red),
 /// )
 /// ```
-#[elem(scope, Behave)]
+///
+/// # Effect on the position of other elements { #effect-on-other-elements }
+/// Overlaid elements don't take space in the flow of content, but a `place`
+/// call inserts an invisible block-level element in the flow. This can
+/// affect the layout by breaking the current paragraph. To avoid this,
+/// you can wrap the `place` call in a [`box`] when the call is made
+/// in the middle of a paragraph. The alignment and offsets will then be
+/// relative to this zero-size box. To make sure it doesn't interfere with
+/// spacing, the box should be attached to a word using a word joiner.
+///
+/// For example, the following defines a function for attaching an annotation
+/// to the following word:
+///
+/// ```example
+/// >>> #set page(height: 70pt)
+/// #let annotate(..args) = {
+///   box(place(..args))
+///   sym.wj
+///   h(0pt, weak: true)
+/// }
+///
+/// A placed #annotate(square(), dy: 2pt)
+/// square in my text.
+/// ```
+///
+/// The zero-width weak spacing serves to discard spaces between the function
+/// call and the next word.
+#[elem(scope, Locatable, Unqueriable)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
     /// - If `float` is `{false}`, then this can be any alignment other than `{auto}`.
     /// - If `float` is `{true}`, then this must be `{auto}`, `{top}`, or `{bottom}`.
     ///
-    /// When an axis of the page is `{auto}` sized, all alignments relative to
-    /// that axis will be ignored, instead, the item will be placed in the
-    /// origin of the axis.
+    /// When `float` is `{false}` and no vertical alignment is specified, the
+    /// content is placed at the current position on the vertical axis.
     #[positional]
     #[default(Smart::Custom(Alignment::START))]
     pub alignment: Smart<Alignment>,
 
+    /// Relative to which containing scope something is placed.
+    ///
+    /// The parent scope is primarily used with figures and, for
+    /// this reason, the figure function has a mirrored [`scope`
+    /// parameter]($figure.scope). Nonetheless, it can also be more generally
+    /// useful to break out of the columns. A typical example would be to
+    /// [create a single-column title section]($guides/page-setup-guide/#columns)
+    /// in a two-column document.
+    ///
+    /// Note that parent-scoped placement is currently only supported if `float`
+    /// is `{true}`. This may change in the future.
+    ///
+    /// ```example
+    /// #set page(height: 150pt, columns: 2)
+    /// #place(
+    ///   top + center,
+    ///   scope: "parent",
+    ///   float: true,
+    ///   rect(width: 80%, fill: aqua),
+    /// )
+    ///
+    /// #lorem(25)
+    /// ```
+    pub scope: PlacementScope,
+
     /// Whether the placed element has floating layout.
     ///
-    /// Floating elements are positioned at the top or bottom of the page,
-    /// displacing in-flow content. They are always placed in the in-flow
-    /// order relative to each other, as well as before any content following
-    /// a later [`place.flush`] element.
+    /// Floating elements are positioned at the top or bottom of the parent
+    /// container, displacing in-flow content. They are always placed in the
+    /// in-flow order relative to each other, as well as before any content
+    /// following a later [`place.flush`] element.
     ///
     /// ```example
     /// #set page(height: 150pt)
@@ -66,7 +129,10 @@ pub struct PlaceElem {
     /// ```
     pub float: bool,
 
-    /// The amount of clearance the placed element has in a floating layout.
+    /// The spacing between the placed element and other elements in a floating
+    /// layout.
+    ///
+    /// Has no effect if `float` is `{false}`.
     #[default(Em::new(1.5).into())]
     #[resolve]
     pub clearance: Length,
@@ -98,53 +164,24 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
+/// `PlaceElem` must be locatable to support logical ordering of floats, but I
+/// do not want to expose `query(place)` for now.
+impl Unqueriable for Packed<PlaceElem> {}
+
 #[scope]
 impl PlaceElem {
     #[elem]
     type FlushElem;
 }
 
-impl Packed<PlaceElem> {
-    #[typst_macros::time(name = "place", span = self.span())]
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        base: Size,
-    ) -> SourceResult<Fragment> {
-        // The pod is the base area of the region because for absolute
-        // placement we don't really care about the already used area.
-        let float = self.float(styles);
-        let alignment = self.alignment(styles);
-
-        if float
-            && alignment.is_custom_and(|align| {
-                matches!(align.y(), None | Some(VAlignment::Horizon))
-            })
-        {
-            bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
-        } else if !float && alignment.is_auto() {
-            return Err("automatic positioning is only available for floating placement")
-                .hint("you can enable floating placement with `place(float: true, ..)`")
-                .at(self.span());
-        }
-
-        let child = self
-            .body()
-            .clone()
-            .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
-
-        let pod = Regions::one(base, Axes::splat(false));
-        let frame = child.layout(engine, locator, styles, pod)?.into_frame();
-        Ok(Fragment::frame(frame))
-    }
-}
-
-impl Behave for Packed<PlaceElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
-    }
+/// Relative to which containing scope something shall be placed.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum PlacementScope {
+    /// Place into the current column.
+    #[default]
+    Column,
+    /// Place relative to the parent, letting the content span over all columns.
+    Parent,
 }
 
 /// Asks the layout algorithm to place pending floating elements before
@@ -154,32 +191,18 @@ impl Behave for Packed<PlaceElem> {
 /// into the next section.
 ///
 /// ```example
-/// #set page(height: 165pt, width: 150pt)
-///
-/// Some introductory text: #lorem(15)
+/// >>> #set page(height: 160pt, width: 150pt)
+/// #lorem(15)
 ///
 /// #figure(
-///   rect(
-///     width: 100%,
-///     height: 64pt,
-///     [I float with a caption!],
-///   ),
+///   rect(width: 100%, height: 50pt),
 ///   placement: auto,
-///   caption: [A self-describing figure],
+///   caption: [A rectangle],
 /// )
 ///
 /// #place.flush()
 ///
-/// Some conclusive text that must occur
-/// after the figure.
+/// This text appears after the figure.
 /// ```
-#[elem(Behave, Unlabellable)]
+#[elem]
 pub struct FlushElem {}
-
-impl Behave for Packed<FlushElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Invisible
-    }
-}
-
-impl Unlabellable for Packed<FlushElem> {}

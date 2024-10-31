@@ -34,7 +34,9 @@ pub struct PolygonElem {
     /// rectangle with both fill and stroke, you have to configure both.
     pub fill: Option<Paint>,
 
-    /// The rule used to fill the polygon.
+    /// The drawing rule used to fill the polygon.
+    ///
+    /// See the [path documentation]($path.fill-rule) for an example.
     #[default]
     pub fill_rule: FillRule,
 

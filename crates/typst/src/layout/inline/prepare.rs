@@ -43,8 +43,6 @@ pub struct Preparation<'a> {
     pub cjk_latin_spacing: bool,
     /// Whether font fallback is enabled for this paragraph.
     pub fallback: bool,
-    /// The leading of the paragraph.
-    pub leading: Abs,
     /// How to determine line breaks.
     pub linebreaks: Smart<Linebreaks>,
     /// The text size.
@@ -60,7 +58,13 @@ impl<'a> Preparation<'a> {
 
     /// Iterate over the items that intersect the given `sliced` range.
     pub fn slice(&self, sliced: Range) -> impl Iterator<Item = &(Range, Item<'a>)> {
-        let start = self.indices.get(sliced.start).copied().unwrap_or(0);
+        // Usually, we don't want empty-range items at the start of the line
+        // (because they will be part of the previous line), but for the first
+        // line, we need to keep them.
+        let start = match sliced.start {
+            0 => 0,
+            n => self.indices.get(n).copied().unwrap_or(0),
+        };
         self.items[start..].iter().take_while(move |(range, _)| {
             range.start < sliced.end || range.end <= sliced.end
         })
@@ -136,7 +140,6 @@ pub fn prepare<'a>(
         hang: ParElem::hanging_indent_in(styles),
         cjk_latin_spacing,
         fallback: TextElem::fallback_in(styles),
-        leading: ParElem::leading_in(styles),
         linebreaks: ParElem::linebreaks_in(styles),
         size: TextElem::size_in(styles),
     })

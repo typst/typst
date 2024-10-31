@@ -49,7 +49,7 @@ use crate::text::TextElem;
 /// == Performance <perf>
 /// @slow demonstrates what slow
 /// software looks like.
-/// $ O(n) = 2^n $ <slow>
+/// $ T(n) = O(2^n) $ <slow>
 ///
 /// #bibliography("works.bib")
 /// ```

@@ -125,6 +125,8 @@ pub enum Expr<'a> {
     Math(Math<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
+    /// A shorthand for a unicode codepoint in math: `a <= b`.
+    MathShorthand(MathShorthand<'a>),
     /// An alignment point in math: `&`.
     MathAlignPoint(MathAlignPoint<'a>),
     /// Matched delimiters in math: `[x + y]`.
@@ -232,6 +234,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Equation => node.cast().map(Self::Equation),
             SyntaxKind::Math => node.cast().map(Self::Math),
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
+            SyntaxKind::MathShorthand => node.cast().map(Self::MathShorthand),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
             SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
@@ -295,6 +298,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Equation(v) => v.to_untyped(),
             Self::Math(v) => v.to_untyped(),
             Self::MathIdent(v) => v.to_untyped(),
+            Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
             Self::MathDelimited(v) => v.to_untyped(),
             Self::MathAttach(v) => v.to_untyped(),
@@ -450,7 +454,7 @@ node! {
 
 impl Shorthand<'_> {
     /// A list of all shorthands in markup mode.
-    pub const MARKUP_LIST: &'static [(&'static str, char)] = &[
+    pub const LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("~", '\u{00A0}'),
         ("-", '\u{2212}'), // Only before a digit
@@ -459,52 +463,11 @@ impl Shorthand<'_> {
         ("-?", '\u{00AD}'),
     ];
 
-    /// A list of all shorthands in math mode.
-    pub const MATH_LIST: &'static [(&'static str, char)] = &[
-        ("...", '…'),
-        ("-", '\u{2212}'),
-        ("'", '′'),
-        ("*", '∗'),
-        ("!=", '≠'),
-        (":=", '≔'),
-        ("::=", '⩴'),
-        ("=:", '≕'),
-        ("<<", '≪'),
-        ("<<<", '⋘'),
-        (">>", '≫'),
-        (">>>", '⋙'),
-        ("<=", '≤'),
-        (">=", '≥'),
-        ("->", '→'),
-        ("-->", '⟶'),
-        ("|->", '↦'),
-        (">->", '↣'),
-        ("->>", '↠'),
-        ("<-", '←'),
-        ("<--", '⟵'),
-        ("<-<", '↢'),
-        ("<<-", '↞'),
-        ("<->", '↔'),
-        ("<-->", '⟷'),
-        ("~>", '⇝'),
-        ("~~>", '⟿'),
-        ("<~", '⇜'),
-        ("<~~", '⬳'),
-        ("=>", '⇒'),
-        ("|=>", '⤇'),
-        ("==>", '⟹'),
-        ("<==", '⟸'),
-        ("<=>", '⇔'),
-        ("<==>", '⟺'),
-        ("[|", '⟦'),
-        ("|]", '⟧'),
-        ("||", '‖'),
-    ];
-
     /// Get the shorthanded character.
     pub fn get(self) -> char {
         let text = self.0.text();
-        (Self::MARKUP_LIST.iter().chain(Self::MATH_LIST))
+        Self::LIST
+            .iter()
             .find(|&&(s, _)| s == text)
             .map_or_else(char::default, |&(_, c)| c)
     }
@@ -712,7 +675,7 @@ impl<'a> TermItem<'a> {
 }
 
 node! {
-    /// A mathemathical equation: `$x$`, `$ x^2 $`.
+    /// A mathematical equation: `$x$`, `$ x^2 $`.
     Equation
 }
 
@@ -767,6 +730,65 @@ impl Deref for MathIdent<'_> {
     /// may need to use [`get()`](Self::get) instead in some situations.
     fn deref(&self) -> &Self::Target {
         self.as_str()
+    }
+}
+
+node! {
+    /// A shorthand for a unicode codepoint in math: `a <= b`.
+    MathShorthand
+}
+
+impl MathShorthand<'_> {
+    /// A list of all shorthands in math mode.
+    pub const LIST: &'static [(&'static str, char)] = &[
+        ("...", '…'),
+        ("-", '−'),
+        ("'", '′'),
+        ("*", '∗'),
+        ("~", '∼'),
+        ("!=", '≠'),
+        (":=", '≔'),
+        ("::=", '⩴'),
+        ("=:", '≕'),
+        ("<<", '≪'),
+        ("<<<", '⋘'),
+        (">>", '≫'),
+        (">>>", '⋙'),
+        ("<=", '≤'),
+        (">=", '≥'),
+        ("->", '→'),
+        ("-->", '⟶'),
+        ("|->", '↦'),
+        (">->", '↣'),
+        ("->>", '↠'),
+        ("<-", '←'),
+        ("<--", '⟵'),
+        ("<-<", '↢'),
+        ("<<-", '↞'),
+        ("<->", '↔'),
+        ("<-->", '⟷'),
+        ("~>", '⇝'),
+        ("~~>", '⟿'),
+        ("<~", '⇜'),
+        ("<~~", '⬳'),
+        ("=>", '⇒'),
+        ("|=>", '⤇'),
+        ("==>", '⟹'),
+        ("<==", '⟸'),
+        ("<=>", '⇔'),
+        ("<==>", '⟺'),
+        ("[|", '⟦'),
+        ("|]", '⟧'),
+        ("||", '‖'),
+    ];
+
+    /// Get the shorthanded character.
+    pub fn get(self) -> char {
+        let text = self.0.text();
+        Self::LIST
+            .iter()
+            .find(|&&(s, _)| s == text)
+            .map_or_else(char::default, |&(_, c)| c)
     }
 }
 
@@ -1417,11 +1439,11 @@ pub enum BinOp {
     Assign,
     /// The containment operator: `in`.
     In,
-    /// The inversed containment operator: `not in`.
+    /// The inverse containment operator: `not in`.
     NotIn,
     /// The add-assign operator: `+=`.
     AddAssign,
-    /// The subtract-assign oeprator: `-=`.
+    /// The subtract-assign operator: `-=`.
     SubAssign,
     /// The multiply-assign operator: `*=`.
     MulAssign,

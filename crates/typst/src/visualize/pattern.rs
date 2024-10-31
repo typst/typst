@@ -7,7 +7,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
 use crate::introspection::Locator;
-use crate::layout::{Abs, Axes, Frame, Length, Regions, Size};
+use crate::layout::{layout_frame, Abs, Axes, Frame, Length, Region, Size};
 use crate::syntax::{Span, Spanned};
 use crate::utils::{LazyHash, Numeric};
 use crate::visualize::RelativeTo;
@@ -19,7 +19,7 @@ use crate::World;
 /// pattern is repeated in a grid-like fashion, covering the entire area of an
 /// element that is filled or stroked. The pattern is defined by a tile size and
 /// a body defining the content of each cell. You can also add horizontal or
-/// vertical spacing between the cells of the patterng.
+/// vertical spacing between the cells of the pattern.
 ///
 /// # Examples
 ///
@@ -192,8 +192,8 @@ impl Pattern {
         let library = world.library();
         let locator = Locator::root();
         let styles = StyleChain::new(&library.styles);
-        let pod = Regions::one(region, Axes::splat(false));
-        let mut frame = body.layout(engine, locator, styles, pod)?.into_frame();
+        let pod = Region::new(region, Axes::splat(false));
+        let mut frame = layout_frame(engine, &body, locator, styles, pod)?;
 
         // Set the size of the frame if the size is enforced.
         if let Smart::Custom(size) = size {

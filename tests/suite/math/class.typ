@@ -8,7 +8,7 @@ $ a class("normal", +) b \
   { x class("fence", \;) x > 0} \
   a class("large", \/) b \
   a class("punctuation", :) b \
-  a class("relation", ~) b \
+  a class("relation", !) b \
   a + class("unary", times) b \
   class("vary", :) a class("vary", :) b $
 

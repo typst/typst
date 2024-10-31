@@ -13,7 +13,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::EcoString;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, warning, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
@@ -22,7 +22,7 @@ use crate::foundations::{
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Axes, BlockElem, FixedAlignment, Frame, FrameItem, Length, Point, Region, Rel,
-    Size,
+    Size, Sizing,
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
@@ -34,11 +34,11 @@ use crate::World;
 
 /// A raster or vector graphic.
 ///
-/// Supported formats are PNG, JPEG, GIF and SVG.
+/// You can wrap the image in a [`figure`] to give it a number and caption.
 ///
-/// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
-/// in the resulting PDF. Make sure to double-check embedded SVG images. If you
-/// have an issue, also feel free to report it on [GitHub][gh-svg].
+/// Like most elements, images are _block-level_ by default and thus do not
+/// integrate themselves into adjacent paragraphs. To force an image to become
+/// inline, put it into a [`box`].
 ///
 /// # Example
 /// ```example
@@ -50,11 +50,11 @@ use crate::World;
 ///   ],
 /// )
 /// ```
-///
-/// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file.
+    /// Path to an image file
+    ///
+    /// For more details, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
         let Spanned { v: path, span } =
@@ -73,13 +73,16 @@ pub struct ImageElem {
     pub data: Readable,
 
     /// The image's format. Detected automatically by default.
+    ///
+    /// Supported formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
+    /// is [not currently supported](https://github.com/typst/typst/issues/145).
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
     pub width: Smart<Rel<Length>>,
 
     /// The height of the image.
-    pub height: Smart<Rel<Length>>,
+    pub height: Sizing,
 
     /// A text describing the image.
     pub alt: Option<EcoString>,
@@ -127,7 +130,7 @@ impl ImageElem {
         width: Option<Smart<Rel<Length>>>,
         /// The height of the image.
         #[named]
-        height: Option<Smart<Rel<Length>>>,
+        height: Option<Sizing>,
         /// A text describing the image.
         #[named]
         alt: Option<Option<EcoString>>,
@@ -189,6 +192,22 @@ fn layout_image(
         Smart::Custom(v) => v,
         Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
     };
+
+    // Warn the user if the image contains a foreign object. Not perfect
+    // because the svg could also be encoded, but that's an edge case.
+    if format == ImageFormat::Vector(VectorFormat::Svg) {
+        let has_foreign_object =
+            data.as_str().is_some_and(|s| s.contains("<foreignObject"));
+
+        if has_foreign_object {
+            engine.sink.warn(warning!(
+                span,
+                "image contains foreign object";
+                hint: "SVG images with foreign objects might render incorrectly in typst";
+                hint: "see https://github.com/typst/typst/issues/1421 for more information"
+            ));
+        }
+    }
 
     // Construct the image itself.
     let image = Image::with_fonts(
@@ -352,7 +371,7 @@ impl Image {
         Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
-    /// Create a possibly font-dependant image from a buffer and a format.
+    /// Create a possibly font-dependent image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn with_fonts(

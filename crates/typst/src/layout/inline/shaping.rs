@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use az::SaturatingAs;
 use ecow::EcoString;
-use rustybuzz::{ShapePlan, UnicodeBuffer};
+use rustybuzz::{BufferFlags, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
@@ -15,8 +15,8 @@ use crate::engine::Engine;
 use crate::foundations::{Smart, StyleChain};
 use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::text::{
-    decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
-    TextElem, TextItem,
+    decorate, families, features, is_default_ignorable, variant, Font, FontVariant,
+    Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
 };
 use crate::utils::SliceExt;
 use crate::World;
@@ -88,7 +88,7 @@ pub struct ShapedGlyph {
 
 #[derive(Debug, Clone, Default)]
 pub struct Adjustability {
-    /// The left and right strechability
+    /// The left and right stretchability
     pub stretchability: (Em, Em),
     /// The left and right shrinkability
     pub shrinkability: (Em, Em),
@@ -338,9 +338,10 @@ impl<'a> ShapedText<'a> {
         let bottom_edge = TextElem::bottom_edge_in(self.styles);
 
         // Expand top and bottom by reading the font's vertical metrics.
-        let mut expand = |font: &Font, bbox: Option<ttf_parser::Rect>| {
-            top.set_max(top_edge.resolve(self.size, font, bbox));
-            bottom.set_max(-bottom_edge.resolve(self.size, font, bbox));
+        let mut expand = |font: &Font, bounds: TextEdgeBounds| {
+            let (t, b) = font.edges(top_edge, bottom_edge, self.size, bounds);
+            top.set_max(t);
+            bottom.set_max(b);
         };
 
         if self.glyphs.is_empty() {
@@ -353,18 +354,13 @@ impl<'a> ShapedText<'a> {
                     .select(family, self.variant)
                     .and_then(|id| world.font(id))
                 {
-                    expand(&font, None);
+                    expand(&font, TextEdgeBounds::Zero);
                     break;
                 }
             }
         } else {
             for g in self.glyphs.iter() {
-                let bbox = if top_edge.is_bounds() || bottom_edge.is_bounds() {
-                    g.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(g.glyph_id))
-                } else {
-                    None
-                };
-                expand(&g.font, bbox);
+                expand(&g.font, TextEdgeBounds::Glyph(g.glyph_id));
             }
         }
 
@@ -515,14 +511,14 @@ impl<'a> ShapedText<'a> {
             std::mem::swap(&mut start, &mut end);
         }
 
-        let left = self.find_safe_to_break(start, Side::Left)?;
-        let right = self.find_safe_to_break(end, Side::Right)?;
+        let left = self.find_safe_to_break(start)?;
+        let right = self.find_safe_to_break(end)?;
         Some(&self.glyphs[left..right])
     }
 
     /// Find the glyph offset matching the text index that is most towards the
-    /// given side and safe-to-break.
-    fn find_safe_to_break(&self, text_index: usize, towards: Side) -> Option<usize> {
+    /// start of the text and safe-to-break.
+    fn find_safe_to_break(&self, text_index: usize) -> Option<usize> {
         let ltr = self.dir.is_positive();
 
         // Handle edge cases.
@@ -542,6 +538,7 @@ impl<'a> ShapedText<'a> {
                 ordering.reverse()
             }
         });
+
         let mut idx = match found {
             Ok(idx) => idx,
             Err(idx) => {
@@ -565,13 +562,11 @@ impl<'a> ShapedText<'a> {
             }
         };
 
-        let next = match towards {
-            Side::Left => usize::checked_sub,
-            Side::Right => usize::checked_add,
-        };
-
-        // Search for the outermost glyph with the text index.
-        while let Some(next) = next(idx, 1) {
+        // Search for the start-most glyph with the text index. This means
+        // we take empty range glyphs at the start and leave those at the end
+        // for the next line.
+        let dec = if ltr { usize::checked_sub } else { usize::checked_add };
+        while let Some(next) = dec(idx, 1) {
             if self.glyphs.get(next).map_or(true, |g| g.range.start != text_index) {
                 break;
             }
@@ -726,8 +721,11 @@ fn shape_segment<'a>(
     text: &str,
     mut families: impl Iterator<Item = &'a str> + Clone,
 ) {
-    // Fonts dont have newlines and tabs.
-    if text.chars().all(|c| c == '\n' || c == '\t') {
+    // Don't try shaping newlines, tabs, or default ignorables.
+    if text
+        .chars()
+        .all(|c| c == '\n' || c == '\t' || is_default_ignorable(c))
+    {
         return;
     }
 
@@ -774,6 +772,12 @@ fn shape_segment<'a>(
         _ => unimplemented!("vertical text layout"),
     });
     buffer.guess_segment_properties();
+
+    // By default, Harfbuzz will create zero-width space glyphs for default
+    // ignorables. This is probably useful for GUI apps that want noticable
+    // effects on the cursor for those, but for us it's not useful and hurts
+    // text extraction.
+    buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
     // Prepare the shape plan. This plan depends on direction, script, language,
     // and features, but is independent from the text and can thus be memoized.

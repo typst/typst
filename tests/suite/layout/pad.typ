@@ -28,3 +28,11 @@ Hi #box(pad(left: 10pt)[A]) there
 --- pad-adding-to-100-percent ---
 // Test that padding adding up to 100% does not panic.
 #pad(50%)[]
+
+--- issue-5044-pad-100-percent ---
+#set page(width: 30pt, height: 30pt)
+#pad(100%, block(width: 1cm, height: 1cm, fill: red))
+
+--- issue-5160-unbreakable-pad ---
+#set block(breakable: false)
+#block(width: 100%, pad(x: 20pt, align(right)[A]))

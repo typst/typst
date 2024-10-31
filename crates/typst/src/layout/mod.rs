@@ -23,6 +23,7 @@ mod length;
 mod measure_;
 mod pad;
 mod page;
+mod pages;
 mod place;
 mod point;
 mod ratio;
@@ -55,6 +56,7 @@ pub use self::length::*;
 pub use self::measure_::*;
 pub use self::pad::*;
 pub use self::page::*;
+pub use self::pages::*;
 pub use self::place::*;
 pub use self::point::*;
 pub use self::ratio::*;
@@ -67,17 +69,9 @@ pub use self::spacing::*;
 pub use self::stack::*;
 pub use self::transform::*;
 
-pub(crate) use self::inline::*;
+pub(crate) use self::inline::layout_inline;
 
-use comemo::{Track, Tracked, TrackedMut};
-
-use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route, Sink, Traced};
-use crate::foundations::{category, Category, Content, Scope, StyleChain};
-use crate::introspection::{Introspector, Locator, LocatorLink};
-use crate::model::Document;
-use crate::realize::{realize_doc, realize_flow, Arenas};
-use crate::World;
+use crate::foundations::{category, Category, Scope};
 
 /// Arranging elements on the page in different ways.
 ///
@@ -112,121 +106,8 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<MoveElem>();
     global.define_elem::<ScaleElem>();
     global.define_elem::<RotateElem>();
+    global.define_elem::<SkewElem>();
     global.define_elem::<HideElem>();
     global.define_func::<measure>();
     global.define_func::<layout>();
-}
-
-impl Content {
-    /// Layout the content into a document.
-    ///
-    /// This first realizes the content into a
-    /// [`DocumentElem`][crate::model::DocumentElem], which is then laid out. In
-    /// contrast to [`layout`](Self::layout()), this does not take regions since
-    /// the regions are defined by the page configuration in the content and
-    /// style chain.
-    pub fn layout_document(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Document> {
-        #[comemo::memoize]
-        fn cached(
-            content: &Content,
-            world: Tracked<dyn World + '_>,
-            introspector: Tracked<Introspector>,
-            traced: Tracked<Traced>,
-            sink: TrackedMut<Sink>,
-            route: Tracked<Route>,
-            styles: StyleChain,
-        ) -> SourceResult<Document> {
-            let mut locator = Locator::root().split();
-            let mut engine = Engine {
-                world,
-                introspector,
-                traced,
-                sink,
-                route: Route::extend(route).unnested(),
-            };
-            let arenas = Arenas::default();
-            let (document, styles) =
-                realize_doc(&mut engine, locator.next(&()), &arenas, content, styles)?;
-            document.layout(&mut engine, locator.next(&()), styles)
-        }
-
-        cached(
-            self,
-            engine.world,
-            engine.introspector,
-            engine.traced,
-            TrackedMut::reborrow_mut(&mut engine.sink),
-            engine.route.track(),
-            styles,
-        )
-    }
-
-    /// Layout the content into the given regions.
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        #[allow(clippy::too_many_arguments)]
-        #[comemo::memoize]
-        fn cached(
-            content: &Content,
-            world: Tracked<dyn World + '_>,
-            introspector: Tracked<Introspector>,
-            traced: Tracked<Traced>,
-            sink: TrackedMut<Sink>,
-            route: Tracked<Route>,
-            locator: Tracked<Locator>,
-            styles: StyleChain,
-            regions: Regions,
-        ) -> SourceResult<Fragment> {
-            let link = LocatorLink::new(locator);
-            let locator = Locator::link(&link);
-            let mut engine = Engine {
-                world,
-                introspector,
-                traced,
-                sink,
-                route: Route::extend(route),
-            };
-
-            if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {
-                bail!(
-                    content.span(), "maximum layout depth exceeded";
-                    hint: "try to reduce the amount of nesting in your layout",
-                );
-            }
-
-            // If we are in a `PageElem`, this might already be a realized flow.
-            if let Some(flow) = content.to_packed::<FlowElem>() {
-                return flow.layout(&mut engine, locator, styles, regions);
-            }
-
-            // Layout the content by first turning it into a `FlowElem` and then
-            // layouting that.
-            let mut locator = locator.split();
-            let arenas = Arenas::default();
-            let (flow, styles) =
-                realize_flow(&mut engine, locator.next(&()), &arenas, content, styles)?;
-            flow.layout(&mut engine, locator.next(&()), styles, regions)
-        }
-
-        cached(
-            self,
-            engine.world,
-            engine.introspector,
-            engine.traced,
-            TrackedMut::reborrow_mut(&mut engine.sink),
-            engine.route.track(),
-            locator.track(),
-            styles,
-            regions,
-        )
-    }
 }

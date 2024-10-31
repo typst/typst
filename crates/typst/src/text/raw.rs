@@ -15,12 +15,11 @@ use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
     PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
-use crate::layout::{BlockChild, BlockElem, Em, HAlignment};
+use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
 use crate::model::{Figurable, ParElem};
 use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, SmartQuoteElem, TextElem,
-    TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, TextElem, TextSize,
 };
 use crate::visualize::Color;
 use crate::{syntax, World};
@@ -55,6 +54,12 @@ type ThemeArgType = Smart<Option<EcoString>>;
 /// ``` here``` the leading space is
 /// also trimmed.
 /// ````
+///
+/// You can also construct a [`raw`] element programmatically from a string (and
+/// provide the language tag via the optional [`lang`]($raw.lang) argument).
+/// ```example
+/// #raw("fn " + "main() {}", lang: "rust")
+/// ```
 ///
 /// # Syntax
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
@@ -144,9 +149,10 @@ pub struct RawElem {
     /// The language to syntax-highlight in.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
-    /// `{"typ"}` and `{"typc"}` tags for
-    /// [Typst markup]($reference/syntax/#markup) and
-    /// [Typst code]($reference/syntax/#code), respectively.
+    /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for
+    /// [Typst markup]($reference/syntax/#markup),
+    /// [Typst code]($reference/syntax/#code), and
+    /// [Typst math]($reference/syntax/#math), respectively.
     ///
     /// ````example
     /// ```typ
@@ -208,7 +214,7 @@ pub struct RawElem {
     pub syntaxes_data: Vec<Bytes>,
 
     /// The theme to use for syntax highlighting. Theme files should be in the
-    /// in the [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
+    /// [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
     ///
     /// Applying a theme only affects the color of specifically highlighted
     /// text. It does not consider the theme's foreground and background
@@ -217,7 +223,7 @@ pub struct RawElem {
     /// the background with a [filled block]($block.fill). You could also use
     /// the [`xml`] function to extract these properties from the theme.
     ///
-    /// Additionally, you can set the theme to `none` to disable highlighting.
+    /// Additionally, you can set the theme to `{none}` to disable highlighting.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
@@ -287,7 +293,11 @@ impl RawElem {
                     syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
                 )
             })
-            .chain([("Typst", vec!["typ"]), ("Typst (code)", vec!["typc"])])
+            .chain([
+                ("Typst", vec!["typ"]),
+                ("Typst (code)", vec!["typc"]),
+                ("Typst (math)", vec!["typm"]),
+            ])
             .collect()
     }
 }
@@ -343,11 +353,12 @@ impl Packed<RawElem> {
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
-        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc" | "typm")) {
             let text =
                 lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
+                Some("typm") => syntax::parse_math(&text),
                 _ => syntax::parse(&text),
             };
 
@@ -433,7 +444,7 @@ impl Show for Packed<RawElem> {
         let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
         for (i, line) in lines.iter().enumerate() {
             if i != 0 {
-                seq.push(LinebreakElem::new().pack());
+                seq.push(LinebreakElem::shared().clone());
             }
 
             seq.push(line.clone().pack());
@@ -444,7 +455,7 @@ impl Show for Packed<RawElem> {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
             realized = BlockElem::new()
-                .with_body(Some(BlockChild::Content(realized)))
+                .with_body(Some(BlockBody::Content(realized)))
                 .pack()
                 .spanned(self.span());
         }
@@ -461,7 +472,6 @@ impl ShowSet for Packed<RawElem> {
         out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
-        out.set(SmartQuoteElem::set_enabled(false));
         if self.block(styles) {
             out.set(ParElem::set_shrink(false));
         }

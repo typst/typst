@@ -33,8 +33,9 @@ pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 /// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
 /// specification. See
 /// <https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk>.
-static CMYK_TO_XYZ: LazyLock<Box<Profile>> =
-    LazyLock::new(|| Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap());
+static CMYK_TO_XYZ: LazyLock<Box<Profile>> = LazyLock::new(|| {
+    Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap()
+});
 
 /// The target sRGB profile.
 static SRGB_PROFILE: LazyLock<Box<Profile>> = LazyLock::new(|| {
@@ -211,11 +212,7 @@ pub enum Color {
 #[scope]
 impl Color {
     /// The module of preset color maps.
-    pub const MAP: fn() -> Module = || {
-        // Lazy to avoid re-allocating.
-        static MODULE: LazyLock<Module> = LazyLock::new(map);
-        MODULE.clone()
-    };
+    pub const MAP: fn() -> Module = || crate::utils::singleton!(Module, map()).clone();
 
     pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
     pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));
@@ -547,6 +544,9 @@ impl Color {
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
+    ///
+    /// Note that CMYK colors are not currently supported when PDF/A output is
+    /// enabled.
     ///
     /// ```example
     /// #square(
@@ -1951,7 +1951,7 @@ fn map() -> Module {
     Module::new("map", scope)
 }
 
-/// Defines a tradient preset as a series of colors expressed as u32s.
+/// Defines a gradient preset as a series of colors expressed as u32s.
 macro_rules! preset {
     ($name:ident; $($colors:literal),* $(,)*) => {
         fn $name() -> Array {

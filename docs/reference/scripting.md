@@ -273,9 +273,9 @@ of each type lists it's scoped functions. You cannot currently define your own
 methods.
 
 ```example
-#let array = (1, 2, 3, 4)
-#array.pop() \
-#array.len() \
+#let values = (1, 2, 3, 4)
+#values.pop() \
+#values.len() \
 
 #("a, b, c"
     .split(", ")
@@ -302,7 +302,8 @@ ways:
 - **Import:** `{import "bar.typ"}` \
   Evaluates the file at the path `bar.typ` and inserts the resulting [module]
   into the current scope as `bar` (filename without extension). You can use the
-  `as` keyword to rename the imported module: `{import "bar.typ" as baz}`
+  `as` keyword to rename the imported module: `{import "bar.typ" as baz}`. You
+  can import nested items using dot notation: `{import "bar.typ": baz.a}`.
 
 - **Import items:** `{import "bar.typ": a, b}` \
   Evaluates the file at the path `bar.typ`, extracts the values of the variables

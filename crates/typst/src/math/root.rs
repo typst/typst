@@ -70,8 +70,20 @@ fn layout(
     let raise_factor = percent!(ctx, radical_degree_bottom_raise_percent);
 
     // Layout radicand.
-    let cramped = style_cramped();
-    let radicand = ctx.layout_into_frame(radicand, styles.chain(&cramped))?;
+    let radicand = {
+        let cramped = style_cramped();
+        let styles = styles.chain(&cramped);
+        let run = ctx.layout_into_run(radicand, styles)?;
+        let multiline = run.is_multiline();
+        let mut radicand = run.into_fragment(ctx, styles).into_frame();
+        if multiline {
+            // Align the frame center line with the math axis.
+            radicand.set_baseline(
+                radicand.height() / 2.0 + scaled!(ctx, styles, axis_height),
+            );
+        }
+        radicand
+    };
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;

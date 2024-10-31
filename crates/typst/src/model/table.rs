@@ -39,9 +39,9 @@ use crate::visualize::{Paint, Stroke};
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
 /// appropriate. Furthermore, Typst will annotate its output in the future such
-/// that screenreaders will annouce content in `table` as tabular while a grid's
-/// content will be announced no different than multiple content blocks in the
-/// document flow.
+/// that screenreaders will announce content in `table` as tabular while a
+/// grid's content will be announced no different than multiple content blocks
+/// in the document flow.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
 /// table cells, you can use the [`table.cell`]($table.cell) element. See its
@@ -62,7 +62,7 @@ use crate::visualize::{Paint, Stroke};
 ///   inset: 10pt,
 ///   align: horizon,
 ///   table.header(
-///     [], [*Area*], [*Parameters*],
+///     [], [*Volume*], [*Parameters*],
 ///   ),
 ///   image("cylinder.svg"),
 ///   $ pi h (D^2 - d^2) / 4 $,
@@ -133,8 +133,9 @@ pub struct TableElem {
     #[borrowed]
     pub rows: TrackSizings,
 
-    /// The gaps between rows and columns. See the [grid documentation]($grid)
-    /// for more information on gutters.
+    /// The gaps between rows and columns. This is a shorthand for setting
+    /// `column-gutter` and `row-gutter` to the same value. See the [grid
+    /// documentation]($grid) for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
@@ -679,15 +680,17 @@ pub struct TableVLine {
 ///
 /// ```example
 /// >>> #set page(width: auto)
-/// >>> #show table.cell.where(y: 0): strong
-/// >>> #set table(
-/// >>>   stroke: (x, y) => if y == 0 {
-/// >>>     (bottom: 0.7pt + black)
-/// >>>   },
-/// >>>   align: (x, y) =>
-/// >>>     if x > 0 { center }
-/// >>>     else { left }
-/// >>> )
+/// #show table.cell.where(y: 0): strong
+/// #set table(
+///   stroke: (x, y) => if y == 0 {
+///     (bottom: 0.7pt + black)
+///   },
+///   align: (x, y) => (
+///     if x > 0 { center }
+///     else { left }
+///   )
+/// )
+///
 /// #table(
 ///   columns: 3,
 ///   table.header(

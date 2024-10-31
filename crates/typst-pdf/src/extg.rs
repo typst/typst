@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use pdf_writer::Ref;
+use typst::diag::SourceResult;
 
 use crate::{PdfChunk, WithGlobalRefs};
 
@@ -28,7 +29,7 @@ impl ExtGState {
 /// Embed all used external graphics states into the PDF.
 pub fn write_graphic_states(
     context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<ExtGState, Ref>) {
+) -> SourceResult<(PdfChunk, HashMap<ExtGState, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
@@ -44,7 +45,9 @@ pub fn write_graphic_states(
                 .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)
                 .stroking_alpha(external_gs.stroke_opacity as f32 / 255.0);
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }

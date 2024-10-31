@@ -97,68 +97,83 @@ impl PlainText for Packed<SmartQuoteElem> {
     }
 }
 
-/// State machine for smart quote substitution.
+/// A smart quote substitutor with zero lookahead.
 #[derive(Debug, Clone)]
 pub struct SmartQuoter {
-    /// How many quotes have been opened.
-    quote_depth: usize,
-    /// Whether an opening quote might follow.
-    expect_opening: bool,
-    /// Whether the last character was numeric.
-    last_num: bool,
-    /// The previous type of quote character, if it was an opening quote.
-    prev_quote_type: Option<bool>,
+    /// The amount of quotes that have been opened.
+    depth: u8,
+    /// Each bit indicates whether the quote at this nesting depth is a double.
+    /// Maximum supported depth is thus 32.
+    kinds: u32,
 }
 
 impl SmartQuoter {
     /// Start quoting.
     pub fn new() -> Self {
-        Self {
-            quote_depth: 0,
-            expect_opening: true,
-            last_num: false,
-            prev_quote_type: None,
-        }
+        Self { depth: 0, kinds: 0 }
     }
 
-    /// Process the last seen character.
-    pub fn last(&mut self, c: char, is_quote: bool) {
-        self.expect_opening = is_exterior_to_quote(c) || is_opening_bracket(c);
-        self.last_num = c.is_numeric();
-        if !is_quote {
-            self.prev_quote_type = None;
-        }
-    }
-
-    /// Process and substitute a quote.
+    /// Determine which smart quote to substitute given this quoter's nesting
+    /// state and the character immediately preceding the quote.
     pub fn quote<'a>(
         &mut self,
+        before: Option<char>,
         quotes: &SmartQuotes<'a>,
         double: bool,
-        peeked: Option<char>,
     ) -> &'a str {
-        let peeked = peeked.unwrap_or(' ');
-        let mut expect_opening = self.expect_opening;
-        if let Some(prev_double) = self.prev_quote_type.take() {
-            if double != prev_double {
-                expect_opening = true;
-            }
+        let opened = self.top();
+        let before = before.unwrap_or(' ');
+
+        // If we are after a number and haven't most recently opened a quote of
+        // this kind, produce a prime. Otherwise, we prefer a closing quote.
+        if before.is_numeric() && opened != Some(double) {
+            return if double { "″" } else { "′" };
         }
 
-        if expect_opening {
-            self.quote_depth += 1;
-            self.prev_quote_type = Some(double);
-            quotes.open(double)
-        } else if self.quote_depth > 0
-            && (peeked.is_ascii_punctuation() || is_exterior_to_quote(peeked))
+        // If we have a single smart quote, didn't recently open a single
+        // quotation, and are after an alphabetic char or an object (e.g. a
+        // math equation), interpret this as an apostrophe.
+        if !double
+            && opened != Some(false)
+            && (before.is_alphabetic() || before == '\u{FFFC}')
         {
-            self.quote_depth -= 1;
-            quotes.close(double)
-        } else if self.last_num {
-            quotes.prime(double)
-        } else {
-            quotes.fallback(double)
+            return "’";
         }
+
+        // If the most recently opened quotation is of this kind and the
+        // previous char does not indicate a nested quotation, close it.
+        if opened == Some(double)
+            && !before.is_whitespace()
+            && !is_newline(before)
+            && !is_opening_bracket(before)
+        {
+            self.pop();
+            return quotes.close(double);
+        }
+
+        // Otherwise, open a new the quotation.
+        self.push(double);
+        quotes.open(double)
+    }
+
+    /// The top of our quotation stack. Returns `Some(double)` for the most
+    /// recently opened quote or `None` if we didn't open one.
+    fn top(&self) -> Option<bool> {
+        self.depth.checked_sub(1).map(|i| (self.kinds >> i) & 1 == 1)
+    }
+
+    /// Push onto the quotation stack.
+    fn push(&mut self, double: bool) {
+        if self.depth < 32 {
+            self.kinds |= (double as u32) << self.depth;
+            self.depth += 1;
+        }
+    }
+
+    /// Pop from the quotation stack.
+    fn pop(&mut self) {
+        self.depth -= 1;
+        self.kinds &= (1 << self.depth) - 1;
     }
 }
 
@@ -168,10 +183,7 @@ impl Default for SmartQuoter {
     }
 }
 
-fn is_exterior_to_quote(c: char) -> bool {
-    c.is_whitespace() || is_newline(c)
-}
-
+/// Whether the character is an opening bracket, parenthesis, or brace.
 fn is_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '{' | '[')
 }
@@ -196,13 +208,13 @@ impl<'s> SmartQuotes<'s> {
     /// region as an all-uppercase ISO 3166-alpha2 code.
     ///
     /// Currently, the supported languages are: English, Czech, Danish, German,
-    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Lithuanian,
-    /// Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish, Swedish, French,
-    /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
-    /// Norwegian.
+    /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin,
+    /// Lithuanian, Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish,
+    /// Swedish, French, Swiss French, Hungarian, Polish, Romanian, Japanese,
+    /// Traditional Chinese, Russian, Norwegian, and Hebrew.
     ///
     /// For unknown languages, the English quotes are used as fallback.
-    pub fn new(
+    pub fn get(
         quotes: &'s Smart<SmartQuoteDict>,
         lang: Lang,
         region: Option<Region>,
@@ -218,6 +230,10 @@ impl<'s> SmartQuotes<'s> {
                 false => ("‹", "›", "«", "»"),
                 true => low_high,
             },
+            "fr" if matches!(region, Some("CH")) => match alternative {
+                false => ("‹\u{202F}", "\u{202F}›", "«\u{202F}", "\u{202F}»"),
+                true => default,
+            },
             "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
             "cs" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
             "da" => ("‘", "’", "“", "”"),
@@ -225,11 +241,15 @@ impl<'s> SmartQuotes<'s> {
             "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
             "fi" | "sv" if alternative => ("’", "’", "»", "»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
+            "it" if alternative => default,
+            "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
+            "it" | "la" => ("“", "”", "«", "»"),
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
             "gr" => ("‘", "’", "«", "»"),
+            "he" => ("’", "’", "”", "”"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };
@@ -276,24 +296,6 @@ impl<'s> SmartQuotes<'s> {
             self.double_close
         } else {
             self.single_close
-        }
-    }
-
-    /// Which character should be used as a prime.
-    pub fn prime(&self, double: bool) -> &'static str {
-        if double {
-            "″"
-        } else {
-            "′"
-        }
-    }
-
-    /// Which character should be used as a fallback quote.
-    pub fn fallback(&self, double: bool) -> &'static str {
-        if double {
-            "\""
-        } else {
-            "’"
         }
     }
 }

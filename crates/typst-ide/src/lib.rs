@@ -97,13 +97,12 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
-    use std::sync::LazyLock;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
     use typst::layout::{Abs, Margin, PageElem};
     use typst::syntax::{FileId, Source};
     use typst::text::{Font, FontBook, TextElem, TextSize};
-    use typst::utils::LazyHash;
+    use typst::utils::{singleton, LazyHash};
     use typst::{Library, World};
 
     /// A world for IDE testing.
@@ -118,15 +117,16 @@ mod tests {
         /// This is cheap because the shared base for all test runs is lazily
         /// initialized just once.
         pub fn new(text: &str) -> Self {
-            static BASE: LazyLock<TestBase> = LazyLock::new(TestBase::default);
             let main = Source::detached(text);
-            Self { main, base: &*BASE }
+            Self {
+                main,
+                base: singleton!(TestBase, TestBase::default()),
+            }
         }
 
         /// The ID of the main file in a `TestWorld`.
         pub fn main_id() -> FileId {
-            static ID: LazyLock<FileId> = LazyLock::new(|| Source::detached("").id());
-            *ID
+            *singleton!(FileId, Source::detached("").id())
         }
     }
 

@@ -1,11 +1,144 @@
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::LazyArray16;
 
-use crate::layout::{Abs, Frame, Point, Size};
-use crate::math::{GlyphFragment, MathContext, Scaled, VariantFragment};
+use crate::diag::SourceResult;
+use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::layout::{Abs, Axis, Frame, Length, Point, Rel, Size, VAlignment};
+use crate::math::{
+    scaled_font_size, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
+    VariantFragment,
+};
+use crate::utils::Get;
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
+
+/// Stretches a glyph.
+///
+/// This function can also be used to automatically stretch the base of an
+/// attachment, so that it fits the top and bottom attachments.
+///
+/// Note that only some glyphs can be stretched, and which ones can depend on
+/// the math font being used. However, most math fonts are the same in this
+/// regard.
+///
+/// ```example
+/// $ H stretch(=)^"define" U + p V $
+/// $ f : X stretch(->>, size: #150%)_"surjective" Y $
+/// $ x stretch(harpoons.ltrb, size: #3em) y
+///     stretch(\[, size: #150%) z $
+/// ```
+#[elem(LayoutMath)]
+pub struct StretchElem {
+    /// The glyph to stretch.
+    #[required]
+    pub body: Content,
+
+    /// The size to stretch to, relative to the maximum size of the glyph and
+    /// its attachments.
+    pub size: Smart<Rel<Length>>,
+}
+
+impl LayoutMath for Packed<StretchElem> {
+    #[typst_macros::time(name = "math.stretch", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
+        stretch_fragment(
+            ctx,
+            styles,
+            &mut fragment,
+            None,
+            None,
+            self.size(styles),
+            Abs::zero(),
+        );
+        ctx.push(fragment);
+        Ok(())
+    }
+}
+
+/// Attempts to stretch the given fragment by/to the amount given in stretch.
+pub(super) fn stretch_fragment(
+    ctx: &mut MathContext,
+    styles: StyleChain,
+    fragment: &mut MathFragment,
+    axis: Option<Axis>,
+    relative_to: Option<Abs>,
+    stretch: Smart<Rel<Length>>,
+    short_fall: Abs,
+) {
+    let glyph = match fragment {
+        MathFragment::Glyph(glyph) => glyph.clone(),
+        MathFragment::Variant(variant) => {
+            GlyphFragment::new(ctx, styles, variant.c, variant.span)
+        }
+        _ => return,
+    };
+
+    // Return if we attempt to stretch along an axis which isn't stretchable,
+    // so that the original fragment isn't modified.
+    let Some(stretch_axis) = stretch_axis(ctx, &glyph) else {
+        return;
+    };
+    let axis = axis.unwrap_or(stretch_axis);
+    if axis != stretch_axis {
+        return;
+    }
+
+    let relative_to_size = relative_to.unwrap_or_else(|| fragment.size().get(axis));
+
+    let mut variant = stretch_glyph(
+        ctx,
+        glyph,
+        stretch
+            .unwrap_or(Rel::one())
+            .at(scaled_font_size(ctx, styles))
+            .relative_to(relative_to_size),
+        short_fall,
+        axis,
+    );
+
+    if axis == Axis::Y {
+        variant.align_on_axis(ctx, delimiter_alignment(variant.c));
+    }
+
+    *fragment = MathFragment::Variant(variant);
+}
+
+pub(super) fn delimiter_alignment(delimiter: char) -> VAlignment {
+    match delimiter {
+        '\u{231c}' | '\u{231d}' => VAlignment::Top,
+        '\u{231e}' | '\u{231f}' => VAlignment::Bottom,
+        _ => VAlignment::Horizon,
+    }
+}
+
+/// Return whether the glyph is stretchable and if it is, along which axis it
+/// can be stretched.
+fn stretch_axis(ctx: &MathContext, base: &GlyphFragment) -> Option<Axis> {
+    let base_id = base.id;
+    let vertical = ctx
+        .table
+        .variants
+        .and_then(|variants| variants.vertical_constructions.get(base_id))
+        .map(|_| Axis::Y);
+    let horizontal = ctx
+        .table
+        .variants
+        .and_then(|variants| variants.horizontal_constructions.get(base_id))
+        .map(|_| Axis::X);
+
+    match (vertical, horizontal) {
+        (vertical, None) => vertical,
+        (None, horizontal) => horizontal,
+        _ => {
+            // As far as we know, there aren't any glyphs that have both
+            // vertical and horizontal constructions. So for the time being, we
+            // will assume that a glyph cannot have both.
+            panic!("glyph {:?} has both vertical and horizontal constructions", base.c);
+        }
+    }
+}
 
 impl GlyphFragment {
     /// Try to stretch a glyph to a desired height.
@@ -15,7 +148,7 @@ impl GlyphFragment {
         height: Abs,
         short_fall: Abs,
     ) -> VariantFragment {
-        stretch_glyph(ctx, self, height, short_fall, false)
+        stretch_glyph(ctx, self, height, short_fall, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
@@ -25,7 +158,7 @@ impl GlyphFragment {
         width: Abs,
         short_fall: Abs,
     ) -> VariantFragment {
-        stretch_glyph(ctx, self, width, short_fall, true)
+        stretch_glyph(ctx, self, width, short_fall, Axis::X)
     }
 }
 
@@ -37,10 +170,13 @@ fn stretch_glyph(
     mut base: GlyphFragment,
     target: Abs,
     short_fall: Abs,
-    horizontal: bool,
+    axis: Axis,
 ) -> VariantFragment {
     // If the base glyph is good enough, use it.
-    let advance = if horizontal { base.width } else { base.height() };
+    let advance = match axis {
+        Axis::X => base.width,
+        Axis::Y => base.height(),
+    };
     let short_target = target - short_fall;
     if short_target <= advance {
         return base.into_variant();
@@ -52,10 +188,9 @@ fn stretch_glyph(
         .variants
         .and_then(|variants| {
             min_overlap = variants.min_connector_overlap.scaled(ctx, base.font_size);
-            if horizontal {
-                variants.horizontal_constructions
-            } else {
-                variants.vertical_constructions
+            match axis {
+                Axis::X => variants.horizontal_constructions,
+                Axis::Y => variants.vertical_constructions,
             }
             .get(base.id)
         })
@@ -80,7 +215,7 @@ fn stretch_glyph(
 
     // Assemble from parts.
     let assembly = construction.assembly.unwrap();
-    assemble(ctx, base, assembly, min_overlap, target, horizontal)
+    assemble(ctx, base, assembly, min_overlap, target, axis)
 }
 
 /// Assemble a glyph from parts.
@@ -90,7 +225,7 @@ fn assemble(
     assembly: GlyphAssembly,
     min_overlap: Abs,
     target: Abs,
-    horizontal: bool,
+    axis: Axis,
 ) -> VariantFragment {
     // Determine the number of times the extenders need to be repeated as well
     // as a ratio specifying how much to spread the parts apart
@@ -153,15 +288,18 @@ fn assemble(
 
     let size;
     let baseline;
-    if horizontal {
-        let height = base.ascent + base.descent;
-        size = Size::new(full, height);
-        baseline = base.ascent;
-    } else {
-        let axis = ctx.constants.axis_height().scaled(ctx, base.font_size);
-        let width = selected.iter().map(|(f, _)| f.width).max().unwrap_or_default();
-        size = Size::new(width, full);
-        baseline = full / 2.0 + axis;
+    match axis {
+        Axis::X => {
+            let height = base.ascent + base.descent;
+            size = Size::new(full, height);
+            baseline = base.ascent;
+        }
+        Axis::Y => {
+            let axis = ctx.constants.axis_height().scaled(ctx, base.font_size);
+            let width = selected.iter().map(|(f, _)| f.width).max().unwrap_or_default();
+            size = Size::new(width, full);
+            baseline = full / 2.0 + axis;
+        }
     }
 
     let mut frame = Frame::soft(size);
@@ -170,16 +308,18 @@ fn assemble(
     frame.post_process_raw(base.dests, base.hidden);
 
     for (fragment, advance) in selected {
-        let pos = if horizontal {
-            Point::new(offset, frame.baseline() - fragment.ascent)
-        } else {
-            Point::with_y(full - offset - fragment.height())
+        let pos = match axis {
+            Axis::X => Point::new(offset, frame.baseline() - fragment.ascent),
+            Axis::Y => Point::with_y(full - offset - fragment.height()),
         };
         frame.push_frame(pos, fragment.into_frame());
         offset += advance;
     }
 
-    let accent_attach = if horizontal { frame.width() / 2.0 } else { base.accent_attach };
+    let accent_attach = match axis {
+        Axis::X => frame.width() / 2.0,
+        Axis::Y => base.accent_attach,
+    };
 
     VariantFragment {
         c: base.c,

@@ -5,42 +5,44 @@ use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Axes, BlockElem, Dir, Fragment, Frame, Length, Point, Ratio, Regions, Rel, Size,
+    layout_fragment_with_columns, BlockElem, Fragment, Length, Ratio, Regions, Rel,
 };
-use crate::realize::{Behave, Behaviour};
-use crate::text::TextElem;
-use crate::utils::Numeric;
 
 /// Separates a region into multiple equally sized columns.
 ///
-/// The `column` function allows to separate the interior of any container into
-/// multiple columns. It will not equalize the height of the columns, instead,
-/// the columns will take up the height of their container or the remaining
-/// height on the page. The columns function can break across pages if
-/// necessary.
+/// The `column` function lets you separate the interior of any container into
+/// multiple columns. It will currently not balance the height of the columns.
+/// Instead, the columns will take up the height of their container or the
+/// remaining height on the page. Support for balanced columns is planned for
+/// the future.
 ///
-/// If you need to insert columns across your whole document, you can use the
-/// [`{page}` function's `columns` parameter]($page.columns) instead.
+/// # Page-level columns { #page-level }
+/// If you need to insert columns across your whole document, use the `{page}`
+/// function's [`columns` parameter]($page.columns) instead. This will create
+/// the columns directly at the page-level rather than wrapping all of your
+/// content in a layout container. As a result, things like
+/// [pagebreaks]($pagebreak), [footnotes]($footnote), and [line
+/// numbers]($par.line) will continue to work as expected. For more information,
+/// also read the [relevant part of the page setup
+/// guide]($guides/page-setup-guide/#columns).
 ///
-/// # Example
-/// ```example
-/// = Towards Advanced Deep Learning
+/// # Breaking out of columns { #breaking-out }
+/// To temporarily break out of columns (e.g. for a paper's title), use
+/// parent-scoped floating placement:
 ///
-/// #box(height: 68pt,
-///  columns(2, gutter: 11pt)[
-///    #set par(justify: true)
-///    This research was funded by the
-///    National Academy of Sciences.
-///    NAoS provided support for field
-///    tests and interviews with a
-///    grant of up to USD 40.000 for a
-///    period of 6 months.
-///  ]
+/// ```example:single
+/// #set page(columns: 2, height: 150pt)
+///
+/// #place(
+///   top + center,
+///   scope: "parent",
+///   float: true,
+///   text(1.4em, weight: "bold")[
+///     My document
+///   ],
 /// )
 ///
-/// In recent years, deep learning has
-/// increasingly been used to solve a
-/// variety of problems.
+/// #lorem(40)
 /// ```
 #[elem(Show)]
 pub struct ColumnsElem {
@@ -62,7 +64,6 @@ pub struct ColumnsElem {
 impl Show for Packed<ColumnsElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(BlockElem::multi_layouter(self.clone(), layout_columns)
-            .with_rootable(true)
             .pack()
             .spanned(self.span()))
     }
@@ -77,70 +78,15 @@ fn layout_columns(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let body = elem.body();
-
-    // Separating the infinite space into infinite columns does not make
-    // much sense.
-    if !regions.size.x.is_finite() {
-        return body.layout(engine, locator, styles, regions);
-    }
-
-    // Determine the width of the gutter and each column.
-    let columns = elem.count(styles).get();
-    let gutter = elem.gutter(styles).relative_to(regions.base().x);
-    let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
-
-    let backlog: Vec<_> = std::iter::once(&regions.size.y)
-        .chain(regions.backlog)
-        .flat_map(|&height| std::iter::repeat(height).take(columns))
-        .skip(1)
-        .collect();
-
-    // Create the pod regions.
-    let pod = Regions {
-        size: Size::new(width, regions.size.y),
-        full: regions.full,
-        backlog: &backlog,
-        last: regions.last,
-        expand: Axes::new(true, regions.expand.y),
-        root: regions.root,
-    };
-
-    // Layout the children.
-    let mut frames = body.layout(engine, locator, styles, pod)?.into_iter();
-    let mut finished = vec![];
-
-    let dir = TextElem::dir_in(styles);
-    let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
-
-    // Stitch together the columns for each region.
-    for region in regions.iter().take(total_regions) {
-        // The height should be the parent height if we should expand.
-        // Otherwise its the maximum column height for the frame. In that
-        // case, the frame is first created with zero height and then
-        // resized.
-        let height = if regions.expand.y { region.y } else { Abs::zero() };
-        let mut output = Frame::hard(Size::new(regions.size.x, height));
-        let mut cursor = Abs::zero();
-
-        for _ in 0..columns {
-            let Some(frame) = frames.next() else { break };
-            if !regions.expand.y {
-                output.size_mut().y.set_max(frame.height());
-            }
-
-            let width = frame.width();
-            let x =
-                if dir == Dir::LTR { cursor } else { regions.size.x - cursor - width };
-
-            output.push_frame(Point::with_x(x), frame);
-            cursor += width + gutter;
-        }
-
-        finished.push(output);
-    }
-
-    Ok(Fragment::frames(finished))
+    layout_fragment_with_columns(
+        engine,
+        &elem.body,
+        locator,
+        styles,
+        regions,
+        elem.count(styles),
+        elem.gutter(styles),
+    )
 }
 
 /// Forces a column break.
@@ -166,20 +112,10 @@ fn layout_columns(
 /// understanding of the fundamental
 /// laws of nature.
 /// ```
-#[elem(title = "Column Break", Behave)]
+#[elem(title = "Column Break")]
 pub struct ColbreakElem {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.
     #[default(false)]
     pub weak: bool,
-}
-
-impl Behave for Packed<ColbreakElem> {
-    fn behaviour(&self) -> Behaviour {
-        if self.weak(StyleChain::default()) {
-            Behaviour::Weak(1)
-        } else {
-            Behaviour::Destructive
-        }
-    }
 }

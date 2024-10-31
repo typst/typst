@@ -5,7 +5,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, Fragment, Frame, Point, Regions, Size,
+    layout_frame, Abs, AlignElem, Axes, BlockElem, Frame, Length, Point, Region, Size,
 };
 use crate::utils::Numeric;
 
@@ -14,7 +14,7 @@ use crate::utils::Numeric;
 /// This can be useful when implementing a custom index, reference, or outline.
 ///
 /// Space may be inserted between the instances of the body parameter, so be
-/// sure to include negative space if you need the instances to overlap.
+/// sure to adjust the [`justify`]($repeat.justify) parameter accordingly.
 ///
 /// Errors if there no bounds on the available space, as it would create
 /// infinite content.
@@ -35,11 +35,20 @@ pub struct RepeatElem {
     /// The content to repeat.
     #[required]
     pub body: Content,
+
+    /// The gap between each instance of the body.
+    #[default]
+    pub gap: Length,
+
+    /// Whether to increase the gap between instances to completely fill the
+    /// available space.
+    #[default(true)]
+    pub justify: bool,
 }
 
 impl Show for Packed<RepeatElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), layout_repeat)
+        Ok(BlockElem::single_layouter(self.clone(), layout_repeat)
             .pack()
             .spanned(self.span()))
     }
@@ -52,20 +61,11 @@ fn layout_repeat(
     engine: &mut Engine,
     locator: Locator,
     styles: StyleChain,
-    regions: Regions,
-) -> SourceResult<Fragment> {
-    let pod = Regions::one(regions.size, Axes::new(false, false));
-    let piece = elem.body().layout(engine, locator, styles, pod)?.into_frame();
-
-    let align = AlignElem::alignment_in(styles).resolve(styles);
-
-    let fill = regions.size.x;
-    let width = piece.width();
-    let count = (fill / width).floor();
-    let remaining = fill % width;
-    let apart = remaining / (count - 1.0);
-
-    let size = Size::new(regions.size.x, piece.height());
+    region: Region,
+) -> SourceResult<Frame> {
+    let pod = Region::new(region.size, Axes::new(false, false));
+    let piece = layout_frame(engine, &elem.body, locator, styles, pod)?;
+    let size = Size::new(region.size.x, piece.height());
 
     if !size.is_finite() {
         bail!(elem.span(), "repeat with no size restrictions");
@@ -76,17 +76,32 @@ fn layout_repeat(
         frame.set_baseline(piece.baseline());
     }
 
+    let mut gap = elem.gap(styles).resolve(styles);
+    let fill = region.size.x;
+    let width = piece.width();
+
+    // count * width + (count - 1) * gap = fill, but count is an integer so
+    // we need to round down and get the remainder.
+    let count = ((fill + gap) / (width + gap)).floor();
+    let remaining = (fill + gap) % (width + gap);
+
+    let justify = elem.justify(styles);
+    if justify {
+        gap += remaining / (count - 1.0);
+    }
+
+    let align = AlignElem::alignment_in(styles).resolve(styles);
     let mut offset = Abs::zero();
-    if count == 1.0 {
+    if count == 1.0 || !justify {
         offset += align.x.position(remaining);
     }
 
     if width > Abs::zero() {
         for _ in 0..(count as usize).min(1000) {
             frame.push_frame(Point::with_x(offset), piece.clone());
-            offset += piece.width() + apart;
+            offset += piece.width() + gap;
         }
     }
 
-    Ok(Fragment::frame(frame))
+    Ok(frame)
 }

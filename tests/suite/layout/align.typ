@@ -140,3 +140,11 @@ To the right! Where the sunlight peeks behind the mountain.
 // Test right-aligning a line and a rectangle.
 #align(right, line(length: 30%))
 #align(right, rect())
+
+--- issue-2213-align-fr ---
+// Test a mix of alignment and fr units (fr wins).
+#set page(height: 80pt)
+A
+#v(1fr)
+B
+#align(bottom + right)[C]

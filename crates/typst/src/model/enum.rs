@@ -14,7 +14,7 @@ use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
     Length, Regions, Sizing, VAlignment, VElem,
 };
-use crate::model::{Numbering, NumberingPattern, ParElem};
+use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
 
 /// A numbered list.
@@ -75,15 +75,17 @@ use crate::text::TextElem;
 /// part of that item.
 #[elem(scope, title = "Numbered List", Show)]
 pub struct EnumElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the enumeration more
+    /// Defines the default [spacing]($enum.spacing) of the enumeration. If it
+    /// is `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
     /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
     /// each other, this is set to `{true}`; if items are separated by a blank
-    /// line, this is set to `{false}`.
+    /// line, this is set to `{false}`. The markup-defined tightness cannot be
+    /// overridden with set rules.
     ///
     /// ```example
     /// + If an enum has a lot of text, and
@@ -140,7 +142,7 @@ pub struct EnumElem {
     /// #set enum(numbering: "1.a)", full: true)
     /// + Cook
     ///   + Heat water
-    ///   + Add integredients
+    ///   + Add ingredients
     /// + Eat
     /// ```
     #[default(false)]
@@ -224,7 +226,8 @@ impl Show for Packed<EnumElem> {
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
-            let spacing = VElem::list_attach(leading.into()).pack();
+            let spacing =
+                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
             realized = spacing + realized;
         }
 
@@ -325,14 +328,6 @@ pub struct EnumItem {
     pub body: Content,
 }
 
-impl Packed<EnumItem> {
-    /// Apply styles to this enum item.
-    pub fn styled(mut self, styles: Styles) -> Self {
-        self.body.style_in_place(styles);
-        self
-    }
-}
-
 cast! {
     EnumItem,
     array: Array => {
@@ -344,4 +339,19 @@ cast! {
         Self::new(body).with_number(number)
     },
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
+}
+
+impl ListLike for EnumElem {
+    type Item = EnumItem;
+
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self {
+        Self::new(children).with_tight(tight)
+    }
+}
+
+impl ListItemLike for EnumItem {
+    fn styled(mut item: Packed<Self>, styles: Styles) -> Packed<Self> {
+        item.body.style_in_place(styles);
+        item
+    }
 }

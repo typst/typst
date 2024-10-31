@@ -2,9 +2,9 @@ use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use crate::math::{
-    alignments, scaled_font_size, style_cramped, style_for_subscript, AlignmentResult,
-    FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, MathRun,
-    Scaled,
+    alignments, scaled_font_size, style_cramped, style_for_subscript,
+    style_for_superscript, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath,
+    LeftRightAlternator, MathContext, MathRun, Scaled,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -12,11 +12,13 @@ use crate::visualize::{FixedStroke, Geometry};
 
 const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
+const PAREN_GAP: Em = Em::new(0.25);
+const SHELL_GAP: Em = Em::new(0.25);
 
 /// A marker to distinguish under- vs. overlines.
-enum LineKind {
-    Over,
+enum Position {
     Under,
+    Over,
 }
 
 /// A horizontal line under content.
@@ -34,7 +36,7 @@ pub struct UnderlineElem {
 impl LayoutMath for Packed<UnderlineElem> {
     #[typst_macros::time(name = "math.underline", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        layout_underoverline(ctx, styles, self.body(), self.span(), LineKind::Under)
+        layout_underoverline(ctx, styles, self.body(), self.span(), Position::Under)
     }
 }
 
@@ -53,7 +55,7 @@ pub struct OverlineElem {
 impl LayoutMath for Packed<OverlineElem> {
     #[typst_macros::time(name = "math.overline", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        layout_underoverline(ctx, styles, self.body(), self.span(), LineKind::Over)
+        layout_underoverline(ctx, styles, self.body(), self.span(), Position::Over)
     }
 }
 
@@ -63,11 +65,11 @@ fn layout_underoverline(
     styles: StyleChain,
     body: &Content,
     span: Span,
-    line: LineKind,
+    position: Position,
 ) -> SourceResult<()> {
-    let (extra_height, content, line_pos, content_pos, baseline, bar_height);
-    match line {
-        LineKind::Under => {
+    let (extra_height, content, line_pos, content_pos, baseline, bar_height, line_adjust);
+    match position {
+        Position::Under => {
             let sep = scaled!(ctx, styles, underbar_extra_descender);
             bar_height = scaled!(ctx, styles, underbar_rule_thickness);
             let gap = scaled!(ctx, styles, underbar_vertical_gap);
@@ -77,9 +79,10 @@ fn layout_underoverline(
 
             line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
             content_pos = Point::zero();
-            baseline = content.ascent()
+            baseline = content.ascent();
+            line_adjust = -content.italics_correction();
         }
-        LineKind::Over => {
+        Position::Over => {
             let sep = scaled!(ctx, styles, overbar_extra_ascender);
             bar_height = scaled!(ctx, styles, overbar_rule_thickness);
             let gap = scaled!(ctx, styles, overbar_vertical_gap);
@@ -91,21 +94,25 @@ fn layout_underoverline(
             line_pos = Point::with_y(sep + bar_height / 2.0);
             content_pos = Point::with_y(extra_height);
             baseline = content.ascent() + extra_height;
+            line_adjust = Abs::zero();
         }
     }
 
     let width = content.width();
     let height = content.height() + extra_height;
     let size = Size::new(width, height);
+    let line_width = width + line_adjust;
 
     let content_class = content.class();
+    let content_is_text_like = content.is_text_like();
+    let content_italics_correction = content.italics_correction();
     let mut frame = Frame::soft(size);
     frame.set_baseline(baseline);
     frame.push_frame(content_pos, content.into_frame());
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(width)).stroked(FixedStroke {
+            Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
                 paint: TextElem::fill_in(styles).as_decoration(),
                 thickness: bar_height,
                 ..FixedStroke::default()
@@ -114,7 +121,12 @@ fn layout_underoverline(
         ),
     );
 
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(content_class));
+    ctx.push(
+        FrameFragment::new(ctx, styles, frame)
+            .with_class(content_class)
+            .with_text_like(content_is_text_like)
+            .with_italics_correction(content_italics_correction),
+    );
 
     Ok(())
 }
@@ -145,7 +157,7 @@ impl LayoutMath for Packed<UnderbraceElem> {
             &self.annotation(styles),
             '⏟',
             BRACE_GAP,
-            false,
+            Position::Under,
             self.span(),
         )
     }
@@ -177,7 +189,7 @@ impl LayoutMath for Packed<OverbraceElem> {
             &self.annotation(styles),
             '⏞',
             BRACE_GAP,
-            true,
+            Position::Over,
             self.span(),
         )
     }
@@ -200,7 +212,7 @@ pub struct UnderbracketElem {
 }
 
 impl LayoutMath for Packed<UnderbracketElem> {
-    #[typst_macros::time(name = "math.underbrace", span = self.span())]
+    #[typst_macros::time(name = "math.underbracket", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -209,7 +221,7 @@ impl LayoutMath for Packed<UnderbracketElem> {
             &self.annotation(styles),
             '⎵',
             BRACKET_GAP,
-            false,
+            Position::Under,
             self.span(),
         )
     }
@@ -241,7 +253,135 @@ impl LayoutMath for Packed<OverbracketElem> {
             &self.annotation(styles),
             '⎴',
             BRACKET_GAP,
-            true,
+            Position::Over,
+            self.span(),
+        )
+    }
+}
+
+/// A horizontal parenthesis under content, with an optional annotation below.
+///
+/// ```example
+/// $ underparen(1 + 2 + ... + 5, "numbers") $
+/// ```
+#[elem(LayoutMath)]
+pub struct UnderparenElem {
+    /// The content above the parenthesis.
+    #[required]
+    pub body: Content,
+
+    /// The optional content below the parenthesis.
+    #[positional]
+    pub annotation: Option<Content>,
+}
+
+impl LayoutMath for Packed<UnderparenElem> {
+    #[typst_macros::time(name = "math.underparen", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        layout_underoverspreader(
+            ctx,
+            styles,
+            self.body(),
+            &self.annotation(styles),
+            '⏝',
+            PAREN_GAP,
+            Position::Under,
+            self.span(),
+        )
+    }
+}
+
+/// A horizontal parenthesis over content, with an optional annotation above.
+///
+/// ```example
+/// $ overparen(1 + 2 + ... + 5, "numbers") $
+/// ```
+#[elem(LayoutMath)]
+pub struct OverparenElem {
+    /// The content below the parenthesis.
+    #[required]
+    pub body: Content,
+
+    /// The optional content above the parenthesis.
+    #[positional]
+    pub annotation: Option<Content>,
+}
+
+impl LayoutMath for Packed<OverparenElem> {
+    #[typst_macros::time(name = "math.overparen", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        layout_underoverspreader(
+            ctx,
+            styles,
+            self.body(),
+            &self.annotation(styles),
+            '⏜',
+            PAREN_GAP,
+            Position::Over,
+            self.span(),
+        )
+    }
+}
+
+/// A horizontal tortoise shell bracket under content, with an optional annotation below.
+///
+/// ```example
+/// $ undershell(1 + 2 + ... + 5, "numbers") $
+/// ```
+#[elem(LayoutMath)]
+pub struct UndershellElem {
+    /// The content above the tortoise shell bracket.
+    #[required]
+    pub body: Content,
+
+    /// The optional content below the tortoise shell bracket.
+    #[positional]
+    pub annotation: Option<Content>,
+}
+
+impl LayoutMath for Packed<UndershellElem> {
+    #[typst_macros::time(name = "math.undershell", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        layout_underoverspreader(
+            ctx,
+            styles,
+            self.body(),
+            &self.annotation(styles),
+            '⏡',
+            SHELL_GAP,
+            Position::Under,
+            self.span(),
+        )
+    }
+}
+
+/// A horizontal tortoise shell bracket over content, with an optional annotation above.
+///
+/// ```example
+/// $ overshell(1 + 2 + ... + 5, "numbers") $
+/// ```
+#[elem(LayoutMath)]
+pub struct OvershellElem {
+    /// The content below the tortoise shell bracket.
+    #[required]
+    pub body: Content,
+
+    /// The optional content above the tortoise shell bracket.
+    #[positional]
+    pub annotation: Option<Content>,
+}
+
+impl LayoutMath for Packed<OvershellElem> {
+    #[typst_macros::time(name = "math.overshell", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        layout_underoverspreader(
+            ctx,
+            styles,
+            self.body(),
+            &self.annotation(styles),
+            '⏠',
+            SHELL_GAP,
+            Position::Over,
             self.span(),
         )
     }
@@ -256,7 +396,7 @@ fn layout_underoverspreader(
     annotation: &Option<Content>,
     c: char,
     gap: Em,
-    reverse: bool,
+    position: Position,
     span: Span,
 ) -> SourceResult<()> {
     let font_size = scaled_font_size(ctx, styles);
@@ -267,29 +407,29 @@ fn layout_underoverspreader(
     let glyph = GlyphFragment::new(ctx, styles, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
-    let mut rows = vec![MathRun::new(vec![body]), stretched.into()];
-
-    let (sup_style, sub_style);
-    let row_styles = if reverse {
-        sup_style = style_for_subscript(styles);
-        styles.chain(&sup_style)
-    } else {
-        sub_style = style_for_subscript(styles);
-        styles.chain(&sub_style)
+    let mut rows = vec![];
+    let baseline = match position {
+        Position::Under => {
+            rows.push(MathRun::new(vec![body]));
+            rows.push(stretched.into());
+            if let Some(annotation) = annotation {
+                let under_style = style_for_subscript(styles);
+                let annotation_styles = styles.chain(&under_style);
+                rows.push(ctx.layout_into_run(annotation, annotation_styles)?);
+            }
+            0
+        }
+        Position::Over => {
+            if let Some(annotation) = annotation {
+                let over_style = style_for_superscript(styles);
+                let annotation_styles = styles.chain(&over_style);
+                rows.push(ctx.layout_into_run(annotation, annotation_styles)?);
+            }
+            rows.push(stretched.into());
+            rows.push(MathRun::new(vec![body]));
+            rows.len() - 1
+        }
     };
-
-    rows.extend(
-        annotation
-            .as_ref()
-            .map(|annotation| ctx.layout_into_run(annotation, row_styles))
-            .transpose()?,
-    );
-
-    let mut baseline = 0;
-    if reverse {
-        rows.reverse();
-        baseline = rows.len() - 1;
-    }
 
     let frame = stack(
         rows,
@@ -336,7 +476,11 @@ pub(super) fn stack(
 
     let mut y = Abs::zero();
     for (i, row) in rows.into_iter().enumerate() {
-        let x = align.position(width - row.width());
+        let x = if points.is_empty() {
+            align.position(width - row.width())
+        } else {
+            Abs::zero()
+        };
         let ascent_padded_part = minimum_ascent_descent
             .map_or(Abs::zero(), |(a, _)| (a - row.ascent()))
             .max(Abs::zero());

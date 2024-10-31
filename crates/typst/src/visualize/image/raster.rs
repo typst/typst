@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
-use image::io::Limits;
+use image::Limits;
 use image::{guess_format, DynamicImage, ImageDecoder, ImageResult};
 
 use crate::diag::{bail, StrResult};

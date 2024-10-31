@@ -10,17 +10,18 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Locator};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame,
-    InlineElem, InlineItem, OuterHAlignment, Point, Regions, Size, SpecificAlignment,
-    VAlignment,
+    layout_frame, Abs, AlignElem, Alignment, Axes, BlockElem, Em, FixedAlignment,
+    Fragment, Frame, InlineElem, InlineItem, OuterHAlignment, Point, Region, Regions,
+    Size, SpecificAlignment, VAlignment,
 };
 use crate::math::{
-    scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
+    scaled_font_size, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
 };
-use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::model::{Numbering, Outlinable, ParElem, ParLine, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
-    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextElem,
+    families, variant, Font, FontFamily, FontList, FontWeight, LocalName, TextEdgeBounds,
+    TextElem,
 };
 use crate::utils::{NonZeroExt, Numeric};
 use crate::World;
@@ -42,16 +43,16 @@ use crate::World;
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
+/// By default, block-level equations will not break across pages. This can be
+/// changed through `{show math.equation: set block(breakable: true)}`.
+///
 /// # Syntax
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create an equation. Starting and ending the equation with at
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(
-    Locatable, Synthesize, Show, ShowSet, LayoutMath, Count, LocalName, Refable,
-    Outlinable
-)]
+#[elem(Locatable, Synthesize, Show, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -183,6 +184,7 @@ impl ShowSet for Packed<EquationElem> {
         if self.block(styles) {
             out.set(AlignElem::set_alignment(Alignment::CENTER));
             out.set(BlockElem::set_breakable(false));
+            out.set(ParLine::set_numbering(None));
             out.set(EquationElem::set_size(MathSize::Display));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
@@ -258,13 +260,6 @@ impl Outlinable for Packed<EquationElem> {
     }
 }
 
-impl LayoutMath for Packed<EquationElem> {
-    #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        self.body().layout_math(ctx, styles)
-    }
-}
-
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
 fn layout_equation_inline(
@@ -278,8 +273,9 @@ fn layout_equation_inline(
 
     let font = find_math_font(engine, styles, elem.span())?;
 
-    let mut ctx = MathContext::new(engine, locator, styles, region, &font);
-    let run = ctx.layout_into_run(elem, styles)?;
+    let mut locator = locator.split();
+    let mut ctx = MathContext::new(engine, &mut locator, styles, region, &font);
+    let run = ctx.layout_into_run(&elem.body, styles)?;
 
     let mut items = if run.row_count() == 1 {
         run.into_par_items()
@@ -298,12 +294,16 @@ fn layout_equation_inline(
 
         let font_size = scaled_font_size(&ctx, styles);
         let slack = ParElem::leading_in(styles) * 0.7;
-        let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
-        let bottom_edge =
-            -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
 
-        let ascent = top_edge.max(frame.ascent() - slack);
-        let descent = bottom_edge.max(frame.descent() - slack);
+        let (t, b) = font.edges(
+            TextElem::top_edge_in(styles),
+            TextElem::bottom_edge_in(styles),
+            font_size,
+            TextEdgeBounds::Frame(frame),
+        );
+
+        let ascent = t.max(frame.ascent() - slack);
+        let descent = b.max(frame.descent() - slack);
         frame.translate(Point::with_y(ascent - frame.baseline()));
         frame.size_mut().y = ascent + descent;
     }
@@ -326,10 +326,9 @@ fn layout_equation_block(
     let font = find_math_font(engine, styles, span)?;
 
     let mut locator = locator.split();
-    let mut ctx =
-        MathContext::new(engine, locator.next(&()), styles, regions.base(), &font);
+    let mut ctx = MathContext::new(engine, &mut locator, styles, regions.base(), &font);
     let full_equation_builder = ctx
-        .layout_into_run(elem, styles)?
+        .layout_into_run(&elem.body, styles)?
         .multiline_frame_builder(&ctx, styles);
     let width = full_equation_builder.size.x;
 
@@ -337,8 +336,9 @@ fn layout_equation_block(
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
+        let mut regions = regions;
 
-        for region in regions.iter() {
+        loop {
             // Keep track of the position of the first row in this region,
             // so that the offset can be reverted later.
             let Some(&(_, first_pos)) = rows.peek() else { break };
@@ -354,8 +354,9 @@ fn layout_equation_block(
                 // we placed at least one line _or_ we still have non-last
                 // regions. Crucially, we don't want to infinitely create
                 // new regions which are too small.
-                if !region.y.fits(sub.height() + pos.y)
-                    && (!frames.is_empty() || !regions.in_last())
+                if !regions.size.y.fits(sub.height() + pos.y)
+                    && (regions.may_progress()
+                        || (regions.may_break() && !frames.is_empty()))
                 {
                     break;
                 }
@@ -367,6 +368,7 @@ fn layout_equation_block(
 
             equation_builders
                 .push(MathRunFrameBuilder { frames, size: Size::new(width, height) });
+            regions.next();
         }
 
         // Append remaining rows to the equation builder of the last region.
@@ -386,6 +388,12 @@ fn layout_equation_block(
             equation_builder.size.y = height;
         }
 
+        // Ensure that there is at least one frame, even for empty equations.
+        if equation_builders.is_empty() {
+            equation_builders
+                .push(MathRunFrameBuilder { frames: vec![], size: Size::zero() });
+        }
+
         equation_builders
     } else {
         vec![full_equation_builder]
@@ -399,12 +407,11 @@ fn layout_equation_block(
         return Ok(Fragment::frames(frames));
     };
 
-    let pod = Regions::one(regions.base(), Axes::splat(false));
-    let number = Counter::of(EquationElem::elem())
+    let pod = Region::new(regions.base(), Axes::splat(false));
+    let counter = Counter::of(EquationElem::elem())
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
-        .spanned(span)
-        .layout(engine, locator.next(&()), styles, pod)?
-        .into_frame();
+        .spanned(span);
+    let number = layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
@@ -416,9 +423,14 @@ fn layout_equation_block(
     };
 
     // Add equation numbers to each equation region.
+    let region_count = equation_builders.len();
     let frames = equation_builders
         .into_iter()
         .map(|builder| {
+            if builder.frames.is_empty() && region_count > 1 {
+                // Don't number empty regions, but do number empty equations.
+                return builder.build();
+            }
             add_equation_number(
                 builder,
                 number.clone(),
@@ -517,7 +529,7 @@ fn add_equation_number(
     equation
 }
 
-/// Resize the equation's frame accordingly so that it emcompasses the number.
+/// Resize the equation's frame accordingly so that it encompasses the number.
 fn resize_equation(
     equation: &mut Frame,
     number: &Frame,

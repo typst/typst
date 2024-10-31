@@ -14,7 +14,8 @@ use crate::foundations::{
 };
 use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Alignment, Axes, Fragment, Length, LinePosition, Regions, Rel, Sides, Sizing,
+    layout_fragment, Abs, Alignment, Axes, Fragment, Length, LinePosition, Regions, Rel,
+    Sides, Sizing,
 };
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
@@ -220,7 +221,7 @@ impl<'a> Cell<'a> {
         if disambiguator > 0 {
             locator = locator.split().next_inner(disambiguator as u128);
         }
-        self.body.layout(engine, locator, styles, regions)
+        layout_fragment(engine, &self.body, locator, styles, regions)
     }
 }
 
@@ -410,8 +411,8 @@ impl<'a> CellGrid<'a> {
         let mut footer: Option<(usize, Span, Footer)> = None;
         let mut repeat_footer = false;
 
-        // Resolve the breakability of a cell, based on whether or not it spans
-        // an auto row.
+        // Resolves the breakability of a cell. Cells that span at least one
+        // auto-sized row or gutter are considered breakable.
         let resolve_breakable = |y, rowspan| {
             let auto = Sizing::Auto;
             let zero = Sizing::Rel(Rel::zero());
@@ -1223,7 +1224,7 @@ impl<'a> CellGrid<'a> {
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
     /// the returned position, due to how the grid is built.
     /// - If the entry at the given position is a cell, returns the given
-    /// position.
+    ///   position.
     /// - If it is a merged cell, returns the parent cell's position.
     /// - If it is a gutter cell, returns None.
     #[track_caller]

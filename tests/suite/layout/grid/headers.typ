@@ -186,7 +186,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-and-rowspan-non-contiguous-2 ---
@@ -201,7 +201,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-and-rowspan-non-contiguous-3 ---
@@ -215,12 +215,12 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-lack-of-space ---
 // Test lack of space for header + text.
-#set page(height: 9em)
+#set page(height: 8em)
 
 #table(
   rows: (auto, 2.5em, auto, auto, 10em),

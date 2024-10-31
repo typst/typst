@@ -26,7 +26,7 @@
 //! [evaluate]: eval::eval
 //! [module]: foundations::Module
 //! [content]: foundations::Content
-//! [layouted]: foundations::Content::layout_document
+//! [layouted]: crate::layout::layout_document
 //! [document]: model::Document
 //! [frame]: layout::Frame
 
@@ -86,7 +86,7 @@ use crate::visualize::Color;
 #[typst_macros::time]
 pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
     let mut sink = Sink::new();
-    let output = compile_inner(world.track(), Traced::default().track(), &mut sink)
+    let output = compile_impl(world.track(), Traced::default().track(), &mut sink)
         .map_err(deduplicate);
     Warned { output, warnings: sink.warnings() }
 }
@@ -97,12 +97,13 @@ pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
 pub fn trace(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)> {
     let mut sink = Sink::new();
     let traced = Traced::new(span);
-    compile_inner(world.track(), traced.track(), &mut sink).ok();
+    compile_impl(world.track(), traced.track(), &mut sink).ok();
     sink.values()
 }
 
-/// Relayout until introspection converges.
-fn compile_inner(
+/// The internal implementation of `compile` with a bit lower-level interface
+/// that is also used by `trace`.
+fn compile_impl(
     world: Tracked<dyn World + '_>,
     traced: Tracked<Traced>,
     sink: &mut Sink,
@@ -127,6 +128,7 @@ fn compile_inner(
     .content();
 
     let mut iter = 0;
+    let mut subsink;
     let mut document = Document::default();
 
     // Relayout until all introspections stabilize.
@@ -137,21 +139,19 @@ fn compile_inner(
             &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
         let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
-        // Clear delayed errors.
-        sink.delayed();
+        subsink = Sink::new();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut engine = Engine {
             world,
             introspector: document.introspector.track_with(&constraint),
             traced,
-            sink: sink.track_mut(),
+            sink: subsink.track_mut(),
             route: Route::default(),
         };
 
         // Layout!
-        document = content.layout_document(&mut engine, styles)?;
-        document.introspector.rebuild(&document.pages);
+        document = crate::layout::layout_document(&mut engine, &content, styles)?;
         iter += 1;
 
         if timed!("check stabilized", document.introspector.validate(&constraint)) {
@@ -159,13 +159,15 @@ fn compile_inner(
         }
 
         if iter >= 5 {
-            sink.warn(warning!(
+            subsink.warn(warning!(
                 Span::detached(), "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
             break;
         }
     }
+
+    sink.extend_from_sink(subsink);
 
     // Promote delayed errors.
     let delayed = sink.delayed();

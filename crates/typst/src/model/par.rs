@@ -1,14 +1,15 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
-    Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart,
+    StyleVec, Unlabellable,
 };
-use crate::introspection::Locator;
-use crate::layout::{Em, Fragment, Length, Size};
-use crate::realize::StyleVec;
+use crate::introspection::{Count, CounterUpdate, Locatable};
+use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
+use crate::model::Numbering;
+use crate::utils::singleton;
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
 ///
@@ -35,7 +36,7 @@ use crate::realize::StyleVec;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Debug, Construct)]
+#[elem(scope, title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -47,7 +48,7 @@ pub struct ParElem {
     /// By setting top edge, bottom edge, and leading, you can also configure a
     /// consistent baseline-to-baseline distance. You could, for instance, set
     /// the leading to `{1em}`, the top-edge to `{0.8em}`, and the bottom-edge
-    /// to `-{0.2em}` to get a baseline gap of exactly `{2em}`. The exact
+    /// to `{-0.2em}` to get a baseline gap of exactly `{2em}`. The exact
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
     #[resolve]
@@ -124,7 +125,7 @@ pub struct ParElem {
     #[resolve]
     pub hanging_indent: Length,
 
-    /// Indicates wheter an overflowing line should be shrunk.
+    /// Indicates whether an overflowing line should be shrunk.
     ///
     /// This property is set to `false` on raw blocks, because shrinking a line
     /// could visually break the indentation.
@@ -144,6 +145,12 @@ pub struct ParElem {
     pub children: StyleVec,
 }
 
+#[scope]
+impl ParElem {
+    #[elem]
+    type ParLine;
+}
+
 impl Construct for ParElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -152,34 +159,10 @@ impl Construct for ParElem {
         let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([
-            ParbreakElem::new().pack(),
+            ParbreakElem::shared().clone(),
             body.styled_with_map(styles),
-            ParbreakElem::new().pack(),
+            ParbreakElem::shared().clone(),
         ]))
-    }
-}
-
-impl Packed<ParElem> {
-    /// Layout the paragraph into a collection of lines.
-    #[typst_macros::time(name = "par", span = self.span())]
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        consecutive: bool,
-        region: Size,
-        expand: bool,
-    ) -> SourceResult<Fragment> {
-        crate::layout::layout_inline(
-            &self.children,
-            engine,
-            locator,
-            styles,
-            consecutive,
-            region,
-            expand,
-        )
     }
 }
 
@@ -223,4 +206,225 @@ pub enum Linebreaks {
 #[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
+impl ParbreakElem {
+    /// Get the globally shared paragraph element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, ParbreakElem::new().pack())
+    }
+}
+
 impl Unlabellable for Packed<ParbreakElem> {}
+
+/// A paragraph line.
+///
+/// This element is exclusively used for line number configuration through set
+/// rules and cannot be placed.
+///
+/// The [`numbering`]($par.line.numbering) option is used to enable line
+/// numbers by specifying a numbering format.
+///
+/// ```example
+/// >>> #set page(margin: (left: 3em))
+/// #set par.line(numbering: "1")
+///
+/// Roses are red. \
+/// Violets are blue. \
+/// Typst is there for you.
+/// ```
+///
+/// The `numbering` option takes either a predefined
+/// [numbering pattern]($numbering) or a function returning styled content. You
+/// can disable line numbers for text inside certain elements by setting the
+/// numbering to `{none}` using show-set rules.
+///
+/// ```example
+/// >>> #set page(margin: (left: 3em))
+/// // Styled red line numbers.
+/// #set par.line(
+///   numbering: n => text(red)[#n]
+/// )
+///
+/// // Disable numbers inside figures.
+/// #show figure: set par.line(
+///   numbering: none
+/// )
+///
+/// Roses are red. \
+/// Violets are blue.
+///
+/// #figure(
+///   caption: [Without line numbers.]
+/// )[
+///   Lorem ipsum \
+///   dolor sit amet
+/// ]
+///
+/// The text above is a sample \
+/// originating from distant times.
+/// ```
+///
+/// This element exposes further options which may be used to control other
+/// aspects of line numbering, such as its [alignment]($par.line.number-align)
+/// or [margin]($par.line.number-margin). In addition, you can control whether
+/// the numbering is reset on each page through the
+/// [`numbering-scope`]($par.line.numbering-scope) option.
+#[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
+pub struct ParLine {
+    /// How to number each line. Accepts a
+    /// [numbering pattern or function]($numbering).
+    ///
+    /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// #set par.line(numbering: "I")
+    ///
+    /// Roses are red. \
+    /// Violets are blue. \
+    /// Typst is there for you.
+    /// ```
+    #[ghost]
+    pub numbering: Option<Numbering>,
+
+    /// The alignment of line numbers associated with each line.
+    ///
+    /// The default of `{auto}` indicates a smart default where numbers grow
+    /// horizontally away from the text, considering the margin they're in and
+    /// the current text direction.
+    ///
+    /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// #set par.line(
+    ///   numbering: "I",
+    ///   number-align: left,
+    /// )
+    ///
+    /// Hello world! \
+    /// Today is a beautiful day \
+    /// For exploring the world.
+    /// ```
+    #[ghost]
+    pub number_align: Smart<HAlignment>,
+
+    /// The margin at which line numbers appear.
+    ///
+    /// _Note:_ In a multi-column document, the line numbers for paragraphs
+    /// inside the last column will always appear on the `{end}` margin (right
+    /// margin for left-to-right text and left margin for right-to-left),
+    /// regardless of this configuration. That behavior cannot be changed at
+    /// this moment.
+    ///
+    /// ```example
+    /// >>> #set page(margin: (right: 3em))
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   number-margin: right,
+    /// )
+    ///
+    /// = Report
+    /// - Brightness: Dark, yet darker
+    /// - Readings: Negative
+    /// ```
+    #[ghost]
+    #[default(OuterHAlignment::Start)]
+    pub number_margin: OuterHAlignment,
+
+    /// The distance between line numbers and text.
+    ///
+    /// The default value of `{auto}` results in a clearance that is adaptive to
+    /// the page width and yields reasonable results in most cases.
+    ///
+    /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   number-clearance: 4pt,
+    /// )
+    ///
+    /// Typesetting \
+    /// Styling \
+    /// Layout
+    /// ```
+    #[ghost]
+    #[default]
+    pub number_clearance: Smart<Length>,
+
+    /// Controls when to reset line numbering.
+    ///
+    /// _Note:_ The line numbering scope must be uniform across each page run (a
+    /// page run is a sequence of pages without an explicit pagebreak in
+    /// between). For this reason, set rules for it should be defined before any
+    /// page content, typically at the very start of the document.
+    ///
+    /// ```example
+    /// >>> #set page(margin: (left: 3em))
+    /// #set par.line(
+    ///   numbering: "1",
+    ///   numbering-scope: "page",
+    /// )
+    ///
+    /// First line \
+    /// Second line
+    /// #pagebreak()
+    /// First line again \
+    /// Second line again
+    /// ```
+    #[ghost]
+    #[default(LineNumberingScope::Document)]
+    pub numbering_scope: LineNumberingScope,
+}
+
+impl Construct for ParLine {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+/// Possible line numbering scope options, indicating how often the line number
+/// counter should be reset.
+///
+/// Note that, currently, manually resetting the line number counter is not
+/// supported.
+#[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LineNumberingScope {
+    /// Indicates that the line number counter spans the whole document, i.e.,
+    /// it's never automatically reset.
+    Document,
+    /// Indicates that the line number counter should be reset at the start of
+    /// every new page.
+    Page,
+}
+
+/// A marker used to indicate the presence of a line.
+///
+/// This element is added to each line in a paragraph and later searched to
+/// find out where to add line numbers.
+#[elem(Construct, Locatable, Count)]
+pub struct ParLineMarker {
+    #[internal]
+    #[required]
+    pub numbering: Numbering,
+
+    #[internal]
+    #[required]
+    pub number_align: Smart<HAlignment>,
+
+    #[internal]
+    #[required]
+    pub number_margin: OuterHAlignment,
+
+    #[internal]
+    #[required]
+    pub number_clearance: Smart<Length>,
+}
+
+impl Construct for ParLineMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Count for Packed<ParLineMarker> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // The line counter must be updated manually by the root flow.
+        None
+    }
+}

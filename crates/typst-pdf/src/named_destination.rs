@@ -1,12 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
-use pdf_writer::{writers::Destination, Ref};
+use pdf_writer::writers::Destination;
+use pdf_writer::{Ref, Str};
+use typst::diag::SourceResult;
 use typst::foundations::{Label, NativeElement};
 use typst::introspection::Location;
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, PdfChunk, Renumber, WithGlobalRefs};
+use crate::{AbsExt, PdfChunk, Renumber, StrExt, WithGlobalRefs};
 
 /// A list of destinations in the PDF document (a specific point on a specific
 /// page), that have a name associated with them.
@@ -34,7 +36,7 @@ impl Renumber for NamedDestinations {
 /// destination objects.
 pub fn write_named_destinations(
     context: &WithGlobalRefs,
-) -> (PdfChunk, NamedDestinations) {
+) -> SourceResult<(PdfChunk, NamedDestinations)> {
     let mut chunk = PdfChunk::new();
     let mut out = NamedDestinations::default();
     let mut seen = HashSet::new();
@@ -54,6 +56,12 @@ pub fn write_named_destinations(
     matches.sort_by_key(|&(_, label)| label);
 
     for (loc, label) in matches {
+        // Don't encode named destinations that would exceed the limit. Those
+        // will instead be encoded as normal links.
+        if label.as_str().len() > Str::PDFA_LIMIT {
+            continue;
+        }
+
         let pos = context.document.introspector.position(loc);
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
@@ -74,5 +82,5 @@ pub fn write_named_destinations(
         }
     }
 
-    (chunk, out)
+    Ok((chunk, out))
 }

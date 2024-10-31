@@ -63,7 +63,7 @@ Multiple trailing line breaks.
 #hrule(70pt)$e^(pi i)+1 = 0$
 
 --- math-linebreaking-lr ---
-// LR groups prevent linbreaking.
+// LR groups prevent linebreaking.
 #let hrule(x) = box(line(length: x))
 #hrule(76pt)$a+b$\
 #hrule(74pt)$(a+b)$\
@@ -130,6 +130,39 @@ $ a &+ b + & c \
     &      & c && + d \
     &= 0 $
 
+--- math-pagebreaking-single-line ---
+// Test breaking of single line equations.
+#set page(height: 4em)
+#show math.equation: set block(breakable: true)
+
+Shouldn't overflow:
+$ a + b $
+
+--- math-pagebreaking-single-line-numbered ---
+// Test breaking of single line equations with numbering.
+#set page(height: 4em)
+#show math.equation: set block(breakable: true)
+#set math.equation(numbering: "(1)")
+
+Shouldn't overflow:
+$ a + b $
+
+--- issue-5113-pagebreaking-empty ---
+// Test empty breakable equations.
+#show math.equation: set block(breakable: true)
+#math.equation(block: true, [])
+
 --- issue-1948-math-text-break ---
 // Test text with linebreaks in math.
 $ x := "a\nb\nc\nd\ne" $
+
+--- issue-4829-math-pagebreaking-wrong-number ---
+// Test numbering of empty regions of broken equations.
+#set page(height: 5em)
+#set math.equation(numbering: "1")
+#show math.equation: set block(breakable: true)
+
+#rect(height: 1.5em)
+
+$ a + b \
+  a + b $

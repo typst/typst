@@ -4,6 +4,8 @@ pub mod calc;
 pub mod repr;
 pub mod sys;
 
+pub use typst_macros::{scope, ty};
+
 mod args;
 mod array;
 mod auto;
@@ -13,6 +15,7 @@ mod cast;
 mod content;
 mod context;
 mod datetime;
+mod decimal;
 mod dict;
 mod duration;
 mod element;
@@ -41,6 +44,7 @@ pub use self::cast::*;
 pub use self::content::*;
 pub use self::context::*;
 pub use self::datetime::*;
+pub use self::decimal::*;
 pub use self::dict::*;
 pub use self::duration::*;
 pub use self::element::*;
@@ -103,6 +107,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict) {
     global.define_type::<Regex>();
     global.define_type::<Selector>();
     global.define_type::<Datetime>();
+    global.define_type::<Decimal>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
     global.define_type::<Plugin>();

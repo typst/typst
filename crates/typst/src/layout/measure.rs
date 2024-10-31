@@ -6,7 +6,7 @@ use crate::foundations::{
     dict, func, Content, Context, Dict, Resolve, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Locator, LocatorLink};
-use crate::layout::{Abs, Axes, Length, Regions, Size};
+use crate::layout::{layout_frame, Abs, Axes, Length, Region, Size};
 use crate::syntax::Span;
 
 /// Measures the layouted size of content.
@@ -19,8 +19,8 @@ use crate::syntax::Span;
 ///
 /// # Example
 /// The same content can have a different size depending on the [context] that
-/// it is placed into. For example, in the example below `[#content]` is of
-/// course bigger when we increase the font size.
+/// it is placed into. In the example below, the `[#content]` is of course
+/// bigger when we increase the font size.
 ///
 /// ```example
 /// #let content = [Hello!]
@@ -53,12 +53,12 @@ pub fn measure(
     span: Span,
     /// The width available to layout the content.
     ///
-    /// Defaults to `{auto}`, which denotes an infinite width.
+    /// Setting this to `{auto}` indicates infinite available width.
     ///
-    /// Using the `width` and `height` parameters of this function is
-    /// different from measuring a [`box`] containing the content;
-    /// the former will get the dimensions of the inner content
-    /// instead of the dimensions of the box:
+    /// Note that using the `width` and `height` parameters of this function is
+    /// different from measuring a sized [`block`] containing the content. In
+    /// the following example, the former will get the dimensions of the inner
+    /// content instead of the dimensions of the block.
     ///
     /// ```example
     /// #context measure(lorem(100), width: 400pt)
@@ -70,7 +70,7 @@ pub fn measure(
     width: Smart<Length>,
     /// The height available to layout the content.
     ///
-    /// Defaults to `{auto}`, which denotes an infinite height.
+    /// Setting this to `{auto}` indicates infinite available height.
     #[named]
     #[default(Smart::Auto)]
     height: Smart<Length>,
@@ -93,7 +93,7 @@ pub fn measure(
     };
 
     // Create a pod region with the available space.
-    let pod = Regions::one(
+    let pod = Region::new(
         Axes::new(
             width.resolve(styles).unwrap_or(Abs::inf()),
             height.resolve(styles).unwrap_or(Abs::inf()),
@@ -109,7 +109,7 @@ pub fn measure(
     let link = LocatorLink::measure(here);
     let locator = Locator::link(&link);
 
-    let frame = content.layout(engine, locator, styles, pod)?.into_frame();
+    let frame = layout_frame(engine, &content, locator, styles, pod)?;
     let Size { x, y } = frame.size();
     Ok(dict! { "width" => x, "height" => y })
 }
