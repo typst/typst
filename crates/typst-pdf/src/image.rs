@@ -4,11 +4,11 @@ use std::io::Cursor;
 use ecow::eco_format;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
-use typst::diag::{At, SourceResult, StrResult};
-use typst::utils::Deferred;
-use typst::visualize::{
+use typst_library::diag::{At, SourceResult, StrResult};
+use typst_library::visualize::{
     ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
 };
+use typst_utils::Deferred;
 
 use crate::{color, deflate, PdfChunk, WithGlobalRefs};
 

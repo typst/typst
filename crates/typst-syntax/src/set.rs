@@ -39,54 +39,34 @@ const fn bit(kind: SyntaxKind) -> u128 {
     1 << (kind as usize)
 }
 
-/// Syntax kinds that can start a statement.
-pub const STMT: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Let)
-    .add(SyntaxKind::Set)
-    .add(SyntaxKind::Show)
-    .add(SyntaxKind::Import)
-    .add(SyntaxKind::Include)
-    .add(SyntaxKind::Return);
+/// Generate a compile-time constant `SyntaxSet` of the given kinds.
+macro_rules! syntax_set {
+    ($($kind:ident),* $(,)?) => {{
+        const SET: crate::set::SyntaxSet = crate::set::SyntaxSet::new()
+            $(.add(crate::SyntaxKind:: $kind))*;
+        SET
+    }}
+}
 
-/// Syntax kinds that can start a markup expression.
-pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Space)
-    .add(SyntaxKind::Parbreak)
-    .add(SyntaxKind::LineComment)
-    .add(SyntaxKind::BlockComment)
-    .add(SyntaxKind::Text)
-    .add(SyntaxKind::Linebreak)
-    .add(SyntaxKind::Escape)
-    .add(SyntaxKind::Shorthand)
-    .add(SyntaxKind::SmartQuote)
-    .add(SyntaxKind::RawDelim)
-    .add(SyntaxKind::Link)
-    .add(SyntaxKind::Label)
-    .add(SyntaxKind::Hash)
-    .add(SyntaxKind::Star)
-    .add(SyntaxKind::Underscore)
-    .add(SyntaxKind::HeadingMarker)
-    .add(SyntaxKind::ListMarker)
-    .add(SyntaxKind::EnumMarker)
-    .add(SyntaxKind::TermMarker)
-    .add(SyntaxKind::RefMarker)
-    .add(SyntaxKind::Dollar)
-    .add(SyntaxKind::LeftBracket)
-    .add(SyntaxKind::RightBracket)
-    .add(SyntaxKind::Colon);
+// Export so other modules can import as: `use set::syntax_set`
+pub(crate) use syntax_set;
+
+/// Syntax kinds that can start a statement.
+pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return);
 
 /// Syntax kinds that can start a math expression.
-pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Hash)
-    .add(SyntaxKind::MathIdent)
-    .add(SyntaxKind::Text)
-    .add(SyntaxKind::MathShorthand)
-    .add(SyntaxKind::Linebreak)
-    .add(SyntaxKind::MathAlignPoint)
-    .add(SyntaxKind::Escape)
-    .add(SyntaxKind::Str)
-    .add(SyntaxKind::Root)
-    .add(SyntaxKind::Prime);
+pub const MATH_EXPR: SyntaxSet = syntax_set!(
+    Hash,
+    MathIdent,
+    Text,
+    MathShorthand,
+    Linebreak,
+    MathAlignPoint,
+    Escape,
+    Str,
+    Root,
+    Prime,
+);
 
 /// Syntax kinds that can start a code expression.
 pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);
@@ -98,60 +78,43 @@ pub const ATOMIC_CODE_EXPR: SyntaxSet = ATOMIC_CODE_PRIMARY;
 pub const CODE_PRIMARY: SyntaxSet = ATOMIC_CODE_PRIMARY.add(SyntaxKind::Underscore);
 
 /// Syntax kinds that can start an atomic code primary.
-pub const ATOMIC_CODE_PRIMARY: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Ident)
-    .add(SyntaxKind::LeftBrace)
-    .add(SyntaxKind::LeftBracket)
-    .add(SyntaxKind::LeftParen)
-    .add(SyntaxKind::Dollar)
-    .add(SyntaxKind::Let)
-    .add(SyntaxKind::Set)
-    .add(SyntaxKind::Show)
-    .add(SyntaxKind::Context)
-    .add(SyntaxKind::If)
-    .add(SyntaxKind::While)
-    .add(SyntaxKind::For)
-    .add(SyntaxKind::Import)
-    .add(SyntaxKind::Include)
-    .add(SyntaxKind::Break)
-    .add(SyntaxKind::Continue)
-    .add(SyntaxKind::Return)
-    .add(SyntaxKind::None)
-    .add(SyntaxKind::Auto)
-    .add(SyntaxKind::Int)
-    .add(SyntaxKind::Float)
-    .add(SyntaxKind::Bool)
-    .add(SyntaxKind::Numeric)
-    .add(SyntaxKind::Str)
-    .add(SyntaxKind::Label)
-    .add(SyntaxKind::RawDelim);
+pub const ATOMIC_CODE_PRIMARY: SyntaxSet = syntax_set!(
+    Ident,
+    LeftBrace,
+    LeftBracket,
+    LeftParen,
+    Dollar,
+    Let,
+    Set,
+    Show,
+    Context,
+    If,
+    While,
+    For,
+    Import,
+    Include,
+    Break,
+    Continue,
+    Return,
+    None,
+    Auto,
+    Int,
+    Float,
+    Bool,
+    Numeric,
+    Str,
+    Label,
+    RawDelim,
+);
 
 /// Syntax kinds that are unary operators.
-pub const UNARY_OP: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Plus)
-    .add(SyntaxKind::Minus)
-    .add(SyntaxKind::Not);
+pub const UNARY_OP: SyntaxSet = syntax_set!(Plus, Minus, Not);
 
 /// Syntax kinds that are binary operators.
-pub const BINARY_OP: SyntaxSet = SyntaxSet::new()
-    .add(SyntaxKind::Plus)
-    .add(SyntaxKind::Minus)
-    .add(SyntaxKind::Star)
-    .add(SyntaxKind::Slash)
-    .add(SyntaxKind::And)
-    .add(SyntaxKind::Or)
-    .add(SyntaxKind::EqEq)
-    .add(SyntaxKind::ExclEq)
-    .add(SyntaxKind::Lt)
-    .add(SyntaxKind::LtEq)
-    .add(SyntaxKind::Gt)
-    .add(SyntaxKind::GtEq)
-    .add(SyntaxKind::Eq)
-    .add(SyntaxKind::In)
-    .add(SyntaxKind::PlusEq)
-    .add(SyntaxKind::HyphEq)
-    .add(SyntaxKind::StarEq)
-    .add(SyntaxKind::SlashEq);
+pub const BINARY_OP: SyntaxSet = syntax_set!(
+    Plus, Minus, Star, Slash, And, Or, EqEq, ExclEq, Lt, LtEq, Gt, GtEq, Eq, In, PlusEq,
+    HyphEq, StarEq, SlashEq,
+);
 
 /// Syntax kinds that can start an argument in a function call.
 pub const ARRAY_OR_DICT_ITEM: SyntaxSet = CODE_EXPR.add(SyntaxKind::Dots);

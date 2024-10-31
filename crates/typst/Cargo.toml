@@ -13,72 +13,16 @@ license = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-typst-assets = { workspace = true }
+typst-eval = { workspace = true }
+typst-layout = { workspace = true }
+typst-library = { workspace = true }
 typst-macros = { workspace = true }
+typst-realize = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
-arrayvec = { workspace = true }
-az = { workspace = true }
-bitflags = { workspace = true }
-bumpalo = { workspace = true }
-chinese-number = { workspace = true }
-ciborium = { workspace = true }
 comemo = { workspace = true }
-csv = { workspace = true }
 ecow = { workspace = true }
-flate2 = { workspace = true }
-fontdb = { workspace = true }
-hayagriva = { workspace = true }
-hypher = { workspace = true }
-icu_properties = { workspace = true }
-icu_provider = { workspace = true }
-icu_provider_adapters = { workspace = true }
-icu_provider_blob = { workspace = true }
-icu_segmenter = { workspace = true }
-if_chain = { workspace = true }
-image = { workspace = true }
-indexmap = { workspace = true }
-kamadak-exif = { workspace = true }
-kurbo = { workspace = true }
-lipsum = { workspace = true }
-log = { workspace = true }
-once_cell = { workspace = true }
-palette = { workspace = true }
-qcms = { workspace = true }
-phf = { workspace = true }
-png = { workspace = true }
-portable-atomic = { workspace = true }
-rayon = { workspace = true }
-regex = { workspace = true }
-roxmltree = { workspace = true }
-rust_decimal = { workspace = true }
-rustybuzz = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-serde_yaml = { workspace = true }
-siphasher = { workspace = true }
-smallvec = { workspace = true }
-syntect = { workspace = true }
-time = { workspace = true }
-toml = { workspace = true }
-ttf-parser = { workspace = true }
-two-face = { workspace = true }
-typed-arena = { workspace = true }
-unicode-bidi = { workspace = true }
-unicode-math-class = { workspace = true }
-unicode-script = { workspace = true }
-unicode-segmentation = { workspace = true }
-unscanny = { workspace = true }
-usvg = { workspace = true }
-xmlwriter = { workspace = true }
-wasmi = { workspace = true }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-stacker = { workspace = true }
-
-[dev-dependencies]
-typst-dev-assets = { workspace = true }
 
 [lints]
 workspace = true
