@@ -13,6 +13,7 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
+typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 ecow = { workspace = true }
 once_cell = { workspace = true }

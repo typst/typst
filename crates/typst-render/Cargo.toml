@@ -13,7 +13,7 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-typst = { workspace = true }
+typst-library = { workspace = true }
 typst-macros = { workspace = true }
 typst-timing = { workspace = true }
 bytemuck = { workspace = true }
@@ -21,10 +21,8 @@ comemo = { workspace = true }
 image = { workspace = true }
 pixglyph = { workspace = true }
 resvg = { workspace = true }
-roxmltree = { workspace = true }
 tiny-skia = { workspace = true }
 ttf-parser = { workspace = true }
-usvg = { workspace = true }
 
 [lints]
 workspace = true

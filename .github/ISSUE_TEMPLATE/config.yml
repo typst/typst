@@ -3,9 +3,12 @@ contact_links:
   - name: 💻 Web App Issues
     url: https://github.com/typst/webapp-issues/issues
     about: Bug reports or feature requests for Typst's official web app
+  - name: 🏛️ Typst Forum
+    url: https://forum.typst.app/
+    about: Do you have a question instead of a specific bug or feature request? Open a question in the Forum!
   - name: 💬 Typst Discord
     url: https://discord.gg/2uDybryKPe
-    about: Get answers to your questions about Typst on our Discord server.
-  - name: 🗣️ Discussions on GitHub
-    url: https://github.com/typst/typst/discussions
-    about: Do you have a question instead of a specific bug or feature request? Open a discussion thread!
+    about: If you're unsure about your issue, join and chat with the community on our Discord server!
+  - name: 📨 Contact Us
+    url: https://typst.app/contact/
+    about: Did you have a bad interaction here or need to speak with the Typst Team privately? You can contact us directly.

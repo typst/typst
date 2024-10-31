@@ -3,38 +3,36 @@ use std::sync::Arc;
 use pixglyph::Bitmap;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst::layout::{Abs, Axes, Point, Size};
-use typst::text::color::{frame_for_glyph, is_color_glyph};
-use typst::text::{Font, TextItem};
-use typst::visualize::{FixedStroke, Paint};
+use typst_library::layout::{Abs, Axes, Point, Size};
+use typst_library::text::color::{glyph_frame, should_outline};
+use typst_library::text::{Font, TextItem};
+use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, PatternSampler};
 use crate::{shape, AbsExt, State};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
-    let mut x = 0.0;
+    let mut x = Abs::zero();
     for glyph in &text.glyphs {
         let id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.at(text.size).to_f32();
+        let offset = x + glyph.x_offset.at(text.size);
 
-        if is_color_glyph(&text.font, glyph) {
+        if should_outline(&text.font, glyph) {
+            let state = state.pre_translate(Point::with_x(offset));
+            render_outline_glyph(canvas, state, text, id);
+        } else {
             let upem = text.font.units_per_em();
-            let text_scale = Abs::raw(text.size.to_raw() / upem);
+            let text_scale = text.size / upem;
             let state = state
-                .pre_translate(Point::new(Abs::raw(offset as _), -text.size))
+                .pre_translate(Point::new(offset, -text.size))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
-            let glyph_frame = frame_for_glyph(&text.font, glyph.id);
-
+            let (glyph_frame, _) = glyph_frame(&text.font, glyph.id);
             crate::render_frame(canvas, state, &glyph_frame);
-        } else {
-            let state =
-                state.pre_translate(Point::new(Abs::raw(offset as _), Abs::raw(0.0)));
-            render_outline_glyph(canvas, state, text, id);
         }
 
-        x += glyph.x_advance.at(text.size).to_f32();
+        x += glyph.x_advance.at(text.size);
     }
 }
 

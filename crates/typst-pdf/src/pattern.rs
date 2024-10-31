@@ -1,27 +1,27 @@
 use std::collections::HashMap;
 
 use ecow::eco_format;
-use pdf_writer::{
-    types::{ColorSpaceOperand, PaintType, TilingType},
-    Filter, Name, Rect, Ref,
-};
+use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
+use pdf_writer::{Filter, Name, Rect, Ref};
+use typst_library::diag::SourceResult;
+use typst_library::layout::{Abs, Ratio, Transform};
+use typst_library::visualize::{Pattern, RelativeTo};
+use typst_utils::Numeric;
 
-use typst::layout::{Abs, Ratio, Transform};
-use typst::utils::Numeric;
-use typst::visualize::{Pattern, RelativeTo};
-
-use crate::{color::PaintEncode, resources::Remapper, Resources, WithGlobalRefs};
-use crate::{content, resources::ResourcesRefs};
-use crate::{transform_to_array, PdfChunk};
+use crate::color::PaintEncode;
+use crate::resources::{Remapper, ResourcesRefs};
+use crate::{content, transform_to_array, PdfChunk, Resources, WithGlobalRefs};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_patterns(context: &WithGlobalRefs) -> (PdfChunk, HashMap<PdfPattern, Ref>) {
+pub fn write_patterns(
+    context: &WithGlobalRefs,
+) -> SourceResult<(PdfChunk, HashMap<PdfPattern, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
         let Some(patterns) = &resources.patterns else {
-            return;
+            return Ok(());
         };
 
         for pdf_pattern in patterns.remapper.items() {
@@ -60,9 +60,11 @@ pub fn write_patterns(context: &WithGlobalRefs) -> (PdfChunk, HashMap<PdfPattern
                 ))
                 .filter(Filter::FlateDecode);
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
 /// A pattern and its transform.
@@ -82,7 +84,7 @@ fn register_pattern(
     pattern: &Pattern,
     on_text: bool,
     mut transforms: content::Transforms,
-) -> usize {
+) -> SourceResult<usize> {
     let patterns = ctx
         .resources
         .patterns
@@ -103,7 +105,13 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(&mut patterns.resources, pattern.frame(), None);
+    let content = content::build(
+        ctx.options,
+        &mut patterns.resources,
+        pattern.frame(),
+        None,
+        None,
+    )?;
 
     let pdf_pattern = PdfPattern {
         transform,
@@ -111,7 +119,7 @@ fn register_pattern(
         content: content.content.wait().clone(),
     };
 
-    patterns.remapper.insert(pdf_pattern)
+    Ok(patterns.remapper.insert(pdf_pattern))
 }
 
 impl PaintEncode for Pattern {
@@ -120,15 +128,16 @@ impl PaintEncode for Pattern {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_fill_color_space();
 
-        let index = register_pattern(ctx, self, on_text, transforms);
+        let index = register_pattern(ctx, self, on_text, transforms)?;
         let id = eco_format!("P{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
+        Ok(())
     }
 
     fn set_as_stroke(
@@ -136,15 +145,16 @@ impl PaintEncode for Pattern {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_stroke_color_space();
 
-        let index = register_pattern(ctx, self, on_text, transforms);
+        let index = register_pattern(ctx, self, on_text, transforms)?;
         let id = eco_format!("P{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        Ok(())
     }
 }
 

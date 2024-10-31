@@ -70,8 +70,10 @@ impl<'a> Logger<'a> {
         self.print(move |out| {
             if !result.errors.is_empty() {
                 writeln!(out, "❌ {test}")?;
-                for line in result.errors.lines() {
-                    writeln!(out, "  {line}")?;
+                if !crate::ARGS.compact {
+                    for line in result.errors.lines() {
+                        writeln!(out, "  {line}")?;
+                    }
                 }
             } else if crate::ARGS.verbose || !result.infos.is_empty() {
                 writeln!(out, "✅ {test}")?;
@@ -89,7 +91,7 @@ impl<'a> Logger<'a> {
         let Self { selected, passed, failed, skipped, .. } = *self;
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
-        assert_eq!(selected, passed + failed, "not all tests were executed succesfully");
+        assert_eq!(selected, passed + failed, "not all tests were executed successfully");
 
         if self.mismatched_image {
             eprintln!("  pass the --update flag to update the reference images");
@@ -98,9 +100,10 @@ impl<'a> Logger<'a> {
         self.failed == 0
     }
 
-    /// Refresh the status.
-    pub fn refresh(&mut self) {
+    /// Refresh the status. Returns whether we still seem to be making progress.
+    pub fn refresh(&mut self) -> bool {
         self.print(|_| Ok(())).unwrap();
+        self.last_change.elapsed() < Duration::from_secs(10)
     }
 
     /// Refresh the status print.

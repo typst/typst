@@ -1,115 +1,68 @@
 // Test integrated numbering patterns.
 
---- numbering-symbol-and-roman ---
-#for i in range(0, 9) {
-  numbering("*", i)
-  [ and ]
-  numbering("I.a", i, i)
-  [ for #i \ ]
+--- numbering ---
+#let t(pat: "1", step: 1, ..vals) = {
+  let num = 0
+  for val in vals.pos() {
+    if type(val) == int {
+      num = val
+    } else {
+      test(numbering(pat, num), val)
+      num += step
+    }
+  }
 }
 
---- numbering-latin ---
-#for i in range(0, 4) {
-  numbering("A", i)
-  [ for #i \ ]
-}
-... \
-#for i in range(26, 30) {
-  numbering("A", i)
-  [ for #i \ ]
-}
-... \
-#for i in range(702, 706) {
-  numbering("A", i)
-  [ for #i \ ]
-}
+// Arabic.
+#t(pat: "1", "0", "1", "2", "3", "4", "5", "6", 107, "107", "108")
 
---- numbering-hebrew ---
-#set text(lang: "he")
-#for i in range(9, 21, step: 2) {
-  numbering("א.", i)
-  [ עבור #i \ ]
-}
+// Symbols.
+#t(pat: "*", "-", "*", "†", "‡", "§", "¶", "‖", "**")
 
---- numbering-chinese ---
-#set text(lang: "zh", font: ("Linux Libertine", "Noto Serif CJK SC"))
-#for i in range(9, 21, step: 2){
-  numbering("一", i)
-  [ and ]
-  numbering("壹", i)
-  [ for #i \ ]
-}
+// Hebrew.
+#t(pat: "א", step: 2, 9, "ט׳", "י״א", "י״ג")
 
---- numbering-japanese-iroha ---
-#set text(lang: "ja", font: ("Linux Libertine", "Noto Serif CJK JP"))
-#for i in range(0, 4) {
-  numbering("イ", i)
-  [ (or ]
-  numbering("い", i)
-  [) for #i \ ]
-}
-... \
-#for i in range(47, 51) {
-  numbering("イ", i)
-  [ (or ]
-  numbering("い", i)
-  [) for #i \ ]
-}
-... \
-#for i in range(2256, 2260) {
-  numbering("イ", i)
-  [ for #i \ ]
-}
+// Chinese.
+#t(pat: "一", step: 2, 9, "九", "十一", "十三", "十五", "十七", "十九")
+#t(pat: "壹", step: 2, 9, "玖", "拾壹", "拾叁", "拾伍", "拾柒", "拾玖")
 
---- numbering-korean ---
-#set text(lang: "ko", font: ("Linux Libertine", "Noto Serif CJK KR"))
-#for i in range(0, 4) {
-  numbering("가", i)
-  [ (or ]
-  numbering("ㄱ", i)
-  [) for #i \ ]
-}
-... \
-#for i in range(47, 51) {
-  numbering("가", i)
-  [ (or ]
-  numbering("ㄱ", i)
-  [) for #i \ ]
-}
-... \
-#for i in range(2256, 2260) {
-  numbering("ㄱ", i)
-  [ for #i \ ]
-}
+// Japanese.
+#t(pat: "イ", "-", "イ", "ロ", "ハ", 47, "ス", "イイ", "イロ", "イハ", 2256, "スス", "イイイ")
+#t(pat: "い", "-", "い", "ろ", "は", 47, "す", "いい", "いろ", "いは")
+#t(pat: "あ", "-", "あ", "い", "う", "え", "お", "か", "き", "く")
+#t(pat: "ア", "-", "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク")
 
---- numbering-japanese-aiueo ---
-#set text(lang: "jp", font: ("Linux Libertine", "Noto Serif CJK JP"))
-#for i in range(0, 9) {
-  numbering("あ", i)
-  [ and ]
-  numbering("I.あ", i, i)
-  [ for #i \ ]
-}
+// Korean.
+#t(pat: "가", "-", "가", "나", "다", 47, "다마", "다바", "다사", "다아")
+#t(pat: "ㄱ", "-", "ㄱ", "ㄴ", "ㄷ", 47, "ㄷㅁ")
 
-#for i in range(0, 9) {
-  numbering("ア", i)
-  [ and ]
-  numbering("I.ア", i, i)
-  [ for #i \ ]
-}
+// Arabic Indic.
+#t(pat: "\u{0661}", 1475, "١٤٧٥")
+#t(pat: "\u{06F1}", 1475, "۱۴۷۵")
 
---- numbering-arabic-indic ---
-#assert.eq(numbering("\u{0661}", 1475), "١٤٧٥")
-#assert.eq(numbering("\u{06F1}", 1475), "۱۴۷۵")
+// Devanagari.
+#t(pat: "\u{0967}", 1, "१")
+#t(pat: "\u{0967}", 10, "१०")
+#t(pat: "\u{0967}", 123456789, "१२३४५६७८९")
+
+// Bengali.
+#t(pat: "\u{09E7}", 1, "১")
+#t(pat: "\u{09E7}", 10, "১০")
+#t(pat: "\u{09E7}", 123456789, "১২৩৪৫৬৭৮৯")
+
+// Bengali Consonants.
+#t(pat: "\u{0995}", 1, "ক")
+#t(pat: "\u{0995}", 32, "হ")
+#t(pat: "\u{0995}", 32*2 , "কহ")
+
+// Circled number.
+#t(pat: "①", 1, "①")
+#t(pat: "①", 50, "㊿")
+
+// Double-circled number.
+#t(pat: "⓵", 1, "⓵")
+#t(pat: "⓵", 10, "⓾")
 
 --- numbering-negative ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
-
---- numbering-circled-number ---
-#assert.eq(numbering("①", 1), "①")
-#assert.eq(numbering("①", 50), "㊿")
-
---- numbering-double-circled-number ---
-#assert.eq(numbering("⓵", 1), "⓵")
-#assert.eq(numbering("⓵", 10), "⓾")

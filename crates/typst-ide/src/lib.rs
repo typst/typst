@@ -97,13 +97,12 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
-    use once_cell::sync::Lazy;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
     use typst::layout::{Abs, Margin, PageElem};
     use typst::syntax::{FileId, Source};
     use typst::text::{Font, FontBook, TextElem, TextSize};
-    use typst::utils::LazyHash;
+    use typst::utils::{singleton, LazyHash};
     use typst::{Library, World};
 
     /// A world for IDE testing.
@@ -118,15 +117,16 @@ mod tests {
         /// This is cheap because the shared base for all test runs is lazily
         /// initialized just once.
         pub fn new(text: &str) -> Self {
-            static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
             let main = Source::detached(text);
-            Self { main, base: &*BASE }
+            Self {
+                main,
+                base: singleton!(TestBase, TestBase::default()),
+            }
         }
 
         /// The ID of the main file in a `TestWorld`.
         pub fn main_id() -> FileId {
-            static ID: Lazy<FileId> = Lazy::new(|| Source::detached("").id());
-            *ID
+            *singleton!(FileId, Source::detached("").id())
         }
     }
 
@@ -191,7 +191,7 @@ mod tests {
         // Set page width to 120pt with 10pt margins, so that the inner page is
         // exactly 100pt wide. Page height is unbounded and font size is 10pt so
         // that it multiplies to nice round numbers.
-        let mut lib = Library::default();
+        let mut lib = typst::Library::default();
         lib.styles
             .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
         lib.styles.set(PageElem::set_height(Smart::Auto));

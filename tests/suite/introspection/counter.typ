@@ -54,13 +54,53 @@ At Beta, it was #context {
 
 --- counter-page ---
 #set page(height: 50pt, margin: (bottom: 20pt, rest: 10pt))
-#lorem(12)
+#lines(4)
 #set page(numbering: "(i)")
-#lorem(6)
+#lines(2)
 #pagebreak()
 #set page(numbering: "1 / 1")
 #counter(page).update(1)
-#lorem(20)
+#lines(7)
+
+--- counter-page-footer-before-set-page ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#pagebreak()
+#counter(page).update(5)
+#set page(fill: aqua)
+B
+
+--- counter-page-header-before-set-page ---
+#set page(numbering: "1", number-align: top + center, margin: (top: 20pt))
+A
+#counter(page).update(4)
+#set page(fill: aqua)
+B
+
+--- counter-page-between-pages ---
+// The update happens conceptually between the pages.
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#pagebreak()
+#counter(page).update(5)
+#set page(number-align: top + center, margin: (top: 20pt, bottom: 10pt))
+B
+
+--- counter-page-header-only-update ---
+// Header should not be affected by default.
+// To affect it, put the counter update before the `set page`.
+#set page(
+  numbering: "1",
+  number-align: top + center,
+  margin: (top: 20pt),
+)
+
+#counter(page).update(5)
+
+--- counter-page-footer-only-update ---
+// Footer should be affected by default.
+#set page(numbering: "1 / 1", margin: (bottom: 20pt))
+#counter(page).update(5)
 
 --- counter-figure ---
 // Count figures.
@@ -79,7 +119,7 @@ At Beta, it was #context {
 
 --- issue-2480-counter-reset ---
 #let q = counter("question")
-#let step-show =  q.step() + q.display("1")
+#let step-show =  q.step() + context q.display("1")
 #let g = grid(step-show, step-show, gutter: 2pt)
 
 #g
@@ -104,3 +144,15 @@ At Beta, it was #context {
 #block(foo())
 #block(foo())
 #foo()
+
+--- issue-4626-counter-depth-skip ---
+// When we step and skip a level, the levels should be filled with zeros, not
+// with ones.
+#let c = counter("c")
+#context test(c.get(), (0,))
+#c.step(level: 4)
+#context test(c.get(), (0, 0, 0, 1))
+#c.step(level: 1)
+#context test(c.get(), (1,))
+#c.step(level: 3)
+#context test(c.get(), (1, 0, 1))

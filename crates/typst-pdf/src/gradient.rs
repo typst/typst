@@ -3,21 +3,20 @@ use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use pdf_writer::{
-    types::{ColorSpaceOperand, FunctionShadingType},
-    writers::StreamShadingType,
-    Filter, Finish, Name, Ref,
-};
-
-use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
-use typst::utils::Numeric;
-use typst::visualize::{
+use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
+use pdf_writer::writers::StreamShadingType;
+use pdf_writer::{Filter, Finish, Name, Ref};
+use typst_library::diag::SourceResult;
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
+use typst_library::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
+use typst_utils::Numeric;
 
-use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::{content, WithGlobalRefs};
-use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
+use crate::color::{
+    self, check_cmyk_allowed, ColorSpaceExt, PaintEncode, QuantizedColor,
+};
+use crate::{content, deflate, transform_to_array, AbsExt, PdfChunk, WithGlobalRefs};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -38,7 +37,7 @@ pub struct PdfGradient {
 /// This is performed once after writing all pages.
 pub fn write_gradients(
     context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
+) -> SourceResult<(PdfChunk, HashMap<PdfGradient, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
@@ -57,6 +56,10 @@ pub fn write_gradients(
             } else {
                 gradient.space()
             };
+
+            if color_space == ColorSpace::Cmyk {
+                check_cmyk_allowed(context.options)?;
+            }
 
             let mut shading_pattern = match &gradient {
                 Gradient::Linear(_) => {
@@ -145,10 +148,9 @@ pub fn write_gradients(
                         .bits_per_component(16)
                         .bits_per_flag(8)
                         .shading_type(StreamShadingType::CoonsPatch)
-                        .decode([
-                            0.0, 1.0, 0.0, 1.0, range[0], range[1], range[2], range[3],
-                            range[4], range[5],
-                        ])
+                        .decode(
+                            [0.0, 1.0, 0.0, 1.0].into_iter().chain(range.iter().copied()),
+                        )
                         .anti_alias(gradient.anti_alias())
                         .filter(Filter::FlateDecode);
 
@@ -162,12 +164,14 @@ pub fn write_gradients(
 
             shading_pattern.matrix(transform_to_array(*transform));
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
-/// Writes an expotential or stitched function that expresses the gradient.
+/// Writes an exponential or stitched function that expresses the gradient.
 fn shading_function(
     gradient: &Gradient,
     chunk: &mut PdfChunk,
@@ -182,9 +186,9 @@ fn shading_function(
     for window in gradient.stops_ref().windows(2) {
         let (first, second) = (window[0], window[1]);
 
-        // If we have a hue index, we will create several stops in-between
-        // to make the gradient smoother without interpolation issues with
-        // native color spaces.
+        // If we have a hue index or are using Oklab, we will create several
+        // stops in-between to make the gradient smoother without interpolation
+        // issues with native color spaces.
         let mut last_c = first.0;
         if gradient.space().hue_index().is_some() {
             for i in 0..=32 {
@@ -216,7 +220,7 @@ fn shading_function(
     chunk
         .stitching_function(function)
         .domain([0.0, 1.0])
-        .range(color_space.range())
+        .range(color_space.range().iter().copied())
         .functions(functions)
         .bounds(bounds)
         .encode(encode);
@@ -224,7 +228,7 @@ fn shading_function(
     function
 }
 
-/// Writes an expontential function that expresses a single segment (between two
+/// Writes an exponential function that expresses a single segment (between two
 /// stops) of a gradient.
 fn single_gradient(
     chunk: &mut PdfChunk,
@@ -235,7 +239,7 @@ fn single_gradient(
     let reference = chunk.alloc();
     chunk
         .exponential_function(reference)
-        .range(color_space.range())
+        .range(color_space.range().iter().copied())
         .c0(color_space.convert(first_color))
         .c1(color_space.convert(second_color))
         .domain([0.0, 1.0])
@@ -250,7 +254,7 @@ impl PaintEncode for Gradient {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_fill_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -259,6 +263,7 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
+        Ok(())
     }
 
     fn set_as_stroke(
@@ -266,7 +271,7 @@ impl PaintEncode for Gradient {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_stroke_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -275,6 +280,7 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        Ok(())
     }
 }
 
@@ -344,13 +350,13 @@ fn register_gradient(
 /// Structure:
 ///  - flag: `u8`
 ///  - points: `[u16; 24]`
-///  - colors: `[u16; 12]`
+///  - colors: `[u16; 4*N]` (N = number of components)
 fn write_patch(
     target: &mut Vec<u8>,
     t: f32,
     t1: f32,
-    c0: [u16; 3],
-    c1: [u16; 3],
+    c0: &[u16],
+    c1: &[u16],
     angle: Angle,
 ) {
     let theta = -TAU * t + angle.to_rad() as f32 + PI;
@@ -390,11 +396,13 @@ fn write_patch(
         p1, p1, p2, p2, cp1, cp2, p3, p3, p1, p1, p1, p1,
     ]));
 
-    let colors =
-        [c0.map(u16::to_be), c0.map(u16::to_be), c1.map(u16::to_be), c1.map(u16::to_be)];
-
     // Push the colors.
-    target.extend_from_slice(bytemuck::cast_slice(&colors));
+    let colors = [c0, c0, c1, c1]
+        .into_iter()
+        .flat_map(|c| c.iter().copied().map(u16::to_be_bytes))
+        .flatten();
+
+    target.extend(colors);
 }
 
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {
@@ -452,8 +460,8 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
                 &mut vertices,
                 t0.get() as f32,
                 t1.get() as f32,
-                encode_space.convert(c0),
-                encode_space.convert(c1),
+                &encode_space.convert(c0),
+                &encode_space.convert(c1),
                 angle,
             );
             continue;
@@ -483,8 +491,8 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
                 &mut vertices,
                 t_x as f32,
                 t_next as f32,
-                encode_space.convert(c),
-                encode_space.convert(c_next),
+                &encode_space.convert(c),
+                &encode_space.convert(c_next),
                 angle,
             );
 

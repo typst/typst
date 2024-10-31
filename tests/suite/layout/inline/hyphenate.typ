@@ -102,7 +102,7 @@ Lo que entendemos por nivel léxico-semántico, en cuanto su sentido más
 gramatical: es aquel que estudia el origen y forma de las palabras de
 un idioma.
 
---- hyphenate-es-captalized-names ---
+--- hyphenate-es-capitalized-names ---
 // If the hyphen is followed by a capitalized word we shall not repeat
 //  the hyphen at the next line
 #set page(width: 6.2cm)
@@ -164,6 +164,4 @@ el objetivo de protegerle de las patrullas de milicianos.
 --- costs-access ---
 #set text(costs: (hyphenation: 1%, runt: 2%))
 #set text(costs: (widow: 3%))
-#context {
-  assert.eq(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))
-}
+#context test(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))

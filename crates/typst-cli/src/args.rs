@@ -6,16 +6,43 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use clap::builder::{TypedValueParser, ValueParser};
-use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use semver::Version;
 
 /// The character typically used to separate path components
 /// in environment variables.
 const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
-/// The Typst compiler.
+/// The overall structure of the help.
+#[rustfmt::skip]
+const HELP_TEMPLATE: &str = "\
+Typst {version}
+
+{usage-heading} {usage}
+
+{all-args}{after-help}\
+";
+
+/// Adds a list of useful links after the normal help.
+#[rustfmt::skip]
+const AFTER_HELP: &str = color_print::cstr!("\
+<s><u>Resources:</></>
+  <s>Tutorial:</>                 https://typst.app/docs/tutorial/
+  <s>Reference documentation:</>  https://typst.app/docs/reference/
+  <s>Templates & Packages:</>     https://typst.app/universe/
+  <s>Forum for questions:</>      https://forum.typst.app/
+");
+
+/// The Typst compiler
 #[derive(Debug, Clone, Parser)]
-#[clap(name = "typst", version = crate::typst_version(), author)]
+#[clap(
+    name = "typst",
+    version = crate::typst_version(),
+    author,
+    help_template = HELP_TEMPLATE,
+    after_help = AFTER_HELP,
+    max_term_width = 80,
+)]
 pub struct CliArguments {
     /// The command to run
     #[command(subcommand)]
@@ -60,7 +87,7 @@ pub enum Command {
     Fonts(FontsCommand),
 
     /// Self update the Typst CLI
-    #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
+    #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
 }
 
@@ -77,7 +104,11 @@ pub struct CompileCommand {
     /// must be present if the source document renders to multiple pages. Use `{p}` for page
     /// numbers, `{0p}` for zero padded page numbers and `{t}` for page count. For example,
     /// `page-{0p}-of-{t}.png` creates `page-01-of-10.png`, `page-02-of-10.png` and so on.
-    #[clap(required_if_eq("input", "-"), value_parser = make_output_value_parser())]
+    #[clap(
+        required_if_eq("input", "-"),
+        value_parser = make_output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
     pub output: Option<Output>,
 
     /// Which pages to export. When unspecified, all document pages are exported.
@@ -118,6 +149,23 @@ pub struct CompileCommand {
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
+
+    /// One (or multiple comma-separated) PDF standards that Typst will enforce
+    /// conformance with.
+    #[arg(long = "pdf-standard", value_delimiter = ',')]
+    pub pdf_standard: Vec<PdfStandard>,
+}
+
+/// A PDF standard that Typst can enforce conformance with.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[allow(non_camel_case_types)]
+pub enum PdfStandard {
+    /// PDF 1.7.
+    #[value(name = "1.7")]
+    V_1_7,
+    /// PDF/A-2b.
+    #[value(name = "a-2b")]
+    A_2b,
 }
 
 /// Initializes a new project from a template
@@ -161,7 +209,9 @@ pub struct QueryCommand {
     #[clap(long = "format", default_value = "json")]
     pub format: SerializationFormat,
 
-    /// Whether to pretty-print the serialized output
+    /// Whether to pretty-print the serialized output.
+    ///
+    /// Only applies to JSON format.
     #[clap(long)]
     pub pretty: bool,
 }
@@ -177,7 +227,7 @@ pub enum SerializationFormat {
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
     /// Path to input Typst file. Use `-` to read input from stdin
-    #[clap(value_parser = make_input_value_parser())]
+    #[clap(value_parser = make_input_value_parser(), value_hint = ValueHint::FilePath)]
     pub input: Input,
 
     /// Configures the project root (for absolute paths)
@@ -221,7 +271,7 @@ pub struct SharedArgs {
     pub package_storage_args: PackageStorageArgs,
 
     /// Number of parallel jobs spawned during compilation,
-    /// defaults to number of CPUs.
+    /// defaults to number of CPUs. Setting it to 1 disables parallelism.
     #[clap(long, short)]
     pub jobs: Option<usize>,
 }
@@ -385,7 +435,10 @@ pub struct FontsCommand {
 /// Common arguments to customize available fonts
 #[derive(Debug, Clone, Parser)]
 pub struct FontArgs {
-    /// Adds additional directories to search for fonts
+    /// Adds additional directories that are recursively searched for fonts
+    ///
+    /// If multiple paths are specified, they are separated by the system's path
+    /// separator (`:` on Unix-like systems and `;` on Windows).
     #[clap(
         long = "font-path",
         env = "TYPST_FONT_PATHS",

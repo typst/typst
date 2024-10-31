@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use typst::model::Document;
-use typst::visualize::Color;
 use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
 
@@ -35,8 +34,8 @@ impl<'a> Resolver for CliResolver<'a> {
             );
         }
 
-        let frame = &document.pages.first().expect("page 0").frame;
-        let pixmap = render(frame, 2.0, Color::WHITE);
+        let page = document.pages.first().expect("page 0");
+        let pixmap = render(page, 2.0);
         let filename = format!("{hash:x}.png");
         let path = self.assets_dir.join(&filename);
         fs::create_dir_all(path.parent().expect("parent")).expect("create dir");
@@ -91,7 +90,7 @@ struct Args {
     /// This option controls where to spit them out. The HTML generation will
     /// assume that this output directory is served at `${base_url}/assets/*`.
     /// The default is `assets`. For example, if the base URL is `/docs/` then
-    /// the gemerated HTML might look like `<img src="/docs/assets/foo.png">`
+    /// the generated HTML might look like `<img src="/docs/assets/foo.png">`
     /// even though the `--assets-dir` was set to `/tmp/images` or something.
     #[arg(long, default_value = "assets")]
     assets_dir: PathBuf,

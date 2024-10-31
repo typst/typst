@@ -41,6 +41,47 @@ We can clearly see that @fig-cylinder and
   caption: "A table containing images."
 ) <fig-image-in-table>
 
+--- figure-placement ---
+#set page(height: 160pt, columns: 2)
+#set place(clearance: 10pt)
+
+#lines(4)
+
+#figure(
+  placement: auto,
+  scope: "parent",
+  caption: [I],
+  rect(height: 15pt, width: 80%),
+)
+
+#figure(
+  placement: bottom,
+  caption: [II],
+  rect(height: 15pt, width: 80%),
+)
+
+#lines(2)
+
+#figure(
+  placement: bottom,
+  caption: [III],
+  rect(height: 25pt, width: 80%),
+)
+
+#figure(
+  placement: auto,
+  scope: "parent",
+  caption: [IV],
+  rect(width: 80%),
+)
+
+#lines(15)
+
+--- figure-scope-without-placement ---
+// Error: 2-27 parent-scoped placement is only available for floating figures
+// Hint: 2-27 you can enable floating placement with `figure(placement: auto, ..)`
+#figure(scope: "parent")[]
+
 --- figure-theorem ---
 // Testing show rules with figures with a simple theorem display
 #show figure.where(kind: "theorem"): it => {
@@ -203,9 +244,9 @@ We can clearly see that @fig-cylinder and
     caption: [Пятиугольник],
 )
 
---- figure-localization-gr ---
+--- figure-localization-el ---
 // Test Greek
-#set text(lang: "gr")
+#set text(lang: "el")
 #figure(
   circle(),
   caption: [Ένας κύκλος.],
@@ -226,3 +267,25 @@ HI#footnote.entry(clearance: 2.5em)[There]
 // Test that figure caption separator is synthesized correctly.
 #show figure.caption: c => test(c.separator, [#": "])
 #figure(table[], caption: [This is a test caption])
+
+--- issue-4966-figure-float-counter ---
+#let c = context counter(figure.where(kind: image)).display()
+#set align(center)
+
+#c
+
+#figure(
+  square(c),
+  placement: bottom,
+  caption: [A]
+)
+
+#c
+
+#figure(
+  circle(c),
+  placement: top,
+  caption: [B]
+)
+
+#c

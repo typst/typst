@@ -3,10 +3,10 @@ use std::io::Read;
 use base64::Engine;
 use ecow::EcoString;
 use ttf_parser::GlyphId;
-use typst::layout::{Abs, Point, Ratio, Size, Transform};
-use typst::text::{Font, TextItem};
-use typst::utils::hash128;
-use typst::visualize::{Image, Paint, RasterFormat, RelativeTo};
+use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
+use typst_library::text::{Font, TextItem};
+use typst_library::visualize::{FillRule, Image, Paint, RasterFormat, RelativeTo};
+use typst_utils::hash128;
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
@@ -55,15 +55,15 @@ impl SVGRenderer {
         scale: f64,
     ) -> Option<()> {
         let data_url = convert_svg_glyph_to_base64_url(&text.font, id)?;
-        let upem = Abs::raw(text.font.units_per_em());
-        let origin_ascender = text.font.metrics().ascender.at(upem).to_pt();
+        let upem = text.font.units_per_em();
+        let origin_ascender = text.font.metrics().ascender.at(Abs::pt(upem));
 
         let glyph_hash = hash128(&(&text.font, id));
         let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
             url: data_url,
-            width: upem.to_pt(),
-            height: upem.to_pt(),
-            ts: Transform::translate(Abs::zero(), Abs::pt(-origin_ascender))
+            width: upem,
+            height: upem,
+            ts: Transform::translate(Abs::zero(), -origin_ascender)
                 .post_concat(Transform::scale(Ratio::new(scale), Ratio::new(-scale))),
         });
 
@@ -138,6 +138,7 @@ impl SVGRenderer {
         self.xml.write_attribute_fmt("x", format_args!("{x_offset}"));
         self.write_fill(
             &text.fill,
+            FillRule::default(),
             Size::new(Abs::pt(width), Abs::pt(height)),
             self.text_paint_transform(state, &text.fill),
         );
@@ -259,9 +260,10 @@ fn convert_svg_glyph_to_base64_url(font: &Font, id: GlyphId) -> Option<EcoString
         data = &decoded;
     }
 
-    let upem = Abs::raw(font.units_per_em());
-    let (width, height) = (upem.to_pt(), upem.to_pt());
-    let origin_ascender = font.metrics().ascender.at(upem).to_pt();
+    let upem = font.units_per_em();
+    let width = upem;
+    let height = upem;
+    let origin_ascender = font.metrics().ascender.at(Abs::pt(upem));
 
     // Parse XML.
     let mut svg_str = std::str::from_utf8(data).ok()?.to_owned();
@@ -295,7 +297,8 @@ fn convert_svg_glyph_to_base64_url(font: &Font, id: GlyphId) -> Option<EcoString
         // make sure the glyph is rendered at the correct position
         svg_str.insert_str(
             start_span.unwrap().range().end,
-            format!(r#" viewBox="0 {} {width} {height}""#, -origin_ascender).as_str(),
+            format!(r#" viewBox="0 {} {width} {height}""#, -origin_ascender.to_pt())
+                .as_str(),
         );
     }
 

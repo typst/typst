@@ -35,6 +35,42 @@ multiline.
 = This
   is not.
 
+--- heading-trailing-whitespace ---
+// Whether headings contain trailing whitespace with or without comments/labels.
+// Labels are special cased to immediately end headings in the parser, but also
+// have unique whitespace behavior.
+
+#let join(..xs) = xs.pos().join()
+#let head(h) = heading(depth: 1, h)
+
+// No whitespace.
+#test(head[h], [= h])
+#test(head[h], [= h/**/])
+#test(head[h], [= h<a>])
+#test(head[h], [= h/**/<b>])
+
+// Label behaves differently than normal trailing space and comment.
+#test(head(join[h][ ]), [= h  ])
+#test(head(join[h][ ]), [= h  /**/])
+#test(join(head[h])[ ], [= h  <c>])
+
+// Combinations.
+#test(head(join[h][ ][ ]), [= h  /**/  ])
+#test(join(head[h])[ ][ ], [= h  <d>  ])
+#test(head(join[h][ ]), [= h  /**/<e>])
+#test(join(head[h])[ ], [= h/**/  <f>])
+
+// The first space attaches, but not the second
+#test(join(head(join[h][ ]))[ ], [= h  /**/  <g>])
+
+--- heading-leading-whitespace ---
+// Test that leading whitespace and comments don't matter.
+#test[= h][=        h]
+#test[= h][=   /**/  /**/   h]
+#test[= h][=   /*
+comment spans lines
+*/   h]
+
 --- heading-show-where ---
 // Test styling.
 #show heading.where(level: 5): it => block(
@@ -75,6 +111,6 @@ Not in heading
 --- heading-numbering-hint ---
 = Heading <intro>
 
-// Error: 1:20-1:26 cannot reference heading without numbering
-// Hint: 1:20-1:26 you can enable heading numbering with `#set heading(numbering: "1.")`
-Can not be used as @intro
+// Error: 1:19-1:25 cannot reference heading without numbering
+// Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
+Cannot be used as @intro

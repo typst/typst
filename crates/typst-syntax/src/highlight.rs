@@ -172,6 +172,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
 
         SyntaxKind::Math => None,
         SyntaxKind::MathIdent => highlight_ident(node),
+        SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
@@ -410,8 +411,9 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::ops::Range;
+
+    use super::*;
 
     #[test]
     fn test_highlighting() {

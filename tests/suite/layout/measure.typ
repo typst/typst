@@ -24,7 +24,7 @@
 --- measure-counter-width ---
 // Measure a counter. Tests that the introspector-assisted location assignment
 // is able to take `here()` from the context into account to find the closest
-// matching element instaed of any single one. Crucially, we need to reuse
+// matching element instead of any single one. Crucially, we need to reuse
 // the same `context c.display()` to get the same span, hence `it`.
 #let f(it) = context [
   Is #measure(it).width wide: #it \
@@ -91,4 +91,11 @@
   let size = measure(it)
   table(columns: 5, u(17), it, u(1), it, u(5))
   [#size.width] // 17pt
+}
+
+--- issue-5180-measure-inline-math-bounds ---
+#context {
+  let height = measure(text(top-edge: "bounds", $x$)).height
+  assert(height > 4pt)
+  assert(height < 5pt)
 }

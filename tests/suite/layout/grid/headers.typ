@@ -186,7 +186,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-and-rowspan-non-contiguous-2 ---
@@ -201,7 +201,7 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-and-rowspan-non-contiguous-3 ---
@@ -215,12 +215,12 @@
     [*Hello*],
     [*World*]
   ),
-  table.cell(rowspan: 3, lorem(40))
+  table.cell(rowspan: 3, lines(15))
 )
 
 --- grid-header-lack-of-space ---
 // Test lack of space for header + text.
-#set page(height: 9em)
+#set page(height: 8em)
 
 #table(
   rows: (auto, 2.5em, auto, auto, 10em),
@@ -265,13 +265,13 @@
   rows: (auto, 2em, auto, auto),
   table.header(
     [eeec],
-    table.cell(rowspan: 2, count.step() + count.display()),
+    table.cell(rowspan: 2, count.step() + context count.display()),
   ),
   [d],
   block(width: 5em, fill: yellow, lorem(15)),
   [d]
 )
-#count.display()
+#context count.display()
 
 --- grid-header-expand ---
 // Ensure header expands to fit cell placed in it after its declaration

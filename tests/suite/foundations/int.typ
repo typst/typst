@@ -21,14 +21,33 @@
 #test(int("-834"), -834)
 #test(int("\u{2212}79"), -79)
 #test(int(10 / 3), 3)
+#test(int(-58.34), -58)
+#test(int(decimal("92492.193848921")), 92492)
+#test(int(decimal("-224.342211")), -224)
 
 --- int-constructor-bad-type ---
-// Error: 6-10 expected integer, boolean, float, or string, found length
+// Error: 6-10 expected integer, boolean, float, decimal, or string, found length
 #int(10pt)
 
 --- int-constructor-bad-value ---
 // Error: 6-12 invalid integer: nope
 #int("nope")
+
+--- int-constructor-float-too-large ---
+// Error: 6-27 number too large
+#int(9223372036854775809.5)
+
+--- int-constructor-float-too-large-min ---
+// Error: 6-28 number too large
+#int(-9223372036854775809.5)
+
+--- int-constructor-decimal-too-large ---
+// Error: 6-38 number too large
+#int(decimal("9223372036854775809.5"))
+
+--- int-constructor-decimal-too-large-min ---
+// Error: 6-39 number too large
+#int(decimal("-9223372036854775809.5"))
 
 --- int-signum ---
 // Test int `signum()`
@@ -38,17 +57,35 @@
 #test(int(10.0).signum(), 1)
 #test(int(-10.0).signum(), -1)
 
+--- int-from-and-to-bytes ---
+// Test `int.from-bytes` and `int.to-bytes`.
+#test(int.from-bytes(bytes(())), 0)
+#test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "little", signed: true), 1)
+#test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big", signed: true), 72057594037927936)
+#test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "little", signed: false), 1)
+#test(int.from-bytes(bytes((255,)), endian: "big", signed: true), -1)
+#test(int.from-bytes(bytes((255,)), endian: "big", signed: false), 255)
+#test(int.from-bytes((-1000).to-bytes(endian: "big", size: 5), endian: "big", signed: true), -1000)
+#test(int.from-bytes((-1000).to-bytes(endian: "little", size: 5), endian: "little", signed: true), -1000)
+#test(int.from-bytes(1000.to-bytes(endian: "big", size: 5), endian: "big", signed: true), 1000)
+#test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: true), 1000)
+#test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: false), 1000)
+
+--- int-from-and-to-bytes-too-many ---
+// Error: 2-34 too many bytes to convert to a 64 bit number
+#int.from-bytes(bytes((0,) * 16))
+
 --- int-repr ---
 // Test the `repr` function with integers.
-#repr(12) \
-#repr(1234567890) \
-#repr(0123456789) \
-#repr(0) \
-#repr(-0) \
-#repr(-1) \
-#repr(-9876543210) \
-#repr(-0987654321) \
-#repr(4 - 8)
+#test(repr(12), "12")
+#test(repr(1234567890), "1234567890")
+#test(repr(0123456789), "123456789")
+#test(repr(0), "0")
+#test(repr(-0), "0")
+#test(repr(-1), "-1")
+#test(repr(-9876543210), "-9876543210")
+#test(repr(-0987654321), "-987654321")
+#test(repr(4 - 8), "-4")
 
 --- int-display ---
 // Test integers.

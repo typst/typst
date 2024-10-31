@@ -52,8 +52,51 @@
 #import "module.typ": chap2, chap2.name, chap2.chap1, chap2.chap1.name as othername
 #test(chap2, orig-chap2)
 #test(chap1, orig-chap1)
-#test(name, "Klaus")
+#test(name, "Peter")
 #test(othername, "Klaus")
+
+--- import-items-parenthesized ---
+#import "module.typ": ()
+#import "module.typ": (a)
+#import "module.typ": (a, b)
+#import "module.typ": (a, b, c, d)
+
+#test(a, none)
+#test(b, 1)
+#test(c, 2)
+#test(d, 3)
+
+--- import-items-parenthesized-multiline ---
+#import "module.typ": (
+  a
+)
+#import "module.typ": (
+  a, b as e,
+  c,
+
+
+      d,
+)
+
+#test(a, none)
+#test(e, 1)
+#test(c, 2)
+#test(d, 3)
+
+--- import-items-parenthesized-invalid ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (a, b, c
+
+--- import-items-parenthesized-invalid-2 ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (
+
+--- import-items-parenthesized-invalid-3 ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (
+  a, b,
+  c,
+
 
 --- import-from-function-scope ---
 // Test importing from function scopes.

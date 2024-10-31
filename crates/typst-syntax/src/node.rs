@@ -824,7 +824,7 @@ pub enum Side {
     After,
 }
 
-/// Access to leafs.
+/// Access to leaves.
 impl<'a> LinkedNode<'a> {
     /// Get the rightmost non-trivia leaf before this node.
     pub fn prev_leaf(&self) -> Option<Self> {

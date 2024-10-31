@@ -19,7 +19,8 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
-typst-assets = { workspace = true, features = ["fonts"] }
+typst-eval = { workspace = true }
+typst-kit = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
@@ -28,12 +29,10 @@ typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }
+color-print = { workspace = true }
 comemo = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
-env_proxy = { workspace = true }
-flate2 = { workspace = true }
-fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
 fs_extra = { workspace = true }
 native-tls = { workspace = true }
 notify = { workspace = true }
@@ -56,32 +55,25 @@ ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
-# Explicitly depend on OpenSSL if applicable, so that we can add the
-# `openssl/vendored` feature to it if `vendor-openssl` is enabled.
-[target.'cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "watchos", target_os = "tvos")))'.dependencies]
-openssl = { workspace = true }
-
 [build-dependencies]
 chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 clap_mangen = { workspace = true }
+color-print = { workspace = true }
 semver = { workspace = true }
 
 [features]
 default = ["embed-fonts"]
 
-# Embeds some fonts into the binary:
-# - For text: Linux Libertine, New Computer Modern
-# - For math: New Computer Modern Math
-# - For code: Deja Vu Sans Mono
-embed-fonts = []
+# Embeds some fonts into the binary, see typst-kit
+embed-fonts = ["typst-kit/embed-fonts"]
 
 # Permits the CLI to update itself without a package manager.
 self-update = ["dep:self-replace", "dep:xz2", "dep:zip"]
 
 # Whether to vendor OpenSSL. Not applicable to Windows and macOS builds.
-vendor-openssl = ["openssl/vendored"]
+vendor-openssl = ["typst-kit/vendor-openssl"]
 
 [lints]
 workspace = true
@@ -93,5 +85,6 @@ pkg-url = "{ repo }/releases/download/v{ version }/typst-{ target }{ archive-suf
 bin-dir = "typst-{ target }/typst{ binary-ext }"
 pkg-fmt = "txz"
 
-[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
-pkg-fmt = "zip"
+[package.metadata.binstall.overrides]
+x86_64-pc-windows-msvc = { pkg-fmt = "zip" }
+aarch64-pc-windows-msvc = { pkg-fmt = "zip" }

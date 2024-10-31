@@ -7,11 +7,12 @@ use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
 use typst::diag::{bail, StrResult};
+use typst_kit::download::Downloader;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::{download, download_with_progress};
+use crate::download::{self, PrintDownload};
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -27,7 +28,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
 
         if version < &Version::new(0, 8, 0) {
             eprintln!(
-                "Note: Versions older than 0.8.0 will not have \
+                "note: versions older than 0.8.0 will not have \
                  the update command available."
             );
         }
@@ -68,13 +69,15 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
     fs::copy(current_exe, &backup_path)
         .map_err(|err| eco_format!("failed to create backup ({err})"))?;
 
-    let release = Release::from_tag(command.version.as_ref())?;
+    let downloader = download::downloader();
+
+    let release = Release::from_tag(command.version.as_ref(), &downloader)?;
     if !update_needed(&release)? && !command.force {
         eprintln!("Already up-to-date.");
         return Ok(());
     }
 
-    let binary_data = release.download_binary(needed_asset()?)?;
+    let binary_data = release.download_binary(needed_asset()?, &downloader)?;
     let mut temp_exe = NamedTempFile::new()
         .map_err(|err| eco_format!("failed to create temporary file ({err})"))?;
     temp_exe
@@ -106,7 +109,10 @@ struct Release {
 impl Release {
     /// Download the target release, or latest if version is `None`, from the
     /// Typst repository.
-    pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
+    pub fn from_tag(
+        tag: Option<&Version>,
+        downloader: &Downloader,
+    ) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
                 "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/tags/v{tag}"
@@ -116,7 +122,7 @@ impl Release {
             ),
         };
 
-        match download(&url) {
+        match downloader.download(&url) {
             Ok(response) => response.into_json().map_err(|err| {
                 eco_format!("failed to parse release information ({err})")
             }),
@@ -130,15 +136,21 @@ impl Release {
     /// Download the binary from a given [`Release`] and select the
     /// corresponding asset for this target platform, returning the raw binary
     /// data.
-    pub fn download_binary(&self, asset_name: &str) -> StrResult<Vec<u8>> {
+    pub fn download_binary(
+        &self,
+        asset_name: &str,
+        downloader: &Downloader,
+    ) -> StrResult<Vec<u8>> {
         let asset = self
             .assets
             .iter()
             .find(|a| a.name.starts_with(asset_name))
             .ok_or("could not find release for your target platform")?;
 
-        eprintln!("Downloading release ...");
-        let data = match download_with_progress(&asset.browser_download_url) {
+        let data = match downloader.download_with_progress(
+            &asset.browser_download_url,
+            &mut PrintDownload("release"),
+        ) {
             Ok(data) => data,
             Err(ureq::Error::Status(404, _)) => {
                 bail!("asset not found (searched for {})", asset.name);

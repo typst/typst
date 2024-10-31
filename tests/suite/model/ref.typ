@@ -47,7 +47,7 @@ $ A = 1 $ <eq2>
 #set ref(supplement: none)
 @fig1, @fig2, @eq1, @eq2
 
---- ref-ambigious ---
+--- ref-ambiguous ---
 // Test ambiguous reference.
 = Introduction <arrgh>
 

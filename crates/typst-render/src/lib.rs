@@ -6,46 +6,50 @@ mod shape;
 mod text;
 
 use tiny_skia as sk;
-use typst::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Size, Transform,
+use typst_library::layout::{
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Size, Transform,
 };
-use typst::model::Document;
-use typst::visualize::Color;
+use typst_library::model::Document;
+use typst_library::visualize::{Color, Geometry, Paint};
 
-/// Export a frame into a raster image.
+/// Export a page into a raster image.
 ///
-/// This renders the frame at the given number of pixels per point and returns
+/// This renders the page at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
 #[typst_macros::time(name = "render")]
-pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
-    let size = frame.size();
+pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
+    let size = page.frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
-    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(paint::to_sk_color(fill));
-
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-    render_frame(&mut canvas, State::new(size, ts, pixel_per_pt), frame);
+    let state = State::new(size, ts, pixel_per_pt);
+
+    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
+
+    if let Some(fill) = page.fill_or_white() {
+        if let Paint::Solid(color) = fill {
+            canvas.fill(paint::to_sk_color(color));
+        } else {
+            let rect = Geometry::Rect(page.frame.size()).filled(fill);
+            shape::render_shape(&mut canvas, state, &rect);
+        }
+    }
+
+    render_frame(&mut canvas, state, &page.frame);
 
     canvas
 }
 
 /// Export a document with potentially multiple pages into a single raster image.
-///
-/// The gap will be added between the individual frames.
 pub fn render_merged(
     document: &Document,
     pixel_per_pt: f32,
-    frame_fill: Color,
     gap: Abs,
-    gap_fill: Color,
+    fill: Option<Color>,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> = document
-        .pages
-        .iter()
-        .map(|page| render(&page.frame, pixel_per_pt, frame_fill))
-        .collect();
+    let pixmaps: Vec<_> =
+        document.pages.iter().map(|page| render(page, pixel_per_pt)).collect();
 
     let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
@@ -53,7 +57,9 @@ pub fn render_merged(
         + gap * pixmaps.len().saturating_sub(1) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(paint::to_sk_color(gap_fill));
+    if let Some(fill) = fill {
+        canvas.fill(paint::to_sk_color(fill));
+    }
 
     let mut y = 0;
     for pixmap in pixmaps {

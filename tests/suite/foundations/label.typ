@@ -19,15 +19,6 @@ The end.
 #let b = [*B*]
 #a <v> #b
 
---- label-on-text ---
-// Test labelled text.
-#show "t": it => {
-  set text(blue) if it.has("label") and it.label == <last>
-  it
-}
-
-This is a thing #[that <last>] happened.
-
 --- label-dynamic-show-set ---
 // Test abusing dynamic labels for styling.
 #show <red>: set text(red)
@@ -50,6 +41,7 @@ _Visible_
 --- label-in-block ---
 // Test that label only works within one content block.
 #show <strike>: strike
+// Warning: 13-21 label `<strike>` is not attached to anything
 *This is* #[<strike>] *protected.*
 *This is not.* <strike>
 
@@ -74,3 +66,25 @@ _Visible_
 // Hint: 7-7 labels can only be applied in markup mode
 // Hint: 7-7 try wrapping your code in a markup block (`[ ]`)
 #{ [A] <a> }
+
+--- label-multiple-ignored-warn ---
+// Warning: 1-8 content labelled multiple times
+// Hint: 1-8 only the last label is used, the rest are ignored
+= Hello <a> <b>
+
+// Warning: 12-19 content labelled multiple times
+// Hint: 12-19 only the last label is used, the rest are ignored
+#let f = [#block()<c>]
+#f<d>
+
+// Warning: 6-13 content labelled multiple times
+// Hint: 6-13 only the last label is used, the rest are ignored
+#[#[#block()]<e>]<f>
+
+// Error: 1-3 label `<a>` does not exist in the document
+@a
+
+--- label-unattached-warn ---
+#set heading(numbering: "1.")
+// Warning: 1-4 label `<a>` is not attached to anything
+<a>

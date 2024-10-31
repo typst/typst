@@ -9,20 +9,18 @@ use std::collections::HashMap;
 
 use ecow::eco_format;
 use indexmap::IndexMap;
-use pdf_writer::Filter;
-use pdf_writer::{types::UnicodeCmap, Finish, Name, Rect, Ref};
-use ttf_parser::name_id;
+use pdf_writer::types::UnicodeCmap;
+use pdf_writer::writers::WMode;
+use pdf_writer::{Filter, Finish, Name, Rect, Ref};
+use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
+use typst_library::foundations::Repr;
+use typst_library::layout::Em;
+use typst_library::text::color::glyph_frame;
+use typst_library::text::{Font, Glyph, TextItemView};
 
-use typst::layout::Em;
-use typst::text::{color::frame_for_glyph, Font};
-
+use crate::font::{base_font_name, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
 use crate::resources::{Resources, ResourcesRefs};
-use crate::WithGlobalRefs;
-use crate::{
-    content,
-    font::{subset_tag, write_font_descriptor, CMAP_NAME, SYSTEM_INFO},
-    EmExt, PdfChunk,
-};
+use crate::{content, EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
 
 /// Write color fonts in the PDF document.
 ///
@@ -30,12 +28,12 @@ use crate::{
 /// instructions.
 pub fn write_color_fonts(
     context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<ColorFontSlice, Ref>) {
+) -> SourceResult<(PdfChunk, HashMap<ColorFontSlice, Ref>)> {
     let mut out = HashMap::new();
     let mut chunk = PdfChunk::new();
     context.resources.traverse(&mut |resources: &Resources| {
         let Some(color_fonts) = &resources.color_fonts else {
-            return;
+            return Ok(());
         };
 
         for (color_font, font_slice) in color_fonts.iter() {
@@ -84,8 +82,13 @@ pub fn write_color_fonts(
                 gids.push(color_glyph.gid);
             }
 
+            // Determine the base font name.
+            gids.sort();
+            let base_font = base_font_name(&font_slice.font, &gids);
+
             // Write the Type3 font object.
             let mut pdf_font = chunk.type3_font(subfont_id);
+            pdf_font.name(Name(base_font.as_bytes()));
             pdf_font.pair(Name(b"Resources"), color_fonts.resources.reference);
             pdf_font.bbox(color_font.bbox);
             pdf_font.matrix([1.0 / scale_factor, 0.0, 0.0, 1.0 / scale_factor, 0.0, 0.0]);
@@ -126,16 +129,9 @@ pub fn write_color_fonts(
                     cmap.pair_with_multiple(index as u8, text.chars());
                 }
             }
-            chunk.cmap(cmap_ref, &cmap.finish());
+            chunk.cmap(cmap_ref, &cmap.finish()).writing_mode(WMode::Horizontal);
 
             // Write the font descriptor.
-            gids.sort();
-            let subset_tag = subset_tag(&gids);
-            let postscript_name = font_slice
-                .font
-                .find_name(name_id::POST_SCRIPT_NAME)
-                .unwrap_or_else(|| "unknown".to_string());
-            let base_font = eco_format!("{subset_tag}+{postscript_name}");
             write_font_descriptor(
                 &mut chunk,
                 descriptor_ref,
@@ -148,9 +144,11 @@ pub fn write_color_fonts(
 
             out.insert(font_slice, subfont_id);
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
 /// A mapping between `Font`s and all the corresponding `ColorFont`s.
@@ -210,7 +208,13 @@ impl ColorFontMap<()> {
     ///
     /// If this is the first occurrence of this glyph in this font, it will
     /// start its encoding and add it to the list of known glyphs.
-    pub fn get(&mut self, font: &Font, gid: u16) -> (usize, u8) {
+    pub fn get(
+        &mut self,
+        options: &PdfOptions,
+        text: &TextItemView,
+        glyph: &Glyph,
+    ) -> SourceResult<(usize, u8)> {
+        let font = &text.item.font;
         let color_font = self.map.entry(font.clone()).or_insert_with(|| {
             let global_bbox = font.ttf().global_bounding_box();
             let bbox = Rect::new(
@@ -227,7 +231,7 @@ impl ColorFontMap<()> {
             }
         });
 
-        if let Some(index_of_glyph) = color_font.glyph_indices.get(&gid) {
+        Ok(if let Some(index_of_glyph) = color_font.glyph_indices.get(&glyph.id) {
             // If we already know this glyph, return it.
             (color_font.slice_ids[index_of_glyph / 256], *index_of_glyph as u8)
         } else {
@@ -239,16 +243,25 @@ impl ColorFontMap<()> {
                 self.total_slice_count += 1;
             }
 
-            let frame = frame_for_glyph(font, gid);
-            let width =
-                font.advance(gid).unwrap_or(Em::new(0.0)).get() * font.units_per_em();
-            let instructions =
-                content::build(&mut self.resources, &frame, Some(width as f32));
-            color_font.glyphs.push(ColorGlyph { gid, instructions });
-            color_font.glyph_indices.insert(gid, index);
+            let (frame, tofu) = glyph_frame(font, glyph.id);
+            if options.standards.pdfa && tofu {
+                bail!(failed_to_convert(text, glyph));
+            }
+
+            let width = font.advance(glyph.id).unwrap_or(Em::new(0.0)).get()
+                * font.units_per_em();
+            let instructions = content::build(
+                options,
+                &mut self.resources,
+                &frame,
+                None,
+                Some(width as f32),
+            )?;
+            color_font.glyphs.push(ColorGlyph { gid: glyph.id, instructions });
+            color_font.glyph_indices.insert(glyph.id, index);
 
             (color_font.slice_ids[index / 256], index as u8)
-        }
+        })
     }
 
     /// Assign references to the resource dictionary used by this set of color
@@ -305,11 +318,27 @@ impl<'a, R> Iterator for ColorFontMapIter<'a, R> {
 
 /// A set of at most 256 glyphs (a limit imposed on Type3 fonts by the PDF
 /// specification) that represents a part of a TTF font.
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ColorFontSlice {
     /// The original TTF font.
     pub font: Font,
     /// The index of the Type3 font, among all those that are necessary to
     /// represent the subset of the TTF font we are interested in.
     pub subfont: usize,
+}
+
+/// The error when the glyph could not be converted.
+#[cold]
+fn failed_to_convert(text: &TextItemView, glyph: &Glyph) -> SourceDiagnostic {
+    let mut diag = error!(
+        glyph.span.0,
+        "the glyph for {} could not be exported",
+        text.glyph_text(glyph).repr()
+    );
+
+    if text.item.font.ttf().tables().cff2.is_some() {
+        diag.hint("CFF2 fonts are not currently supported");
+    }
+
+    diag
 }

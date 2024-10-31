@@ -12,7 +12,7 @@ hello_world Nutzer*innen
 
 日本語では、*太字*や_斜体_を使って強調します。
 
-中文中混有*Strong*和_Empasis_。
+中文中混有*Strong*和_Emphasis_。
 
 // Can contain paragraph in nested content block.
 _Still #[

@@ -11,6 +11,7 @@ use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
 use typst::diag::{bail, StrResult};
+use typst::utils::format_duration;
 
 use crate::args::{CompileCommand, Input, Output};
 use crate::compile::compile_once;
@@ -295,11 +296,13 @@ impl Status {
     }
 
     fn message(&self) -> String {
-        match self {
+        match *self {
             Self::Compiling => "compiling ...".into(),
-            Self::Success(duration) => format!("compiled successfully in {duration:.2?}"),
+            Self::Success(duration) => {
+                format!("compiled successfully in {}", format_duration(duration))
+            }
             Self::PartialSuccess(duration) => {
-                format!("compiled with warnings in {duration:.2?}")
+                format!("compiled with warnings in {}", format_duration(duration))
             }
             Self::Error => "compiled with errors".into(),
         }

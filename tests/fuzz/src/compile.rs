@@ -6,7 +6,6 @@ use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::visualize::Color;
 use typst::{Library, World};
 
 struct FuzzWorld {
@@ -68,7 +67,7 @@ fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(text);
     if let Ok(document) = typst::compile(&world).output {
         if let Some(page) = document.pages.first() {
-            std::hint::black_box(typst_render::render(&page.frame, 1.0, Color::WHITE));
+            std::hint::black_box(typst_render::render(page, 1.0));
         }
     }
     comemo::evict(10);

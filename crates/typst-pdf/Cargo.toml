@@ -13,10 +13,13 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-typst = { workspace = true }
 typst-assets = { workspace = true }
+typst-library = { workspace = true }
 typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+arrayvec = { workspace = true }
 base64 = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
@@ -26,11 +29,10 @@ indexmap = { workspace = true }
 miniz_oxide = { workspace = true }
 once_cell = { workspace = true }
 pdf-writer = { workspace = true }
+serde = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }
-unicode-properties = { workspace = true }
-unscanny = { workspace = true }
 xmp-writer = { workspace = true }
 
 [lints]
