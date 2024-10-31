@@ -185,6 +185,12 @@ pub fn to_sk_paint<'a>(
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
+
+            let gradient_map = match relative {
+                RelativeTo::Self_ => gradient_map,
+                RelativeTo::Parent => None,
+            };
+
             let width =
                 (container_size.x.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
             let height =
@@ -225,6 +231,13 @@ pub fn to_sk_paint<'a>(
             let canvas = render_pattern_frame(&state, pattern);
             *pixmap = Some(Arc::new(canvas));
 
+            let offset = match relative {
+                RelativeTo::Self_ => {
+                    gradient_map.map(|(offset, _)| -offset).unwrap_or_default()
+                }
+                RelativeTo::Parent => Point::zero(),
+            };
+
             // Create the shader
             sk_paint.shader = sk::Pattern::new(
                 pixmap.as_ref().unwrap().as_ref().as_ref(),
@@ -232,7 +245,8 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
+                    .pre_translate(offset.x.to_f32(), offset.y.to_f32()),
             );
         }
     }

@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::SyntaxKind;
+use crate::{SyntaxError, SyntaxKind};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -19,7 +19,7 @@ pub(super) struct Lexer<'s> {
     /// The state held by raw line lexing.
     raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
-    error: Option<EcoString>,
+    error: Option<SyntaxError>,
 }
 
 /// What kind of tokens to emit.
@@ -75,7 +75,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<EcoString> {
+    pub fn take_error(&mut self) -> Option<SyntaxError> {
         self.error.take()
     }
 }
@@ -83,8 +83,15 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some(message.into());
+        self.error = Some(SyntaxError::new(message));
         SyntaxKind::Error
+    }
+
+    /// If the current node is an error, adds a hint.
+    fn hint(&mut self, message: impl Into<EcoString>) {
+        if let Some(error) = &mut self.error {
+            error.hints.push(message.into());
+        }
     }
 }
 
@@ -109,7 +116,12 @@ impl Lexer<'_> {
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
-                self.error("unexpected end of block comment")
+                let kind = self.error("unexpected end of block comment");
+                self.hint(
+                    "consider escaping the `*` with a backslash or \
+                     opening the block comment with `/*`",
+                );
+                kind
             }
 
             Some(c) => match self.mode {
@@ -408,7 +420,7 @@ impl Lexer<'_> {
     }
 
     fn ref_marker(&mut self) -> SyntaxKind {
-        self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
+        self.s.eat_while(is_valid_in_label_literal);
 
         // Don't include the trailing characters likely to be part of text.
         while matches!(self.s.scout(-1), Some('.' | ':')) {
@@ -419,7 +431,7 @@ impl Lexer<'_> {
     }
 
     fn label(&mut self) -> SyntaxKind {
-        let label = self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
+        let label = self.s.eat_while(is_valid_in_label_literal);
         if label.is_empty() {
             return self.error("label cannot be empty");
         }
@@ -462,7 +474,7 @@ impl Lexer<'_> {
                 Some('-') if !s.at(['-', '?']) => {}
                 Some('.') if !s.at("..") => {}
                 Some('h') if !s.at("ttp://") && !s.at("ttps://") => {}
-                Some('@') if !s.at(is_id_start) => {}
+                Some('@') if !s.at(is_valid_in_label_literal) => {}
                 _ => break,
             }
 
@@ -491,7 +503,10 @@ impl Lexer<'_> {
     }
 
     fn space_or_end(&self) -> bool {
-        self.s.done() || self.s.at(char::is_whitespace)
+        self.s.done()
+            || self.s.at(char::is_whitespace)
+            || self.s.at("//")
+            || self.s.at("/*")
     }
 }
 
@@ -502,42 +517,42 @@ impl Lexer<'_> {
             '\\' => self.backslash(),
             '"' => self.string(),
 
-            '-' if self.s.eat_if(">>") => SyntaxKind::Shorthand,
-            '-' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-            '-' if self.s.eat_if("->") => SyntaxKind::Shorthand,
-            ':' if self.s.eat_if('=') => SyntaxKind::Shorthand,
-            ':' if self.s.eat_if(":=") => SyntaxKind::Shorthand,
-            '!' if self.s.eat_if('=') => SyntaxKind::Shorthand,
-            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
-            '[' if self.s.eat_if('|') => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("==>") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("-->") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("--") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("-<") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("->") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("<-") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("<<") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("==") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("~~") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if('=') => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if('<') => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if('-') => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if('~') => SyntaxKind::Shorthand,
-            '>' if self.s.eat_if("->") => SyntaxKind::Shorthand,
-            '>' if self.s.eat_if(">>") => SyntaxKind::Shorthand,
-            '=' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
-            '=' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-            '=' if self.s.eat_if(':') => SyntaxKind::Shorthand,
-            '>' if self.s.eat_if('=') => SyntaxKind::Shorthand,
-            '>' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-            '|' if self.s.eat_if("->") => SyntaxKind::Shorthand,
-            '|' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
-            '|' if self.s.eat_if(']') => SyntaxKind::Shorthand,
-            '|' if self.s.eat_if('|') => SyntaxKind::Shorthand,
-            '~' if self.s.eat_if("~>") => SyntaxKind::Shorthand,
-            '~' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-            '*' | '-' => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if(">>") => SyntaxKind::MathShorthand,
+            '-' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
+            '-' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
+            ':' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
+            ':' if self.s.eat_if(":=") => SyntaxKind::MathShorthand,
+            '!' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
+            '.' if self.s.eat_if("..") => SyntaxKind::MathShorthand,
+            '[' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("==>") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("-->") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("--") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("-<") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("<-") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("<<") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("==") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if("~~") => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if('<') => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if('-') => SyntaxKind::MathShorthand,
+            '<' if self.s.eat_if('~') => SyntaxKind::MathShorthand,
+            '>' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
+            '>' if self.s.eat_if(">>") => SyntaxKind::MathShorthand,
+            '=' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
+            '=' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
+            '=' if self.s.eat_if(':') => SyntaxKind::MathShorthand,
+            '>' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
+            '>' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
+            '|' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
+            '|' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
+            '|' if self.s.eat_if(']') => SyntaxKind::MathShorthand,
+            '|' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
+            '~' if self.s.eat_if("~>") => SyntaxKind::MathShorthand,
+            '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
+            '*' | '-' | '~' => SyntaxKind::MathShorthand,
 
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
@@ -917,4 +932,15 @@ fn is_math_id_start(c: char) -> bool {
 #[inline]
 fn is_math_id_continue(c: char) -> bool {
     is_xid_continue(c) && c != '_'
+}
+
+/// Whether a character can be part of a label literal's name.
+#[inline]
+fn is_valid_in_label_literal(c: char) -> bool {
+    is_id_continue(c) || matches!(c, ':' | '.')
+}
+
+/// Returns true if this string is valid in a label literal.
+pub fn is_valid_label_literal_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(is_valid_in_label_literal)
 }

@@ -4,6 +4,8 @@ pub mod calc;
 pub mod repr;
 pub mod sys;
 
+pub use typst_macros::{scope, ty};
+
 mod args;
 mod array;
 mod auto;
@@ -13,6 +15,7 @@ mod cast;
 mod content;
 mod context;
 mod datetime;
+mod decimal;
 mod dict;
 mod duration;
 mod element;
@@ -41,6 +44,7 @@ pub use self::cast::*;
 pub use self::content::*;
 pub use self::context::*;
 pub use self::datetime::*;
+pub use self::decimal::*;
 pub use self::dict::*;
 pub use self::duration::*;
 pub use self::element::*;
@@ -49,7 +53,7 @@ pub use self::float::*;
 pub use self::func::*;
 pub use self::int::*;
 pub use self::label::*;
-pub use self::methods::*;
+pub(crate) use self::methods::*;
 pub use self::module::*;
 pub use self::none::*;
 pub use self::plugin::*;
@@ -103,6 +107,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict) {
     global.define_type::<Regex>();
     global.define_type::<Selector>();
     global.define_type::<Datetime>();
+    global.define_type::<Decimal>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
     global.define_type::<Plugin>();
@@ -290,7 +295,7 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define(key, value);
+        scope.define_spanned(key, value, span);
     }
     crate::eval::eval_string(engine.world, &text, span, mode, scope)
 }

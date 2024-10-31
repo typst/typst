@@ -22,7 +22,7 @@ serde = { workspace = true }
 unscanny = { workspace = true }
 
 [dev-dependencies]
-typst-assets = { workspace = true }
+typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
 once_cell = { workspace = true }
 

@@ -25,6 +25,18 @@ In the following, we will cover some of the most common questions a user
 switching from LaTeX will have when composing a document in Typst. If you prefer
 a step-by-step introduction to Typst, check out our [tutorial].
 
+## Installation
+You have two ways to use Typst: In [our web app](https://typst.app/signup/) or
+by [installing the compiler](https://github.com/typst/typst/releases) on your
+computer. When you use the web app, we provide a batteries-included
+collaborative editor and run Typst in your browser, no installation required.
+
+If you choose to use Typst on your computer instead, you can download the
+compiler as a single, small binary which any user can run, no root privileges
+required. Unlike LaTeX, packages are downloaded  when you first use them and
+then cached locally, keeping your Typst installation lean. You can use your own
+editor and decide where to store your files with the local compiler.
+
 ## How do I create a new, empty document? { #getting-started }
 That's easy. You just create a new, empty text file (the file extension is
 `.typ`). No boilerplate is needed to get started. Simply start by writing your
@@ -313,62 +325,65 @@ function. The following example illustrates how it works:
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(font: "Linux Libertine", 11pt)
->>>  set par(justify: true)
->>>  set page(
->>>    "us-letter",
->>>    margin: auto,
->>>    header: align(
->>>      right + horizon,
->>>      title
->>>    ),
->>>    numbering: "1",
->>>  )
+>>>   set text(font: "Libertinus Serif", 11pt)
+>>>   set par(justify: true)
+>>>   set page(
+>>>     "us-letter",
+>>>     margin: auto,
+>>>     header: align(
+>>>       right + horizon,
+>>>       title
+>>>     ),
+>>>     numbering: "1",
+>>>     columns: 2
+>>>   )
 >>>
->>>  show heading.where(
->>>    level: 1
->>>  ): it => block(
->>>    align(center,
->>>      text(
->>>        13pt,
->>>        weight: "regular",
->>>        smallcaps(it.body),
->>>      )
->>>    ),
->>>  )
->>>  show heading.where(
->>>    level: 2
->>>  ): it => box(
->>>    text(
->>>      11pt,
->>>      weight: "regular",
->>>      style: "italic",
->>>      it.body + [.],
->>>    )
->>>  )
+>>>   show heading.where(
+>>>     level: 1
+>>>   ): it => block(
+>>>     align(center,
+>>>       text(
+>>>         13pt,
+>>>         weight: "regular",
+>>>         smallcaps(it.body),
+>>>       )
+>>>     ),
+>>>   )
+>>>   show heading.where(
+>>>     level: 2
+>>>   ): it => box(
+>>>     text(
+>>>       11pt,
+>>>       weight: "regular",
+>>>       style: "italic",
+>>>       it.body + [.],
+>>>     )
+>>>   )
 >>>
->>>  set align(center)
->>>  text(17pt, title)
+>>>   place(top, float: true, scope: "parent", {
+>>>     set align(center)
+>>>     text(17pt, title)
 >>>
->>>  let count = calc.min(authors.len(), 3)
->>>  grid(
->>>    columns: (1fr,) * count,
->>>    row-gutter: 24pt,
->>>    ..authors.map(author => [
->>>      #author.name \
->>>      #author.affiliation \
->>>      #link("mailto:" + author.email)
->>>    ]),
->>>  )
+>>>     let count = calc.min(authors.len(), 3)
+>>>     grid(
+>>>       columns: (1fr,) * count,
+>>>       row-gutter: 24pt,
+>>>       ..authors.map(author => [
+>>>         #author.name \
+>>>         #author.affiliation \
+>>>         #link("mailto:" + author.email)
+>>>       ]),
+>>>     )
 >>>
->>>  par(justify: false)[
->>>    *Abstract* \
->>>    #abstract
->>>  ]
+>>>     par(justify: false)[
+>>>       *Abstract* \
+>>>       #abstract
+>>>     ]
+>>>   })
 >>>
->>>  set align(left)
->>>  columns(2, doc)
->>>}
+>>>   set align(left)
+>>>   doc
+>>> }
 <<< #import "conf.typ": conf
 #show: conf.with(
   title: [
@@ -392,14 +407,34 @@ function. The following example illustrates how it works:
 Let's get started writing this
 article by putting insightful
 paragraphs right here!
+>>> #lorem(500)
 ```
 
-The [`{import}`]($scripting/#modules) statement makes
-[functions]($function) (and other definitions) from another file available.
-In this example, it imports the `conf` function from the `conf.typ` file. This
-function formats a document as a conference article. We use a show rule to apply
-it to the document and also configure some metadata of the article. After
-applying the show rule, we can start writing our article right away!
+The [`{import}`]($scripting/#modules) statement makes [functions]($function)
+(and other definitions) from another file available. In this example, it imports
+the `conf` function from the `conf.typ` file. This function formats a document
+as a conference article. We use a show rule to apply it to the document and also
+configure some metadata of the article. After applying the show rule, we can
+start writing our article right away!
+
+You can also use templates from Typst Universe (which is Typst's equivalent of
+CTAN) using an import statement like this: `[#import
+"@preview/elsearticle:0.2.1": elsearticle]`. Check the documentation of an
+individual template to learn the name of its template function. Templates and
+packages from Typst Universe are automatically downloaded when you first use
+them.
+
+In the web app, you can choose to create a project from a template on Typst
+Universe or even create your own using the template wizard. Locally, you can use
+the `typst init` CLI to create a new project from a template. Check out [the
+list of templates]($universe/search/?kind=templates) published on Typst
+Universe. You can also take a look at the [`awesome-typst`
+repository](https://github.com/qjcg/awesome-typst) to find community templates
+that aren't available through Universe.
+
+You can also [create your own, custom templates.]($tutorial/making-a-template)
+They are shorter and more readable than the corresponding LaTeX `.sty` files by
+orders of magnitude, so give it a try!
 
 <div class="info-box">
 
@@ -415,18 +450,6 @@ result as an argument. The `.with` part is a _method_ that takes the `conf`
 function and pre-configures some if its arguments before passing it on to the
 show rule.
 </div>
-
-In the web app, you can choose from predefined templates or even
-create your own using the template wizard. Locally, you can use the
-`typst init` CLI to create a new project from a template. Check out
-[the list of templates]($universe/search/?kind=templates) published on Typst
-Universe, our official package ecosystem. You can also take a look at the
-[`awesome-typst` repository](https://github.com/qjcg/awesome-typst) to find
-community templates that aren't yet available as packages.
-
-You can also [create your own, custom templates.]($tutorial/making-a-template)
-They are shorter and more readable than the corresponding LaTeX `.sty` files by
-orders of magnitude, so give it a try!
 
 ## How do I load packages? { #packages }
 Typst is "batteries included," so the equivalent of many popular LaTeX packages
@@ -452,10 +475,10 @@ and their corresponding Typst functions.
 | enumitem                        | [`list`], [`enum`], [`terms`] functions    |
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
-a built-in [package manager]($universe) where the community can share their
-creations and automations. Let's take, for instance, the _cetz_ package: This
-package allows you to create complex drawings and plots. To use cetz in your
-document, you can just write:
+its own [package ecosystem]($universe) where the community share its creations
+and automations. Let's take, for instance, the _cetz_ package: This package
+allows you to create complex drawings and plots. To use cetz in your document,
+you can just write:
 
 ```typ
 #import "@preview/cetz:0.2.1"
@@ -464,15 +487,15 @@ document, you can just write:
 (The `@preview` is a _namespace_ that is used while the package manager is still
 in its early and experimental state. It will be replaced in the future.)
 
-Aside from the official package repository, you might also want to check out the
+Aside from the official package hub, you might also want to check out the
 [awesome-typst repository](https://github.com/qjcg/awesome-typst), which
 compiles a curated list of resources created for Typst.
 
 If you need to load functions and variables from another file within your
-project, for example to use a template, you can use use the same
-[`{import}`]($scripting/#modules) statement with a file name rather than a
+project, for example to use a template, you can use the same
+[`import`]($scripting/#modules) statement with a file name rather than a
 package specification. To instead include the textual content of another file,
-you can use an [`{include}`]($scripting/#modules) statement. It will retrieve
+you can use an [`include`]($scripting/#modules) statement. It will retrieve
 the content of the specified file and put it in your document.
 
 ## How do I input maths? { #maths }
@@ -593,10 +616,9 @@ The example below
 
 ```typ
 #set page(margin: 1.75in)
-#set par(leading: 0.55em, first-line-indent: 1.8em, justify: true)
+#set par(leading: 0.55em, spacing: 0.55em, first-line-indent: 1.8em, justify: true)
 #set text(font: "New Computer Modern")
 #show raw: set text(font: "New Computer Modern Mono")
-#show par: set block(spacing: 0.55em)
 #show heading: set block(above: 1.4em, below: 1em)
 ```
 
@@ -627,28 +649,15 @@ use in prose (cf. `\citet` and `\textcite`) are available with
 You can find more information on the documentation page of the [`bibliography`]
 function.
 
-## Installation
-You have two ways to use Typst: In [our web app](https://typst.app/signup/) or
-by [installing the compiler](https://github.com/typst/typst/releases) on your
-computer. When you use the web app, we provide a batteries-included
-collaborative editor and run Typst in your browser, no installation required.
-
-If you choose to use Typst on your computer instead, you can download the
-compiler as a single, small binary which any user can run, no root privileges
-required. Unlike LaTeX, packages are downloaded  when you first use them and
-then cached locally, keeping your Typst installation lean. You can use your own
-editor and decide where to store your files with the local compiler.
-
 ## What limitations does Typst currently have compared to LaTeX? { #limitations }
 Although Typst can be a LaTeX replacement for many today, there are still
 features that Typst does not (yet) support. Here is a list of them which, where
 applicable, contains possible workarounds.
 
-- **Native charts and plots.** LaTeX users often create charts along with their
-  documents in PGF/TikZ. Typst does not yet include tools to draw diagrams, but
-  the community is stepping up with solutions such as
-  [`cetz`](https://github.com/johannes-wolf/typst-canvas). You can add those
-  to your document to get started with drawing diagrams.
+- **Well-established plotting ecosystem.** LaTeX users often create elaborate
+  charts along with their documents in PGF/TikZ. The Typst ecosystem does not
+  yet offer the same breadth of available options, but the ecosystem around the
+  [`cetz`](https://github.com/cetz-package/cetz) package is catching up quickly.
 
 - **Change page margins without a pagebreak.** In LaTeX, margins can always be
   adjusted, even without a pagebreak. To change margins in Typst, you use the
@@ -662,12 +671,3 @@ applicable, contains possible workarounds.
   tools](https://cloudconvert.com/pdf-to-svg) or
   [Inkscape](https://inkscape.org/). The web app will automatically convert PDF
   files to SVG files upon uploading them.
-
-- **Page break optimization.** LaTeX runs some smart algorithms to not only
-  optimize line but also page breaks. While Typst tries to avoid widows and
-  orphans, it uses less sophisticated algorithms to determine page breaks. You
-  can insert custom page breaks in Typst using `[#pagebreak(weak: true)]` before
-  submitting your document. The argument `weak` ensures that no double page
-  break will be created if this spot would be a natural page break anyways. You
-  can also use `[#v(1fr)]` to distribute space on your page. It works quite
-  similar to LaTeX's `\vfill`.

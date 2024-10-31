@@ -49,6 +49,20 @@ $integral f(x) thin dif x$,
 // Both are weak, collide
 $integral f(x) #h(0.166em, weak: true)dif x$
 
+--- math-spacing-script ---
+// Test spacing in script size
+$x^(a #h(1em) b) + x^x^(a #h(1em) b) + sscript(a #h(1em) b)$
+
+--- math-spacing-ignorant ---
+// Test spacing with ignorant elements
+$#metadata(none) "text"$ \
+$#place(dx: 5em)[Placed] "text"$ \
+// Operator spacing
+$#counter("test").update(3) + b$ \
+$#place(dx: 5em)[a] + b$
+// Validate that ignorant elements are layouted
+#context test(counter("test").get(), (3,))
+
 --- issue-1052-math-number-spacing ---
 // Test spacing after numbers in math.
 $

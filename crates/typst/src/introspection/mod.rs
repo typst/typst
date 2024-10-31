@@ -12,6 +12,7 @@ mod metadata;
 #[path = "query.rs"]
 mod query_;
 mod state;
+mod tag;
 
 pub use self::counter::*;
 pub use self::here_::*;
@@ -22,14 +23,9 @@ pub use self::locator::*;
 pub use self::metadata::*;
 pub use self::query_::*;
 pub use self::state::*;
+pub use self::tag::*;
 
-use crate::diag::{bail, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::NativeElement;
-use crate::foundations::{
-    category, elem, Args, Category, Construct, Content, Packed, Scope, Unlabellable,
-};
-use crate::realize::{Behave, Behaviour};
+use crate::foundations::{category, Category, Scope};
 
 /// Interactions between document parts.
 ///
@@ -54,41 +50,4 @@ pub fn define(global: &mut Scope) {
     global.define_func::<here>();
     global.define_func::<query>();
     global.define_func::<locate>();
-}
-
-/// Holds a locatable element that was realized.
-///
-/// The `TagElem` is handled by all layouters. The held element becomes
-/// available for introspection in the next compiler iteration.
-#[elem(Behave, Unlabellable, Construct)]
-pub struct TagElem {
-    /// The introspectible element.
-    #[required]
-    #[internal]
-    pub elem: Content,
-}
-
-impl TagElem {
-    /// Create a packed tag element.
-    pub fn packed(elem: Content) -> Content {
-        let span = elem.span();
-        let mut content = Self::new(elem).pack().spanned(span);
-        // We can skip preparation for the `TagElem`.
-        content.mark_prepared();
-        content
-    }
-}
-
-impl Construct for TagElem {
-    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
-        bail!(args.span, "cannot be constructed manually")
-    }
-}
-
-impl Unlabellable for Packed<TagElem> {}
-
-impl Behave for Packed<TagElem> {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Invisible
-    }
 }

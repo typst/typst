@@ -1,7 +1,8 @@
 use tiny_skia as sk;
 use typst::layout::{Abs, Axes, Point, Ratio, Size};
 use typst::visualize::{
-    DashPattern, FixedStroke, Geometry, LineCap, LineJoin, Path, PathItem, Shape,
+    DashPattern, FillRule, FixedStroke, Geometry, LineCap, LineJoin, Path, PathItem,
+    Shape,
 };
 
 use crate::{paint, AbsExt, State};
@@ -51,7 +52,10 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
             paint.anti_alias = false;
         }
 
-        let rule = sk::FillRule::default();
+        let rule = match shape.fill_rule {
+            FillRule::NonZero => sk::FillRule::Winding,
+            FillRule::EvenOdd => sk::FillRule::EvenOdd,
+        };
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
     }
 

@@ -1,6 +1,6 @@
 use ecow::{eco_vec, EcoVec};
 
-use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, error, At, SourceResult};
 use crate::eval::{ops, CapturesVisitor, Eval, Vm};
 use crate::foundations::{
     Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str, Value,
@@ -95,6 +95,7 @@ impl Eval for ast::Expr<'_> {
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
+            Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
@@ -244,11 +245,11 @@ impl Eval for ast::Dict<'_> {
                 ast::DictItem::Keyed(keyed) => {
                     let raw_key = keyed.key();
                     let key = raw_key.eval(vm)?;
-                    let key = key.cast::<Str>().unwrap_or_else(|error| {
-                        let error = SourceDiagnostic::error(raw_key.span(), error);
-                        invalid_keys.push(error);
-                        Str::default()
-                    });
+                    let key =
+                        key.cast::<Str>().at(raw_key.span()).unwrap_or_else(|errors| {
+                            invalid_keys.extend(errors);
+                            Str::default()
+                        });
                     map.insert(key, keyed.expr().eval(vm)?);
                 }
                 ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {
@@ -315,7 +316,7 @@ impl Eval for ast::FieldAccess<'_> {
             if let Some(element) = func.element();
             if let Some(id) = element.field_id(&field);
             let styles = vm.context.styles().at(field.span());
-            if let Some(value) = element.field_from_styles(
+            if let Ok(value) = element.field_from_styles(
                 id,
                 styles.as_ref().map(|&s| s).unwrap_or_default(),
             );

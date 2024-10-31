@@ -1,4 +1,4 @@
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{error, At, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Label, Packed, Show, Smart, StyleChain, Synthesize,
@@ -159,6 +159,17 @@ impl Show for Packed<CiteGroup> {
             .citations
             .get(&location)
             .cloned()
-            .unwrap_or_else(|| bail!(span, "failed to format citation (this is a bug)"))
+            .ok_or_else(failed_to_format_citation)
+            .at(span)?
     }
+}
+
+/// The error message when a citation wasn't found in the pre-formatted list.
+#[cold]
+fn failed_to_format_citation() -> HintedString {
+    error!(
+        "cannot format citation in isolation";
+        hint: "check whether this citation is measured \
+               without being inserted into the document"
+    )
 }

@@ -4,7 +4,7 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::Resolve;
 use crate::layout::{
-    Abs, Axes, Cell, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
+    Abs, Axes, Cell, Frame, GridLayouter, Point, Region, Regions, Size, Sizing,
 };
 use crate::utils::MaybeReverseIter;
 
@@ -14,6 +14,8 @@ pub(super) struct Rowspan {
     pub(super) x: usize,
     /// First row of this rowspan.
     pub(super) y: usize,
+    /// The disambiguator for laying out the cells.
+    pub(super) disambiguator: usize,
     /// Amount of rows spanned by the cell at (x, y).
     pub(super) rowspan: usize,
     /// Whether all rows of the rowspan are part of an unbreakable row group.
@@ -102,6 +104,7 @@ impl<'a> GridLayouter<'a> {
         let Rowspan {
             x,
             y,
+            disambiguator,
             rowspan,
             is_effectively_unbreakable,
             dx,
@@ -122,7 +125,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions.
         let size = Size::new(width, *first_height);
-        let mut pod = Regions::one(size, Axes::splat(true));
+        let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
         pod.backlog = backlog;
 
         if !is_effectively_unbreakable
@@ -138,7 +141,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Push the layouted frames directly into the finished frames.
-        let fragment = cell.layout(engine, self.styles, pod)?;
+        let fragment = cell.layout(engine, disambiguator, self.styles, pod)?;
         let (current_region, current_rrows) = current_region_data.unzip();
         for ((i, finished), frame) in self
             .finished
@@ -181,7 +184,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Checks if a row contains the beginning of one or more rowspan cells.
     /// If so, adds them to the rowspans vector.
-    pub(super) fn check_for_rowspans(&mut self, y: usize) {
+    pub(super) fn check_for_rowspans(&mut self, disambiguator: usize, y: usize) {
         // We will compute the horizontal offset of each rowspan in advance.
         // For that reason, we must reverse the column order when using RTL.
         let offsets = points(self.rcols.iter().copied().rev_if(self.is_rtl));
@@ -195,6 +198,7 @@ impl<'a> GridLayouter<'a> {
                 self.rowspans.push(Rowspan {
                     x,
                     y,
+                    disambiguator,
                     rowspan,
                     // The field below will be updated in
                     // 'check_for_unbreakable_rows'.
@@ -243,6 +247,7 @@ impl<'a> GridLayouter<'a> {
                 amount_unbreakable_rows,
                 &self.regions,
                 engine,
+                0,
             )?;
 
             // Skip to fitting region.
@@ -252,7 +257,7 @@ impl<'a> GridLayouter<'a> {
                     self.header_height + self.footer_height,
                 )
             {
-                self.finish_region(engine)?;
+                self.finish_region(engine, false)?;
             }
 
             // Update unbreakable rows left.
@@ -293,6 +298,7 @@ impl<'a> GridLayouter<'a> {
         amount_unbreakable_rows: Option<usize>,
         regions: &Regions<'_>,
         engine: &mut Engine,
+        disambiguator: usize,
     ) -> SourceResult<UnbreakableRowGroup> {
         let mut row_group = UnbreakableRowGroup::default();
         let mut unbreakable_rows_left = amount_unbreakable_rows.unwrap_or(0);
@@ -321,6 +327,7 @@ impl<'a> GridLayouter<'a> {
                 Sizing::Auto => self
                     .measure_auto_row(
                         engine,
+                        disambiguator,
                         y,
                         false,
                         unbreakable_rows_left,
@@ -659,6 +666,7 @@ impl<'a> GridLayouter<'a> {
     /// auto row will have to expand, given the current sizes of the auto row
     /// in each region and the pending rowspans' data (parent Y, rowspan amount
     /// and vector of requested sizes).
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_and_measure_rowspans_in_auto_row(
         &self,
         y: usize,
@@ -666,6 +674,7 @@ impl<'a> GridLayouter<'a> {
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
         unbreakable_rows_left: usize,
         row_group_data: Option<&UnbreakableRowGroup>,
+        mut disambiguator: usize,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         // To begin our simulation, we have to unify the sizes demanded by
@@ -728,6 +737,7 @@ impl<'a> GridLayouter<'a> {
             // expand) because we popped the last resolved size from the
             // resolved vector, above.
             simulated_regions.next();
+            disambiguator += 1;
 
             // Subtract the initial header and footer height, since that's the
             // height we used when subtracting from the region backlog's
@@ -751,6 +761,7 @@ impl<'a> GridLayouter<'a> {
             engine,
             last_resolved_size,
             unbreakable_rows_left,
+            disambiguator,
         )?;
 
         if !simulations_stabilized {
@@ -841,6 +852,7 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         last_resolved_size: Option<Abs>,
         unbreakable_rows_left: usize,
+        mut disambiguator: usize,
     ) -> SourceResult<bool> {
         // The max amount this row can expand will be the total size requested
         // by rowspans which was not yet resolved. It is worth noting that,
@@ -863,6 +875,7 @@ impl<'a> GridLayouter<'a> {
         // of the requested rowspan height, we give up.
         for _attempt in 0..5 {
             let rowspan_simulator = RowspanSimulator::new(
+                disambiguator,
                 simulated_regions,
                 self.header_height,
                 self.footer_height,
@@ -949,6 +962,7 @@ impl<'a> GridLayouter<'a> {
                 extra_amount_to_grow -= simulated_regions.size.y.max(Abs::zero());
                 simulated_regions.next();
                 simulated_regions.size.y -= self.header_height + self.footer_height;
+                disambiguator += 1;
             }
             simulated_regions.size.y -= extra_amount_to_grow;
         }
@@ -960,6 +974,8 @@ impl<'a> GridLayouter<'a> {
 
 /// Auxiliary structure holding state during rowspan simulation.
 struct RowspanSimulator<'a> {
+    /// The number of finished regions.
+    finished: usize,
     /// The state of regions during the simulation.
     regions: Regions<'a>,
     /// The height of the header in the currently simulated region.
@@ -976,8 +992,14 @@ struct RowspanSimulator<'a> {
 impl<'a> RowspanSimulator<'a> {
     /// Creates new rowspan simulation state with the given regions and initial
     /// header and footer heights. Other fields should always start as zero.
-    fn new(regions: Regions<'a>, header_height: Abs, footer_height: Abs) -> Self {
+    fn new(
+        finished: usize,
+        regions: Regions<'a>,
+        header_height: Abs,
+        footer_height: Abs,
+    ) -> Self {
         Self {
+            finished,
             regions,
             header_height,
             footer_height,
@@ -1026,6 +1048,7 @@ impl<'a> RowspanSimulator<'a> {
                     None,
                     &self.regions,
                     engine,
+                    0,
                 )?;
                 while !self.regions.size.y.fits(row_group.height)
                     && !in_last_with_offset(
@@ -1101,16 +1124,21 @@ impl<'a> RowspanSimulator<'a> {
         // backlog to consider the initial header and footer heights; however,
         // our simulation checks what happens AFTER the auto row, so we can
         // just use the original backlog from `self.regions`.
+        let disambiguator = self.finished;
         let header_height =
             if let Some(Repeatable::Repeated(header)) = &layouter.grid.header {
-                layouter.simulate_header(header, &self.regions, engine)?.height
+                layouter
+                    .simulate_header(header, &self.regions, engine, disambiguator)?
+                    .height
             } else {
                 Abs::zero()
             };
 
         let footer_height =
             if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
-                layouter.simulate_footer(footer, &self.regions, engine)?.height
+                layouter
+                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
+                    .height
             } else {
                 Abs::zero()
             };
@@ -1119,9 +1147,10 @@ impl<'a> RowspanSimulator<'a> {
 
         // Skip until we reach a fitting region for both header and footer.
         while !self.regions.size.y.fits(header_height + footer_height)
-            && !self.regions.in_last()
+            && self.regions.may_progress()
         {
             self.regions.next();
+            self.finished += 1;
             skipped_region = true;
         }
 
@@ -1129,7 +1158,9 @@ impl<'a> RowspanSimulator<'a> {
             self.header_height = if skipped_region {
                 // Simulate headers again, at the new region, as
                 // the full region height may change.
-                layouter.simulate_header(header, &self.regions, engine)?.height
+                layouter
+                    .simulate_header(header, &self.regions, engine, disambiguator)?
+                    .height
             } else {
                 header_height
             };
@@ -1139,7 +1170,9 @@ impl<'a> RowspanSimulator<'a> {
             self.footer_height = if skipped_region {
                 // Simulate footers again, at the new region, as
                 // the full region height may change.
-                layouter.simulate_footer(footer, &self.regions, engine)?.height
+                layouter
+                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
+                    .height
             } else {
                 footer_height
             };
@@ -1164,6 +1197,7 @@ impl<'a> RowspanSimulator<'a> {
         self.total_spanned_height -= self.latest_spanned_gutter_height;
         self.latest_spanned_gutter_height = Abs::zero();
         self.regions.next();
+        self.finished += 1;
 
         self.simulate_header_footer_layout(layouter, engine)
     }

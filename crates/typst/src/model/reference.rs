@@ -49,7 +49,7 @@ use crate::text::TextElem;
 /// == Performance <perf>
 /// @slow demonstrates what slow
 /// software looks like.
-/// $ O(n) = 2^n $ <slow>
+/// $ T(n) = O(2^n) $ <slow>
 ///
 /// #bibliography("works.bib")
 /// ```
@@ -177,8 +177,8 @@ impl Show for Packed<RefElem> {
 
         let elem = elem.at(span)?;
 
-        if elem.func() == FootnoteElem::elem() {
-            return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+        if let Some(footnote) = elem.to_packed::<FootnoteElem>() {
+            return Ok(footnote.into_ref(target).pack().spanned(span));
         }
 
         let elem = elem.clone();

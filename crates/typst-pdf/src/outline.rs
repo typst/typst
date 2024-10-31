@@ -1,14 +1,18 @@
 use std::num::NonZeroUsize;
 
-use pdf_writer::{Finish, Ref, TextStr};
+use pdf_writer::{Finish, Pdf, Ref, TextStr};
 use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
-use crate::{AbsExt, PdfContext};
+use crate::{AbsExt, TextStrExt, WithEverything};
 
 /// Construct the outline for the document.
-pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
+pub(crate) fn write_outline(
+    chunk: &mut Pdf,
+    alloc: &mut Ref,
+    ctx: &WithEverything,
+) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
 
     // Stores the level of the topmost skipped ancestor of the next bookmarked
@@ -20,7 +24,7 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
 
     for elem in elements.iter() {
-        if let Some(page_ranges) = &ctx.exported_pages {
+        if let Some(page_ranges) = &ctx.options.page_ranges {
             if !page_ranges
                 .includes_page(ctx.document.introspector.page(elem.location().unwrap()))
             {
@@ -95,20 +99,28 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
         return None;
     }
 
-    let root_id = ctx.alloc.bump();
-    let start_ref = ctx.alloc;
+    let root_id = alloc.bump();
+    let start_ref = *alloc;
     let len = tree.len();
 
     let mut prev_ref = None;
     for (i, node) in tree.iter().enumerate() {
-        prev_ref = Some(write_outline_item(ctx, node, root_id, prev_ref, i + 1 == len));
+        prev_ref = Some(write_outline_item(
+            ctx,
+            chunk,
+            alloc,
+            node,
+            root_id,
+            prev_ref,
+            i + 1 == len,
+        ));
     }
 
-    ctx.pdf
+    chunk
         .outline(root_id)
         .first(start_ref)
         .last(Ref::new(
-            ctx.alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
+            alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
         ))
         .count(tree.len() as i32);
 
@@ -116,7 +128,7 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 }
 
 /// A heading in the outline panel.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct HeadingNode<'a> {
     element: &'a Packed<HeadingElem>,
     level: NonZeroUsize,
@@ -144,16 +156,18 @@ impl<'a> HeadingNode<'a> {
 
 /// Write an outline item and all its children.
 fn write_outline_item(
-    ctx: &mut PdfContext,
+    ctx: &WithEverything,
+    chunk: &mut Pdf,
+    alloc: &mut Ref,
     node: &HeadingNode,
     parent_ref: Ref,
     prev_ref: Option<Ref>,
     is_last: bool,
 ) -> Ref {
-    let id = ctx.alloc.bump();
+    let id = alloc.bump();
     let next_ref = Ref::new(id.get() + node.len() as i32);
 
-    let mut outline = ctx.pdf.outline_item(id);
+    let mut outline = chunk.outline_item(id);
     outline.parent(parent_ref);
 
     if !is_last {
@@ -171,18 +185,20 @@ fn write_outline_item(
     }
 
     let body = node.element.body();
-    outline.title(TextStr(body.plain_text().trim()));
+    outline.title(TextStr::trimmed(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);
     let index = pos.page.get() - 1;
 
     // Don't link to non-exported pages.
-    if let Some(Some(page)) = ctx.pages.get(index) {
+    if let Some((Some(page), Some(page_ref))) =
+        ctx.pages.get(index).zip(ctx.globals.pages.get(index))
+    {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        outline.dest().page(page.id).xyz(
+        outline.dest().page(*page_ref).xyz(
             pos.point.x.to_f32(),
-            (page.size.y - y).to_f32(),
+            (page.content.size.y - y).to_f32(),
             None,
         );
     }
@@ -193,6 +209,8 @@ fn write_outline_item(
     for (i, child) in node.children.iter().enumerate() {
         prev_ref = Some(write_outline_item(
             ctx,
+            chunk,
+            alloc,
             child,
             id,
             prev_ref,

@@ -93,6 +93,15 @@ impl FootnoteElem {
         Self::new(FootnoteBody::Reference(label))
     }
 
+    /// Creates a new footnote referencing the footnote with the specified label,
+    /// with the other fields from the current footnote cloned.
+    pub fn into_ref(&self, label: Label) -> Self {
+        Self {
+            body: FootnoteBody::Reference(label),
+            ..self.clone()
+        }
+    }
+
     /// Tests if this footnote is a reference to another footnote.
     pub fn is_ref(&self) -> bool {
         matches!(self.body(), FootnoteBody::Reference(_))
@@ -116,6 +125,9 @@ impl Packed<FootnoteElem> {
                 let footnote = element
                     .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
+                if self.location() == footnote.location() {
+                    bail!("footnote cannot reference itself");
+                }
                 footnote.declaration_location(engine)
             }
             _ => Ok(self.location().unwrap()),
@@ -164,8 +176,8 @@ cast! {
 
 /// An entry in a footnote list.
 ///
-/// This function is not intended to be called directly. Instead, it is used
-/// in set and show rules to customize footnote listings.
+/// This function is not intended to be called directly. Instead, it is used in
+/// set and show rules to customize footnote listings.
 ///
 /// ```example
 /// #show footnote.entry: set text(red)
@@ -175,11 +187,10 @@ cast! {
 /// has red text!
 /// ```
 ///
-/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
-/// beginning of the document in order to work correctly. See [here][issue] for
-/// more information.
-///
-/// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
+/// _Note:_ Footnote entry properties must be uniform across each page run (a
+/// page run is a sequence of pages without an explicit pagebreak in between).
+/// For this reason, set and show rules for footnote entries should be defined
+/// before any page content, typically at the very start of the document.
 #[elem(name = "entry", title = "Footnote Entry", Show, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
@@ -286,7 +297,8 @@ impl Show for Packed<FootnoteEntry> {
             .pack()
             .spanned(span)
             .linked(Destination::Location(loc))
-            .backlinked(loc.variant(1));
+            .located(loc.variant(1));
+
         Ok(Content::sequence([
             HElem::new(self.indent(styles).into()).pack(),
             sup,

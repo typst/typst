@@ -26,7 +26,7 @@
 //! [evaluate]: eval::eval
 //! [module]: foundations::Module
 //! [content]: foundations::Content
-//! [layouted]: layout::LayoutRoot
+//! [layouted]: crate::layout::layout_document
 //! [document]: model::Document
 //! [frame]: layout::Frame
 
@@ -60,17 +60,18 @@ use std::collections::HashSet;
 use std::ops::{Deref, Range};
 
 use comemo::{Track, Tracked, Validate};
-use ecow::{EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use typst_timing::{timed, TimingScope};
 
-use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
-use crate::foundations::{
-    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
+use crate::diag::{
+    warning, FileError, FileResult, SourceDiagnostic, SourceResult, Warned,
 };
-use crate::introspection::{Introspector, Locator};
-use crate::layout::{Alignment, Dir, LayoutRoot};
+use crate::engine::{Engine, Route, Sink, Traced};
+use crate::foundations::{
+    Array, Bytes, Datetime, Dict, Module, Scope, StyleChain, Styles, Value,
+};
+use crate::introspection::Introspector;
+use crate::layout::{Alignment, Dir};
 use crate::model::Document;
 use crate::syntax::package::PackageSpec;
 use crate::syntax::{FileId, Source, Span};
@@ -78,69 +79,79 @@ use crate::text::{Font, FontBook};
 use crate::utils::LazyHash;
 use crate::visualize::Color;
 
-/// Compile a source file into a fully layouted document.
+/// Compile sources into a fully layouted document.
 ///
 /// - Returns `Ok(document)` if there were no fatal errors.
 /// - Returns `Err(errors)` if there were fatal errors.
-///
-/// Requires a mutable reference to a tracer. Such a tracer can be created with
-/// `Tracer::new()`. Independently of whether compilation succeeded, calling
-/// `tracer.warnings()` after compilation will return all compiler warnings.
-#[typst_macros::time(name = "compile")]
-pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
-    // Call `track` on the world just once to keep comemo's ID stable.
-    let world = world.track();
-
-    // Try to evaluate the source file into a module.
-    let module = crate::eval::eval(
-        world,
-        Route::default().track(),
-        tracer.track_mut(),
-        &world.main(),
-    )
-    .map_err(deduplicate)?;
-
-    // Typeset the module's content, relayouting until convergence.
-    typeset(world, tracer, &module.content()).map_err(deduplicate)
+#[typst_macros::time]
+pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
+    let mut sink = Sink::new();
+    let output = compile_impl(world.track(), Traced::default().track(), &mut sink)
+        .map_err(deduplicate);
+    Warned { output, warnings: sink.warnings() }
 }
 
-/// Relayout until introspection converges.
-fn typeset(
-    world: Tracked<dyn World + '_>,
-    tracer: &mut Tracer,
-    content: &Content,
-) -> SourceResult<Document> {
-    // The name of the iterations for timing scopes.
-    const ITER_NAMES: &[&str] =
-        &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
+/// Compiles sources and returns all values and styles observed at the given
+/// `span` during compilation.
+#[typst_macros::time]
+pub fn trace(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)> {
+    let mut sink = Sink::new();
+    let traced = Traced::new(span);
+    compile_impl(world.track(), traced.track(), &mut sink).ok();
+    sink.values()
+}
 
+/// The internal implementation of `compile` with a bit lower-level interface
+/// that is also used by `trace`.
+fn compile_impl(
+    world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+) -> SourceResult<Document> {
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
+    // Fetch the main source file once.
+    let main = world.main();
+    let main = world
+        .source(main)
+        .map_err(|err| hint_invalid_main_file(world, err, main))?;
+
+    // First evaluate the main source file into a module.
+    let content = crate::eval::eval(
+        world,
+        traced,
+        sink.track_mut(),
+        Route::default().track(),
+        &main,
+    )?
+    .content();
+
     let mut iter = 0;
+    let mut subsink;
     let mut document = Document::default();
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
+        // The name of the iterations for timing scopes.
+        const ITER_NAMES: &[&str] =
+            &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
         let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
-        // Clear delayed errors.
-        tracer.delayed();
+        subsink = Sink::new();
 
         let constraint = <Introspector as Validate>::Constraint::new();
-        let mut locator = Locator::new();
         let mut engine = Engine {
             world,
-            route: Route::default(),
-            tracer: tracer.track_mut(),
-            locator: &mut locator,
             introspector: document.introspector.track_with(&constraint),
+            traced,
+            sink: subsink.track_mut(),
+            route: Route::default(),
         };
 
         // Layout!
-        document = content.layout_root(&mut engine, styles)?;
-        document.introspector.rebuild(&document.pages);
+        document = crate::layout::layout_document(&mut engine, &content, styles)?;
         iter += 1;
 
         if timed!("check stabilized", document.introspector.validate(&constraint)) {
@@ -148,7 +159,7 @@ fn typeset(
         }
 
         if iter >= 5 {
-            tracer.warn(warning!(
+            subsink.warn(warning!(
                 Span::detached(), "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
@@ -156,8 +167,10 @@ fn typeset(
         }
     }
 
+    sink.extend_from_sink(subsink);
+
     // Promote delayed errors.
-    let delayed = tracer.delayed();
+    let delayed = sink.delayed();
     if !delayed.is_empty() {
         return Err(delayed);
     }
@@ -200,8 +213,8 @@ pub trait World: Send + Sync {
     /// Metadata about all known fonts.
     fn book(&self) -> &LazyHash<FontBook>;
 
-    /// Access the main source file.
-    fn main(&self) -> Source;
+    /// Get the file id of the main source file.
+    fn main(&self) -> FileId;
 
     /// Try to access the specified source file.
     fn source(&self, id: FileId) -> FileResult<Source>;
@@ -243,7 +256,7 @@ macro_rules! delegate_for_ptr {
                 self.deref().book()
             }
 
-            fn main(&self) -> Source {
+            fn main(&self) -> FileId {
                 self.deref().main()
             }
 
@@ -398,4 +411,49 @@ fn prelude(global: &mut Scope) {
     global.define("top", Alignment::TOP);
     global.define("horizon", Alignment::HORIZON);
     global.define("bottom", Alignment::BOTTOM);
+}
+
+/// Adds useful hints when the main source file couldn't be read
+/// and returns the final diagnostic.
+fn hint_invalid_main_file(
+    world: Tracked<dyn World + '_>,
+    file_error: FileError,
+    input: FileId,
+) -> EcoVec<SourceDiagnostic> {
+    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
+    let mut diagnostic =
+        SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
+
+    // Attempt to provide helpful hints for UTF-8 errors. Perhaps the user
+    // mistyped the filename. For example, they could have written "file.pdf"
+    // instead of "file.typ".
+    if is_utf8_error {
+        let path = input.vpath();
+        let extension = path.as_rootless_path().extension();
+        if extension.is_some_and(|extension| extension == "typ") {
+            // No hints if the file is already a .typ file.
+            // The file is indeed just invalid.
+            return eco_vec![diagnostic];
+        }
+
+        match extension {
+            Some(extension) => {
+                diagnostic.hint(eco_format!(
+                    "a file with the `.{}` extension is not usually a Typst file",
+                    extension.to_string_lossy()
+                ));
+            }
+
+            None => {
+                diagnostic
+                    .hint("a file without an extension is not usually a Typst file");
+            }
+        };
+
+        if world.source(input.with_extension("typ")).is_ok() {
+            diagnostic.hint("check if you meant to use the `.typ` extension instead");
+        }
+    }
+
+    eco_vec![diagnostic]
 }

@@ -25,6 +25,9 @@ jobs:
         - target: armv7-unknown-linux-musleabi
           os: ubuntu-latest
           cross: true
+        - target: riscv64gc-unknown-linux-gnu
+          os: ubuntu-latest
+          cross: true
         - target: x86_64-apple-darwin
           os: macos-latest
           cross: false
@@ -34,10 +37,13 @@ jobs:
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross: false
+        - target: aarch64-pc-windows-msvc
+          os: windows-latest
+          cross: false
 
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.77.0
+    - uses: dtolnay/rust-toolchain@1.81.0
       with:
         target: ${{ matrix.target }}
 

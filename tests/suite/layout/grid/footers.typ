@@ -131,14 +131,16 @@
 )
 
 --- table-footer-in-grid ---
-// Error: 3:3-3:20 cannot use `table.footer` as a grid footer; use `grid.footer` instead
+// Error: 3:3-3:20 cannot use `table.footer` as a grid footer
+// Hint: 3:3-3:20 use `grid.footer` instead
 #grid(
   [a],
   table.footer([a]),
 )
 
 --- grid-footer-in-table ---
-// Error: 3:3-3:19 cannot use `grid.footer` as a table footer; use `table.footer` instead
+// Error: 3:3-3:19 cannot use `grid.footer` as a table footer
+// Hint: 3:3-3:19 use `table.footer` instead
 #table(
   [a],
   grid.footer([a]),
@@ -280,17 +282,17 @@
   rows: (auto, 2em, auto, auto),
   table.header(
     [eeec],
-    table.cell(rowspan: 2, count.step() + count.display()),
+    table.cell(rowspan: 2, count.step() + context count.display()),
   ),
   [d],
   block(width: 5em, fill: yellow, lorem(7)),
   [d],
   table.footer(
     [eeec],
-    table.cell(rowspan: 2, count.step() + count.display()),
+    table.cell(rowspan: 2, count.step() + context count.display()),
   )
 )
-#count.display()
+#context count.display()
 
 --- grid-nested-with-footers ---
 // Nested table with footer should repeat both footers

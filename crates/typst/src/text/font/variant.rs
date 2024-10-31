@@ -79,6 +79,8 @@ impl From<usvg::FontStyle> for FontStyle {
 #[serde(transparent)]
 pub struct FontWeight(pub(super) u16);
 
+/// Font weight names and numbers.
+/// See `<https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-weight#common_weight_name_mapping>`
 impl FontWeight {
     /// Thin weight (100).
     pub const THIN: Self = Self(100);
@@ -110,7 +112,7 @@ impl FontWeight {
     /// Create a font weight from a number between 100 and 900, clamping it if
     /// necessary.
     pub fn from_number(weight: u16) -> Self {
-        Self(weight.max(100).min(900))
+        Self(weight.clamp(100, 900))
     }
 
     /// The number between 100 and 900.
@@ -120,7 +122,7 @@ impl FontWeight {
 
     /// Add (or remove) weight, saturating at the boundaries of 100 and 900.
     pub fn thicken(self, delta: i16) -> Self {
-        Self((self.0 as i16).saturating_add(delta).max(100).min(900) as u16)
+        Self((self.0 as i16).saturating_add(delta).clamp(100, 900) as u16)
     }
 
     /// The absolute number distance between this and another font weight.
@@ -138,6 +140,12 @@ impl Default for FontWeight {
 impl Debug for FontWeight {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl From<fontdb::Weight> for FontWeight {
+    fn from(weight: fontdb::Weight) -> Self {
+        Self::from_number(weight.0)
     }
 }
 
@@ -213,7 +221,7 @@ impl FontStretch {
     /// Create a font stretch from a ratio between 0.5 and 2.0, clamping it if
     /// necessary.
     pub fn from_ratio(ratio: Ratio) -> Self {
-        Self((ratio.get().max(0.5).min(2.0) * 1000.0) as u16)
+        Self((ratio.get().clamp(0.5, 2.0) * 1000.0) as u16)
     }
 
     /// Create a font stretch from an OpenType-style number between 1 and 9,
@@ -237,6 +245,21 @@ impl FontStretch {
         Ratio::new(self.0 as f64 / 1000.0)
     }
 
+    /// Round to one of the pre-defined variants.
+    pub fn round(self) -> Self {
+        match self.0 {
+            ..=562 => Self::ULTRA_CONDENSED,
+            563..=687 => Self::EXTRA_CONDENSED,
+            688..=812 => Self::CONDENSED,
+            813..=937 => Self::SEMI_CONDENSED,
+            938..=1062 => Self::NORMAL,
+            1063..=1187 => Self::SEMI_EXPANDED,
+            1188..=1374 => Self::EXPANDED,
+            1375..=1749 => Self::EXTRA_EXPANDED,
+            1750.. => Self::ULTRA_EXPANDED,
+        }
+    }
+
     /// The absolute ratio distance between this and another font stretch.
     pub fn distance(self, other: Self) -> Ratio {
         (self.to_ratio() - other.to_ratio()).abs()
@@ -248,6 +271,7 @@ impl Default for FontStretch {
         Self::NORMAL
     }
 }
+
 impl Repr for FontStretch {
     fn repr(&self) -> EcoString {
         self.to_ratio().repr()

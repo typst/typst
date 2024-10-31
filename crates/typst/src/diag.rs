@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
-use crate::syntax::package::PackageSpec;
+use crate::syntax::package::{PackageSpec, PackageVersion};
 use crate::syntax::{Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
 
@@ -38,9 +38,14 @@ use crate::{World, WorldExt};
 #[doc(hidden)]
 macro_rules! __bail {
     // For bail!("just a {}", "string")
-    ($fmt:literal $(, $arg:expr)* $(,)?) => {
+    (
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         return Err($crate::diag::error!(
-            $fmt, $($arg),*
+            $fmt $(, $arg)*
+            $(; hint: $hint $(, $hint_arg)*)*
         ))
     };
 
@@ -55,13 +60,25 @@ macro_rules! __bail {
     };
 }
 
-/// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
+/// Construct an [`EcoString`], [`HintedString`] or [`SourceDiagnostic`] with
+/// severity `Error`.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
     // For bail!("just a {}", "string").
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::eco_format!($fmt, $($arg),*)
+        $crate::diag::eco_format!($fmt, $($arg),*).into()
+    };
+
+    // For bail!("a hinted {}", "string"; hint: "some hint"; hint: "...")
+    (
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
+        $crate::diag::HintedString::new(
+            $crate::diag::eco_format!($fmt, $($arg),*)
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 
     // For bail!(span, ...)
@@ -120,6 +137,15 @@ pub use {
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
+
+/// An output alongside warnings generated while producing it.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Warned<T> {
+    /// The produced output.
+    pub output: T,
+    /// Warnings generated while producing the output.
+    pub warnings: EcoVec<SourceDiagnostic>,
+}
 
 /// An error or warning in a source file.
 ///
@@ -296,13 +322,48 @@ where
 pub type HintedStrResult<T> = Result<T, HintedString>;
 
 /// A string message with hints.
+///
+/// This is internally represented by a vector of strings.
+/// The first element of the vector contains the message.
+/// The remaining elements are the hints.
+/// This is done to reduce the size of a HintedString.
+/// The vector is guaranteed to not be empty.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct HintedString {
+pub struct HintedString(EcoVec<EcoString>);
+
+impl HintedString {
+    /// Creates a new hinted string with the given message.
+    pub fn new(message: EcoString) -> Self {
+        Self(eco_vec![message])
+    }
+
     /// A diagnostic message describing the problem.
-    pub message: EcoString,
+    pub fn message(&self) -> &EcoString {
+        self.0.first().unwrap()
+    }
+
     /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
-    pub hints: Vec<EcoString>,
+    pub fn hints(&self) -> &[EcoString] {
+        self.0.get(1..).unwrap_or(&[])
+    }
+
+    /// Adds a single hint to the hinted string.
+    pub fn hint(&mut self, hint: impl Into<EcoString>) {
+        self.0.push(hint.into());
+    }
+
+    /// Adds a single hint to the hinted string.
+    pub fn with_hint(mut self, hint: impl Into<EcoString>) -> Self {
+        self.hint(hint);
+        self
+    }
+
+    /// Adds user-facing hints to the hinted string.
+    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        self.0.extend(hints);
+        self
+    }
 }
 
 impl<S> From<S> for HintedString
@@ -310,14 +371,17 @@ where
     S: Into<EcoString>,
 {
     fn from(value: S) -> Self {
-        Self { message: value.into(), hints: vec![] }
+        Self::new(value.into())
     }
 }
 
-impl<T> At<T> for Result<T, HintedString> {
+impl<T> At<T> for HintedStrResult<T> {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|diags| {
-            eco_vec![SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)]
+        self.map_err(|err| {
+            let mut components = err.0.into_iter();
+            let message = components.next().unwrap();
+            let diag = SourceDiagnostic::error(span, message).with_hints(components);
+            eco_vec![diag]
         })
     }
 }
@@ -333,17 +397,14 @@ where
     S: Into<EcoString>,
 {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
-        self.map_err(|message| HintedString {
-            message: message.into(),
-            hints: vec![hint.into()],
-        })
+        self.map_err(|message| HintedString::new(message.into()).with_hint(hint))
     }
 }
 
 impl<T> Hint<T> for HintedStrResult<T> {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
         self.map_err(|mut error| {
-            error.hints.push(hint.into());
+            error.hint(hint.into());
             error
         })
     }
@@ -442,6 +503,8 @@ pub type PackageResult<T> = Result<T, PackageError>;
 pub enum PackageError {
     /// The specified package does not exist.
     NotFound(PackageSpec),
+    /// The specified package found, but the version does not exist.
+    VersionNotFound(PackageSpec, PackageVersion),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
@@ -457,6 +520,13 @@ impl Display for PackageError {
         match self {
             Self::NotFound(spec) => {
                 write!(f, "package not found (searched for {spec})",)
+            }
+            Self::VersionNotFound(spec, latest) => {
+                write!(
+                    f,
+                    "package found, but version {} does not exist (latest is {})",
+                    spec.version, latest,
+                )
             }
             Self::NetworkFailed(Some(err)) => {
                 write!(f, "failed to download package ({err})")

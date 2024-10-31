@@ -11,11 +11,11 @@ use std::fmt::{self, Display, Formatter, Write};
 use ecow::EcoString;
 use ttf_parser::OutlineBuilder;
 use typst::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Ratio, Size, Transform,
 };
 use typst::model::Document;
 use typst::utils::hash128;
-use typst::visualize::{Gradient, Pattern};
+use typst::visualize::{Geometry, Gradient, Pattern};
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, PatternRef, SVGSubGradient};
@@ -23,12 +23,12 @@ use crate::text::RenderedGlyph;
 
 /// Export a frame into a SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(frame: &Frame) -> String {
+pub fn svg(page: &Page) -> String {
     let mut renderer = SVGRenderer::new();
-    renderer.write_header(frame.size());
+    renderer.write_header(page.frame.size());
 
-    let state = State::new(frame.size(), Transform::identity());
-    renderer.render_frame(state, Transform::identity(), frame);
+    let state = State::new(page.frame.size(), Transform::identity());
+    renderer.render_page(state, Transform::identity(), page);
     renderer.finalize()
 }
 
@@ -57,7 +57,7 @@ pub fn svg_merged(document: &Document, padding: Abs) -> String {
     for page in &document.pages {
         let ts = Transform::translate(x, y);
         let state = State::new(page.frame.size(), Transform::identity());
-        renderer.render_frame(state, ts, &page.frame);
+        renderer.render_page(state, ts, page);
         y += page.frame.height() + padding;
     }
 
@@ -176,6 +176,16 @@ impl SVGRenderer {
         self.xml.write_attribute("xmlns:h5", "http://www.w3.org/1999/xhtml");
     }
 
+    /// Render a page with the given transform.
+    fn render_page(&mut self, state: State, ts: Transform, page: &Page) {
+        if let Some(fill) = page.fill_or_white() {
+            let shape = Geometry::Rect(page.frame.size()).filled(fill);
+            self.render_shape(state, &shape);
+        }
+
+        self.render_frame(state, ts, &page.frame);
+    }
+
     /// Render a frame with the given transform.
     fn render_frame(&mut self, state: State, ts: Transform, frame: &Frame) {
         self.xml.start_element("g");
@@ -229,6 +239,10 @@ impl SVGRenderer {
 
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-group");
+
+        if let Some(label) = group.label {
+            self.xml.write_attribute("data-typst-label", label.as_str());
+        }
 
         if let Some(clip_path) = &group.clip_path {
             let hash = hash128(&group);

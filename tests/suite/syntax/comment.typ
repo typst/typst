@@ -34,9 +34,45 @@ Second part
 First part          //
 Second part
 
+--- issue-4632-sth-followed-by-comment ---
+// Test heading markers followed by comments.
+#test([
+  =// Comment
+  =/* Comment */
+], [
+  =
+  =
+])
+
+// Test list markers followed by comments.
+#test([
+  -// Comment
+  -/* Comment */
+], [
+  -
+  -
+])
+
+// Test enum markers followed by comments.
+#test([
+  +// Comment
+  +/* Comment */
+
+  1.// Comment
+  2./* Comment */
+], [
+  +
+  +
+
+  1.
+  2.
+])
+
+
 --- comment-block-unclosed ---
 // End should not appear without start.
 // Error: 7-9 unexpected end of block comment
+// Hint: 7-9 consider escaping the `*` with a backslash or opening the block comment with `/*`
 /* */ */
 
 // Unterminated is okay.

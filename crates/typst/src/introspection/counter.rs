@@ -5,18 +5,17 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::diag::{bail, warning, At, HintedStrResult, SourceResult};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
     Selector, Show, Smart, Str, StyleChain, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
-use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
 use crate::utils::NonZeroExt;
 use crate::World;
@@ -281,9 +280,9 @@ impl Counter {
         self.sequence_impl(
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            engine.locator.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -293,20 +292,19 @@ impl Counter {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-        locator: Tracked<Locator>,
-        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
-        let mut locator = Locator::chained(locator);
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route).unnested(),
-            locator: &mut locator,
-            tracer,
         };
 
-        let mut state = CounterState::init(&self.0);
+        let mut state = CounterState::init(matches!(self.0, CounterKey::Page));
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
@@ -374,6 +372,8 @@ impl Counter {
                     FigureElem::numbering_in(styles).clone()
                 } else if func == EquationElem::elem() {
                     EquationElem::numbering_in(styles).clone()
+                } else if func == FootnoteElem::elem() {
+                    Some(FootnoteElem::numbering_in(styles).clone())
                 } else {
                     None
                 }
@@ -466,6 +466,11 @@ impl Counter {
         if let Ok(loc) = context.location() {
             self.display_impl(engine, loc, numbering, both, context.styles().ok())
         } else {
+            engine.sink.warn(warning!(
+                span, "`counter.display` without context is deprecated";
+                hint: "use it in a `context` expression instead"
+            ));
+
             Ok(CounterDisplayElem::new(self, numbering, both)
                 .pack()
                 .spanned(span)
@@ -510,13 +515,19 @@ impl Counter {
         context: Tracked<Context>,
         /// The callsite span.
         span: Span,
-        /// _Compatibility:_ This argument only exists for compatibility with
-        /// Typst 0.10 and lower and shouldn't be used anymore.
+        /// _Compatibility:_ This argument is deprecated. It only exists for
+        /// compatibility with Typst 0.10 and lower and shouldn't be used
+        /// anymore.
         #[default]
         location: Option<Location>,
     ) -> SourceResult<CounterState> {
         if location.is_none() {
             context.location().at(span)?;
+        } else {
+            engine.sink.warn(warning!(
+                span, "calling `counter.final` with a location is deprecated";
+                hint: "try removing the location argument"
+            ));
         }
 
         let sequence = self.sequence(engine)?;
@@ -645,12 +656,9 @@ pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
     /// Get the initial counter state for the key.
-    pub fn init(key: &CounterKey) -> Self {
-        Self(match key {
-            // special case, because pages always start at one.
-            CounterKey::Page => smallvec![1],
-            _ => smallvec![0],
-        })
+    pub fn init(page: bool) -> Self {
+        // Special case, because pages always start at one.
+        Self(smallvec![usize::from(page)])
     }
 
     /// Advance the counter and return the numbers for the given heading.
@@ -676,14 +684,12 @@ impl CounterState {
     pub fn step(&mut self, level: NonZeroUsize, by: usize) {
         let level = level.get();
 
-        if self.0.len() >= level {
-            self.0[level - 1] = self.0[level - 1].saturating_add(by);
-            self.0.truncate(level);
+        while self.0.len() < level {
+            self.0.push(0);
         }
 
-        while self.0.len() < level {
-            self.0.push(1);
-        }
+        self.0[level - 1] = self.0[level - 1].saturating_add(by);
+        self.0.truncate(level);
     }
 
     /// Get the first number of the state.
@@ -709,7 +715,7 @@ cast! {
     array: Array => Self(array
         .into_iter()
         .map(Value::cast)
-        .collect::<StrResult<_>>()?),
+        .collect::<HintedStrResult<_>>()?),
 }
 
 /// Executes an update of a counter.
@@ -815,7 +821,7 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Tag(elem) => {
+                FrameItem::Tag(Tag::Start(elem)) => {
                     let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };

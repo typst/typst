@@ -59,6 +59,8 @@ enum EventKind {
 /// Enable the timer.
 #[inline]
 pub fn enable() {
+    // We only need atomicity and no synchronization of other
+    // operations, so `Relaxed` is fine.
     ENABLED.store(true, Relaxed);
 }
 

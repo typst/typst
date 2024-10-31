@@ -211,11 +211,7 @@ pub enum Color {
 #[scope]
 impl Color {
     /// The module of preset color maps.
-    pub const MAP: fn() -> Module = || {
-        // Lazy to avoid re-allocating.
-        static MODULE: Lazy<Module> = Lazy::new(map);
-        MODULE.clone()
-    };
+    pub const MAP: fn() -> Module = || crate::utils::singleton!(Module, map()).clone();
 
     pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
     pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));
@@ -547,6 +543,9 @@ impl Color {
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
+    ///
+    /// Note that CMYK colors are not currently supported when PDF/A output is
+    /// enabled.
     ///
     /// ```example
     /// #square(
@@ -1191,7 +1190,7 @@ impl Color {
                 Color::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
             }
             ColorSpace::Cmyk => Color::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[1])),
+            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[3])),
         })
     }
 
@@ -1721,7 +1720,7 @@ impl Cmyk {
     }
 
     fn from_luma(luma: Luma) -> Self {
-        let l = luma.luma;
+        let l = 1.0 - luma.luma;
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
@@ -1951,7 +1950,7 @@ fn map() -> Module {
     Module::new("map", scope)
 }
 
-/// Defines a tradient preset as a series of colors expressed as u32s.
+/// Defines a gradient preset as a series of colors expressed as u32s.
 macro_rules! preset {
     ($name:ident; $($colors:literal),* $(,)*) => {
         fn $name() -> Array {

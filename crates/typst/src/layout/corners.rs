@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::StrResult;
+use crate::diag::HintedStrResult;
 use crate::foundations::{
     AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
     StyleChain, Value,
@@ -175,7 +175,7 @@ impl<T> FromValue for Corners<Option<T>>
 where
     T: FromValue + Clone,
 {
-    fn from_value(mut value: Value) -> StrResult<Self> {
+    fn from_value(mut value: Value) -> HintedStrResult<Self> {
         let expected_keys = [
             "top-left",
             "top-right",
@@ -224,7 +224,7 @@ where
             let keys = dict.iter().map(|kv| kv.0.as_str()).collect();
             // Do not hint at expected_keys, because T may be castable from Dict
             // objects with other sets of expected keys.
-            Err(Dict::unexpected_keys(keys, None))
+            Err(Dict::unexpected_keys(keys, None).into())
         } else {
             Err(Self::error(&value))
         }
@@ -241,7 +241,7 @@ impl<T: Resolve> Resolve for Corners<T> {
 
 impl<T: Fold> Fold for Corners<Option<T>> {
     fn fold(self, outer: Self) -> Self {
-        // Usually, folding an inner `None` with an `outer` preferres the
+        // Usually, folding an inner `None` with an `outer` prefers the
         // explicit `None`. However, here `None` means unspecified and thus
         // we want `outer`, so we use `fold_or` to opt into such behavior.
         self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))
@@ -262,6 +262,16 @@ pub enum Corner {
 }
 
 impl Corner {
+    /// The opposite corner.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::TopLeft => Self::BottomRight,
+            Self::TopRight => Self::BottomLeft,
+            Self::BottomRight => Self::TopLeft,
+            Self::BottomLeft => Self::TopRight,
+        }
+    }
+
     /// The next corner, clockwise.
     pub fn next_cw(self) -> Self {
         match self {

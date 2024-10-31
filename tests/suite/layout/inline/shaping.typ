@@ -2,7 +2,7 @@
 
 --- shaping-script-separation ---
 // Test separation by script.
-#set text(font: ("Linux Libertine", "IBM Plex Sans Devanagari"))
+#set text(font: ("Libertinus Serif", "IBM Plex Sans Devanagari"))
 ABCअपार्टमेंट
 
 // This is how it should look like.
@@ -14,12 +14,12 @@ ABCअपार्टमेंट
 
 --- shaping-forced-script-font-feature-inhibited ---
 // A forced `latn` script inhibits Devanagari font features.
-#set text(font: ("Linux Libertine", "IBM Plex Sans Devanagari"), script: "latn")
+#set text(font: ("Libertinus Serif", "IBM Plex Sans Devanagari"), script: "latn")
 ABCअपार्टमेंट
 
 --- shaping-forced-script-font-feature-enabled ---
 // A forced `deva` script enables Devanagari font features.
-#set text(font: ("Linux Libertine", "IBM Plex Sans Devanagari"), script: "deva")
+#set text(font: ("Libertinus Serif", "IBM Plex Sans Devanagari"), script: "deva")
 ABCअपार्टमेंट
 
 --- issue-rtl-safe-to-break-panic ---

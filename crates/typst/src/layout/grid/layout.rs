@@ -10,8 +10,8 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Resolve, StyleChain};
 use crate::layout::{
-    Abs, Axes, Cell, CellGrid, Dir, Fr, Fragment, Frame, FrameItem, LayoutMultiple,
-    Length, Point, Regions, Rel, Size, Sizing,
+    Abs, Axes, Cell, CellGrid, Dir, Fr, Fragment, Frame, FrameItem, Length, Point,
+    Region, Regions, Rel, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -21,7 +21,7 @@ use crate::visualize::Geometry;
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The grid of cells.
-    pub(super) grid: &'a CellGrid,
+    pub(super) grid: &'a CellGrid<'a>,
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
     /// The inherited styles.
@@ -78,8 +78,8 @@ pub(super) enum Row {
     /// where this row is laid out, and it can only be false when a row uses
     /// `layout_multi_row`, which in turn is only used by breakable auto rows.
     Frame(Frame, usize, bool),
-    /// Fractional row with y index.
-    Fr(Fr, usize),
+    /// Fractional row with y index and disambiguator.
+    Fr(Fr, usize, usize),
 }
 
 impl Row {
@@ -87,7 +87,7 @@ impl Row {
     fn index(&self) -> usize {
         match self {
             Self::Frame(_, y, _) => *y,
-            Self::Fr(_, y) => *y,
+            Self::Fr(_, y, _) => *y,
         }
     }
 }
@@ -97,7 +97,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
-        grid: &'a CellGrid,
+        grid: &'a CellGrid<'a>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -133,7 +133,7 @@ impl<'a> GridLayouter<'a> {
         if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
-            self.prepare_footer(footer, engine)?;
+            self.prepare_footer(footer, engine, 0)?;
             if matches!(self.grid.header, None | Some(Repeatable::NotRepeated(_))) {
                 // No repeatable header, so we won't subtract it later.
                 self.regions.size.y -= self.footer_height;
@@ -144,7 +144,7 @@ impl<'a> GridLayouter<'a> {
             if let Some(Repeatable::Repeated(header)) = &self.grid.header {
                 if y < header.end {
                     if y == 0 {
-                        self.layout_header(header, engine)?;
+                        self.layout_header(header, engine, 0)?;
                         self.regions.size.y -= self.footer_height;
                     }
                     // Skip header rows during normal layout.
@@ -155,16 +155,16 @@ impl<'a> GridLayouter<'a> {
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
                 if y >= footer.start {
                     if y == footer.start {
-                        self.layout_footer(footer, engine)?;
+                        self.layout_footer(footer, engine, self.finished.len())?;
                     }
                     continue;
                 }
             }
 
-            self.layout_row(y, engine)?;
+            self.layout_row(y, engine, 0)?;
         }
 
-        self.finish_region(engine)?;
+        self.finish_region(engine, true)?;
 
         // Layout any missing rowspans.
         // There are only two possibilities for rowspans not yet laid out
@@ -189,27 +189,30 @@ impl<'a> GridLayouter<'a> {
         &mut self,
         y: usize,
         engine: &mut Engine,
+        disambiguator: usize,
     ) -> SourceResult<()> {
         // Skip to next region if current one is full, but only for content
         // rows, not for gutter rows, and only if we aren't laying out an
         // unbreakable group of rows.
         let is_content_row = !self.grid.is_gutter_track(y);
         if self.unbreakable_rows_left == 0 && self.regions.is_full() && is_content_row {
-            self.finish_region(engine)?;
+            self.finish_region(engine, false)?;
         }
 
         if is_content_row {
             // Gutter rows have no rowspans or possibly unbreakable cells.
-            self.check_for_rowspans(y);
+            self.check_for_rowspans(disambiguator, y);
             self.check_for_unbreakable_rows(y, engine)?;
         }
 
         // Don't layout gutter rows at the top of a region.
         if is_content_row || !self.lrows.is_empty() {
             match self.grid.rows[y] {
-                Sizing::Auto => self.layout_auto_row(engine, y)?,
-                Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
-                Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
+                Sizing::Auto => self.layout_auto_row(engine, disambiguator, y)?,
+                Sizing::Rel(v) => {
+                    self.layout_relative_row(engine, disambiguator, v, y)?
+                }
+                Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y, disambiguator)),
             }
         }
 
@@ -840,8 +843,8 @@ impl<'a> GridLayouter<'a> {
                 let already_covered_width = self.cell_spanned_width(cell, parent.x);
 
                 let size = Size::new(available, height);
-                let pod = Regions::one(size, Axes::splat(false));
-                let frame = cell.measure(engine, self.styles, pod)?.into_frame();
+                let pod = Region::new(size, Axes::splat(false));
+                let frame = cell.layout(engine, 0, self.styles, pod.into())?.into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -901,11 +904,17 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
-    fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
+    fn layout_auto_row(
+        &mut self,
+        engine: &mut Engine,
+        disambiguator: usize,
+        y: usize,
+    ) -> SourceResult<()> {
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
         let mut resolved = match self.measure_auto_row(
             engine,
+            disambiguator,
             y,
             true,
             self.unbreakable_rows_left,
@@ -913,9 +922,16 @@ impl<'a> GridLayouter<'a> {
         )? {
             Some(resolved) => resolved,
             None => {
-                self.finish_region(engine)?;
-                self.measure_auto_row(engine, y, false, self.unbreakable_rows_left, None)?
-                    .unwrap()
+                self.finish_region(engine, false)?;
+                self.measure_auto_row(
+                    engine,
+                    disambiguator,
+                    y,
+                    false,
+                    self.unbreakable_rows_left,
+                    None,
+                )?
+                .unwrap()
             }
         };
 
@@ -926,7 +942,7 @@ impl<'a> GridLayouter<'a> {
 
         // Layout into a single region.
         if let &[first] = resolved.as_slice() {
-            let frame = self.layout_single_row(engine, first, y)?;
+            let frame = self.layout_single_row(engine, disambiguator, first, y)?;
             self.push_row(frame, y, true);
 
             if self
@@ -966,12 +982,12 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Layout into multiple regions.
-        let fragment = self.layout_multi_row(engine, &resolved, y)?;
+        let fragment = self.layout_multi_row(engine, disambiguator, &resolved, y)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             self.push_row(frame, y, i + 1 == len);
             if i + 1 < len {
-                self.finish_region(engine)?;
+                self.finish_region(engine, false)?;
             }
         }
 
@@ -989,6 +1005,7 @@ impl<'a> GridLayouter<'a> {
     pub(super) fn measure_auto_row(
         &self,
         engine: &mut Engine,
+        disambiguator: usize,
         y: usize,
         can_skip: bool,
         unbreakable_rows_left: usize,
@@ -1045,7 +1062,7 @@ impl<'a> GridLayouter<'a> {
                 // Force cell to fit into a single region when the row is
                 // unbreakable, even when it is a breakable rowspan, as a best
                 // effort.
-                let mut pod = Regions::one(size, self.regions.expand);
+                let mut pod: Regions = Region::new(size, self.regions.expand).into();
                 pod.full = measurement_data.full;
 
                 if measurement_data.frames_in_previous_regions > 0 {
@@ -1069,7 +1086,8 @@ impl<'a> GridLayouter<'a> {
                 pod
             };
 
-            let frames = cell.measure(engine, self.styles, pod)?.into_frames();
+            let frames =
+                cell.layout(engine, disambiguator, self.styles, pod)?.into_frames();
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
@@ -1145,6 +1163,7 @@ impl<'a> GridLayouter<'a> {
                 &pending_rowspans,
                 unbreakable_rows_left,
                 row_group_data,
+                disambiguator,
                 engine,
             )?;
         }
@@ -1159,11 +1178,12 @@ impl<'a> GridLayouter<'a> {
     fn layout_relative_row(
         &mut self,
         engine: &mut Engine,
+        disambiguator: usize,
         v: Rel<Length>,
         y: usize,
     ) -> SourceResult<()> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
-        let frame = self.layout_single_row(engine, resolved, y)?;
+        let frame = self.layout_single_row(engine, disambiguator, resolved, y)?;
 
         if self
             .grid
@@ -1185,7 +1205,7 @@ impl<'a> GridLayouter<'a> {
             && !self.regions.size.y.fits(height)
             && !in_last_with_offset(self.regions, self.header_height + self.footer_height)
         {
-            self.finish_region(engine)?;
+            self.finish_region(engine, false)?;
 
             // Don't skip multiple regions for gutter and don't push a row.
             if self.grid.is_gutter_track(y) {
@@ -1202,6 +1222,7 @@ impl<'a> GridLayouter<'a> {
     fn layout_single_row(
         &mut self,
         engine: &mut Engine,
+        disambiguator: usize,
         height: Abs,
         y: usize,
     ) -> SourceResult<Frame> {
@@ -1223,7 +1244,7 @@ impl<'a> GridLayouter<'a> {
                 if cell.rowspan.get() == 1 {
                     let width = self.cell_spanned_width(cell, x);
                     let size = Size::new(width, height);
-                    let mut pod = Regions::one(size, Axes::splat(true));
+                    let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
                     if self.grid.rows[y] == Sizing::Auto
                         && self.unbreakable_rows_left == 0
                     {
@@ -1232,7 +1253,9 @@ impl<'a> GridLayouter<'a> {
                         // rows.
                         pod.full = self.regions.full;
                     }
-                    let frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                    let frame = cell
+                        .layout(engine, disambiguator, self.styles, pod)?
+                        .into_frame();
                     let mut pos = pos;
                     if self.is_rtl {
                         // In the grid, cell colspans expand to the right,
@@ -1261,6 +1284,7 @@ impl<'a> GridLayouter<'a> {
     fn layout_multi_row(
         &mut self,
         engine: &mut Engine,
+        disambiguator: usize,
         heights: &[Abs],
         y: usize,
     ) -> SourceResult<Fragment> {
@@ -1272,7 +1296,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions.
         let size = Size::new(self.width, heights[0]);
-        let mut pod = Regions::one(size, Axes::splat(true));
+        let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
         pod.full = self.regions.full;
         pod.backlog = &heights[1..];
 
@@ -1286,7 +1310,8 @@ impl<'a> GridLayouter<'a> {
                     pod.size.x = width;
 
                     // Push the layouted frames into the individual output frames.
-                    let fragment = cell.layout(engine, self.styles, pod)?;
+                    let fragment =
+                        cell.layout(engine, disambiguator, self.styles, pod)?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = pos;
                         if self.is_rtl {
@@ -1314,7 +1339,11 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Finish rows for one region.
-    pub(super) fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
+    pub(super) fn finish_region(
+        &mut self,
+        engine: &mut Engine,
+        last: bool,
+    ) -> SourceResult<()> {
         if self
             .lrows
             .last()
@@ -1369,7 +1398,7 @@ impl<'a> GridLayouter<'a> {
                 && self.lrows.iter().all(|row| row.index() < footer.start)
             {
                 laid_out_footer_start = Some(footer.start);
-                self.layout_footer(footer, engine)?;
+                self.layout_footer(footer, engine, self.finished.len())?;
             }
         }
 
@@ -1379,7 +1408,7 @@ impl<'a> GridLayouter<'a> {
         for row in &self.lrows {
             match row {
                 Row::Frame(frame, _, _) => used += frame.height(),
-                Row::Fr(v, _) => fr += *v,
+                Row::Fr(v, _, _) => fr += *v,
             }
         }
 
@@ -1400,10 +1429,10 @@ impl<'a> GridLayouter<'a> {
         for row in std::mem::take(&mut self.lrows) {
             let (frame, y, is_last) = match row {
                 Row::Frame(frame, y, is_last) => (frame, y, is_last),
-                Row::Fr(v, y) => {
+                Row::Fr(v, y, disambiguator) => {
                     let remaining = self.regions.full - used;
                     let height = v.share(fr, remaining);
-                    (self.layout_single_row(engine, height, y)?, y, true)
+                    (self.layout_single_row(engine, disambiguator, height, y)?, y, true)
                 }
             };
 
@@ -1499,17 +1528,20 @@ impl<'a> GridLayouter<'a> {
 
         self.finish_region_internal(output, rrows);
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            self.prepare_footer(footer, engine)?;
-        }
+        if !last {
+            let disambiguator = self.finished.len();
+            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+                self.prepare_footer(footer, engine, disambiguator)?;
+            }
 
-        if let Some(Repeatable::Repeated(header)) = &self.grid.header {
-            // Add a header to the new region.
-            self.layout_header(header, engine)?;
-        }
+            if let Some(Repeatable::Repeated(header)) = &self.grid.header {
+                // Add a header to the new region.
+                self.layout_header(header, engine, disambiguator)?;
+            }
 
-        // Ensure rows don't try to overrun the footer.
-        self.regions.size.y -= self.footer_height;
+            // Ensure rows don't try to overrun the footer.
+            self.regions.size.y -= self.footer_height;
+        }
 
         Ok(())
     }

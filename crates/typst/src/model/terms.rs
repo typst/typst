@@ -1,13 +1,11 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
+    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Styles,
 };
-use crate::layout::{
-    BlockElem, Dir, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Sides, Spacing,
-    StackChild, StackElem,
-};
-use crate::model::ParElem;
+use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
+use crate::model::{ListItemLike, ListLike, ParElem};
 use crate::text::TextElem;
 use crate::utils::Numeric;
 
@@ -27,17 +25,19 @@ use crate::utils::Numeric;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", LayoutMultiple)]
+#[elem(scope, title = "Term List", Show)]
 pub struct TermsElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the term list more compact,
-    /// which can look better if the items are short.
+    /// Defines the default [spacing]($terms.spacing) of the term list. If it is
+    /// `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
     /// each other, this is set to `{true}`; if items are separated by a blank
-    /// line, this is set to `{false}`.
+    /// line, this is set to `{false}`. The markup-defined tightness cannot be
+    /// overridden with set rules.
     ///
     /// ```example
     /// / Fact: If a term list has a lot
@@ -82,10 +82,12 @@ pub struct TermsElem {
     #[default(Em::new(2.0).into())]
     pub hanging_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) term list.
+    /// The spacing between the items of the term list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// term lists and paragraph [`spacing`]($par.spacing) for wide
+    /// (non-tight) term lists.
+    pub spacing: Smart<Length>,
 
     /// The term list's children.
     ///
@@ -109,23 +111,18 @@ impl TermsElem {
     type TermItem;
 }
 
-impl LayoutMultiple for Packed<TermsElem> {
-    #[typst_macros::time(name = "terms", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
+impl Show for Packed<TermsElem> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
-        let gutter = if self.tight(styles) {
-            ParElem::leading_in(styles).into()
-        } else {
-            self.spacing(styles)
-                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-        };
+        let gutter = self.spacing(styles).unwrap_or_else(|| {
+            if self.tight(styles) {
+                ParElem::leading_in(styles).into()
+            } else {
+                ParElem::spacing_in(styles).into()
+            }
+        });
 
         let pad = hanging_indent + indent;
         let unpad = (!hanging_indent.is_zero())
@@ -148,11 +145,19 @@ impl LayoutMultiple for Packed<TermsElem> {
             padding.right = pad.into();
         }
 
-        StackElem::new(children)
-            .with_spacing(Some(gutter))
+        let mut realized = StackElem::new(children)
+            .with_spacing(Some(gutter.into()))
             .pack()
-            .padded(padding)
-            .layout(engine, styles, regions)
+            .padded(padding);
+
+        if self.tight(styles) {
+            let leading = ParElem::leading_in(styles);
+            let spacing =
+                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
+            realized = spacing + realized;
+        }
+
+        Ok(realized)
     }
 }
 
@@ -179,4 +184,20 @@ cast! {
         Self::new(term, description)
     },
     v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
+}
+
+impl ListLike for TermsElem {
+    type Item = TermItem;
+
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self {
+        Self::new(children).with_tight(tight)
+    }
+}
+
+impl ListItemLike for TermItem {
+    fn styled(mut item: Packed<Self>, styles: Styles) -> Packed<Self> {
+        item.term.style_in_place(styles.clone());
+        item.description.style_in_place(styles);
+        item
+    }
 }

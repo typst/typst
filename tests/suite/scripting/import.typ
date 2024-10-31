@@ -45,6 +45,59 @@
 #test(val, 1)
 #test(other(1, 2), 3)
 
+--- import-nested-item ---
+// Nested item imports.
+#import "modules/chap1.typ" as orig-chap1
+#import "modules/chap2.typ" as orig-chap2
+#import "module.typ": chap2, chap2.name, chap2.chap1, chap2.chap1.name as othername
+#test(chap2, orig-chap2)
+#test(chap1, orig-chap1)
+#test(name, "Peter")
+#test(othername, "Klaus")
+
+--- import-items-parenthesized ---
+#import "module.typ": ()
+#import "module.typ": (a)
+#import "module.typ": (a, b)
+#import "module.typ": (a, b, c, d)
+
+#test(a, none)
+#test(b, 1)
+#test(c, 2)
+#test(d, 3)
+
+--- import-items-parenthesized-multiline ---
+#import "module.typ": (
+  a
+)
+#import "module.typ": (
+  a, b as e,
+  c,
+
+
+      d,
+)
+
+#test(a, none)
+#test(e, 1)
+#test(c, 2)
+#test(d, 3)
+
+--- import-items-parenthesized-invalid ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (a, b, c
+
+--- import-items-parenthesized-invalid-2 ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (
+
+--- import-items-parenthesized-invalid-3 ---
+// Error: 23-24 unclosed delimiter
+#import "module.typ": (
+  a, b,
+  c,
+
+
 --- import-from-function-scope ---
 // Test importing from function scopes.
 
@@ -62,6 +115,28 @@
 // Test renaming items imported from function scopes.
 #import assert: eq as aseq
 #aseq(10, 10)
+
+--- import-from-function-scope-nested-import ---
+// Test importing items from function scopes via nested import.
+#import std: grid.cell, table.cell as tcell
+#test(cell, grid.cell)
+#test(tcell, table.cell)
+
+--- import-from-type-scope ---
+// Test importing from a type's scope.
+#import array: zip
+#test(zip((1, 2), (3, 4)), ((1, 3), (2, 4)))
+
+--- import-from-type-scope-item-renamed ---
+// Test importing from a type's scope with renaming.
+#import array: pop as renamed-pop
+#test(renamed-pop((1, 2)), 2)
+
+--- import-from-type-scope-nested-import ---
+// Test importing from a type's scope with nested import.
+#import std: array.zip, array.pop as renamed-pop
+#test(zip((1, 2), (3, 4)), ((1, 3), (2, 4)))
+#test(renamed-pop((1, 2)), 2)
 
 --- import-from-file-bare ---
 // A module import without items.
@@ -225,6 +300,10 @@ This is never reached.
 // Error: 7-12 unknown variable: chap1
 #test(chap1.b, "Klaus")
 
+--- import-nested-invalid-type ---
+// Error: 19-21 expected module, function, or type, found float
+#import std: calc.pi.something
+
 --- import-incomplete ---
 // Error: 8 expected expression
 #import
@@ -261,6 +340,15 @@ This is never reached.
 // Error: 14-15 unexpected colon
 // Error: 16-17 unexpected integer
 #import "": a: 1
+
+--- import-incomplete-nested ---
+// Error: 15 expected identifier
+#import "": a.
+
+--- import-wildcard-in-nested ---
+// Error: 15 expected identifier
+// Error: 15-16 unexpected star
+#import "": a.*
 
 --- import-missing-comma ---
 // Error: 14 expected comma

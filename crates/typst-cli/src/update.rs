@@ -7,11 +7,12 @@ use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
 use typst::diag::{bail, StrResult};
+use typst_kit::download::Downloader;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::{download, download_with_progress};
+use crate::download::{self, PrintDownload};
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -27,7 +28,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
 
         if version < &Version::new(0, 8, 0) {
             eprintln!(
-                "Note: Versions older than 0.8.0 will not have \
+                "note: versions older than 0.8.0 will not have \
                  the update command available."
             );
         }
@@ -40,7 +41,14 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let backup_path = backup_path()?;
+    // Full path to the backup file.
+    let backup_path = command.backup_path.clone().map(Ok).unwrap_or_else(backup_path)?;
+
+    if let Some(backup_dir) = backup_path.parent() {
+        fs::create_dir_all(backup_dir)
+            .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
+    }
+
     if command.revert {
         if !backup_path.exists() {
             bail!(
@@ -61,13 +69,15 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
     fs::copy(current_exe, &backup_path)
         .map_err(|err| eco_format!("failed to create backup ({err})"))?;
 
-    let release = Release::from_tag(command.version.as_ref())?;
+    let downloader = download::downloader();
+
+    let release = Release::from_tag(command.version.as_ref(), &downloader)?;
     if !update_needed(&release)? && !command.force {
         eprintln!("Already up-to-date.");
         return Ok(());
     }
 
-    let binary_data = release.download_binary(needed_asset()?)?;
+    let binary_data = release.download_binary(needed_asset()?, &downloader)?;
     let mut temp_exe = NamedTempFile::new()
         .map_err(|err| eco_format!("failed to create temporary file ({err})"))?;
     temp_exe
@@ -99,7 +109,10 @@ struct Release {
 impl Release {
     /// Download the target release, or latest if version is `None`, from the
     /// Typst repository.
-    pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
+    pub fn from_tag(
+        tag: Option<&Version>,
+        downloader: &Downloader,
+    ) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
                 "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/tags/v{tag}"
@@ -109,7 +122,7 @@ impl Release {
             ),
         };
 
-        match download(&url) {
+        match downloader.download(&url) {
             Ok(response) => response.into_json().map_err(|err| {
                 eco_format!("failed to parse release information ({err})")
             }),
@@ -123,15 +136,21 @@ impl Release {
     /// Download the binary from a given [`Release`] and select the
     /// corresponding asset for this target platform, returning the raw binary
     /// data.
-    pub fn download_binary(&self, asset_name: &str) -> StrResult<Vec<u8>> {
+    pub fn download_binary(
+        &self,
+        asset_name: &str,
+        downloader: &Downloader,
+    ) -> StrResult<Vec<u8>> {
         let asset = self
             .assets
             .iter()
             .find(|a| a.name.starts_with(asset_name))
             .ok_or("could not find release for your target platform")?;
 
-        eprintln!("Downloading release ...");
-        let data = match download_with_progress(&asset.browser_download_url) {
+        let data = match downloader.download_with_progress(
+            &asset.browser_download_url,
+            &mut PrintDownload("release"),
+        ) {
             Ok(data) => data,
             Err(ureq::Error::Status(404, _)) => {
                 bail!("asset not found (searched for {})", asset.name);
@@ -213,14 +232,19 @@ fn update_needed(release: &Release) -> StrResult<bool> {
     Ok(new_tag > current_tag)
 }
 
-/// Path to a potential backup file.
+/// Path to a potential backup file in the system.
 ///
-/// The backup will be placed in one of the following directories, depending on
-/// the platform:
+/// The backup will be placed as `typst_backup.part` in one of the following
+/// directories, depending on the platform:
 ///  - `$XDG_STATE_HOME` or `~/.local/state` on Linux
 ///    - `$XDG_DATA_HOME` or `~/.local/share` if the above path isn't available
 ///  - `~/Library/Application Support` on macOS
 ///  - `%APPDATA%` on Windows
+///
+/// If a custom backup path is provided via the environment variable
+/// `TYPST_UPDATE_BACKUP_PATH`, it will be used instead of the default
+/// directories determined by the platform. In that case, this function
+/// shouldn't be called.
 fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
@@ -231,10 +255,5 @@ fn backup_path() -> StrResult<PathBuf> {
     let root_backup_dir =
         dirs::data_dir().ok_or("unable to locate local data directory")?;
 
-    let backup_dir = root_backup_dir.join("typst");
-
-    fs::create_dir_all(&backup_dir)
-        .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
-
-    Ok(backup_dir.join("typst_backup.part"))
+    Ok(root_backup_dir.join("typst").join("typst_backup.part"))
 }

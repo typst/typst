@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use crate::diag::{bail, At, SourceResult};
+use ecow::eco_format;
+
+use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::eval::{Access, Eval, Vm};
 use crate::foundations::{Array, Dict, Value};
 use crate::syntax::ast::{self, AstNode};
@@ -96,7 +98,7 @@ where
         match p {
             ast::DestructuringItem::Pattern(pattern) => {
                 let Ok(v) = value.at(i as i64, None) else {
-                    bail!(pattern.span(), "not enough elements to destructure");
+                    bail!(wrong_number_of_elements(destruct, len));
                 };
                 destructure_impl(vm, pattern, v, f)?;
                 i += 1;
@@ -105,7 +107,7 @@ where
                 let sink_size = (1 + len).checked_sub(destruct.items().count());
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                 let (Some(sink_size), Some(sink)) = (sink_size, sink) else {
-                    bail!(spread.span(), "not enough elements to destructure");
+                    bail!(wrong_number_of_elements(destruct, len));
                 };
                 if let Some(expr) = spread.sink_expr() {
                     f(vm, expr, Value::Array(sink.into()))?;
@@ -119,7 +121,7 @@ where
     }
 
     if i < len {
-        bail!(destruct.span(), "too many elements to destructure");
+        bail!(wrong_number_of_elements(destruct, len));
     }
 
     Ok(())
@@ -171,4 +173,38 @@ where
     }
 
     Ok(())
+}
+
+/// The error message when the number of elements of the destructuring and the
+/// array is mismatched.
+#[cold]
+fn wrong_number_of_elements(
+    destruct: ast::Destructuring,
+    len: usize,
+) -> SourceDiagnostic {
+    let mut count = 0;
+    let mut spread = false;
+
+    for p in destruct.items() {
+        match p {
+            ast::DestructuringItem::Pattern(_) => count += 1,
+            ast::DestructuringItem::Spread(_) => spread = true,
+            ast::DestructuringItem::Named(_) => {}
+        }
+    }
+
+    let quantifier = if len > count { "too many" } else { "not enough" };
+    let expected = match (spread, count) {
+        (true, 1) => "at least 1 element".into(),
+        (true, c) => eco_format!("at least {c} elements"),
+        (false, 0) => "an empty array".into(),
+        (false, 1) => "a single element".into(),
+        (false, c) => eco_format!("{c} elements",),
+    };
+
+    error!(
+        destruct.span(), "{quantifier} elements to destructure";
+        hint: "the provided array has a length of {len}, \
+               but the pattern expects {expected}",
+    )
 }

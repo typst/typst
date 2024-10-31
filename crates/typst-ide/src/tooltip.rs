@@ -2,22 +2,22 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::eval::{CapturesVisitor, Tracer};
+use typst::engine::Sink;
+use typst::eval::CapturesVisitor;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
-use typst::utils::{round_2, Numeric};
+use typst::utils::{round_with_precision, Numeric};
 use typst::World;
 
-use crate::analyze::{analyze_expr, analyze_labels};
-use crate::{plain_docs_sentence, summarize_font_family};
+use crate::{analyze_expr, analyze_labels, plain_docs_sentence, summarize_font_family};
 
 /// Describe the item under the cursor.
 ///
 /// Passing a `document` (from a previous compilation) is optional, but enhances
-/// the autocompletions. Label completions, for instance, are only generated
-/// when the document is available.
+/// the tooltips. Label tooltips, for instance, are only generated when the
+/// document is available.
 pub fn tooltip(
     world: &dyn World,
     document: Option<&Document>,
@@ -38,7 +38,7 @@ pub fn tooltip(
 }
 
 /// A hover tooltip.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Tooltip {
     /// A string of text.
     Text(EcoString),
@@ -79,7 +79,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut last = None;
     let mut pieces: Vec<EcoString> = vec![];
     let mut iter = values.iter();
-    for (value, _) in (&mut iter).take(Tracer::MAX_VALUES - 1) {
+    for (value, _) in (&mut iter).take(Sink::MAX_VALUES - 1) {
         if let Some((prev, count)) = &mut last {
             if *prev == value {
                 *count += 1;
@@ -126,7 +126,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
 
     let captures = visitor.finish();
     let mut names: Vec<_> =
-        captures.iter().map(|(name, _)| eco_format!("`{name}`")).collect();
+        captures.iter().map(|(name, ..)| eco_format!("`{name}`")).collect();
     if names.is_empty() {
         return None;
     }
@@ -142,10 +142,10 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
     length.em.is_zero().then(|| {
         Tooltip::Code(eco_format!(
             "{}pt = {}mm = {}cm = {}in",
-            round_2(length.abs.to_pt()),
-            round_2(length.abs.to_mm()),
-            round_2(length.abs.to_cm()),
-            round_2(length.abs.to_inches())
+            round_with_precision(length.abs.to_pt(), 2),
+            round_with_precision(length.abs.to_mm(), 2),
+            round_with_precision(length.abs.to_cm(), 2),
+            round_with_precision(length.abs.to_inches(), 2),
         ))
     })
 }
@@ -249,4 +249,39 @@ fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     };
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use typst::syntax::Side;
+
+    use super::{tooltip, Tooltip};
+    use crate::tests::TestWorld;
+
+    fn text(text: &str) -> Option<Tooltip> {
+        Some(Tooltip::Text(text.into()))
+    }
+
+    fn code(code: &str) -> Option<Tooltip> {
+        Some(Tooltip::Code(code.into()))
+    }
+
+    #[track_caller]
+    fn test(text: &str, cursor: usize, side: Side, expected: Option<Tooltip>) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world).output.ok();
+        assert_eq!(tooltip(&world, doc.as_ref(), &world.main, cursor, side), expected);
+    }
+
+    #[test]
+    fn test_tooltip() {
+        test("#let x = 1 + 2", 5, Side::After, code("3"));
+        test("#let x = 1 + 2", 6, Side::Before, code("3"));
+        test("#let f(x) = x + y", 11, Side::Before, text("This closure captures `y`."));
+    }
+
+    #[test]
+    fn test_empty_contextual() {
+        test("#{context}", 10, Side::Before, code("context()"));
+    }
 }

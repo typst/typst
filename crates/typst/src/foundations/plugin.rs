@@ -155,6 +155,8 @@ impl Plugin {
         /// The engine.
         engine: &mut Engine,
         /// Path to a WebAssembly file.
+        ///
+        /// For more details, see the [Paths section]($syntax/#paths).
         path: Spanned<EcoString>,
     ) -> SourceResult<Plugin> {
         let Spanned { v: path, span } = path;
@@ -234,12 +236,12 @@ impl Plugin {
         let ty = func.ty(store.as_context());
 
         // Check function signature.
-        if ty.params().iter().any(|&v| v != wasmi::core::ValueType::I32) {
+        if ty.params().iter().any(|&v| v != wasmi::core::ValType::I32) {
             bail!(
                 "plugin function `{name}` has a parameter that is not a 32-bit integer"
             );
         }
-        if ty.results() != [wasmi::core::ValueType::I32] {
+        if ty.results() != [wasmi::core::ValType::I32] {
             bail!("plugin function `{name}` does not return exactly one 32-bit integer");
         }
 
@@ -257,14 +259,14 @@ impl Plugin {
         // Collect the lengths of the argument buffers.
         let lengths = args
             .iter()
-            .map(|a| wasmi::Value::I32(a.len() as i32))
+            .map(|a| wasmi::Val::I32(a.len() as i32))
             .collect::<Vec<_>>();
 
         // Store the input data.
         store.data_mut().args = args;
 
         // Call the function.
-        let mut code = wasmi::Value::I32(-1);
+        let mut code = wasmi::Val::I32(-1);
         func.call(store.as_context_mut(), &lengths, std::slice::from_mut(&mut code))
             .map_err(|err| eco_format!("plugin panicked: {err}"))?;
         if let Some(MemoryError { offset, length, write }) =
@@ -281,8 +283,8 @@ impl Plugin {
 
         // Parse the functions return value.
         match code {
-            wasmi::Value::I32(0) => {}
-            wasmi::Value::I32(1) => match std::str::from_utf8(&output) {
+            wasmi::Val::I32(0) => {}
+            wasmi::Val::I32(1) => match std::str::from_utf8(&output) {
                 Ok(message) => bail!("plugin errored with: {message}"),
                 Err(_) => {
                     bail!("plugin errored, but did not return a valid error message")

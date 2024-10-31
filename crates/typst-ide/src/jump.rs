@@ -1,8 +1,7 @@
 use std::num::NonZeroUsize;
 
-use ecow::EcoString;
 use typst::layout::{Frame, FrameItem, Point, Position, Size};
-use typst::model::{Destination, Document};
+use typst::model::{Destination, Document, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
 use typst::World;
@@ -13,7 +12,7 @@ pub enum Jump {
     /// Jump to a position in a source file.
     Source(FileId, usize),
     /// Jump to an external URL.
-    Url(EcoString),
+    Url(Url),
     /// Jump to a point on a page.
     Position(Position),
 }
@@ -113,28 +112,30 @@ pub fn jump_from_cursor(
     document: &Document,
     source: &Source,
     cursor: usize,
-) -> Option<Position> {
+) -> Vec<Position> {
     fn is_text(node: &LinkedNode) -> bool {
         node.get().kind() == SyntaxKind::Text
     }
 
     let root = LinkedNode::new(source.root());
-    let node = root
+    let Some(node) = root
         .leaf_at(cursor, Side::Before)
         .filter(is_text)
-        .or_else(|| root.leaf_at(cursor, Side::After).filter(is_text))?;
+        .or_else(|| root.leaf_at(cursor, Side::After).filter(is_text))
+    else {
+        return vec![];
+    };
 
     let span = node.span();
-    for (i, page) in document.pages.iter().enumerate() {
-        if let Some(pos) = find_in_frame(&page.frame, span) {
-            return Some(Position {
-                page: NonZeroUsize::new(i + 1).unwrap(),
-                point: pos,
-            });
-        }
-    }
-
-    None
+    document
+        .pages
+        .iter()
+        .enumerate()
+        .filter_map(|(i, page)| {
+            find_in_frame(&page.frame, span)
+                .map(|point| Position { page: NonZeroUsize::new(i + 1).unwrap(), point })
+        })
+        .collect()
 }
 
 /// Find the position of a span in a frame.
@@ -167,4 +168,104 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
         && pos.x + size.x >= click.x
         && pos.y <= click.y
         && pos.y + size.y >= click.y
+}
+
+#[cfg(test)]
+mod tests {
+    //! This can be used in a normal test to determine positions:
+    //! ```
+    //! #set page(background: place(
+    //!   dx: 10pt,
+    //!   dy: 10pt,
+    //!   square(size: 2pt, fill: red),
+    //! ))
+    //! ```
+
+    use std::num::NonZeroUsize;
+
+    use typst::layout::{Abs, Point, Position};
+
+    use super::{jump_from_click, jump_from_cursor, Jump};
+    use crate::tests::TestWorld;
+
+    fn point(x: f64, y: f64) -> Point {
+        Point::new(Abs::pt(x), Abs::pt(y))
+    }
+
+    fn cursor(cursor: usize) -> Option<Jump> {
+        Some(Jump::Source(TestWorld::main_id(), cursor))
+    }
+
+    fn pos(page: usize, x: f64, y: f64) -> Option<Position> {
+        Some(Position {
+            page: NonZeroUsize::new(page).unwrap(),
+            point: point(x, y),
+        })
+    }
+
+    macro_rules! assert_approx_eq {
+        ($l:expr, $r:expr) => {
+            assert!(($l - $r).abs() < Abs::pt(0.1), "{:?} ≉ {:?}", $l, $r);
+        };
+    }
+
+    #[track_caller]
+    fn test_click(text: &str, click: Point, expected: Option<Jump>) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world).output.unwrap();
+        let jump = jump_from_click(&world, &doc, &doc.pages[0].frame, click);
+        if let (Some(Jump::Position(pos)), Some(Jump::Position(expected))) =
+            (&jump, &expected)
+        {
+            assert_eq!(pos.page, expected.page);
+            assert_approx_eq!(pos.point.x, expected.point.x);
+            assert_approx_eq!(pos.point.y, expected.point.y);
+        } else {
+            assert_eq!(jump, expected);
+        }
+    }
+
+    #[track_caller]
+    fn test_cursor(text: &str, cursor: usize, expected: Option<Position>) {
+        let world = TestWorld::new(text);
+        let doc = typst::compile(&world).output.unwrap();
+        let pos = jump_from_cursor(&doc, &world.main, cursor);
+        assert_eq!(!pos.is_empty(), expected.is_some());
+        if let (Some(pos), Some(expected)) = (pos.first(), expected) {
+            assert_eq!(pos.page, expected.page);
+            assert_approx_eq!(pos.point.x, expected.point.x);
+            assert_approx_eq!(pos.point.y, expected.point.y);
+        }
+    }
+
+    #[test]
+    fn test_jump_from_click() {
+        let s = "*Hello* #box[ABC] World";
+        test_click(s, point(0.0, 0.0), None);
+        test_click(s, point(70.0, 5.0), None);
+        test_click(s, point(45.0, 15.0), cursor(14));
+        test_click(s, point(48.0, 15.0), cursor(15));
+        test_click(s, point(72.0, 10.0), cursor(20));
+    }
+
+    #[test]
+    fn test_jump_from_click_par_indents() {
+        // There was a bug with span mapping due to indents generating
+        // extra spacing.
+        let s = "#set par(first-line-indent: 1cm, hanging-indent: 1cm);Hello";
+        test_click(s, point(21.0, 12.0), cursor(56));
+    }
+
+    #[test]
+    fn test_jump_from_cursor() {
+        let s = "*Hello* #box[ABC] World";
+        test_cursor(s, 12, None);
+        test_cursor(s, 14, pos(1, 37.55, 16.58));
+    }
+
+    #[test]
+    fn test_backlink() {
+        let s = "#footnote[Hi]";
+        test_click(s, point(10.0, 10.0), pos(1, 18.5, 37.1).map(Jump::Position));
+    }
 }

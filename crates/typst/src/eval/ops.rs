@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 
 use ecow::eco_format;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult, StrResult};
 use crate::eval::{access_dict, Access, Eval, Vm};
 use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
 use crate::layout::{Alignment, Length, Rel};
@@ -59,7 +59,7 @@ impl Eval for ast::Binary<'_> {
 fn apply_binary(
     binary: ast::Binary,
     vm: &mut Vm,
-    op: fn(Value, Value) -> StrResult<Value>,
+    op: fn(Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let lhs = binary.lhs().eval(vm)?;
 
@@ -78,7 +78,7 @@ fn apply_binary(
 fn apply_assignment(
     binary: ast::Binary,
     vm: &mut Vm,
-    op: fn(Value, Value) -> StrResult<Value>,
+    op: fn(Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let rhs = binary.rhs().eval(vm)?;
     let lhs = binary.lhs();
@@ -102,7 +102,7 @@ fn apply_assignment(
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(eco_format!($fmt, $($value.ty()),*))
+        return Err(eco_format!($fmt, $($value.ty()),*).into())
     };
 }
 
@@ -134,11 +134,12 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Apply the unary plus operator to a value.
-pub fn pos(value: Value) -> StrResult<Value> {
+pub fn pos(value: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match value {
         Int(v) => Int(v),
         Float(v) => Float(v),
+        Decimal(v) => Decimal(v),
         Length(v) => Length(v),
         Angle(v) => Angle(v),
         Ratio(v) => Ratio(v),
@@ -159,11 +160,12 @@ pub fn pos(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the negation of a value.
-pub fn neg(value: Value) -> StrResult<Value> {
+pub fn neg(value: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match value {
         Int(v) => Int(v.checked_neg().ok_or_else(too_large)?),
         Float(v) => Float(-v),
+        Decimal(v) => Decimal(-v),
         Length(v) => Length(-v),
         Angle(v) => Angle(-v),
         Ratio(v) => Ratio(-v),
@@ -176,7 +178,7 @@ pub fn neg(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the sum of two values.
-pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (a, None) => a,
@@ -186,6 +188,17 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
         (Float(a), Float(b)) => Float(a + b),
+
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_add(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_add(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_add(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Angle(a), Angle(b)) => Angle(a + b),
 
@@ -252,13 +265,24 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the difference of two values.
-pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn sub(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or_else(too_large)?),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
         (Float(a), Float(b)) => Float(a - b),
+
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_sub(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_sub(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_sub(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Angle(a), Angle(b)) => Angle(a - b),
 
@@ -285,13 +309,24 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the product of two values.
-pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn mul(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or_else(too_large)?),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
         (Float(a), Float(b)) => Float(a * b),
+
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_mul(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_mul(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_mul(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Length(a), Int(b)) => Length(a * b as f64),
         (Length(a), Float(b)) => Length(a * b),
@@ -344,7 +379,7 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the quotient of two values.
-pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     if is_zero(&rhs) {
         bail!("cannot divide by zero");
@@ -355,6 +390,17 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),
         (Float(a), Float(b)) => Float(a / b),
+
+        (Decimal(a), Decimal(b)) => Decimal(a.checked_div(b).ok_or_else(too_large)?),
+        (Decimal(a), Int(b)) => Decimal(
+            a.checked_div(crate::foundations::Decimal::from(b))
+                .ok_or_else(too_large)?,
+        ),
+        (Int(a), Decimal(b)) => Decimal(
+            crate::foundations::Decimal::from(a)
+                .checked_div(b)
+                .ok_or_else(too_large)?,
+        ),
 
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),
@@ -394,6 +440,7 @@ fn is_zero(v: &Value) -> bool {
     match *v {
         Int(v) => v == 0,
         Float(v) => v == 0.0,
+        Decimal(v) => v.is_zero(),
         Length(v) => v.is_zero(),
         Angle(v) => v.is_zero(),
         Ratio(v) => v.is_zero(),
@@ -416,7 +463,7 @@ fn try_div_relative(a: Rel<Length>, b: Rel<Length>) -> StrResult<f64> {
 }
 
 /// Compute the logical "not" of a value.
-pub fn not(value: Value) -> StrResult<Value> {
+pub fn not(value: Value) -> HintedStrResult<Value> {
     match value {
         Value::Bool(b) => Ok(Value::Bool(!b)),
         v => mismatch!("cannot apply 'not' to {}", v),
@@ -424,7 +471,7 @@ pub fn not(value: Value) -> StrResult<Value> {
 }
 
 /// Compute the logical "and" of two values.
-pub fn and(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn and(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     match (lhs, rhs) {
         (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(a && b)),
         (a, b) => mismatch!("cannot apply 'and' to {} and {}", a, b),
@@ -432,7 +479,7 @@ pub fn and(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute the logical "or" of two values.
-pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn or(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     match (lhs, rhs) {
         (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(a || b)),
         (a, b) => mismatch!("cannot apply 'or' to {} and {}", a, b),
@@ -440,19 +487,19 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute whether two values are equal.
-pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn eq(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(equal(&lhs, &rhs)))
 }
 
 /// Compute whether two values are unequal.
-pub fn neq(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn neq(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(!equal(&lhs, &rhs)))
 }
 
 macro_rules! comparison {
     ($name:ident, $op:tt, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
-        pub fn $name(lhs: Value, rhs: Value) -> StrResult<Value> {
+        pub fn $name(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
             let ordering = compare(&lhs, &rhs)?;
             Ok(Value::Bool(matches!(ordering, $($pat)*)))
         }
@@ -474,6 +521,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Bool(a), Bool(b)) => a == b,
         (Int(a), Int(b)) => a == b,
         (Float(a), Float(b)) => a == b,
+        (Decimal(a), Decimal(b)) => a == b,
         (Length(a), Length(b)) => a == b,
         (Angle(a), Angle(b)) => a == b,
         (Ratio(a), Ratio(b)) => a == b,
@@ -499,6 +547,9 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
 
         // Some technically different things should compare equal.
         (&Int(i), &Float(f)) | (&Float(f), &Int(i)) => i as f64 == f,
+        (&Int(i), &Decimal(d)) | (&Decimal(d), &Int(i)) => {
+            crate::foundations::Decimal::from(i) == d
+        }
         (&Length(len), &Relative(rel)) | (&Relative(rel), &Length(len)) => {
             len == rel.abs && rel.rel.is_zero()
         }
@@ -520,6 +571,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Bool(a), Bool(b)) => a.cmp(b),
         (Int(a), Int(b)) => a.cmp(b),
         (Float(a), Float(b)) => try_cmp_values(a, b)?,
+        (Decimal(a), Decimal(b)) => a.cmp(b),
         (Length(a), Length(b)) => try_cmp_values(a, b)?,
         (Angle(a), Angle(b)) => a.cmp(b),
         (Ratio(a), Ratio(b)) => a.cmp(b),
@@ -531,6 +583,8 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         // Some technically different things should be comparable.
         (Int(a), Float(b)) => try_cmp_values(&(*a as f64), b)?,
         (Float(a), Int(b)) => try_cmp_values(a, &(*b as f64))?,
+        (Int(a), Decimal(b)) => crate::foundations::Decimal::from(*a).cmp(b),
+        (Decimal(a), Int(b)) => a.cmp(&crate::foundations::Decimal::from(*b)),
         (Length(a), Relative(b)) if b.rel.is_zero() => try_cmp_values(a, &b.abs)?,
         (Ratio(a), Relative(b)) if b.abs.is_zero() => a.cmp(&b.rel),
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
@@ -577,7 +631,7 @@ fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
 }
 
 /// Test whether one value is "in" another one.
-pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn in_(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     if let Some(b) = contains(&lhs, &rhs) {
         Ok(Value::Bool(b))
     } else {
@@ -586,7 +640,7 @@ pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Test whether one value is "not in" another one.
-pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn not_in(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     if let Some(b) = contains(&lhs, &rhs) {
         Ok(Value::Bool(!b))
     } else {

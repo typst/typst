@@ -4,6 +4,7 @@ use crate::diag::{At, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{Content, NativeElement, Value};
 use crate::math::{AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem};
+use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
 
@@ -26,11 +27,19 @@ impl Eval for ast::MathIdent<'_> {
     }
 }
 
+impl Eval for ast::MathShorthand<'_> {
+    type Output = Value;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Symbol(Symbol::single(self.get().into())))
+    }
+}
+
 impl Eval for ast::MathAlignPoint<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(AlignPointElem::new().pack())
+        Ok(AlignPointElem::shared().clone())
     }
 }
 
@@ -54,7 +63,11 @@ impl Eval for ast::MathAttach<'_> {
 
         if let Some(expr) = self.top() {
             elem.push_t(Some(expr.eval_display(vm)?));
-        } else if let Some(primes) = self.primes() {
+        }
+
+        // Always attach primes in scripts style (not limits style),
+        // i.e. at the top-right corner.
+        if let Some(primes) = self.primes() {
             elem.push_tr(Some(primes.eval(vm)?));
         }
 

@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::foundations::{NativeElement, Scope};
 use crate::layout::{Abs, Em, HElem};
-use crate::math::{MathFragment, MathSize, SpacingFragment};
+use crate::math::{MathFragment, MathSize};
 
 pub(super) const THIN: Em = Em::new(1.0 / 6.0);
 pub(super) const MEDIUM: Em = Em::new(2.0 / 9.0);
@@ -29,7 +29,7 @@ pub(super) fn spacing(
 
     let resolve = |v: Em, size_ref: &MathFragment| -> Option<MathFragment> {
         let width = size_ref.font_size().map_or(Abs::zero(), |size| v.at(size));
-        Some(SpacingFragment { width, weak: false }.into())
+        Some(MathFragment::Spacing(width, false))
     };
     let script = |f: &MathFragment| f.math_size().is_some_and(|s| s <= MathSize::Script);
 

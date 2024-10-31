@@ -117,7 +117,7 @@
 #test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e0dcda")
 #test-repr(rgb(cmyk(4%, 5%, 6%, 7%)), rgb(87.84%, 86.27%, 85.49%, 100%))
 #test-repr(rgb(luma(40%)), rgb(40%, 40%, 40%))
-#test-repr(cmyk(luma(40)), cmyk(11.76%, 10.67%, 10.51%, 14.12%))
+#test-repr(cmyk(luma(40)), cmyk(63.24%, 57.33%, 56.49%, 75.88%))
 #test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))
 #test-repr(luma(rgb(1, 2, 3)), luma(0.73%))
 #test-repr(color.hsl(luma(40)), color.hsl(0deg, 0%, 15.69%))
@@ -160,12 +160,12 @@
   let are-equal((a, b)) = {
     let to-float(x) = if type(x) == angle { x.rad() } else { float(x) }
     let epsilon = 1e-4 // The maximum error between both numbers
-    assert.eq(type(a), type(b))
+    test(type(a), type(b))
     calc.abs(to-float(a) - to-float(b)) < epsilon
   }
 
   let ref-without-alpha = if has-alpha { ref.slice(0, -1) } else { ref }
-  assert.eq(col.components().len(), ref.len())
+  test(col.components().len(), ref.len())
   assert(col.components().zip(ref).all(are-equal))
   assert(col.components(alpha: false).zip(ref-without-alpha).all(are-equal))
 }
@@ -317,15 +317,13 @@
 #test-repr(luma(100%, 50%).opacify(-50%), luma(100%, 25%))
 #test-repr(luma(100%, 0%).opacify(0%), luma(100%, 0%))
 
---- repr-color ---
-// Colors
-#set page(width: 400pt)
-#set text(0.8em)
-#blue \
-#color.linear-rgb(blue) \
-#oklab(blue) \
-#oklch(blue) \
-#cmyk(blue) \
-#color.hsl(blue) \
-#color.hsv(blue) \
-#luma(blue)
+--- issue-color-mix-luma ---
+// When mixing luma colors, we accidentally used the wrong component.
+#rect(fill: gradient.linear(black, silver, space: luma))
+
+--- issue-4361-transparency-leak ---
+// Ensure that transparency doesn't leak from shapes to images in PDF. The PNG
+// test doesn't validate it, but at least we can discover regressions on the PDF
+// output with a PDF comparison script.
+#rect(fill: red.transparentize(50%))
+#image("/assets/images/tiger.jpg", width: 45pt)

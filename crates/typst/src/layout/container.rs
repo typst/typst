@@ -1,11 +1,16 @@
-use crate::diag::SourceResult;
+use once_cell::unsync::Lazy;
+use smallvec::SmallVec;
+
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Content, Packed, Resolve, Smart, StyleChain, Value,
+    cast, elem, Args, AutoValue, Construct, Content, NativeElement, Packed, Resolve,
+    Smart, StyleChain, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, LayoutMultiple, Length,
-    Ratio, Regions, Rel, Sides, Size, Spacing, VElem,
+    layout_fragment, layout_frame, Abs, Axes, Corners, Em, Fr, Fragment, Frame,
+    FrameKind, Length, Region, Regions, Rel, Sides, Size, Spacing,
 };
 use crate::utils::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -101,55 +106,64 @@ pub struct BoxElem {
     pub outset: Sides<Option<Rel<Length>>>,
 
     /// Whether to clip the content inside the box.
+    ///
+    /// Clipping is useful when the box's content is larger than the box itself,
+    /// as any content that exceeds the box's bounds will be hidden.
+    ///
+    /// ```example
+    /// #box(
+    ///   width: 50pt,
+    ///   height: 50pt,
+    ///   clip: true,
+    ///   image("tiger.jpg", width: 100pt, height: 100pt)
+    /// )
+    /// ```
     #[default(false)]
     pub clip: bool,
 
     /// The contents of the box.
     #[positional]
+    #[borrowed]
     pub body: Option<Content>,
 }
 
 impl Packed<BoxElem> {
+    /// Layout this box as part of a paragraph.
     #[typst_macros::time(name = "box", span = self.span())]
     pub fn layout(
         &self,
         engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
-        regions: Regions,
+        region: Size,
     ) -> SourceResult<Frame> {
-        let width = match self.width(styles) {
-            Sizing::Auto => Smart::Auto,
-            Sizing::Rel(rel) => Smart::Custom(rel),
-            Sizing::Fr(_) => Smart::Custom(Ratio::one().into()),
+        // Fetch sizing properties.
+        let width = self.width(styles);
+        let height = self.height(styles);
+        let inset = self.inset(styles).unwrap_or_default();
+
+        // Build the pod region.
+        let pod = unbreakable_pod(&width, &height.into(), &inset, styles, region);
+
+        // Layout the body.
+        let mut frame = match self.body(styles) {
+            // If we have no body, just create an empty frame. If necessary,
+            // its size will be adjusted below.
+            None => Frame::hard(Size::zero()),
+
+            // If we have a child, layout it into the body. Boxes are boundaries
+            // for gradient relativeness, so we set the `FrameKind` to `Hard`.
+            Some(body) => layout_frame(engine, body, locator, styles, pod)?
+                .with_kind(FrameKind::Hard),
         };
 
-        // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(width, self.height(styles));
-        let expand = sizing.as_ref().map(Smart::is_custom);
-        let size = sizing
-            .resolve(styles)
-            .zip_map(regions.base(), |s, b| s.map(|v| v.relative_to(b)))
-            .unwrap_or(regions.base());
+        // Enforce a correct frame size on the expanded axes. Do this before
+        // applying the inset, since the pod shrunk.
+        frame.set_size(pod.expand.select(pod.size, frame.size()));
 
-        // Apply inset.
-        let mut body = self.body(styles).unwrap_or_default();
-        let inset = self.inset(styles).unwrap_or_default();
-        if inset.iter().any(|v| !v.is_zero()) {
-            body = body.padded(inset.map(|side| side.map(Length::from)));
-        }
-
-        // Select the appropriate base and expansion for the child depending
-        // on whether it is automatically or relatively sized.
-        let pod = Regions::one(size, expand);
-        let mut frame = body.layout(engine, styles, pod)?.into_frame();
-
-        // Enforce correct size.
-        *frame.size_mut() = expand.select(size, frame.size());
-
-        // Apply baseline shift.
-        let shift = self.baseline(styles).relative_to(frame.height());
-        if !shift.is_zero() {
-            frame.set_baseline(frame.baseline() - shift);
+        // Apply the inset.
+        if !inset.is_zero() {
+            crate::layout::grow(&mut frame, &inset);
         }
 
         // Prepare fill and stroke.
@@ -159,27 +173,92 @@ impl Packed<BoxElem> {
             .unwrap_or_default()
             .map(|s| s.map(Stroke::unwrap_or_default));
 
-        // Clip the contents
+        // Only fetch these if necessary (for clipping or filling/stroking).
+        let outset = Lazy::new(|| self.outset(styles).unwrap_or_default());
+        let radius = Lazy::new(|| self.radius(styles).unwrap_or_default());
+
+        // Clip the contents, if requested.
         if self.clip(styles) {
-            let outset =
-                self.outset(styles).unwrap_or_default().relative_to(frame.size());
-            let size = frame.size() + outset.sum_by_axis();
-            let radius = self.radius(styles).unwrap_or_default();
-            frame.clip(clip_rect(size, radius, &stroke));
+            let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
+            frame.clip(clip_rect(size, &radius, &stroke));
         }
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let outset = self.outset(styles).unwrap_or_default();
-            let radius = self.radius(styles).unwrap_or_default();
-            frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
+            frame.fill_and_stroke(fill, &stroke, &outset, &radius, self.span());
         }
 
-        // Apply metadata.
-        frame.set_kind(FrameKind::Hard);
+        // Assign label to the frame.
+        if let Some(label) = self.label() {
+            frame.label(label);
+        }
+
+        // Apply baseline shift. Do this after setting the size and applying the
+        // inset, so that a relative shift is resolved relative to the final
+        // height.
+        let shift = self.baseline(styles).relative_to(frame.height());
+        if !shift.is_zero() {
+            frame.set_baseline(frame.baseline() - shift);
+        }
 
         Ok(frame)
     }
+}
+
+/// An inline-level container that can produce arbitrary items that can break
+/// across lines.
+#[elem(Construct)]
+pub struct InlineElem {
+    /// A callback that is invoked with the regions to produce arbitrary
+    /// inline items.
+    #[required]
+    #[internal]
+    body: callbacks::InlineCallback,
+}
+
+impl Construct for InlineElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl InlineElem {
+    /// Create an inline-level item with a custom layouter.
+    #[allow(clippy::type_complexity)]
+    pub fn layouter<T: NativeElement>(
+        captured: Packed<T>,
+        callback: fn(
+            content: &Packed<T>,
+            engine: &mut Engine,
+            locator: Locator,
+            styles: StyleChain,
+            region: Size,
+        ) -> SourceResult<Vec<InlineItem>>,
+    ) -> Self {
+        Self::new(callbacks::InlineCallback::new(captured, callback))
+    }
+}
+
+impl Packed<InlineElem> {
+    /// Layout the element.
+    pub fn layout(
+        &self,
+        engine: &mut Engine,
+        locator: Locator,
+        styles: StyleChain,
+        region: Size,
+    ) -> SourceResult<Vec<InlineItem>> {
+        self.body().call(engine, locator, styles, region)
+    }
+}
+
+/// Layouted items suitable for placing in a paragraph.
+#[derive(Debug, Clone)]
+pub enum InlineItem {
+    /// Absolute spacing between other items, and whether it is weak.
+    Space(Abs, bool),
+    /// Layouted inline-level content.
+    Frame(Frame),
 }
 
 /// A block-level container.
@@ -211,7 +290,7 @@ impl Packed<BoxElem> {
 /// = Blocky
 /// More text.
 /// ```
-#[elem(LayoutMultiple)]
+#[elem]
 pub struct BlockElem {
     /// The block's width.
     ///
@@ -239,7 +318,7 @@ pub struct BlockElem {
     ///   fill: aqua,
     /// )
     /// ```
-    pub height: Smart<Rel<Length>>,
+    pub height: Sizing,
 
     /// Whether the block can be broken and continue on the next page.
     ///
@@ -283,8 +362,20 @@ pub struct BlockElem {
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
-    /// The spacing around this block. This is shorthand to set `above` and
-    /// `below` to the same value.
+    /// The spacing around the block. When `{auto}`, inherits the paragraph
+    /// [`spacing`]($par.spacing).
+    ///
+    /// For two adjacent blocks, the larger of the first block's `above` and the
+    /// second block's `below` spacing wins. Moreover, block spacing takes
+    /// precedence over paragraph [`spacing`]($par.spacing).
+    ///
+    /// Note that this is only a shorthand to set `above` and `below` to the
+    /// same value. Since the values for `above` and `below` might differ, a
+    /// [context] block only provides access to `{block.above}` and
+    /// `{block.below}`, not to `{block.spacing}` directly.
+    ///
+    /// This property can be used in combination with a show rule to adjust the
+    /// spacing around arbitrary block-level elements.
     ///
     /// ```example
     /// #set align(center)
@@ -298,127 +389,275 @@ pub struct BlockElem {
     #[default(Em::new(1.2).into())]
     pub spacing: Spacing,
 
-    /// The spacing between this block and its predecessor. Takes precedence
-    /// over `spacing`. Can be used in combination with a show rule to adjust
-    /// the spacing around arbitrary block-level elements.
-    #[external]
-    #[default(Em::new(1.2).into())]
-    pub above: Spacing,
-    #[internal]
+    /// The spacing between this block and its predecessor.
     #[parse(
         let spacing = args.named("spacing")?;
-        args.named("above")?
-            .map(VElem::block_around)
-            .or_else(|| spacing.map(VElem::block_spacing))
+        args.named("above")?.or(spacing)
     )]
-    #[default(VElem::block_spacing(Em::new(1.2).into()))]
-    pub above: VElem,
+    pub above: Smart<Spacing>,
 
-    /// The spacing between this block and its successor. Takes precedence
-    /// over `spacing`.
-    #[external]
-    #[default(Em::new(1.2).into())]
-    pub below: Spacing,
-    #[internal]
-    #[parse(
-        args.named("below")?
-            .map(VElem::block_around)
-            .or_else(|| spacing.map(VElem::block_spacing))
-    )]
-    #[default(VElem::block_spacing(Em::new(1.2).into()))]
-    pub below: VElem,
+    /// The spacing between this block and its successor.
+    #[parse(args.named("below")?.or(spacing))]
+    pub below: Smart<Spacing>,
 
     /// Whether to clip the content inside the block.
+    ///
+    /// Clipping is useful when the block's content is larger than the block itself,
+    /// as any content that exceeds the block's bounds will be hidden.
+    ///
+    /// ```example
+    /// #block(
+    ///   width: 50pt,
+    ///   height: 50pt,
+    ///   clip: true,
+    ///   image("tiger.jpg", width: 100pt, height: 100pt)
+    /// )
+    /// ```
     #[default(false)]
     pub clip: bool,
 
+    /// Whether this block must stick to the following one, with no break in
+    /// between.
+    ///
+    /// This is, by default, set on heading blocks to prevent orphaned headings
+    /// at the bottom of the page.
+    ///
+    /// ```example
+    /// >>> #set page(height: 140pt)
+    /// // Disable stickiness of headings.
+    /// #show heading: set block(sticky: false)
+    /// #lorem(20)
+    ///
+    /// = Chapter
+    /// #lorem(10)
+    /// ```
+    #[default(false)]
+    pub sticky: bool,
+
     /// The contents of the block.
     #[positional]
-    pub body: Option<Content>,
-
-    /// Whether this block must stick to the following one.
-    ///
-    /// Use this to prevent page breaks between e.g. a heading and its body.
-    #[internal]
-    #[default(false)]
-    #[ghost]
-    pub sticky: bool,
+    #[borrowed]
+    pub body: Option<BlockBody>,
 }
 
-impl LayoutMultiple for Packed<BlockElem> {
+impl BlockElem {
+    /// Create a block with a custom single-region layouter.
+    ///
+    /// Such a block must have `breakable: false` (which is set by this
+    /// constructor).
+    pub fn single_layouter<T: NativeElement>(
+        captured: Packed<T>,
+        f: fn(
+            content: &Packed<T>,
+            engine: &mut Engine,
+            locator: Locator,
+            styles: StyleChain,
+            region: Region,
+        ) -> SourceResult<Frame>,
+    ) -> Self {
+        Self::new()
+            .with_breakable(false)
+            .with_body(Some(BlockBody::SingleLayouter(
+                callbacks::BlockSingleCallback::new(captured, f),
+            )))
+    }
+
+    /// Create a block with a custom multi-region layouter.
+    pub fn multi_layouter<T: NativeElement>(
+        captured: Packed<T>,
+        f: fn(
+            content: &Packed<T>,
+            engine: &mut Engine,
+            locator: Locator,
+            styles: StyleChain,
+            regions: Regions,
+        ) -> SourceResult<Fragment>,
+    ) -> Self {
+        Self::new().with_body(Some(BlockBody::MultiLayouter(
+            callbacks::BlockMultiCallback::new(captured, f),
+        )))
+    }
+}
+
+impl Packed<BlockElem> {
+    /// Lay this out as an unbreakable block.
     #[typst_macros::time(name = "block", span = self.span())]
-    fn layout(
+    pub fn layout_single(
         &self,
         engine: &mut Engine,
+        locator: Locator,
+        styles: StyleChain,
+        region: Region,
+    ) -> SourceResult<Frame> {
+        // Fetch sizing properties.
+        let width = self.width(styles);
+        let height = self.height(styles);
+        let inset = self.inset(styles).unwrap_or_default();
+
+        // Build the pod regions.
+        let pod = unbreakable_pod(&width.into(), &height, &inset, styles, region.size);
+
+        // Layout the body.
+        let body = self.body(styles);
+        let mut frame = match body {
+            // If we have no body, just create one frame. Its size will be
+            // adjusted below.
+            None => Frame::hard(Size::zero()),
+
+            // If we have content as our body, just layout it.
+            Some(BlockBody::Content(body)) => {
+                layout_frame(engine, body, locator.relayout(), styles, pod)?
+            }
+
+            // If we have a child that wants to layout with just access to the
+            // base region, give it that.
+            Some(BlockBody::SingleLayouter(callback)) => {
+                callback.call(engine, locator, styles, pod)?
+            }
+
+            // If we have a child that wants to layout with full region access,
+            // we layout it.
+            Some(BlockBody::MultiLayouter(callback)) => {
+                let expand = (pod.expand | region.expand) & pod.size.map(Abs::is_finite);
+                let pod = Region { expand, ..pod };
+                callback.call(engine, locator, styles, pod.into())?.into_frame()
+            }
+        };
+
+        // Explicit blocks are boundaries for gradient relativeness.
+        if matches!(body, None | Some(BlockBody::Content(_))) {
+            frame.set_kind(FrameKind::Hard);
+        }
+
+        // Enforce a correct frame size on the expanded axes. Do this before
+        // applying the inset, since the pod shrunk.
+        frame.set_size(pod.expand.select(pod.size, frame.size()));
+
+        // Apply the inset.
+        if !inset.is_zero() {
+            crate::layout::grow(&mut frame, &inset);
+        }
+
+        // Prepare fill and stroke.
+        let fill = self.fill(styles);
+        let stroke = self
+            .stroke(styles)
+            .unwrap_or_default()
+            .map(|s| s.map(Stroke::unwrap_or_default));
+
+        // Only fetch these if necessary (for clipping or filling/stroking).
+        let outset = Lazy::new(|| self.outset(styles).unwrap_or_default());
+        let radius = Lazy::new(|| self.radius(styles).unwrap_or_default());
+
+        // Clip the contents, if requested.
+        if self.clip(styles) {
+            let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
+            frame.clip(clip_rect(size, &radius, &stroke));
+        }
+
+        // Add fill and/or stroke.
+        if fill.is_some() || stroke.iter().any(Option::is_some) {
+            frame.fill_and_stroke(fill, &stroke, &outset, &radius, self.span());
+        }
+
+        // Assign label to each frame in the fragment.
+        if let Some(label) = self.label() {
+            frame.label(label);
+        }
+
+        Ok(frame)
+    }
+}
+
+impl Packed<BlockElem> {
+    /// Lay this out as a breakable block.
+    #[typst_macros::time(name = "block", span = self.span())]
+    pub fn layout_multiple(
+        &self,
+        engine: &mut Engine,
+        locator: Locator,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        // Apply inset.
-        let mut body = self.body(styles).unwrap_or_default();
+        // Fetch sizing properties.
+        let width = self.width(styles);
+        let height = self.height(styles);
         let inset = self.inset(styles).unwrap_or_default();
-        if inset.iter().any(|v| !v.is_zero()) {
-            body = body.clone().padded(inset.map(|side| side.map(Length::from)));
-        }
 
-        // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(self.width(styles), self.height(styles));
-        let mut expand = sizing.as_ref().map(Smart::is_custom);
-        let mut size = sizing
-            .resolve(styles)
-            .zip_map(regions.base(), |s, b| s.map(|v| v.relative_to(b)))
-            .unwrap_or(regions.base());
+        // Allocate a small vector for backlogs.
+        let mut buf = SmallVec::<[Abs; 2]>::new();
 
-        // Layout the child.
-        let mut frames = if self.breakable(styles) {
-            // Measure to ensure frames for all regions have the same width.
-            if sizing.x == Smart::Auto {
-                let pod = Regions::one(size, Axes::splat(false));
-                let frame = body.measure(engine, styles, pod)?.into_frame();
-                size.x = frame.width();
-                expand.x = true;
-            }
+        // Build the pod regions.
+        let pod =
+            breakable_pod(&width.into(), &height, &inset, styles, regions, &mut buf);
 
-            let mut pod = regions;
-            pod.size.x = size.x;
-            pod.expand = expand;
-
-            if expand.y {
-                pod.full = size.y;
-            }
-
-            // Generate backlog for fixed height.
-            let mut heights = vec![];
-            if sizing.y.is_custom() {
-                let mut remaining = size.y;
-                for region in regions.iter() {
-                    let limited = region.y.min(remaining);
-                    heights.push(limited);
-                    remaining -= limited;
-                    if Abs::zero().fits(remaining) {
-                        break;
+        // Layout the body.
+        let body = self.body(styles);
+        let mut fragment = match body {
+            // If we have no body, just create one frame plus one per backlog
+            // region. We create them zero-sized; if necessary, their size will
+            // be adjusted below.
+            None => {
+                let mut frames = vec![];
+                frames.push(Frame::hard(Size::zero()));
+                if pod.expand.y {
+                    let mut iter = pod;
+                    while !iter.backlog.is_empty() {
+                        frames.push(Frame::hard(Size::zero()));
+                        iter.next();
                     }
                 }
+                Fragment::frames(frames)
+            }
 
-                if let Some(last) = heights.last_mut() {
-                    *last += remaining;
+            // If we have content as our body, just layout it.
+            Some(BlockBody::Content(body)) => {
+                let mut fragment =
+                    layout_fragment(engine, body, locator.relayout(), styles, pod)?;
+
+                // If the body is automatically sized and produced more than one
+                // fragment, ensure that the width was consistent across all
+                // regions. If it wasn't, we need to relayout with expansion.
+                if !pod.expand.x
+                    && fragment
+                        .as_slice()
+                        .windows(2)
+                        .any(|w| !w[0].width().approx_eq(w[1].width()))
+                {
+                    let max_width = fragment
+                        .iter()
+                        .map(|frame| frame.width())
+                        .max()
+                        .unwrap_or_default();
+                    let pod = Regions {
+                        size: Size::new(max_width, pod.size.y),
+                        expand: Axes::new(true, pod.expand.y),
+                        ..pod
+                    };
+                    fragment = layout_fragment(engine, body, locator, styles, pod)?;
                 }
 
-                pod.size.y = heights[0];
-                pod.backlog = &heights[1..];
-                pod.last = None;
+                fragment
             }
 
-            let mut frames = body.layout(engine, styles, pod)?.into_frames();
-            for (frame, &height) in frames.iter_mut().zip(&heights) {
-                *frame.size_mut() =
-                    expand.select(Size::new(size.x, height), frame.size());
+            // If we have a child that wants to layout with just access to the
+            // base region, give it that.
+            Some(BlockBody::SingleLayouter(callback)) => {
+                let pod = Region::new(pod.base(), pod.expand);
+                callback.call(engine, locator, styles, pod).map(Fragment::frame)?
             }
-            frames
-        } else {
-            let pod = Regions::one(size, expand);
-            let mut frames = body.layout(engine, styles, pod)?.into_frames();
-            *frames[0].size_mut() = expand.select(size, frames[0].size());
-            frames
+
+            // If we have a child that wants to layout with full region access,
+            // we layout it.
+            //
+            // For auto-sized multi-layouters, we propagate the outer expansion
+            // so that they can decide for themselves. We also ensure again to
+            // only expand if the size is finite.
+            Some(BlockBody::MultiLayouter(callback)) => {
+                let expand = (pod.expand | regions.expand) & pod.size.map(Abs::is_finite);
+                let pod = Regions { expand, ..pod };
+                callback.call(engine, locator, styles, pod)?
+            }
         };
 
         // Prepare fill and stroke.
@@ -428,60 +667,116 @@ impl LayoutMultiple for Packed<BlockElem> {
             .unwrap_or_default()
             .map(|s| s.map(Stroke::unwrap_or_default));
 
-        // Clip the contents
-        if self.clip(styles) {
-            for frame in frames.iter_mut() {
-                let outset =
-                    self.outset(styles).unwrap_or_default().relative_to(frame.size());
-                let size = frame.size() + outset.sum_by_axis();
-                let radius = self.radius(styles).unwrap_or_default();
-                frame.clip(clip_rect(size, radius, &stroke));
-            }
+        // Only fetch these if necessary (for clipping or filling/stroking).
+        let outset = Lazy::new(|| self.outset(styles).unwrap_or_default());
+        let radius = Lazy::new(|| self.radius(styles).unwrap_or_default());
+
+        // Fetch/compute these outside of the loop.
+        let clip = self.clip(styles);
+        let has_fill_or_stroke = fill.is_some() || stroke.iter().any(Option::is_some);
+        let has_inset = !inset.is_zero();
+        let is_explicit = matches!(body, None | Some(BlockBody::Content(_)));
+
+        // Skip filling/stroking the first frame if it is empty and a non-empty
+        // one follows.
+        let mut skip_first = false;
+        if let [first, rest @ ..] = fragment.as_slice() {
+            skip_first = has_fill_or_stroke
+                && first.is_empty()
+                && rest.iter().any(|frame| !frame.is_empty());
         }
 
-        // Add fill and/or stroke.
-        if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let mut skip = false;
-            if let [first, rest @ ..] = frames.as_slice() {
-                skip = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
+        // Post-process to apply insets, clipping, fills, and strokes.
+        for (i, (frame, region)) in fragment.iter_mut().zip(pod.iter()).enumerate() {
+            // Explicit blocks are boundaries for gradient relativeness.
+            if is_explicit {
+                frame.set_kind(FrameKind::Hard);
             }
 
-            let outset = self.outset(styles).unwrap_or_default();
-            let radius = self.radius(styles).unwrap_or_default();
-            for frame in frames.iter_mut().skip(skip as usize) {
+            // Enforce a correct frame size on the expanded axes. Do this before
+            // applying the inset, since the pod shrunk.
+            frame.set_size(pod.expand.select(region, frame.size()));
+
+            // Apply the inset.
+            if has_inset {
+                crate::layout::grow(frame, &inset);
+            }
+
+            // Clip the contents, if requested.
+            if clip {
+                let size = frame.size() + outset.relative_to(frame.size()).sum_by_axis();
+                frame.clip(clip_rect(size, &radius, &stroke));
+            }
+
+            // Add fill and/or stroke.
+            if has_fill_or_stroke && (i > 0 || !skip_first) {
                 frame.fill_and_stroke(
                     fill.clone(),
-                    stroke.clone(),
-                    outset,
-                    radius,
+                    &stroke,
+                    &outset,
+                    &radius,
                     self.span(),
                 );
             }
         }
 
-        // Apply metadata.
-        for frame in &mut frames {
-            frame.set_kind(FrameKind::Hard);
+        // Assign label to each frame in the fragment.
+        if let Some(label) = self.label() {
+            for frame in fragment.iter_mut() {
+                frame.label(label);
+            }
         }
 
-        Ok(Fragment::frames(frames))
+        Ok(fragment)
     }
 }
 
-/// Defines how to size a grid cell along an axis.
+/// The contents of a block.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum BlockBody {
+    /// The block contains normal content.
+    Content(Content),
+    /// The block contains a layout callback that needs access to just one
+    /// base region.
+    SingleLayouter(callbacks::BlockSingleCallback),
+    /// The block contains a layout callback that needs access to the exact
+    /// regions.
+    MultiLayouter(callbacks::BlockMultiCallback),
+}
+
+impl Default for BlockBody {
+    fn default() -> Self {
+        Self::Content(Content::default())
+    }
+}
+
+cast! {
+    BlockBody,
+    self => match self {
+        Self::Content(content) => content.into_value(),
+        _ => Value::Auto,
+    },
+    v: Content => Self::Content(v),
+}
+
+/// Defines how to size something along an axis.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Sizing {
-    /// A track that fits its cell's contents.
+    /// A track that fits its item's contents.
     Auto,
-    /// A track size specified in absolute terms and relative to the parent's
-    /// size.
-    Rel(Rel<Length>),
-    /// A track size specified as a fraction of the remaining free space in the
+    /// A size specified in absolute terms and relative to the parent's size.
+    Rel(Rel),
+    /// A size specified as a fraction of the remaining free space in the
     /// parent.
     Fr(Fr),
 }
 
 impl Sizing {
+    /// Whether this is an automatic sizing.
+    pub fn is_auto(self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
     /// Whether this is fractional sizing.
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
@@ -491,6 +786,15 @@ impl Sizing {
 impl Default for Sizing {
     fn default() -> Self {
         Self::Auto
+    }
+}
+
+impl From<Smart<Rel>> for Sizing {
+    fn from(smart: Smart<Rel>) -> Self {
+        match smart {
+            Smart::Auto => Self::Auto,
+            Smart::Custom(rel) => Self::Rel(rel),
+        }
     }
 }
 
@@ -513,4 +817,230 @@ cast! {
     _: AutoValue => Self::Auto,
     v: Rel<Length> => Self::Rel(v),
     v: Fr => Self::Fr(v),
+}
+
+/// Builds the pod region for an unbreakable sized container.
+fn unbreakable_pod(
+    width: &Sizing,
+    height: &Sizing,
+    inset: &Sides<Rel<Abs>>,
+    styles: StyleChain,
+    base: Size,
+) -> Region {
+    // Resolve the size.
+    let mut size = Size::new(
+        match width {
+            // - For auto, the whole region is available.
+            // - Fr is handled outside and already factored into the `region`,
+            //   so we can treat it equivalently to 100%.
+            Sizing::Auto | Sizing::Fr(_) => base.x,
+            // Resolve the relative sizing.
+            Sizing::Rel(rel) => rel.resolve(styles).relative_to(base.x),
+        },
+        match height {
+            Sizing::Auto | Sizing::Fr(_) => base.y,
+            Sizing::Rel(rel) => rel.resolve(styles).relative_to(base.y),
+        },
+    );
+
+    // Take the inset, if any, into account.
+    if !inset.is_zero() {
+        size = crate::layout::shrink(size, inset);
+    }
+
+    // If the child is manually, the size is forced and we should enable
+    // expansion.
+    let expand = Axes::new(
+        *width != Sizing::Auto && size.x.is_finite(),
+        *height != Sizing::Auto && size.y.is_finite(),
+    );
+
+    Region::new(size, expand)
+}
+
+/// Builds the pod regions for a breakable sized container.
+fn breakable_pod<'a>(
+    width: &Sizing,
+    height: &Sizing,
+    inset: &Sides<Rel<Abs>>,
+    styles: StyleChain,
+    regions: Regions,
+    buf: &'a mut SmallVec<[Abs; 2]>,
+) -> Regions<'a> {
+    let base = regions.base();
+
+    // The vertical region sizes we're about to build.
+    let first;
+    let full;
+    let backlog: &mut [Abs];
+    let last;
+
+    // If the block has a fixed height, things are very different, so we
+    // handle that case completely separately.
+    match height {
+        Sizing::Auto | Sizing::Fr(_) => {
+            // If the block is automatically sized, we can just inherit the
+            // regions.
+            first = regions.size.y;
+            full = regions.full;
+            buf.extend_from_slice(regions.backlog);
+            backlog = buf;
+            last = regions.last;
+        }
+
+        Sizing::Rel(rel) => {
+            // Resolve the sizing to a concrete size.
+            let resolved = rel.resolve(styles).relative_to(base.y);
+
+            // Since we're manually sized, the resolved size is the base height.
+            full = resolved;
+
+            // Distribute the fixed height across a start region and a backlog.
+            (first, backlog) = distribute(resolved, regions, buf);
+
+            // If the height is manually sized, we don't want a final repeatable
+            // region.
+            last = None;
+        }
+    };
+
+    // Resolve the horizontal sizing to a concrete width and combine
+    // `width` and `first` into `size`.
+    let mut size = Size::new(
+        match width {
+            Sizing::Auto | Sizing::Fr(_) => regions.size.x,
+            Sizing::Rel(rel) => rel.resolve(styles).relative_to(base.x),
+        },
+        first,
+    );
+
+    // Take the inset, if any, into account, applying it to the
+    // individual region components.
+    let (mut full, mut last) = (full, last);
+    if !inset.is_zero() {
+        crate::layout::shrink_multiple(&mut size, &mut full, backlog, &mut last, inset);
+    }
+
+    // If the child is manually, the size is forced and we should enable
+    // expansion.
+    let expand = Axes::new(
+        *width != Sizing::Auto && size.x.is_finite(),
+        *height != Sizing::Auto && size.y.is_finite(),
+    );
+
+    Regions { size, full, backlog, last, expand }
+}
+
+/// Distribute a fixed height spread over existing regions into a new first
+/// height and a new backlog.
+fn distribute<'a>(
+    height: Abs,
+    mut regions: Regions,
+    buf: &'a mut SmallVec<[Abs; 2]>,
+) -> (Abs, &'a mut [Abs]) {
+    // Build new region heights from old regions.
+    let mut remaining = height;
+    loop {
+        let limited = regions.size.y.clamp(Abs::zero(), remaining);
+        buf.push(limited);
+        remaining -= limited;
+        if remaining.approx_empty()
+            || !regions.may_break()
+            || (!regions.may_progress() && limited.approx_empty())
+        {
+            break;
+        }
+        regions.next();
+    }
+
+    // If there is still something remaining, apply it to the
+    // last region (it will overflow, but there's nothing else
+    // we can do).
+    if !remaining.approx_empty() {
+        if let Some(last) = buf.last_mut() {
+            *last += remaining;
+        }
+    }
+
+    // Distribute the heights to the first region and the
+    // backlog. There is no last region, since the height is
+    // fixed.
+    (buf[0], &mut buf[1..])
+}
+
+/// Manual closure implementations for layout callbacks.
+///
+/// Normal closures are not `Hash`, so we can't use them.
+mod callbacks {
+    use super::*;
+
+    macro_rules! callback {
+        ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
+            #[derive(Debug, Clone, PartialEq, Hash)]
+            pub struct $name {
+                captured: Content,
+                f: fn(&Content, $($param_ty),*) -> $ret,
+            }
+
+            impl $name {
+                pub fn new<T: NativeElement>(
+                    captured: Packed<T>,
+                    f: fn(&Packed<T>, $($param_ty),*) -> $ret,
+                ) -> Self {
+                    Self {
+                        // Type-erased the content.
+                        captured: captured.pack(),
+                        // Safety: The only difference between the two function
+                        // pointer types is the type of the first parameter,
+                        // which changes from `&Packed<T>` to `&Content`. This
+                        // is safe because:
+                        // - `Packed<T>` is a transparent wrapper around
+                        //   `Content`, so for any `T` it has the same memory
+                        //   representation as `Content`.
+                        // - While `Packed<T>` imposes the additional constraint
+                        //   that the content is of type `T`, this constraint is
+                        //   upheld: It is initially the case because we store a
+                        //   `Packed<T>` above. It keeps being the case over the
+                        //   lifetime of the closure because `capture` is a
+                        //   private field and `Content`'s `Clone` impl is
+                        //   guaranteed to retain the type (if it didn't,
+                        //   literally everything would break).
+                        #[allow(clippy::missing_transmute_annotations)]
+                        f: unsafe { std::mem::transmute(f) },
+                    }
+                }
+
+                pub fn call(&self, $($param: $param_ty),*) -> $ret {
+                    (self.f)(&self.captured, $($param),*)
+                }
+            }
+        };
+    }
+
+    callback! {
+        InlineCallback = (
+            engine: &mut Engine,
+            locator: Locator,
+            styles: StyleChain,
+            region: Size,
+        ) -> SourceResult<Vec<InlineItem>>
+    }
+
+    callback! {
+        BlockSingleCallback = (
+            engine: &mut Engine,
+            locator: Locator,
+            styles: StyleChain,
+            region: Region,
+        ) -> SourceResult<Frame>
+    }
+
+    callback! {
+        BlockMultiCallback = (
+            engine: &mut Engine,
+            locator: Locator,
+            styles: StyleChain,
+            regions: Regions,
+        ) -> SourceResult<Fragment>
+    }
 }

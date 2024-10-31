@@ -26,10 +26,11 @@ indexmap = { workspace = true }
 miniz_oxide = { workspace = true }
 once_cell = { workspace = true }
 pdf-writer = { workspace = true }
+arrayvec = { workspace = true }
+serde = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }
-unicode-properties = { workspace = true }
 unscanny = { workspace = true }
 xmp-writer = { workspace = true }
 

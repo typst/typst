@@ -1,13 +1,11 @@
 use comemo::Track;
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{
-    cast, elem, Content, Context, Func, Packed, Resolve, Smart, StyleChain,
-};
+use crate::foundations::{cast, elem, Content, Context, Func, Packed, Smart, StyleChain};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
-use crate::math::{FrameFragment, LayoutMath, MathContext};
+use crate::math::{scaled_font_size, FrameFragment, LayoutMath, MathContext};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::visualize::{FixedStroke, Geometry, Stroke};
@@ -65,13 +63,13 @@ pub struct CancelElem {
 
     /// How much to rotate the cancel line.
     ///
+    /// - If given an angle, the line is rotated by that angle clockwise with
+    ///   respect to the y-axis.
     /// - If `{auto}`, the line assumes the default angle; that is, along the
-    ///   diagonal line of the content box.
-    /// - If given an angle, the line is rotated by that angle clockwise w.r.t
-    ///   the y-axis.
-    /// - If given a function `angle => angle`, the line is rotated by the angle
-    ///   returned by that function. The function receives the default angle as
-    ///   its input.
+    ///   rising diagonal of the content box.
+    /// - If given a function `angle => angle`, the line is rotated, with
+    ///   respect to the y-axis, by the angle returned by that function. The
+    ///   function receives the default angle as its input.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -120,7 +118,7 @@ impl LayoutMath for Packed<CancelElem> {
         let mut body = body.into_frame();
         let body_size = body.size();
         let span = self.span();
-        let length = self.length(styles).resolve(styles);
+        let length = self.length(styles).at(scaled_font_size(ctx, styles));
 
         let stroke = self.stroke(styles).unwrap_or(FixedStroke {
             paint: TextElem::fill_in(styles).as_decoration(),

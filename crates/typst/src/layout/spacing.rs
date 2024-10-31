@@ -1,6 +1,5 @@
-use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain};
+use crate::foundations::{cast, elem, Content};
 use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
-use crate::realize::{Behave, Behaviour};
 use crate::utils::Numeric;
 
 /// Inserts horizontal spacing into a paragraph.
@@ -12,14 +11,25 @@ use crate::utils::Numeric;
 /// # Example
 /// ```example
 /// First #h(1cm) Second \
-/// First #h(30%) Second \
+/// First #h(30%) Second
+/// ```
+///
+/// # Fractional spacing
+/// With fractional spacing, you can align things within a line without forcing
+/// a paragraph break (like [`align`] would). Each fractionally sized element
+/// gets space based on the ratio of its fraction to the sum of all fractions.
+///
+/// ```example
+/// First #h(1fr) Second \
+/// First #h(1fr) Second #h(1fr) Third \
 /// First #h(2fr) Second #h(1fr) Third
 /// ```
 ///
 /// # Mathematical Spacing { #math-spacing }
 /// In [mathematical formulas]($category/math), you can additionally use these
-/// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`, `wide`.
-#[elem(title = "Spacing (H)", Behave)]
+/// constants to add spacing between elements: `thin` (1/6 em), `med` (2/9 em),
+/// `thick` (5/18 em), `quad` (1 em), `wide` (2 em).
+#[elem(title = "Spacing (H)")]
 pub struct HElem {
     /// How much spacing to insert.
     #[required]
@@ -61,29 +71,6 @@ impl HElem {
     }
 }
 
-impl Behave for Packed<HElem> {
-    fn behaviour(&self) -> Behaviour {
-        if self.amount().is_fractional() {
-            Behaviour::Destructive
-        } else if self.weak(StyleChain::default()) {
-            Behaviour::Weak(1)
-        } else {
-            Behaviour::Ignorant
-        }
-    }
-
-    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
-        let Some(other) = prev.0.to_packed::<HElem>() else { return false };
-        match (self.amount(), other.amount()) {
-            (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
-            (Spacing::Rel(this), Spacing::Rel(other)) => {
-                this.resolve(styles) > other.resolve(prev.1)
-            }
-            _ => false,
-        }
-    }
-}
-
 /// Inserts vertical spacing into a flow of blocks.
 ///
 /// The spacing can be absolute, relative, or fractional. In the last case,
@@ -104,7 +91,7 @@ impl Behave for Packed<HElem> {
 ///   [A #v(1fr) B],
 /// )
 /// ```
-#[elem(title = "Spacing (V)", Behave)]
+#[elem(title = "Spacing (V)")]
 pub struct VElem {
     /// How much spacing to insert.
     #[required]
@@ -123,63 +110,13 @@ pub struct VElem {
     /// #v(4pt, weak: true)
     /// The proof is simple:
     /// ```
-    #[external]
     pub weak: bool,
 
-    /// The element's weakness level, see also [`Behaviour`].
+    /// Whether the spacing collapses if not immediately preceded by a
+    /// paragraph.
     #[internal]
-    #[parse(args.named("weak")?.map(|v: bool| v as usize))]
-    pub weakness: usize,
-}
-
-impl VElem {
-    /// Normal strong spacing.
-    pub fn strong(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(0)
-    }
-
-    /// User-created weak spacing.
-    pub fn weak(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(1)
-    }
-
-    /// Weak spacing with list attach weakness.
-    pub fn list_attach(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(2)
-    }
-
-    /// Weak spacing with BlockElem::ABOVE/BELOW weakness.
-    pub fn block_around(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(3)
-    }
-
-    /// Weak spacing with BlockElem::SPACING weakness.
-    pub fn block_spacing(amount: Spacing) -> Self {
-        Self::new(amount).with_weakness(4)
-    }
-}
-
-impl Behave for Packed<VElem> {
-    fn behaviour(&self) -> Behaviour {
-        if self.amount().is_fractional() {
-            Behaviour::Destructive
-        } else if self.weakness(StyleChain::default()) > 0 {
-            Behaviour::Weak(self.weakness(StyleChain::default()))
-        } else {
-            Behaviour::Ignorant
-        }
-    }
-
-    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
-        let Some(other) = prev.0.to_packed::<VElem>() else { return false };
-        match (self.amount(), other.amount()) {
-            (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
-            (Spacing::Rel(this), Spacing::Rel(other)) => {
-                this.resolve(styles) > other.resolve(prev.1)
-            }
-            _ => false,
-        }
-    }
+    #[parse(Some(false))]
+    pub attach: bool,
 }
 
 cast! {

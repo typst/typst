@@ -1,3 +1,4 @@
+use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
@@ -16,31 +17,32 @@ use crate::model::Numbering;
 ///
 /// # Locatable elements { #locatable }
 /// Currently, only a subset of element functions is locatable. Aside from
-/// headings and figures, this includes equations, references and all elements
-/// with an explicit label. As a result, you _can_ query for e.g. [`strong`]
-/// elements, but you will find only those that have an explicit label attached
-/// to them. This limitation will be resolved in the future.
+/// headings and figures, this includes equations, references, quotes and all
+/// elements with an explicit label. As a result, you _can_ query for e.g.
+/// [`strong`] elements, but you will find only those that have an explicit
+/// label attached to them. This limitation will be resolved in the future.
 #[ty(scope)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Location {
-    /// The hash of the element.
-    pub hash: u128,
-    /// An unique number among elements with the same hash. This is the reason
-    /// we need a `Locator` everywhere.
-    pub disambiguator: usize,
-}
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Location(u128);
 
 impl Location {
+    /// Create a new location from a unique hash.
+    pub fn new(hash: u128) -> Self {
+        Self(hash)
+    }
+
+    /// Extract the raw hash.
+    pub fn hash(self) -> u128 {
+        self.0
+    }
+
     /// Produces a well-known variant of this location.
     ///
     /// This is a synthetic location created from another one and is used, for
     /// example, in bibliography management to create individual linkable
     /// locations for reference entries from the bibliography's location.
     pub fn variant(self, n: usize) -> Self {
-        Self {
-            hash: crate::utils::hash128(&(self.hash, n)),
-            ..self
-        }
+        Self(crate::utils::hash128(&(self.0, n)))
     }
 }
 
@@ -83,11 +85,17 @@ impl Location {
     /// local numbering. This is useful if you are building custom indices or
     /// outlines.
     ///
-    /// If the page numbering is set to `none` at that location, this function
-    /// returns `none`.
+    /// If the page numbering is set to `{none}` at that location, this function
+    /// returns `{none}`.
     #[func]
     pub fn page_numbering(self, engine: &mut Engine) -> Option<Numbering> {
         engine.introspector.page_numbering(self).cloned()
+    }
+}
+
+impl Debug for Location {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Location({})", self.0)
     }
 }
 
@@ -97,5 +105,9 @@ impl Repr for Location {
     }
 }
 
-/// Makes this element locatable through `engine.locate`.
+/// Makes this element as locatable through the introspector.
 pub trait Locatable {}
+
+/// Marks this element as not being queryable even though it is locatable for
+/// internal reasons.
+pub trait Unqueriable {}

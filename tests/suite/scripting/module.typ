@@ -1,5 +1,6 @@
 // SKIP
 // A file to import in import / include tests.
+#import "modules/chap2.typ"
 
 #let a
 #let b = 1

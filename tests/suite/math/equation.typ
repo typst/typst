@@ -256,6 +256,20 @@ $ q &= sum_k ln A \
   ],
 )
 
+--- math-equation-number-empty ---
+// Test numbering on empty equations.
+#math.equation(numbering: "1", block: true, [])
+
+--- issue-4187-alignment-point-affects-row-height ---
+// In this bug, a row of "-" only should have a very small height; but
+// after adding an alignment point "&", the row gains a larger height.
+// We need to test alignment point "&" does not affect a row's height.
+#box($ - - $, fill: silver)
+#box($ - - $, fill: silver) \
+#box($ a \ - - $, fill: silver)
+#box($ &- - \ &a $, fill: silver)
+#box($ &a \ &- - $, fill: silver)
+
 --- issue-numbering-hint ---
 // In this bug, the hint and error messages for an equation
 // being reference mentioned that it was a "heading" and was

@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Add;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, HintedStrResult};
 use crate::foundations::{
     cast, AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
     StyleChain, Value,
@@ -107,13 +107,21 @@ impl<T> Sides<Option<T>> {
 
 impl Sides<Rel<Abs>> {
     /// Evaluate the sides relative to the given `size`.
-    pub fn relative_to(self, size: Size) -> Sides<Abs> {
+    pub fn relative_to(&self, size: Size) -> Sides<Abs> {
         Sides {
             left: self.left.relative_to(size.x),
             top: self.top.relative_to(size.y),
             right: self.right.relative_to(size.x),
             bottom: self.bottom.relative_to(size.y),
         }
+    }
+
+    /// Whether all sides are zero.
+    pub fn is_zero(&self) -> bool {
+        self.left.is_zero()
+            && self.top.is_zero()
+            && self.right.is_zero()
+            && self.bottom.is_zero()
     }
 }
 
@@ -201,7 +209,7 @@ impl<T> FromValue for Sides<Option<T>>
 where
     T: Default + FromValue + Clone,
 {
-    fn from_value(mut value: Value) -> StrResult<Self> {
+    fn from_value(mut value: Value) -> HintedStrResult<Self> {
         let expected_keys = ["left", "top", "right", "bottom", "x", "y", "rest"];
         if let Value::Dict(dict) = &mut value {
             if dict.is_empty() {
@@ -229,7 +237,7 @@ where
             let keys = dict.iter().map(|kv| kv.0.as_str()).collect();
             // Do not hint at expected_keys, because T may be castable from Dict
             // objects with other sets of expected keys.
-            Err(Dict::unexpected_keys(keys, None))
+            Err(Dict::unexpected_keys(keys, None).into())
         } else {
             Err(Self::error(&value))
         }
@@ -246,7 +254,7 @@ impl<T: Resolve> Resolve for Sides<T> {
 
 impl<T: Fold> Fold for Sides<Option<T>> {
     fn fold(self, outer: Self) -> Self {
-        // Usually, folding an inner `None` with an `outer` preferres the
+        // Usually, folding an inner `None` with an `outer` prefers the
         // explicit `None`. However, here `None` means unspecified and thus
         // we want `outer`, so we use `fold_or` to opt into such behavior.
         self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))

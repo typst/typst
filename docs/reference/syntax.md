@@ -120,9 +120,9 @@ a table listing all syntax that is available in code mode:
 | Named function           | `{let f(x) = 2 * x}`          | [Function]($function)              |
 | Set rule                 | `{set text(14pt)}`            | [Styling]($styling/#set-rules)     |
 | Set-if rule              | `{set text(..) if .. }`       | [Styling]($styling/#set-rules)     |
-| Show-set rule            | `{show par: set block(..)}`   | [Styling]($styling/#show-rules)    |
+| Show-set rule            | `{show heading: set block(..)}` | [Styling]($styling/#show-rules)  |
 | Show rule with function  | `{show raw: it => {..}}`      | [Styling]($styling/#show-rules)    |
-| Show-everything rule     | `{show: columns.with(2)}`     | [Styling]($styling/#show-rules)    |
+| Show-everything rule     | `{show: template}`            | [Styling]($styling/#show-rules)    |
 | Context expression       | `{context text.lang}`         | [Context]($context)                |
 | Conditional              | `{if x == 1 {..} else {..}}`  | [Scripting]($scripting/#conditionals) |
 | For loop                 | `{for x in (1, 2, 3) {..}}`   | [Scripting]($scripting/#loops)     |
@@ -167,3 +167,49 @@ sequence: `[\u{1f600}]`. The same kind of escape sequences also work in
 I got an ice cream for
 \$1.50! \u{1f600}
 ```
+
+## Paths
+Typst has various features that require a file path to reference external
+resources such as images, Typst files, or data files. Paths are represented as
+[strings]($str). There are two kinds of paths: Relative and absolute.
+
+- A **relative path** searches from the location of the Typst file where the
+  feature is invoked. It is the default:
+  ```typ
+  #image("images/logo.png")
+  ```
+
+- An **absolute path** searches from the _root_ of the project. It starts with a
+  leading `/`:
+  ```typ
+  #image("/assets/logo.png")
+  ```
+
+### Project root
+By default, the project root is the parent directory of the main Typst file.
+For security reasons, you cannot read any files outside of the root directory.
+
+If you want to set a specific folder as the root of your project, you can use
+the CLI's `--root` flag. Make sure that the main file is contained in the
+folder's subtree!
+```bash
+typst compile --root .. file.typ
+```
+
+In the web app, the project itself is the root directory. You can always read
+all files within it, no matter which one is previewed (via the eye toggle next
+to each Typst file in the file panel).
+
+### Paths and packages
+A package can only load files from its own directory. Within it, absolute paths
+point to the package root, rather than the project root. For this reason, it
+cannot directly load files from the project directory. If a package needs
+resources from the project (such as a logo image), you must pass the already
+loaded image, e.g. as a named parameter `{logo: image("mylogo.svg")}`. Note that
+you can then still customize the image's appearance with a set rule within the
+package.
+
+In the future, paths might become a
+[distinct type from strings](https://github.com/typst/typst/issues/971), so that
+they can retain knowledge of where they were constructed. This way, resources
+could be loaded from a different root.

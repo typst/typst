@@ -3,10 +3,10 @@ use comemo::Track;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    dict, elem, func, Content, Context, Func, NativeElement, Packed, StyleChain,
+    dict, elem, func, Content, Context, Func, NativeElement, Packed, Show, StyleChain,
 };
 use crate::introspection::Locatable;
-use crate::layout::{Fragment, LayoutMultiple, Regions, Size};
+use crate::layout::{layout_fragment, BlockElem, Size};
 use crate::syntax::Span;
 
 /// Provides access to the current outer container's (or page's, if none)
@@ -29,6 +29,10 @@ use crate::syntax::Span;
 ///   #text
 /// ])
 /// ```
+///
+/// Note that the `layout` function forces its contents into a [block]-level
+/// container, so placement relative to the page or pagebreaks are not possible
+/// within it.
 ///
 /// If the `layout` call is placed inside a box with a width of `{800pt}` and a
 /// height of `{400pt}`, then the specified function will be given the argument
@@ -67,30 +71,35 @@ pub fn layout(
 }
 
 /// Executes a `layout` call.
-#[elem(Locatable, LayoutMultiple)]
+#[elem(Locatable, Show)]
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]
     func: Func,
 }
 
-impl LayoutMultiple for Packed<LayoutElem> {
-    #[typst_macros::time(name = "layout", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        // Gets the current region's base size, which will be the size of the
-        // outer container, or of the page if there is no such container.
-        let Size { x, y } = regions.base();
-        let loc = self.location().unwrap();
-        let context = Context::new(Some(loc), Some(styles));
-        let result = self
-            .func()
-            .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
-            .display();
-        result.layout(engine, styles, regions)
+impl Show for Packed<LayoutElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::multi_layouter(
+            self.clone(),
+            |elem, engine, locator, styles, regions| {
+                // Gets the current region's base size, which will be the size of the
+                // outer container, or of the page if there is no such container.
+                let Size { x, y } = regions.base();
+                let loc = elem.location().unwrap();
+                let context = Context::new(Some(loc), Some(styles));
+                let result = elem
+                    .func()
+                    .call(
+                        engine,
+                        context.track(),
+                        [dict! { "width" => x, "height" => y }],
+                    )?
+                    .display();
+                layout_fragment(engine, &result, locator, styles, regions)
+            },
+        )
+        .pack()
+        .spanned(self.span()))
     }
 }

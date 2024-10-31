@@ -52,6 +52,31 @@ $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } \
       mid(bar.v.double)
     floor(hat(I) mid(slash) { dot mid(|) dot } mid(|) I/n) } $
 
+--- math-lr-mid-size ---
+// Test mid when lr size is set.
+#set page(width: auto)
+
+$ lr({ A mid(|) integral }) quad
+  lr(size: #1em, { A mid(|) integral }) quad
+  lr(size: #(1em+20%), { A mid(|) integral }) \
+
+  lr(] A mid(|) integral ]) quad
+  lr(size: #1em, ] A mid(|) integral ]) quad
+  lr(size: #(1em+20%), ] A mid(|) integral ]) \
+
+  lr(( A mid(|) integral ]) quad
+  lr(size: #1em, ( A mid(|) integral ]) quad
+  lr(size: #(1em+20%), ( A mid(|) integral ]) $
+
+--- math-lr-mid-size-nested-equation ---
+// Test mid size when lr size is set, when nested in an equation.
+#set page(width: auto)
+
+#let body = ${ A mid(|) integral }$
+$ lr(body) quad
+  lr(size: #1em, body) quad
+  lr(size: #(1em+20%), body) $
+
 --- math-lr-unbalanced ---
 // Test unbalanced delimiters.
 $ 1/(2 (x) $
@@ -62,3 +87,17 @@ $ 1/(2 y (x) (2(3)) $
 // Test ignoring weak spacing immediately after the opening
 // and immediately before the closing.
 $ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $
+
+--- math-lr-nested ---
+// Test nested lr calls.
+#let body1 = math.lr($|$, size: 4em)
+#let body2 = $lr(|, size: #4em)$
+
+$lr(|, size: #2em)$
+$lr(lr(|, size: #4em), size: #50%)$
+$lr(body1, size: #50%)$
+$lr(body2, size: #50%)$
+
+--- issue-4188-lr-corner-brackets ---
+// Test positioning of U+231C to U+231F
+$⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$

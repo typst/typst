@@ -35,8 +35,23 @@ impl SyntaxNode {
     }
 
     /// Create a new error node.
-    pub fn error(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
-        Self(Repr::Error(Arc::new(ErrorNode::new(message, text))))
+    pub fn error(error: SyntaxError, text: impl Into<EcoString>) -> Self {
+        Self(Repr::Error(Arc::new(ErrorNode::new(error, text))))
+    }
+
+    /// Create a dummy node of the given kind.
+    ///
+    /// Panics if `kind` is `SyntaxKind::Error`.
+    #[track_caller]
+    pub const fn placeholder(kind: SyntaxKind) -> Self {
+        if matches!(kind, SyntaxKind::Error) {
+            panic!("cannot create error placeholder");
+        }
+        Self(Repr::Leaf(LeafNode {
+            kind,
+            text: EcoString::new(),
+            span: Span::detached(),
+        }))
     }
 
     /// The type of the node.
@@ -194,7 +209,7 @@ impl SyntaxNode {
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         if !self.kind().is_error() {
             let text = std::mem::take(self).into_text();
-            *self = SyntaxNode::error(message, text);
+            *self = SyntaxNode::error(SyntaxError::new(message), text);
         }
     }
 
@@ -297,17 +312,6 @@ impl SyntaxNode {
             Repr::Error(node) => node.error.span.number() + 1,
         }
     }
-
-    /// An arbitrary node just for filling a slot in memory.
-    ///
-    /// In contrast to `default()`, this is a const fn.
-    pub(super) const fn arbitrary() -> Self {
-        Self(Repr::Leaf(LeafNode {
-            kind: SyntaxKind::End,
-            text: EcoString::new(),
-            span: Span::detached(),
-        }))
-    }
 }
 
 impl Debug for SyntaxNode {
@@ -322,7 +326,7 @@ impl Debug for SyntaxNode {
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::arbitrary()
+        Self::leaf(SyntaxKind::End, EcoString::new())
     }
 }
 
@@ -624,15 +628,8 @@ struct ErrorNode {
 
 impl ErrorNode {
     /// Create new error node.
-    fn new(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
-        Self {
-            text: text.into(),
-            error: SyntaxError {
-                span: Span::detached(),
-                message: message.into(),
-                hints: eco_vec![],
-            },
-        }
+    fn new(error: SyntaxError, text: impl Into<EcoString>) -> Self {
+        Self { text: text.into(), error }
     }
 
     /// The byte length of the node in the source text.
@@ -670,6 +667,15 @@ pub struct SyntaxError {
 }
 
 impl SyntaxError {
+    /// Create a new detached syntax error.
+    pub fn new(message: impl Into<EcoString>) -> Self {
+        Self {
+            span: Span::detached(),
+            message: message.into(),
+            hints: eco_vec![],
+        }
+    }
+
     /// Whether the two errors are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
         self.message == other.message && self.hints == other.hints
@@ -818,7 +824,7 @@ pub enum Side {
     After,
 }
 
-/// Access to leafs.
+/// Access to leaves.
 impl<'a> LinkedNode<'a> {
     /// Get the rightmost non-trivia leaf before this node.
     pub fn prev_leaf(&self) -> Option<Self> {

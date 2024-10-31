@@ -3,14 +3,13 @@ use std::f64::consts::PI;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+    elem, func, scope, Content, NativeElement, Packed, Resolve, Show, Smart, StyleChain,
 };
-use crate::layout::{
-    Axes, Em, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel,
-};
+use crate::introspection::Locator;
+use crate::layout::{Axes, BlockElem, Em, Frame, FrameItem, Length, Point, Region, Rel};
 use crate::syntax::Span;
 use crate::utils::Numeric;
-use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
+use crate::visualize::{FillRule, FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 
 /// A closed polygon.
 ///
@@ -27,16 +26,19 @@ use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope, LayoutSingle)]
+#[elem(scope, Show)]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
     /// When setting a fill, the default stroke disappears. To create a
     /// rectangle with both fill and stroke, you have to configure both.
-    ///
-    /// Currently all polygons are filled according to the
-    /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
+
+    /// The drawing rule used to fill the polygon.
+    ///
+    /// See the [path documentation]($path.fill-rule) for an example.
+    #[default]
+    pub fill_rule: FillRule,
 
     /// How to [stroke] the polygon. This can be:
     ///
@@ -125,52 +127,64 @@ impl PolygonElem {
     }
 }
 
-impl LayoutSingle for Packed<PolygonElem> {
-    #[typst_macros::time(name = "polygon", span = self.span())]
-    fn layout(
-        &self,
-        _: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Frame> {
-        let points: Vec<Point> = self
-            .vertices()
-            .iter()
-            .map(|c| {
-                c.resolve(styles).zip_map(regions.base(), Rel::relative_to).to_point()
-            })
-            .collect();
-
-        let size = points.iter().fold(Point::zero(), |max, c| c.max(max)).to_size();
-        if !size.is_finite() {
-            bail!(self.span(), "cannot create polygon with infinite size");
-        }
-
-        let mut frame = Frame::hard(size);
-
-        // Only create a path if there are more than zero points.
-        if points.is_empty() {
-            return Ok(frame);
-        }
-
-        // Prepare fill and stroke.
-        let fill = self.fill(styles);
-        let stroke = match self.stroke(styles) {
-            Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
-            Smart::Auto => None,
-            Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
-        };
-
-        // Construct a closed path given all points.
-        let mut path = Path::new();
-        path.move_to(points[0]);
-        for &point in &points[1..] {
-            path.line_to(point);
-        }
-        path.close_path();
-
-        let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
-        frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-        Ok(frame)
+impl Show for Packed<PolygonElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::single_layouter(self.clone(), layout_polygon)
+            .pack()
+            .spanned(self.span()))
     }
+}
+
+/// Layout the polygon.
+#[typst_macros::time(span = elem.span())]
+fn layout_polygon(
+    elem: &Packed<PolygonElem>,
+    _: &mut Engine,
+    _: Locator,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let points: Vec<Point> = elem
+        .vertices()
+        .iter()
+        .map(|c| c.resolve(styles).zip_map(region.size, Rel::relative_to).to_point())
+        .collect();
+
+    let size = points.iter().fold(Point::zero(), |max, c| c.max(max)).to_size();
+    if !size.is_finite() {
+        bail!(elem.span(), "cannot create polygon with infinite size");
+    }
+
+    let mut frame = Frame::hard(size);
+
+    // Only create a path if there are more than zero points.
+    if points.is_empty() {
+        return Ok(frame);
+    }
+
+    // Prepare fill and stroke.
+    let fill = elem.fill(styles);
+    let fill_rule = elem.fill_rule(styles);
+    let stroke = match elem.stroke(styles) {
+        Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
+        Smart::Auto => None,
+        Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
+    };
+
+    // Construct a closed path given all points.
+    let mut path = Path::new();
+    path.move_to(points[0]);
+    for &point in &points[1..] {
+        path.line_to(point);
+    }
+    path.close_path();
+
+    let shape = Shape {
+        geometry: Geometry::Path(path),
+        stroke,
+        fill,
+        fill_rule,
+    };
+    frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
+    Ok(frame)
 }

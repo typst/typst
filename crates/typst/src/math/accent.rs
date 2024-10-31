@@ -1,17 +1,63 @@
 use crate::diag::{bail, SourceResult};
 use crate::foundations::{
-    cast, elem, Content, Packed, Resolve, Smart, StyleChain, Value,
+    cast, elem, func, Content, NativeElement, Packed, Smart, StyleChain, Value,
 };
 use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
-    style_cramped, FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment,
-    Scaled,
+    scaled_font_size, style_cramped, FrameFragment, GlyphFragment, LayoutMath,
+    MathContext, MathFragment, Scaled,
 };
-use crate::symbols::Symbol;
 use crate::text::TextElem;
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
+
+/// This macro generates accent-related functions.
+///
+/// ```ignore
+/// accents! {
+///     '\u{0300}' | '`' => grave,
+/// //  ^^^^^^^^^    ^^^    ^^^^^
+/// //  |            |      |
+/// //  |            |      +-- The name of the function.
+/// //  |            +--------- The alternative characters that represent the accent.
+/// //  +---------------------- The primary character that represents the accent.
+/// }
+/// ```
+///
+/// When combined with the `Accent::combine` function, accent characters can be normalized
+/// to the primary character.
+macro_rules! accents {
+    ($($primary:literal $(| $alt:literal)* => $name:ident),* $(,)?) => {
+        impl Accent {
+            /// Normalize an accent to a combining one.
+            pub fn combine(c: char) -> Option<char> {
+                Some(match c {
+                    $($primary $(| $alt)* => $primary,)*
+                    _ => return None,
+                })
+            }
+        }
+
+        $(
+            /// The accent function for callable symbol definitions.
+            #[func]
+            pub fn $name(
+                /// The base to which the accent is applied.
+                base: Content,
+                /// The size of the accent, relative to the width of the base.
+                #[named]
+                size: Option<Smart<Rel<Length>>>,
+            ) -> Content {
+                let mut accent = AccentElem::new(base, Accent::new($primary));
+                if let Some(size) = size {
+                    accent = accent.with_size(size);
+                }
+                accent.pack()
+            }
+        )+
+    };
+}
 
 /// Attaches an accent to a base.
 ///
@@ -43,6 +89,7 @@ pub struct AccentElem {
     /// | Circumflex    | `hat`           | `^`       |
     /// | Tilde         | `tilde`         | `~`       |
     /// | Macron        | `macron`        | `¯`       |
+    /// | Dash          | `dash`          | `‾`       |
     /// | Breve         | `breve`         | `˘`       |
     /// | Dot           | `dot`           | `.`       |
     /// | Double dot, Diaeresis | `dot.double`, `diaer` | `¨` |
@@ -76,7 +123,7 @@ impl LayoutMath for Packed<AccentElem> {
         let width = self
             .size(styles)
             .unwrap_or(Rel::one())
-            .resolve(styles)
+            .at(scaled_font_size(ctx, styles))
             .relative_to(base.width());
 
         // Forcing the accent to be at least as large as the base makes it too
@@ -130,8 +177,31 @@ pub struct Accent(char);
 impl Accent {
     /// Normalize a character into an accent.
     pub fn new(c: char) -> Self {
-        Self(Symbol::combining_accent(c).unwrap_or(c))
+        Self(Self::combine(c).unwrap_or(c))
     }
+}
+
+// Keep it synced with the documenting table above.
+accents! {
+    '\u{0300}' | '`' => grave,
+    '\u{0301}' | '´' => acute,
+    '\u{0302}' | '^' | 'ˆ' => hat,
+    '\u{0303}' | '~' | '∼' | '˜' => tilde,
+    '\u{0304}' | '¯' => macron,
+    '\u{0305}' | '-' | '‾' | '−' => dash,
+    '\u{0306}' | '˘' => breve,
+    '\u{0307}' | '.' | '˙' | '⋅' => dot,
+    '\u{0308}' | '¨' => dot_double,
+    '\u{20db}' => dot_triple,
+    '\u{20dc}' => dot_quad,
+    '\u{030a}' | '∘' | '○' => circle,
+    '\u{030b}' | '˝' => acute_double,
+    '\u{030c}' | 'ˇ' => caron,
+    '\u{20d6}' | '←' => arrow_l,
+    '\u{20d7}' | '→' | '⟶' => arrow,
+    '\u{20e1}' | '↔' | '⟷' => arrow_l_r,
+    '\u{20d0}' | '↼' => harpoon_lt,
+    '\u{20d1}' | '⇀' => harpoon,
 }
 
 cast! {

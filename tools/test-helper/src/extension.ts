@@ -11,18 +11,20 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {}
 
 class TestHelper {
-  // The currently active view for a test or `null` if none.
-  active?: {
+  // The opened tab for a test or `undefined` if none. A non-empty "opened"
+  // means there is a TestHelper editor tab present, but the content within
+  // that tab (i.e. the WebView panel) might not be visible yet.
+  opened?: {
     // The tests's name.
     name: string;
     // The WebView panel that displays the test images and output.
     panel: vscode.WebviewPanel;
-  } | null;
+  };
 
   // The current zoom scale.
   scale = 1.0;
 
-  // The extention's status bar item.
+  // The extension's status bar item.
   statusItem: vscode.StatusBarItem;
 
   // The active message of the status item.
@@ -33,8 +35,6 @@ class TestHelper {
 
   // Sets the extension up.
   constructor(private readonly context: vscode.ExtensionContext) {
-    this.active = null;
-
     // Code lens that displays commands inline with the tests.
     this.context.subscriptions.push(
       vscode.languages.registerCodeLensProvider(
@@ -160,14 +160,14 @@ class TestHelper {
 
   // Triggered when clicking "View" in the lens.
   private viewFromLens(name: string) {
-    if (this.active) {
-      if (this.active.name == name) {
-        this.active.panel.reveal();
-        return;
-      }
+    if (this.opened?.name == name) {
+      this.opened.panel.reveal();
+      return;
+    }
 
-      this.active.name = name;
-      this.active.panel.title = name;
+    if (this.opened) {
+      this.opened.name = name;
+      this.opened.panel.title = name;
     } else {
       const panel = vscode.window.createWebviewPanel(
         "typst-test-helper.preview",
@@ -176,9 +176,9 @@ class TestHelper {
         { enableFindWidget: true }
       );
 
-      panel.onDidDispose(() => (this.active = null));
+      panel.onDidDispose(() => (this.opened = undefined));
 
-      this.active = { name, panel };
+      this.opened = { name, panel };
     }
 
     this.refreshWebView();
@@ -211,23 +211,23 @@ class TestHelper {
 
   // Triggered when clicking the "Refresh" button in the WebView toolbar.
   private refreshFromPreview() {
-    if (this.active) {
-      this.active.panel.reveal();
+    if (this.opened) {
+      this.opened.panel.reveal();
       this.refreshWebView();
     }
   }
 
   // Triggered when clicking the "Run" button in the WebView toolbar.
   private runFromPreview() {
-    if (this.active) {
-      this.runCargoTest(this.active.name);
+    if (this.opened) {
+      this.runCargoTest(this.opened.name);
     }
   }
 
   // Triggered when clicking the "Save" button in the WebView toolbar.
   private saveFromPreview() {
-    if (this.active) {
-      this.runCargoTest(this.active.name, true);
+    if (this.opened) {
+      this.runCargoTest(this.opened.name, true);
     }
   }
 
@@ -286,8 +286,8 @@ class TestHelper {
 
   // Triggered when performing a right-click on an image in the WebView.
   private copyImageFilePathFromPreviewContext(webviewSection: string) {
-    if (!this.active) return;
-    const { name } = this.active;
+    if (!this.opened) return;
+    const { name } = this.opened;
     const { png, ref } = getImageUris(name);
     switch (webviewSection) {
       case "png":
@@ -303,13 +303,14 @@ class TestHelper {
 
   // Reloads the web view.
   private refreshWebView(output?: { stdout: string; stderr: string }) {
-    if (!this.active) return;
+    if (!this.opened) return;
 
-    const { name, panel } = this.active;
+    const { name, panel } = this.opened;
     const { png, ref } = getImageUris(name);
 
-    if (panel && panel.visible) {
-      console.log(`Refreshing WebView for ${name}`);
+    if (panel) {
+      console.log(
+        `Refreshing WebView for ${name}` + (panel.visible ? " in background" : ""));
       const webViewSrcs = {
         png: panel.webview.asWebviewUri(png),
         ref: panel.webview.asWebviewUri(ref),
@@ -370,7 +371,7 @@ class TestHelper {
     );
   }
 
-  // Confgiures whether the run and save buttons are enabled.
+  // Configures whether the run and save buttons are enabled.
   private setRunButtonEnabled(enabled: boolean) {
     vscode.commands.executeCommand(
       "setContext",
@@ -403,6 +404,14 @@ function getWebviewContent(
 ): string {
   const escape = (text: string) =>
     text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const stdoutHtml = output?.stdout
+    ? `<h1>Standard output</h1><pre>${escape(output.stdout)}</pre>`
+    : "";
+  const stderrHtml = output?.stderr
+    ? `<h1>Standard error</h1><pre>${escape(output.stderr)}</pre>`
+    : "";
+
   return `
   <!DOCTYPE html>
   <html lang="en">
@@ -478,16 +487,8 @@ function getWebviewContent(
           />
         </div>
       </div>
-      ${
-        output?.stdout
-          ? `<h1>Standard output</h1><pre>${escape(output.stdout)}</pre>`
-          : ""
-      }
-      ${
-        output?.stderr
-          ? `<h1>Standard error</h1><pre>${escape(output.stderr)}</pre>`
-          : ""
-      }
+      ${stdoutHtml}
+      ${stderrHtml}
     </body>
   </html>`;
 }

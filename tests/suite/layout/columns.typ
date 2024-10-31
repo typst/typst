@@ -3,7 +3,7 @@
 --- columns-rtl ---
 // Test normal operation and RTL directions.
 #set page(height: 3.25cm, width: 7.05cm, columns: 2)
-#set text(lang: "ar", font: ("Noto Sans Arabic", "Linux Libertine"))
+#set text(lang: "ar", font: ("Noto Sans Arabic", "Libertinus Serif"))
 #set columns(gutter: 30pt)
 
 #box(fill: conifer, height: 8pt, width: 6pt) وتحفيز
@@ -122,3 +122,10 @@ Hallo
   = B
   Text
 ]
+
+--- colbreak-weak ---
+#set page(columns: 2)
+#colbreak(weak: true)
+A
+#colbreak(weak: true)
+B

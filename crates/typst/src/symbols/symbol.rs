@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array};
+use crate::foundations::{cast, func, scope, ty, Array, Func};
 use crate::syntax::{Span, Spanned};
 
 #[doc(inline)]
@@ -46,48 +46,64 @@ pub use typst_macros::symbols;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(Repr);
 
+/// The character of a symbol, possibly with a function.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct SymChar(char, Option<fn() -> Func>);
+
 /// The internal representation.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
-    Single(char),
-    Const(&'static [(&'static str, char)]),
+    Single(SymChar),
+    Const(&'static [(&'static str, SymChar)]),
     Multi(Arc<(List, EcoString)>),
 }
 
 /// A collection of symbols.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum List {
-    Static(&'static [(&'static str, char)]),
-    Runtime(Box<[(EcoString, char)]>),
+    Static(&'static [(&'static str, SymChar)]),
+    Runtime(Box<[(EcoString, SymChar)]>),
 }
 
 impl Symbol {
     /// Create a new symbol from a single character.
-    pub const fn single(c: char) -> Self {
+    pub const fn single(c: SymChar) -> Self {
         Self(Repr::Single(c))
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
-    pub const fn list(list: &'static [(&'static str, char)]) -> Self {
+    pub const fn list(list: &'static [(&'static str, SymChar)]) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Const(list))
     }
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
-    pub fn runtime(list: Box<[(EcoString, char)]>) -> Self {
+    pub fn runtime(list: Box<[(EcoString, SymChar)]>) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
     }
 
-    /// Get the symbol's text.
+    /// Get the symbol's char.
     pub fn get(&self) -> char {
+        self.sym().char()
+    }
+
+    /// Resolve the symbol's `SymChar`.
+    pub fn sym(&self) -> SymChar {
         match &self.0 {
             Repr::Single(c) => *c,
             Repr::Const(_) => find(self.variants(), "").unwrap(),
             Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap(),
         }
+    }
+
+    /// Try to get the function associated with the symbol, if any.
+    pub fn func(&self) -> StrResult<Func> {
+        self.sym()
+            .func()
+            .ok_or_else(|| eco_format!("symbol {self} is not callable"))
     }
 
     /// Apply a modifier to the symbol.
@@ -111,7 +127,7 @@ impl Symbol {
     }
 
     /// The characters that are covered by this symbol.
-    pub fn variants(&self) -> impl Iterator<Item = (&str, char)> {
+    pub fn variants(&self) -> impl Iterator<Item = (&str, SymChar)> {
         match &self.0 {
             Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
             Repr::Const(list) => Variants::Static(list.iter()),
@@ -132,33 +148,6 @@ impl Symbol {
             }
         }
         set.into_iter()
-    }
-
-    /// Normalize an accent to a combining one. Keep it synced with the
-    /// documenting table in accent.rs AccentElem.
-    pub fn combining_accent(c: char) -> Option<char> {
-        Some(match c {
-            '\u{0300}' | '`' => '\u{0300}',
-            '\u{0301}' | '´' => '\u{0301}',
-            '\u{0302}' | '^' | 'ˆ' => '\u{0302}',
-            '\u{0303}' | '~' | '∼' | '˜' => '\u{0303}',
-            '\u{0304}' | '¯' => '\u{0304}',
-            '\u{0305}' | '-' | '‾' | '−' => '\u{0305}',
-            '\u{0306}' | '˘' => '\u{0306}',
-            '\u{0307}' | '.' | '˙' | '⋅' => '\u{0307}',
-            '\u{0308}' | '¨' => '\u{0308}',
-            '\u{20db}' => '\u{20db}',
-            '\u{20dc}' => '\u{20dc}',
-            '\u{030a}' | '∘' | '○' => '\u{030a}',
-            '\u{030b}' | '˝' => '\u{030b}',
-            '\u{030c}' | 'ˇ' => '\u{030c}',
-            '\u{20d6}' | '←' => '\u{20d6}',
-            '\u{20d7}' | '→' | '⟶' => '\u{20d7}',
-            '\u{20e1}' | '↔' | '⟷' => '\u{20e1}',
-            '\u{20d0}' | '↼' => '\u{20d0}',
-            '\u{20d1}' | '⇀' => '\u{20d1}',
-            _ => return None,
-        })
     }
 }
 
@@ -203,7 +192,7 @@ impl Symbol {
             if list.iter().any(|(prev, _)| &v.0 == prev) {
                 bail!(span, "duplicate variant");
             }
-            list.push((v.0, v.1));
+            list.push((v.0, SymChar::pure(v.1)));
         }
         Ok(Symbol::runtime(list.into_boxed_slice()))
     }
@@ -212,6 +201,34 @@ impl Symbol {
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char(self.get())
+    }
+}
+
+impl SymChar {
+    /// Create a symbol character without a function.
+    pub const fn pure(c: char) -> Self {
+        Self(c, None)
+    }
+
+    /// Create a symbol character with a function.
+    pub const fn with_func(c: char, func: fn() -> Func) -> Self {
+        Self(c, Some(func))
+    }
+
+    /// Get the character of the symbol.
+    pub const fn char(&self) -> char {
+        self.0
+    }
+
+    /// Get the function associated with the symbol.
+    pub fn func(&self) -> Option<Func> {
+        self.1.map(|f| f())
+    }
+}
+
+impl From<char> for SymChar {
+    fn from(c: char) -> Self {
+        SymChar(c, None)
     }
 }
 
@@ -276,13 +293,13 @@ cast! {
 
 /// Iterator over variants.
 enum Variants<'a> {
-    Single(std::option::IntoIter<char>),
-    Static(std::slice::Iter<'static, (&'static str, char)>),
-    Runtime(std::slice::Iter<'a, (EcoString, char)>),
+    Single(std::option::IntoIter<SymChar>),
+    Static(std::slice::Iter<'static, (&'static str, SymChar)>),
+    Runtime(std::slice::Iter<'a, (EcoString, SymChar)>),
 }
 
 impl<'a> Iterator for Variants<'a> {
-    type Item = (&'a str, char);
+    type Item = (&'a str, SymChar);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -295,9 +312,9 @@ impl<'a> Iterator for Variants<'a> {
 
 /// Find the best symbol from the list.
 fn find<'a>(
-    variants: impl Iterator<Item = (&'a str, char)>,
+    variants: impl Iterator<Item = (&'a str, SymChar)>,
     modifiers: &str,
-) -> Option<char> {
+) -> Option<SymChar> {
     let mut best = None;
     let mut best_score = None;
 

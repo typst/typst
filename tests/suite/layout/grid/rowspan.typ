@@ -163,7 +163,7 @@
 #let count = counter("count")
 #show grid.cell: it => {
   count.step()
-  count.display()
+  context count.display()
 }
 
 #grid(
@@ -194,7 +194,7 @@
 --- grid-rowspan-unbreakable-2 ---
 // Test cell breakability
 #show grid.cell: it => {
-  assert.eq(it.breakable, (it.x, it.y) != (0, 6) and (it.y in (2, 5, 6) or (it.x, it.y) in ((0, 1), (2, 3), (1, 7))))
+  test(it.breakable, (it.x, it.y) != (0, 6) and (it.y in (2, 5, 6) or (it.x, it.y) in ((0, 1), (2, 3), (1, 7))))
   it.breakable
 }
 #grid(

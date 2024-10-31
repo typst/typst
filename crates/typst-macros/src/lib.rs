@@ -340,17 +340,37 @@ pub fn derive_cast(item: BoundaryStream) -> BoundaryStream {
 
 /// Defines a list of `Symbol`s.
 ///
+/// The `#[call(path)]` attribute can be used to specify a function to call when
+/// the symbol is invoked. The function must be `NativeFunc`.
+///
 /// ```ignore
 /// const EMOJI: &[(&str, Symbol)] = symbols! {
-///    // A plain symbol without modifiers.
-///    abacus: '🧮',
+///     // A plain symbol without modifiers.
+///     abacus: '🧮',
 ///
-///    // A symbol with a modifierless default and one modifier.
-///    alien: ['👽', monster: '👾'],
+///     // A symbol with a modifierless default and one modifier.
+///     alien: ['👽', monster: '👾'],
 ///
-///    // A symbol where each variant has a modifier. The first one will be
-///    // the default.
-///    clock: [one: '🕐', two: '🕑', ...],
+///     // A symbol where each variant has a modifier. The first one will be
+///     // the default.
+///     clock: [one: '🕐', two: '🕑', ...],
+///
+///     // A callable symbol without modifiers.
+///     breve: #[call(crate::math::breve)] '˘',
+///
+///     // A callable symbol with a modifierless default and one modifier.
+///     acute: [
+///         #[call(crate::math::acute)] '´',
+///         double: '˝',
+///     ],
+///
+///     // A callable symbol where each variant has a modifier.
+///     arrow: [
+///         #[call(crate::math::arrow)] r: '→',
+///         r.long.bar: '⟼',
+///         #[call(crate::math::arrow_l)] l: '←',
+///         l.long.bar: '⟻',
+///     ],
 /// }
 /// ```
 ///

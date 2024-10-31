@@ -1,20 +1,20 @@
 use ecow::EcoString;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
-    StyledElem, Value,
+    cast, elem, Args, Array, Construct, Content, Datetime, Fields, Smart, StyleChain,
+    Styles, Value,
 };
-use crate::introspection::{Introspector, ManualPageCounter};
-use crate::layout::{LayoutRoot, Page, PageElem};
+use crate::introspection::Introspector;
+use crate::layout::Page;
 
 /// The root element of a document and its metadata.
 ///
 /// All documents are automatically wrapped in a `document` element. You cannot
 /// create a document element yourself. This function is only used with
 /// [set rules]($styling/#set-rules) to specify document metadata. Such a set
-/// rule must appear before any of the document's contents.
+/// rule must not occur inside of any layout container.
 ///
 /// ```example
 /// #set document(title: [Hello])
@@ -25,7 +25,7 @@ use crate::layout::{LayoutRoot, Page, PageElem};
 ///
 /// Note that metadata set with this function is not rendered within the
 /// document. Instead, it is embedded in the compiled PDF file.
-#[elem(Construct, LayoutRoot)]
+#[elem(Construct)]
 pub struct DocumentElem {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
@@ -56,63 +56,11 @@ pub struct DocumentElem {
     /// something other than `{auto}`.
     #[ghost]
     pub date: Smart<Option<Datetime>>,
-
-    /// The page runs.
-    #[internal]
-    #[variadic]
-    pub children: Vec<Content>,
 }
 
 impl Construct for DocumentElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "can only be used in set rules")
-    }
-}
-
-impl LayoutRoot for Packed<DocumentElem> {
-    #[typst_macros::time(name = "document", span = self.span())]
-    fn layout_root(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Document> {
-        let mut pages = Vec::with_capacity(self.children().len());
-        let mut page_counter = ManualPageCounter::new();
-
-        let children = self.children();
-        let mut iter = children.iter().peekable();
-
-        while let Some(mut child) = iter.next() {
-            let outer = styles;
-            let mut styles = styles;
-            if let Some(styled) = child.to_packed::<StyledElem>() {
-                child = &styled.child;
-                styles = outer.chain(&styled.styles);
-            }
-
-            if let Some(page) = child.to_packed::<PageElem>() {
-                let extend_to = iter.peek().and_then(|&next| {
-                    *next
-                        .to_packed::<StyledElem>()
-                        .map_or(next, |styled| &styled.child)
-                        .to_packed::<PageElem>()?
-                        .clear_to()?
-                });
-                let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
-                pages.extend(run);
-            } else {
-                bail!(child.span(), "unexpected document child");
-            }
-        }
-
-        Ok(Document {
-            pages,
-            title: DocumentElem::title_in(styles).map(|content| content.plain_text()),
-            author: DocumentElem::author_in(styles).0,
-            keywords: DocumentElem::keywords_in(styles).0,
-            date: DocumentElem::date_in(styles),
-            introspector: Introspector::default(),
-        })
     }
 }
 
@@ -124,7 +72,7 @@ cast! {
     Author,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// A list of keywords.
@@ -135,7 +83,7 @@ cast! {
     Keywords,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// A finished document with metadata and page frames.
@@ -143,6 +91,15 @@ cast! {
 pub struct Document {
     /// The document's finished pages.
     pub pages: Vec<Page>,
+    /// Details about the document.
+    pub info: DocumentInfo,
+    /// Provides the ability to execute queries on the document.
+    pub introspector: Introspector,
+}
+
+/// Details about the document.
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
+pub struct DocumentInfo {
     /// The document's title.
     pub title: Option<EcoString>,
     /// The document's author.
@@ -151,8 +108,29 @@ pub struct Document {
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
-    /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
+}
+
+impl DocumentInfo {
+    /// Populate this document info with details from the given styles.
+    ///
+    /// Document set rules are a bit special, so we need to do this manually.
+    pub fn populate(&mut self, styles: &Styles) {
+        let chain = StyleChain::new(styles);
+        let has = |field| styles.has::<DocumentElem>(field as _);
+        if has(<DocumentElem as Fields>::Enum::Title) {
+            self.title =
+                DocumentElem::title_in(chain).map(|content| content.plain_text());
+        }
+        if has(<DocumentElem as Fields>::Enum::Author) {
+            self.author = DocumentElem::author_in(chain).0;
+        }
+        if has(<DocumentElem as Fields>::Enum::Keywords) {
+            self.keywords = DocumentElem::keywords_in(chain).0;
+        }
+        if has(<DocumentElem as Fields>::Enum::Date) {
+            self.date = DocumentElem::date_in(chain);
+        }
+    }
 }
 
 #[cfg(test)]

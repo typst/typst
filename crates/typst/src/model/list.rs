@@ -3,12 +3,13 @@ use comemo::Track;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Context, Depth, Func, Packed, Smart, StyleChain,
-    Value,
+    cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
+    Smart, StyleChain, Styles, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Length,
+    Regions, Sizing, VAlignment, VElem,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -44,17 +45,19 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", LayoutMultiple)]
+#[elem(scope, title = "Bullet List", Show)]
 pub struct ListElem {
-    /// If this is `{false}`, the items are spaced apart with
-    /// [list spacing]($list.spacing). If it is `{true}`, they use normal
-    /// [leading]($par.leading) instead. This makes the list more compact, which
-    /// can look better if the items are short.
+    /// Defines the default [spacing]($list.spacing) of the list. If it is
+    /// `{false}`, the items are spaced apart with
+    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
+    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
     /// each other, this is set to `{true}`; if items are separated by a blank
-    /// line, this is set to `{false}`.
+    /// line, this is set to `{false}`. The markup-defined tightness cannot be
+    /// overridden with set rules.
     ///
     /// ```example
     /// - If a list has a lot of text, and
@@ -106,10 +109,12 @@ pub struct ListElem {
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
-    /// The spacing between the items of a wide (non-tight) list.
+    /// The spacing between the items of the list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
-    pub spacing: Smart<Spacing>,
+    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
+    /// lists and paragraph [`spacing`]($par.spacing) for wide (non-tight)
+    /// lists.
+    pub spacing: Smart<Length>,
 
     /// The bullet list's children.
     ///
@@ -137,54 +142,75 @@ impl ListElem {
     type ListItem;
 }
 
-impl LayoutMultiple for Packed<ListElem> {
-    #[typst_macros::time(name = "list", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let indent = self.indent(styles);
-        let body_indent = self.body_indent(styles);
-        let gutter = if self.tight(styles) {
-            ParElem::leading_in(styles).into()
-        } else {
-            self.spacing(styles)
-                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
-        };
+impl Show for Packed<ListElem> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let mut realized = BlockElem::multi_layouter(self.clone(), layout_list)
+            .pack()
+            .spanned(self.span());
 
-        let Depth(depth) = ListElem::depth_in(styles);
-        let marker = self
-            .marker(styles)
-            .resolve(engine, styles, depth)?
-            // avoid '#set align' interference with the list
-            .aligned(HAlignment::Start + VAlignment::Top);
-
-        let mut cells = vec![];
-        for item in self.children() {
-            cells.push(Cell::from(Content::empty()));
-            cells.push(Cell::from(marker.clone()));
-            cells.push(Cell::from(Content::empty()));
-            cells.push(Cell::from(
-                item.body().clone().styled(ListElem::set_depth(Depth(1))),
-            ));
+        if self.tight(styles) {
+            let leading = ParElem::leading_in(styles);
+            let spacing =
+                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
+            realized = spacing + realized;
         }
 
-        let grid = CellGrid::new(
-            Axes::with_x(&[
-                Sizing::Rel(indent.into()),
-                Sizing::Auto,
-                Sizing::Rel(body_indent.into()),
-                Sizing::Auto,
-            ]),
-            Axes::with_y(&[gutter.into()]),
-            cells,
-        );
-        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
-
-        layouter.layout(engine)
+        Ok(realized)
     }
+}
+
+/// Layout the list.
+#[typst_macros::time(span = elem.span())]
+fn layout_list(
+    elem: &Packed<ListElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let indent = elem.indent(styles);
+    let body_indent = elem.body_indent(styles);
+    let gutter = elem.spacing(styles).unwrap_or_else(|| {
+        if elem.tight(styles) {
+            ParElem::leading_in(styles).into()
+        } else {
+            ParElem::spacing_in(styles).into()
+        }
+    });
+
+    let Depth(depth) = ListElem::depth_in(styles);
+    let marker = elem
+        .marker(styles)
+        .resolve(engine, styles, depth)?
+        // avoid '#set align' interference with the list
+        .aligned(HAlignment::Start + VAlignment::Top);
+
+    let mut cells = vec![];
+    let mut locator = locator.split();
+
+    for item in elem.children() {
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
+        cells.push(Cell::new(Content::empty(), locator.next(&())));
+        cells.push(Cell::new(
+            item.body.clone().styled(ListElem::set_depth(Depth(1))),
+            locator.next(&item.body.span()),
+        ));
+    }
+
+    let grid = CellGrid::new(
+        Axes::with_x(&[
+            Sizing::Rel(indent.into()),
+            Sizing::Auto,
+            Sizing::Rel(body_indent.into()),
+            Sizing::Auto,
+        ]),
+        Axes::with_y(&[gutter.into()]),
+        cells,
+    );
+    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+
+    layouter.layout(engine)
 }
 
 /// A bullet list item.
@@ -244,4 +270,34 @@ cast! {
         Self::Content(array.into_iter().map(Value::display).collect())
     },
     v: Func => Self::Func(v),
+}
+
+/// A list, enum, or term list.
+pub trait ListLike: NativeElement {
+    /// The kind of list item this list is composed of.
+    type Item: ListItemLike;
+
+    /// Create this kind of list from its children and tightness.
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self;
+}
+
+/// A list item, enum item, or term list item.
+pub trait ListItemLike: NativeElement {
+    /// Apply styles to the element's body.
+    fn styled(item: Packed<Self>, styles: Styles) -> Packed<Self>;
+}
+
+impl ListLike for ListElem {
+    type Item = ListItem;
+
+    fn create(children: Vec<Packed<Self::Item>>, tight: bool) -> Self {
+        Self::new(children).with_tight(tight)
+    }
+}
+
+impl ListItemLike for ListItem {
+    fn styled(mut item: Packed<Self>, styles: Styles) -> Packed<Self> {
+        item.body.style_in_place(styles);
+        item
+    }
 }

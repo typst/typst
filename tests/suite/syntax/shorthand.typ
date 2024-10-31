@@ -19,12 +19,17 @@ a~b
 #set text(font: "Roboto")
 A... vs #"A..."
 
+--- shorthand-minus ---
+// Make sure shorthand is applied only before a digit.
+-a -1
+
 --- shorthands-math ---
-// Check all math shorthands
+// Check all math shorthands.
 $...$\
 $-$\
 $'$\
 $*$\
+$~$\
 $!=$\
 $:=$\
 $::=$\

@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use smallvec::SmallVec;
 
-use crate::foundations::{cast, dict, Content, Dict, StyleChain, Value};
+use crate::foundations::{cast, dict, Dict, Label, StyleChain, Value};
+use crate::introspection::{Location, Tag};
 use crate::layout::{
     Abs, Axes, Corners, FixedAlignment, HideElem, Length, Point, Rel, Sides, Size,
     Transform,
@@ -30,6 +31,8 @@ pub struct Frame {
     /// The items composing this layout.
     items: Arc<LazyHash<Vec<(Point, FrameItem)>>>,
     /// The hardness of this frame.
+    ///
+    /// Determines whether it is a boundary for gradient drawing.
     kind: FrameKind,
 }
 
@@ -68,6 +71,12 @@ impl Frame {
     /// Sets the frame's hardness.
     pub fn set_kind(&mut self, kind: FrameKind) {
         self.kind = kind;
+    }
+
+    /// Sets the frame's hardness builder-style.
+    pub fn with_kind(mut self, kind: FrameKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     /// Whether the frame is hard or soft.
@@ -217,6 +226,11 @@ impl Frame {
 
     /// Inline a frame at the given layer.
     fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
+        // Skip work if there's nothing to do.
+        if frame.items.is_empty() {
+            return;
+        }
+
         // Try to just reuse the items.
         if pos.is_zero() && self.items.is_empty() {
             self.items = frame.items;
@@ -306,6 +320,12 @@ impl Frame {
     /// that result from realization will take care of it and the styles can
     /// only apply to them as a whole, not part of it (because they don't manage
     /// styles).
+    pub fn post_processed(mut self, styles: StyleChain) -> Self {
+        self.post_process(styles);
+        self
+    }
+
+    /// Post process in place.
     pub fn post_process(&mut self, styles: StyleChain) {
         if !self.is_empty() {
             self.post_process_raw(
@@ -354,9 +374,9 @@ impl Frame {
     pub fn fill_and_stroke(
         &mut self,
         fill: Option<Paint>,
-        stroke: Sides<Option<FixedStroke>>,
-        outset: Sides<Rel<Abs>>,
-        radius: Corners<Rel<Abs>>,
+        stroke: &Sides<Option<FixedStroke>>,
+        outset: &Sides<Rel<Abs>>,
+        radius: &Corners<Rel<Abs>>,
         span: Span,
     ) {
         let outset = outset.relative_to(self.size());
@@ -366,7 +386,7 @@ impl Frame {
             styled_rect(size, radius, fill, stroke)
                 .into_iter()
                 .map(|x| (pos, FrameItem::Shape(x, span))),
-        )
+        );
     }
 
     /// Arbitrarily transform the contents of the frame.
@@ -384,6 +404,19 @@ impl Frame {
     pub fn clip(&mut self, clip_path: Path) {
         if !self.is_empty() {
             self.group(|g| g.clip_path = Some(clip_path));
+        }
+    }
+
+    /// Add a label to the frame.
+    pub fn label(&mut self, label: Label) {
+        self.group(|g| g.label = Some(label));
+    }
+
+    /// Set a parent for the frame. As a result, all elements in the frame
+    /// become logically ordered immediately after the given location.
+    pub fn set_parent(&mut self, parent: Location) {
+        if !self.is_empty() {
+            self.group(|g| g.parent = Some(parent));
         }
     }
 
@@ -479,7 +512,7 @@ pub enum FrameKind {
     Soft,
     /// A container which uses its own size.
     ///
-    /// This is used for page, block, box, column, grid, and stack elements.
+    /// This is used for pages, blocks, and boxes.
     Hard,
 }
 
@@ -508,8 +541,9 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
     Link(Destination, Size),
-    /// An introspectable element that produced something within this frame.
-    Tag(Content),
+    /// An introspectable element that produced something within this frame
+    /// alongside its key.
+    Tag(Tag),
 }
 
 impl Debug for FrameItem {
@@ -520,7 +554,7 @@ impl Debug for FrameItem {
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
-            Self::Tag(elem) => write!(f, "Tag({elem:?})"),
+            Self::Tag(tag) => write!(f, "{tag:?}"),
         }
     }
 }
@@ -534,6 +568,11 @@ pub struct GroupItem {
     pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
     pub clip_path: Option<Path>,
+    /// The group's label.
+    pub label: Option<Label>,
+    /// The group's logical parent. All elements in this group are logically
+    /// ordered immediately after the parent's start location.
+    pub parent: Option<Location>,
 }
 
 impl GroupItem {
@@ -543,6 +582,8 @@ impl GroupItem {
             frame,
             transform: Transform::identity(),
             clip_path: None,
+            label: None,
+            parent: None,
         }
     }
 }

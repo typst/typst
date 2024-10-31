@@ -1,33 +1,35 @@
 use smallvec::{smallvec, SmallVec};
 use unicode_math_class::MathClass;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Packed, Resolve,
     Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
+    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, HAlignment, Length, Point, Ratio,
+    Rel, Size,
 };
 use crate::math::{
-    alignments, scaled_font_size, stack, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator, MathContext, Scaled,
-    DELIM_SHORT_FALL,
+    alignments, delimiter_alignment, scaled_font_size, stack, style_for_denominator,
+    AlignmentResult, FrameFragment, GlyphFragment, LayoutMath, LeftRightAlternator,
+    MathContext, Scaled, DELIM_SHORT_FALL,
 };
 use crate::symbols::Symbol;
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::utils::Numeric;
-use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
+use crate::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape, Stroke};
 
-const DEFAULT_ROW_GAP: Em = Em::new(0.5);
+const DEFAULT_ROW_GAP: Em = Em::new(0.2);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
 /// A column vector.
 ///
-/// Content in the vector's elements can be aligned with the `&` symbol.
+/// Content in the vector's elements can be aligned with the
+/// [`align`]($math.vec.align) parameter, or the `&` symbol.
 ///
 /// # Example
 /// ```example
@@ -38,6 +40,10 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 pub struct VecElem {
     /// The delimiter to use.
     ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
     /// ```example
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
@@ -45,13 +51,22 @@ pub struct VecElem {
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
 
+    /// The horizontal alignment that each element should have.
+    ///
+    /// ```example
+    /// #set math.vec(align: right)
+    /// $ vec(-1, 1, -1) $
+    /// ```
+    #[resolve]
+    #[default(HAlignment::Center)]
+    pub align: HAlignment,
+
     /// The gap between elements.
     ///
     /// ```example
     /// #set math.vec(gap: 1em)
     /// $ vec(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -68,8 +83,8 @@ impl LayoutMath for Packed<VecElem> {
             ctx,
             styles,
             self.children(),
-            FixedAlignment::Center,
-            self.gap(styles),
+            self.align(styles),
+            self.gap(styles).at(scaled_font_size(ctx, styles)),
             LeftRightAlternator::Right,
         )?;
 
@@ -85,7 +100,9 @@ impl LayoutMath for Packed<VecElem> {
 /// special syntax of math function calls to define custom functions that take
 /// 2D data.
 ///
-/// Content in cells that are in the same row can be aligned with the `&` symbol.
+/// Content in cells can be aligned with the [`align`]($math.mat.align)
+/// parameter, or content in cells that are in the same row can be aligned with
+/// the `&` symbol.
 ///
 /// # Example
 /// ```example
@@ -100,12 +117,26 @@ impl LayoutMath for Packed<VecElem> {
 pub struct MatElem {
     /// The delimiter to use.
     ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
     /// ```example
     /// #set math.mat(delim: "[")
     /// $ mat(1, 2; 3, 4) $
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
+
+    /// The horizontal alignment that each cell should have.
+    ///
+    /// ```example
+    /// #set math.mat(align: right)
+    /// $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
+    /// ```
+    #[resolve]
+    #[default(HAlignment::Center)]
+    pub align: HAlignment,
 
     /// Draws augmentation lines in a matrix.
     ///
@@ -143,6 +174,8 @@ pub struct MatElem {
 
     /// The gap between rows and columns.
     ///
+    /// This is a shorthand to set `row-gap` and `column-gap` to the same value.
+    ///
     /// ```example
     /// #set math.mat(gap: 1em)
     /// $ mat(1, 2; 3, 4) $
@@ -150,13 +183,12 @@ pub struct MatElem {
     #[external]
     pub gap: Rel<Length>,
 
-    /// The gap between rows. Takes precedence over `gap`.
+    /// The gap between rows.
     ///
     /// ```example
     /// #set math.mat(row-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(
         let gap = args.named("gap")?;
         args.named("row-gap")?.or(gap)
@@ -164,13 +196,12 @@ pub struct MatElem {
     #[default(DEFAULT_ROW_GAP.into())]
     pub row_gap: Rel<Length>,
 
-    /// The gap between columns. Takes precedence over `gap`.
+    /// The gap between columns.
     ///
     /// ```example
     /// #set math.mat(column-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(args.named("column-gap")?.or(gap))]
     #[default(DEFAULT_COL_GAP.into())]
     pub column_gap: Rel<Length>,
@@ -242,13 +273,17 @@ impl LayoutMath for Packed<MatElem> {
             }
         }
 
+        let font_size = scaled_font_size(ctx, styles);
+        let column_gap = self.column_gap(styles).at(font_size);
+        let row_gap = self.row_gap(styles).at(font_size);
         let delim = self.delim(styles);
         let frame = layout_mat_body(
             ctx,
             styles,
             rows,
+            self.align(styles),
             augment,
-            Axes::new(self.column_gap(styles), self.row_gap(styles)),
+            Axes::new(column_gap, row_gap),
             self.span(),
         )?;
 
@@ -273,6 +308,10 @@ impl LayoutMath for Packed<MatElem> {
 pub struct CasesElem {
     /// The delimiter to use.
     ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
     /// ```example
     /// #set math.cases(delim: "[")
     /// $ x = cases(1, 2) $
@@ -295,7 +334,6 @@ pub struct CasesElem {
     /// #set math.cases(gap: 1em)
     /// $ x = cases(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -313,7 +351,7 @@ impl LayoutMath for Packed<CasesElem> {
             styles,
             self.children(),
             FixedAlignment::Start,
-            self.gap(styles),
+            self.gap(styles).at(scaled_font_size(ctx, styles)),
             LeftRightAlternator::None,
         )?;
 
@@ -432,15 +470,19 @@ fn layout_vec_body(
     row_gap: Rel<Abs>,
     alternator: LeftRightAlternator,
 ) -> SourceResult<Frame> {
-    let gap = row_gap.relative_to(ctx.regions.base().y);
+    let gap = row_gap.relative_to(ctx.region.size.y);
 
     let denom_style = style_for_denominator(styles);
     let mut flat = vec![];
     for child in column {
         flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
     }
-
-    Ok(stack(flat, align, gap, 0, alternator))
+    // We pad ascent and descent with the ascent and descent of the paren
+    // to ensure that normal vectors are aligned with others unless they are
+    // way too big.
+    let paren =
+        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+    Ok(stack(flat, align, gap, 0, alternator, Some((paren.ascent, paren.descent))))
 }
 
 /// Layout the inner contents of a matrix.
@@ -448,11 +490,18 @@ fn layout_mat_body(
     ctx: &mut MathContext,
     styles: StyleChain,
     rows: &[Vec<Content>],
+    align: FixedAlignment,
     augment: Option<Augment<Abs>>,
     gap: Axes<Rel<Abs>>,
     span: Span,
 ) -> SourceResult<Frame> {
-    let gap = gap.zip_map(ctx.regions.base(), Rel::relative_to);
+    let ncols = rows.first().map_or(0, |row| row.len());
+    let nrows = rows.len();
+    if ncols == 0 || nrows == 0 {
+        return Ok(Frame::soft(Size::zero()));
+    }
+
+    let gap = gap.zip_map(ctx.region.size, Rel::relative_to);
     let half_gap = gap * 0.5;
 
     // We provide a default stroke thickness that scales
@@ -477,12 +526,6 @@ fn layout_mat_body(
         _ => (AugmentOffsets::default(), AugmentOffsets::default(), default_stroke),
     };
 
-    let ncols = rows.first().map_or(0, |row| row.len());
-    let nrows = rows.len();
-    if ncols == 0 || nrows == 0 {
-        return Ok(Frame::soft(Size::zero()));
-    }
-
     // Before the full matrix body can be laid out, the
     // individual cells must first be independently laid out
     // so we can ensure alignment across rows and columns.
@@ -497,12 +540,18 @@ fn layout_mat_body(
     let mut cols = vec![vec![]; ncols];
 
     let denom_style = style_for_denominator(styles);
+    // We pad ascent and descent with the ascent and descent of the paren
+    // to ensure that normal matrices are aligned with others unless they are
+    // way too big.
+    let paren =
+        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+
     for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
         for (cell, col) in row.iter().zip(&mut cols) {
             let cell = ctx.layout_into_run(cell, styles.chain(&denom_style))?;
 
-            ascent.set_max(cell.ascent());
-            descent.set_max(cell.descent());
+            ascent.set_max(cell.ascent().max(paren.ascent));
+            descent.set_max(cell.descent().max(paren.descent));
 
             col.push(cell);
         }
@@ -526,7 +575,11 @@ fn layout_mat_body(
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_line_frame(&points, LeftRightAlternator::Right);
             let pos = Point::new(
-                if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
+                if points.is_empty() {
+                    x + align.position(rcol - cell.width())
+                } else {
+                    x
+                },
                 y + ascent - cell.ascent(),
             );
 
@@ -585,6 +638,7 @@ fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> Fr
         Shape {
             geometry: line_geom,
             fill: None,
+            fill_rule: FillRule::default(),
             stroke: Some(stroke),
         },
         span,
@@ -610,7 +664,7 @@ fn layout_delimiters(
     if let Some(left) = left {
         let mut left = GlyphFragment::new(ctx, styles, left, span)
             .stretch_vertical(ctx, target, short_fall);
-        left.center_on_axis(ctx);
+        left.align_on_axis(ctx, delimiter_alignment(left.c));
         ctx.push(left);
     }
 
@@ -619,7 +673,7 @@ fn layout_delimiters(
     if let Some(right) = right {
         let mut right = GlyphFragment::new(ctx, styles, right, span)
             .stretch_vertical(ctx, target, short_fall);
-        right.center_on_axis(ctx);
+        right.align_on_axis(ctx, delimiter_alignment(right.c));
         ctx.push(right);
     }
 
@@ -642,7 +696,7 @@ impl<T: Numeric + Fold> Fold for Augment<T> {
                 (Smart::Custom(inner), Smart::Custom(outer)) => {
                     Smart::Custom(inner.fold(outer))
                 }
-                // Usually, folding an inner `auto` with an `outer` preferres
+                // Usually, folding an inner `auto` with an `outer` prefers
                 // the explicit `auto`. However, here `auto` means unspecified
                 // and thus we want `outer`.
                 (inner, outer) => inner.or(outer),
@@ -710,5 +764,5 @@ cast! {
     AugmentOffsets,
     self => self.0.into_value(),
     v: isize => Self(smallvec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }

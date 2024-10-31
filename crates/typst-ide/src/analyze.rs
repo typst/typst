@@ -1,9 +1,9 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-use typst::engine::{Engine, Route};
-use typst::eval::{Tracer, Vm};
+use typst::engine::{Engine, Route, Sink, Traced};
+use typst::eval::Vm;
 use typst::foundations::{Context, Label, Scopes, Styles, Value};
-use typst::introspection::{Introspector, Locator};
+use typst::introspection::Introspector;
 use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
@@ -38,10 +38,7 @@ pub fn analyze_expr(
                 }
             }
 
-            let mut tracer = Tracer::new();
-            tracer.inspect(node.span());
-            typst::compile(world, &mut tracer).ok();
-            return tracer.values();
+            return typst::trace(world, node.span());
         }
     };
 
@@ -52,21 +49,20 @@ pub fn analyze_expr(
 pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
     // Use span in the node for resolving imports with relative paths.
     let source_span = source.span();
-
     let (source, _) = analyze_expr(world, source).into_iter().next()?;
     if source.scope().is_some() {
         return Some(source);
     }
 
-    let mut locator = Locator::default();
     let introspector = Introspector::default();
-    let mut tracer = Tracer::new();
+    let traced = Traced::default();
+    let mut sink = Sink::new();
     let engine = Engine {
         world: world.track(),
-        route: Route::default(),
         introspector: introspector.track(),
-        locator: &mut locator,
-        tracer: tracer.track_mut(),
+        traced: traced.track(),
+        sink: sink.track_mut(),
+        route: Route::default(),
     };
 
     let context = Context::none();
@@ -76,6 +72,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         Scopes::new(Some(world.library())),
         Span::detached(),
     );
+
     typst::eval::import(&mut vm, source, source_span, true)
         .ok()
         .map(Value::Module)
@@ -95,7 +92,8 @@ pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, 
         let Some(label) = elem.label() else { continue };
         let details = elem
             .get_by_name("caption")
-            .or_else(|| elem.get_by_name("body"))
+            .or_else(|_| elem.get_by_name("body"))
+            .ok()
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,

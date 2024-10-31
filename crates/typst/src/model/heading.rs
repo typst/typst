@@ -6,9 +6,11 @@ use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
     Styles, Synthesize,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{
+    Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
+};
 use crate::layout::{
-    Abs, Axes, BlockElem, Em, HElem, LayoutMultiple, Length, Regions, VElem,
+    layout_frame, Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region,
 };
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
@@ -221,20 +223,26 @@ impl Show for Packed<HeadingElem> {
         let mut realized = self.body().clone();
 
         let hanging_indent = self.hanging_indent(styles);
-
         let mut indent = match hanging_indent {
             Smart::Custom(length) => length.resolve(styles),
             Smart::Auto => Abs::zero(),
         };
 
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
+            let location = self.location().unwrap();
             let numbering = Counter::of(HeadingElem::elem())
-                .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
+                .display_at_loc(engine, location, styles, numbering)?
                 .spanned(span);
 
             if hanging_indent.is_auto() {
-                let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
-                let size = numbering.measure(engine, styles, pod)?.into_frame().size();
+                let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
+
+                // We don't have a locator for the numbering here, so we just
+                // use the measurement infrastructure for now.
+                let link = LocatorLink::measure(location);
+                let size =
+                    layout_frame(engine, &numbering, Locator::link(&link), styles, pod)?
+                        .size();
 
                 indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
             }
@@ -248,7 +256,10 @@ impl Show for Packed<HeadingElem> {
             realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
         }
 
-        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
+        Ok(BlockElem::new()
+            .with_body(Some(BlockBody::Content(realized)))
+            .pack()
+            .spanned(span))
     }
 }
 
@@ -268,8 +279,8 @@ impl ShowSet for Packed<HeadingElem> {
         let mut out = Styles::new();
         out.set(TextElem::set_size(TextSize(size.into())));
         out.set(TextElem::set_weight(FontWeight::BOLD));
-        out.set(BlockElem::set_above(VElem::block_around(above.into())));
-        out.set(BlockElem::set_below(VElem::block_around(below.into())));
+        out.set(BlockElem::set_above(Smart::Custom(above.into())));
+        out.set(BlockElem::set_below(Smart::Custom(below.into())));
         out.set(BlockElem::set_sticky(true));
         out
     }
@@ -320,7 +331,7 @@ impl Outlinable for Packed<HeadingElem> {
                 styles,
                 numbering,
             )?;
-            content = numbers + SpaceElem::new().pack() + content;
+            content = numbers + SpaceElem::shared().clone() + content;
         };
 
         Ok(Some(content))

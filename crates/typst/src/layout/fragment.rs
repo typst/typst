@@ -41,6 +41,11 @@ impl Fragment {
         self.0
     }
 
+    /// Extract a slice with the contained frames.
+    pub fn as_slice(&self) -> &[Frame] {
+        &self.0
+    }
+
     /// Iterate over the contained frames.
     pub fn iter(&self) -> std::slice::Iter<Frame> {
         self.0.iter()

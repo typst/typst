@@ -4,7 +4,7 @@
 // Test version constructor.
 
 // Empty.
-#version()
+#test(array(version()), ())
 
 // Plain.
 #test(version(1, 2).major, 1)

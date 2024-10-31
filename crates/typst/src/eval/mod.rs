@@ -11,12 +11,10 @@ mod import;
 mod markup;
 mod math;
 mod rules;
-mod tracer;
 mod vm;
 
 pub use self::call::*;
 pub use self::import::*;
-pub use self::tracer::*;
 pub use self::vm::*;
 
 pub(crate) use self::access::*;
@@ -26,9 +24,9 @@ pub(crate) use self::flow::*;
 use comemo::{Track, Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
-use crate::engine::{Engine, Route};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{Cast, Context, Module, NativeElement, Scope, Scopes, Value};
-use crate::introspection::{Introspector, Locator};
+use crate::introspection::Introspector;
 use crate::math::EquationElem;
 use crate::syntax::{ast, parse, parse_code, parse_math, Source, Span};
 use crate::World;
@@ -38,8 +36,9 @@ use crate::World;
 #[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
     world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
     route: Tracked<Route>,
-    tracer: TrackedMut<Tracer>,
     source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
@@ -49,14 +48,13 @@ pub fn eval(
     }
 
     // Prepare the engine.
-    let mut locator = Locator::new();
     let introspector = Introspector::default();
     let engine = Engine {
         world,
-        route: Route::extend(route).with_id(id),
         introspector: introspector.track(),
-        locator: &mut locator,
-        tracer,
+        traced,
+        sink,
+        route: Route::extend(route).with_id(id),
     };
 
     // Prepare VM.
@@ -88,7 +86,7 @@ pub fn eval(
         .unwrap_or_default()
         .to_string_lossy();
 
-    Ok(Module::new(name, vm.scopes.top).with_content(output))
+    Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
 }
 
 /// Evaluate a string as code and return the resulting value.
@@ -117,15 +115,15 @@ pub fn eval_string(
     }
 
     // Prepare the engine.
-    let mut tracer = Tracer::new();
-    let mut locator = Locator::new();
+    let mut sink = Sink::new();
     let introspector = Introspector::default();
+    let traced = Traced::default();
     let engine = Engine {
         world,
         introspector: introspector.track(),
+        traced: traced.track(),
+        sink: sink.track_mut(),
         route: Route::default(),
-        locator: &mut locator,
-        tracer: tracer.track_mut(),
     };
 
     // Prepare VM.

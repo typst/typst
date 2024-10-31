@@ -1,18 +1,17 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
 use ecow::EcoString;
-use once_cell::sync::Lazy;
-use siphasher::sip128::Hasher128;
-use usvg::{ImageHrefResolver, Node, PostProcessingSteps, TreeParsing, TreePostProc};
+use siphasher::sip128::{Hasher128, SipHasher13};
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
-use crate::text::{FontVariant, FontWeight};
-use crate::visualize::Image;
+use crate::text::{
+    Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
+};
 use crate::World;
 
 /// A decoded SVG.
@@ -24,23 +23,16 @@ struct Repr {
     data: Bytes,
     size: Axes<f64>,
     font_hash: u128,
-    tree: sync::SyncTree,
+    tree: usvg::Tree,
 }
 
 impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let mut tree =
-            usvg::Tree::from_data(&data, &OPTIONS).map_err(format_usvg_error)?;
-        tree.calculate_bounding_boxes();
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash: 0,
-            // Safety: We just created the tree and hold the only reference.
-            tree: unsafe { sync::SyncTree::new(tree) },
-        })))
+        let tree =
+            usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
     /// Decode an SVG image with access to fonts.
@@ -48,24 +40,27 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        families: &[String],
+        families: &[&str],
     ) -> StrResult<SvgImage> {
-        let mut tree =
-            usvg::Tree::from_data(&data, &OPTIONS).map_err(format_usvg_error)?;
-        let mut font_hash = 0;
-        if tree.has_text_nodes() {
-            let (fontdb, hash) = load_svg_fonts(world, &mut tree, families);
-            tree.postprocess(PostProcessingSteps::default(), &fontdb);
-            font_hash = hash;
-        }
-        tree.calculate_bounding_boxes();
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash,
-            // Safety: We just created the tree and hold the only reference.
-            tree: unsafe { sync::SyncTree::new(tree) },
-        })))
+        let book = world.book();
+        let resolver = Mutex::new(FontResolver::new(world, book, families));
+        let tree = usvg::Tree::from_data(
+            &data,
+            &usvg::Options {
+                font_resolver: usvg::FontResolver {
+                    select_font: Box::new(|font, db| {
+                        resolver.lock().unwrap().select_font(font, db)
+                    }),
+                    select_fallback: Box::new(|c, exclude_fonts, db| {
+                        resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
+                    }),
+                },
+                ..base_options()
+            },
+        )
+        .map_err(format_usvg_error)?;
+        let font_hash = resolver.into_inner().unwrap().finish();
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -83,34 +78,9 @@ impl SvgImage {
         self.0.size.y
     }
 
-    /// Performs an operation with the usvg tree.
-    ///
-    /// This makes the tree uniquely available to the current thread and blocks
-    /// other accesses to it.
-    ///
-    /// # Safety
-    /// The caller may not hold any references to `Rc`s contained in the usvg
-    /// Tree after `f` returns.
-    ///
-    /// # Why is it unsafe?
-    /// Sadly, usvg's Tree is neither `Sync` nor `Send` because it uses `Rc`
-    /// internally and sending a tree to another thread could result in data
-    /// races when an `Rc`'s ref-count is modified from two threads at the same
-    /// time.
-    ///
-    /// However, access to the tree is actually safe if we don't clone `Rc`s /
-    /// only clone them while holding a mutex and drop all clones before the
-    /// mutex is released. Sadly, we can't enforce this variant at the type
-    /// system level. Therefore, access is guarded by this function (which makes
-    /// it reasonable hard to keep references around) and its usage still
-    /// remains `unsafe` (because it's still possible to have `Rc`s escape).
-    ///
-    /// See also: <https://github.com/RazrFalcon/resvg/issues/544>
-    pub unsafe fn with<F>(&self, f: F)
-    where
-        F: FnOnce(&usvg::Tree),
-    {
-        self.0.tree.with(f)
+    /// Accesses the usvg tree.
+    pub fn tree(&self) -> &usvg::Tree {
+        &self.0.tree
     }
 }
 
@@ -124,127 +94,32 @@ impl Hash for Repr {
     }
 }
 
-/// The conversion options.
-static OPTIONS: Lazy<usvg::Options> = Lazy::new(|| usvg::Options {
-    // Disable usvg's default to "Times New Roman". Instead, we default to
-    // the empty family and later, when we traverse the SVG, we check for
-    // empty and non-existing family names and replace them with the true
-    // fallback family. This way, we can memoize SVG decoding with and
-    // without fonts if the SVG does not contain text.
-    font_family: String::new(),
+/// The base conversion options, to be extended with font-related options
+/// because those can change across the document.
+fn base_options() -> usvg::Options<'static> {
+    usvg::Options {
+        // Disable usvg's default to "Times New Roman".
+        font_family: String::new(),
 
-    // We override the DPI here so that we get the correct the size when
-    // scaling the image to its natural size.
-    dpi: Image::DEFAULT_DPI as f32,
+        // We don't override the DPI here, because we already
+        // force the image into the corresponding DPI by setting
+        // the width and height. Changing the DPI only trips up
+        // the logic in `resvg`.
 
-    // Override usvg's resource loading defaults.
-    resources_dir: None,
-    image_href_resolver: ImageHrefResolver {
-        resolve_data: ImageHrefResolver::default_data_resolver(),
-        resolve_string: Box::new(|_, _| None),
-    },
+        // Override usvg's resource loading defaults.
+        resources_dir: None,
+        image_href_resolver: usvg::ImageHrefResolver {
+            resolve_data: usvg::ImageHrefResolver::default_data_resolver(),
+            resolve_string: Box::new(|_, _| None),
+        },
 
-    ..Default::default()
-});
-
-/// Discover and load the fonts referenced by an SVG.
-fn load_svg_fonts(
-    world: Tracked<dyn World + '_>,
-    tree: &mut usvg::Tree,
-    families: &[String],
-) -> (fontdb::Database, u128) {
-    let book = world.book();
-    let mut fontdb = fontdb::Database::new();
-    let mut hasher = siphasher::sip128::SipHasher13::new();
-    let mut loaded = HashMap::<usize, Option<String>>::new();
-
-    // Loads a font into the database and return it's usvg-compatible name.
-    let mut load_into_db = |id: usize| -> Option<String> {
-        loaded
-            .entry(id)
-            .or_insert_with(|| {
-                let font = world.font(id)?;
-                fontdb.load_font_source(fontdb::Source::Binary(Arc::new(
-                    font.data().clone(),
-                )));
-                font.data().hash(&mut hasher);
-                font.find_name(ttf_parser::name_id::TYPOGRAPHIC_FAMILY)
-                    .or_else(|| font.find_name(ttf_parser::name_id::FAMILY))
-            })
-            .clone()
-    };
-
-    // Determine the best font for each text node.
-    for child in &mut tree.root.children {
-        traverse_svg(child, &mut |node| {
-            let usvg::Node::Text(ref mut text) = node else { return };
-            for chunk in &mut text.chunks {
-                'spans: for span in &mut chunk.spans {
-                    let Some(text) = chunk.text.get(span.start..span.end) else {
-                        continue;
-                    };
-                    let variant = FontVariant {
-                        style: span.font.style.into(),
-                        weight: FontWeight::from_number(span.font.weight),
-                        stretch: span.font.stretch.into(),
-                    };
-
-                    // Find a font that covers the whole text among the span's fonts
-                    // and the current document font families.
-                    let mut like = None;
-                    for family in span.font.families.iter().chain(families) {
-                        let Some(id) = book.select(&family.to_lowercase(), variant)
-                        else {
-                            continue;
-                        };
-                        let Some(info) = book.info(id) else { continue };
-                        like.get_or_insert(info);
-
-                        if text.chars().all(|c| info.coverage.contains(c as u32)) {
-                            if let Some(usvg_family) = load_into_db(id) {
-                                span.font.families = vec![usvg_family];
-                                continue 'spans;
-                            }
-                        }
-                    }
-
-                    // If we didn't find a match, select a fallback font.
-                    if let Some(id) = book.select_fallback(like, variant, text) {
-                        if let Some(usvg_family) = load_into_db(id) {
-                            span.font.families = vec![usvg_family];
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    (fontdb, hasher.finish128().as_u128())
-}
-
-/// Search for all font families referenced by an SVG.
-fn traverse_svg<F>(node: &mut usvg::Node, f: &mut F)
-where
-    F: FnMut(&mut usvg::Node),
-{
-    f(node);
-
-    node.subroots_mut(|subroot| {
-        for child in &mut subroot.children {
-            traverse_svg(child, f);
-        }
-    });
-
-    if let Node::Group(ref mut group) = node {
-        for child in &mut group.children {
-            traverse_svg(child, f);
-        }
+        ..Default::default()
     }
 }
 
-/// The ceiled pixel size of an SVG.
+/// The pixel size of an SVG.
 fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
-    Axes::new(tree.size.width() as f64, tree.size.height() as f64)
+    Axes::new(tree.size().width() as f64, tree.size().height() as f64)
 }
 
 /// Format the user-facing SVG decoding error message.
@@ -260,40 +135,155 @@ fn format_usvg_error(error: usvg::Error) -> EcoString {
     }
 }
 
-mod sync {
-    use std::sync::Mutex;
+/// Provides Typst's fonts to usvg.
+struct FontResolver<'a> {
+    /// Typst's font book.
+    book: &'a FontBook,
+    /// The world we use to load fonts.
+    world: Tracked<'a, dyn World + 'a>,
+    /// The active list of font families at the location of the SVG.
+    families: &'a [&'a str],
+    /// A mapping from Typst font indices to fontdb IDs.
+    to_id: HashMap<usize, Option<fontdb::ID>>,
+    /// The reverse mapping.
+    from_id: HashMap<fontdb::ID, Font>,
+    /// Accumulates a hash of all used fonts.
+    hasher: SipHasher13,
+}
 
-    /// A synchronized wrapper around a `usvg::Tree`.
-    pub struct SyncTree(Mutex<usvg::Tree>);
-
-    impl SyncTree {
-        /// Create a new synchronized tree.
-        ///
-        /// # Safety
-        /// The tree must be completely owned by `tree`, there may not be any
-        /// other references to `Rc`s contained in it.
-        pub unsafe fn new(tree: usvg::Tree) -> Self {
-            Self(Mutex::new(tree))
-        }
-
-        /// Perform an operation with the usvg tree.
-        ///
-        /// # Safety
-        /// The caller may not hold any references to `Rc`s contained in
-        /// the usvg Tree after returning.
-        pub unsafe fn with<F>(&self, f: F)
-        where
-            F: FnOnce(&usvg::Tree),
-        {
-            let tree = self.0.lock().unwrap();
-            f(&tree)
+impl<'a> FontResolver<'a> {
+    /// Create a new font provider.
+    fn new(
+        world: Tracked<'a, dyn World + 'a>,
+        book: &'a FontBook,
+        families: &'a [&'a str],
+    ) -> Self {
+        Self {
+            book,
+            world,
+            families,
+            to_id: HashMap::new(),
+            from_id: HashMap::new(),
+            hasher: SipHasher13::new(),
         }
     }
 
-    // Safety: usvg's Tree is only non-Sync and non-Send because it uses `Rc`
-    // internally. By wrapping it in a mutex and forbidding outstanding
-    // references to the tree to remain after a `with` call, we guarantee that
-    // no two threads try to change a ref-count at the same time.
-    unsafe impl Sync for SyncTree {}
-    unsafe impl Send for SyncTree {}
+    /// Returns a hash of all used fonts.
+    fn finish(self) -> u128 {
+        self.hasher.finish128().as_u128()
+    }
+}
+
+impl FontResolver<'_> {
+    /// Select a font.
+    fn select_font(
+        &mut self,
+        font: &usvg::Font,
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
+        let variant = FontVariant {
+            style: font.style().into(),
+            weight: FontWeight::from_number(font.weight()),
+            stretch: font.stretch().into(),
+        };
+
+        // Find a family that is available.
+        font.families()
+            .iter()
+            .filter_map(|family| match family {
+                usvg::FontFamily::Named(named) => Some(named.as_str()),
+                // We don't support generic families at the moment.
+                _ => None,
+            })
+            .chain(self.families.iter().copied())
+            .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
+            .find_map(|index| self.get_or_load(index, db))
+    }
+
+    /// Select a fallback font.
+    fn select_fallback(
+        &mut self,
+        c: char,
+        exclude_fonts: &[fontdb::ID],
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
+        // Get the font info of the originally selected font.
+        let like = exclude_fonts
+            .first()
+            .and_then(|first| self.from_id.get(first))
+            .map(|font| font.info());
+
+        // usvg doesn't provide a variant in the fallback handler, but
+        // `exclude_fonts` is actually never empty in practice. Still, we
+        // prefer to fall back to the default variant rather than panicking
+        // in case that changes in the future.
+        let variant = like.map(|info| info.variant).unwrap_or_default();
+
+        // Select the font.
+        let index =
+            self.book.select_fallback(like, variant, c.encode_utf8(&mut [0; 4]))?;
+
+        self.get_or_load(index, db)
+    }
+
+    /// Tries to retrieve the ID for the index or loads the font, allocating
+    /// a new ID.
+    fn get_or_load(
+        &mut self,
+        index: usize,
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
+        self.to_id
+            .get(&index)
+            .copied()
+            .unwrap_or_else(|| self.load(index, db))
+    }
+
+    /// Tries to load the font with the given index in the font book into the
+    /// database and returns its ID.
+    fn load(
+        &mut self,
+        index: usize,
+        db: &mut Arc<fontdb::Database>,
+    ) -> Option<fontdb::ID> {
+        let font = self.world.font(index)?;
+        let info = font.info();
+        let variant = info.variant;
+        let id = Arc::make_mut(db).push_face_info(fontdb::FaceInfo {
+            id: fontdb::ID::dummy(),
+            source: fontdb::Source::Binary(Arc::new(font.data().clone())),
+            index: font.index(),
+            families: vec![(
+                info.family.clone(),
+                ttf_parser::Language::English_UnitedStates,
+            )],
+            post_script_name: String::new(),
+            style: match variant.style {
+                FontStyle::Normal => fontdb::Style::Normal,
+                FontStyle::Italic => fontdb::Style::Italic,
+                FontStyle::Oblique => fontdb::Style::Oblique,
+            },
+            weight: fontdb::Weight(variant.weight.to_number()),
+            stretch: match variant.stretch.round() {
+                FontStretch::ULTRA_CONDENSED => ttf_parser::Width::UltraCondensed,
+                FontStretch::EXTRA_CONDENSED => ttf_parser::Width::ExtraCondensed,
+                FontStretch::CONDENSED => ttf_parser::Width::Condensed,
+                FontStretch::SEMI_CONDENSED => ttf_parser::Width::SemiCondensed,
+                FontStretch::NORMAL => ttf_parser::Width::Normal,
+                FontStretch::SEMI_EXPANDED => ttf_parser::Width::SemiExpanded,
+                FontStretch::EXPANDED => ttf_parser::Width::Expanded,
+                FontStretch::EXTRA_EXPANDED => ttf_parser::Width::ExtraExpanded,
+                FontStretch::ULTRA_EXPANDED => ttf_parser::Width::UltraExpanded,
+                _ => unreachable!(),
+            },
+            monospaced: info.flags.contains(FontFlags::MONOSPACE),
+        });
+
+        font.hash(&mut self.hasher);
+
+        self.to_id.insert(index, Some(id));
+        self.from_id.insert(id, font);
+
+        Some(id)
+    }
 }

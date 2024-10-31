@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::EcoString;
 use serde::{Serialize, Serializer};
 
-use crate::diag::StrResult;
+use crate::diag::HintedStrResult;
 use crate::foundations::{
     cast, ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value,
 };
@@ -45,7 +45,7 @@ impl IntoValue for NoneValue {
 }
 
 impl FromValue for NoneValue {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             Value::None => Ok(Self),
             _ => Err(Self::error(&value)),
@@ -104,7 +104,7 @@ impl<T: IntoValue> IntoValue for Option<T> {
 }
 
 impl<T: FromValue> FromValue for Option<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             Value::None => Ok(None),
             v if T::castable(&v) => Ok(Some(T::from_value(v)?)),

@@ -72,15 +72,14 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
         }
         // Safety: We do not keep any references to tree nodes beyond the scope
         // of `with`.
-        ImageKind::Svg(svg) => unsafe {
-            svg.with(|tree| {
-                let ts = tiny_skia::Transform::from_scale(
-                    w as f32 / tree.size.width(),
-                    h as f32 / tree.size.height(),
-                );
-                resvg::render(tree, ts, &mut pixmap.as_mut())
-            });
-        },
+        ImageKind::Svg(svg) => {
+            let tree = svg.tree();
+            let ts = tiny_skia::Transform::from_scale(
+                w as f32 / tree.size().width(),
+                h as f32 / tree.size().height(),
+            );
+            resvg::render(tree, ts, &mut pixmap.as_mut())
+        }
     }
     Some(Arc::new(pixmap))
 }

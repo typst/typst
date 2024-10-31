@@ -31,7 +31,7 @@ Placed item in the first region.
 // In-flow item with size zero in the first region.
 #set page(height: 5cm, margin: 1cm)
 In-flow, zero-sized item.
-#block(breakable: true, stroke: 1pt, inset: 0.5cm)[
+#block(breakable: true, stroke: 1pt, inset: 0.4cm)[
   #set block(spacing: 0pt)
   #line(length: 0pt)
   #rect(height: 2cm, fill: gray)
@@ -56,6 +56,6 @@ Mix-and-match all the previous tests.
   #counter("dummy").step()
   #place(dx: -0.5cm, dy: -0.75cm, box(width: 200%)[OOF])
   #line(length: 100%)
-  #place(dy: -0.8em)[OOF]
+  #place(dy: 0.2em)[OOF]
   #rect(height: 2cm, fill: gray)
 ]

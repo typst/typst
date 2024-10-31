@@ -69,7 +69,7 @@
   dir: ltr,
   spacing: 2pt,
   square(width: 20pt, height: 40pt),
-  circle(width: 20%, height: 100pt),
+  circle(width: 20%, height: 40pt),
 )
 
 --- square-height-limited-stack ---

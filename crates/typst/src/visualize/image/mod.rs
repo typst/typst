@@ -13,15 +13,16 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::EcoString;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, warning, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Resolve, Smart,
+    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
     StyleChain,
 };
+use crate::introspection::Locator;
 use crate::layout::{
-    Abs, Axes, FixedAlignment, Frame, FrameItem, LayoutSingle, Length, Point, Regions,
-    Rel, Size,
+    Abs, Axes, BlockElem, FixedAlignment, Frame, FrameItem, Length, Point, Region, Rel,
+    Size, Sizing,
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
@@ -33,11 +34,11 @@ use crate::World;
 
 /// A raster or vector graphic.
 ///
-/// Supported formats are PNG, JPEG, GIF and SVG.
+/// You can wrap the image in a [`figure`] to give it a number and caption.
 ///
-/// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
-/// in the resulting PDF. Make sure to double-check embedded SVG images. If you
-/// have an issue, also feel free to report it on [GitHub][gh-svg].
+/// Like most elements, images are _block-level_ by default and thus do not
+/// integrate themselves into adjacent paragraphs. To force an image to become
+/// inline, put it into a [`box`].
 ///
 /// # Example
 /// ```example
@@ -49,11 +50,11 @@ use crate::World;
 ///   ],
 /// )
 /// ```
-///
-/// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
-#[elem(scope, LayoutSingle, LocalName, Figurable)]
+#[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file.
+    /// Path to an image file
+    ///
+    /// For more details, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
         let Spanned { v: path, span } =
@@ -72,13 +73,16 @@ pub struct ImageElem {
     pub data: Readable,
 
     /// The image's format. Detected automatically by default.
+    ///
+    /// Supported formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
+    /// is [not currently supported](https://github.com/typst/typst/issues/145).
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
     pub width: Smart<Rel<Length>>,
 
     /// The height of the image.
-    pub height: Smart<Rel<Length>>,
+    pub height: Sizing,
 
     /// A text describing the image.
     pub alt: Option<EcoString>,
@@ -126,7 +130,7 @@ impl ImageElem {
         width: Option<Smart<Rel<Length>>>,
         /// The height of the image.
         #[named]
-        height: Option<Smart<Rel<Length>>>,
+        height: Option<Sizing>,
         /// A text describing the image.
         #[named]
         alt: Option<Option<EcoString>>,
@@ -154,112 +158,13 @@ impl ImageElem {
     }
 }
 
-impl LayoutSingle for Packed<ImageElem> {
-    #[typst_macros::time(name = "image", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Frame> {
-        // Take the format that was explicitly defined, or parse the extension,
-        // or try to detect the format.
-        let data = self.data();
-        let format = match self.format(styles) {
-            Smart::Custom(v) => v,
-            Smart::Auto => {
-                let ext = std::path::Path::new(self.path().as_str())
-                    .extension()
-                    .and_then(OsStr::to_str)
-                    .unwrap_or_default()
-                    .to_lowercase();
-
-                match ext.as_str() {
-                    "png" => ImageFormat::Raster(RasterFormat::Png),
-                    "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
-                    "gif" => ImageFormat::Raster(RasterFormat::Gif),
-                    "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-                    _ => match &data {
-                        Readable::Str(_) => ImageFormat::Vector(VectorFormat::Svg),
-                        Readable::Bytes(bytes) => match RasterFormat::detect(bytes) {
-                            Some(f) => ImageFormat::Raster(f),
-                            None => bail!(self.span(), "unknown image format"),
-                        },
-                    },
-                }
-            }
-        };
-
-        let image = Image::with_fonts(
-            data.clone().into(),
-            format,
-            self.alt(styles),
-            engine.world,
-            &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
-        )
-        .at(self.span())?;
-
-        let sizing = Axes::new(self.width(styles), self.height(styles));
-        let region = sizing
-            .zip_map(regions.base(), |s, r| s.map(|v| v.resolve(styles).relative_to(r)))
-            .unwrap_or(regions.base());
-
-        let expand = sizing.as_ref().map(Smart::is_custom) | regions.expand;
-        let region_ratio = region.x / region.y;
-
-        // Find out whether the image is wider or taller than the target size.
-        let pxw = image.width();
-        let pxh = image.height();
-        let px_ratio = pxw / pxh;
-        let wide = px_ratio > region_ratio;
-
-        // The space into which the image will be placed according to its fit.
-        let target = if expand.x && expand.y {
-            // If both width and height are forced, take them.
-            region
-        } else if expand.x {
-            // If just width is forced, take it.
-            Size::new(region.x, region.y.min(region.x / px_ratio))
-        } else if expand.y {
-            // If just height is forced, take it.
-            Size::new(region.x.min(region.y * px_ratio), region.y)
-        } else {
-            // If neither is forced, take the natural image size at the image's
-            // DPI bounded by the available space.
-            let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
-            let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
-            Size::new(
-                natural.x.min(region.x).min(region.y * px_ratio),
-                natural.y.min(region.y).min(region.x / px_ratio),
-            )
-        };
-
-        // Compute the actual size of the fitted image.
-        let fit = self.fit(styles);
-        let fitted = match fit {
-            ImageFit::Cover | ImageFit::Contain => {
-                if wide == (fit == ImageFit::Contain) {
-                    Size::new(target.x, target.x / px_ratio)
-                } else {
-                    Size::new(target.y * px_ratio, target.y)
-                }
-            }
-            ImageFit::Stretch => target,
-        };
-
-        // First, place the image in a frame of exactly its size and then resize
-        // the frame to the target size, center aligning the image in the
-        // process.
-        let mut frame = Frame::soft(fitted);
-        frame.push(Point::zero(), FrameItem::Image(image, fitted, self.span()));
-        frame.resize(target, Axes::splat(FixedAlignment::Center));
-
-        // Create a clipping group if only part of the image should be visible.
-        if fit == ImageFit::Cover && !target.fits(fitted) {
-            frame.clip(Path::rect(frame.size()));
-        }
-
-        Ok(frame)
+impl Show for Packed<ImageElem> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::single_layouter(self.clone(), layout_image)
+            .with_width(self.width(styles))
+            .with_height(self.height(styles))
+            .pack()
+            .spanned(self.span()))
     }
 }
 
@@ -268,6 +173,134 @@ impl LocalName for Packed<ImageElem> {
 }
 
 impl Figurable for Packed<ImageElem> {}
+
+/// Layout the image.
+#[typst_macros::time(span = elem.span())]
+fn layout_image(
+    elem: &Packed<ImageElem>,
+    engine: &mut Engine,
+    _: Locator,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let span = elem.span();
+
+    // Take the format that was explicitly defined, or parse the extension,
+    // or try to detect the format.
+    let data = elem.data();
+    let format = match elem.format(styles) {
+        Smart::Custom(v) => v,
+        Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
+    };
+
+    // Warn the user if the image contains a foreign object. Not perfect
+    // because the svg could also be encoded, but that's an edge case.
+    if format == ImageFormat::Vector(VectorFormat::Svg) {
+        let has_foreign_object =
+            data.as_str().is_some_and(|s| s.contains("<foreignObject"));
+
+        if has_foreign_object {
+            engine.sink.warn(warning!(
+                span,
+                "image contains foreign object";
+                hint: "SVG images with foreign objects might render incorrectly in typst";
+                hint: "see https://github.com/typst/typst/issues/1421 for more information"
+            ));
+        }
+    }
+
+    // Construct the image itself.
+    let image = Image::with_fonts(
+        data.clone().into(),
+        format,
+        elem.alt(styles),
+        engine.world,
+        &families(styles).collect::<Vec<_>>(),
+    )
+    .at(span)?;
+
+    // Determine the image's pixel aspect ratio.
+    let pxw = image.width();
+    let pxh = image.height();
+    let px_ratio = pxw / pxh;
+
+    // Determine the region's aspect ratio.
+    let region_ratio = region.size.x / region.size.y;
+
+    // Find out whether the image is wider or taller than the region.
+    let wide = px_ratio > region_ratio;
+
+    // The space into which the image will be placed according to its fit.
+    let target = if region.expand.x && region.expand.y {
+        // If both width and height are forced, take them.
+        region.size
+    } else if region.expand.x {
+        // If just width is forced, take it.
+        Size::new(region.size.x, region.size.y.min(region.size.x / px_ratio))
+    } else if region.expand.y {
+        // If just height is forced, take it.
+        Size::new(region.size.x.min(region.size.y * px_ratio), region.size.y)
+    } else {
+        // If neither is forced, take the natural image size at the image's
+        // DPI bounded by the available space.
+        let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
+        let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
+        Size::new(
+            natural.x.min(region.size.x).min(region.size.y * px_ratio),
+            natural.y.min(region.size.y).min(region.size.x / px_ratio),
+        )
+    };
+
+    // Compute the actual size of the fitted image.
+    let fit = elem.fit(styles);
+    let fitted = match fit {
+        ImageFit::Cover | ImageFit::Contain => {
+            if wide == (fit == ImageFit::Contain) {
+                Size::new(target.x, target.x / px_ratio)
+            } else {
+                Size::new(target.y * px_ratio, target.y)
+            }
+        }
+        ImageFit::Stretch => target,
+    };
+
+    // First, place the image in a frame of exactly its size and then resize
+    // the frame to the target size, center aligning the image in the
+    // process.
+    let mut frame = Frame::soft(fitted);
+    frame.push(Point::zero(), FrameItem::Image(image, fitted, span));
+    frame.resize(target, Axes::splat(FixedAlignment::Center));
+
+    // Create a clipping group if only part of the image should be visible.
+    if fit == ImageFit::Cover && !target.fits(fitted) {
+        frame.clip(Path::rect(frame.size()));
+    }
+
+    Ok(frame)
+}
+
+/// Determine the image format based on path and data.
+fn determine_format(path: &str, data: &Readable) -> StrResult<ImageFormat> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase();
+
+    Ok(match ext.as_str() {
+        "png" => ImageFormat::Raster(RasterFormat::Png),
+        "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
+        "gif" => ImageFormat::Raster(RasterFormat::Gif),
+        "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
+        _ => match &data {
+            Readable::Str(_) => ImageFormat::Vector(VectorFormat::Svg),
+            Readable::Bytes(bytes) => match RasterFormat::detect(bytes) {
+                Some(f) => ImageFormat::Raster(f),
+                None => bail!("unknown image format"),
+            },
+        },
+    })
+}
 
 /// How an image should adjust itself to a given area,
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
@@ -315,6 +348,9 @@ impl Image {
     /// if the image doesn't contain DPI metadata.
     pub const DEFAULT_DPI: f64 = 72.0;
 
+    /// Should always be the same as the default DPI used by usvg.
+    pub const USVG_DEFAULT_DPI: f64 = 96.0;
+
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
@@ -335,7 +371,7 @@ impl Image {
         Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
-    /// Create a possibly font-dependant image from a buffer and a format.
+    /// Create a possibly font-dependent image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn with_fonts(
@@ -343,7 +379,7 @@ impl Image {
         format: ImageFormat,
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
-        families: &[String],
+        families: &[&str],
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
@@ -393,7 +429,7 @@ impl Image {
     pub fn dpi(&self) -> Option<f64> {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
-            ImageKind::Svg(_) => None,
+            ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
         }
     }
 

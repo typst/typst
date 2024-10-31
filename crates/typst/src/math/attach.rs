@@ -1,13 +1,20 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, Packed, StyleChain};
-use crate::layout::{Abs, Frame, Point, Size};
+use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
+use crate::layout::{Abs, Axis, Corner, Frame, Length, Point, Rel, Size};
 use crate::math::{
-    style_for_subscript, style_for_superscript, EquationElem, FrameFragment, LayoutMath,
-    MathContext, MathFragment, MathSize, Scaled,
+    stretch_fragment, style_for_subscript, style_for_superscript, EquationElem,
+    FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled, StretchElem,
 };
 use crate::text::TextElem;
+use crate::utils::OptionExt;
+
+macro_rules! measure {
+    ($e: ident, $attr: ident) => {
+        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
+    };
+}
 
 /// A base with optional attachments.
 ///
@@ -52,31 +59,67 @@ pub struct AttachElem {
 impl LayoutMath for Packed<AttachElem> {
     #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
+        let new_elem = merge_base(self);
+        let elem = new_elem.as_ref().unwrap_or(self);
+        let stretch = stretch_size(styles, elem);
 
-        let layout_attachment =
-            |ctx: &mut MathContext, styles: StyleChain, getter: GetAttachment| {
-                getter(self, styles)
-                    .map(|elem| ctx.layout_into_fragment(&elem, styles))
-                    .transpose()
-            };
-
-        let base = ctx.layout_into_fragment(self.base(), styles)?;
-
+        let mut base = ctx.layout_into_fragment(elem.base(), styles)?;
         let sup_style = style_for_superscript(styles);
-        let tl = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tl)?;
-        let tr = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tr)?;
-        let t = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::t)?;
+        let sup_style_chain = styles.chain(&sup_style);
+        let tl = elem.tl(sup_style_chain);
+        let tr = elem.tr(sup_style_chain);
+        let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
+        let t = elem.t(sup_style_chain);
 
         let sub_style = style_for_subscript(styles);
-        let bl = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::bl)?;
-        let br = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::br)?;
-        let b = layout_attachment(ctx, styles.chain(&sub_style), AttachElem::b)?;
+        let sub_style_chain = styles.chain(&sub_style);
+        let bl = elem.bl(sub_style_chain);
+        let br = elem.br(sub_style_chain);
+        let b = elem.b(sub_style_chain);
 
         let limits = base.limits().active(styles);
-        let (t, tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
+        let (t, tr) = match (t, tr) {
+            (Some(t), Some(tr)) if primed && !limits => (None, Some(tr + t)),
+            (Some(t), None) if !limits => (None, Some(t)),
+            (t, tr) => (t, tr),
+        };
         let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
-        layout_attachments(ctx, styles, base, [tl, t, tr, bl, b, br])
+
+        macro_rules! layout {
+            ($content:ident, $style_chain:ident) => {
+                $content
+                    .map(|elem| ctx.layout_into_fragment(&elem, $style_chain))
+                    .transpose()
+            };
+        }
+
+        // Layout the top and bottom attachments early so we can measure their
+        // widths, in order to calculate what the stretch size is relative to.
+        let t = layout!(t, sup_style_chain)?;
+        let b = layout!(b, sub_style_chain)?;
+        if let Some(stretch) = stretch {
+            let relative_to_width = measure!(t, width).max(measure!(b, width));
+            stretch_fragment(
+                ctx,
+                styles,
+                &mut base,
+                Some(Axis::X),
+                Some(relative_to_width),
+                stretch,
+                Abs::zero(),
+            );
+        }
+
+        let fragments = [
+            layout!(tl, sup_style_chain)?,
+            t,
+            layout!(tr, sup_style_chain)?,
+            layout!(bl, sub_style_chain)?,
+            b,
+            layout!(br, sub_style_chain)?,
+        ];
+
+        layout_attachments(ctx, styles, base, fragments)
     }
 }
 
@@ -127,7 +170,7 @@ impl LayoutMath for Packed<PrimesElem> {
                         prime.clone(),
                     )
                 }
-                ctx.push(FrameFragment::new(ctx, styles, frame));
+                ctx.push(FrameFragment::new(ctx, styles, frame).with_text_like(true));
             }
         }
         Ok(())
@@ -222,7 +265,7 @@ impl Limits {
         }
     }
 
-    /// Whether limits should be displayed in this context
+    /// Whether limits should be displayed in this context.
     pub fn active(&self, styles: StyleChain) -> bool {
         match self {
             Self::Always => true,
@@ -232,10 +275,55 @@ impl Limits {
     }
 }
 
-macro_rules! measure {
-    ($e: ident, $attr: ident) => {
-        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
-    };
+/// If an AttachElem's base is also an AttachElem, merge attachments into the
+/// base AttachElem where possible.
+fn merge_base(elem: &Packed<AttachElem>) -> Option<Packed<AttachElem>> {
+    // Extract from an EquationElem.
+    let mut base = elem.base();
+    if let Some(equation) = base.to_packed::<EquationElem>() {
+        base = equation.body();
+    }
+
+    // Move attachments from elem into base where possible.
+    if let Some(base) = base.to_packed::<AttachElem>() {
+        let mut elem = elem.clone();
+        let mut base = base.clone();
+
+        macro_rules! merge {
+            ($content:ident) => {
+                if base.$content.is_none() && elem.$content.is_some() {
+                    base.$content = elem.$content.clone();
+                    elem.$content = None;
+                }
+            };
+        }
+
+        merge!(t);
+        merge!(b);
+        merge!(tl);
+        merge!(tr);
+        merge!(bl);
+        merge!(br);
+
+        elem.base = base.pack();
+        return Some(elem);
+    }
+
+    None
+}
+
+/// Get the size to stretch the base to, if the attach argument is true.
+fn stretch_size(
+    styles: StyleChain,
+    elem: &Packed<AttachElem>,
+) -> Option<Smart<Rel<Length>>> {
+    // Extract from an EquationElem.
+    let mut base = elem.base();
+    if let Some(equation) = base.to_packed::<EquationElem>() {
+        base = equation.body();
+    }
+
+    base.to_packed::<StretchElem>().map(|stretch| stretch.size(styles))
 }
 
 /// Layout the attachments.
@@ -245,138 +333,231 @@ fn layout_attachments(
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
 ) -> SourceResult<()> {
-    let (shift_up, shift_down) =
-        compute_shifts_up_and_down(ctx, styles, &base, [&tl, &tr, &bl, &br]);
-
-    let sup_delta = Abs::zero();
-    let sub_delta = -base.italics_correction();
-    let (base_width, base_ascent, base_descent) =
-        (base.width(), base.ascent(), base.descent());
     let base_class = base.class();
 
-    let mut ascent = base_ascent
-        .max(shift_up + measure!(tr, ascent))
-        .max(shift_up + measure!(tl, ascent))
-        .max(shift_up + measure!(t, height));
+    // Calculate the distance from the base's baseline to the superscripts' and
+    // subscripts' baseline.
+    let (tx_shift, bx_shift) = if [&tl, &tr, &bl, &br].iter().all(|e| e.is_none()) {
+        (Abs::zero(), Abs::zero())
+    } else {
+        compute_script_shifts(ctx, styles, &base, [&tl, &tr, &bl, &br])
+    };
 
-    let mut descent = base_descent
-        .max(shift_down + measure!(br, descent))
-        .max(shift_down + measure!(bl, descent))
-        .max(shift_down + measure!(b, height));
+    // Calculate the distance from the base's baseline to the top attachment's
+    // and bottom attachment's baseline.
+    let (t_shift, b_shift) =
+        compute_limit_shifts(ctx, styles, &base, [t.as_ref(), b.as_ref()]);
 
-    let pre_sup_width = measure!(tl, width);
-    let pre_sub_width = measure!(bl, width);
-    let pre_width_dif = pre_sup_width - pre_sub_width; // Could be negative.
-    let pre_width_max = pre_sup_width.max(pre_sub_width);
-    let post_width_max =
-        (sup_delta + measure!(tr, width)).max(sub_delta + measure!(br, width));
+    // Calculate the final frame height.
+    let ascent = base
+        .ascent()
+        .max(tx_shift + measure!(tr, ascent))
+        .max(tx_shift + measure!(tl, ascent))
+        .max(t_shift + measure!(t, ascent));
+    let descent = base
+        .descent()
+        .max(bx_shift + measure!(br, descent))
+        .max(bx_shift + measure!(bl, descent))
+        .max(b_shift + measure!(b, descent));
+    let height = ascent + descent;
 
-    let (center_frame, base_offset) = attach_top_and_bottom(ctx, styles, base, t, b);
-    if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
-        ctx.push(FrameFragment::new(ctx, styles, center_frame).with_class(base_class));
-        return Ok(());
-    }
+    // Calculate the vertical position of each element in the final frame.
+    let base_y = ascent - base.ascent();
+    let tx_y = |tx: &MathFragment| ascent - tx_shift - tx.ascent();
+    let bx_y = |bx: &MathFragment| ascent + bx_shift - bx.ascent();
+    let t_y = |t: &MathFragment| ascent - t_shift - t.ascent();
+    let b_y = |b: &MathFragment| ascent + b_shift - b.ascent();
 
-    ascent.set_max(center_frame.ascent());
-    descent.set_max(center_frame.descent());
+    // Calculate the distance each limit extends to the left and right of the
+    // base's width.
+    let ((t_pre_width, t_post_width), (b_pre_width, b_post_width)) =
+        compute_limit_widths(&base, [t.as_ref(), b.as_ref()]);
 
-    let mut frame = Frame::soft(Size::new(
-        pre_width_max
-            + base_width
-            + post_width_max
-            + scaled!(ctx, styles, space_after_script),
-        ascent + descent,
-    ));
-    frame.set_baseline(ascent);
-    frame.push_frame(
-        Point::new(sup_delta + pre_width_max, frame.ascent() - base_ascent - base_offset),
-        center_frame,
+    // `space_after_script` is extra spacing that is at the start before each
+    // pre-script, and at the end after each post-script (see the MathConstants
+    // table in the OpenType MATH spec).
+    let space_after_script = scaled!(ctx, styles, space_after_script);
+
+    // Calculate the distance each pre-script extends to the left of the base's
+    // width.
+    let (tl_pre_width, bl_pre_width) = compute_pre_script_widths(
+        ctx,
+        &base,
+        [tl.as_ref(), bl.as_ref()],
+        (tx_shift, bx_shift),
+        space_after_script,
     );
 
-    if let Some(tl) = tl {
-        let pos =
-            Point::new(-pre_width_dif.min(Abs::zero()), ascent - shift_up - tl.ascent());
-        frame.push_frame(pos, tl.into_frame());
+    // Calculate the distance each post-script extends to the right of the
+    // base's width. Also calculate each post-script's kerning (we need this for
+    // its position later).
+    let ((tr_post_width, tr_kern), (br_post_width, br_kern)) = compute_post_script_widths(
+        ctx,
+        &base,
+        [tr.as_ref(), br.as_ref()],
+        (tx_shift, bx_shift),
+        space_after_script,
+    );
+
+    // Calculate the final frame width.
+    let pre_width = t_pre_width.max(b_pre_width).max(tl_pre_width).max(bl_pre_width);
+    let base_width = base.width();
+    let post_width = t_post_width.max(b_post_width).max(tr_post_width).max(br_post_width);
+    let width = pre_width + base_width + post_width;
+
+    // Calculate the horizontal position of each element in the final frame.
+    let base_x = pre_width;
+    let tl_x = pre_width - tl_pre_width + space_after_script;
+    let bl_x = pre_width - bl_pre_width + space_after_script;
+    let tr_x = pre_width + base_width + tr_kern;
+    let br_x = pre_width + base_width + br_kern;
+    let t_x = pre_width - t_pre_width;
+    let b_x = pre_width - b_pre_width;
+
+    // Create the final frame.
+    let mut frame = Frame::soft(Size::new(width, height));
+    frame.set_baseline(ascent);
+    frame.push_frame(Point::new(base_x, base_y), base.into_frame());
+
+    macro_rules! layout {
+        ($e: ident, $x: ident, $y: ident) => {
+            if let Some($e) = $e {
+                frame.push_frame(Point::new($x, $y(&$e)), $e.into_frame());
+            }
+        };
     }
 
-    if let Some(bl) = bl {
-        let pos =
-            Point::new(pre_width_dif.max(Abs::zero()), ascent + shift_down - bl.ascent());
-        frame.push_frame(pos, bl.into_frame());
-    }
+    layout!(tl, tl_x, tx_y); // pre-superscript
+    layout!(bl, bl_x, bx_y); // pre-subscript
+    layout!(tr, tr_x, tx_y); // post-superscript
+    layout!(br, br_x, bx_y); // post-subscript
+    layout!(t, t_x, t_y); // upper-limit
+    layout!(b, b_x, b_y); // lower-limit
 
-    if let Some(tr) = tr {
-        let pos = Point::new(
-            sup_delta + pre_width_max + base_width,
-            ascent - shift_up - tr.ascent(),
-        );
-        frame.push_frame(pos, tr.into_frame());
-    }
-
-    if let Some(br) = br {
-        let pos = Point::new(
-            sub_delta + pre_width_max + base_width,
-            ascent + shift_down - br.ascent(),
-        );
-        frame.push_frame(pos, br.into_frame());
-    }
-
+    // Done! Note that we retain the class of the base.
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
 
     Ok(())
 }
 
-fn attach_top_and_bottom(
-    ctx: &mut MathContext,
-    styles: StyleChain,
-    base: MathFragment,
-    t: Option<MathFragment>,
-    b: Option<MathFragment>,
-) -> (Frame, Abs) {
-    let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
-    let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
-    let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
-    let lower_drop_min = scaled!(ctx, styles, lower_limit_baseline_drop_min);
+/// Calculate the distance each post-script extends to the right of the base's
+/// width, as well as its kerning value. Requires the distance from the base's
+/// baseline to each post-script's baseline to obtain the correct kerning value.
+/// Returns 2 tuples of two lengths, each first containing the distance the
+/// post-script extends left of the base's width and second containing the
+/// post-script's kerning value. The first tuple is for the post-superscript,
+/// and the second is for the post-subscript.
+fn compute_post_script_widths(
+    ctx: &MathContext,
+    base: &MathFragment,
+    [tr, br]: [Option<&MathFragment>; 2],
+    (tr_shift, br_shift): (Abs, Abs),
+    space_after_post_script: Abs,
+) -> ((Abs, Abs), (Abs, Abs)) {
+    let tr_values = tr.map_or_default(|tr| {
+        let kern = math_kern(ctx, base, tr, tr_shift, Corner::TopRight);
+        (space_after_post_script + tr.width() + kern, kern)
+    });
 
-    let mut base_offset = Abs::zero();
-    let mut width = base.width();
-    let mut height = base.height();
+    // The base's bounding box already accounts for its italic correction, so we
+    // need to shift the post-subscript left by the base's italic correction
+    // (see the kerning algorithm as described in the OpenType MATH spec).
+    let br_values = br.map_or_default(|br| {
+        let kern = math_kern(ctx, base, br, br_shift, Corner::BottomRight)
+            - base.italics_correction();
+        (space_after_post_script + br.width() + kern, kern)
+    });
 
-    if let Some(t) = &t {
-        let top_gap = upper_gap_min.max(upper_rise_min - t.descent());
-        width.set_max(t.width());
-        height += t.height() + top_gap;
-        base_offset = top_gap + t.height();
-    }
-
-    if let Some(b) = &b {
-        let bottom_gap = lower_gap_min.max(lower_drop_min - b.ascent());
-        width.set_max(b.width());
-        height += b.height() + bottom_gap;
-    }
-
-    let base_pos = Point::new((width - base.width()) / 2.0, base_offset);
-    let delta = base.italics_correction() / 2.0;
-
-    let mut frame = Frame::soft(Size::new(width, height));
-    frame.set_baseline(base_pos.y + base.ascent());
-    frame.push_frame(base_pos, base.into_frame());
-
-    if let Some(t) = t {
-        let top_pos = Point::with_x((width - t.width()) / 2.0 + delta);
-        frame.push_frame(top_pos, t.into_frame());
-    }
-
-    if let Some(b) = b {
-        let bottom_pos =
-            Point::new((width - b.width()) / 2.0 - delta, height - b.height());
-        frame.push_frame(bottom_pos, b.into_frame());
-    }
-
-    (frame, base_offset)
+    (tr_values, br_values)
 }
 
-fn compute_shifts_up_and_down(
+/// Calculate the distance each pre-script extends to the left of the base's
+/// width. Requires the distance from the base's baseline to each pre-script's
+/// baseline to obtain the correct kerning value.
+/// Returns two lengths, the first being the distance the pre-superscript
+/// extends left of the base's width and the second being the distance the
+/// pre-subscript extends left of the base's width.
+fn compute_pre_script_widths(
+    ctx: &MathContext,
+    base: &MathFragment,
+    [tl, bl]: [Option<&MathFragment>; 2],
+    (tl_shift, bl_shift): (Abs, Abs),
+    space_before_pre_script: Abs,
+) -> (Abs, Abs) {
+    let tl_pre_width = tl.map_or_default(|tl| {
+        let kern = math_kern(ctx, base, tl, tl_shift, Corner::TopLeft);
+        space_before_pre_script + tl.width() + kern
+    });
+
+    let bl_pre_width = bl.map_or_default(|bl| {
+        let kern = math_kern(ctx, base, bl, bl_shift, Corner::BottomLeft);
+        space_before_pre_script + bl.width() + kern
+    });
+
+    (tl_pre_width, bl_pre_width)
+}
+
+/// Calculate the distance each limit extends beyond the base's width, in each
+/// direction. Can be a negative value if the limit does not extend beyond the
+/// base's width, indicating how far into the base's width the limit extends.
+/// Returns 2 tuples of two lengths, each first containing the distance the
+/// limit extends leftward beyond the base's width and second containing the
+/// distance the limit extends rightward beyond the base's width. The first
+/// tuple is for the upper-limit, and the second is for the lower-limit.
+fn compute_limit_widths(
+    base: &MathFragment,
+    [t, b]: [Option<&MathFragment>; 2],
+) -> ((Abs, Abs), (Abs, Abs)) {
+    // The upper- (lower-) limit is shifted to the right (left) of the base's
+    // center by half the base's italic correction.
+    let delta = base.italics_correction() / 2.0;
+
+    let t_widths = t.map_or_default(|t| {
+        let half = (t.width() - base.width()) / 2.0;
+        (half - delta, half + delta)
+    });
+
+    let b_widths = b.map_or_default(|b| {
+        let half = (b.width() - base.width()) / 2.0;
+        (half + delta, half - delta)
+    });
+
+    (t_widths, b_widths)
+}
+
+/// Calculate the distance from the base's baseline to each limit's baseline.
+/// Returns two lengths, the first being the distance to the upper-limit's
+/// baseline and the second being the distance to the lower-limit's baseline.
+fn compute_limit_shifts(
+    ctx: &MathContext,
+    styles: StyleChain,
+    base: &MathFragment,
+    [t, b]: [Option<&MathFragment>; 2],
+) -> (Abs, Abs) {
+    // `upper_gap_min` and `lower_gap_min` give gaps to the descender and
+    // ascender of the limits respectively, whereas `upper_rise_min` and
+    // `lower_drop_min` give gaps to each limit's baseline (see the
+    // MathConstants table in the OpenType MATH spec).
+
+    let t_shift = t.map_or_default(|t| {
+        let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
+        let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
+        base.ascent() + upper_rise_min.max(upper_gap_min + t.descent())
+    });
+
+    let b_shift = b.map_or_default(|b| {
+        let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
+        let lower_drop_min = scaled!(ctx, styles, lower_limit_baseline_drop_min);
+        base.descent() + lower_drop_min.max(lower_gap_min + b.ascent())
+    });
+
+    (t_shift, b_shift)
+}
+
+/// Calculate the distance from the base's baseline to each script's baseline.
+/// Returns two lengths, the first being the distance to the superscripts'
+/// baseline and the second being the distance to the subscripts' baseline.
+fn compute_script_shifts(
     ctx: &MathContext,
     styles: StyleChain,
     base: &MathFragment,
@@ -442,7 +623,56 @@ fn compute_shifts_up_and_down(
     (shift_up, shift_down)
 }
 
-/// Determines if the character is one of a variety of integral signs
+/// Calculate the kerning value for a script with respect to the base. A
+/// positive value means shifting the script further away from the base, whereas
+/// a negative value means shifting the script closer to the base. Requires the
+/// distance from the base's baseline to the script's baseline, as well as the
+/// script's corner (tl, tr, bl, br).
+fn math_kern(
+    ctx: &MathContext,
+    base: &MathFragment,
+    script: &MathFragment,
+    shift: Abs,
+    pos: Corner,
+) -> Abs {
+    // This process is described under the MathKernInfo table in the OpenType
+    // MATH spec.
+
+    let (corr_height_top, corr_height_bot) = match pos {
+        // Calculate two correction heights for superscripts:
+        // - The distance from the superscript's baseline to the top of the
+        //   base's bounding box.
+        // - The distance from the base's baseline to the bottom of the
+        //   superscript's bounding box.
+        Corner::TopLeft | Corner::TopRight => {
+            (base.ascent() - shift, shift - script.descent())
+        }
+        // Calculate two correction heights for subscripts:
+        // - The distance from the base's baseline to the top of the
+        //   subscript's bounding box.
+        // - The distance from the subscript's baseline to the bottom of the
+        //   base's bounding box.
+        Corner::BottomLeft | Corner::BottomRight => {
+            (script.ascent() - shift, shift - base.descent())
+        }
+    };
+
+    // Calculate the sum of kerning values for each correction height.
+    let summed_kern = |height| {
+        let base_kern = base.kern_at_height(ctx, pos, height);
+        let attach_kern = script.kern_at_height(ctx, pos.inv(), height);
+        base_kern + attach_kern
+    };
+
+    // Take the smaller kerning amount (and so the larger value). Note that
+    // there is a bug in the spec (as of 2024-08-15): it says to take the
+    // minimum of the two sums, but as the kerning value is usually negative it
+    // really means the smaller kern. The current wording of the spec could
+    // result in glyphs colliding.
+    summed_kern(corr_height_top).max(summed_kern(corr_height_bot))
+}
+
+/// Determines if the character is one of a variety of integral signs.
 fn is_integral_char(c: char) -> bool {
     ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
 }

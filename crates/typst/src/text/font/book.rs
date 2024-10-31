@@ -291,6 +291,12 @@ impl FontInfo {
             coverage: Coverage::from_vec(codepoints),
         })
     }
+
+    /// Whether this is the macOS LastResort font. It can yield tofus with
+    /// glyph ID != 0.
+    pub fn is_last_resort(&self) -> bool {
+        self.family == "LastResort"
+    }
 }
 
 /// Try to find and decode the name with the given id.

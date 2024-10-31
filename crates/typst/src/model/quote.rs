@@ -4,7 +4,10 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles,
 };
-use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
+use crate::introspection::Locatable;
+use crate::layout::{
+    Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,
+};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
@@ -40,7 +43,7 @@ use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(ShowSet, Show)]
+#[elem(Locatable, ShowSet, Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -157,7 +160,7 @@ impl Show for Packed<QuoteElem> {
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
-            let quotes = SmartQuotes::new(
+            let quotes = SmartQuotes::get(
                 SmartQuoteElem::quotes_in(styles),
                 TextElem::lang_in(styles),
                 TextElem::region_in(styles),
@@ -181,11 +184,13 @@ impl Show for Packed<QuoteElem> {
         }
 
         if block {
-            realized =
-                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
+            realized = BlockElem::new()
+                .with_body(Some(BlockBody::Content(realized)))
+                .pack()
+                .spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
-                let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
+                let mut seq = vec![TextElem::packed('—'), SpaceElem::shared().clone()];
 
                 match attribution {
                     Attribution::Content(content) => {
@@ -203,13 +208,14 @@ impl Show for Packed<QuoteElem> {
 
                 // Use v(0.9em, weak: true) bring the attribution closer to the
                 // quote.
-                let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
-                realized += weak_v + Content::sequence(seq).aligned(Alignment::END);
+                let gap = Spacing::Rel(Em::new(0.9).into());
+                let v = VElem::new(gap).with_weak(true).pack();
+                realized += v + Content::sequence(seq).aligned(Alignment::END);
             }
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack()
+            realized += SpaceElem::shared().clone()
                 + CiteElem::new(*label).pack().spanned(self.span());
         }
 
@@ -218,15 +224,14 @@ impl Show for Packed<QuoteElem> {
 }
 
 impl ShowSet for Packed<QuoteElem> {
-    fn show_set(&self, _: StyleChain) -> Styles {
-        let x = Em::new(1.0).into();
-        let above = Em::new(2.4).into();
-        let below = Em::new(1.8).into();
+    fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(PadElem::set_left(x));
-        out.set(PadElem::set_right(x));
-        out.set(BlockElem::set_above(VElem::block_around(above)));
-        out.set(BlockElem::set_below(VElem::block_around(below)));
+        if self.block(styles) {
+            out.set(PadElem::set_left(Em::new(1.0).into()));
+            out.set(PadElem::set_right(Em::new(1.0).into()));
+            out.set(BlockElem::set_above(Smart::Custom(Em::new(2.4).into())));
+            out.set(BlockElem::set_below(Smart::Custom(Em::new(1.8).into())));
+        }
         out
     }
 }

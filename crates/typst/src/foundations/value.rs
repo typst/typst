@@ -9,12 +9,13 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::diag::StrResult;
+use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::eval::ops;
 use crate::foundations::{
-    fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
-    Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
-    NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type, Version,
+    fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal,
+    Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
+    NativeType, NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type,
+    Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
@@ -65,6 +66,8 @@ pub enum Value {
     Label(Label),
     /// A datetime
     Datetime(Datetime),
+    /// A decimal value: `decimal("123.4500")`
+    Decimal(Decimal),
     /// A duration
     Duration(Duration),
     /// A content value: `[*Hi* there]`.
@@ -136,6 +139,7 @@ impl Value {
             Self::Bytes(_) => Type::of::<Bytes>(),
             Self::Label(_) => Type::of::<Label>(),
             Self::Datetime(_) => Type::of::<Datetime>(),
+            Self::Decimal(_) => Type::of::<Decimal>(),
             Self::Duration(_) => Type::of::<Duration>(),
             Self::Content(_) => Type::of::<Content>(),
             Self::Styles(_) => Type::of::<Styles>(),
@@ -151,7 +155,7 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
-    pub fn cast<T: FromValue>(self) -> StrResult<T> {
+    pub fn cast<T: FromValue>(self) -> HintedStrResult<T> {
         T::from_value(self)
     }
 
@@ -204,6 +208,7 @@ impl Value {
             Self::None => Content::empty(),
             Self::Int(v) => TextElem::packed(repr::format_int_with_base(v, 10)),
             Self::Float(v) => TextElem::packed(repr::display_float(v)),
+            Self::Decimal(v) => TextElem::packed(eco_format!("{v}")),
             Self::Str(v) => TextElem::packed(v),
             Self::Version(v) => TextElem::packed(eco_format!("{v}")),
             Self::Symbol(v) => TextElem::packed(v.get()),
@@ -248,6 +253,7 @@ impl Debug for Value {
             Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
             Self::Datetime(v) => Debug::fmt(v, f),
+            Self::Decimal(v) => Debug::fmt(v, f),
             Self::Duration(v) => Debug::fmt(v, f),
             Self::Content(v) => Debug::fmt(v, f),
             Self::Styles(v) => Debug::fmt(v, f),
@@ -285,6 +291,7 @@ impl Repr for Value {
             Self::Bytes(v) => v.repr(),
             Self::Label(v) => v.repr(),
             Self::Datetime(v) => v.repr(),
+            Self::Decimal(v) => v.repr(),
             Self::Duration(v) => v.repr(),
             Self::Content(v) => v.repr(),
             Self::Styles(v) => v.repr(),
@@ -337,6 +344,7 @@ impl Hash for Value {
             Self::Content(v) => v.hash(state),
             Self::Styles(v) => v.hash(state),
             Self::Datetime(v) => v.hash(state),
+            Self::Decimal(v) => v.hash(state),
             Self::Duration(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
@@ -606,15 +614,11 @@ macro_rules! primitive {
         }
 
         impl FromValue for $ty {
-            fn from_value(value: Value) -> StrResult<Self> {
+            fn from_value(value: Value) -> HintedStrResult<Self> {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
-                    v => Err(eco_format!(
-                        "expected {}, found {}",
-                        Type::of::<Self>(),
-                        v.ty(),
-                    )),
+                    v => Err(<Self as Reflect>::error(&v)),
                 }
             }
         }
@@ -649,6 +653,7 @@ primitive! {
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
 primitive! { Datetime: "datetime", Datetime }
+primitive! { Decimal: "decimal", Decimal }
 primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,
@@ -662,7 +667,8 @@ primitive! { Dict: "dictionary", Dict }
 primitive! {
     Func: "function",
     Func,
-    Type(ty) => ty.constructor()?.clone()
+    Type(ty) => ty.constructor()?.clone(),
+    Symbol(symbol) => symbol.func()?
 }
 primitive! { Args: "arguments", Args }
 primitive! { Type: "type", Type }
@@ -682,7 +688,7 @@ impl<T: Reflect> Reflect for Arc<T> {
         T::castable(value)
     }
 
-    fn error(found: &Value) -> EcoString {
+    fn error(found: &Value) -> HintedString {
         T::error(found)
     }
 }
@@ -694,7 +700,7 @@ impl<T: Clone + IntoValue> IntoValue for Arc<T> {
 }
 
 impl<T: FromValue> FromValue for Arc<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             v if T::castable(&v) => Ok(Arc::new(T::from_value(v)?)),
             _ => Err(Self::error(&value)),
@@ -730,6 +736,9 @@ mod tests {
     fn test_value_debug() {
         // Primitives.
         test(Value::None, "none");
+        test(Value::Auto, "auto");
+        test(Value::None.ty(), "type(none)");
+        test(Value::Auto.ty(), "type(auto)");
         test(false, "false");
         test(12i64, "12");
         test(3.24, "3.24");

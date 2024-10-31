@@ -47,10 +47,15 @@ $ A = 1 $ <eq2>
 #set ref(supplement: none)
 @fig1, @fig2, @eq1, @eq2
 
---- ref-ambigious ---
+--- ref-ambiguous ---
 // Test ambiguous reference.
 = Introduction <arrgh>
 
 // Error: 1-7 label occurs in the document and its bibliography
 @arrgh
 #bibliography("/assets/bib/works.bib")
+
+--- issue-4536-non-whitespace-before-ref ---
+// Test reference with non-whitespace before it.
+#figure[] <1>
+#test([(#ref(<1>))], [(@1)])

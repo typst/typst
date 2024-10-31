@@ -2,12 +2,16 @@
 
 mod analyze;
 mod complete;
+mod definition;
 mod jump;
+mod matchers;
 mod tooltip;
 
-pub use self::analyze::analyze_labels;
+pub use self::analyze::{analyze_expr, analyze_import, analyze_labels};
 pub use self::complete::{autocomplete, Completion, CompletionKind};
+pub use self::definition::{definition, Definition, DefinitionKind};
 pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
+pub use self::matchers::{deref_target, named_items, DerefTarget, NamedItem};
 pub use self::tooltip::{tooltip, Tooltip};
 
 use std::fmt::Write;
@@ -93,12 +97,12 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
-    use once_cell::sync::Lazy;
     use typst::diag::{FileError, FileResult};
-    use typst::foundations::{Bytes, Datetime};
+    use typst::foundations::{Bytes, Datetime, Smart};
+    use typst::layout::{Abs, Margin, PageElem};
     use typst::syntax::{FileId, Source};
-    use typst::text::{Font, FontBook};
-    use typst::utils::LazyHash;
+    use typst::text::{Font, FontBook, TextElem, TextSize};
+    use typst::utils::{singleton, LazyHash};
     use typst::{Library, World};
 
     /// A world for IDE testing.
@@ -113,9 +117,16 @@ mod tests {
         /// This is cheap because the shared base for all test runs is lazily
         /// initialized just once.
         pub fn new(text: &str) -> Self {
-            static BASE: Lazy<TestBase> = Lazy::new(TestBase::default);
             let main = Source::detached(text);
-            Self { main, base: &*BASE }
+            Self {
+                main,
+                base: singleton!(TestBase, TestBase::default()),
+            }
+        }
+
+        /// The ID of the main file in a `TestWorld`.
+        pub fn main_id() -> FileId {
+            *singleton!(FileId, Source::detached("").id())
         }
     }
 
@@ -128,8 +139,8 @@ mod tests {
             &self.base.book
         }
 
-        fn main(&self) -> Source {
-            self.main.clone()
+        fn main(&self) -> FileId {
+            self.main.id()
         }
 
         fn source(&self, id: FileId) -> FileResult<Source> {
@@ -168,10 +179,26 @@ mod tests {
                 .collect();
 
             Self {
-                library: LazyHash::new(Library::default()),
+                library: LazyHash::new(library()),
                 book: LazyHash::new(FontBook::from_fonts(&fonts)),
                 fonts,
             }
         }
+    }
+
+    /// The extended standard library for testing.
+    fn library() -> Library {
+        // Set page width to 120pt with 10pt margins, so that the inner page is
+        // exactly 100pt wide. Page height is unbounded and font size is 10pt so
+        // that it multiplies to nice round numbers.
+        let mut lib = Library::default();
+        lib.styles
+            .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
+        lib.styles.set(PageElem::set_height(Smart::Auto));
+        lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
+            Abs::pt(10.0).into(),
+        )))));
+        lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
+        lib
     }
 }

@@ -18,8 +18,10 @@ typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
+arrayvec = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
+bumpalo = { workspace = true }
 chinese-number = { workspace = true }
 ciborium = { workspace = true }
 comemo = { workspace = true }
@@ -50,6 +52,7 @@ portable-atomic = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
+rust_decimal = { workspace = true }
 rustybuzz = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -68,6 +71,7 @@ unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }
+xmlwriter = { workspace = true }
 wasmi = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

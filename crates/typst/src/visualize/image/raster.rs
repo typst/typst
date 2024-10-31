@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
-use image::io::Limits;
+use image::Limits;
 use image::{guess_format, DynamicImage, ImageDecoder, ImageResult};
 
 use crate::diag::{bail, StrResult};
@@ -30,11 +30,11 @@ impl RasterImage {
     /// Decode a raster image.
     #[comemo::memoize]
     pub fn new(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
-        fn decode_with<'a, T: ImageDecoder<'a>>(
+        fn decode_with<T: ImageDecoder>(
             decoder: ImageResult<T>,
         ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
             let mut decoder = decoder?;
-            let icc = decoder.icc_profile().filter(|icc| !icc.is_empty());
+            let icc = decoder.icc_profile().ok().flatten().filter(|icc| !icc.is_empty());
             decoder.set_limits(Limits::default())?;
             let dynamic = image::DynamicImage::from_decoder(decoder)?;
             Ok((dynamic, icc))

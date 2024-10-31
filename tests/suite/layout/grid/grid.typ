@@ -184,8 +184,8 @@
     Top
     #align(bottom)[
       Bottom \
-      Bottom \
-      #v(0pt)
+      Bottom
+
       Top
     ]
   ],
@@ -247,8 +247,8 @@
 
 --- issue-grid-skip-list ---
 #set page(height: 60pt)
-#lorem(5)
-- #lorem(5)
+#lines(2)
+- #lines(2)
 
 --- issue-grid-double-skip ---
 // Ensure that the list does not jump to the third page.

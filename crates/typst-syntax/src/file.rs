@@ -36,17 +36,20 @@ impl FileId {
     #[track_caller]
     pub fn new(package: Option<PackageSpec>, path: VirtualPath) -> Self {
         // Try to find an existing entry that we can reuse.
+        //
+        // We could check with just a read lock, but if the pair is not yet
+        // present, we would then need to recheck after acquiring a write lock,
+        // which is probably not worth it.
         let pair = (package, path);
-        if let Some(&id) = INTERNER.read().unwrap().to_id.get(&pair) {
+        let mut interner = INTERNER.write().unwrap();
+        if let Some(&id) = interner.to_id.get(&pair) {
             return id;
         }
-
-        let mut interner = INTERNER.write().unwrap();
-        let num = interner.from_id.len().try_into().expect("out of file ids");
 
         // Create a new entry forever by leaking the pair. We can't leak more
         // than 2^16 pair (and typically will leak a lot less), so its not a
         // big deal.
+        let num = interner.from_id.len().try_into().expect("out of file ids");
         let id = FileId(num);
         let leaked = Box::leak(Box::new(pair));
         interner.to_id.insert(leaked, id);
@@ -86,6 +89,11 @@ impl FileId {
     /// Resolve a file location relative to this file.
     pub fn join(self, path: &str) -> Self {
         Self::new(self.package().cloned(), self.vpath().join(path))
+    }
+
+    /// The same file location, but with a different extension.
+    pub fn with_extension(&self, extension: &str) -> Self {
+        Self::new(self.package().cloned(), self.vpath().with_extension(extension))
     }
 
     /// Construct from a raw number.

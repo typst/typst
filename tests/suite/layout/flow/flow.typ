@@ -11,11 +11,8 @@
 // the rest moved down. The reason was that the second block resulted in
 // overlarge frames because the region wasn't finished properly.
 #set page(height: 70pt)
-#block[This file tests a bug where an almost empty page occurs.]
-#block[
-  The text in this second block was torn apart and split up for
-  some reason beyond my knowledge.
-]
+#block(lines(3))
+#block(lines(5))
 
 --- issue-flow-trailing-leading ---
 // In this bug, the first part of the paragraph moved down to the second page
@@ -48,20 +45,38 @@
 // This bug caused an index-out-of-bounds panic when layouting paragraphs needed
 // multiple reorderings.
 #set page(height: 200pt)
-#lorem(30)
+#lines(10)
 
 #figure(placement: auto, block(height: 100%))
 
-#lorem(10)
+#lines(3)
 
-#lorem(10)
+#lines(3)
 
 --- issue-3641-float-loop ---
 // Flow layout should terminate!
-//
-// This is not yet ideal: The heading should not move to the second page, but
-// that's a separate bug and not a regression.
 #set page(height: 40pt)
 
 = Heading
-#lorem(6)
+#lines(2)
+
+--- issue-3355-metadata-weak-spacing ---
+#set page(height: 50pt)
+#block(width: 100%, height: 30pt, fill: aqua)
+#metadata(none)
+#v(10pt, weak: true)
+Hi
+
+--- issue-3866-block-migration ---
+#set page(height: 120pt)
+#set text(costs: (widow: 0%, orphan: 0%))
+#v(50pt)
+#columns(2)[
+  #lines(6)
+  #block(rect(width: 80%, height: 80pt), breakable: false)
+  #lines(6)
+]
+
+--- issue-5024-spill-backlog ---
+#set page(columns: 2, height: 50pt)
+#columns(2)[Hello]

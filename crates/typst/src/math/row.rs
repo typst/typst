@@ -3,14 +3,12 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Resolve, StyleChain};
-use crate::layout::{Abs, AlignElem, Em, Frame, Point, Size};
+use crate::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
 use crate::math::{
     alignments, scaled_font_size, spacing, EquationElem, FrameFragment, MathContext,
-    MathFragment, MathParItem, MathSize,
+    MathFragment, MathSize,
 };
 use crate::model::ParElem;
-
-use super::fragment::SpacingFragment;
 
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
@@ -37,9 +35,21 @@ impl MathRun {
                 }
 
                 // Explicit spacing disables automatic spacing.
-                MathFragment::Spacing(_) => {
+                MathFragment::Spacing(width, weak) => {
                     last = None;
                     space = None;
+
+                    if weak {
+                        match resolved.last_mut() {
+                            None => continue,
+                            Some(MathFragment::Spacing(prev, true)) => {
+                                *prev = (*prev).max(width);
+                                continue;
+                            }
+                            Some(_) => {}
+                        }
+                    }
+
                     resolved.push(fragment);
                     continue;
                 }
@@ -77,15 +87,22 @@ impl MathRun {
                 fragment.set_class(MathClass::Binary);
             }
 
-            // Insert spacing between the last and this item.
-            if let Some(i) = last {
-                if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
-                    resolved.insert(i + 1, s);
+            // Insert spacing between the last and this non-ignorant item.
+            if !fragment.is_ignorant() {
+                if let Some(i) = last {
+                    if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
+                        resolved.insert(i + 1, s);
+                    }
                 }
+
+                last = Some(resolved.len());
             }
 
-            last = Some(resolved.len());
             resolved.push(fragment);
+        }
+
+        if let Some(MathFragment::Spacing(_, true)) = resolved.last() {
+            resolved.pop();
         }
 
         Self(resolved)
@@ -117,11 +134,19 @@ impl MathRun {
     }
 
     pub fn ascent(&self) -> Abs {
-        self.iter().map(MathFragment::ascent).max().unwrap_or_default()
+        self.iter()
+            .filter(|e| affects_row_height(e))
+            .map(|e| e.ascent())
+            .max()
+            .unwrap_or_default()
     }
 
     pub fn descent(&self) -> Abs {
-        self.iter().map(MathFragment::descent).max().unwrap_or_default()
+        self.iter()
+            .filter(|e| affects_row_height(e))
+            .map(|e| e.descent())
+            .max()
+            .unwrap_or_default()
     }
 
     pub fn class(&self) -> MathClass {
@@ -148,10 +173,19 @@ impl MathRun {
 
     pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
         if self.0.len() == 1 {
-            self.0.into_iter().next().unwrap()
-        } else {
-            FrameFragment::new(ctx, styles, self.into_frame(ctx, styles)).into()
+            return self.0.into_iter().next().unwrap();
         }
+
+        // Fragments without a math_size are ignored: the notion of size do not
+        // apply to them, so their text-likeness is meaningless.
+        let text_like = self
+            .iter()
+            .filter(|e| e.math_size().is_some())
+            .all(|e| e.is_text_like());
+
+        FrameFragment::new(ctx, styles, self.into_frame(ctx, styles))
+            .with_text_like(text_like)
+            .into()
     }
 
     /// Returns a builder that lays out the [`MathFragment`]s into a possibly
@@ -251,7 +285,7 @@ impl MathRun {
         frame
     }
 
-    pub fn into_par_items(self) -> Vec<MathParItem> {
+    pub fn into_par_items(self) -> Vec<InlineItem> {
         let mut items = vec![];
 
         let mut x = Abs::zero();
@@ -270,16 +304,15 @@ impl MathRun {
 
         let is_relation = |f: &MathFragment| matches!(f.class(), MathClass::Relation);
         let is_space = |f: &MathFragment| {
-            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_))
+            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_, _))
         };
 
         let mut iter = self.0.into_iter().peekable();
         while let Some(fragment) = iter.next() {
             if space_is_visible {
                 match fragment {
-                    MathFragment::Space(width)
-                    | MathFragment::Spacing(SpacingFragment { width, .. }) => {
-                        items.push(MathParItem::Space(width));
+                    MathFragment::Space(width) | MathFragment::Spacing(width, _) => {
+                        items.push(InlineItem::Space(width, true));
                         continue;
                     }
                     _ => {}
@@ -305,7 +338,7 @@ impl MathRun {
                     std::mem::replace(&mut frame, Frame::soft(Size::zero()));
 
                 finalize_frame(&mut frame_prev, x, ascent, descent);
-                items.push(MathParItem::Frame(frame_prev));
+                items.push(InlineItem::Frame(frame_prev));
                 empty = true;
 
                 x = Abs::zero();
@@ -315,7 +348,7 @@ impl MathRun {
                 space_is_visible = true;
                 if let Some(f_next) = iter.peek() {
                     if !is_space(f_next) {
-                        items.push(MathParItem::Space(Abs::zero()));
+                        items.push(InlineItem::Space(Abs::zero(), true));
                     }
                 }
             } else {
@@ -327,13 +360,13 @@ impl MathRun {
         // contribute width (if it had hidden content).
         if !empty {
             finalize_frame(&mut frame, x, ascent, descent);
-            items.push(MathParItem::Frame(frame));
+            items.push(InlineItem::Frame(frame));
         }
 
         items
     }
 
-    fn is_multiline(&self) -> bool {
+    pub fn is_multiline(&self) -> bool {
         self.iter().any(|frag| matches!(frag, MathFragment::Linebreak))
     }
 }
@@ -385,4 +418,8 @@ impl MathRunFrameBuilder {
         }
         frame
     }
+}
+
+fn affects_row_height(fragment: &MathFragment) -> bool {
+    !matches!(fragment, MathFragment::Align | MathFragment::Linebreak)
 }

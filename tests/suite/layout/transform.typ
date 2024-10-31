@@ -74,7 +74,7 @@ Hello #rotated[World]!\
 Hello #rotated[World]!
 
 --- transform-scale ---
-// Test that scaling impact layout.
+// Test that scaling impacts layout.
 #set page(width: 200pt)
 #set text(size: 32pt)
 #let scaled(body) = box(scale(
@@ -104,3 +104,64 @@ Hello #scaled[World]!\
 
 #set scale(reflow: true)
 Hello #scaled[World]!
+
+--- transform-scale-abs-and-auto ---
+// Test scaling by absolute lengths and auto.
+#set page(width: 200pt, height: 200pt)
+#let cylinder = image("/assets/images/cylinder.svg")
+
+#cylinder
+#scale(x: 100pt, y: 50pt, reflow: true, cylinder)
+#scale(x: auto, y: 50pt, reflow: true, cylinder)
+#scale(x: 100pt, y: auto, reflow: true, cylinder)
+#scale(x: 150%, y: auto, reflow: true, cylinder)
+
+--- transform-skew ---
+// Test skewing along one axis.
+#set page(width: 100pt, height: 60pt)
+#set text(size: 12pt)
+#let skewed(body) = box(skew(ax: -30deg, body))
+
+#set skew(reflow: false)
+Hello #skewed[World]!
+
+#set skew(reflow: true)
+Hello #skewed[World]!
+
+--- transform-skew-both-axes ---
+// Test skewing along both axes.
+#set page(width: 100pt, height: 250pt)
+#set text(size: 12pt)
+#let skewed(angle) = box(skew(ax: 30deg, ay: angle)[Some Text])
+
+#set skew(reflow: true)
+#for angle in range(-30, 31, step: 10) {
+  skewed(angle * 1deg)
+}
+
+--- transform-skew-origin ---
+// Test setting skewing origin.
+#set page(width: 100pt, height:40pt)
+#set text(spacing: 20pt)
+#let square = square.with(width: 8pt)
+#let skew-square(origin) = box(place(square(stroke: gray))
+  + place(skew(ax: -30deg, ay: -30deg, origin: origin, square())))
+#skew-square(center+horizon)
+#skew-square(bottom+left)
+#skew-square(top+right)
+#skew-square(horizon+right)
+
+--- transform-skew-relative-sizing ---
+// Test relative sizing in skewed boxes.
+#set page(width: 100pt, height: 60pt)
+#set text(size: 12pt)
+#let skewed(body) = box(skew(
+  ax: 30deg,
+  box(stroke: 0.5pt, width: 30%, clip: true, body)
+))
+
+#set skew(reflow: false)
+Hello #skewed[World]!\
+
+#set skew(reflow: true)
+Hello #skewed[World]!

@@ -50,6 +50,16 @@ It's a #emph[Tree]beard.
 #set text(hyphenate: true)
 #h(6pt) networks, the rest.
 
+--- hyphenate-outside-of-words ---
+// More tests for hyphenation of non-words.
+#set text(hyphenate: true)
+#block(width: 0pt, "doesn't")
+#block(width: 0pt, "(OneNote)")
+#block(width: 0pt, "(present)")
+
+#set text(lang: "de")
+#block(width: 0pt, "(bzw.)")
+
 --- hyphenate-pt-repeat-hyphen-natural-word-breaking ---
 // The word breaker naturally breaks arco-da-velha at arco-/-da-velha,
 // so we shall repeat the hyphen, even that hyphenate is set to false.
@@ -92,7 +102,7 @@ Lo que entendemos por nivel léxico-semántico, en cuanto su sentido más
 gramatical: es aquel que estudia el origen y forma de las palabras de
 un idioma.
 
---- hyphenate-es-captalized-names ---
+--- hyphenate-es-capitalized-names ---
 // If the hyphen is followed by a capitalized word we shall not repeat
 //  the hyphen at the next line
 #set page(width: 6.2cm)
@@ -154,6 +164,4 @@ el objetivo de protegerle de las patrullas de milicianos.
 --- costs-access ---
 #set text(costs: (hyphenation: 1%, runt: 2%))
 #set text(costs: (widow: 3%))
-#context {
-  assert.eq(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))
-}
+#context test(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))

@@ -12,7 +12,7 @@ use crate::foundations::{
     Selector, Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
-use crate::utils::{LazyHash, Static};
+use crate::utils::{singleton, LazyHash, Static};
 
 #[doc(inline)]
 pub use typst_macros::func;
@@ -24,7 +24,7 @@ pub use typst_macros::func;
 /// Additionally, you can pass any number of trailing content blocks arguments
 /// to a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
-/// arguments. The former are identified by position and type, while the later
+/// arguments. The former are identified by position and type, while the latter
 /// are written as `name: value`.
 ///
 /// Within math mode, function calls have special behaviour. See the
@@ -80,6 +80,10 @@ pub use typst_macros::func;
 /// optionally specify a return value. If no explicit return value is given, the
 /// body evaluates to the result of joining all expressions preceding the
 /// `return`.
+///
+/// Functions that don't return any meaningful value return [`none`] instead.
+/// The return type of such functions is not explicitly specified in the
+/// documentation. (An example of this is [`array.push`]).
 ///
 /// ```example
 /// #let alert(body, fill: red) = {
@@ -212,11 +216,11 @@ impl Func {
 
     /// Get details about the function's return type.
     pub fn returns(&self) -> Option<&'static CastInfo> {
-        static CONTENT: Lazy<CastInfo> =
-            Lazy::new(|| CastInfo::Type(Type::of::<Content>()));
         match &self.repr {
             Repr::Native(native) => Some(&native.0.returns),
-            Repr::Element(_) => Some(&CONTENT),
+            Repr::Element(_) => {
+                Some(singleton!(CastInfo, CastInfo::Type(Type::of::<Content>())))
+            }
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.returns(),
         }
@@ -297,9 +301,9 @@ impl Func {
                 closure,
                 engine.world,
                 engine.introspector,
+                engine.traced,
+                TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),
-                engine.locator.track(),
-                TrackedMut::reborrow_mut(&mut engine.tracer),
                 context,
                 args,
             ),
@@ -352,7 +356,7 @@ impl Func {
     /// #show heading.where(level: 2): set text(blue)
     /// = Section
     /// == Subsection
-    /// === Sub-subection
+    /// === Sub-subsection
     /// ```
     #[func]
     pub fn where_(

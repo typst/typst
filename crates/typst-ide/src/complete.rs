@@ -5,8 +5,8 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
-    NoneValue, Repr, Scope, StyleChain, Styles, Type, Value,
+    fields_on, format_str, repr, AutoValue, CastInfo, Func, Label, NoneValue, Repr,
+    Scope, StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
 use typst::syntax::{
@@ -17,8 +17,10 @@ use typst::visualize::Color;
 use typst::World;
 use unscanny::Scanner;
 
-use crate::analyze::{analyze_expr, analyze_import, analyze_labels};
-use crate::{plain_docs_sentence, summarize_font_family};
+use crate::{
+    analyze_expr, analyze_import, analyze_labels, named_items, plain_docs_sentence,
+    summarize_font_family,
+};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -334,6 +336,13 @@ fn math_completions(ctx: &mut CompletionContext) {
 
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
+    // Used to determine whether trivia nodes are allowed before '.'.
+    // During an inline expression in markup mode trivia nodes exit the inline expression.
+    let in_markup: bool = matches!(
+        ctx.leaf.parent_kind(),
+        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
+    );
+
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
@@ -341,6 +350,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
+        if !in_markup || prev.range().end == ctx.leaf.range().start;
         if prev.is::<ast::Expr>();
         if prev.parent_kind() != Some(SyntaxKind::Markup) ||
            prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
@@ -376,27 +386,14 @@ fn field_access_completions(
     value: &Value,
     styles: &Option<Styles>,
 ) {
-    for (name, value) in value.ty().scope().iter() {
+    for (name, value, _) in value.ty().scope().iter() {
         ctx.value_completion(Some(name.clone()), value, true, None);
     }
 
     if let Some(scope) = value.scope() {
-        for (name, value) in scope.iter() {
+        for (name, value, _) in scope.iter() {
             ctx.value_completion(Some(name.clone()), value, true, None);
         }
-    }
-
-    for &(method, args) in mutable_methods_on(value.ty()) {
-        ctx.completions.push(Completion {
-            kind: CompletionKind::Func,
-            label: method.into(),
-            apply: Some(if args {
-                eco_format!("{method}(${{}})")
-            } else {
-                eco_format!("{method}()${{}}")
-            }),
-            detail: None,
-        })
     }
 
     for &field in fields_on(value.ty()) {
@@ -441,7 +438,7 @@ fn field_access_completions(
             if let Some((elem, styles)) = func.element().zip(styles.as_ref()) {
                 for param in elem.params().iter().filter(|param| !param.required) {
                     if let Some(value) = elem.field_id(param.name).and_then(|id| {
-                        elem.field_from_styles(id, StyleChain::new(styles))
+                        elem.field_from_styles(id, StyleChain::new(styles)).ok()
                     }) {
                         ctx.value_completion(
                             Some(param.name.into()),
@@ -547,7 +544,7 @@ fn import_item_completions<'a>(
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value) in scope.iter() {
+    for (name, value, _) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
@@ -1319,62 +1316,12 @@ impl<'a> CompletionContext<'a> {
     /// Filters the global/math scope with the given filter.
     fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
         let mut defined = BTreeSet::new();
-
-        let mut ancestor = Some(self.leaf.clone());
-        while let Some(node) = &ancestor {
-            let mut sibling = Some(node.clone());
-            while let Some(node) = &sibling {
-                if let Some(v) = node.cast::<ast::LetBinding>() {
-                    for ident in v.kind().bindings() {
-                        defined.insert(ident.get().clone());
-                    }
-                }
-
-                if let Some(v) = node.cast::<ast::ModuleImport>() {
-                    let imports = v.imports();
-                    match imports {
-                        None | Some(ast::Imports::Wildcard) => {
-                            if let Some(value) = node
-                                .children()
-                                .find(|child| child.is::<ast::Expr>())
-                                .and_then(|source| analyze_import(self.world, &source))
-                            {
-                                if imports.is_none() {
-                                    defined.extend(value.name().map(Into::into));
-                                } else if let Some(scope) = value.scope() {
-                                    for (name, _) in scope.iter() {
-                                        defined.insert(name.clone());
-                                    }
-                                }
-                            }
-                        }
-                        Some(ast::Imports::Items(items)) => {
-                            for item in items.iter() {
-                                defined.insert(item.bound_name().get().clone());
-                            }
-                        }
-                    }
-                }
-
-                sibling = node.prev_sibling();
+        named_items(self.world, self.leaf.clone(), |name| {
+            if name.value().as_ref().map_or(true, &filter) {
+                defined.insert(name.name().clone());
             }
-
-            if let Some(parent) = node.parent() {
-                if let Some(v) = parent.cast::<ast::ForLoop>() {
-                    if node.prev_sibling_kind() != Some(SyntaxKind::In) {
-                        let pattern = v.pattern();
-                        for ident in pattern.bindings() {
-                            defined.insert(ident.get().clone());
-                        }
-                    }
-                }
-
-                ancestor = Some(parent.clone());
-                continue;
-            }
-
-            break;
-        }
+            None::<()>
+        });
 
         let in_math = matches!(
             self.leaf.parent_kind(),
@@ -1385,7 +1332,7 @@ impl<'a> CompletionContext<'a> {
         );
 
         let scope = if in_math { self.math } else { self.global };
-        for (name, value) in scope.iter() {
+        for (name, value, _) in scope.iter() {
             if filter(value) && !defined.contains(name) {
                 self.value_completion(Some(name.clone()), value, parens, None);
             }
@@ -1406,7 +1353,6 @@ impl<'a> CompletionContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use typst::eval::Tracer;
 
     use super::autocomplete;
     use crate::tests::TestWorld;
@@ -1414,7 +1360,7 @@ mod tests {
     #[track_caller]
     fn test(text: &str, cursor: usize, contains: &[&str], excludes: &[&str]) {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world, &mut Tracer::new()).ok();
+        let doc = typst::compile(&world).output.ok();
         let (_, completions) =
             autocomplete(&world, doc.as_ref(), &world.main, cursor, true)
                 .unwrap_or_default();
@@ -1435,10 +1381,26 @@ mod tests {
     }
 
     #[test]
-    fn test_before_window_char_boundary() {
+    fn test_autocomplete_whitespace() {
+        //Check that extra space before '.' is handled correctly.
+        test("#() .", 5, &[], &["insert", "remove", "len", "all"]);
+        test("#{() .}", 6, &["insert", "remove", "len", "all"], &["foo"]);
+
+        test("#() .a", 6, &[], &["insert", "remove", "len", "all"]);
+        test("#{() .a}", 7, &["at", "any", "all"], &["foo"]);
+    }
+
+    #[test]
+    fn test_autocomplete_before_window_char_boundary() {
         // Check that the `before_window` doesn't slice into invalid byte
         // boundaries.
         let s = "😀😀     #text(font: \"\")";
         test(s, s.len() - 2, &[], &[]);
+    }
+
+    #[test]
+    fn test_autocomplete_mutable_method() {
+        let s = "#{ let x = (1, 2, 3); x. }";
+        test(s, s.len() - 2, &["at", "push", "pop"], &[]);
     }
 }

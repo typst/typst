@@ -1,4 +1,9 @@
-use crate::PdfContext;
+use std::collections::HashMap;
+
+use pdf_writer::Ref;
+use typst::diag::SourceResult;
+
+use crate::{PdfChunk, WithGlobalRefs};
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -22,13 +27,27 @@ impl ExtGState {
 }
 
 /// Embed all used external graphics states into the PDF.
-pub(crate) fn write_external_graphics_states(ctx: &mut PdfContext) {
-    for external_gs in ctx.extg_map.items() {
-        let id = ctx.alloc.bump();
-        ctx.ext_gs_refs.push(id);
-        ctx.pdf
-            .ext_graphics(id)
-            .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)
-            .stroking_alpha(external_gs.stroke_opacity as f32 / 255.0);
-    }
+pub fn write_graphic_states(
+    context: &WithGlobalRefs,
+) -> SourceResult<(PdfChunk, HashMap<ExtGState, Ref>)> {
+    let mut chunk = PdfChunk::new();
+    let mut out = HashMap::new();
+    context.resources.traverse(&mut |resources| {
+        for external_gs in resources.ext_gs.items() {
+            if out.contains_key(external_gs) {
+                continue;
+            }
+
+            let id = chunk.alloc();
+            out.insert(*external_gs, id);
+            chunk
+                .ext_graphics(id)
+                .non_stroking_alpha(external_gs.fill_opacity as f32 / 255.0)
+                .stroking_alpha(external_gs.stroke_opacity as f32 / 255.0);
+        }
+
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }

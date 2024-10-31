@@ -46,6 +46,10 @@
     "overbrace",
     "underbracket",
     "overbracket",
+    "underparen",
+    "overparen",
+    "undershell",
+    "overshell",
   ]
   details: |
     Delimiters above or below parts of an equation.
@@ -79,6 +83,10 @@
     automatically decides which is more suitable depending on the base, but you
     can also control this manually with the `scripts` and `limits` functions.
 
+    If you want the base to stretch to fit long top and bottom attachments (for
+    example, an arrow with text above it), use the [`stretch`]($math.stretch)
+    function.
+
     # Example
     ```example
     $ sum_(i=0)^n a_i = 2^(1+i) $
@@ -107,7 +115,7 @@
     # Example
     ```example
     $ [a, b/2] $
-    $ lr(]sum_(x=1)^n] x, size: #50%) $
+    $ lr(]sum_(x=1)^n], size: #50%) x $
     $ abs((x + y) / 2) $
     ```
 
@@ -120,7 +128,7 @@
 
     These definitions are part of the `calc` module and not imported by default.
     In addition to the functions listed below, the `calc` module also defines
-    the constants `pi`, `tau`, `e`, `inf`, and `nan`.
+    the constants `pi`, `tau`, `e`, and `inf`.
 
 - name: sys
   title: System

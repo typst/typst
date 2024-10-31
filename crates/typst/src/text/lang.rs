@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use ecow::EcoString;
+use crate::diag::Hint;
+use ecow::{eco_format, EcoString};
 
 use crate::foundations::{cast, StyleChain};
 use crate::layout::Dir;
@@ -13,8 +14,9 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 31] = [
+const TRANSLATIONS: [(&str, &str); 36] = [
     translation!("ar"),
+    translation!("ca"),
     translation!("cs"),
     translation!("da"),
     translation!("de"),
@@ -23,10 +25,14 @@ const TRANSLATIONS: [(&str, &str); 31] = [
     translation!("et"),
     translation!("fi"),
     translation!("fr"),
+    translation!("gl"),
     translation!("gr"),
+    translation!("he"),
     translation!("hu"),
+    translation!("is"),
     translation!("it"),
     translation!("ja"),
+    translation!("la"),
     translation!("nb"),
     translation!("nl"),
     translation!("nn"),
@@ -66,11 +72,15 @@ impl Lang {
     pub const FILIPINO: Self = Self(*b"tl ", 2);
     pub const FINNISH: Self = Self(*b"fi ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
+    pub const GALICIAN: Self = Self(*b"gl ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const GREEK: Self = Self(*b"gr ", 2);
+    pub const HEBREW: Self = Self(*b"he ", 2);
     pub const HUNGARIAN: Self = Self(*b"hu ", 2);
+    pub const ICELANDIC: Self = Self(*b"is ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
+    pub const LATIN: Self = Self(*b"la ", 2);
     pub const LOWER_SORBIAN: Self = Self(*b"dsb", 3);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
@@ -121,7 +131,22 @@ impl FromStr for Lang {
 cast! {
     Lang,
     self => self.as_str().into_value(),
-    string: EcoString => Self::from_str(&string)?,
+    string: EcoString => {
+        let result = Self::from_str(&string);
+        if result.is_err() {
+            if let Some((lang, region)) = string.split_once('-') {
+                if Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
+                    return result
+                        .hint(eco_format!(
+                            "you should leave only \"{}\" in the `lang` parameter and specify \"{}\" in the `region` parameter",
+                            lang, region,
+                        ));
+                }
+            }
+        }
+
+        result?
+    }
 }
 
 /// An identifier for a region somewhere in the world.

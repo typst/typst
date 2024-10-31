@@ -14,8 +14,8 @@ use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    Alignment, BlockElem, Em, HAlignment, Length, OuterVAlignment, PlaceElem, VAlignment,
-    VElem,
+    AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
+    PlaceElem, PlacementScope, VAlignment, VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
@@ -132,6 +132,27 @@ pub struct FigureElem {
     /// #lorem(60)
     /// ```
     pub placement: Option<Smart<VAlignment>>,
+
+    /// Relative to which containing scope the figure is placed.
+    ///
+    /// Set this to `{"parent"}` to create a full-width figure in a two-column
+    /// document.
+    ///
+    /// Has no effect if `placement` is `{none}`.
+    ///
+    /// ```example
+    /// #set page(height: 250pt, columns: 2)
+    ///
+    /// = Introduction
+    /// #figure(
+    ///   placement: bottom,
+    ///   scope: "parent",
+    ///   caption: [A glacier],
+    ///   image("glacier.jpg", width: 60%),
+    /// )
+    /// #lorem(60)
+    /// ```
+    pub scope: PlacementScope,
 
     /// The figure's caption.
     pub caption: Option<Packed<FigureCaption>>,
@@ -309,7 +330,7 @@ impl Show for Packed<FigureElem> {
 
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
-            let v = VElem::weak(self.gap(styles).into()).pack();
+            let v = VElem::new(self.gap(styles).into()).with_weak(true).pack();
             realized = match caption.position(styles) {
                 OuterVAlignment::Top => caption.pack() + v + realized,
                 OuterVAlignment::Bottom => realized + v + caption.pack(),
@@ -318,18 +339,24 @@ impl Show for Packed<FigureElem> {
 
         // Wrap the contents in a block.
         realized = BlockElem::new()
-            .with_body(Some(realized))
+            .with_body(Some(BlockBody::Content(realized)))
             .pack()
-            .spanned(self.span())
-            .aligned(Alignment::CENTER);
+            .spanned(self.span());
 
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
             realized = PlaceElem::new(realized)
-                .with_float(true)
                 .with_alignment(align.map(|align| HAlignment::Center + align))
+                .with_scope(self.scope(styles))
+                .with_float(true)
                 .pack()
                 .spanned(self.span());
+        } else if self.scope(styles) == PlacementScope::Parent {
+            bail!(
+                self.span(),
+                "parent-scoped placement is only available for floating figures";
+                hint: "you can enable floating placement with `figure(placement: auto, ..)`"
+            );
         }
 
         Ok(realized)
@@ -340,7 +367,10 @@ impl ShowSet for Packed<FigureElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         // Still allows breakable figures with
         // `show figure: set block(breakable: true)`.
-        BlockElem::set_breakable(false).wrap().into()
+        let mut map = Styles::new();
+        map.set(BlockElem::set_breakable(false));
+        map.set(AlignElem::set_alignment(Alignment::CENTER));
+        map
     }
 }
 

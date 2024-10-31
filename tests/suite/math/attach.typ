@@ -69,7 +69,7 @@ $ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
   sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
 
 --- math-attach-descender-collision ---
-// Test for no collisions between descenders/ascenders and attachments
+// Test for no collisions between descenders/ascenders and attachments.
 
 $ sup_(x in P_i) quad inf_(x in P_i) $
 $ op("fff",limits: #true)^(y) quad op("yyy", limits:#true)_(f) $
@@ -84,9 +84,9 @@ $ (-1)^n + (1/2 + 3)^(-1/2) $
 // Test that the attachments are aligned horizontally.
 $ x_1 p_1 frak(p)_1 2_1 dot_1 lg_1 !_1 \\_1 ]_1 "ip"_1 op("iq")_1 \
   x^1 b^1 frak(b)^1 2^1 dot^1 lg^1 !^1 \\^1 ]^1 "ib"^1 op("id")^1 \
-  x_1 y_1 "_"_1 x^1 l^1 "`"^1 attach(I,tl:1,bl:1,tr:1,br:1)
+  "_"_1 "`"^1 x_1 y_1 x^1 l^1 attach(I,tl:1,bl:1,tr:1,br:1)
   scripts(sum)_1^1 integral_1^1 abs(1/2)_1^1 \
-  x^1_1, "("b y")"^1_1 != (b y)^1_1, "[∫]"_1 [integral]_1 $
+  x^1_1, ")"^1_1 (b y)^1_1, "[∫]"_1 [integral]_1 $
 
 --- math-attach-limit ---
 // Test limit.
@@ -112,7 +112,7 @@ $ attach(A, t: #context oops) $
 $iota_a^b$
 
 --- math-attach-default-placement ---
-// Test default of limit attachments on relations at all sizes
+// Test default of limit attachments on relations at all sizes.
 #set page(width: auto)
 $ a =^"def" b quad a lt.eq_"really" b quad  a arrow.r.long.squiggly^"slowly" b $
 $a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
@@ -120,11 +120,53 @@ $a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
 $a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.long.squiggly)^"slowly" b$
 
 --- math-attach-integral ---
-// Test default of scripts attachments on integrals at display size
+// Test default of scripts attachments on integrals at display size.
 $ integral.sect_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
 $integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
 --- math-attach-large-operator ---
-// Test default of limit attachments on large operators at display size only
+// Test default of limit attachments on large operators at display size only.
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+
+--- math-attach-limit-long ---
+// Test long limit attachments.
+$ attach(product, t: 123456789) attach(product, t: 123456789, bl: x) \
+  attach(product, b: 123456789) attach(product, b: 123456789, tr: x) $
+$attach(limits(product), t: 123456789) attach(limits(product), t: 123456789, bl: x)$
+
+$attach(limits(product), b: 123456789) attach(limits(product), b: 123456789, tr: x)$
+
+--- math-attach-kerning ---
+// Test math kerning.
+#show math.equation: set text(font: "STIX Two Math")
+
+$ L^A Y^c R^2 delta^y omega^f a^2 t^w gamma^V p^+ \
+  b_lambda f_k p_i x_1 x_j x_A y_l y_y beta_s theta_k \
+  J_0 Y_0 T_1 T_f V_a V_A F_j cal(F)_j lambda_y \
+  attach(W, tl: l) attach(A, tl: 2) attach(cal(V), tl: beta)
+  attach(cal(P), tl: iota) attach(f, bl: i) attach(A, bl: x)
+  attach(cal(J), bl: xi) attach(cal(A), bl: m) $
+
+--- math-attach-kerning-mixed ---
+// Test mixtures of math kerning.
+#show math.equation: set text(font: "STIX Two Math")
+
+$ x_1^i x_2^lambda x_2^(2alpha) x_2^(k+1) x_2^(-p_(-1)) x_j^gamma \
+  f_2^2 v_0^2  z_0^2 beta_s^2 xi_i^k J_1^2 N_(k y)^(-1) V_pi^x \
+  attach(J, tl: 1, br: i) attach(P, tl: i, br: 2) B_i_0 phi.alt_i_(n-1)
+  attach(A, tr: x, bl: x, br: x, tl: x) attach(F, tl: i, tr: f) \
+  attach(cal(A), tl: 2, bl: o) attach(cal(J), bl: l, br: A)
+  attach(cal(y), tr: p, bl: n t) attach(cal(O), tl: 16, tr: +, br: sigma)
+  attach(italic(Upsilon), tr: s, br: Psi, bl: d) $
+
+--- math-attach-nested-base ---
+// Test attachments when the base has attachments.
+$ attach(a^b, b: c) quad
+  attach(attach(attach(attach(attach(attach(sum, tl: 1), t: 2), tr: 3), br: 4), b: 5), bl: 6) $
+
+#let a0 = math.attach(math.alpha, b: [0])
+#let a1 = $alpha^1$
+
+$ a0 + a1 + a0_2 \
+  a1_2 + a0^2 + a1^2 $

@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::StrResult;
+use crate::diag::HintedStrResult;
 use crate::foundations::{
     ty, CastInfo, Fold, FromValue, IntoValue, Reflect, Repr, Resolve, StyleChain, Type,
     Value,
@@ -26,7 +26,7 @@ impl IntoValue for AutoValue {
 }
 
 impl FromValue for AutoValue {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             Value::Auto => Ok(Self),
             _ => Err(Self::error(&value)),
@@ -236,7 +236,7 @@ impl<T: IntoValue> IntoValue for Smart<T> {
 }
 
 impl<T: FromValue> FromValue for Smart<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         match value {
             Value::Auto => Ok(Self::Auto),
             v if T::castable(&v) => Ok(Self::Custom(T::from_value(v)?)),

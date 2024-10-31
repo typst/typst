@@ -8,17 +8,19 @@ use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
+use typst::diag::{
+    bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+};
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Frame, PageRanges};
+use typst::layout::{Frame, Page, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
-use typst::visualize::Color;
-use typst::{World, WorldExt};
+use typst::WorldExt;
+use typst_pdf::{PdfOptions, PdfStandards};
 
 use crate::args::{
     CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
+    PdfStandard,
 };
 use crate::timings::Timer;
 use crate::watch::Status;
@@ -56,7 +58,11 @@ impl CompileCommand {
                 Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
                 Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
                 Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
+                _ => bail!(
+                    "could not infer output format for path {}.\n\
+                     consider providing the format manually with `--format/-f`",
+                    output.display()
+                ),
             }
         } else {
             OutputFormat::Pdf
@@ -73,10 +79,26 @@ impl CompileCommand {
             )
         })
     }
+
+    /// The PDF standards to try to conform with.
+    pub fn pdf_standards(&self) -> StrResult<PdfStandards> {
+        let list = self
+            .pdf_standard
+            .iter()
+            .map(|standard| match standard {
+                PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+                PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            })
+            .collect::<Vec<_>>();
+        PdfStandards::new(&list)
+    }
 }
 
 /// Execute a compilation command.
 pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
+    // Only meant for input validation
+    _ = command.output_format()?;
+
     let mut world =
         SystemWorld::new(&command.common).map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
@@ -97,27 +119,12 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Check if main file can be read and opened.
-    if let Err(errors) = world.source(world.main()).at(Span::detached()) {
-        set_failed();
-        if watching {
-            Status::Error.print(command).unwrap();
-        }
-
-        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
-            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
-
-        return Ok(());
-    }
-
-    let mut tracer = Tracer::new();
-    let result = typst::compile(world, &mut tracer);
-    let warnings = tracer.warnings();
+    let Warned { output, warnings } = typst::compile(world);
+    let result = output.and_then(|document| export(world, &document, command, watching));
 
     match result {
         // Export the PDF / PNG.
-        Ok(document) => {
-            export(world, &document, command, watching)?;
+        Ok(()) => {
             let duration = start.elapsed();
 
             if watching {
@@ -167,29 +174,36 @@ fn export(
     document: &Document,
     command: &CompileCommand,
     watching: bool,
-) -> StrResult<()> {
-    match command.output_format()? {
+) -> SourceResult<()> {
+    match command.output_format().at(Span::detached())? {
         OutputFormat::Png => {
             export_image(world, document, command, watching, ImageExportFormat::Png)
+                .at(Span::detached())
         }
         OutputFormat::Svg => {
             export_image(world, document, command, watching, ImageExportFormat::Svg)
+                .at(Span::detached())
         }
         OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
 /// Export to a PDF.
-fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    let timestamp = convert_datetime(
-        command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
-    );
-    let exported_page_ranges = command.exported_page_ranges();
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
+fn export_pdf(document: &Document, command: &CompileCommand) -> SourceResult<()> {
+    let options = PdfOptions {
+        ident: Smart::Auto,
+        timestamp: convert_datetime(
+            command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
+        ),
+        page_ranges: command.exported_page_ranges(),
+        standards: command.pdf_standards().at(Span::detached())?,
+    };
+    let buffer = typst_pdf::pdf(document, &options)?;
     command
         .output()
         .write(&buffer)
-        .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
+        .at(Span::detached())?;
     Ok(())
 }
 
@@ -285,7 +299,7 @@ fn export_image(
                 Output::Stdout => Output::Stdout,
             };
 
-            export_image_page(command, &page.frame, &output, fmt)?;
+            export_image_page(command, page, &output, fmt)?;
             Ok(())
         })
         .collect::<Result<Vec<()>, EcoString>>()?;
@@ -325,13 +339,13 @@ mod output_template {
 /// Export single image.
 fn export_image_page(
     command: &CompileCommand,
-    frame: &Frame,
+    page: &Page,
     output: &Output,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let pixmap = typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
+            let pixmap = typst_render::render(page, command.ppi / 72.0);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
@@ -340,7 +354,7 @@ fn export_image_page(
                 .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
         }
         ImageExportFormat::Svg => {
-            let svg = typst_svg::svg(frame);
+            let svg = typst_svg::svg(page);
             output
                 .write(svg.as_bytes())
                 .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
@@ -473,14 +487,30 @@ fn write_make_deps(world: &mut SystemWorld, command: &CompileCommand) -> StrResu
 /// Opens the given file using:
 /// - The default file viewer if `open` is `None`.
 /// - The given viewer provided by `open` if it is `Some`.
+///
+/// If the file could not be opened, an error is returned.
 fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+    // Some resource openers require the path to be canonicalized.
+    let path = path
+        .canonicalize()
+        .map_err(|err| eco_format!("failed to canonicalize path ({err})"))?;
     if let Some(app) = open {
-        open::with_in_background(path, app);
+        open::with_detached(&path, app)
+            .map_err(|err| eco_format!("failed to open file with {} ({})", app, err))
     } else {
-        open::that_in_background(path);
+        open::that_detached(&path).map_err(|err| {
+            let openers = open::commands(path)
+                .iter()
+                .map(|command| command.get_program().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(", ");
+            eco_format!(
+                "failed to open file with any of these resource openers: {} ({})",
+                openers,
+                err,
+            )
+        })
     }
-
-    Ok(())
 }
 
 /// Print diagnostic messages to the terminal.

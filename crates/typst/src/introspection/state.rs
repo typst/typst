@@ -1,15 +1,14 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::{bail, At, SourceResult};
-use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::diag::{bail, warning, At, SourceResult};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
     LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str, StyleChain,
     Value,
 };
-use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::introspection::{Introspector, Locatable, Location};
 use crate::syntax::Span;
 use crate::World;
 
@@ -72,7 +71,7 @@ use crate::World;
 /// # Managing state in Typst { #state-in-typst }
 /// So what do we do instead? We use Typst's state management system. Calling
 /// the `state` function with an identifying string key and an optional initial
-/// value gives you a state value which exposes a few function. The two most
+/// value gives you a state value which exposes a few functions. The two most
 /// important ones are `get` and `update`:
 ///
 /// - The [`get`]($state.get) function retrieves the current value of the state.
@@ -214,9 +213,9 @@ impl State {
         self.sequence_impl(
             engine.world,
             engine.introspector,
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-            engine.locator.track(),
-            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -226,17 +225,16 @@ impl State {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-        locator: Tracked<Locator>,
-        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<Value>> {
-        let mut locator = Locator::chained(locator);
         let mut engine = Engine {
             world,
             introspector,
+            traced,
+            sink,
             route: Route::extend(route).unnested(),
-            locator: &mut locator,
-            tracer,
         };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
@@ -327,13 +325,19 @@ impl State {
         context: Tracked<Context>,
         /// The callsite span.
         span: Span,
-        /// _Compatibility:_ This argument only exists for compatibility with
-        /// Typst 0.10 and lower and shouldn't be used anymore.
+        /// _Compatibility:_ This argument is deprecated. It only exists for
+        /// compatibility with Typst 0.10 and lower and shouldn't be used
+        /// anymore.
         #[default]
         location: Option<Location>,
     ) -> SourceResult<Value> {
         if location.is_none() {
             context.location().at(span)?;
+        } else {
+            engine.sink.warn(warning!(
+                span, "calling `state.final` with a location is deprecated";
+                hint: "try removing the location argument"
+            ));
         }
 
         let sequence = self.sequence(engine)?;
@@ -367,6 +371,8 @@ impl State {
     #[func]
     pub fn display(
         self,
+        /// The engine.
+        engine: &mut Engine,
         /// The span of the `display` call.
         span: Span,
         /// A function which receives the value of the state and can return
@@ -375,6 +381,11 @@ impl State {
         #[default]
         func: Option<Func>,
     ) -> Content {
+        engine.sink.warn(warning!(
+            span, "`state.display` is deprecated";
+            hint: "use `state.get` in a `context` expression instead"
+        ));
+
         StateDisplayElem::new(self, func).pack().spanned(span)
     }
 }

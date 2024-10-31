@@ -13,17 +13,19 @@ pub use self::lines::LinePosition;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
+    StyleChain, Value,
 };
+use crate::introspection::Locator;
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
-    OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
+    Abs, Alignment, Axes, BlockElem, Dir, Fragment, Length, OuterHAlignment,
+    OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::syntax::Span;
@@ -43,7 +45,7 @@ use crate::visualize::{Paint, Stroke};
 /// intended for presentational and layout purposes, while the
 /// [`{table}`]($table) element is intended for, in broad terms, presenting
 /// multiple related data points. In the future, Typst will annotate its output
-/// such that screenreaders will annouce content in `table` as tabular while a
+/// such that screenreaders will announce content in `table` as tabular while a
 /// grid's content will be announced no different than multiple content blocks
 /// in the document flow. Set and show rules on one of these elements do not
 /// affect the other.
@@ -148,7 +150,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope, LayoutMultiple)]
+#[elem(scope, Show)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -168,11 +170,15 @@ pub struct GridElem {
 
     /// The gaps between rows and columns.
     ///
-    /// If there are more gutters than defined sizes, the last gutter is repeated.
+    /// If there are more gutters than defined sizes, the last gutter is
+    /// repeated.
+    ///
+    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
+    /// value.
     #[external]
     pub gutter: TrackSizings,
 
-    /// The gaps between columns. Takes precedence over `gutter`.
+    /// The gaps between columns.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -180,7 +186,7 @@ pub struct GridElem {
     #[borrowed]
     pub column_gutter: TrackSizings,
 
-    /// The gaps between rows. Takes precedence over `gutter`.
+    /// The gaps between rows.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,
@@ -335,62 +341,69 @@ impl GridElem {
     type GridFooter;
 }
 
-impl LayoutMultiple for Packed<GridElem> {
-    #[typst_macros::time(name = "grid", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let inset = self.inset(styles);
-        let align = self.align(styles);
-        let columns = self.columns(styles);
-        let rows = self.rows(styles);
-        let column_gutter = self.column_gutter(styles);
-        let row_gutter = self.row_gutter(styles);
-        let fill = self.fill(styles);
-        let stroke = self.stroke(styles);
-
-        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
-        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        // Use trace to link back to the grid when a specific cell errors
-        let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
-        let resolve_item = |item: &GridItem| item.to_resolvable(styles);
-        let children = self.children().iter().map(|child| match child {
-            GridChild::Header(header) => ResolvableGridChild::Header {
-                repeat: header.repeat(styles),
-                span: header.span(),
-                items: header.children().iter().map(resolve_item),
-            },
-            GridChild::Footer(footer) => ResolvableGridChild::Footer {
-                repeat: footer.repeat(styles),
-                span: footer.span(),
-                items: footer.children().iter().map(resolve_item),
-            },
-            GridChild::Item(item) => {
-                ResolvableGridChild::Item(item.to_resolvable(styles))
-            }
-        });
-        let grid = CellGrid::resolve(
-            tracks,
-            gutter,
-            children,
-            fill,
-            align,
-            &inset,
-            &stroke,
-            engine,
-            styles,
-            self.span(),
-        )
-        .trace(engine.world, tracepoint, self.span())?;
-
-        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
-
-        // Measure the columns and layout the grid row-by-row.
-        layouter.layout(engine)
+impl Show for Packed<GridElem> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockElem::multi_layouter(self.clone(), layout_grid)
+            .pack()
+            .spanned(self.span()))
     }
+}
+
+/// Layout the grid.
+#[typst_macros::time(span = elem.span())]
+fn layout_grid(
+    elem: &Packed<GridElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let inset = elem.inset(styles);
+    let align = elem.align(styles);
+    let columns = elem.columns(styles);
+    let rows = elem.rows(styles);
+    let column_gutter = elem.column_gutter(styles);
+    let row_gutter = elem.row_gutter(styles);
+    let fill = elem.fill(styles);
+    let stroke = elem.stroke(styles);
+
+    let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
+    let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+    // Use trace to link back to the grid when a specific cell errors
+    let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
+    let resolve_item = |item: &GridItem| item.to_resolvable(styles);
+    let children = elem.children().iter().map(|child| match child {
+        GridChild::Header(header) => ResolvableGridChild::Header {
+            repeat: header.repeat(styles),
+            span: header.span(),
+            items: header.children().iter().map(resolve_item),
+        },
+        GridChild::Footer(footer) => ResolvableGridChild::Footer {
+            repeat: footer.repeat(styles),
+            span: footer.span(),
+            items: footer.children().iter().map(resolve_item),
+        },
+        GridChild::Item(item) => ResolvableGridChild::Item(item.to_resolvable(styles)),
+    });
+    let grid = CellGrid::resolve(
+        tracks,
+        gutter,
+        locator,
+        children,
+        fill,
+        align,
+        &inset,
+        &stroke,
+        engine,
+        styles,
+        elem.span(),
+    )
+    .trace(engine.world, tracepoint, elem.span())?;
+
+    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+
+    // Measure the columns and layout the grid row-by-row.
+    layouter.layout(engine)
 }
 
 /// Track sizing definitions.
@@ -402,7 +415,7 @@ cast! {
     self => self.0.into_value(),
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
-    values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+    values: Array => Self(values.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
 /// Any child of a grid element.
@@ -426,13 +439,19 @@ cast! {
 }
 
 impl TryFrom<Content> for GridChild {
-    type Error = EcoString;
-    fn try_from(value: Content) -> StrResult<Self> {
+    type Error = HintedString;
+    fn try_from(value: Content) -> HintedStrResult<Self> {
         if value.is::<TableHeader>() {
-            bail!("cannot use `table.header` as a grid header; use `grid.header` instead")
+            bail!(
+                "cannot use `table.header` as a grid header";
+                hint: "use `grid.header` instead"
+            )
         }
         if value.is::<TableFooter>() {
-            bail!("cannot use `table.footer` as a grid footer; use `grid.footer` instead")
+            bail!(
+                "cannot use `table.footer` as a grid footer";
+                hint: "use `grid.footer` instead"
+            )
         }
 
         value
@@ -502,8 +521,8 @@ cast! {
 }
 
 impl TryFrom<Content> for GridItem {
-    type Error = EcoString;
-    fn try_from(value: Content) -> StrResult<Self> {
+    type Error = HintedString;
+    fn try_from(value: Content) -> HintedStrResult<Self> {
         if value.is::<GridHeader>() {
             bail!("cannot place a grid header within another header or footer");
         }
@@ -517,13 +536,22 @@ impl TryFrom<Content> for GridItem {
             bail!("cannot place a table footer within another footer or header");
         }
         if value.is::<TableCell>() {
-            bail!("cannot use `table.cell` as a grid cell; use `grid.cell` instead");
+            bail!(
+                "cannot use `table.cell` as a grid cell";
+                hint: "use `grid.cell` instead"
+            );
         }
         if value.is::<TableHLine>() {
-            bail!("cannot use `table.hline` as a grid line; use `grid.hline` instead");
+            bail!(
+                "cannot use `table.hline` as a grid line";
+                hint: "use `grid.hline` instead"
+            );
         }
         if value.is::<TableVLine>() {
-            bail!("cannot use `table.vline` as a grid line; use `grid.vline` instead");
+            bail!(
+                "cannot use `table.vline` as a grid line";
+                hint: "use `grid.vline` instead"
+            );
         }
 
         Ok(value
@@ -835,7 +863,7 @@ impl Default for Packed<GridCell> {
 }
 
 impl ResolvableCell for Packed<GridCell> {
-    fn resolve_cell(
+    fn resolve_cell<'a>(
         mut self,
         x: usize,
         y: usize,
@@ -844,8 +872,9 @@ impl ResolvableCell for Packed<GridCell> {
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
+        locator: Locator<'a>,
         styles: StyleChain,
-    ) -> Cell {
+    ) -> Cell<'a> {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let rowspan = cell.rowspan(styles);
@@ -897,6 +926,7 @@ impl ResolvableCell for Packed<GridCell> {
         cell.push_breakable(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
+            locator,
             fill,
             colspan,
             rowspan,
@@ -941,7 +971,7 @@ impl From<Content> for GridCell {
 }
 
 /// Function with common code to display a grid cell or table cell.
-pub fn show_grid_cell(
+pub(crate) fn show_grid_cell(
     mut body: Content,
     inset: Smart<Sides<Option<Rel<Length>>>>,
     align: Smart<Alignment>,
@@ -956,7 +986,7 @@ pub fn show_grid_cell(
     }
 
     if let Smart::Custom(alignment) = align {
-        body = body.styled(AlignElem::set_alignment(alignment));
+        body = body.aligned(alignment);
     }
 
     Ok(body)

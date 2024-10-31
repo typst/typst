@@ -129,7 +129,7 @@ More.
 
 --- list-wide-cannot-attach ---
 // Test that wide lists cannot be ...
-#set block(spacing: 15pt)
+#set par(spacing: 15pt)
 Hello
 - A
 
@@ -142,6 +142,36 @@ Hello
 #list(tight: false)[A][B]
 World
 
+--- list-items-context ---
+#context [+ A]
+#context [+ B]
+#context [+ C]
+
+--- list-item-styling ---
+- Hello
+#text(red)[- World]
+#text(green)[- What up?]
+
 --- issue-2530-list-item-panic ---
 // List item (pre-emptive)
 #list.item[Hello]
+
+--- issue-1850-list-attach-spacing ---
+// List attachment should only work with paragraphs, not other blocks.
+#set page(width: auto)
+#let part = box.with(stroke: 1pt, inset: 3pt)
+#{
+  part[
+    $ x $
+    - A
+  ]
+  part($ x $ + list[A])
+  part($ x $ + list[ A ])
+  part[
+    $ x $
+
+    - A
+  ]
+  part($ x $ + parbreak() + list[A])
+  part($ x $ + parbreak() + parbreak() + list[A])
+}

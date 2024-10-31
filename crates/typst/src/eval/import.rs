@@ -31,11 +31,11 @@ impl Eval for ast::ModuleImport<'_> {
             }
         }
 
-        if let Some(new_name) = &new_name {
+        if let Some(new_name) = new_name {
             if let ast::Expr::Ident(ident) = self.source() {
                 if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
-                    vm.engine.tracer.warn(warning!(
+                    vm.engine.sink.warn(warning!(
                         new_name.span(),
                         "unnecessary import rename to same name",
                     ));
@@ -43,7 +43,7 @@ impl Eval for ast::ModuleImport<'_> {
             }
 
             // Define renamed module on the scope.
-            vm.scopes.top.define(new_name.as_str(), source.clone());
+            vm.scopes.top.define_ident(new_name, source.clone());
         }
 
         let scope = source.scope().unwrap();
@@ -56,30 +56,69 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
             Some(ast::Imports::Wildcard) => {
-                for (var, value) in scope.iter() {
-                    vm.scopes.top.define(var.clone(), value.clone());
+                for (var, value, span) in scope.iter() {
+                    vm.scopes.top.define_spanned(var.clone(), value.clone(), span);
                 }
             }
             Some(ast::Imports::Items(items)) => {
                 let mut errors = eco_vec![];
                 for item in items.iter() {
-                    let original_ident = item.original_name();
-                    if let Some(value) = scope.get(&original_ident) {
-                        // Warn on `import ...: x as x`
-                        if let ast::ImportItem::Renamed(renamed_item) = &item {
-                            if renamed_item.original_name().as_str()
-                                == renamed_item.new_name().as_str()
-                            {
-                                vm.engine.tracer.warn(warning!(
-                                    renamed_item.new_name().span(),
-                                    "unnecessary import rename to same name",
-                                ));
-                            }
-                        }
+                    let mut path = item.path().iter().peekable();
+                    let mut scope = scope;
 
-                        vm.define(item.bound_name(), value.clone());
-                    } else {
-                        errors.push(error!(original_ident.span(), "unresolved import"));
+                    while let Some(component) = &path.next() {
+                        let Some(value) = scope.get(component) else {
+                            errors.push(error!(component.span(), "unresolved import"));
+                            break;
+                        };
+
+                        if path.peek().is_some() {
+                            // Nested import, as this is not the last component.
+                            // This must be a submodule.
+                            let Some(submodule) = value.scope() else {
+                                let error = if matches!(value, Value::Func(function) if function.scope().is_none())
+                                {
+                                    error!(
+                                        component.span(),
+                                        "cannot import from user-defined functions"
+                                    )
+                                } else if !matches!(
+                                    value,
+                                    Value::Func(_) | Value::Module(_) | Value::Type(_)
+                                ) {
+                                    error!(
+                                        component.span(),
+                                        "expected module, function, or type, found {}",
+                                        value.ty()
+                                    )
+                                } else {
+                                    panic!("unexpected nested import failure")
+                                };
+                                errors.push(error);
+                                break;
+                            };
+
+                            // Walk into the submodule.
+                            scope = submodule;
+                        } else {
+                            // Now that we have the scope of the innermost submodule
+                            // in the import path, we may extract the desired item from
+                            // it.
+
+                            // Warn on `import ...: x as x`
+                            if let ast::ImportItem::Renamed(renamed_item) = &item {
+                                if renamed_item.original_name().as_str()
+                                    == renamed_item.new_name().as_str()
+                                {
+                                    vm.engine.sink.warn(warning!(
+                                        renamed_item.new_name().span(),
+                                        "unnecessary import rename to same name",
+                                    ));
+                                }
+                            }
+
+                            vm.define(item.bound_name(), value.clone());
+                        }
                     }
                 }
                 if !errors.is_empty() {
@@ -143,11 +182,18 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     // Evaluate the entry point.
     let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
     let source = vm.world().source(entrypoint_id).at(span)?;
+
+    // Prevent cyclic importing.
+    if vm.engine.route.contains(source.id()) {
+        bail!(span, "cyclic import");
+    }
+
     let point = || Tracepoint::Import;
     Ok(eval(
         vm.world(),
+        vm.engine.traced,
+        TrackedMut::reborrow_mut(&mut vm.engine.sink),
         vm.engine.route.track(),
-        TrackedMut::reborrow_mut(&mut vm.engine.tracer),
         &source,
     )
     .trace(vm.world(), point, span)?
@@ -170,8 +216,9 @@ fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     let point = || Tracepoint::Import;
     eval(
         world,
+        vm.engine.traced,
+        TrackedMut::reborrow_mut(&mut vm.engine.sink),
         vm.engine.route.track(),
-        TrackedMut::reborrow_mut(&mut vm.engine.tracer),
         &source,
     )
     .trace(world, point, span)

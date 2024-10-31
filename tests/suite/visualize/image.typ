@@ -1,11 +1,10 @@
 // Test the `image` function.
 
---- image-rgba-png-and-jpeg ---
-// Test loading different image formats.
-
+--- image-png ---
 // Load an RGBA PNG image.
 #image("/assets/images/rhino.png")
 
+--- image-jpg ---
 // Load an RGB JPEG image.
 #set page(height: 60pt)
 #image("/assets/images/tiger.jpg")
@@ -120,3 +119,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-2051-new-cm-svg ---
 #set text(font: "New Computer Modern")
 #image("/assets/images/diagram.svg")
+
+--- issue-3733-dpi-svg ---
+#set page(width: 200pt, height: 200pt, margin: 0pt)
+#image("/assets/images/relative.svg")

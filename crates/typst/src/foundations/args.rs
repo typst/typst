@@ -2,9 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{
-    func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
+    cast, func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
 };
 use crate::syntax::{Span, Spanned};
 
@@ -74,6 +74,18 @@ impl Args {
     /// Returns the number of remaining positional arguments.
     pub fn remaining(&self) -> usize {
         self.items.iter().filter(|slot| slot.name.is_none()).count()
+    }
+
+    /// Insert a positional argument at a specific index.
+    pub fn insert(&mut self, index: usize, span: Span, value: Value) {
+        self.items.insert(
+            index,
+            Arg {
+                span: self.span,
+                name: None,
+                value: Spanned::new(value, span),
+            },
+        )
     }
 
     /// Push a positional argument.
@@ -178,9 +190,9 @@ impl Args {
             };
             let span = item.value.span;
             let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
-            match T::from_value(spanned) {
+            match T::from_value(spanned).at(span) {
                 Ok(val) => list.push(val),
-                Err(err) => errors.push(SourceDiagnostic::error(span, err)),
+                Err(diags) => errors.extend(diags),
             }
             false
         });
@@ -244,6 +256,42 @@ impl Args {
     }
 }
 
+/// A key that can be used to get an argument: either the index of a positional
+/// argument, or the name of a named argument.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ArgumentKey {
+    Index(i64),
+    Name(Str),
+}
+
+cast! {
+    ArgumentKey,
+    v: i64 => Self::Index(v),
+    v: Str => Self::Name(v),
+}
+
+impl Args {
+    fn get(&self, key: &ArgumentKey) -> Option<&Value> {
+        let item = match key {
+            &ArgumentKey::Index(index) => {
+                let mut iter = self.items.iter().filter(|item| item.name.is_none());
+                if index < 0 {
+                    let index = (-(index + 1)).try_into().ok()?;
+                    iter.nth_back(index)
+                } else {
+                    let index = index.try_into().ok()?;
+                    iter.nth(index)
+                }
+            }
+            // Accept the last argument with the right name.
+            ArgumentKey::Name(name) => {
+                self.items.iter().rfind(|item| item.name.as_ref() == Some(name))
+            }
+        };
+        item.map(|item| &item.value.v)
+    }
+}
+
 #[scope]
 impl Args {
     /// Construct spreadable arguments in place.
@@ -265,6 +313,28 @@ impl Args {
         arguments: Vec<Value>,
     ) -> Args {
         args.take()
+    }
+
+    /// Returns the positional argument at the specified index, or the named
+    /// argument with the specified name.
+    ///
+    /// If the key is an [integer]($int), this is equivalent to first calling
+    /// [`pos`]($arguments.pos) and then [`array.at`]. If it is a [string]($str),
+    /// this is equivalent to first calling [`named`]($arguments.named) and then
+    /// [`dictionary.at`].
+    #[func]
+    pub fn at(
+        &self,
+        /// The index or name of the argument to get.
+        key: ArgumentKey,
+        /// A default value to return if the key is invalid.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.get(&key)
+            .cloned()
+            .or(default)
+            .ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Returns the captured positional arguments as an array.
@@ -367,4 +437,17 @@ where
     fn into_args(self, fallback: Span) -> Args {
         Args::new(fallback, self)
     }
+}
+
+/// The missing key access error message when no default was given.
+#[cold]
+fn missing_key_no_default(key: ArgumentKey) -> EcoString {
+    eco_format!(
+        "arguments do not contain key {} \
+         and no default value was specified",
+        match key {
+            ArgumentKey::Index(i) => i.repr(),
+            ArgumentKey::Name(name) => name.repr(),
+        }
+    )
 }

@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
@@ -14,13 +14,64 @@ use crate::text::TextElem;
 /// Aligns content horizontally and vertically.
 ///
 /// # Example
+/// Let's start with centering our content horizontally:
 /// ```example
+/// #set page(height: 120pt)
 /// #set align(center)
 ///
 /// Centered text, a sight to see \
 /// In perfect balance, visually \
 /// Not left nor right, it stands alone \
 /// A work of art, a visual throne
+/// ```
+///
+/// To center something vertically, use _horizon_ alignment:
+/// ```example
+/// #set page(height: 120pt)
+/// #set align(horizon)
+///
+/// Vertically centered, \
+/// the stage had entered, \
+/// a new paragraph.
+/// ```
+///
+/// # Combining alignments
+/// You can combine two alignments with the `+` operator. Let's also only apply
+/// this to one piece of content by using the function form instead of a set
+/// rule:
+/// ```example
+/// #set page(height: 120pt)
+/// Though left in the beginning ...
+///
+/// #align(right + bottom)[
+///   ... they were right in the end, \
+///   and with addition had gotten, \
+///   the paragraph to the bottom!
+/// ]
+/// ```
+///
+/// # Nested alignment
+/// You can use varying alignments for layout containers and the elements within
+/// them. This way, you can create intricate layouts:
+///
+/// ```example
+/// #align(center, block[
+///   #set align(left)
+///   Though centered together \
+///   alone \
+///   we \
+///   are \
+///   left.
+/// ])
+/// ```
+///
+/// # Alignment within the same line
+/// The `align` function performs block-level alignment and thus always
+/// interrupts the current paragraph. To have different alignment for parts
+/// of the same line, you should use [fractional spacing]($h) instead:
+///
+/// ```example
+/// Start #h(1fr) End
 /// ```
 #[elem(Show)]
 pub struct AlignElem {
@@ -49,10 +100,7 @@ pub struct AlignElem {
 impl Show for Packed<AlignElem> {
     #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self
-            .body()
-            .clone()
-            .styled(AlignElem::set_alignment(self.alignment(styles))))
+        Ok(self.body().clone().aligned(self.alignment(styles)))
     }
 }
 
@@ -419,6 +467,16 @@ impl VAlignment {
             Self::Bottom => Self::Top,
         }
     }
+
+    /// Returns the position of this alignment in a container with the given
+    /// extent.
+    pub fn position(self, extent: Abs) -> Abs {
+        match self {
+            Self::Top => Abs::zero(),
+            Self::Horizon => extent / 2.0,
+            Self::Bottom => extent,
+        }
+    }
 }
 
 impl FixAlignment for VAlignment {
@@ -630,7 +688,7 @@ where
     H: Reflect + TryFrom<Alignment, Error = EcoString>,
     V: Reflect + TryFrom<Alignment, Error = EcoString>,
 {
-    fn from_value(value: Value) -> StrResult<Self> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
         if Alignment::castable(&value) {
             let align = Alignment::from_value(value)?;
             let result = match align {

@@ -4,13 +4,12 @@ use std::path::Path;
 
 use ecow::eco_vec;
 use tiny_skia as sk;
-use typst::diag::SourceDiagnostic;
-use typst::eval::Tracer;
-use typst::foundations::Smart;
+use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::{Abs, Frame, FrameItem, Page, Transform};
 use typst::model::Document;
 use typst::visualize::Color;
 use typst::WorldExt;
+use typst_pdf::PdfOptions;
 
 use crate::collect::{FileSize, NoteKind, Test};
 use crate::world::TestWorld;
@@ -80,17 +79,17 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        let mut tracer = Tracer::new();
-        let (doc, errors) = match typst::compile(&self.world, &mut tracer) {
+        let Warned { output, warnings } = typst::compile(&self.world);
+        let (doc, errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
         };
 
-        let warnings = tracer.warnings();
         if doc.is_none() && errors.is_empty() {
             log!(self, "no document, but also no errors");
         }
 
+        self.check_custom(doc.as_ref());
         self.check_document(doc.as_ref());
 
         for error in &errors {
@@ -131,6 +130,18 @@ impl<'a> Runner<'a> {
         }
     }
 
+    /// Run custom checks for which it is not worth to create special
+    /// annotations.
+    fn check_custom(&mut self, doc: Option<&Document>) {
+        let errors = crate::custom::check(self.test, &self.world, doc);
+        if !errors.is_empty() {
+            log!(self, "custom check failed");
+            for line in errors.lines() {
+                log!(self, "  {line}");
+            }
+        }
+    }
+
     /// Check that the document output is correct.
     fn check_document(&mut self, document: Option<&Document>) {
         let live_path = format!("{}/render/{}.png", crate::STORE_PATH, self.test.name);
@@ -146,6 +157,10 @@ impl<'a> Runner<'a> {
         };
 
         let skippable = match document.pages.as_slice() {
+            [] => {
+                log!(self, "document has zero pages");
+                return;
+            }
             [page] => skippable(page),
             _ => false,
         };
@@ -175,7 +190,7 @@ impl<'a> Runner<'a> {
         // Write PDF if requested.
         if crate::ARGS.pdf() {
             let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
-            let pdf = typst_pdf::pdf(document, Smart::Auto, None, None);
+            let pdf = typst_pdf::pdf(document, &PdfOptions::default()).unwrap();
             std::fs::write(pdf_path, pdf).unwrap();
         }
 
@@ -220,7 +235,7 @@ impl<'a> Runner<'a> {
                 std::fs::write(&ref_path, &ref_data).unwrap();
                 log!(
                     into: self.result.infos,
-                    "Updated reference image ({ref_path}, {})",
+                    "updated reference image ({ref_path}, {})",
                     FileSize(ref_data.len()),
                 );
             }
@@ -361,13 +376,8 @@ fn render(document: &Document, pixel_per_pt: f32) -> sk::Pixmap {
     }
 
     let gap = Abs::pt(1.0);
-    let mut pixmap = typst_render::render_merged(
-        document,
-        pixel_per_pt,
-        Color::WHITE,
-        gap,
-        Color::BLACK,
-    );
+    let mut pixmap =
+        typst_render::render_merged(document, pixel_per_pt, gap, Some(Color::BLACK));
 
     let gap = (pixel_per_pt * gap.to_pt() as f32).round();
 
@@ -408,6 +418,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
 fn skippable(page: &Page) -> bool {
     page.frame.width().approx_eq(Abs::pt(120.0))
         && page.frame.height().approx_eq(Abs::pt(20.0))
+        && page.fill.is_auto()
         && skippable_frame(&page.frame)
 }
 
@@ -420,7 +431,7 @@ fn skippable_frame(frame: &Frame) -> bool {
     })
 }
 
-/// Whether to pixel images are approximately equal.
+/// Whether two pixel images are approximately equal.
 fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap) -> bool {
     a.width() == b.width()
         && a.height() == b.height()

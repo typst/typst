@@ -66,7 +66,13 @@
 // Test page fill.
 #set page(width: 80pt, height: 40pt, fill: eastern)
 #text(15pt, font: "Roboto", fill: white, smallcaps[Typst])
-#page(width: 40pt, fill: none, margin: (top: 10pt, rest: auto))[Hi]
+#page(width: 40pt, fill: auto, margin: (top: 10pt, rest: auto))[Hi]
+
+--- page-fill-none ---
+// Test disabling page fill.
+// The PNG is filled with black anyway due to the test runner.
+#set page(fill: none)
+#rect(fill: green)
 
 --- page-margin-uniform ---
 // Set all margins at once.
@@ -146,16 +152,10 @@
   }
 )
 
-But, soft! what light through yonder window breaks? It is the east, and Juliet
-is the sun. Arise, fair sun, and kill the envious moon, Who is already sick and
-pale with grief, That thou her maid art far more fair than she: Be not her maid,
-since she is envious; Her vestal livery is but sick and green And none but fools
-do wear it; cast it off. It is my lady, O, it is my love! O, that she knew she
-were! She speaks yet she says nothing: what of that? Her eye discourses; I will
-answer it.
+#align(center, lines(20))
 
 #set page(header: none, height: auto, margin: (top: 15pt, bottom: 25pt))
-The END.
+Z
 
 --- page-number-align-top-right ---
 #set page(
@@ -183,7 +183,7 @@ The END.
 
 --- page-numbering-pdf-label ---
 #set page(margin: (bottom: 20pt, rest: 10pt))
-#let filler = lorem(20)
+#let filler = lines(7)
 
 // (i) - (ii). No style opt. because of suffix.
 #set page(numbering: "(i)")
@@ -238,3 +238,142 @@ Look, ma, no page numbers!
 
 #set page(header: auto, footer: auto)
 Default page numbers now.
+
+--- page-marginal-style-text-set ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#set text(red)
+Red
+
+--- page-marginal-style-text-set-first ---
+#set text(red)
+#set page(numbering: "1", margin: (bottom: 20pt))
+Red
+
+--- page-marginal-style-text-call ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#text(red)[Red]
+
+--- page-marginal-style-text-call-code ---
+#{
+  set page(numbering: "1", margin: (bottom: 20pt))
+  text(red)[Red]
+}
+
+--- page-marginal-style-text-call-around-page-call ---
+#text(red, page(numbering: "1", margin: (bottom: 20pt))[Hello])
+
+--- page-marginal-style-text-call-around-set-page ---
+#text(red, {
+  set page(numbering: "1", margin: (bottom: 20pt))
+  text(style: "italic")[Hello]
+})
+
+--- page-marginal-style-text-call-around-pagebreak ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#text(red)[
+  #pagebreak(weak: true)
+  B
+]
+
+--- page-marginal-style-show-rule ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+= Introduction
+
+--- page-marginal-style-show-rule-with-set-page ---
+#show heading: it => {
+  set page(numbering: "1", margin: (bottom: 20pt))
+  it
+}
+
+= Introduction
+
+--- page-marginal-style-show-rule-with-page-call ---
+#show heading: page.with(fill: aqua)
+
+A
+= Introduction
+B
+
+--- page-marginal-style-show-rule-with-pagebreak ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#show heading: it => {
+  pagebreak(weak: true)
+  it
+}
+
+= Introduction
+
+--- page-marginal-style-context ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+#show: it => context {
+  set text(red)
+  it
+}
+Hi
+
+--- page-marginal-style-shared-initial-interaction ---
+#set page(numbering: "1", margin: (bottom: 20pt))
+A
+#{
+  set text(fill: red)
+  pagebreak()
+}
+#text(fill: blue)[B]
+
+--- page-marginal-style-empty ---
+#set text(red)
+#set page(numbering: "1", margin: (bottom: 20pt))
+
+--- page-marginal-style-page-call ---
+#page(numbering: "1", margin: (bottom: 20pt))[
+  #set text(red)
+  A
+]
+
+--- issue-2631-page-header-ordering ---
+#set text(6pt)
+#show heading: set text(6pt, weight: "regular")
+#set page(
+  margin: (x: 10pt, top: 20pt, bottom: 10pt),
+  height: 50pt,
+  header: context {
+    let prev = query(selector(heading).before(here()))
+    let next = query(selector(heading).after(here()))
+    let prev = if prev != () { prev.last().body }
+    let next = if next != () { next.first().body }
+    (prev: prev, next: next)
+  }
+)
+
+= First
+Hi
+#pagebreak()
+= Second
+
+--- issue-4340-set-document-and-page ---
+// Test custom page fields being applied on the last page
+// if the document has custom fields.
+#set document(author: "")
+#set page(fill: gray)
+text
+#pagebreak()
+
+--- issue-2326-context-set-page ---
+#context [
+  #set page(fill: aqua)
+  On page #here().page()
+]
+
+--- issue-3671-get-from-page-call ---
+#set page(margin: 5pt)
+#context test(page.margin, 5pt)
+#page(margin: 10pt, context test(page.margin, 10pt))
+
+--- issue-4363-set-page-after-tag ---
+#set page(fill: aqua)
+1
+#pagebreak()
+#metadata(none)
+#set page(fill: red)
+2
