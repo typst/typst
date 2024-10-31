@@ -5,11 +5,11 @@ use std::cmp::Ordering;
 
 use az::SaturatingAs;
 use typst_syntax::{Span, Spanned};
-use typst_utils::{round_int_with_precision, round_with_precision, Numeric};
+use typst_utils::{round_int_with_precision, round_with_precision};
 
 use crate::diag::{bail, At, HintedString, SourceResult, StrResult};
 use crate::foundations::{cast, func, ops, Decimal, IntoValue, Module, Scope, Value};
-use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio};
+use crate::layout::{Angle, Fr, Length, Ratio};
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -1060,103 +1060,33 @@ pub fn quo(
 /// Calculates the p-norm of a sequence of values.
 ///
 /// ```example
-/// #calc.norm(1, 2, -3, 0.5)
-/// #calc.norm(p: 3, 1in, 2cm)
-/// #calc.norm(3em, 4em)
+/// #calc.norm(1, 2, -3, 0.5) \
+/// #calc.norm(p: 3, 1, 2)
 /// ```
 #[func(title = "𝑝-Norm")]
 pub fn norm(
-    /// The callsite span.
-    span: Span,
     /// The p value to calculate the p-norm of.
     #[named]
-    #[default(Num::Int(2))]
-    p: Num,
+    #[default(Spanned::new(2.0, Span::detached()))]
+    p: Spanned<f64>,
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.
     #[variadic]
-    values: Vec<Spanned<Normable>>,
-) -> SourceResult<Value> {
-    if p.float() <= 0.0 {
-        bail!(span, "p must be greater than zero");
+    values: Vec<f64>,
+) -> SourceResult<f64> {
+    if p.v <= 0.0 {
+        bail!(p.span, "p must be greater than zero");
     }
 
-    let mut sum = 0.0;
-    let Some(Spanned { v, span }) = values.first() else {
-        return Ok(Value::Float(0.0));
-    };
+    // Create an iterator over the absolute values.
+    let abs = values.into_iter().map(f64::abs);
 
-    // When p is infinity, the p-norm is the maximum of the absolute values.
-    if p.float().is_infinite() {
-        return max(
-            *span,
-            values
-                .iter()
-                .map(|spanned| Spanned {
-                    v: match spanned.v {
-                        Normable::Int(n) => Value::Int(n.abs()),
-                        Normable::Float(n) => Value::Float(n.abs()),
-                        Normable::Length(Length { abs, em }) => {
-                            Value::Length(Length { abs: abs.abs(), em: em.abs() })
-                        }
-                    },
-                    span: spanned.span,
-                })
-                .collect(),
-        );
-    }
-
-    match v {
-        Normable::Int(_) | Normable::Float(_) => {
-            for Spanned { v, span } in values {
-                match v {
-                    Normable::Int(n) => sum += (n as f64).abs().powf(p.float()),
-                    Normable::Float(n) => sum += n.abs().powf(p.float()),
-                    _ => bail!(span, "expected a number"),
-                }
-            }
-            Ok(Value::Float(sum.powf(1.0 / p.float())))
-        }
-        Normable::Length(Length { em, .. }) if em.is_zero() => {
-            for Spanned { v, span } in values {
-                match v {
-                    Normable::Length(Length { abs, em }) if em.is_zero() => {
-                        sum += abs.to_raw().abs().powf(p.float())
-                    }
-                    _ => {
-                        bail!(
-                            span, "expected an absolute length";
-                            hint: "use `to-absolute()` to convert to an absolute length"
-                        )
-                    }
-                }
-            }
-            Ok(Value::Length(Length {
-                abs: Abs::raw(sum.powf(1.0 / p.float())),
-                em: Em::zero(),
-            }))
-        }
-        Normable::Length(Length { abs, .. }) if abs.is_zero() => {
-            for Spanned { v, span } in values {
-                match v {
-                    Normable::Length(Length { abs, em }) if abs.is_zero() => {
-                        sum += em.get().abs().powf(p.float())
-                    }
-                    _ => bail!(span, "expected an em"),
-                }
-            }
-            Ok(Value::Length(Length {
-                abs: Abs::zero(),
-                em: Em::new(sum.powf(1.0 / p.float())),
-            }))
-        }
-        _ => {
-            bail!(
-                *span, "expected an absolute length or em";
-                hint: "use `to-absolute()` to convert to an absolute length"
-            )
-        }
-    }
+    Ok(if p.v.is_infinite() {
+        // When p is infinity, the p-norm is the maximum of the absolute values.
+        abs.max_by(|a, b| a.total_cmp(&b)).unwrap_or(0.0)
+    } else {
+        abs.map(|v| v.powf(p.v)).sum::<f64>().powf(1.0 / p.v)
+    })
 }
 
 /// A value which can be passed to functions that work with integers and floats.
@@ -1294,19 +1224,6 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Angle => Self::Angle(v),
-}
-
-pub enum Normable {
-    Int(i64),
-    Float(f64),
-    Length(Length),
-}
-
-cast! {
-    Normable,
-    v: i64 => Self::Int(v),
-    v: f64 => Self::Float(v),
-    v: Length => Self::Length(v),
 }
 
 /// The error message when the result is too large to be represented.
