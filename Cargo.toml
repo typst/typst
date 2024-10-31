@@ -37,7 +37,7 @@ arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
-bumpalo = { version = "3", features = ["boxed", "collections"] }
+bumpalo = { version = "3.15.4", features = ["boxed", "collections"] }
 bytemuck = "1"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
