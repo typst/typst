@@ -1083,7 +1083,7 @@ pub fn norm(
 
     Ok(if p.v.is_infinite() {
         // When p is infinity, the p-norm is the maximum of the absolute values.
-        abs.max_by(|a, b| a.total_cmp(&b)).unwrap_or(0.0)
+        abs.max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0)
     } else {
         abs.map(|v| v.powf(p.v)).sum::<f64>().powf(1.0 / p.v)
     })
