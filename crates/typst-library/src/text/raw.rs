@@ -1,7 +1,7 @@
+use std::cell::LazyCell;
 use std::hash::Hash;
 use std::ops::Range;
 use std::sync::{Arc, LazyLock};
-use std::cell::LazyCell;
 
 use ecow::{eco_format, EcoString, EcoVec};
 use syntect::highlighting::{self as synt, Theme};

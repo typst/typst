@@ -12,9 +12,9 @@ pub use self::model::*;
 use std::collections::HashSet;
 
 use ecow::{eco_format, EcoString};
-use std::sync::LazyLock;
 use serde::Deserialize;
 use serde_yaml as yaml;
+use std::sync::LazyLock;
 use typst::diag::{bail, StrResult};
 use typst::foundations::{
     AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
