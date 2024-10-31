@@ -1,7 +1,6 @@
 use std::sync::LazyLock;
 
 use arrayvec::ArrayVec;
-use once_cell::sync::Lazy;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::visualize::{Color, ColorSpace, Paint};

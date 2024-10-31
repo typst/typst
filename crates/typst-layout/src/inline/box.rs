@@ -1,4 +1,5 @@
-use once_cell::unsync::Lazy;
+use std::cell::LazyCell;
+
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, StyleChain};
@@ -56,8 +57,8 @@ pub fn layout_box(
         .map(|s| s.map(Stroke::unwrap_or_default));
 
     // Only fetch these if necessary (for clipping or filling/stroking).
-    let outset = Lazy::new(|| elem.outset(styles).unwrap_or_default());
-    let radius = Lazy::new(|| elem.radius(styles).unwrap_or_default());
+    let outset = LazyCell::new(|| elem.outset(styles).unwrap_or_default());
+    let radius = LazyCell::new(|| elem.radius(styles).unwrap_or_default());
 
     // Clip the contents, if requested.
     if elem.clip(styles) {
