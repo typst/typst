@@ -304,7 +304,7 @@ fn take_smart_point(args: &mut Args) -> SourceResult<Option<Smart<Axes<Rel<Lengt
 ///
 /// If `closed` is `true` in the containing path, previous components
 /// will be closed.
-#[elem(name = "moveto", title = "Path Move To")]
+#[elem(name = "move", title = "Path Move To")]
 pub struct PathMoveTo {
     /// The starting point for the new component.
     #[parse(
@@ -325,7 +325,7 @@ pub struct PathMoveTo {
 
 /// An element used to add a segment from the last point to
 /// the `end`point.
-#[elem(name = "lineto", title = "Path Line To")]
+#[elem(name = "line", title = "Path Line To")]
 pub struct PathLineTo {
     #[parse(
         // If there is no named argument, use positional arguments.
@@ -351,7 +351,7 @@ pub struct PathLineTo {
 ///
 /// If set to `auto` and this curve follows an other quadratic Bezier curve,
 /// the previous control point will be mirrored.
-#[elem(name = "quadto", title = "Path Quadratic Curve To")]
+#[elem(name = "quadratic", title = "Path Quadratic Curve To")]
 pub struct PathQuadraticTo {
     /// The control point of the Bezier curve.
     #[parse(
@@ -393,7 +393,7 @@ pub struct PathQuadraticTo {
 
 /// An element used to add a cubic Bezier curve from the last
 /// point to `end`, using `cstart` and 'cend' as the control points.
-#[elem(name = "cubicto", title = "Path Cubic Curve To")]
+#[elem(name = "cubic", title = "Path Cubic Curve To")]
 pub struct PathCubicTo {
     /// The first control point.
     ///
