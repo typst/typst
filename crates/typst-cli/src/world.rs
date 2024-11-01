@@ -112,7 +112,10 @@ impl SystemWorld {
                 .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
                 .collect();
 
-            Library::builder().with_inputs(inputs).build()
+            let features =
+                command.feature.iter().map(|&feature| match feature {}).collect();
+
+            Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
         let fonts = Fonts::searcher()
