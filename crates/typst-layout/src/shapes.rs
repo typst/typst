@@ -102,8 +102,8 @@ pub fn layout_path(
             for (vertex_window, point_window) in
                 items[..len].windows(2).zip(points.windows(2))
             {
-                let from = vertex_window[0];
-                let to = vertex_window[1];
+                let from = &vertex_window[0];
+                let to = &vertex_window[1];
                 let from_point = point_window[0];
                 let to_point = point_window[1];
 
@@ -113,8 +113,8 @@ pub fn layout_path(
             }
 
             if path_closed {
-                let from = *items[..len].last().unwrap(); // We checked that we have at least one element.
-                let to = items[0];
+                let from = &*items[..len].last().unwrap(); // We checked that we have at least one element.
+                let to = &items[0];
                 let from_point = *points.last().unwrap();
                 let to_point = points[0];
 
@@ -134,12 +134,15 @@ pub fn layout_path(
             for item in &items[..len] {
                 use PathComponent::*;
                 match item {
-                    MoveTo(point, rel) => {
+                    MoveTo(element) => {
                         if path_closed && last != start {
                             path.close_path();
                         }
-                        let mut p = resolve(*point);
-                        if *rel {
+                        let rel = element.relative(styles);
+                        let p =
+                            element.start(styles).zip_map(region.size, Rel::relative_to);
+                        let mut p = Point::new(p.x, p.y);
+                        if rel {
                             p += last;
                         }
                         path.move_to(p);
@@ -149,9 +152,12 @@ pub fn layout_path(
                         last_control = p;
                         start = p;
                     }
-                    LineTo(point, rel) => {
-                        let mut p = resolve(*point);
-                        if *rel {
+                    LineTo(element) => {
+                        let rel = element.relative(styles);
+                        let p =
+                            element.end(styles).zip_map(region.size, Rel::relative_to);
+                        let mut p = Point::new(p.x, p.y);
+                        if rel {
                             p += last;
                         }
                         if path.is_empty() {
@@ -163,21 +169,25 @@ pub fn layout_path(
                         last = p;
                         last_control = p;
                     }
-                    QuadraticTo(end, c, rel) => {
-                        let mut end = resolve(*end);
-                        if *rel {
+                    QuadraticTo(element) => {
+                        let rel = element.relative(styles);
+                        let c = element.control(styles);
+                        let end =
+                            element.end(styles).zip_map(region.size, Rel::relative_to);
+                        let mut end = Point::new(end.x, end.y);
+                        if rel {
                             end += last;
                         }
                         let c = match c {
-                            Some(Smart::Custom(c)) => {
-                                let mut c = resolve(*c);
-                                if *rel {
+                            Smart::Custom(c) => {
+                                let c = c.zip_map(region.size, Rel::relative_to);
+                                let mut c = Point::new(c.x, c.y);
+                                if rel {
                                     c += last;
                                 }
                                 c
                             }
-                            Some(Smart::Auto) => 2. * last - last_control,
-                            None => end,
+                            Smart::Auto => 2. * last - last_control,
                         };
                         let c1 = last + (2. / 3.) * (c - last);
                         let c2 = end + (2. / 3.) * (c - end);
@@ -188,24 +198,30 @@ pub fn layout_path(
                         last = end;
                         last_control = c;
                     }
-                    CubicTo(end, c1, c2, rel) => {
-                        let mut end = resolve(*end);
-                        if *rel {
+                    CubicTo(element) => {
+                        let rel = element.relative(styles);
+                        let c1 = element.cstart(styles);
+                        let c2 = element.cend(styles);
+                        let end =
+                            element.end(styles).zip_map(region.size, Rel::relative_to);
+                        let mut end = Point::new(end.x, end.y);
+                        if rel {
                             end += last;
                         }
                         let c1 = match c1 {
-                            Some(Smart::Custom(c)) => {
-                                let mut c = resolve(*c);
-                                if *rel {
+                            Smart::Custom(c) => {
+                                let c = c.zip_map(region.size, Rel::relative_to);
+                                let mut c = Point::new(c.x, c.y);
+                                if rel {
                                     c += last;
                                 }
                                 c
                             }
-                            Some(Smart::Auto) => 2. * last - last_control,
-                            None => last,
+                            Smart::Auto => 2. * last - last_control,
                         };
-                        let mut c2 = resolve(*c2);
-                        if *rel {
+                        let c2 = c2.zip_map(region.size, Rel::relative_to);
+                        let mut c2 = Point::new(c2.x, c2.y);
+                        if rel {
                             c2 += last;
                         }
                         if path.is_empty() {

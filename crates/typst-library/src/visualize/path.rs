@@ -116,17 +116,17 @@ impl PathElem {
 }
 
 /// A component used for path creation.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum PathComponent {
     /// Old style syntax.
     Vertex(Axes<Rel<Length>>),
     MirroredControlPoint(Axes<Rel<Length>>, Axes<Rel<Length>>),
     AllControlPoints(Axes<Rel<Length>>, Axes<Rel<Length>>, Axes<Rel<Length>>),
     /// New style syntax.
-    MoveTo(Axes<Rel<Length>>, bool),
-    LineTo(Axes<Rel<Length>>, bool),
-    QuadraticTo(Axes<Rel<Length>>, Option<Smart<Axes<Rel<Length>>>>, bool),
-    CubicTo(Axes<Rel<Length>>, Option<Smart<Axes<Rel<Length>>>>, Axes<Rel<Length>>, bool),
+    MoveTo(Packed<PathMoveTo>),
+    LineTo(Packed<PathLineTo>),
+    QuadraticTo(Packed<PathQuadraticTo>),
+    CubicTo(Packed<PathCubicTo>),
     ClosePath,
 }
 
@@ -169,12 +169,10 @@ cast! {
         Vertex(x) => x.into_value(),
         MirroredControlPoint(x, c) => array![x, c].into_value(),
         AllControlPoints(x, c1, c2) => array![x, c1, c2].into_value(),
-        MoveTo(p, rel) => PathMoveTo { start: Some(p), relative: Some(rel) }.into_value(),
-        LineTo(p, rel) => PathLineTo { end: Some(p), relative: Some(rel) }.into_value(),
-        QuadraticTo(end, control, rel) =>
-            PathQuadraticTo { end: Some(end), control, relative: Some(rel) }.into_value(),
-        CubicTo(end, cstart, cend, rel) =>
-            PathCubicTo { end: Some(end), cstart, cend: Some(cend), relative: Some(rel) }.into_value(),
+        MoveTo(element) => element.into_value(),
+        LineTo(element) => element.into_value(),
+        QuadraticTo(element) => element.into_value(),
+        CubicTo(element) => element.into_value(),
         ClosePath => PathClose{}.into_value(),
     },
     array: Array => {
@@ -206,36 +204,12 @@ impl TryFrom<Content> for PathComponent {
     fn try_from(value: Content) -> HintedStrResult<Self> {
         value
             .into_packed::<PathMoveTo>()
-            .map(|p| {
-                Self::MoveTo(p.start.unwrap_or_default(), p.relative.unwrap_or_default())
-            })
+            .map(Self::MoveTo)
+            .or_else(|value| value.into_packed::<PathLineTo>().map(Self::LineTo))
             .or_else(|value| {
-                value.into_packed::<PathLineTo>().map(|p| {
-                    Self::LineTo(
-                        p.end.unwrap_or_default(),
-                        p.relative.unwrap_or_default(),
-                    )
-                })
+                value.into_packed::<PathQuadraticTo>().map(Self::QuadraticTo)
             })
-            .or_else(|value| {
-                value.into_packed::<PathQuadraticTo>().map(|p| {
-                    Self::QuadraticTo(
-                        p.end.unwrap_or_default(),
-                        p.control,
-                        p.relative.unwrap_or_default(),
-                    )
-                })
-            })
-            .or_else(|value| {
-                value.into_packed::<PathCubicTo>().map(|p| {
-                    Self::CubicTo(
-                        p.end.unwrap_or_default(),
-                        p.cstart,
-                        p.cend.or(p.end).unwrap_or_default(),
-                        p.relative.unwrap_or_default(),
-                    )
-                })
-            })
+            .or_else(|value| value.into_packed::<PathCubicTo>().map(Self::CubicTo))
             .or_else(|value| value.into_packed::<PathClose>().map(|_| Self::ClosePath))
             .or_else(|_| bail!("expecting a path element"))
     }
