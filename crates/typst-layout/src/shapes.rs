@@ -131,9 +131,8 @@ pub fn layout_path(
             let mut last_control = Point::default();
 
             for item in &items[..len] {
-                use PathComponent::*;
                 match item {
-                    MoveTo(element) => {
+                    PathComponent::MoveTo(element) => {
                         if path_closed && last != start {
                             path.close_path();
                         }
@@ -151,7 +150,7 @@ pub fn layout_path(
                         last_control = p;
                         start = p;
                     }
-                    LineTo(element) => {
+                    PathComponent::LineTo(element) => {
                         let rel = element.relative(styles);
                         let p =
                             element.end(styles).zip_map(region.size, Rel::relative_to);
@@ -168,7 +167,7 @@ pub fn layout_path(
                         last = p;
                         last_control = p;
                     }
-                    QuadraticTo(element) => {
+                    PathComponent::QuadraticTo(element) => {
                         let rel = element.relative(styles);
                         let c = element.control(styles);
                         let end =
@@ -197,7 +196,7 @@ pub fn layout_path(
                         last = end;
                         last_control = c;
                     }
-                    CubicTo(element) => {
+                    PathComponent::CubicTo(element) => {
                         let rel = element.relative(styles);
                         let c1 = element.cstart(styles);
                         let c2 = element.cend(styles);
@@ -230,14 +229,16 @@ pub fn layout_path(
                         last = end;
                         last_control = c2;
                     }
-                    ClosePath => {
+                    PathComponent::ClosePath => {
                         if !path.is_empty() {
                             path.close_path();
                         }
                         last = start;
                         last_control = start;
                     }
-                    Vertex(..) | MirroredControlPoint(..) | AllControlPoints(..) => {
+                    PathComponent::Vertex(..)
+                    | PathComponent::MirroredControlPoint(..)
+                    | PathComponent::AllControlPoints(..) => {
                         unreachable!()
                     }
                 }
