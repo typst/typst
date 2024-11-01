@@ -92,8 +92,8 @@ pub fn layout_path(
     let mut items = vertices.as_slice();
 
     while !items.is_empty() {
-        if items[0].old_style() {
-            let len = items.iter().take_while(|i| i.old_style()).count();
+        if items[0].is_old_style() {
+            let len = items.iter().take_while(|i| i.is_old_style()).count();
 
             let points: Vec<Point> =
                 items[..len].iter().map(|c| resolve(c.vertex())).collect();
@@ -126,7 +126,7 @@ pub fn layout_path(
 
             items = &items[len..];
         } else {
-            let len = items.iter().take_while(|i| !i.old_style()).count();
+            let len = items.iter().take_while(|i| !i.is_old_style()).count();
             let mut start = Point::default();
             let mut last = Point::default();
             let mut last_control = Point::default();

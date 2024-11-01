@@ -131,7 +131,7 @@ pub enum PathComponent {
 }
 
 impl PathComponent {
-    pub fn old_style(&self) -> bool {
+    pub fn is_old_style(&self) -> bool {
         matches!(self, Vertex(..) | MirroredControlPoint(..) | AllControlPoints(..))
     }
 
