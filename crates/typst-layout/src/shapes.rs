@@ -198,6 +198,63 @@ impl<'a> NewStylePathBuilder<'a> {
     }
 }
 
+struct OldStylePathBuilder<'a> {
+    inner: &'a mut PathBuilder,
+    styles: StyleChain<'a>,
+    start: Point,
+    start_control_to: Point,
+    last: Point,
+    last_control_from: Point,
+}
+
+impl<'a> OldStylePathBuilder<'a> {
+    fn new(builder: &'a mut PathBuilder, styles: StyleChain<'a>) -> Self {
+        Self {
+            inner: builder,
+            styles,
+            start: Default::default(),
+            start_control_to: Default::default(),
+            last: Default::default(),
+            last_control_from: Default::default(),
+        }
+    }
+
+    fn resolve_point(&self, axes: Axes<Rel<Length>>) -> Point {
+        axes.resolve(self.styles)
+            .zip_map(self.inner.region.size, Rel::relative_to)
+            .to_point()
+    }
+
+    fn move_to(&mut self, c: &PathComponent) {
+        self.start = self.resolve_point(c.vertex());
+        self.start_control_to = self.resolve_point(c.control_point_to());
+        self.inner.start_component(self.start);
+        self.last = self.start;
+        self.last_control_from = self.resolve_point(c.control_point_from());
+    }
+
+    fn curve_to(&mut self, c: &PathComponent) {
+        let from_point = self.last;
+        let to_point = self.resolve_point(c.vertex());
+        let control_from = self.last_control_from + from_point;
+        let control_to = self.resolve_point(c.control_point_to()) + to_point;
+        self.inner.add_cubic(from_point, to_point, control_from, control_to);
+        self.last = to_point;
+        self.last_control_from = self.resolve_point(c.control_point_from());
+    }
+
+    fn close(&mut self) {
+        if self.inner.closed {
+            let from_point = self.last;
+            let to_point = self.start;
+            let control_from = self.last_control_from + from_point;
+            let control_to = self.start_control_to + to_point;
+            self.inner.add_cubic(from_point, to_point, control_from, control_to);
+            self.inner.close_component();
+        }
+    }
+}
+
 /// Layout the path.
 #[typst_macros::time(span = elem.span())]
 pub fn layout_path(
@@ -213,40 +270,16 @@ pub fn layout_path(
 
     while !items.is_empty() {
         if items[0].is_old_style() {
-            let resolve = |axes: Axes<Rel<Length>>| {
-                axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
-            };
-
             let len = items.iter().take_while(|i| i.is_old_style()).count();
 
-            let points: Vec<Point> =
-                items[..len].iter().map(|c| resolve(c.vertex())).collect();
-            builder.path.move_to(points[0]);
+            let mut builder = OldStylePathBuilder::new(&mut builder, styles);
+            builder.move_to(&items[0]);
 
-            for (vertex_window, point_window) in
-                items[..len].windows(2).zip(points.windows(2))
-            {
-                let from = &vertex_window[0];
-                let to = &vertex_window[1];
-                let from_point = point_window[0];
-                let to_point = point_window[1];
-
-                let from = resolve(from.control_point_from()) + from_point;
-                let to = resolve(to.control_point_to()) + to_point;
-                builder.add_cubic(from_point, to_point, from, to);
+            for vertex in &items[1..len] {
+                builder.curve_to(&vertex);
             }
 
-            if builder.closed {
-                let from = &*items[..len].last().unwrap(); // We checked that we have at least one element.
-                let to = &items[0];
-                let from_point = *points.last().unwrap();
-                let to_point = points[0];
-
-                let from = resolve(from.control_point_from()) + from_point;
-                let to = resolve(to.control_point_to()) + to_point;
-                builder.add_cubic(from_point, to_point, from, to);
-                builder.close_component();
-            }
+            builder.close();
 
             items = &items[len..];
         } else {
