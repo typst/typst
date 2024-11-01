@@ -48,6 +48,156 @@ pub fn layout_line(
     Ok(frame)
 }
 
+struct PathBuilder {
+    path: Path,
+    size: Size,
+    closed: bool,
+    region: Region,
+}
+
+impl PathBuilder {
+    fn new(region: Region, closed: bool) -> Self {
+        Self {
+            path: Path::new(),
+            size: Size::zero(),
+            closed,
+            region,
+        }
+    }
+
+    fn start_component(&mut self, point: Point) {
+        self.path.move_to(point);
+        self.adjust_bounds(point);
+    }
+
+    fn add_line(&mut self, point: Point) {
+        self.path.line_to(point);
+        self.adjust_bounds(point);
+    }
+
+    fn add_cubic(
+        &mut self,
+        from_point: Point,
+        to_point: Point,
+        from_control_point: Point,
+        to_control_point: Point,
+    ) {
+        self.path.cubic_to(from_control_point, to_control_point, to_point);
+
+        fn to_kurbo(point: Point) -> kurbo::Point {
+            kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
+        }
+        let p0 = to_kurbo(from_point);
+        let p1 = to_kurbo(from_control_point);
+        let p2 = to_kurbo(to_control_point);
+        let p3 = to_kurbo(to_point);
+        let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
+        self.size.x.set_max(Abs::raw(extrema.x1));
+        self.size.y.set_max(Abs::raw(extrema.y1));
+    }
+
+    fn close_component(&mut self) {
+        if !self.path.is_empty() {
+            self.path.close_path();
+        }
+    }
+
+    fn adjust_bounds(&mut self, point: Point) {
+        self.size.x.set_max(point.x);
+        self.size.y.set_max(point.y);
+    }
+
+    fn build(self) -> (Path, Size) {
+        (self.path, self.size)
+    }
+}
+
+struct NewStylePathBuilder<'a> {
+    inner: &'a mut PathBuilder,
+    start: Point,
+    last: Point,
+    last_control: Point,
+}
+
+impl<'a> NewStylePathBuilder<'a> {
+    fn new(builder: &'a mut PathBuilder) -> Self {
+        Self {
+            inner: builder,
+            start: Default::default(),
+            last: Default::default(),
+            last_control: Default::default(),
+        }
+    }
+
+    fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
+        let p = point.zip_map(self.inner.region.size, Rel::relative_to);
+        let mut p = Point::new(p.x, p.y);
+        if relative {
+            p += self.last;
+        }
+        p
+    }
+
+    fn resolve_smart_point(&self, point: Smart<Axes<Rel<Abs>>>, relative: bool) -> Point {
+        match point {
+            Smart::Custom(p) => {
+                let p = p.zip_map(self.inner.region.size, Rel::relative_to);
+                let mut p = Point::new(p.x, p.y);
+                if relative {
+                    p += self.last;
+                }
+                p
+            }
+            // Mirror the last control point.
+            Smart::Auto => 2. * self.last - self.last_control,
+        }
+    }
+
+    fn open_if_needed(&mut self) {
+        if self.inner.path.is_empty() {
+            self.inner.path.move_to(self.start);
+        }
+    }
+
+    fn move_to(&mut self, point: Point) {
+        self.inner.start_component(point);
+        self.start = point;
+        self.last = point;
+        self.last_control = point;
+    }
+
+    fn line_to(&mut self, point: Point) {
+        self.inner.add_line(point);
+        self.last = point;
+        self.last_control = point;
+    }
+
+    fn quadratic_to(&mut self, control: Point, end: Point) {
+        let c1 = self.last + (2. / 3.) * (control - self.last);
+        let c2 = end + (2. / 3.) * (control - end);
+        self.cubic_to(c1, c2, end);
+        self.last_control = control;
+    }
+
+    fn cubic_to(&mut self, c1: Point, c2: Point, end: Point) {
+        self.inner.add_cubic(self.last, end, c1, c2);
+        self.last = end;
+        self.last_control = c2;
+    }
+
+    fn close(&mut self) {
+        self.inner.close_component();
+        self.last = self.start;
+        self.last_control = self.start;
+    }
+
+    fn close_if_needed(&mut self) {
+        if self.inner.closed && self.last != self.start {
+            self.inner.path.close_path();
+        }
+    }
+}
+
 /// Layout the path.
 #[typst_macros::time(span = elem.span())]
 pub fn layout_path(
@@ -57,46 +207,21 @@ pub fn layout_path(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let resolve = |axes: Axes<Rel<Length>>| {
-        axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
-    };
-
-    fn to_kurbo(point: Point) -> kurbo::Point {
-        kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
-    }
-
-    fn add_cubic(
-        path: &mut Path,
-        size: &mut Size,
-        from_point: Point,
-        to_point: Point,
-        from_control_point: Point,
-        to_control_point: Point,
-    ) {
-        path.cubic_to(from_control_point, to_control_point, to_point);
-        let p0 = to_kurbo(from_point);
-        let p1 = to_kurbo(from_control_point);
-        let p2 = to_kurbo(to_control_point);
-        let p3 = to_kurbo(to_point);
-        let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
-        size.x.set_max(Abs::raw(extrema.x1));
-        size.y.set_max(Abs::raw(extrema.y1));
-    }
-
+    let mut builder = PathBuilder::new(region, elem.closed(styles));
     let vertices = elem.vertices();
-    let mut size = Size::zero();
-
-    let mut path = Path::new();
-    let path_closed = elem.closed(styles);
     let mut items = vertices.as_slice();
 
     while !items.is_empty() {
         if items[0].is_old_style() {
+            let resolve = |axes: Axes<Rel<Length>>| {
+                axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
+            };
+
             let len = items.iter().take_while(|i| i.is_old_style()).count();
 
             let points: Vec<Point> =
                 items[..len].iter().map(|c| resolve(c.vertex())).collect();
-            path.move_to(points[0]);
+            builder.path.move_to(points[0]);
 
             for (vertex_window, point_window) in
                 items[..len].windows(2).zip(points.windows(2))
@@ -108,10 +233,10 @@ pub fn layout_path(
 
                 let from = resolve(from.control_point_from()) + from_point;
                 let to = resolve(to.control_point_to()) + to_point;
-                add_cubic(&mut path, &mut size, from_point, to_point, from, to);
+                builder.add_cubic(from_point, to_point, from, to);
             }
 
-            if path_closed {
+            if builder.closed {
                 let from = &*items[..len].last().unwrap(); // We checked that we have at least one element.
                 let to = &items[0];
                 let from_point = *points.last().unwrap();
@@ -119,122 +244,48 @@ pub fn layout_path(
 
                 let from = resolve(from.control_point_from()) + from_point;
                 let to = resolve(to.control_point_to()) + to_point;
-                add_cubic(&mut path, &mut size, from_point, to_point, from, to);
-                path.close_path();
+                builder.add_cubic(from_point, to_point, from, to);
+                builder.close_component();
             }
 
             items = &items[len..];
         } else {
-            let len = items.iter().take_while(|i| !i.is_old_style()).count();
-            let mut start = Point::default();
-            let mut last = Point::default();
-            let mut last_control = Point::default();
+            let mut builder = NewStylePathBuilder::new(&mut builder);
 
+            let len = items.iter().take_while(|i| !i.is_old_style()).count();
             for item in &items[..len] {
                 match item {
                     PathComponent::MoveTo(element) => {
-                        if path_closed && last != start {
-                            path.close_path();
-                        }
-                        let rel = element.relative(styles);
-                        let p =
-                            element.start(styles).zip_map(region.size, Rel::relative_to);
-                        let mut p = Point::new(p.x, p.y);
-                        if rel {
-                            p += last;
-                        }
-                        path.move_to(p);
-                        size.x.set_max(p.x);
-                        size.y.set_max(p.y);
-                        last = p;
-                        last_control = p;
-                        start = p;
+                        builder.close_if_needed();
+                        let relative = element.relative(styles);
+                        let p = builder.resolve_point(element.start(styles), relative);
+                        builder.move_to(p);
                     }
                     PathComponent::LineTo(element) => {
-                        let rel = element.relative(styles);
-                        let p =
-                            element.end(styles).zip_map(region.size, Rel::relative_to);
-                        let mut p = Point::new(p.x, p.y);
-                        if rel {
-                            p += last;
-                        }
-                        if path.is_empty() {
-                            path.move_to(start);
-                        }
-                        path.line_to(p);
-                        size.x.set_max(p.x);
-                        size.y.set_max(p.y);
-                        last = p;
-                        last_control = p;
+                        builder.open_if_needed();
+                        let relative = element.relative(styles);
+                        let p = builder.resolve_point(element.end(styles), relative);
+                        builder.line_to(p);
                     }
                     PathComponent::QuadraticTo(element) => {
-                        let rel = element.relative(styles);
-                        let c = element.control(styles);
-                        let end =
-                            element.end(styles).zip_map(region.size, Rel::relative_to);
-                        let mut end = Point::new(end.x, end.y);
-                        if rel {
-                            end += last;
-                        }
-                        let c = match c {
-                            Smart::Custom(c) => {
-                                let c = c.zip_map(region.size, Rel::relative_to);
-                                let mut c = Point::new(c.x, c.y);
-                                if rel {
-                                    c += last;
-                                }
-                                c
-                            }
-                            Smart::Auto => 2. * last - last_control,
-                        };
-                        let c1 = last + (2. / 3.) * (c - last);
-                        let c2 = end + (2. / 3.) * (c - end);
-                        if path.is_empty() {
-                            path.move_to(start);
-                        }
-                        add_cubic(&mut path, &mut size, last, end, c1, c2);
-                        last = end;
-                        last_control = c;
+                        builder.open_if_needed();
+                        let relative = element.relative(styles);
+                        let c = builder
+                            .resolve_smart_point(element.control(styles), relative);
+                        let end = builder.resolve_point(element.end(styles), relative);
+                        builder.quadratic_to(c, end);
                     }
                     PathComponent::CubicTo(element) => {
-                        let rel = element.relative(styles);
-                        let c1 = element.cstart(styles);
-                        let c2 = element.cend(styles);
-                        let end =
-                            element.end(styles).zip_map(region.size, Rel::relative_to);
-                        let mut end = Point::new(end.x, end.y);
-                        if rel {
-                            end += last;
-                        }
-                        let c1 = match c1 {
-                            Smart::Custom(c) => {
-                                let c = c.zip_map(region.size, Rel::relative_to);
-                                let mut c = Point::new(c.x, c.y);
-                                if rel {
-                                    c += last;
-                                }
-                                c
-                            }
-                            Smart::Auto => 2. * last - last_control,
-                        };
-                        let c2 = c2.zip_map(region.size, Rel::relative_to);
-                        let mut c2 = Point::new(c2.x, c2.y);
-                        if rel {
-                            c2 += last;
-                        }
-                        if path.is_empty() {
-                            path.move_to(start);
-                        }
-                        add_cubic(&mut path, &mut size, last, end, c1, c2);
-                        last = end;
-                        last_control = c2;
+                        builder.open_if_needed();
+                        let relative = element.relative(styles);
+                        let c1 =
+                            builder.resolve_smart_point(element.cstart(styles), relative);
+                        let c2 = builder.resolve_point(element.cend(styles), relative);
+                        let end = builder.resolve_point(element.end(styles), relative);
+                        builder.cubic_to(c1, c2, end);
                     }
                     PathComponent::ClosePath => {
-                        if !path.is_empty() {
-                            path.close_path();
-                        }
-                        last = start;
-                        last_control = start;
+                        builder.close();
                     }
                     PathComponent::Vertex(..)
                     | PathComponent::MirroredControlPoint(..)
@@ -243,13 +294,13 @@ pub fn layout_path(
                     }
                 }
             }
-            if path_closed && last != start {
-                path.close_path();
-            }
+            builder.close_if_needed();
 
             items = &items[len..];
         }
     }
+
+    let (path, size) = builder.build();
 
     if path.is_empty() {
         return Ok(Frame::soft(size));
