@@ -61,6 +61,10 @@ pub fn layout_path(
         axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
     };
 
+    fn to_kurbo(point: Point) -> kurbo::Point {
+        kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
+    }
+
     fn add_cubic(
         path: &mut Path,
         size: &mut Size,
@@ -70,15 +74,10 @@ pub fn layout_path(
         to_control_point: Point,
     ) {
         path.cubic_to(from_control_point, to_control_point, to_point);
-
-        let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
-        let p1 = kurbo::Point::new(
-            from_control_point.x.to_raw(),
-            from_control_point.y.to_raw(),
-        );
-        let p2 =
-            kurbo::Point::new(to_control_point.x.to_raw(), to_control_point.y.to_raw());
-        let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
+        let p0 = to_kurbo(from_point);
+        let p1 = to_kurbo(from_control_point);
+        let p2 = to_kurbo(to_control_point);
+        let p3 = to_kurbo(to_point);
         let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
         size.x.set_max(Abs::raw(extrema.x1));
         size.y.set_max(Abs::raw(extrema.y1));
