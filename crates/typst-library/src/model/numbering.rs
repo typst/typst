@@ -694,7 +694,7 @@ fn greek_numeral(n: usize, case: Case) -> EcoString {
     }
     decimal_digits.reverse();
 
-    let mut m_power = decimal_digits.len() / 4 - 1;
+    let mut m_power = decimal_digits.len() / 4;
 
     // M are used to represent 10000, M_power = 2 means 10000^2 = 10000 0000
     // The prefix of M is also made of Greek numerals but only be single digits, so it is 9 at max. This enables us
@@ -713,6 +713,8 @@ fn greek_numeral(n: usize, case: Case) -> EcoString {
     for chunk in decimal_digits.chunks_exact(4) {
         // chunk must be exact 4 item
         assert_eq!(chunk.len(), 4);
+
+        m_power = m_power.saturating_sub(1);
 
         // `th`ousan, `h`undred, `t`en and `o`ne
         let (th, h, t, o) = (chunk[0], chunk[1], chunk[2], chunk[3]);
@@ -747,9 +749,6 @@ fn greek_numeral(n: usize, case: Case) -> EcoString {
         // if we do not have thousan, we need to append 'ʹ' at the end.
         if th == 0 {
             fmt.push_str("ʹ");
-        }
-        if m_power > 0 {
-            m_power = m_power.saturating_sub(1);
         }
         previous_has_number = true;
     }
