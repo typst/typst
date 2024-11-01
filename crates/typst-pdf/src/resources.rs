@@ -12,14 +12,19 @@ use std::hash::Hash;
 use ecow::{eco_format, EcoString};
 use pdf_writer::{Dict, Finish, Name, Ref};
 use subsetter::GlyphRemapper;
-use typst::text::Lang;
-use typst::{text::Font, utils::Deferred, visualize::Image};
+use typst_library::diag::{SourceResult, StrResult};
+use typst_library::text::{Font, Lang};
+use typst_library::visualize::Image;
+use typst_syntax::Span;
+use typst_utils::Deferred;
 
-use crate::{
-    color::ColorSpaces, color_font::ColorFontMap, extg::ExtGState, gradient::PdfGradient,
-    image::EncodedImage, pattern::PatternRemapper, PdfChunk, Renumber, WithEverything,
-    WithResources,
-};
+use crate::color::ColorSpaces;
+use crate::color_font::ColorFontMap;
+use crate::extg::ExtGState;
+use crate::gradient::PdfGradient;
+use crate::image::EncodedImage;
+use crate::pattern::PatternRemapper;
+use crate::{PdfChunk, Renumber, WithEverything, WithResources};
 
 /// All the resources that have been collected when traversing the document.
 ///
@@ -58,7 +63,7 @@ pub struct Resources<R = Ref> {
     /// Deduplicates images used across the document.
     pub images: Remapper<Image>,
     /// Handles to deferred image conversions.
-    pub deferred_images: HashMap<usize, Deferred<EncodedImage>>,
+    pub deferred_images: HashMap<usize, (Deferred<StrResult<EncodedImage>>, Span)>,
     /// Deduplicates gradients used across the document.
     pub gradients: Remapper<PdfGradient>,
     /// Deduplicates patterns used across the document.
@@ -159,17 +164,18 @@ impl Resources<()> {
 impl<R> Resources<R> {
     /// Run a function on this resource dictionary and all
     /// of its sub-resources.
-    pub fn traverse<P>(&self, process: &mut P)
+    pub fn traverse<P>(&self, process: &mut P) -> SourceResult<()>
     where
-        P: FnMut(&Self),
+        P: FnMut(&Self) -> SourceResult<()>,
     {
-        process(self);
+        process(self)?;
         if let Some(color_fonts) = &self.color_fonts {
-            color_fonts.resources.traverse(process)
+            color_fonts.resources.traverse(process)?;
         }
         if let Some(patterns) = &self.patterns {
-            patterns.resources.traverse(process)
+            patterns.resources.traverse(process)?;
         }
+        Ok(())
     }
 }
 
@@ -196,7 +202,9 @@ impl Renumber for ResourcesRefs {
 }
 
 /// Allocate references for all resource dictionaries.
-pub fn alloc_resources_refs(context: &WithResources) -> (PdfChunk, ResourcesRefs) {
+pub fn alloc_resources_refs(
+    context: &WithResources,
+) -> SourceResult<(PdfChunk, ResourcesRefs)> {
     let mut chunk = PdfChunk::new();
     /// Recursively explore resource dictionaries and assign them references.
     fn refs_for(resources: &Resources<()>, chunk: &mut PdfChunk) -> ResourcesRefs {
@@ -214,7 +222,7 @@ pub fn alloc_resources_refs(context: &WithResources) -> (PdfChunk, ResourcesRefs
     }
 
     let refs = refs_for(&context.resources, &mut chunk);
-    (chunk, refs)
+    Ok((chunk, refs))
 }
 
 /// Write the resource dictionaries that will be referenced by all pages.
@@ -224,7 +232,7 @@ pub fn alloc_resources_refs(context: &WithResources) -> (PdfChunk, ResourcesRefs
 /// feature breaks PDF merging with Apple Preview.
 ///
 /// Also write resource dictionaries for Type3 fonts and patterns.
-pub fn write_resource_dictionaries(ctx: &WithEverything) -> (PdfChunk, ()) {
+pub fn write_resource_dictionaries(ctx: &WithEverything) -> SourceResult<(PdfChunk, ())> {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
 
@@ -287,11 +295,13 @@ pub fn write_resource_dictionaries(ctx: &WithEverything) -> (PdfChunk, ()) {
         resources
             .colors
             .write_color_spaces(color_spaces, &ctx.globals.color_functions);
-    });
+
+        Ok(())
+    })?;
 
     used_color_spaces.write_functions(&mut chunk, &ctx.globals.color_functions);
 
-    (chunk, ())
+    Ok((chunk, ()))
 }
 
 /// Assigns new, consecutive PDF-internal indices to items.

@@ -49,7 +49,7 @@ starts a paragraph, also with indent.
 
   Except if you have another paragraph in them.
 
-#set text(8pt, lang: "ar", font: ("Noto Sans Arabic", "Linux Libertine"))
+#set text(8pt, lang: "ar", font: ("Noto Sans Arabic", "Libertinus Serif"))
 #set par(leading: 8pt)
 
 = Arabic
@@ -97,3 +97,18 @@ Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
 --- issue-4278-par-trim-before-equation ---
 #set par(justify: true)
 #lorem(6) aa $a = c + b$
+
+--- issue-4938-par-bad-ratio ---
+#set par(justify: true)
+#box($k in NN_0$)
+
+--- issue-4770-par-tag-at-start ---
+#h(0pt) #box[] <a>
+
+#context test(query(<a>).len(), 1)
+
+--- show-par-set-block-hint ---
+// Warning: 2-36 `show par: set block(spacing: ..)` has no effect anymore
+// Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
+// Hint: 2-36 write `set par(spacing: ..)` instead
+#show par: set block(spacing: 12pt)

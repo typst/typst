@@ -1,0 +1,25 @@
+name: 🪴 Compiler Feature Request
+description: For feature requests for the Typst compiler
+title: Write a short and descriptive title!
+labels:
+  - feature request
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for sharing your feature request for the Typst compiler. Did you [take a look](https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3A%22feature+request%22) if a similar request has already been filed? If so, join the discussion there! Is your feature request related to Typst's web app? Please file it [here](https://github.com/typst/webapp-issues/issues) instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe your feature request. You can also add a mockup if you are requesting a new output feature!
+      placeholder: Terse and specific description of the feature. You can add an image by dragging a file here.
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Please describe why this feature would be useful.
+      placeholder: Describe what users can accomplish with this feature and whom it might be useful for.
+    validations:
+      required: true

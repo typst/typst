@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
 use typst::syntax::package::PackageVersion;
@@ -389,6 +390,18 @@ impl<'a> Parser<'a> {
 
 /// Whether a test is within the selected set to run.
 fn selected(name: &str, abs: PathBuf) -> bool {
+    static SKIPPED: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+        String::leak(std::fs::read_to_string(crate::SKIP_PATH).unwrap())
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty() && !line.starts_with("//"))
+            .collect()
+    });
+
+    if SKIPPED.contains(name) {
+        return false;
+    }
+
     let paths = &crate::ARGS.path;
     if !paths.is_empty() && !paths.iter().any(|path| abs.starts_with(path)) {
         return false;
@@ -408,8 +421,8 @@ fn selected(name: &str, abs: PathBuf) -> bool {
 
 /// An error in a test file.
 pub struct TestParseError {
-    pos: FilePos,
-    message: String,
+    pub pos: FilePos,
+    pub message: String,
 }
 
 impl Display for TestParseError {

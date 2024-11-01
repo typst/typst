@@ -675,7 +675,7 @@ impl<'a> TermItem<'a> {
 }
 
 node! {
-    /// A mathemathical equation: `$x$`, `$ x^2 $`.
+    /// A mathematical equation: `$x$`, `$ x^2 $`.
     Equation
 }
 
@@ -1439,7 +1439,7 @@ pub enum BinOp {
     Assign,
     /// The containment operator: `in`.
     In,
-    /// The inversed containment operator: `not in`.
+    /// The inverse containment operator: `not in`.
     NotIn,
     /// The add-assign operator: `+=`.
     AddAssign,

@@ -19,7 +19,7 @@ Hello *#x*
 - No more fruit
 
 --- set-text-override ---
-// Test that that block spacing and text style are respected from
+// Test that block spacing and text style are respected from
 // the outside, but the more specific fill is respected.
 #set par(spacing: 4pt)
 #set text(style: "italic", fill: eastern)
@@ -64,6 +64,21 @@ Hello *#x*
 --- set-in-expr ---
 // Error: 12-26 set is only allowed directly in code and content blocks
 #{ let x = set text(blue) }
+
+--- set-bad-trivia ---
+// Error cases parsing set rules with trivia between the function and args.
+// Error: 10 expected argument list
+#set page
+         (numbering: "1")
+// Error: 10 expected argument list
+// Hint: 10 there may not be any spaces before the argument list
+#set page (numbering: "2")
+// Error: 10 expected argument list
+// Hint: 10 there may not be any spaces before the argument list
+#set page/**/(numbering: "3")
+
+// This is fine though
+#set/**/page(numbering: "4")
 
 --- set-vs-construct-1 ---
 // Ensure that constructor styles aren't passed down the tree.

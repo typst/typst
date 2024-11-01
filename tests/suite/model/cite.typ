@@ -30,7 +30,7 @@ A @netwok @arrgh @quark B. \
 A @netwok @arrgh @quark, B.
 
 #set text(0pt)
-#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
 --- cite-grouping-and-ordering ---
 @mcintosh_anxiety
@@ -47,15 +47,15 @@ A @netwok @arrgh @quark, B.
 @restful
 
 #show bibliography: none
-#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
 --- issue-785-cite-locate ---
 // Test citation in other introspection.
 #set page(width: 180pt)
-#set heading(numbering: "1")
+#set heading(numbering: "1.")
 
 #outline(
-  title: [List of Figures],
+  title: [Figures],
   target: figure.where(kind: image),
 )
 
@@ -63,20 +63,20 @@ A @netwok @arrgh @quark, B.
 
 = Introduction <intro>
 #figure(
-  rect[-- PIRATE --],
+  rect(height: 10pt),
   caption: [A pirate @arrgh in @intro],
 )
 
 #context [Citation @distress on page #here().page()]
 
-#pagebreak()
+#show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-notes")
 
 --- issue-1597-cite-footnote ---
 // Tests that when a citation footnote is pushed to next page, things still
 // work as expected.
 #set page(height: 60pt)
-#lorem(4)
+A
 
 #footnote[@netwok]
 #show bibliography: none
@@ -102,8 +102,7 @@ B #cite(<netwok>) #cite(<arrgh>).
 
 // Everything moves to the second page because we want to keep the line and
 // its footnotes together.
-#footnote[@netwok]
-#footnote[A]
+#footnote[@netwok \ A]
 
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")

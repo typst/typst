@@ -8,15 +8,19 @@ use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, Severity, SourceDiagnostic, StrResult, Warned};
+use typst::diag::{
+    bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+};
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, Page, PageRanges};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
+use typst_pdf::{PdfOptions, PdfStandards};
 
 use crate::args::{
     CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PageRangeArgument,
+    PdfStandard,
 };
 use crate::timings::Timer;
 use crate::watch::Status;
@@ -54,7 +58,11 @@ impl CompileCommand {
                 Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
                 Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
                 Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
+                _ => bail!(
+                    "could not infer output format for path {}.\n\
+                     consider providing the format manually with `--format/-f`",
+                    output.display()
+                ),
             }
         } else {
             OutputFormat::Pdf
@@ -71,10 +79,26 @@ impl CompileCommand {
             )
         })
     }
+
+    /// The PDF standards to try to conform with.
+    pub fn pdf_standards(&self) -> StrResult<PdfStandards> {
+        let list = self
+            .pdf_standard
+            .iter()
+            .map(|standard| match standard {
+                PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+                PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            })
+            .collect::<Vec<_>>();
+        PdfStandards::new(&list)
+    }
 }
 
 /// Execute a compilation command.
 pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
+    // Only meant for input validation
+    _ = command.output_format()?;
+
     let mut world =
         SystemWorld::new(&command.common).map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
@@ -96,11 +120,11 @@ pub fn compile_once(
     }
 
     let Warned { output, warnings } = typst::compile(world);
+    let result = output.and_then(|document| export(world, &document, command, watching));
 
-    match output {
+    match result {
         // Export the PDF / PNG.
-        Ok(document) => {
-            export(world, &document, command, watching)?;
+        Ok(()) => {
             let duration = start.elapsed();
 
             if watching {
@@ -150,29 +174,36 @@ fn export(
     document: &Document,
     command: &CompileCommand,
     watching: bool,
-) -> StrResult<()> {
-    match command.output_format()? {
+) -> SourceResult<()> {
+    match command.output_format().at(Span::detached())? {
         OutputFormat::Png => {
             export_image(world, document, command, watching, ImageExportFormat::Png)
+                .at(Span::detached())
         }
         OutputFormat::Svg => {
             export_image(world, document, command, watching, ImageExportFormat::Svg)
+                .at(Span::detached())
         }
         OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
 /// Export to a PDF.
-fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    let timestamp = convert_datetime(
-        command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
-    );
-    let exported_page_ranges = command.exported_page_ranges();
-    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp, exported_page_ranges);
+fn export_pdf(document: &Document, command: &CompileCommand) -> SourceResult<()> {
+    let options = PdfOptions {
+        ident: Smart::Auto,
+        timestamp: convert_datetime(
+            command.common.creation_timestamp.unwrap_or_else(chrono::Utc::now),
+        ),
+        page_ranges: command.exported_page_ranges(),
+        standards: command.pdf_standards().at(Span::detached())?,
+    };
+    let buffer = typst_pdf::pdf(document, &options)?;
     command
         .output()
         .write(&buffer)
-        .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
+        .at(Span::detached())?;
     Ok(())
 }
 

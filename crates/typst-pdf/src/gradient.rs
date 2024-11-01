@@ -3,21 +3,20 @@ use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use pdf_writer::{
-    types::{ColorSpaceOperand, FunctionShadingType},
-    writers::StreamShadingType,
-    Filter, Finish, Name, Ref,
-};
-
-use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
-use typst::utils::Numeric;
-use typst::visualize::{
+use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
+use pdf_writer::writers::StreamShadingType;
+use pdf_writer::{Filter, Finish, Name, Ref};
+use typst_library::diag::SourceResult;
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
+use typst_library::visualize::{
     Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
+use typst_utils::Numeric;
 
-use crate::color::{self, ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::{content, WithGlobalRefs};
-use crate::{deflate, transform_to_array, AbsExt, PdfChunk};
+use crate::color::{
+    self, check_cmyk_allowed, ColorSpaceExt, PaintEncode, QuantizedColor,
+};
+use crate::{content, deflate, transform_to_array, AbsExt, PdfChunk, WithGlobalRefs};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -38,7 +37,7 @@ pub struct PdfGradient {
 /// This is performed once after writing all pages.
 pub fn write_gradients(
     context: &WithGlobalRefs,
-) -> (PdfChunk, HashMap<PdfGradient, Ref>) {
+) -> SourceResult<(PdfChunk, HashMap<PdfGradient, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
@@ -57,6 +56,10 @@ pub fn write_gradients(
             } else {
                 gradient.space()
             };
+
+            if color_space == ColorSpace::Cmyk {
+                check_cmyk_allowed(context.options)?;
+            }
 
             let mut shading_pattern = match &gradient {
                 Gradient::Linear(_) => {
@@ -161,12 +164,14 @@ pub fn write_gradients(
 
             shading_pattern.matrix(transform_to_array(*transform));
         }
-    });
 
-    (chunk, out)
+        Ok(())
+    })?;
+
+    Ok((chunk, out))
 }
 
-/// Writes an expotential or stitched function that expresses the gradient.
+/// Writes an exponential or stitched function that expresses the gradient.
 fn shading_function(
     gradient: &Gradient,
     chunk: &mut PdfChunk,
@@ -249,7 +254,7 @@ impl PaintEncode for Gradient {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_fill_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -258,6 +263,7 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
+        Ok(())
     }
 
     fn set_as_stroke(
@@ -265,7 +271,7 @@ impl PaintEncode for Gradient {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         ctx.reset_stroke_color_space();
 
         let index = register_gradient(ctx, self, on_text, transforms);
@@ -274,6 +280,7 @@ impl PaintEncode for Gradient {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        Ok(())
     }
 }
 

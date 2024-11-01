@@ -2,16 +2,15 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use std::sync::RwLock;
-
-use once_cell::sync::Lazy;
+use std::sync::{LazyLock, RwLock};
 
 use crate::package::PackageSpec;
 use crate::VirtualPath;
 
 /// The global package-path interner.
-static INTERNER: Lazy<RwLock<Interner>> =
-    Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() }));
+static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
+    RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() })
+});
 
 /// A package-path interner.
 struct Interner {
@@ -97,12 +96,16 @@ impl FileId {
     }
 
     /// Construct from a raw number.
-    pub(crate) const fn from_raw(v: u16) -> Self {
+    ///
+    /// Should only be used with numbers retrieved via
+    /// [`into_raw`](Self::into_raw). Misuse may results in panics, but no
+    /// unsafety.
+    pub const fn from_raw(v: u16) -> Self {
         Self(v)
     }
 
     /// Extract the raw underlying number.
-    pub(crate) const fn into_raw(self) -> u16 {
+    pub const fn into_raw(self) -> u16 {
         self.0
     }
 

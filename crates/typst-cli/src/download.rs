@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
+use typst::utils::format_duration;
 use typst_kit::download::{DownloadState, Downloader, Progress};
 
 use crate::terminal::{self, TermOut};
@@ -61,7 +62,7 @@ pub fn display_download_progress(
 
     let total_downloaded = as_bytes_unit(state.total_downloaded);
     let speed_h = as_throughput_unit(speed);
-    let elapsed = time_suffix(Instant::now().saturating_duration_since(state.start_time));
+    let elapsed = Instant::now().saturating_duration_since(state.start_time);
 
     match state.content_len {
         Some(content_len) => {
@@ -69,42 +70,29 @@ pub fn display_download_progress(
             let remaining = content_len - state.total_downloaded;
 
             let download_size = as_bytes_unit(content_len);
-            let eta = time_suffix(Duration::from_secs(if speed == 0 {
+            let eta = Duration::from_secs(if speed == 0 {
                 0
             } else {
                 (remaining / speed) as u64
-            }));
+            });
+
             writeln!(
                 out,
-                "{total_downloaded} / {download_size} ({percent:3.0} %) {speed_h} in {elapsed} ETA: {eta}",
+                "{total_downloaded} / {download_size} ({percent:3.0} %) \
+                {speed_h} in {elapsed} ETA: {eta}",
+                elapsed = format_duration(elapsed),
+                eta = format_duration(eta),
             )?;
         }
         None => writeln!(
             out,
-            "Total downloaded: {total_downloaded} Speed: {speed_h} Elapsed: {elapsed}",
+            "Total downloaded: {total_downloaded} \
+             Speed: {speed_h} \
+             Elapsed: {elapsed}",
+            elapsed = format_duration(elapsed),
         )?,
     };
     Ok(())
-}
-
-/// Append a unit-of-time suffix.
-fn time_suffix(duration: Duration) -> String {
-    let secs = duration.as_secs();
-    match format_dhms(secs) {
-        (0, 0, 0, s) => format!("{s:2.0}s"),
-        (0, 0, m, s) => format!("{m:2.0}m {s:2.0}s"),
-        (0, h, m, s) => format!("{h:2.0}h {m:2.0}m {s:2.0}s"),
-        (d, h, m, s) => format!("{d:3.0}d {h:2.0}h {m:2.0}m {s:2.0}s"),
-    }
-}
-
-/// Format the total amount of seconds into the amount of days, hours, minutes
-/// and seconds.
-fn format_dhms(sec: u64) -> (u64, u8, u8, u8) {
-    let (mins, sec) = (sec / 60, (sec % 60) as u8);
-    let (hours, mins) = (mins / 60, (mins % 60) as u8);
-    let (days, hours) = (hours / 24, (hours % 24) as u8);
-    (days, hours, mins, sec)
 }
 
 /// Format a given size as a unit of time. Setting `include_suffix` to true
@@ -123,7 +111,7 @@ fn as_bytes_unit(size: usize) -> String {
     } else if size >= KI {
         format!("{:5.1} KiB", size / KI)
     } else {
-        format!("{size:3.0} B")
+        format!("{size:3} B")
     }
 }
 

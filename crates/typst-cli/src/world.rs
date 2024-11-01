@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
@@ -16,7 +15,7 @@ use typst::utils::LazyHash;
 use typst::{Library, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
-use typst_timing::{timed, TimingScope};
+use typst_timing::timed;
 
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
@@ -25,8 +24,8 @@ use crate::package;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
-static STDIN_ID: Lazy<FileId> =
-    Lazy::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
+static STDIN_ID: LazyLock<FileId> =
+    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -60,7 +59,11 @@ impl SystemWorld {
     pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
         if let Some(jobs) = command.jobs {
-            rayon::ThreadPoolBuilder::new().num_threads(jobs).build_global().ok();
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(jobs)
+                .use_current_thread()
+                .build_global()
+                .ok();
         }
 
         // Resolve the system-global input path.
@@ -281,8 +284,6 @@ impl FileSlot {
         self.source.get_or_init(
             || read(self.id, project_root, package_storage),
             |data, prev| {
-                let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
-                let _scope = TimingScope::new(name, None);
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);

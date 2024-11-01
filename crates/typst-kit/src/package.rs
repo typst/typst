@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
-use typst::diag::{bail, PackageError, PackageResult, StrResult};
-use typst::syntax::package::{
+use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
+use typst_syntax::package::{
     PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
 };
 
@@ -52,13 +52,13 @@ impl PackageStorage {
         }
     }
 
-    /// Returns a the path at which non-local packages should be stored when
+    /// Returns the path at which non-local packages should be stored when
     /// downloaded.
     pub fn package_cache_path(&self) -> Option<&Path> {
         self.package_cache_path.as_deref()
     }
 
-    /// Returns a the path at which local packages are stored.
+    /// Returns the path at which local packages are stored.
     pub fn package_path(&self) -> Option<&Path> {
         self.package_path.as_deref()
     }
@@ -128,19 +128,21 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&Vec<PackageInfo>> {
-        self.index.get_or_try_init(|| {
-            let url = format!("{DEFAULT_REGISTRY}/preview/index.json");
-            match self.downloader.download(&url) {
-                Ok(response) => response
-                    .into_json()
-                    .map_err(|err| eco_format!("failed to parse package index: {err}")),
-                Err(ureq::Error::Status(404, _)) => {
-                    bail!("failed to fetch package index (not found)")
+    pub fn download_index(&self) -> StrResult<&[PackageInfo]> {
+        self.index
+            .get_or_try_init(|| {
+                let url = format!("{DEFAULT_REGISTRY}/preview/index.json");
+                match self.downloader.download(&url) {
+                    Ok(response) => response.into_json().map_err(|err| {
+                        eco_format!("failed to parse package index: {err}")
+                    }),
+                    Err(ureq::Error::Status(404, _)) => {
+                        bail!("failed to fetch package index (not found)")
+                    }
+                    Err(err) => bail!("failed to fetch package index ({err})"),
                 }
-                Err(err) => bail!("failed to fetch package index ({err})"),
-            }
-        })
+            })
+            .map(AsRef::as_ref)
     }
 
     /// Download a package over the network.

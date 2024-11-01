@@ -6,15 +6,22 @@ pub mod fat;
 mod macros;
 mod bitset;
 mod deferred;
+mod duration;
 mod hash;
 mod pico;
+mod round;
 mod scalar;
 
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
+pub use self::duration::format_duration;
 pub use self::hash::LazyHash;
 pub use self::pico::PicoStr;
+pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
+
+#[doc(hidden)]
+pub use once_cell;
 
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
@@ -24,9 +31,6 @@ use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
-
-#[doc(hidden)]
-pub use once_cell;
 
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
@@ -296,9 +300,4 @@ pub trait Numeric:
 
     /// Whether `self` consists only of finite parts.
     fn is_finite(self) -> bool;
-}
-
-/// Round a float to two decimal places.
-pub fn round_2(value: f64) -> f64 {
-    (value * 100.0).round() / 100.0
 }

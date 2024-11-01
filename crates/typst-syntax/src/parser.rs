@@ -5,13 +5,14 @@ use std::ops::{Index, IndexMut, Range};
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
-use crate::set::SyntaxSet;
+use crate::set::{syntax_set, SyntaxSet};
 use crate::{
     ast, is_ident, is_newline, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode,
 };
 
 /// Parses a source file.
 pub fn parse(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse");
     let mut p = Parser::new(text, 0, LexMode::Markup);
     markup(&mut p, true, 0, |_| false);
     p.finish().into_iter().next().unwrap()
@@ -19,6 +20,7 @@ pub fn parse(text: &str) -> SyntaxNode {
 
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse code");
     let mut p = Parser::new(text, 0, LexMode::Code);
     let m = p.marker();
     p.skip();
@@ -29,6 +31,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 
 /// Parses top-level math.
 pub fn parse_math(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse math");
     let mut p = Parser::new(text, 0, LexMode::Math);
     math(&mut p, |_| false);
     p.finish().into_iter().next().unwrap()
@@ -60,11 +63,7 @@ fn markup(
             continue;
         }
 
-        if p.at_set(set::MARKUP_EXPR) {
-            markup_expr(p, &mut at_start);
-        } else {
-            p.unexpected();
-        }
+        markup_expr(p, &mut at_start);
     }
     p.wrap(m, SyntaxKind::Markup);
 }
@@ -92,11 +91,7 @@ pub(super) fn reparse_markup(
             continue;
         }
 
-        if p.at_set(set::MARKUP_EXPR) {
-            markup_expr(&mut p, at_start);
-        } else {
-            p.unexpected();
-        }
+        markup_expr(&mut p, at_start);
     }
     (p.balanced && p.current_start() == range.end).then(|| p.finish())
 }
@@ -140,7 +135,10 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::TermMarker
         | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
 
-        _ => {}
+        _ => {
+            p.unexpected();
+            return; // Don't set `at_start`
+        }
     }
 
     *at_start = false;
@@ -148,28 +146,18 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
 
 /// Parses strong content: `*Strong*`.
 fn strong(p: &mut Parser) {
-    const END: SyntaxSet = SyntaxSet::new()
-        .add(SyntaxKind::Star)
-        .add(SyntaxKind::Parbreak)
-        .add(SyntaxKind::RightBracket);
-
     let m = p.marker();
     p.assert(SyntaxKind::Star);
-    markup(p, false, 0, |p| p.at_set(END));
+    markup(p, false, 0, |p| p.at_set(syntax_set!(Star, Parbreak, RightBracket)));
     p.expect_closing_delimiter(m, SyntaxKind::Star);
     p.wrap(m, SyntaxKind::Strong);
 }
 
 /// Parses emphasized content: `_Emphasized_`.
 fn emph(p: &mut Parser) {
-    const END: SyntaxSet = SyntaxSet::new()
-        .add(SyntaxKind::Underscore)
-        .add(SyntaxKind::Parbreak)
-        .add(SyntaxKind::RightBracket);
-
     let m = p.marker();
     p.assert(SyntaxKind::Underscore);
-    markup(p, false, 0, |p| p.at_set(END));
+    markup(p, false, 0, |p| p.at_set(syntax_set!(Underscore, Parbreak, RightBracket)));
     p.expect_closing_delimiter(m, SyntaxKind::Underscore);
     p.wrap(m, SyntaxKind::Emph);
 }
@@ -192,16 +180,11 @@ fn raw(p: &mut Parser) {
 
 /// Parses a section heading: `= Introduction`.
 fn heading(p: &mut Parser) {
-    const END: SyntaxSet = SyntaxSet::new()
-        .add(SyntaxKind::Label)
-        .add(SyntaxKind::RightBracket)
-        .add(SyntaxKind::Space);
-
     let m = p.marker();
     p.assert(SyntaxKind::HeadingMarker);
     whitespace_line(p);
     markup(p, false, usize::MAX, |p| {
-        p.at_set(END)
+        p.at_set(syntax_set!(Label, Space, RightBracket))
             && (!p.at(SyntaxKind::Space) || p.lexer.clone().next() == SyntaxKind::Label)
     });
     p.wrap(m, SyntaxKind::Heading);
@@ -229,14 +212,11 @@ fn enum_item(p: &mut Parser) {
 
 /// Parses an item in a term list: `/ Term: Details`.
 fn term_item(p: &mut Parser) {
-    const TERM_END: SyntaxSet =
-        SyntaxSet::new().add(SyntaxKind::Colon).add(SyntaxKind::RightBracket);
-
     let m = p.marker();
     p.assert(SyntaxKind::TermMarker);
     let min_indent = p.column(p.prev_end());
     whitespace_line(p);
-    markup(p, false, usize::MAX, |p| p.at_set(TERM_END));
+    markup(p, false, usize::MAX, |p| p.at_set(syntax_set!(Colon, RightBracket)));
     p.expect(SyntaxKind::Colon);
     whitespace_line(p);
     markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
@@ -825,16 +805,11 @@ pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNod
 
 /// Parses a code block: `{ let x = 1; x + 2 }`.
 fn code_block(p: &mut Parser) {
-    const END: SyntaxSet = SyntaxSet::new()
-        .add(SyntaxKind::RightBrace)
-        .add(SyntaxKind::RightBracket)
-        .add(SyntaxKind::RightParen);
-
     let m = p.marker();
     p.enter(LexMode::Code);
     p.enter_newline_mode(NewlineMode::Continue);
     p.assert(SyntaxKind::LeftBrace);
-    code(p, |p| p.at_set(END));
+    code(p, |p| p.at_set(syntax_set!(RightBrace, RightBracket, RightParen)));
     p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
     p.exit();
     p.exit_newline_mode();
@@ -1249,8 +1224,11 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
 
 /// Parses a function call's argument list: `(12pt, y)`.
 fn args(p: &mut Parser) {
-    if !p.at(SyntaxKind::LeftParen) && !p.at(SyntaxKind::LeftBracket) {
+    if !p.directly_at(SyntaxKind::LeftParen) && !p.directly_at(SyntaxKind::LeftBracket) {
         p.expected("argument list");
+        if p.at(SyntaxKind::LeftParen) || p.at(SyntaxKind::LeftBracket) {
+            p.hint("there may not be any spaces before the argument list");
+        }
     }
 
     let m = p.marker();
@@ -1789,7 +1767,7 @@ impl<'s> Parser<'s> {
     fn next_non_trivia(lexer: &mut Lexer<'s>) -> SyntaxKind {
         loop {
             let next = lexer.next();
-            // Loop is terminatable, because SyntaxKind::End is not a trivia.
+            // Loop is terminable, because SyntaxKind::End is not a trivia.
             if !next.is_trivia() {
                 break next;
             }

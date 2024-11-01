@@ -242,10 +242,10 @@ Let's start with an example of a horizontally striped table:
 #set text(font: "IBM Plex Sans")
 
 // Medium bold table header.
-#show table.cell.where(x: 1): set text(weight: "medium")
+#show table.cell.where(y: 0): set text(weight: "medium")
 
 // Bold titles.
-#show table.cell.where(y: 0): set text(weight: "bold")
+#show table.cell.where(x: 1): set text(weight: "bold")
 
 // See the strokes section for details on this!
 #let frame(stroke) = (x, y) => (
@@ -527,7 +527,7 @@ is useful if you are writing a template or want to style your whole document.
 ```
 
 For small tables, you sometimes want to suppress all strokes because they add
-too much visual noise. To do this, just set the stroke argument to `none`:
+too much visual noise. To do this, just set the stroke argument to `{none}`:
 
 ```example
 #table(
@@ -714,7 +714,7 @@ very first and last line.
   align: center + horizon,
   table.header[Technique][Advantage][Drawback],
   [Diegetic], [Immersive], [May be contrived],
-  [Extradiegetic], [Breaks immersion], [Obstrusive],
+  [Extradiegetic], [Breaks immersion], [Obtrusive],
   [Omitted], [Fosters engagement], [May fracture audience],
 )
 ```
@@ -746,7 +746,7 @@ below the first row:
 >>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
->>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
+>>>   [Extradiegetic], [Breaks immersion], [Obtrusive],
 >>>   [Omitted], [Fosters engagement], [May fracture audience],
 >>> )
 ```
@@ -777,7 +777,7 @@ The next example shows how to draw all but the outer lines:
 >>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
->>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
+>>>   [Extradiegetic], [Breaks immersion], [Obtrusive],
 >>>   [Omitted], [Fosters engagement], [May fracture audience],
 >>> )
 ```
@@ -812,7 +812,7 @@ calendar.
 >>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
->>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
+>>>   [Extradiegetic], [Breaks immersion], [Obtrusive],
 >>>   [Omitted], [Fosters engagement], [May fracture audience],
 >>> )
 ```

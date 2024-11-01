@@ -59,7 +59,7 @@ impl TermOut {
         // We don't want to clear anything that is not a TTY.
         if self.inner.stream.supports_color() {
             // First, move the cursor up `lines` lines.
-            // Then, clear everything between between the cursor to end of screen.
+            // Then, clear everything between the cursor to end of screen.
             let mut stream = self.inner.stream.lock();
             write!(stream, "\x1B[1F\x1B[0J")?;
             stream.flush()?;

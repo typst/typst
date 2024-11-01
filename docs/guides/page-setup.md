@@ -38,7 +38,7 @@ in your template.
   number-align: center,
 )
 
-#rect(fill: aqua)
+#rect(fill: aqua.lighten(40%))
 ```
 
 This example visualizes the dimensions for page content, headers, and footers.
@@ -188,7 +188,7 @@ conditionally remove the header on the first page:
 This example may look intimidating, but let's break it down: By using the
 `{context}` keyword, we are telling Typst that the header depends on where we
 are in the document. We then ask Typst if the page [counter] is larger than one
-at our (context-dependant) current position. The page counter starts at one, so
+at our (context-dependent) current position. The page counter starts at one, so
 we are skipping the header on a single page. Counters may have multiple levels.
 This feature is used for items like headings, but the page counter will always
 have a single level, so we can just look at the first one.
@@ -390,59 +390,52 @@ Add columns to your document to fit more on a page while maintaining legible
 line lengths. Columns are vertical blocks of text which are separated by some
 whitespace. This space is called the gutter.
 
-If all of your content needs to be laid out in columns, you can just specify the
-desired number of columns in the [`{page}`]($page.columns) set rule:
+To lay out your content in columns, just specify the desired number of columns
+in a [`{page}`]($page.columns) set rule. To adjust the amount of space between
+the columns, add a set rule on the [`columns` function]($columns), specifying
+the `gutter` parameter.
 
 ```example
 >>> #set page(height: 120pt)
 #set page(columns: 2)
+#set columns(gutter: 12pt)
+
 #lorem(30)
 ```
 
-If you need to adjust the gutter between the columns, refer to the method used
-in the next section.
-
-### Use columns anywhere in your document { #columns-anywhere }
 Very commonly, scientific papers have a single-column title and abstract, while
-the main body is set in two-columns. To achieve this effect, Typst includes a
-standalone [`{columns}` function]($columns) that can be used to insert columns
-anywhere on a page.
-
-Conceptually, the `columns` function must wrap the content of the columns:
+the main body is set in two-columns. To achieve this effect, Typst's [`place`
+function]($place) can temporarily escape the two-column layout by specifying
+`{float: true}` and `{scope: "parent"}`:
 
 ```example:single
 >>> #set page(height: 180pt)
-= Impacts of Odobenidae
-
+#set page(columns: 2)
 #set par(justify: true)
->>> #h(11pt)
-#columns(2)[
-  == About seals in the wild
-  #lorem(80)
-]
-```
 
-However, we can use the ["everything show rule"]($styling/#show-rules) to reduce
-nesting and write more legible Typst markup:
-
-```example:single
->>> #set page(height: 180pt)
-= Impacts of Odobenidae
-
-#set par(justify: true)
->>> #h(11pt)
-#show: columns.with(2)
+#place(
+  top + center,
+  float: true,
+  scope: "parent",
+  text(1.4em, weight: "bold")[
+    Impacts of Odobenidae
+  ],
+)
 
 == About seals in the wild
 #lorem(80)
 ```
 
-The show rule will wrap everything that comes after it in its function. The
-[`with` method]($function.with) allows us to pass arguments, in this case, the
-column count, to a function without calling it.
+_Floating placement_ refers to elements being pushed to the top or bottom of the
+column or page, with the remaining content flowing in between. It is also
+frequently used for [figures]($figure.placement).
 
-Another use of the `columns` function is to create columns inside of a container
-like a rectangle or to customize gutter size:
+### Use columns anywhere in your document { #columns-anywhere }
+To create columns within a nested layout, e.g. within a rectangle, you can use
+the [`columns` function]($columns) directly. However, it really should only be
+used within nested layouts. At the page-level, the page set rule is preferrable
+because it has better interactions with things like page-level floats,
+footnotes, and line numbers.
 
 ```example
 #rect(

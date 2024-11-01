@@ -92,7 +92,12 @@ $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
 // Error: 3-37 cannot draw a vertical line after column 3 of a matrix with 3 columns
 $ mat(1, 0, 0; 0, 1, 1; augment: #3) $,
 
---- math-mat-align-explicit--alternating ---
+--- math-mat-align ---
+$ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #left) $
+$ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #center) $
+$ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #right) $
+
+--- math-mat-align-explicit-alternating ---
 // Test alternating explicit alignment in a matrix.
 $ mat(
   "a" & "a a a" & "a a";
@@ -123,6 +128,17 @@ $ mat(
   "a a"&, "a a"&, "a"&;
   "a a a"&, "a"&, "a a a"&;
 ) $
+
+--- math-mat-align-explicit-mixed ---
+// Test explicit alignment in some columns with align parameter in a matrix.
+#let data = (
+  ($&18&&.02$, $1$, $+1$),
+  ($-&9&&.3$, $-1$, $-&21$),
+  ($&&&.011$, $1$, $&0$)
+)
+$ #math.mat(align: left, ..data) $
+$ #math.mat(align: center, ..data) $
+$ #math.mat(align: right, ..data) $
 
 --- math-mat-align-complex ---
 // Test #460 equations.

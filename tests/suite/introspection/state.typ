@@ -28,7 +28,7 @@ Was: #context {
 #set page(width: 200pt)
 #set text(8pt)
 
-#let ls = state("lorem", lorem(1000).split("."))
+#let ls = state("lorem", lorem(30).split(" "))
 #let loremum(count) = {
   context ls.get().slice(0, count).join(".").trim() + "."
   ls.update(list => list.slice(count))

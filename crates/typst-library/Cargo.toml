@@ -1,0 +1,71 @@
+[package]
+name = "typst-library"
+description = "Typst's standard library."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+typst-assets = { workspace = true }
+typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+az = { workspace = true }
+bitflags = { workspace = true }
+bumpalo = { workspace = true }
+chinese-number = { workspace = true }
+ciborium = { workspace = true }
+comemo = { workspace = true }
+csv = { workspace = true }
+ecow = { workspace = true }
+flate2 = { workspace = true }
+fontdb = { workspace = true }
+hayagriva = { workspace = true }
+icu_properties = { workspace = true }
+icu_provider = { workspace = true }
+icu_provider_blob = { workspace = true }
+image = { workspace = true }
+indexmap = { workspace = true }
+kamadak-exif = { workspace = true }
+kurbo = { workspace = true }
+lipsum = { workspace = true }
+palette = { workspace = true }
+phf = { workspace = true }
+png = { workspace = true }
+qcms = { workspace = true }
+rayon = { workspace = true }
+regex = { workspace = true }
+roxmltree = { workspace = true }
+rust_decimal = { workspace = true }
+rustybuzz = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+siphasher = { workspace = true }
+smallvec = { workspace = true }
+syntect = { workspace = true }
+time = { workspace = true }
+toml = { workspace = true }
+ttf-parser = { workspace = true }
+two-face = { workspace = true }
+typed-arena = { workspace = true }
+unicode-math-class = { workspace = true }
+unicode-segmentation = { workspace = true }
+unscanny = { workspace = true }
+usvg = { workspace = true }
+wasmi = { workspace = true }
+xmlwriter = { workspace = true }
+
+[dev-dependencies]
+typst-dev-assets = { workspace = true }
+
+[lints]
+workspace = true

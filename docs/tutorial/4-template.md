@@ -41,8 +41,14 @@ You are #amazed[beautiful]!
 I am #amazed(color: purple)[amazed]!
 ```
 
-Templates now work by using an "everything" show rule that applies the custom
-function to our whole document. Let's do that with our `amazed` function.
+Templates now work by wrapping our whole document in a custom function like
+`amazed`. But wrapping a whole document in a giant function call would be
+cumbersome! Instead, we can use an "everything" show rule to achieve the same
+with cleaner code. To write such a show rule, put a colon directly behind the
+show keyword and then provide a function. This function is given the rest of the
+document as a parameter. The function can then do anything with this content.
+Since the `amazed` function can be called with a single content argument, we can
+just pass it by name to the show rule. Let's try it:
 
 ```example
 >>> #let amazed(term, color: blue) = {
@@ -55,8 +61,8 @@ negative thoughts or beliefs.
 In fact, I am amazing!
 ```
 
-Our whole document will now be passed to the `amazed` function, as if we
-wrapped it around it. This is not especially useful with this particular
+Our whole document will now be passed to the `amazed` function, as if we wrapped
+it around it. Of course, this is not especially useful with this particular
 function, but when combined with set rules and named arguments, it can be very
 powerful.
 
@@ -93,11 +99,12 @@ previous chapter.
       right + horizon,
       title
     ),
+    columns: 2,
 <<<     ...
   )
   set par(justify: true)
   set text(
-    font: "Linux Libertine",
+    font: "Libertinus Serif",
     size: 11pt,
   )
 
@@ -125,7 +132,7 @@ previous chapter.
 >>>    )
 >>>  )
 
-  columns(2, doc)
+  doc
 }
 
 #show: doc => conf(
@@ -147,24 +154,31 @@ previous chapter.
 >>> #lorem(200)
 ```
 
-We copy-pasted most of that code from the previous chapter. The only two
-differences are that we wrapped everything in the function `conf` and are
-calling the columns function directly on the `doc` argument as it already
-contains the content of the document. Moreover, we used a curly-braced code
-block instead of a content block. This way, we don't need to prefix all set
-rules and function calls with a `#`. In exchange, we cannot write markup
-directly into it anymore.
+We copy-pasted most of that code from the previous chapter. The two differences
+are this:
+
+1. We wrapped everything in the function `conf` using an everything show rule.
+   The function applies a few set and show rules and echoes the content it has
+   been passed at the end.
+
+2. Moreover, we used a curly-braced code block instead of a content block. This
+   way, we don't need to prefix all set rules and function calls with a `#`. In
+   exchange, we cannot write markup directly in the code block anymore.
 
 Also note where the title comes from: We previously had it inside of a variable.
-Now, we are receiving it as the first parameter of the template function.
-Thus, we must specify it in the show rule where we call the template.
+Now, we are receiving it as the first parameter of the template function. To do
+so, we passed a closure (that's a function without a name that is used right
+away) to the everything show rule. We did that because the `conf` function
+expects two positional arguments, the title and the body, but the show rule will
+only pass the body. Therefore, we add a new function definition that allows us
+to set a paper title and use the single parameter from the show rule.
 
 ## Templates with named arguments { #named-arguments }
-Our paper in the previous chapter had a title and an author list. Let's add these
-things to our template. In addition to the title, we want our template to accept
-a list of authors with their affiliations and the paper's abstract. To keep
-things readable, we'll add those as named arguments. In the end, we want it to
-work like this:
+Our paper in the previous chapter had a title and an author list. Let's add
+these things to our template. In addition to the title, we want our template to
+accept a list of authors with their affiliations and the paper's abstract. To
+keep things readable, we'll add those as named arguments. In the end, we want it
+to work like this:
 
 ```typ
 #show: doc => conf(
@@ -226,6 +240,7 @@ The resulting template function looks like this:
   doc,
 ) = {
   // Set and show rules from before.
+>>> #set page(columns: 2)
 <<<   ...
 
   set align(center)
@@ -249,7 +264,7 @@ The resulting template function looks like this:
   ]
 
   set align(left)
-  columns(2, doc)
+  doc
 }
 ```
 
@@ -260,8 +275,14 @@ your template is easily reused. Create a new text file in the file panel by
 clicking the plus button and name it `conf.typ`. Move the `conf` function
 definition inside of that new file. Now you can access it from your main file by
 adding an import before the show rule. Specify the path of the file between the
-`{import}` keyword and a colon, then name the function that you
-want to import.
+`{import}` keyword and a colon, then name the function that you want to import.
+
+Another thing that you can do to make applying templates just a bit more elegant
+is to use the [`.with`]($function.with) method on functions to pre-populate all
+the named arguments. This way, you can avoid spelling out a closure and
+appending the content argument at the bottom of your template list. Templates on
+[Typst Universe]($universe) are designed to work with this style of function
+call.
 
 ```example:single
 >>> #let conf(
@@ -270,7 +291,7 @@ want to import.
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(font: "Linux Libertine", 11pt)
+>>>  set text(font: "Libertinus Serif", 11pt)
 >>>  set par(justify: true)
 >>>  set page(
 >>>    "us-letter",
@@ -280,6 +301,7 @@ want to import.
 >>>      title
 >>>    ),
 >>>    numbering: "1",
+>>>    columns: 2,
 >>>  )
 >>>
 >>>  show heading.where(
@@ -304,30 +326,34 @@ want to import.
 >>>    )
 >>>  )
 >>>
->>>  set align(center)
->>>  text(17pt, title)
->>>
->>>  let count = calc.min(authors.len(), 3)
->>>  grid(
->>>    columns: (1fr,) * count,
->>>    row-gutter: 24pt,
->>>    ..authors.map(author => [
->>>      #author.name \
->>>      #author.affiliation \
->>>      #link("mailto:" + author.email)
->>>    ]),
+>>>  place(
+>>>    top,
+>>>    float: true,
+>>>    scope: "parent",
+>>>    clearance: 2em,
+>>>    {
+>>>      set align(center)
+>>>      text(17pt, title)
+>>>      let count = calc.min(authors.len(), 3)
+>>>      grid(
+>>>        columns: (1fr,) * count,
+>>>        row-gutter: 24pt,
+>>>        ..authors.map(author => [
+>>>          #author.name \
+>>>          #author.affiliation \
+>>>          #link("mailto:" + author.email)
+>>>        ]),
+>>>      )
+>>>      par(justify: false)[
+>>>        *Abstract* \
+>>>        #abstract
+>>>      ]
+>>>    },
 >>>  )
->>>
->>>  par(justify: false)[
->>>    *Abstract* \
->>>    #abstract
->>>  ]
->>>
->>>  set align(left)
->>>  columns(2, doc)
+>>>  doc
 >>>}
 <<< #import "conf.typ": conf
-#show: doc => conf(
+#show: conf.with(
   title: [
     Towards Improved Modelling
   ],
@@ -344,7 +370,6 @@ want to import.
     ),
   ),
   abstract: lorem(80),
-  doc,
 )
 
 = Introduction
@@ -361,7 +386,7 @@ want to import.
 ```
 
 We have now converted the conference paper into a reusable template for that
-conference! Why not share it on
+conference! Why not share it in the [Forum](https://forum.typst.app/) or on
 [Typst's Discord server](https://discord.gg/2uDybryKPe) so that others can use
 it too?
 
@@ -372,9 +397,10 @@ that define reusable document styles. You've made it far and learned a lot. You
 can now use Typst to write your own documents and share them with others.
 
 We are still a super young project and are looking for feedback. If you have any
-questions, suggestions or you found a bug, please let us know on
-[Typst's Discord server](https://discord.gg/2uDybryKPe), on our
-[contact form](https://typst.app/contact), or on
-[social media.](https://twitter.com/typstapp)
+questions, suggestions or you found a bug, please let us know
+in the [Forum](https://forum.typst.app/),
+on our [Discord server](https://discord.gg/2uDybryKPe),
+on [GitHub](https://github.com/typst/typst/),
+or via the web app's feedback form (always available in the Help menu).
 
 So what are you waiting for? [Sign up](https://typst.app) and write something!

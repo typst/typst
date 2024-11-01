@@ -1,9 +1,12 @@
-use arrayvec::ArrayVec;
-use once_cell::sync::Lazy;
-use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
-use typst::visualize::{Color, ColorSpace, Paint};
+use std::sync::LazyLock;
 
-use crate::{content, deflate, PdfChunk, Renumber, WithResources};
+use arrayvec::ArrayVec;
+use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
+use typst_library::diag::{bail, SourceResult};
+use typst_library::visualize::{Color, ColorSpace, Paint};
+use typst_syntax::Span;
+
+use crate::{content, deflate, PdfChunk, PdfOptions, Renumber, WithResources};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -11,10 +14,10 @@ pub const D65_GRAY: Name<'static> = Name(b"d65gray");
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
 
 // The ICC profiles.
-static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_RGB_V4));
-static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(typst_assets::icc::S_GREY_V4));
+static SRGB_ICC_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(typst_assets::icc::S_RGB_V4));
+static GRAY_ICC_DEFLATED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| deflate(typst_assets::icc::S_GREY_V4));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]
@@ -64,18 +67,18 @@ impl ColorSpaces {
     /// PDF file.
     pub fn write_functions(&self, chunk: &mut Chunk, refs: &ColorFunctionRefs) {
         // Write the sRGB color space.
-        if self.use_srgb {
+        if let Some(id) = refs.srgb {
             chunk
-                .icc_profile(refs.srgb.unwrap(), &SRGB_ICC_DEFLATED)
+                .icc_profile(id, &SRGB_ICC_DEFLATED)
                 .n(3)
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
         // Write the gray color space.
-        if self.use_d65_gray {
+        if let Some(id) = refs.d65_gray {
             chunk
-                .icc_profile(refs.d65_gray.unwrap(), &GRAY_ICC_DEFLATED)
+                .icc_profile(id, &GRAY_ICC_DEFLATED)
                 .n(1)
                 .range([0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -124,7 +127,7 @@ pub fn write(
 /// needed) in the final document, and be shared by all color space
 /// dictionaries.
 pub struct ColorFunctionRefs {
-    srgb: Option<Ref>,
+    pub srgb: Option<Ref>,
     d65_gray: Option<Ref>,
 }
 
@@ -142,20 +145,25 @@ impl Renumber for ColorFunctionRefs {
 /// Allocate all necessary [`ColorFunctionRefs`].
 pub fn alloc_color_functions_refs(
     context: &WithResources,
-) -> (PdfChunk, ColorFunctionRefs) {
+) -> SourceResult<(PdfChunk, ColorFunctionRefs)> {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
 
+    if context.options.standards.pdfa {
+        used_color_spaces.mark_as_used(ColorSpace::Srgb);
+    }
+
     context.resources.traverse(&mut |r| {
         used_color_spaces.merge(&r.colors);
-    });
+        Ok(())
+    })?;
 
     let refs = ColorFunctionRefs {
         srgb: if used_color_spaces.use_srgb { Some(chunk.alloc()) } else { None },
         d65_gray: if used_color_spaces.use_d65_gray { Some(chunk.alloc()) } else { None },
     };
 
-    (chunk, refs)
+    Ok((chunk, refs))
 }
 
 /// Encodes the color into four f32s, which can be used in a PDF file.
@@ -193,7 +201,7 @@ pub(super) trait PaintEncode {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    );
+    ) -> SourceResult<()>;
 
     /// Set the paint as the stroke color.
     fn set_as_stroke(
@@ -201,7 +209,7 @@ pub(super) trait PaintEncode {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    );
+    ) -> SourceResult<()>;
 }
 
 impl PaintEncode for Paint {
@@ -210,7 +218,7 @@ impl PaintEncode for Paint {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         match self {
             Self::Solid(c) => c.set_as_fill(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_fill(ctx, on_text, transforms),
@@ -223,7 +231,7 @@ impl PaintEncode for Paint {
         ctx: &mut content::Builder,
         on_text: bool,
         transforms: content::Transforms,
-    ) {
+    ) -> SourceResult<()> {
         match self {
             Self::Solid(c) => c.set_as_stroke(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_stroke(ctx, on_text, transforms),
@@ -233,7 +241,12 @@ impl PaintEncode for Paint {
 }
 
 impl PaintEncode for Color {
-    fn set_as_fill(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
+    fn set_as_fill(
+        &self,
+        ctx: &mut content::Builder,
+        _: bool,
+        _: content::Transforms,
+    ) -> SourceResult<()> {
         match self {
             Color::Luma(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::D65Gray);
@@ -262,15 +275,22 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Cmyk(_) => {
+                check_cmyk_allowed(ctx.options)?;
                 ctx.reset_fill_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_fill_cmyk(c, m, y, k);
             }
         }
+        Ok(())
     }
 
-    fn set_as_stroke(&self, ctx: &mut content::Builder, _: bool, _: content::Transforms) {
+    fn set_as_stroke(
+        &self,
+        ctx: &mut content::Builder,
+        _: bool,
+        _: content::Transforms,
+    ) -> SourceResult<()> {
         match self {
             Color::Luma(_) => {
                 ctx.resources.colors.mark_as_used(ColorSpace::D65Gray);
@@ -299,12 +319,14 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Cmyk(_) => {
+                check_cmyk_allowed(ctx.options)?;
                 ctx.reset_stroke_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_stroke_cmyk(c, m, y, k);
             }
         }
+        Ok(())
     }
 }
 
@@ -358,4 +380,15 @@ impl QuantizedColor for f32 {
     fn quantize(color: f32, [min, max]: [f32; 2]) -> Self {
         color.clamp(min, max)
     }
+}
+
+/// Fails with an error if PDF/A processing is enabled.
+pub(super) fn check_cmyk_allowed(options: &PdfOptions) -> SourceResult<()> {
+    if options.standards.pdfa {
+        bail!(
+            Span::detached(),
+            "cmyk colors are not currently supported by PDF/A export"
+        );
+    }
+    Ok(())
 }

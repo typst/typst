@@ -3,13 +3,13 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::engine::Sink;
-use typst::eval::CapturesVisitor;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
-use typst::utils::{round_2, Numeric};
+use typst::utils::{round_with_precision, Numeric};
 use typst::World;
+use typst_eval::CapturesVisitor;
 
 use crate::{analyze_expr, analyze_labels, plain_docs_sentence, summarize_font_family};
 
@@ -142,10 +142,10 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
     length.em.is_zero().then(|| {
         Tooltip::Code(eco_format!(
             "{}pt = {}mm = {}cm = {}in",
-            round_2(length.abs.to_pt()),
-            round_2(length.abs.to_mm()),
-            round_2(length.abs.to_cm()),
-            round_2(length.abs.to_inches())
+            round_with_precision(length.abs.to_pt(), 2),
+            round_with_precision(length.abs.to_mm(), 2),
+            round_with_precision(length.abs.to_cm(), 2),
+            round_with_precision(length.abs.to_inches(), 2),
         ))
     })
 }

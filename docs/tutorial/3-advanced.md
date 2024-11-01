@@ -10,11 +10,11 @@ base a conference paper on it! The report will of course have to comply with the
 conference's style guide. Let's see how we can achieve that.
 
 Before we start, let's create a team, invite your supervisor and add them to the
-team. You can do this by going back to the app dashboard with the four-circles
-icon in the top left corner of the editor. Then, choose the plus icon in the
-left toolbar and create a team. Finally, click on the new team and go to its
-settings by clicking 'manage team' next to the team name. Now you can invite
-your supervisor by email.
+team. You can do this by going back to the app dashboard with the back icon in
+the top left corner of the editor. Then, choose the plus icon in the left
+toolbar and create a team. Finally, click on the new team and go to its settings
+by clicking 'manage team' next to the team name. Now you can invite your
+supervisor by email.
 
 ![The team settings](3-advanced-team-settings.png)
 
@@ -61,7 +61,7 @@ Let's start by writing some set rules for the document.
 )
 #set par(justify: true)
 #set text(
-  font: "Linux Libertine",
+  font: "Libertinus Serif",
   size: 11pt,
 )
 
@@ -69,7 +69,7 @@ Let's start by writing some set rules for the document.
 ```
 
 You are already familiar with most of what is going on here. We set the text
-size to `{11pt}` and the font to Linux Libertine. We also enable paragraph
+size to `{11pt}` and the font to Libertinus Serif. We also enable paragraph
 justification and set the page size to US letter.
 
 The `header` argument is new: With it, we can provide content to fill the top
@@ -90,7 +90,7 @@ align it and increase its font weight by enclosing it in `[*stars*]`.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 #align(center, text(17pt)[
   *A fluid dynamic model
   for glacier flow*
@@ -104,7 +104,7 @@ supervisor, we'll add our own and their name.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 >>> #align(center, text(17pt)[
 >>>   *A fluid dynamic model
@@ -141,7 +141,7 @@ Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
 
 ```example:0,0,612,317.5
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -200,7 +200,7 @@ keyword:
 
 <<< ...
 
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 #set page(
 >>>   "us-letter",
@@ -248,17 +248,34 @@ on another title, we can easily change it in one place.
 
 ## Adding columns and headings { #columns-and-headings }
 The paper above unfortunately looks like a wall of lead. To fix that, let's add
-some headings and switch our paper to a two-column layout. The [`columns`]
-function takes a number and content, and layouts the content into the specified
-number of columns. Since we want everything after the abstract to be in two
-columns, we need to apply the column function to our whole document.
+some headings and switch our paper to a two-column layout. Fortunately, that's
+easy to do: We just need to amend our `page` set rule with the `columns`
+argument.
 
-Instead of wrapping the whole document in a giant function call, we can use an
-"everything" show rule. To write such a show rule, put a colon directly behind
-the show keyword and then provide a function. This function is given the rest of
-the document as a parameter. We have called the parameter `rest` here, but you
-are free to choose any name. The function can then do anything with this
-content. In our case, it passes it on to the `columns` function.
+By adding `{columns: 2}` to the argument list, we have wrapped the whole
+document in two columns. However, that would also affect the title and authors
+overview. To keep them spanning the whole page, we can wrap them in a function
+call to [`{place}`]($place). Place expects an alignment and the content it
+should place as positional arguments. Using the named `{scope}` argument, we can
+decide if the items should be placed relative to the current column or its
+parent (the page). There is one more thing to configure: If no other arguments
+are provided, `{place}` takes its content out of the flow of the document and
+positions it over the other content without affecting the layout of other
+content in its container:
+
+```example
+#place(
+  top + center,
+  rect(fill: black),
+)
+#lorem(30)
+```
+
+If we hadn't used `{place}` here, the square would be in its own line, but here
+it overlaps the few lines of text following it. Likewise, that text acts like as
+if there was no square. To change this behavior, we can pass the argument
+`{float: true}` to ensure that the space taken up by the placed item at the top
+or bottom of the page is not occupied by any other content.
 
 ```example:single
 >>> #let title = [
@@ -266,47 +283,52 @@ content. In our case, it passes it on to the `columns` function.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
->>> #set page(
->>>   "us-letter",
->>>   margin: auto,
->>>   header: align(
->>>     right + horizon,
->>>     title
->>>   ),
->>>   numbering: "1",
->>> )
 >>>
->>> #align(center, text(
->>>   17pt,
->>>   weight: "bold",
->>>   title,
->>> ))
->>>
->>> #grid(
->>>   columns: (1fr, 1fr),
->>>   align(center)[
->>>     Therese Tungsten \
->>>     Artos Institute \
->>>     #link("mailto:tung@artos.edu")
->>>   ],
->>>   align(center)[
->>>     Dr. John Doe \
->>>     Artos Institute \
->>>     #link("mailto:doe@artos.edu")
->>>   ]
->>> )
->>>
->>> #align(center)[
->>>   #set par(justify: false)
->>>   *Abstract* \
->>>   #lorem(80)
->>> ]
->>> #v(4mm)
-<<< ...
+#set page(
+>>> margin: auto,
+  paper: "us-letter",
+  header: align(
+    right + horizon,
+    title
+  ),
+  numbering: "1",
+  columns: 2,
+)
 
-#show: rest => columns(2, rest)
+#place(
+  top + center,
+  float: true,
+  scope: "parent",
+  clearance: 2em,
+)[
+>>>  #text(
+>>>    17pt,
+>>>    weight: "bold",
+>>>    title,
+>>>  )
+>>>
+>>>  #grid(
+>>>    columns: (1fr, 1fr),
+>>>    [
+>>>      Therese Tungsten \
+>>>      Artos Institute \
+>>>      #link("mailto:tung@artos.edu")
+>>>    ],
+>>>    [
+>>>      Dr. John Doe \
+>>>      Artos Institute \
+>>>      #link("mailto:doe@artos.edu")
+>>>    ]
+>>>  )
+<<<   ...
+
+  #par(justify: false)[
+    *Abstract* \
+    #lorem(80)
+  ]
+]
 
 = Introduction
 #lorem(300)
@@ -314,6 +336,11 @@ content. In our case, it passes it on to the `columns` function.
 = Related Work
 #lorem(200)
 ```
+
+In this example, we also used the `clearance` argument of the `{place}` function
+to provide the space between it and the body instead of using the [`{v}`]($v)
+function. We can also remove the explicit `{align(center, ..)}` calls around the
+various parts since they inherit the center alignment from the placement.
 
 Now there is only one thing left to do: Style our headings. We need to make them
 centered and use small capitals. Because the `heading` function does not offer
@@ -325,7 +352,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -335,6 +362,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>>     title
 >>>   ),
 >>>   numbering: "1",
+>>>   columns: 2,
 >>> )
 #show heading: it => [
   #set align(center)
@@ -344,34 +372,37 @@ a way to set any of that, we need to write our own heading show rule.
 
 <<< ...
 >>>
->>> #align(center, text(
->>>   17pt,
->>>   weight: "bold",
->>>   title,
->>> ))
+>>> #place(
+>>>   top + center,
+>>>   float: true,
+>>>   scope: "parent",
+>>>   clearance: 2em,
+>>> )[
+>>>   #text(
+>>>     17pt,
+>>>     weight: "bold",
+>>>     title,
+>>>   )
 >>>
->>> #grid(
->>>   columns: (1fr, 1fr),
->>>   align(center)[
->>>     Therese Tungsten \
->>>     Artos Institute \
->>>     #link("mailto:tung@artos.edu")
->>>   ],
->>>   align(center)[
->>>     Dr. John Doe \
->>>     Artos Institute \
->>>     #link("mailto:doe@artos.edu")
+>>>   #grid(
+>>>     columns: (1fr, 1fr),
+>>>     [
+>>>       Therese Tungsten \
+>>>       Artos Institute \
+>>>       #link("mailto:tung@artos.edu")
+>>>     ],
+>>>     [
+>>>       Dr. John Doe \
+>>>       Artos Institute \
+>>>       #link("mailto:doe@artos.edu")
+>>>     ]
+>>>   )
+>>>
+>>>   #par(justify: false)[
+>>>     *Abstract* \
+>>>     #lorem(80)
 >>>   ]
->>> )
->>>
->>> #align(center)[
->>>   #set par(justify: false)
->>>   *Abstract* \
->>>   #lorem(80)
 >>> ]
->>>
->>> #v(4mm)
->>> #show: rest => columns(2, rest)
 >>>
 >>> = Introduction
 >>> #lorem(35)
@@ -401,7 +432,7 @@ differentiate between section and subsection headings:
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Linux Libertine", 11pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -411,6 +442,7 @@ differentiate between section and subsection headings:
 >>>     title
 >>>   ),
 >>>   numbering: "1",
+>>>   columns: 2,
 >>> )
 >>>
 #show heading.where(
@@ -430,34 +462,37 @@ differentiate between section and subsection headings:
   it.body + [.],
 )
 >>>
->>> #align(center, text(
->>>   17pt,
->>>   weight: "bold",
->>>   title,
->>> ))
+>>> #place(
+>>>   top + center,
+>>>   float: true,
+>>>   scope: "parent",
+>>>   clearance: 2em,
+>>> )[
+>>>   #text(
+>>>     17pt,
+>>>     weight: "bold",
+>>>     title,
+>>>   )
 >>>
->>> #grid(
->>>   columns: (1fr, 1fr),
->>>   align(center)[
->>>     Therese Tungsten \
->>>     Artos Institute \
->>>     #link("mailto:tung@artos.edu")
->>>   ],
->>>   align(center)[
->>>     Dr. John Doe \
->>>     Artos Institute \
->>>     #link("mailto:doe@artos.edu")
+>>>  #grid(
+>>>    columns: (1fr, 1fr),
+>>>    [
+>>>      Therese Tungsten \
+>>>      Artos Institute \
+>>>      #link("mailto:tung@artos.edu")
+>>>    ],
+>>>    [
+>>>      Dr. John Doe \
+>>>      Artos Institute \
+>>>      #link("mailto:doe@artos.edu")
+>>>    ]
+>>>  )
+>>>
+>>>   #par(justify: false)[
+>>>     *Abstract* \
+>>>     #lorem(80)
 >>>   ]
->>> )
->>>
->>> #align(center)[
->>>   #set par(justify: false)
->>>   *Abstract* \
->>>   #lorem(80)
 >>> ]
->>>
->>> #v(4mm)
->>> #show: rest => columns(2, rest)
 >>>
 >>> = Introduction
 >>> #lorem(35)

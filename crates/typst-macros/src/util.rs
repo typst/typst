@@ -163,7 +163,7 @@ pub fn determine_name_and_title(
         let trim = trim.unwrap_or(|s| s);
         let default = trim(&ident.to_string()).to_kebab_case();
         if specified_name.as_ref() == Some(&default) {
-            bail!(ident, "name was specified unncessarily");
+            bail!(ident, "name was specified unnecessarily");
         }
         specified_name.unwrap_or(default)
     };
@@ -171,7 +171,7 @@ pub fn determine_name_and_title(
     let title = {
         let default = name.to_title_case();
         if specified_title.as_ref() == Some(&default) {
-            bail!(ident, "title was specified unncessarily");
+            bail!(ident, "title was specified unnecessarily");
         }
         specified_title.unwrap_or(default)
     };
@@ -200,13 +200,13 @@ impl<T: Parse> Parse for Array<T> {
     }
 }
 
-/// Shorthand for `::typst::foundations`.
+/// Shorthand for `::typst_library::foundations`.
 #[allow(non_camel_case_types)]
 pub struct foundations;
 
 impl quote::ToTokens for foundations {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        quote! { ::typst::foundations }.to_tokens(tokens);
+        quote! { ::typst_library::foundations }.to_tokens(tokens);
     }
 }
 
