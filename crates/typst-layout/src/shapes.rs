@@ -48,21 +48,29 @@ pub fn layout_line(
     Ok(frame)
 }
 
-struct PathBuilder {
+struct CommonPathBuilder<'a> {
     path: Path,
     size: Size,
     closed: bool,
     region: Region,
+    styles: StyleChain<'a>,
 }
 
-impl PathBuilder {
-    fn new(region: Region, closed: bool) -> Self {
+impl<'a> CommonPathBuilder<'a> {
+    fn new(region: Region, styles: StyleChain<'a>, closed: bool) -> Self {
         Self {
             path: Path::new(),
             size: Size::zero(),
             closed,
             region,
+            styles,
         }
+    }
+
+    fn resolve_point(&self, axes: Axes<Rel<Length>>) -> Point {
+        axes.resolve(self.styles)
+            .zip_map(self.region.size, Rel::relative_to)
+            .to_point()
     }
 
     fn start_component(&mut self, point: Point) {
@@ -112,25 +120,21 @@ impl PathBuilder {
     }
 }
 
-struct NewStylePathBuilder<'a> {
-    inner: &'a mut PathBuilder,
+#[derive(Default)]
+struct NewStylePathBuilder {
     start: Point,
     last: Point,
     last_control: Point,
 }
 
-impl<'a> NewStylePathBuilder<'a> {
-    fn new(builder: &'a mut PathBuilder) -> Self {
-        Self {
-            inner: builder,
-            start: Default::default(),
-            last: Default::default(),
-            last_control: Default::default(),
-        }
-    }
-
-    fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
-        let p = point.zip_map(self.inner.region.size, Rel::relative_to);
+impl NewStylePathBuilder {
+    fn resolve_point(
+        &self,
+        builder: &mut CommonPathBuilder,
+        point: Axes<Rel<Abs>>,
+        relative: bool,
+    ) -> Point {
+        let p = point.zip_map(builder.region.size, Rel::relative_to);
         let mut p = Point::new(p.x, p.y);
         if relative {
             p += self.last;
@@ -138,10 +142,15 @@ impl<'a> NewStylePathBuilder<'a> {
         p
     }
 
-    fn resolve_smart_point(&self, point: Smart<Axes<Rel<Abs>>>, relative: bool) -> Point {
+    fn resolve_smart_point(
+        &self,
+        builder: &mut CommonPathBuilder,
+        point: Smart<Axes<Rel<Abs>>>,
+        relative: bool,
+    ) -> Point {
         match point {
             Smart::Custom(p) => {
-                let p = p.zip_map(self.inner.region.size, Rel::relative_to);
+                let p = p.zip_map(builder.region.size, Rel::relative_to);
                 let mut p = Point::new(p.x, p.y);
                 if relative {
                     p += self.last;
@@ -153,105 +162,139 @@ impl<'a> NewStylePathBuilder<'a> {
         }
     }
 
-    fn open_if_needed(&mut self) {
-        if self.inner.path.is_empty() {
-            self.inner.path.move_to(self.start);
+    fn open_if_needed(&mut self, builder: &mut CommonPathBuilder) {
+        if builder.path.is_empty() {
+            builder.path.move_to(self.start);
         }
     }
 
-    fn move_to(&mut self, point: Point) {
-        self.inner.start_component(point);
+    fn move_to(&mut self, builder: &mut CommonPathBuilder, point: Point) {
+        builder.start_component(point);
         self.start = point;
         self.last = point;
         self.last_control = point;
     }
 
-    fn line_to(&mut self, point: Point) {
-        self.inner.add_line(point);
+    fn line_to(&mut self, builder: &mut CommonPathBuilder, point: Point) {
+        builder.add_line(point);
         self.last = point;
         self.last_control = point;
     }
 
-    fn quadratic_to(&mut self, control: Point, end: Point) {
+    fn quadratic_to(
+        &mut self,
+        builder: &mut CommonPathBuilder,
+        control: Point,
+        end: Point,
+    ) {
         let c1 = self.last + (2. / 3.) * (control - self.last);
         let c2 = end + (2. / 3.) * (control - end);
-        self.cubic_to(c1, c2, end);
+        self.cubic_to(builder, c1, c2, end);
         self.last_control = control;
     }
 
-    fn cubic_to(&mut self, c1: Point, c2: Point, end: Point) {
-        self.inner.add_cubic(self.last, end, c1, c2);
+    fn cubic_to(
+        &mut self,
+        builder: &mut CommonPathBuilder,
+        c1: Point,
+        c2: Point,
+        end: Point,
+    ) {
+        builder.add_cubic(self.last, end, c1, c2);
         self.last = end;
         self.last_control = c2;
     }
 
-    fn close(&mut self) {
-        self.inner.close_component();
+    fn close(&mut self, builder: &mut CommonPathBuilder) {
+        builder.close_component();
         self.last = self.start;
         self.last_control = self.start;
     }
 
-    fn close_if_needed(&mut self) {
-        if self.inner.closed && self.last != self.start {
-            self.inner.path.close_path();
+    fn close_if_needed(&mut self, builder: &mut CommonPathBuilder) {
+        if builder.closed && self.last != self.start {
+            builder.path.close_path();
         }
     }
 }
 
-struct OldStylePathBuilder<'a> {
-    inner: &'a mut PathBuilder,
-    styles: StyleChain<'a>,
+#[derive(Default)]
+struct OldStylePathBuilder {
     start: Point,
     start_control_to: Point,
-    last: Point,
+    last: Option<Point>,
     last_control_from: Point,
 }
 
-impl<'a> OldStylePathBuilder<'a> {
-    fn new(builder: &'a mut PathBuilder, styles: StyleChain<'a>) -> Self {
-        Self {
-            inner: builder,
-            styles,
-            start: Default::default(),
-            start_control_to: Default::default(),
-            last: Default::default(),
-            last_control_from: Default::default(),
-        }
-    }
-
-    fn resolve_point(&self, axes: Axes<Rel<Length>>) -> Point {
-        axes.resolve(self.styles)
-            .zip_map(self.inner.region.size, Rel::relative_to)
-            .to_point()
-    }
-
-    fn move_to(&mut self, c: &PathComponent) {
-        self.start = self.resolve_point(c.vertex());
-        self.start_control_to = self.resolve_point(c.control_point_to());
-        self.inner.start_component(self.start);
-        self.last = self.start;
-        self.last_control_from = self.resolve_point(c.control_point_from());
-    }
-
-    fn curve_to(&mut self, c: &PathComponent) {
-        let from_point = self.last;
-        let to_point = self.resolve_point(c.vertex());
-        let control_from = self.last_control_from + from_point;
-        let control_to = self.resolve_point(c.control_point_to()) + to_point;
-        self.inner.add_cubic(from_point, to_point, control_from, control_to);
-        self.last = to_point;
-        self.last_control_from = self.resolve_point(c.control_point_from());
-    }
-
-    fn close(&mut self) {
-        if self.inner.closed {
-            let from_point = self.last;
-            let to_point = self.start;
+impl OldStylePathBuilder {
+    fn add_vertex(&mut self, builder: &mut CommonPathBuilder, c: &PathComponent) {
+        let to_point = builder.resolve_point(c.vertex());
+        let control_to = builder.resolve_point(c.control_point_to()) + to_point;
+        if let Some(from_point) = self.last {
             let control_from = self.last_control_from + from_point;
-            let control_to = self.start_control_to + to_point;
-            self.inner.add_cubic(from_point, to_point, control_from, control_to);
-            self.inner.close_component();
+            builder.add_cubic(from_point, to_point, control_from, control_to);
+        } else {
+            self.start = builder.resolve_point(c.vertex());
+            self.start_control_to = builder.resolve_point(c.control_point_to());
+            builder.start_component(self.start);
         }
+        self.last = Some(to_point);
+        self.last_control_from = builder.resolve_point(c.control_point_from());
+    }
+
+    fn close(&mut self, builder: &mut CommonPathBuilder) {
+        if builder.closed {
+            if let Some(from_point) = self.last {
+                let to_point = self.start;
+                let control_from = self.last_control_from + from_point;
+                let control_to = self.start_control_to + to_point;
+                builder.add_cubic(from_point, to_point, control_from, control_to);
+                builder.close_component();
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+enum PathBuilder {
+    #[default]
+    Undefined,
+    OldStyle(OldStylePathBuilder),
+    NewStyle(NewStylePathBuilder),
+}
+
+impl PathBuilder {
+    fn old_style(&mut self, builder: &mut CommonPathBuilder) -> &mut OldStylePathBuilder {
+        if let PathBuilder::NewStyle(b) = self {
+            b.close(builder);
+            *self = PathBuilder::Undefined;
+        }
+        if let PathBuilder::Undefined = self {
+            *self = PathBuilder::OldStyle(Default::default());
+        }
+        let PathBuilder::OldStyle(r) = self else { unreachable!() };
+        r
+    }
+
+    fn new_style(&mut self, builder: &mut CommonPathBuilder) -> &mut NewStylePathBuilder {
+        if let PathBuilder::OldStyle(b) = self {
+            b.close(builder);
+            *self = PathBuilder::Undefined;
+        }
+        if let PathBuilder::Undefined = self {
+            *self = PathBuilder::NewStyle(Default::default());
+        }
+        let PathBuilder::NewStyle(r) = self else { unreachable!() };
+        r
+    }
+
+    fn build(self, mut builder: CommonPathBuilder) -> (Path, Size) {
+        match self {
+            PathBuilder::Undefined => (),
+            PathBuilder::OldStyle(mut b) => b.close(&mut builder),
+            PathBuilder::NewStyle(mut b) => b.close(&mut builder),
+        };
+        builder.build()
     }
 }
 
@@ -264,76 +307,67 @@ pub fn layout_path(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let mut builder = PathBuilder::new(region, elem.closed(styles));
-    let vertices = elem.vertices();
-    let mut items = vertices.as_slice();
+    let mut common = CommonPathBuilder::new(region, styles, elem.closed(styles));
+    let mut builder = PathBuilder::default();
 
-    while !items.is_empty() {
-        if items[0].is_old_style() {
-            let len = items.iter().take_while(|i| i.is_old_style()).count();
-
-            let mut builder = OldStylePathBuilder::new(&mut builder, styles);
-            builder.move_to(&items[0]);
-
-            for vertex in &items[1..len] {
-                builder.curve_to(&vertex);
+    for item in elem.vertices() {
+        match item {
+            PathComponent::Vertex(..)
+            | PathComponent::MirroredControlPoint(..)
+            | PathComponent::AllControlPoints(..) => {
+                builder.old_style(&mut common).add_vertex(&mut common, &item);
             }
-
-            builder.close();
-
-            items = &items[len..];
-        } else {
-            let mut builder = NewStylePathBuilder::new(&mut builder);
-
-            let len = items.iter().take_while(|i| !i.is_old_style()).count();
-            for item in &items[..len] {
-                match item {
-                    PathComponent::MoveTo(element) => {
-                        builder.close_if_needed();
-                        let relative = element.relative(styles);
-                        let p = builder.resolve_point(element.start(styles), relative);
-                        builder.move_to(p);
-                    }
-                    PathComponent::LineTo(element) => {
-                        builder.open_if_needed();
-                        let relative = element.relative(styles);
-                        let p = builder.resolve_point(element.end(styles), relative);
-                        builder.line_to(p);
-                    }
-                    PathComponent::QuadraticTo(element) => {
-                        builder.open_if_needed();
-                        let relative = element.relative(styles);
-                        let c = builder
-                            .resolve_smart_point(element.control(styles), relative);
-                        let end = builder.resolve_point(element.end(styles), relative);
-                        builder.quadratic_to(c, end);
-                    }
-                    PathComponent::CubicTo(element) => {
-                        builder.open_if_needed();
-                        let relative = element.relative(styles);
-                        let c1 =
-                            builder.resolve_smart_point(element.cstart(styles), relative);
-                        let c2 = builder.resolve_point(element.cend(styles), relative);
-                        let end = builder.resolve_point(element.end(styles), relative);
-                        builder.cubic_to(c1, c2, end);
-                    }
-                    PathComponent::ClosePath => {
-                        builder.close();
-                    }
-                    PathComponent::Vertex(..)
-                    | PathComponent::MirroredControlPoint(..)
-                    | PathComponent::AllControlPoints(..) => {
-                        unreachable!()
-                    }
-                }
+            PathComponent::MoveTo(element) => {
+                let builder = builder.new_style(&mut common);
+                builder.close_if_needed(&mut common);
+                let relative = element.relative(styles);
+                let p =
+                    builder.resolve_point(&mut common, element.start(styles), relative);
+                builder.move_to(&mut common, p);
             }
-            builder.close_if_needed();
-
-            items = &items[len..];
+            PathComponent::LineTo(element) => {
+                let builder = builder.new_style(&mut common);
+                builder.open_if_needed(&mut common);
+                let relative = element.relative(styles);
+                let p = builder.resolve_point(&mut common, element.end(styles), relative);
+                builder.line_to(&mut common, p);
+            }
+            PathComponent::QuadraticTo(element) => {
+                let builder = builder.new_style(&mut common);
+                builder.open_if_needed(&mut common);
+                let relative = element.relative(styles);
+                let c = builder.resolve_smart_point(
+                    &mut common,
+                    element.control(styles),
+                    relative,
+                );
+                let end =
+                    builder.resolve_point(&mut common, element.end(styles), relative);
+                builder.quadratic_to(&mut common, c, end);
+            }
+            PathComponent::CubicTo(element) => {
+                let builder = builder.new_style(&mut common);
+                builder.open_if_needed(&mut common);
+                let relative = element.relative(styles);
+                let c1 = builder.resolve_smart_point(
+                    &mut common,
+                    element.cstart(styles),
+                    relative,
+                );
+                let c2 =
+                    builder.resolve_point(&mut common, element.cend(styles), relative);
+                let end =
+                    builder.resolve_point(&mut common, element.end(styles), relative);
+                builder.cubic_to(&mut common, c1, c2, end);
+            }
+            PathComponent::ClosePath => {
+                let builder = builder.new_style(&mut common);
+                builder.close(&mut common);
+            }
         }
     }
 
-    let (path, size) = builder.build();
+    let (path, size) = builder.build(common);
 
     if path.is_empty() {
         return Ok(Frame::soft(size));
