@@ -134,39 +134,6 @@ pub enum PathComponent {
     ClosePath,
 }
 
-impl PathComponent {
-    pub fn is_old_style(&self) -> bool {
-        matches!(self, SimplePoint(..) | MirroredControlPoint(..) | AllControlPoints(..))
-    }
-
-    pub fn vertex(&self) -> Axes<Rel<Length>> {
-        match self {
-            SimplePoint(x) => *x,
-            MirroredControlPoint(x, _) => *x,
-            AllControlPoints(x, _, _) => *x,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn control_point_from(&self) -> Axes<Rel<Length>> {
-        match self {
-            SimplePoint(_) => Axes::new(Rel::zero(), Rel::zero()),
-            MirroredControlPoint(_, a) => a.map(|x| -x),
-            AllControlPoints(_, _, b) => *b,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn control_point_to(&self) -> Axes<Rel<Length>> {
-        match self {
-            SimplePoint(_) => Axes::new(Rel::zero(), Rel::zero()),
-            MirroredControlPoint(_, a) => *a,
-            AllControlPoints(_, a, _) => *a,
-            _ => unreachable!(),
-        }
-    }
-}
-
 cast! {
     PathComponent,
     self => match self {
@@ -277,25 +244,33 @@ fn take_smart_point(args: &mut Args) -> SourceResult<Option<Smart<Axes<Rel<Lengt
     }
 }
 
-/// An element used to start a new path component.
+/// An element used to define a vertex and its control points.
 ///
-/// If no `path.moveto` element is provided, the component will
-/// start at `(0pt, 0pt)`.
+/// - `point`
+/// - `control-into` controls the curve coming into this vertex.
+/// - `control-from` controls the curve coming out of this vertex. If set
+///    to `auto`, the `control-into` point is mirrored.
+/// - If `relative` is set, the vertex
+/// Control points are defined relative to the vertex.
 ///
-/// If `closed` is `true` in the containing path, previous components
-/// will be closed.
 #[elem(name = "vertex", title = "Vertex with control points")]
 pub struct PathVertex {
+    /// Position of the vertex.
     #[resolve]
     pub point: Axes<Rel<Length>>,
 
+    /// Control point affecting the curve coming into the vertex.
+    /// Relative to the vertex.
     #[resolve]
     pub control_into: Axes<Rel<Length>>,
 
+    /// Control point affecting the curve coming from the vertex.
+    /// Relative to the vertex.
+    /// If set to `auto`, the other control point is mirrored.
     #[resolve]
     pub control_from: Smart<Axes<Rel<Length>>>,
 
-    /// Is the point relative to the previous point?
+    /// Is the point relative to the previous vertex?
     #[default(false)]
     pub relative: bool,
 }
