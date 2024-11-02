@@ -123,6 +123,7 @@ impl<'a> CommonPathBuilder<'a> {
 #[derive(Default)]
 struct NewStylePathBuilder {
     start: Point,
+    start_control: Point,
     last: Point,
     last_control: Point,
 }
@@ -149,22 +150,33 @@ impl NewStylePathBuilder {
         relative: bool,
     ) -> Point {
         match point {
-            Smart::Custom(p) => {
-                let p = p.zip_map(builder.region.size, Rel::relative_to);
-                let mut p = Point::new(p.x, p.y);
-                if relative {
-                    p += self.last;
-                }
-                p
-            }
-            // Mirror the last control point.
-            Smart::Auto => 2. * self.last - self.last_control,
+            Smart::Custom(p) => self.resolve_point(builder, p, relative),
+            Smart::Auto => self.last_control,
         }
     }
 
     fn open_if_needed(&mut self, builder: &mut CommonPathBuilder) {
         if builder.path.is_empty() {
             builder.path.move_to(self.start);
+        }
+    }
+
+    fn vertex(
+        &mut self,
+        builder: &mut CommonPathBuilder,
+        point: Point,
+        cinto: Point,
+        cfrom: Point,
+    ) {
+        if builder.path.is_empty() {
+            builder.path.move_to(point);
+            self.start = point;
+            self.start_control = point + cinto;
+            self.last = point;
+            self.last_control = point + cfrom;
+        } else {
+            self.cubic_to(builder, self.last_control, point + cinto, point);
+            self.last_control = point + cfrom;
         }
     }
 
@@ -190,7 +202,7 @@ impl NewStylePathBuilder {
         let c1 = self.last + (2. / 3.) * (control - self.last);
         let c2 = end + (2. / 3.) * (control - end);
         self.cubic_to(builder, c1, c2, end);
-        self.last_control = control;
+        self.last_control = 2. * end - control;
     }
 
     fn cubic_to(
@@ -202,7 +214,7 @@ impl NewStylePathBuilder {
     ) {
         builder.add_cubic(self.last, end, c1, c2);
         self.last = end;
-        self.last_control = c2;
+        self.last_control = 2. * end - c2;
     }
 
     fn close(&mut self, builder: &mut CommonPathBuilder) {
@@ -312,10 +324,26 @@ pub fn layout_path(
 
     for item in elem.vertices() {
         match item {
-            PathComponent::Vertex(..)
+            PathComponent::SimplePoint(..)
             | PathComponent::MirroredControlPoint(..)
             | PathComponent::AllControlPoints(..) => {
                 builder.old_style(&mut common).add_vertex(&mut common, &item);
+            }
+            PathComponent::Vertex(element) => {
+                let builder = builder.new_style(&mut common);
+                let relative = element.relative(styles);
+                let p =
+                    builder.resolve_point(&mut common, element.point(styles), relative);
+                let cinto = builder.resolve_point(
+                    &mut common,
+                    element.control_into(styles),
+                    false,
+                );
+                let cfrom = element
+                    .control_from(styles)
+                    .map(|p| builder.resolve_point(&mut common, p, false))
+                    .unwrap_or(-cinto);
+                builder.vertex(&mut common, p, cinto, cfrom);
             }
             PathComponent::MoveTo(element) => {
                 let builder = builder.new_style(&mut common);

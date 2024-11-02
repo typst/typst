@@ -100,6 +100,9 @@ impl Show for Packed<PathElem> {
 #[scope]
 impl PathElem {
     #[elem]
+    type PathVertex;
+
+    #[elem]
     type PathMoveTo;
 
     #[elem]
@@ -119,10 +122,11 @@ impl PathElem {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum PathComponent {
     /// Old style syntax.
-    Vertex(Axes<Rel<Length>>),
+    SimplePoint(Axes<Rel<Length>>),
     MirroredControlPoint(Axes<Rel<Length>>, Axes<Rel<Length>>),
     AllControlPoints(Axes<Rel<Length>>, Axes<Rel<Length>>, Axes<Rel<Length>>),
     /// New style syntax.
+    Vertex(Packed<PathVertex>),
     MoveTo(Packed<PathMoveTo>),
     LineTo(Packed<PathLineTo>),
     QuadraticTo(Packed<PathQuadraticTo>),
@@ -132,12 +136,12 @@ pub enum PathComponent {
 
 impl PathComponent {
     pub fn is_old_style(&self) -> bool {
-        matches!(self, Vertex(..) | MirroredControlPoint(..) | AllControlPoints(..))
+        matches!(self, SimplePoint(..) | MirroredControlPoint(..) | AllControlPoints(..))
     }
 
     pub fn vertex(&self) -> Axes<Rel<Length>> {
         match self {
-            Vertex(x) => *x,
+            SimplePoint(x) => *x,
             MirroredControlPoint(x, _) => *x,
             AllControlPoints(x, _, _) => *x,
             _ => unreachable!(),
@@ -146,7 +150,7 @@ impl PathComponent {
 
     pub fn control_point_from(&self) -> Axes<Rel<Length>> {
         match self {
-            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
+            SimplePoint(_) => Axes::new(Rel::zero(), Rel::zero()),
             MirroredControlPoint(_, a) => a.map(|x| -x),
             AllControlPoints(_, _, b) => *b,
             _ => unreachable!(),
@@ -155,7 +159,7 @@ impl PathComponent {
 
     pub fn control_point_to(&self) -> Axes<Rel<Length>> {
         match self {
-            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
+            SimplePoint(_) => Axes::new(Rel::zero(), Rel::zero()),
             MirroredControlPoint(_, a) => *a,
             AllControlPoints(_, a, _) => *a,
             _ => unreachable!(),
@@ -166,9 +170,10 @@ impl PathComponent {
 cast! {
     PathComponent,
     self => match self {
-        Vertex(x) => x.into_value(),
+        SimplePoint(x) => x.into_value(),
         MirroredControlPoint(x, c) => array![x, c].into_value(),
         AllControlPoints(x, c1, c2) => array![x, c1, c2].into_value(),
+        Vertex(element) => element.into_value(),
         MoveTo(element) => element.into_value(),
         LineTo(element) => element.into_value(),
         QuadraticTo(element) => element.into_value(),
@@ -179,13 +184,13 @@ cast! {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next(), iter.next()) {
             (Some(a), None, None, None) => {
-                Vertex(a.cast()?)
+                SimplePoint(a.cast()?)
             },
             (Some(a), Some(b), None, None) => {
                 if Axes::<Rel<Length>>::castable(&a) {
                     MirroredControlPoint(a.cast()?, b.cast()?)
                 } else {
-                    Vertex(Axes::new(a.cast()?, b.cast()?))
+                    SimplePoint(Axes::new(a.cast()?, b.cast()?))
                 }
             },
             (Some(a), Some(b), Some(c), None) => {
@@ -203,8 +208,9 @@ impl TryFrom<Content> for PathComponent {
     type Error = HintedString;
     fn try_from(value: Content) -> HintedStrResult<Self> {
         value
-            .into_packed::<PathMoveTo>()
-            .map(Self::MoveTo)
+            .into_packed::<PathVertex>()
+            .map(Self::Vertex)
+            .or_else(|value| value.into_packed::<PathMoveTo>().map(Self::MoveTo))
             .or_else(|value| value.into_packed::<PathLineTo>().map(Self::LineTo))
             .or_else(|value| {
                 value.into_packed::<PathQuadraticTo>().map(Self::QuadraticTo)
@@ -269,6 +275,29 @@ fn take_smart_point(args: &mut Args) -> SourceResult<Option<Smart<Axes<Rel<Lengt
             ))))
         }
     }
+}
+
+/// An element used to start a new path component.
+///
+/// If no `path.moveto` element is provided, the component will
+/// start at `(0pt, 0pt)`.
+///
+/// If `closed` is `true` in the containing path, previous components
+/// will be closed.
+#[elem(name = "vertex", title = "Vertex with control points")]
+pub struct PathVertex {
+    #[resolve]
+    pub point: Axes<Rel<Length>>,
+
+    #[resolve]
+    pub control_into: Axes<Rel<Length>>,
+
+    #[resolve]
+    pub control_from: Smart<Axes<Rel<Length>>>,
+
+    /// Is the point relative to the previous point?
+    #[default(false)]
+    pub relative: bool,
 }
 
 /// An element used to start a new path component.
