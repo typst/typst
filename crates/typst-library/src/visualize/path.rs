@@ -72,7 +72,7 @@ pub struct PathElem {
     pub closed: bool,
 
     /// How to close the path.
-    #[default(Some(CloseMode::Cubic))]
+    #[default(Some(CloseMode::Curve))]
     pub close_mode: Option<CloseMode>,
 
     /// The vertices of the path.
@@ -457,9 +457,8 @@ pub struct PathClose {
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Cast)]
 pub enum CloseMode {
     Line,
-    Quadratic,
     #[default]
-    Cubic,
+    Curve,
 }
 
 /// A bezier path.

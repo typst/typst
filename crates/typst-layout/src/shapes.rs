@@ -54,11 +54,12 @@ struct PathBuilder<'a> {
     close_mode: Option<CloseMode>,
     region: Region,
     styles: StyleChain<'a>,
-    start: Point,
-    start_control_into: Point,
-    last: Point,
-    last_control_from: Point,
+    start_point: Point,
+    start_control_into: Point, // cubic
+    last_point: Point,
+    last_control_from: Point, // cubic
     is_closed: bool,
+    is_empty: bool,
 }
 
 impl<'a> PathBuilder<'a> {
@@ -73,11 +74,12 @@ impl<'a> PathBuilder<'a> {
             close_mode,
             region,
             styles,
-            start: Default::default(),
+            start_point: Default::default(),
             start_control_into: Default::default(),
-            last: Default::default(),
+            last_point: Default::default(),
             last_control_from: Default::default(),
             is_closed: true,
+            is_empty: true,
         }
     }
 
@@ -96,67 +98,66 @@ impl<'a> PathBuilder<'a> {
         let p = point.zip_map(self.region.size, Rel::relative_to);
         let mut p = Point::new(p.x, p.y);
         if relative {
-            p += self.last;
+            p += self.last_point;
         }
         p
-    }
-
-    fn resolve_smart_point(&self, point: Smart<Axes<Rel<Abs>>>, relative: bool) -> Point {
-        match point {
-            Smart::Custom(p) => self.resolve_point(p, relative),
-            Smart::Auto => self.last_control_from,
-        }
-    }
-
-    fn open_if_needed(&mut self) {
-        if self.is_closed {
-            self.path.move_to(self.start);
-            self.is_closed = false;
-        }
     }
 
     fn vertex(&mut self, point: Point, cinto: Point, cfrom: Point) {
         if self.is_closed {
             self.move_to(point);
+            self.start_component();
             self.start_control_into = point + cinto;
-            self.last_control_from = point + cfrom;
         } else {
             self.cubic_to(self.last_control_from, point + cinto, point);
-            self.last_control_from = point + cfrom;
         }
+        self.last_control_from = point + cfrom;
+    }
+
+    fn start_component(&mut self) {
+        self.path.move_to(self.start_point);
+        self.is_empty = false;
+        self.is_closed = false;
     }
 
     fn move_to(&mut self, point: Point) {
         self.close(self.close_mode);
-        self.path.move_to(point);
         self.adjust_bounds(point);
-        self.start = point;
-        self.last = point;
+        self.start_point = point;
+        self.start_control_into = point;
+        self.last_point = point;
         self.last_control_from = point;
         self.is_closed = false;
+        self.is_empty = true;
     }
 
     fn line_to(&mut self, point: Point) {
+        if self.is_empty {
+            self.start_component();
+        }
         self.path.line_to(point);
         self.adjust_bounds(point);
-        self.last = point;
+        self.last_point = point;
         self.last_control_from = point;
     }
 
     fn quadratic_to(&mut self, control: Point, end: Point) {
-        let c1 = self.last + (2. / 3.) * (control - self.last);
+        let c1 = self.last_point + (2. / 3.) * (control - self.last_point);
         let c2 = end + (2. / 3.) * (control - end);
         self.cubic_to(c1, c2, end);
-        self.last_control_from = 2. * end - control;
     }
 
     fn cubic_to(&mut self, c1: Point, c2: Point, end: Point) {
+        if self.is_empty {
+            self.start_component();
+            self.start_control_into = 2. * self.start_point - c1;
+        }
         self.path.cubic_to(c1, c2, end);
 
         fn to_kurbo(point: Point) -> kurbo::Point {
             kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
         }
-        let p0 = to_kurbo(self.last);
+        let p0 = to_kurbo(self.last_point);
         let p1 = to_kurbo(c1);
         let p2 = to_kurbo(c2);
         let p3 = to_kurbo(end);
@@ -164,30 +165,25 @@ impl<'a> PathBuilder<'a> {
         self.size.x.set_max(Abs::raw(extrema.x1));
         self.size.y.set_max(Abs::raw(extrema.y1));
 
-        self.last = end;
+        self.last_point = end;
         self.last_control_from = 2. * end - c2;
     }
 
     fn close(&mut self, mode: Option<CloseMode>) {
-        if !self.is_closed {
+        if !self.is_closed && !self.is_empty {
             if let Some(mode) = mode {
-                match mode {
-                    CloseMode::Line => {}
-                    CloseMode::Quadratic => {
-                        self.quadratic_to(self.last_control_from, self.start);
-                    }
-                    CloseMode::Cubic => {
-                        self.cubic_to(
-                            self.last_control_from,
-                            self.start_control_into,
-                            self.start,
-                        );
-                    }
+                if mode == CloseMode::Curve {
+                    self.cubic_to(
+                        self.last_control_from,
+                        self.start_control_into,
+                        self.start_point,
+                    );
                 }
                 self.path.close_path();
-                self.last = self.start;
-                self.last_control_from = self.start;
+                self.last_point = self.start_point;
+                self.last_control_from = self.start_point;
                 self.is_closed = true;
+                self.is_empty = true;
             }
         }
     }
@@ -245,22 +241,26 @@ pub fn layout_path(
                 builder.move_to(p);
             }
             PathComponent::LineTo(element) => {
-                builder.open_if_needed();
                 let relative = element.relative(styles);
                 let p = builder.resolve_point(element.end(styles), relative);
                 builder.line_to(p);
             }
             PathComponent::QuadraticTo(element) => {
-                builder.open_if_needed();
                 let relative = element.relative(styles);
-                let c = builder.resolve_smart_point(element.control(styles), relative);
+                let c = match element.control(styles) {
+                    Smart::Custom(p) => builder.resolve_point(p, relative),
+                    // Transform cubic last_control_from into quadratic.
+                    Smart::Auto => 1.5 * builder.last_control_from - 0.5 * builder.last_point,
+                };
                 let end = builder.resolve_point(element.end(styles), relative);
                 builder.quadratic_to(c, end);
             }
             PathComponent::CubicTo(element) => {
-                builder.open_if_needed();
                 let relative = element.relative(styles);
-                let c1 = builder.resolve_smart_point(element.cstart(styles), relative);
+                let c1 = match element.cstart(styles) {
+                    Smart::Custom(p) => builder.resolve_point(p, relative),
+                    Smart::Auto => builder.last_control_from,
+                };
                 let c2 = builder.resolve_point(element.cend(styles), relative);
                 let end = builder.resolve_point(element.end(styles), relative);
                 builder.cubic_to(c1, c2, end);
