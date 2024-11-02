@@ -10,8 +10,8 @@ use typst_library::layout::{
     Sides, Size,
 };
 use typst_library::visualize::{
-    CircleElem, EllipseElem, FillRule, FixedStroke, Geometry, LineElem, Paint, Path,
-    PathComponent, PathElem, PolygonElem, RectElem, Shape, SquareElem, Stroke,
+    CircleElem, CloseMode, EllipseElem, FillRule, FixedStroke, Geometry, LineElem, Paint,
+    Path, PathComponent, PathElem, PolygonElem, RectElem, Shape, SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -51,27 +51,33 @@ pub fn layout_line(
 struct PathBuilder<'a> {
     path: Path,
     size: Size,
-    closed: bool,
+    close_mode: Option<CloseMode>,
     region: Region,
     styles: StyleChain<'a>,
     start: Point,
     start_control_into: Point,
     last: Point,
     last_control_from: Point,
+    is_closed: bool,
 }
 
 impl<'a> PathBuilder<'a> {
-    fn new(region: Region, styles: StyleChain<'a>, closed: bool) -> Self {
+    fn new(
+        region: Region,
+        styles: StyleChain<'a>,
+        close_mode: Option<CloseMode>,
+    ) -> Self {
         Self {
             path: Path::new(),
             size: Size::zero(),
-            closed,
+            close_mode,
             region,
             styles,
             start: Default::default(),
             start_control_into: Default::default(),
             last: Default::default(),
             last_control_from: Default::default(),
+            is_closed: true,
         }
     }
 
@@ -103,13 +109,14 @@ impl<'a> PathBuilder<'a> {
     }
 
     fn open_if_needed(&mut self) {
-        if self.path.is_empty() {
+        if self.is_closed {
             self.path.move_to(self.start);
+            self.is_closed = false;
         }
     }
 
     fn vertex(&mut self, point: Point, cinto: Point, cfrom: Point) {
-        if self.path.is_empty() {
+        if self.is_closed {
             self.move_to(point);
             self.start_control_into = point + cinto;
             self.last_control_from = point + cfrom;
@@ -120,11 +127,13 @@ impl<'a> PathBuilder<'a> {
     }
 
     fn move_to(&mut self, point: Point) {
+        self.close(self.close_mode);
         self.path.move_to(point);
         self.adjust_bounds(point);
         self.start = point;
         self.last = point;
         self.last_control_from = point;
+        self.is_closed = false;
     }
 
     fn line_to(&mut self, point: Point) {
@@ -159,21 +168,32 @@ impl<'a> PathBuilder<'a> {
         self.last_control_from = 2. * end - c2;
     }
 
-    fn close(&mut self) {
-        if !self.path.is_empty() {
-            self.path.close_path();
+    fn close(&mut self, mode: Option<CloseMode>) {
+        if !self.is_closed {
+            if let Some(mode) = mode {
+                match mode {
+                    CloseMode::Line => {}
+                    CloseMode::Quadratic => {
+                        self.quadratic_to(self.last_control_from, self.start);
+                    }
+                    CloseMode::Cubic => {
+                        self.cubic_to(
+                            self.last_control_from,
+                            self.start_control_into,
+                            self.start,
+                        );
+                    }
+                }
+                self.path.close_path();
+                self.last = self.start;
+                self.last_control_from = self.start;
+                self.is_closed = true;
+            }
         }
-        self.last = self.start;
-        self.last_control_from = self.start;
     }
 
-    fn close_if_needed(&mut self) {
-        if self.closed && self.last != self.start {
-            self.path.close_path();
-        }
-    }
-
-    fn build(self) -> (Path, Size) {
+    fn build(mut self) -> (Path, Size) {
+        self.close(self.close_mode);
         (self.path, self.size)
     }
 }
@@ -187,7 +207,9 @@ pub fn layout_path(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let mut builder = PathBuilder::new(region, styles, elem.closed(styles));
+    let default_close_mode = elem.close_mode(styles);
+    let close_mode = elem.closed(styles).then_some(default_close_mode).flatten();
+    let mut builder = PathBuilder::new(region, styles, close_mode);
 
     for item in elem.vertices() {
         match item {
@@ -217,7 +239,7 @@ pub fn layout_path(
                 builder.vertex(p, cinto, cfrom);
             }
             PathComponent::MoveTo(element) => {
-                builder.close_if_needed();
+                builder.close(close_mode);
                 let relative = element.relative(styles);
                 let p = builder.resolve_point(element.start(styles), relative);
                 builder.move_to(p);
@@ -243,8 +265,9 @@ pub fn layout_path(
                 let end = builder.resolve_point(element.end(styles), relative);
                 builder.cubic_to(c1, c2, end);
             }
-            PathComponent::ClosePath => {
-                builder.close();
+            PathComponent::ClosePath(element) => {
+                let mode = element.mode(styles);
+                builder.close(mode.unwrap_or(default_close_mode));
             }
         }
     }

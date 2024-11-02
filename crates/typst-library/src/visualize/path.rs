@@ -1,5 +1,5 @@
 use kurbo::ParamCurveExtrema;
-use typst_macros::scope;
+use typst_macros::{scope, Cast};
 use typst_syntax::Spanned;
 use typst_utils::Numeric;
 
@@ -71,6 +71,10 @@ pub struct PathElem {
     #[default(false)]
     pub closed: bool,
 
+    /// How to close the path.
+    #[default(Some(CloseMode::Cubic))]
+    pub close_mode: Option<CloseMode>,
+
     /// The vertices of the path.
     ///
     /// Each vertex can be defined in 3 ways:
@@ -131,7 +135,7 @@ pub enum PathComponent {
     LineTo(Packed<PathLineTo>),
     QuadraticTo(Packed<PathQuadraticTo>),
     CubicTo(Packed<PathCubicTo>),
-    ClosePath,
+    ClosePath(Packed<PathClose>),
 }
 
 cast! {
@@ -145,7 +149,7 @@ cast! {
         LineTo(element) => element.into_value(),
         QuadraticTo(element) => element.into_value(),
         CubicTo(element) => element.into_value(),
-        ClosePath => PathClose{}.into_value(),
+        ClosePath(element) => element.into_value(),
     },
     array: Array => {
         let mut iter = array.into_iter();
@@ -183,7 +187,7 @@ impl TryFrom<Content> for PathComponent {
                 value.into_packed::<PathQuadraticTo>().map(Self::QuadraticTo)
             })
             .or_else(|value| value.into_packed::<PathCubicTo>().map(Self::CubicTo))
-            .or_else(|value| value.into_packed::<PathClose>().map(|_| Self::ClosePath))
+            .or_else(|value| value.into_packed::<PathClose>().map(Self::ClosePath))
             .or_else(|_| bail!("expecting a path element"))
     }
 }
@@ -444,7 +448,19 @@ pub struct PathCubicTo {
 /// If the containing path has the `closed` attribute set, all components will
 /// be closed anyway.
 #[elem(name = "close", title = "Path Close")]
-pub struct PathClose {}
+pub struct PathClose {
+    /// How to close the path. If set to `auto`, use the `close-mode` parameter
+    /// of the path.
+    pub mode: Smart<Option<CloseMode>>,
+}
+
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Cast)]
+pub enum CloseMode {
+    Line,
+    Quadratic,
+    #[default]
+    Cubic,
+}
 
 /// A bezier path.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
