@@ -1,13 +1,12 @@
 use kurbo::ParamCurveExtrema;
 use typst_macros::{scope, Cast};
-use typst_syntax::Spanned;
 use typst_utils::Numeric;
 
-use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, elem, Args, Array, Content, FromValue, NativeElement, Packed, Reflect,
-    Show, Smart, StyleChain, Value,
+    array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Show, Smart,
+    StyleChain,
 };
 use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
@@ -192,62 +191,6 @@ impl TryFrom<Content> for PathComponent {
     }
 }
 
-// Returns the number of point coordinates available as positional arguments.
-// Allows two lengths or an array of two lengths for a point.
-fn count_coordinates(args: &Args) -> usize {
-    let mut n = 0;
-    for a in &args.items {
-        if a.name.is_none() {
-            match a.value.v {
-                Value::Length(..) => n += 1,
-                Value::Array(..) | Value::Auto => n += 2,
-                _ => return 0,
-            }
-        }
-    }
-    n
-}
-
-// Removes a point from positional arguments.
-// Allows two lengths or an array of two lengths for a point.
-fn take_point(args: &mut Args) -> SourceResult<Option<Axes<Rel<Length>>>> {
-    if args.remaining() == 0 {
-        Ok(None)
-    } else {
-        let v: Spanned<Value> = args.expect("point")?;
-        if matches!(v.v, Value::Array(..)) {
-            Ok(Some(<Axes<Rel<Length>> as FromValue>::from_value(v.v).at(v.span)?))
-        } else {
-            Ok(Some(Axes::new(
-                <Rel<Length> as FromValue>::from_value(v.v).at(v.span)?,
-                args.expect("coordinate")?,
-            )))
-        }
-    }
-}
-
-// Removes a point from positional arguments.
-// Allows two lengths or an array of two lengths for a point.
-fn take_smart_point(args: &mut Args) -> SourceResult<Option<Smart<Axes<Rel<Length>>>>> {
-    if args.remaining() == 0 {
-        Ok(None)
-    } else {
-        let v: Spanned<Value> = args.expect("point")?;
-        if matches!(v.v, Value::Auto) {
-            Ok(Some(Smart::Auto))
-        } else if matches!(v.v, Value::Array(..)) {
-            Ok(Some(Smart::Custom(
-                <Axes<Rel<Length>> as FromValue>::from_value(v.v).at(v.span)?,
-            )))
-        } else {
-            Ok(Some(Smart::Custom(Axes::new(
-                <Rel<Length> as FromValue>::from_value(v.v).at(v.span)?,
-                args.expect("coordinate")?,
-            ))))
-        }
-    }
-}
-
 /// An element used to define a vertex and its control points.
 ///
 /// - `point`
@@ -289,14 +232,6 @@ pub struct PathVertex {
 #[elem(name = "move", title = "Path Move To")]
 pub struct PathMoveTo {
     /// The starting point for the new component.
-    #[parse(
-        // If there is no named argument, use positional arguments.
-        if let Some(start) = args.named("start")? {
-            Some(start)
-        } else {
-            take_point(args)?
-        }
-    )]
     #[resolve]
     pub start: Axes<Rel<Length>>,
 
@@ -309,14 +244,6 @@ pub struct PathMoveTo {
 /// the `end`point.
 #[elem(name = "line", title = "Path Line To")]
 pub struct PathLineTo {
-    #[parse(
-        // If there is no named argument, use positional arguments.
-        if let Some(end) = args.named("end")? {
-            Some(end)
-        } else {
-            take_point(args)?
-        }
-    )]
     #[resolve]
     pub end: Axes<Rel<Length>>,
 
@@ -336,35 +263,10 @@ pub struct PathLineTo {
 #[elem(name = "quadratic", title = "Path Quadratic Curve To")]
 pub struct PathQuadraticTo {
     /// The control point of the Bezier curve.
-    #[parse(
-        // If there is no named argument, use positional arguments, but only if there
-        // are enough arguments for both this control point and the end point.
-        if let Some(c) = args.named("control")? {
-            Some(c)
-        } else {
-            let mut n = count_coordinates(args);
-            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("end")) {
-                // We need two arguments for the end point.
-                n = n.saturating_sub(2);
-            }
-            if n >= 2 {
-                take_smart_point(args)?
-            } else {
-                None
-            }
-        }
-    )]
     #[resolve]
     pub control: Smart<Axes<Rel<Length>>>,
 
     /// The end point.
-    #[parse(
-        if let Some(c) = args.named("end")? {
-            Some(c)
-        } else {
-            take_point(args)?
-        }
-    )]
     #[resolve]
     pub end: Axes<Rel<Length>>,
 
@@ -383,58 +285,16 @@ pub struct PathCubicTo {
     /// the last control point will be mirrored.
     ///
     /// Defaults to the last used point.
-    #[parse(
-        // If there is no named argument, use positional arguments, but only if there
-        // are enough arguments for both control points and the end point.
-        if let Some(c) = args.named("cstart")? {
-            Some(c)
-        } else {
-            let mut n = count_coordinates(args);
-            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("end")) {
-                n = n.saturating_sub(2);
-            }
-            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("cend")) {
-                n = n.saturating_sub(2);
-            }
-            if n >= 2 {
-                take_smart_point(args)?
-            } else {
-                None
-            }
-        }
-    )]
     #[resolve]
     pub cstart: Smart<Axes<Rel<Length>>>,
 
     /// The second control point.
     ///
     /// Defaults to the end point.
-    #[parse(
-        if let Some(c) = args.named("cend")? {
-            Some(c)
-        } else {
-            let mut n = count_coordinates(args);
-            if !args.items.iter().any(|arg| arg.name.as_ref().map(|s| s.as_str()) == Some("end")) {
-                n = n.saturating_sub(2);
-            }
-            if n >= 2 {
-                take_point(args)?
-            } else {
-                None
-            }
-        }
-    )]
     #[resolve]
     pub cend: Axes<Rel<Length>>,
 
     /// The end point.
-    #[parse(
-        if let Some(end) = args.named("end")? {
-            Some(end)
-        } else {
-            take_point(args)?
-        }
-    )]
     #[resolve]
     pub end: Axes<Rel<Length>>,
 
