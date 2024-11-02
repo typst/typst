@@ -142,15 +142,15 @@ impl<'a> PathBuilder<'a> {
     }
 
     fn quadratic_to(&mut self, control: Point, end: Point) {
-        let c1 = self.last_point + (2. / 3.) * (control - self.last_point);
-        let c2 = end + (2. / 3.) * (control - end);
+        let c1 = control_q2c(self.last_point, control);
+        let c2 = control_q2c(end, control);
         self.cubic_to(c1, c2, end);
     }
 
     fn cubic_to(&mut self, c1: Point, c2: Point, end: Point) {
         if self.is_empty {
             self.start_component();
-            self.start_control_into = 2. * self.start_point - c1;
+            self.start_control_into = mirror_c(self.start_point, c1);
         }
         self.path.cubic_to(c1, c2, end);
 
@@ -166,7 +166,7 @@ impl<'a> PathBuilder<'a> {
         self.size.y.set_max(Abs::raw(extrema.y1));
 
         self.last_point = end;
-        self.last_control_from = 2. * end - c2;
+        self.last_control_from = mirror_c(end, c2);
     }
 
     fn close(&mut self, mode: Option<CloseMode>) {
@@ -192,6 +192,21 @@ impl<'a> PathBuilder<'a> {
         self.close(self.close_mode);
         (self.path, self.size)
     }
+}
+
+/// Convert a cubic control point into a quadratic one.
+fn control_c2q(p: Point, c: Point) -> Point {
+    1.5 * c - 0.5 * p
+}
+
+/// Convert a quadratic control point into a cubic one.
+fn control_q2c(p: Point, c: Point) -> Point {
+    (p + 2. * c) / 3.
+}
+
+/// Mirror a control point.
+fn mirror_c(p: Point, c: Point) -> Point {
+    2. * p - c
 }
 
 /// Layout the path.
@@ -249,8 +264,9 @@ pub fn layout_path(
                 let relative = element.relative(styles);
                 let c = match element.control(styles) {
                     Smart::Custom(p) => builder.resolve_point(p, relative),
-                    // Transform cubic last_control_from into quadratic.
-                    Smart::Auto => 1.5 * builder.last_control_from - 0.5 * builder.last_point,
+                    Smart::Auto => {
+                        control_c2q(builder.last_point, builder.last_control_from)
+                    }
                 };
                 let end = builder.resolve_point(element.end(styles), relative);
                 builder.quadratic_to(c, end);
