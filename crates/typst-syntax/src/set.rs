@@ -58,11 +58,11 @@ pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return)
 pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
     MathIdent,
-    Text,
+    MathText,
+    MathEscape,
     MathShorthand,
     Linebreak,
     MathAlignPoint,
-    Escape,
     Str,
     Root,
     Prime,

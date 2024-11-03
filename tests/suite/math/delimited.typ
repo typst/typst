@@ -41,8 +41,9 @@ $floor(x/2), ceil(x/2), abs(x), norm(x)$
 --- math-lr-color ---
 // Test colored delimiters
 $ lr(
-    text("(", fill: #green) a/b
-    text(")", fill: #blue)
+    text(\(, fill: #green)
+    a/b
+    text(\), fill: #blue)
   ) $
 
 --- math-lr-mid ---

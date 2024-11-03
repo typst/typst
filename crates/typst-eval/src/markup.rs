@@ -122,7 +122,7 @@ impl Eval for ast::Escape<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::single(self.get().into())))
+        Ok(Value::Symbol(Symbol::ast_char(self.get(), self.from_math())))
     }
 }
 
@@ -130,7 +130,7 @@ impl Eval for ast::Shorthand<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::single(self.get().into())))
+        Ok(Value::Symbol(Symbol::ast_char(self.get(), self.from_math())))
     }
 }
 
