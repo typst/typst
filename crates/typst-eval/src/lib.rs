@@ -14,14 +14,14 @@ mod methods;
 mod rules;
 mod vm;
 
-pub use self::call::*;
-pub use self::import::*;
-pub use self::vm::*;
+pub use self::call::{eval_closure, CapturesVisitor};
+pub use self::flow::FlowEvent;
+pub use self::import::import;
+pub use self::vm::Vm;
 pub use typst_library::routines::EvalMode;
 
 use self::access::*;
 use self::binding::*;
-use self::flow::*;
 use self::methods::*;
 
 use comemo::{Track, Tracked, TrackedMut};
