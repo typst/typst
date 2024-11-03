@@ -58,7 +58,10 @@ struct PathBuilder<'a> {
     start_control_into: Point, // cubic
     last_point: Point,
     last_control_from: Point, // cubic
-    is_closed: bool,
+    /// Has a new component be started?
+    /// This does not mean that something has been added to self.path yet.
+    is_started: bool,
+    /// Has anything actually be added to self.path for the current component?
     is_empty: bool,
 }
 
@@ -78,7 +81,7 @@ impl<'a> PathBuilder<'a> {
             start_control_into: Default::default(),
             last_point: Default::default(),
             last_control_from: Default::default(),
-            is_closed: true,
+            is_started: false,
             is_empty: true,
         }
     }
@@ -103,37 +106,40 @@ impl<'a> PathBuilder<'a> {
         p
     }
 
+    /// Push the initial move of a new component to self.path.
+    fn start_component(&mut self) {
+        self.path.move_to(self.start_point);
+        self.is_empty = false;
+    }
+
     fn vertex(&mut self, point: Point, cinto: Point, cfrom: Point) {
-        if self.is_closed {
+        if !self.is_started {
             self.move_to(point);
-            self.start_component();
             self.start_control_into = point + cinto;
         } else {
+            let old = self.start_control_into;
             self.cubic_to(self.last_control_from, point + cinto, point);
+            self.start_control_into = old;
         }
         self.last_control_from = point + cfrom;
     }
 
-    fn start_component(&mut self) {
-        self.path.move_to(self.start_point);
-        self.is_empty = false;
-        self.is_closed = false;
-    }
-
     fn move_to(&mut self, point: Point) {
         self.close(self.close_mode);
+        // Delay calling path.move_to in case there is another move_to element
+        // before any actual drawing.
         self.adjust_bounds(point);
         self.start_point = point;
         self.start_control_into = point;
         self.last_point = point;
         self.last_control_from = point;
-        self.is_closed = false;
-        self.is_empty = true;
+        self.is_started = true;
     }
 
     fn line_to(&mut self, point: Point) {
         if self.is_empty {
             self.start_component();
+            self.start_control_into = self.start_point;
         }
         self.path.line_to(point);
         self.adjust_bounds(point);
@@ -170,7 +176,7 @@ impl<'a> PathBuilder<'a> {
     }
 
     fn close(&mut self, mode: Option<CloseMode>) {
-        if !self.is_closed && !self.is_empty {
+        if self.is_started && !self.is_empty {
             if let Some(mode) = mode {
                 if mode == CloseMode::Curve {
                     self.cubic_to(
@@ -182,10 +188,10 @@ impl<'a> PathBuilder<'a> {
                 self.path.close_path();
                 self.last_point = self.start_point;
                 self.last_control_from = self.start_point;
-                self.is_closed = true;
-                self.is_empty = true;
             }
         }
+        self.is_started = false;
+        self.is_empty = true;
     }
 
     fn build(mut self) -> (Path, Size) {
@@ -224,52 +230,51 @@ pub fn layout_path(
 
     for item in elem.vertices() {
         match item {
-            PathComponent::SimplePoint(p) => {
-                let p = builder.resolve_old_point(p);
-                builder.vertex(p, Default::default(), Default::default());
+            PathComponent::SimplePoint(point) => {
+                let point = builder.resolve_old_point(point);
+                builder.vertex(point, Default::default(), Default::default());
             }
-            PathComponent::MirroredControlPoint(p, cinto) => {
-                let p = builder.resolve_old_point(p);
+            PathComponent::MirroredControlPoint(point, cinto) => {
+                let point = builder.resolve_old_point(point);
                 let cinto = builder.resolve_old_point(cinto);
-                builder.vertex(p, cinto, -cinto);
+                builder.vertex(point, cinto, -cinto);
             }
-            PathComponent::AllControlPoints(p, cinto, cfrom) => {
-                let p = builder.resolve_old_point(p);
+            PathComponent::AllControlPoints(point, cinto, cfrom) => {
+                let point = builder.resolve_old_point(point);
                 let cinto = builder.resolve_old_point(cinto);
                 let cfrom = builder.resolve_old_point(cfrom);
-                builder.vertex(p, cinto, cfrom);
+                builder.vertex(point, cinto, cfrom);
             }
             PathComponent::Vertex(element) => {
                 let relative = element.relative(styles);
-                let p = builder.resolve_point(element.point(styles), relative);
+                let point = builder.resolve_point(element.point(styles), relative);
                 let cinto = builder.resolve_point(element.control_into(styles), false);
                 let cfrom = element
                     .control_from(styles)
                     .map(|p| builder.resolve_point(p, false))
                     .unwrap_or(-cinto);
-                builder.vertex(p, cinto, cfrom);
+                builder.vertex(point, cinto, cfrom);
             }
             PathComponent::MoveTo(element) => {
-                builder.close(close_mode);
                 let relative = element.relative(styles);
-                let p = builder.resolve_point(element.start(styles), relative);
-                builder.move_to(p);
+                let point = builder.resolve_point(element.start(styles), relative);
+                builder.move_to(point);
             }
             PathComponent::LineTo(element) => {
                 let relative = element.relative(styles);
-                let p = builder.resolve_point(element.end(styles), relative);
-                builder.line_to(p);
+                let point = builder.resolve_point(element.end(styles), relative);
+                builder.line_to(point);
             }
             PathComponent::QuadraticTo(element) => {
                 let relative = element.relative(styles);
-                let c = match element.control(styles) {
+                let control = match element.control(styles) {
                     Smart::Custom(p) => builder.resolve_point(p, relative),
                     Smart::Auto => {
                         control_c2q(builder.last_point, builder.last_control_from)
                     }
                 };
                 let end = builder.resolve_point(element.end(styles), relative);
-                builder.quadratic_to(c, end);
+                builder.quadratic_to(control, end);
             }
             PathComponent::CubicTo(element) => {
                 let relative = element.relative(styles);
