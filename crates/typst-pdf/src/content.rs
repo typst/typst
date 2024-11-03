@@ -381,9 +381,6 @@ pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) -> SourceResult<()> 
             }
             FrameItem::Link(dest, size) => write_link(ctx, pos, dest, *size),
             FrameItem::Tag(_) => {}
-            FrameItem::Embed(embed) => {
-                ctx.resources.embeds.push(embed.clone());
-            }
         }
     }
     Ok(())

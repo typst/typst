@@ -4,14 +4,17 @@ use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst_library::diag::{bail, SourceResult};
-use typst_library::embed::{Embed, EmbeddedFileRelationship};
+use typst_library::foundations::NativeElement;
+use typst_library::pdf::{Embed, EmbedElem, EmbeddedFileRelationship};
 use typst_syntax::Span;
 
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
 ) -> SourceResult<(PdfChunk, HashMap<EcoString, Ref>)> {
     let mut chunk = PdfChunk::new();
-    if !ctx.resources.embeds.is_empty()
+
+    let elements = ctx.document.introspector.query(&EmbedElem::elem().select());
+    if !elements.is_empty()
         && Some(PdfAConformanceLevel::A_2) == ctx.options.standards.pdfa
     {
         bail!(
@@ -21,8 +24,10 @@ pub fn write_embedded_files(
     }
 
     let mut embedded_files = HashMap::default();
-    for embed in &ctx.resources.embeds {
-        embedded_files.insert(embed.name().clone(), embed_file(ctx, &mut chunk, embed));
+    for elem in elements.iter() {
+        let packed_elem = elem.to_packed::<EmbedElem>().unwrap();
+        let embed = Embed::from_element(packed_elem);
+        embedded_files.insert(embed.name().clone(), embed_file(ctx, &mut chunk, &embed));
     }
 
     Ok((chunk, embedded_files))

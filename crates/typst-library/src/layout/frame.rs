@@ -8,7 +8,6 @@ use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::embed::Embed;
 use crate::foundations::{cast, dict, Dict, Label, StyleChain, Value};
 use crate::introspection::{Location, Tag};
 use crate::layout::{
@@ -524,8 +523,6 @@ pub enum FrameItem {
     /// An introspectable element that produced something within this frame
     /// alongside its key.
     Tag(Tag),
-    /// A file embedding
-    Embed(Embed),
 }
 
 impl Debug for FrameItem {
@@ -537,7 +534,6 @@ impl Debug for FrameItem {
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
             Self::Tag(tag) => write!(f, "{tag:?}"),
-            Self::Embed(embed) => write!(f, "Embed({:?})", embed.name()),
         }
     }
 }

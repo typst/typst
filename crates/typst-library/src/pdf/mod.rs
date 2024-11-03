@@ -1,9 +1,10 @@
+mod embed;
+
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::NativeElement;
-use crate::foundations::{Bytes, Content, Packed, Scope, Show, Smart, StyleChain};
-use crate::introspection::Locator;
-use crate::layout::{BlockElem, Frame, FrameItem, Point, Region, Rel, Size, Sizing};
+use crate::foundations::{Bytes, Content, Packed, Scope, Show, StyleChain};
+use crate::introspection::Locatable;
 use crate::loading::Readable;
 use crate::text::LocalName;
 use crate::World;
@@ -18,7 +19,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<EmbedElem>();
 }
 
-#[elem(scope, Show, LocalName)]
+#[elem(scope, Show, LocalName, Locatable)]
 pub struct EmbedElem {
     /// Path to a file to be embedded
     ///
@@ -108,27 +109,8 @@ impl LocalName for Packed<EmbedElem> {
 
 impl Show for Packed<EmbedElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), layout_embedding)
-            .with_width(Smart::Custom(Rel::zero()))
-            .with_height(Sizing::Rel(Rel::zero()))
-            .pack()
-            .spanned(self.span()))
+        Ok(Content::empty())
     }
-}
-
-/// Layout the embedding.
-#[typst_macros::time(span = elem.span())]
-fn layout_embedding(
-    elem: &Packed<EmbedElem>,
-    _: &mut Engine,
-    _: Locator,
-    _: StyleChain,
-    _: Region,
-) -> SourceResult<Frame> {
-    let mut frame = Frame::hard(Size::zero());
-    frame.push(Point::zero(), FrameItem::Embed(Embed::from_element(elem)));
-
-    Ok(frame)
 }
 
 /// A loaded file to be embedded.
@@ -155,7 +137,7 @@ struct Repr {
 }
 
 impl Embed {
-    fn from_element(element: &Packed<EmbedElem>) -> Self {
+    pub fn from_element(element: &Packed<EmbedElem>) -> Self {
         let repr = Repr {
             data: element.data.clone().into(),
             path: element.path.clone(),
