@@ -110,6 +110,7 @@ impl<'a> PathBuilder<'a> {
     fn start_component(&mut self) {
         self.path.move_to(self.start_point);
         self.is_empty = false;
+        self.is_started = true;
     }
 
     fn vertex(&mut self, point: Point, cinto: Point, cfrom: Point) {
