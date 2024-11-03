@@ -1,9 +1,9 @@
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString, EcoVec};
-use once_cell::sync::Lazy;
 use palette::encoding::{self, Linear};
 use palette::{
     Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
@@ -33,17 +33,18 @@ pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 /// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
 /// specification. See
 /// <https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk>.
-static CMYK_TO_XYZ: Lazy<Box<Profile>> =
-    Lazy::new(|| Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap());
+static CMYK_TO_XYZ: LazyLock<Box<Profile>> = LazyLock::new(|| {
+    Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap()
+});
 
 /// The target sRGB profile.
-static SRGB_PROFILE: Lazy<Box<Profile>> = Lazy::new(|| {
+static SRGB_PROFILE: LazyLock<Box<Profile>> = LazyLock::new(|| {
     let mut out = Profile::new_sRGB();
     out.precache_output_transform();
     out
 });
 
-static TO_SRGB: Lazy<qcms::Transform> = Lazy::new(|| {
+static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
     qcms::Transform::new_to(
         &CMYK_TO_XYZ,
         &SRGB_PROFILE,

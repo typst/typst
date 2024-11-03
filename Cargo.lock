@@ -1499,17 +1499,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
 
 [[package]]
-name = "num-derive"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2701,7 +2690,6 @@ dependencies = [
  "fs_extra",
  "native-tls",
  "notify",
- "once_cell",
  "open",
  "parking_lot",
  "pathdiff",
@@ -2741,7 +2729,6 @@ dependencies = [
  "clap",
  "ecow",
  "heck",
- "once_cell",
  "pulldown-cmark",
  "serde",
  "serde_json",
@@ -2839,7 +2826,6 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo",
- "once_cell",
  "rustybuzz",
  "smallvec",
  "ttf-parser",
@@ -2878,7 +2864,6 @@ dependencies = [
  "kamadak-exif",
  "kurbo",
  "lipsum",
- "once_cell",
  "palette",
  "phf",
  "png",
@@ -2935,7 +2920,6 @@ dependencies = [
  "image",
  "indexmap 2.6.0",
  "miniz_oxide",
- "once_cell",
  "pdf-writer",
  "serde",
  "subsetter",
@@ -2958,7 +2942,6 @@ dependencies = [
  "bumpalo",
  "comemo",
  "ecow",
- "once_cell",
  "regex",
  "typst-library",
  "typst-macros",
@@ -3005,7 +2988,6 @@ name = "typst-syntax"
 version = "0.12.0"
 dependencies = [
  "ecow",
- "once_cell",
  "serde",
  "toml",
  "typst-timing",
@@ -3024,7 +3006,6 @@ dependencies = [
  "clap",
  "comemo",
  "ecow",
- "once_cell",
  "oxipng",
  "parking_lot",
  "rayon",
@@ -3322,26 +3303,25 @@ checksum = "c62a0a307cb4a311d3a07867860911ca130c3494e8c2719593806c08bc5d0484"
 
 [[package]]
 name = "wasmi"
-version = "0.35.0"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbaac6e702fa7b52258e5ac90d6e20a40afb37a1fbe7c645d0903ee42c5f85f4"
+checksum = "b07e84e3bcdab2f4301827623260ada2557596ca462f7470b60f5182a25270b1"
 dependencies = [
  "arrayvec",
  "multi-stash",
- "num-derive",
- "num-traits",
  "smallvec",
  "spin",
  "wasmi_collections",
  "wasmi_core",
+ "wasmi_ir",
  "wasmparser-nostd",
 ]
 
 [[package]]
 name = "wasmi_collections"
-version = "0.35.0"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ff59e30e550a509cc689ec638e5042be4d78ec9f6dd8a71fd02ee28776a74fd"
+checksum = "0d0fd5f4f2c4fe0c98554bb7293108ed2b1d0c124dce0974f999de7d517d37bc"
 dependencies = [
  "ahash",
  "hashbrown 0.14.5",
@@ -3350,14 +3330,23 @@ dependencies = [
 
 [[package]]
 name = "wasmi_core"
-version = "0.35.0"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e10c674add0f92f47bf8ad57c55ee3ac1762a0d9baf07535e27e22b758a916"
+checksum = "76a5f7bbd933a0fb3bac6c541f8bd90c0c8adcd91bb3ac088a2088995325b3d9"
 dependencies = [
  "downcast-rs",
  "libm",
  "num-traits",
  "paste",
+]
+
+[[package]]
+name = "wasmi_ir"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a3345445247388df2b5b35250a30c9209c27c8d2c6db1bf4c89b65636264bf9"
+dependencies = [
+ "wasmi_core",
 ]
 
 [[package]]

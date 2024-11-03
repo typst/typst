@@ -1,11 +1,10 @@
-use std::cell::RefCell;
+use std::cell::{LazyCell, RefCell};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
 use bumpalo::boxed::Box as BumpBox;
 use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
-use once_cell::unsync::Lazy;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
@@ -182,7 +181,7 @@ impl<'a> Collector<'a, '_, '_> {
             _ => None,
         };
 
-        let fallback = Lazy::new(|| ParElem::spacing_in(styles));
+        let fallback = LazyCell::new(|| ParElem::spacing_in(styles));
         let spacing = |amount| match amount {
             Smart::Auto => Child::Rel((*fallback).into(), 4),
             Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),

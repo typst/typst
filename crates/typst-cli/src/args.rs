@@ -277,7 +277,16 @@ pub struct SharedArgs {
     /// defaults to number of CPUs. Setting it to 1 disables parallelism.
     #[clap(long, short)]
     pub jobs: Option<usize>,
+
+    /// Enables in-development features that may be changed or removed at any
+    /// time.
+    #[arg(long = "feature", value_delimiter = ',')]
+    pub feature: Vec<Feature>,
 }
+
+/// An in-development feature that may be changed or removed at any time.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum Feature {}
 
 /// Arguments related to where packages are stored in the system.
 #[derive(Debug, Clone, Args)]

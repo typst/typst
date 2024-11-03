@@ -31,7 +31,7 @@ use std::ops::{Deref, Range};
 use ecow::EcoString;
 use typst_syntax::package::PackageSpec;
 use typst_syntax::{FileId, Source, Span};
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
 use crate::foundations::{Array, Bytes, Datetime, Dict, Module, Scope, Styles, Value};
@@ -162,9 +162,10 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
-    /// The standard library as a value.
-    /// Used to provide the `std` variable.
+    /// The standard library as a value. Used to provide the `std` variable.
     pub std: Value,
+    /// In-development features that were enabled.
+    pub features: Features,
 }
 
 impl Library {
@@ -187,6 +188,7 @@ impl Default for Library {
 #[derive(Debug, Clone, Default)]
 pub struct LibraryBuilder {
     inputs: Option<Dict>,
+    features: Features,
 }
 
 impl LibraryBuilder {
@@ -196,15 +198,57 @@ impl LibraryBuilder {
         self
     }
 
+    /// Configure in-development features that should be enabled.
+    ///
+    /// No guarantees whatsover!
+    pub fn with_features(mut self, features: Features) -> Self {
+        self.features = features;
+        self
+    }
+
     /// Consumes the builder and returns a `Library`.
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
         let global = global(math.clone(), inputs);
         let std = Value::Module(global.clone());
-        Library { global, math, styles: Styles::new(), std }
+        Library {
+            global,
+            math,
+            styles: Styles::new(),
+            std,
+            features: self.features,
+        }
     }
 }
+
+/// A selection of in-development features that should be enabled.
+///
+/// Can be collected from an iterator of [`Feature`]s.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct Features(SmallBitSet);
+
+impl Features {
+    /// Check whether the given feature is enabled.
+    pub fn is_enabled(&self, feature: Feature) -> bool {
+        self.0.contains(feature as usize)
+    }
+}
+
+impl FromIterator<Feature> for Features {
+    fn from_iter<T: IntoIterator<Item = Feature>>(iter: T) -> Self {
+        let mut set = SmallBitSet::default();
+        for feature in iter {
+            set.insert(feature as usize);
+        }
+        Self(set)
+    }
+}
+
+/// An in-development feature that should be enabled.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+pub enum Feature {}
 
 /// Construct the module with global definitions.
 fn global(math: Module, inputs: Dict) -> Module {

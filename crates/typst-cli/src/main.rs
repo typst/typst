@@ -16,12 +16,12 @@ mod world;
 use std::cell::Cell;
 use std::io::{self, Write};
 use std::process::ExitCode;
+use std::sync::LazyLock;
 
 use clap::error::ErrorKind;
 use clap::Parser;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
-use once_cell::sync::Lazy;
 use typst::diag::HintedStrResult;
 
 use crate::args::{CliArguments, Command};
@@ -33,7 +33,7 @@ thread_local! {
 }
 
 /// The parsed command line arguments.
-static ARGS: Lazy<CliArguments> = Lazy::new(|| {
+static ARGS: LazyLock<CliArguments> = LazyLock::new(|| {
     CliArguments::try_parse().unwrap_or_else(|error| {
         if error.kind() == ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand {
             crate::greet::greet();

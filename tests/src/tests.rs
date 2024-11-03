@@ -8,10 +8,10 @@ mod run;
 mod world;
 
 use std::path::Path;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use clap::Parser;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
@@ -19,7 +19,7 @@ use crate::args::{CliArguments, Command};
 use crate::logger::Logger;
 
 /// The parsed command line arguments.
-static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
+static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
 
 /// The directory where the test suite is located.
 const SUITE_PATH: &str = "tests/suite";

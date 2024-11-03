@@ -1,4 +1,5 @@
 use comemo::Tracked;
+use typst_library::diag::warning;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Context, IntoValue, Scopes, Value};
 use typst_library::World;
@@ -13,15 +14,15 @@ use crate::FlowEvent;
 /// new virtual machine is created for each module evaluation and function call.
 pub struct Vm<'a> {
     /// The underlying virtual typesetter.
-    pub(crate) engine: Engine<'a>,
+    pub engine: Engine<'a>,
     /// A control flow event that is currently happening.
-    pub(crate) flow: Option<FlowEvent>,
+    pub flow: Option<FlowEvent>,
     /// The stack of scopes.
-    pub(crate) scopes: Scopes<'a>,
+    pub scopes: Scopes<'a>,
     /// A span that is currently under inspection.
-    pub(crate) inspected: Option<Span>,
+    pub inspected: Option<Span>,
     /// Data that is contextually made accessible to code behind the scenes.
-    pub(crate) context: Tracked<'a, Context<'a>>,
+    pub context: Tracked<'a, Context<'a>>,
 }
 
 impl<'a> Vm<'a> {
@@ -46,6 +47,16 @@ impl<'a> Vm<'a> {
         let value = value.into_value();
         if self.inspected == Some(var.span()) {
             self.trace(value.clone());
+        }
+        // This will become an error in the parser if 'is' becomes a keyword.
+        if var.get() == "is" {
+            self.engine.sink.warn(warning!(
+                var.span(),
+                "`is` will likely become a keyword in future versions and will \
+                not be allowed as an identifier";
+                hint: "rename this variable to avoid future errors";
+                hint: "try `is_` instead"
+            ));
         }
         self.scopes.top.define_ident(var, value);
     }

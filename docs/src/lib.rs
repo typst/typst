@@ -12,9 +12,9 @@ pub use self::model::*;
 use std::collections::HashSet;
 
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_yaml as yaml;
+use std::sync::LazyLock;
 use typst::diag::{bail, StrResult};
 use typst::foundations::{
     AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
@@ -37,7 +37,7 @@ macro_rules! load {
     };
 }
 
-static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
+static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
     let mut groups: Vec<GroupData> =
         yaml::from_str(load!("reference/groups.yml")).unwrap();
     for group in &mut groups {
@@ -54,7 +54,7 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
     groups
 });
 
-static LIBRARY: Lazy<LazyHash<Library>> = Lazy::new(|| {
+static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     let mut lib = Library::default();
     let scope = lib.global.scope_mut();
 
@@ -74,7 +74,7 @@ static LIBRARY: Lazy<LazyHash<Library>> = Lazy::new(|| {
     LazyHash::new(lib)
 });
 
-static FONTS: Lazy<(LazyHash<FontBook>, Vec<Font>)> = Lazy::new(|| {
+static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
     let fonts: Vec<_> = typst_assets::fonts()
         .chain(typst_dev_assets::fonts())
         .flat_map(|data| Font::iter(Bytes::from_static(data)))
