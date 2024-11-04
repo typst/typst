@@ -594,23 +594,16 @@ fn main() {
 }
 ```
 
---- issue-3191-raw-indent-shrink ---
-// Spaces in raw blocks should not be shrunk as it would mess up the indentation
-// of code.
-#set par(justify: true)
+--- issue-3191-raw-justify ---
+// Raw blocks should not be justified by default.
+```
+a b c --------------------
+```
 
-#show raw.where(block: true): block.with(
-  fill: luma(240),
-  inset: 10pt,
-)
-
-#block(
-  width: 60%,
-  ```py
-  for x in xs:
-      print("x=",x)
-  ```
-)
+#show raw: set par(justify: true)
+```
+a b c --------------------
+```
 
 --- issue-3191-raw-normal-paragraphs-still-shrink ---
 // In normal paragraphs, spaces should still be shrunk.

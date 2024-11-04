@@ -12,6 +12,7 @@ use typst::WorldExt;
 use typst_pdf::PdfOptions;
 
 use crate::collect::{FileSize, NoteKind, Test};
+use crate::logger::TestResult;
 use crate::world::TestWorld;
 
 /// Runs a single test.
@@ -19,23 +20,6 @@ use crate::world::TestWorld;
 /// Returns whether the test passed.
 pub fn run(test: &Test) -> TestResult {
     Runner::new(test).run()
-}
-
-/// The result of running a single test.
-pub struct TestResult {
-    /// The error log for this test. If empty, the test passed.
-    pub errors: String,
-    /// The info log for this test.
-    pub infos: String,
-    /// Whether the image was mismatched.
-    pub mismatched_image: bool,
-}
-
-impl TestResult {
-    /// Whether the test passed.
-    pub fn is_ok(&self) -> bool {
-        self.errors.is_empty()
-    }
 }
 
 /// Write a line to a log sink, defaulting to the test's error log.

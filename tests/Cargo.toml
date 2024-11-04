@@ -11,14 +11,32 @@ name = "tests"
 path = "src/tests.rs"
 harness = false
 
+[features]
+# Allow just compiling the parser when only testing typst-syntax. To do so,
+# pass '--no-default-features' to 'cargo test'.
+default = [
+    # "typst-syntax" intentionally not present
+    "typst",
+    "typst-assets",
+    "typst-dev-assets",
+    "typst-library",
+    "typst-pdf",
+    "typst-render",
+    "typst-svg",
+    "typst-svg",
+]
+
 [dependencies]
-typst = { workspace = true }
-typst-assets = { workspace = true, features = ["fonts"] }
-typst-dev-assets = { workspace = true }
-typst-library = { workspace = true }
-typst-pdf = { workspace = true }
-typst-render = { workspace = true }
-typst-svg = { workspace = true }
+typst-syntax = { workspace = true }
+# Mark other Typst crates as optional so we can use '--no-default-features'
+# to decrease compile times for parser testing.
+typst = { workspace = true, optional = true }
+typst-assets = { workspace = true, features = ["fonts"], optional = true }
+typst-dev-assets = { workspace = true, optional = true }
+typst-library = { workspace = true, optional = true }
+typst-pdf = { workspace = true, optional = true }
+typst-render = { workspace = true, optional = true }
+typst-svg = { workspace = true, optional = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

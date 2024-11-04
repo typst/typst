@@ -135,6 +135,9 @@
 // Error: 2-3 unexpected closing brace
 #}
 
+--- single-right-bracket ---
+]
+
 --- content-block-in-markup-scope ---
 // Content blocks also create a scope.
 #[#let x = 1]
