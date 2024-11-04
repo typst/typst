@@ -417,7 +417,6 @@ pub fn commit(
     line: &Line,
     width: Abs,
     full: Abs,
-    shrink: bool,
     locator: &mut SplitLocator<'_>,
     styles: StyleChain,
 ) -> SourceResult<Frame> {
@@ -469,7 +468,7 @@ pub fn commit(
 
     let shrinkability = line.shrinkability();
     let stretchability = line.stretchability();
-    if remaining < Abs::zero() && shrinkability > Abs::zero() && shrink {
+    if remaining < Abs::zero() && shrinkability > Abs::zero() {
         // Attempt to reduce the length of the line, using shrinkability.
         justification_ratio = (remaining / shrinkability).max(-1.0);
         remaining = (remaining + shrinkability).min(Abs::zero());
