@@ -449,8 +449,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // possible, we then migrate the origin frame to the next region to
         // uphold the footnote invariant (that marker and entry are on the same
         // page). If not, we just queue the footnote for the next page.
-        if first.is_empty() {
-            if exist_non_empty_frame {
+        if first.is_empty() && exist_non_empty_frame {
                 if migratable {
                     return Err(Stop::Finish(false));
                 } else {
@@ -458,7 +457,6 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                     return Ok(());
                 }
             }
-        }
 
         // Save the separator.
         if let Some(frame) = separator {
