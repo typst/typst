@@ -432,14 +432,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let nested = find_in_frames::<FootnoteElem>(&frames);
 
         // Check if there are any non-empty frames.
-        let mut exist_non_empty_frame = false;
-        for i in &frames {
-            if !i.is_empty() {
-                exist_non_empty_frame = true;
-                break;
-            }
-        }
-
+        let exist_non_empty_frame = frames.iter().any(|f| !f.is_empty());
+        
         // Extract the first frame.
         let mut iter = frames.into_iter();
         let first = iter.next().unwrap();
