@@ -814,7 +814,7 @@ impl Array {
     /// function. The sorting algorithm used is stable.
     ///
     /// Returns an error if two values could not be compared or if the key
-    /// function (if given) yields an error.
+    /// or comparison function (if given) yields an error.
     ///
     /// To sort according to multiple criteria at once, e.g. in case of equality
     /// between some criteria, the key function can return an array. The results
@@ -841,8 +841,11 @@ impl Array {
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
-        /// If given, uses this function to compare elements in the array to
-        /// determine their relative order.
+        /// If given, uses this function to compare elements in the array.
+        ///
+        /// This function should return an integer, whose sign is
+        /// used to determine the relative order of two given
+        /// elements.
         #[named]
         compare: Option<Func>,
     ) -> SourceResult<Array> {
