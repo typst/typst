@@ -5,7 +5,7 @@ use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
-use typst_library::pdf::{Embed, EmbedElem, EmbeddedFileRelationship};
+use typst_library::pdf::embed::{Embed, EmbedElem, EmbeddedFileRelationship};
 use typst_syntax::Span;
 
 pub fn write_embedded_files(

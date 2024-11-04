@@ -25,6 +25,7 @@ use typst::layout::{Abs, Margin, PageElem, LAYOUT};
 use typst::loading::DATA_LOADING;
 use typst::math::MATH;
 use typst::model::{Document, MODEL};
+use typst::pdf::PDF;
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
 use typst::utils::LazyHash;
@@ -162,6 +163,7 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
         category_page(resolver, VISUALIZE),
         category_page(resolver, INTROSPECTION),
         category_page(resolver, DATA_LOADING),
+        category_page(resolver, PDF),
     ];
     page
 }
