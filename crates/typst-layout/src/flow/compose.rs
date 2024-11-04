@@ -433,7 +433,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Check if there are any non-empty frames.
         let exist_non_empty_frame = frames.iter().any(|f| !f.is_empty());
-        
+
         // Extract the first frame.
         let mut iter = frames.into_iter();
         let first = iter.next().unwrap();
