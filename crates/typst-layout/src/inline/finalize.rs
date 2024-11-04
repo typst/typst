@@ -27,10 +27,9 @@ pub fn finalize(
     };
 
     // Stack the lines into one frame per region.
-    let shrink = ParElem::shrink_in(styles);
     lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y, shrink, locator, styles))
+        .map(|line| commit(engine, p, line, width, region.y, locator, styles))
         .collect::<SourceResult<_>>()
         .map(Fragment::frames)
 }

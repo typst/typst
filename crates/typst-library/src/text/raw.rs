@@ -473,7 +473,6 @@ impl ShowSet for Packed<RawElem> {
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
         if self.block(styles) {
-            out.set(ParElem::set_shrink(false));
             out.set(ParElem::set_justify(false));
         }
         out
