@@ -1545,11 +1545,7 @@ struct Token {
 /// Information about a newline if present (currently only relevant in Markup).
 #[derive(Debug, Clone, Copy)]
 struct Newline {
-    /// The column of our token in its line.
-    ///
-    /// Note that this is actually the column of the first non-whitespace
-    /// `SyntaxKind` in the line, so `\n  /**/- list` has column 2 (not 6)
-    /// because the block comment is the first non-space kind.
+    /// The column of the start of our token in its line.
     column: Option<usize>,
     /// Whether any of our newlines were paragraph breaks.
     parbreak: bool,
@@ -1684,10 +1680,6 @@ impl<'s> Parser<'s> {
 
     /// The number of characters until the most recent newline from the current
     /// token, or 0 if it did not follow a newline.
-    ///
-    /// Note that this is actually the column of the first non-whitespace
-    /// `SyntaxKind` in the line, so `\n  /**/- list` has column 2 (not 6)
-    /// because the block comment is the first non-space kind.
     fn current_column(&self) -> usize {
         self.token.newline.and_then(|newline| newline.column).unwrap_or(0)
     }
@@ -1852,29 +1844,30 @@ impl<'s> Parser<'s> {
         let (mut kind, mut node) = lexer.next();
         let mut n_trivia = 0;
         let mut had_newline = false;
-        let mut newline = Newline { column: None, parbreak: false };
+        let mut parbreak = false;
 
         while kind.is_trivia() {
-            if lexer.newline() {
-                // Newlines are always trivia.
-                had_newline = true;
-                newline.parbreak |= kind == SyntaxKind::Parbreak;
-                if lexer.mode() == LexMode::Markup {
-                    newline.column = Some(lexer.column());
-                }
-            }
+            had_newline |= lexer.newline(); // Newlines are always trivia.
+            parbreak |= kind == SyntaxKind::Parbreak;
             n_trivia += 1;
             nodes.push(node);
             start = lexer.cursor();
             (kind, node) = lexer.next();
         }
-        if had_newline && nl_mode.stop_at(newline, kind) {
-            // Insert a temporary `SyntaxKind::End` to halt the parser.
-            // The actual kind will be restored from `node` later.
-            kind = SyntaxKind::End;
-        }
 
-        let newline = had_newline.then_some(newline);
+        let newline = if had_newline {
+            let column = (lexer.mode() == LexMode::Markup).then(|| lexer.column(start));
+            let newline = Newline { column, parbreak };
+            if nl_mode.stop_at(newline, kind) {
+                // Insert a temporary `SyntaxKind::End` to halt the parser.
+                // The actual kind will be restored from `node` later.
+                kind = SyntaxKind::End;
+            }
+            Some(newline)
+        } else {
+            None
+        };
+
         Token { kind, node, n_trivia, newline, start, prev_end }
     }
 }
