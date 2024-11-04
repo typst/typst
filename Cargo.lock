@@ -2059,7 +2059,7 @@ checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
 [[package]]
 name = "svg2pdf"
 version = "0.4.1"
-source = "git+https://github.com/typst/svg2pdf#35f4bb87fb677473661c6d12919e01a6d64a716d"
+source = "git+https://github.com/typst/svg2pdf?rev=35f4bb87fb677473661c6d12919e01a6d64a716d#35f4bb87fb677473661c6d12919e01a6d64a716d"
 dependencies = [
  "image",
  "miniz_oxide",
