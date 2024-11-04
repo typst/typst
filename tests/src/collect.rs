@@ -3,9 +3,9 @@ use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
-use once_cell::sync::Lazy;
 use typst::syntax::package::PackageVersion;
 use typst::syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
 use unscanny::Scanner;
@@ -390,7 +390,7 @@ impl<'a> Parser<'a> {
 
 /// Whether a test is within the selected set to run.
 fn selected(name: &str, abs: PathBuf) -> bool {
-    static SKIPPED: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    static SKIPPED: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
         String::leak(std::fs::read_to_string(crate::SKIP_PATH).unwrap())
             .lines()
             .map(|line| line.trim())

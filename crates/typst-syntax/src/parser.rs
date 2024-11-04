@@ -1224,8 +1224,11 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
 
 /// Parses a function call's argument list: `(12pt, y)`.
 fn args(p: &mut Parser) {
-    if !p.at(SyntaxKind::LeftParen) && !p.at(SyntaxKind::LeftBracket) {
+    if !p.directly_at(SyntaxKind::LeftParen) && !p.directly_at(SyntaxKind::LeftBracket) {
         p.expected("argument list");
+        if p.at(SyntaxKind::LeftParen) || p.at(SyntaxKind::LeftBracket) {
+            p.hint("there may not be any spaces before the argument list");
+        }
     }
 
     let m = p.marker();

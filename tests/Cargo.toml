@@ -22,7 +22,6 @@ typst-svg = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-once_cell = { workspace = true }
 oxipng = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }

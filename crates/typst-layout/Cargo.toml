@@ -30,7 +30,6 @@ icu_provider_adapters = { workspace = true }
 icu_provider_blob = { workspace = true }
 icu_segmenter = { workspace = true }
 kurbo = { workspace = true }
-once_cell = { workspace = true }
 rustybuzz = { workspace = true }
 smallvec = { workspace = true }
 ttf-parser = { workspace = true }

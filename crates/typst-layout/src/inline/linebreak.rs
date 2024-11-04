@@ -1,4 +1,5 @@
 use std::ops::{Add, Sub};
+use std::sync::LazyLock;
 
 use az::SaturatingAs;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
@@ -7,7 +8,6 @@ use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
-use once_cell::sync::Lazy;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
@@ -40,11 +40,11 @@ fn blob() -> BlobDataProvider {
 }
 
 /// The general line break segmenter.
-static SEGMENTER: Lazy<LineSegmenter> =
-    Lazy::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
+static SEGMENTER: LazyLock<LineSegmenter> =
+    LazyLock::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
 
 /// The line break segmenter for Chinese/Japanese text.
-static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
+static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
     let cj_blob =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU_CJ_SEGMENT)
             .unwrap();
@@ -53,7 +53,7 @@ static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
 });
 
 /// The Unicode line break properties for each code point.
-static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
+static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| {
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
 

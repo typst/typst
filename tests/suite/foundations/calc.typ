@@ -368,3 +368,19 @@
 // Error: 2-37 cannot apply this operation to a decimal and a float
 // Hint: 2-37 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
 #calc.clamp(decimal("10"), 5.5, 6.6)
+
+--- calc-norm ---
+#test(calc.norm(1, 2, -3, 0.5), calc.sqrt(14.25))
+#test(calc.norm(3, 4), 5.0)
+#test(calc.norm(3, 4), 5.0)
+#test(calc.norm(), 0.0)
+#test(calc.norm(p: 3, 1, -2), calc.pow(9, 1/3))
+#test(calc.norm(p: calc.inf, 1, -2), 2.0)
+
+--- calc-norm-negative-p ---
+// Error: 15-17 p must be greater than zero
+#calc.norm(p: -1, 1)
+
+--- calc-norm-expected-float ---
+// Error: 12-15 expected float, found ratio
+#calc.norm(10%)

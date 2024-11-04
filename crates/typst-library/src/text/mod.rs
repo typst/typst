@@ -29,12 +29,12 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
+use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
-use once_cell::sync::Lazy;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
@@ -1342,7 +1342,7 @@ cast! {
 /// Whether a codepoint is Unicode `Default_Ignorable`.
 pub fn is_default_ignorable(c: char) -> bool {
     /// The set of Unicode default ignorables.
-    static DEFAULT_IGNORABLE_DATA: Lazy<CodePointSetData> = Lazy::new(|| {
+    static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetData> = LazyLock::new(|| {
         icu_properties::sets::load_default_ignorable_code_point(
             &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
                 .unwrap()

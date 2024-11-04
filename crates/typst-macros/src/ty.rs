@@ -102,8 +102,8 @@ fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
-            constructor: #foundations::Lazy::new(|| #constructor),
-            scope: #foundations::Lazy::new(|| #scope),
+            constructor: ::std::sync::LazyLock::new(|| #constructor),
+            scope: ::std::sync::LazyLock::new(|| #scope),
         }
     };
 
