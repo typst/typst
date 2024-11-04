@@ -34,6 +34,51 @@ _Shopping list_
    - C
 - D
 
+--- list-indent-trivia-nesting ---
+// Test indent nesting behavior with odd trivia (comments and spaces).
+
+#let indented = [
+- a
+ /**/- b
+/**/ - c
+   /*spanning
+     multiple
+      lines */ - d
+    - e
+/**/       - f
+/**/  - g
+]
+// Current behavior is that list columns are based on the first non-whitespace
+// element in their line, so the block comments here determine the column the
+// list starts at
+
+#let item = list.item
+#let manual = {
+  [ ]
+  item({
+    [a]
+    [ ]
+    item[b]
+    [ ]; [ ]
+    item({
+      [c]
+      [ ]; [ ]
+      item[d]
+    })
+    [ ]
+    item({
+      [e]
+      [ ]; [ ]
+      item[f]
+      [ ]; [ ]
+      item[g]
+    })
+  })
+  [ ]
+}
+
+#test(indented, manual)
+
 --- list-tabs ---
 // This works because tabs are used consistently.
 	- A with 1 tab
