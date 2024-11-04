@@ -841,31 +841,42 @@ impl Array {
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
+        /// If given, uses this function to compare elements in the array to
+        /// determine their relative order.
+        #[named]
+        compare: Option<Func>,
     ) -> SourceResult<Array> {
         let mut result = Ok(());
         let mut vec = self.0;
-        let mut key_of = |x: Value| match &key {
-            // NOTE: We are relying on `comemo`'s memoization of function
-            // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, context, [x]),
-            None => Ok(x),
+        let mut compare = |x: Value, y: Value| {
+            let mut key_of = |x: Value| match &key {
+                // NOTE: We are relying on `comemo`'s memoization of function
+                // evaluation to not excessively reevaluate the `key`.
+                Some(f) => f.call(engine, context, [x]),
+                None => Ok(x),
+            };
+            let x = key_of(x)?;
+            let y = key_of(y)?;
+            match &compare {
+                Some(f) => Ok(match f.call(engine, context, [x, y])? {
+                    Value::Int(x) => x.cmp(&0),
+                    x => bail!(
+                        span,
+                        "expected integer from `compare` function; got {}",
+                        x.repr()
+                    ),
+                }),
+                None => ops::compare(&x, &y).at(span),
+            }
         };
         vec.make_mut().sort_by(|a, b| {
             // Until we get `try` blocks :)
-            match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
-                    if result.is_ok() {
-                        result = Err(err).at(span);
-                    }
-                    Ordering::Equal
-                }),
-                (Err(e), _) | (_, Err(e)) => {
-                    if result.is_ok() {
-                        result = Err(e);
-                    }
-                    Ordering::Equal
+            compare(a.clone(), b.clone()).unwrap_or_else(|err| {
+                if result.is_ok() {
+                    result = Err(err);
                 }
-            }
+                Ordering::Equal
+            })
         });
         result.map(|_| vec.into())
     }
