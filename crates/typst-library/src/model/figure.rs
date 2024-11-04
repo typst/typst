@@ -412,11 +412,11 @@ impl Outlinable for Packed<FigureElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<Option<Content>> {
-        if !self.outlined(StyleChain::default()) {
+        if !self.outlined(styles) {
             return Ok(None);
         }
 
-        let Some(caption) = self.caption(StyleChain::default()) else {
+        let Some(caption) = self.caption(styles) else {
             return Ok(None);
         };
 
@@ -425,11 +425,8 @@ impl Outlinable for Packed<FigureElem> {
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(Some(counter)),
             Some(numbering),
-        ) = (
-            (**self).supplement(StyleChain::default()).clone(),
-            (**self).counter(),
-            self.numbering(),
-        ) {
+        ) = ((**self).supplement(styles).clone(), (**self).counter(), self.numbering())
+        {
             let numbers = counter.display_at_loc(
                 engine,
                 self.location().unwrap(),
@@ -441,7 +438,7 @@ impl Outlinable for Packed<FigureElem> {
                 supplement += TextElem::packed('\u{a0}');
             }
 
-            let separator = caption.get_separator(StyleChain::default());
+            let separator = caption.get_separator(styles);
 
             realized = supplement + numbers + separator + caption.body();
         }

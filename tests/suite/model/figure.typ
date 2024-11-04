@@ -157,6 +157,14 @@ We can clearly see that @fig-cylinder and
   caption: [The table with custom separator.],
 )
 
+--- figure-caption-separator-in-outline ---
+
+// Test custom separator for figure caption in table of contents
+#set text(lang: "ru")
+#outline(title: none, target: selector(figure).before(<alt>))
+#figure(rect(), caption: [A rectangle])
+#figure(table[cell], caption: [A table])
+
 --- figure-caption-show ---
 // Test figure.caption element
 #show figure.caption: emph
