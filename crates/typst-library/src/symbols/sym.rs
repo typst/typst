@@ -244,6 +244,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = typst_macros::symbols! {
         small: '﹦',
         succ: '⋟',
         triple: '≡',
+        triple.not: '≢',
         quad: '≣',
     ],
     gt: [
