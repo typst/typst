@@ -27,7 +27,7 @@ land your contribution below.
    bugs, and whether the contribution aligns with what was previously discussed.
    If you think that a review comment misses something or is not quite right,
    please challenge it!
-6. If the review passes, your PR will be merged and ship in the next version of
+6. If the review passes, your PR will be merged and shipped in the next version of
    Typst. You will appear as one of the contributors in the [changelog].
    Thank you!
 
@@ -58,7 +58,7 @@ always judge technical contributions to the project based on their technical
 merits. However, as a company, our immediate priorities can and do change often
 and sometimes without prior notice. This affects the design and decision making
 process as well as the development and review velocity. Some proposals may also
-have direct impact on our viability as a company, in which case we carefully
+have a direct impact on our viability as a company, in which case we carefully
 consider them from the business perspective.
 
 If you are unsure whether your idea is a good fit for this project, please
