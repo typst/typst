@@ -2,7 +2,16 @@ use std::io::{self, IsTerminal, StderrLock, Write};
 use std::time::{Duration, Instant};
 
 use crate::collect::Test;
-use crate::run::TestResult;
+
+/// The result of running a single test.
+pub struct TestResult {
+    /// The error log for this test. If empty, the test passed.
+    pub errors: String,
+    /// The info log for this test.
+    pub infos: String,
+    /// Whether the image was mismatched.
+    pub mismatched_image: bool,
+}
 
 /// Receives status updates by individual test runs.
 pub struct Logger<'a> {
@@ -58,7 +67,7 @@ impl<'a> Logger<'a> {
             }
         };
 
-        if result.is_ok() {
+        if result.errors.is_empty() {
             self.passed += 1;
         } else {
             self.failed += 1;
