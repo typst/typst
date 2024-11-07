@@ -109,17 +109,17 @@ pub fn layout_image(
     let mut frame = Frame::soft(fitted);
     frame.push(Point::zero(), FrameItem::Image(image.clone(), fitted, span));
     if let ImageKind::Svg(svg) = image.kind() {
-        fn traverse(svg: &SvgImage, group: &usvg::Group, image_size: Size, engine: &mut Engine, span: Span, styles: StyleChain, parent_frame: &mut Frame) -> Option<()> {
+        fn traverse(svg: &SvgImage, group: &usvg::Group, image_size: Size, engine: &mut Engine, span: Span, styles: StyleChain, parent_frame: &mut Frame) -> SourceResult<()> {
             for child in group.children() {
                 match child {
                     Node::Group(g) => {
-                        traverse(svg, g, image_size, engine, span, styles, parent_frame);
+                        traverse(svg, g, image_size, engine, span, styles, parent_frame)?;
                     },
                     Node::Text(t) => {
                         for chunk in t.chunks() {
                             let mut x = chunk.x().unwrap_or(0.0);
-                            let y = chunk.y().unwrap_or(0.0);
-                            let val = (engine.routines.eval_string)(engine.routines, engine.world, &chunk.text(), span, EvalMode::Markup, Scope::new()).unwrap().display();
+                            let mut y = chunk.y().unwrap_or(0.0);
+                            let val = (engine.routines.eval_string)(engine.routines, engine.world, &chunk.text(), span, EvalMode::Markup, Scope::new())?.display();
 
                             let locator = Locator::root();
                             let region = Region::new(Size::new(Abs::inf(), Abs::inf()), Axes::splat(false));
@@ -134,10 +134,19 @@ pub fn layout_image(
                             let baseline = f.baseline();
                             let mut text_frame = GroupItem::new(f);
 
-                            let transform = t.abs_transform()
-                                .pre_concat(Transform::from_translate(x, y))
-                                .post_concat(Transform::from_translate(0.0, baseline.neg().to_raw() as f32))
-                                .post_concat(Transform::from_scale(image_size.x.to_raw() as f32 / svg.tree().size().width(), image_size.y.to_raw() as f32 / svg.tree().size().height()));
+                            let x_scale = image_size.x.to_raw() as f32 / svg.tree().size().width();
+                            let y_scale = image_size.y.to_raw() as f32 / svg.tree().size().height();
+                            let translate_component = Transform::from_translate(t.abs_transform().tx, t.abs_transform().ty);
+                            let rotation = -t.abs_transform().kx.atan2(t.abs_transform().sx).to_degrees();
+                            println!("rotation: {:?}", rotation);
+                            println!("translate component: {:?}", translate_component);
+                            let transform =
+                                Transform::from_scale(x_scale, y_scale)
+                                .pre_concat(translate_component)
+                                .pre_concat(Transform::from_rotate(rotation))
+                                .pre_concat(Transform::from_translate(x, y)
+                                .pre_concat(Transform::from_scale(1.0 / x_scale, 1.0 / y_scale))
+                                .pre_concat(Transform::from_translate(0.0, baseline.neg().to_raw() as f32)));
 
                             text_frame.transform = transform.into();
                             parent_frame.push(Point::zero(), FrameItem::Group(text_frame));
@@ -147,10 +156,10 @@ pub fn layout_image(
                 }
             }
 
-            None
+            Ok(())
         }
 
-        traverse(svg, svg.tree().root(), fitted, engine, span, styles, &mut frame);
+        traverse(svg, svg.tree().root(), fitted, engine, span, styles, &mut frame)?;
     }
     frame.resize(target, Axes::splat(FixedAlignment::Center));
 
