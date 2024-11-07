@@ -426,7 +426,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = typst_macros::symbols! {
         tie: '⧝',
     ],
     oo: '∞',
-    diff: '∂', // Deprecation planned
     partial: '∂',
     gradient: '∇',
     nabla: '∇',
