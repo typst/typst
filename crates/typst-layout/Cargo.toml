@@ -33,6 +33,7 @@ kurbo = { workspace = true }
 rustybuzz = { workspace = true }
 smallvec = { workspace = true }
 ttf-parser = { workspace = true }
+usvg = { workspace = true }
 unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }

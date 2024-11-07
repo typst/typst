@@ -1,17 +1,16 @@
 use std::ffi::OsStr;
-
+use std::ops::Neg;
+use usvg::{Node, TextAnchor, Transform};
 use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Smart, StyleChain};
+use typst_library::foundations::{Packed, Scope, Smart, StyleChain};
 use typst_library::introspection::Locator;
-use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
-};
+use typst_library::layout::{Abs, Axes, FixedAlignment, Frame, FrameItem, GroupItem, Point, Region, Size};
 use typst_library::loading::Readable;
+use typst_library::routines::EvalMode;
 use typst_library::text::families;
-use typst_library::visualize::{
-    Image, ImageElem, ImageFit, ImageFormat, Path, RasterFormat, VectorFormat,
-};
+use typst_library::visualize::{Image, ImageElem, ImageFit, ImageFormat, ImageKind, Path, RasterFormat, SvgImage, VectorFormat};
+use typst_syntax::Span;
 
 /// Layout the image.
 #[typst_macros::time(span = elem.span())]
@@ -54,6 +53,7 @@ pub fn layout_image(
         format,
         elem.alt(styles),
         engine.world,
+        elem.eval(styles),
         &families(styles).collect::<Vec<_>>(),
     )
     .at(span)?;
@@ -107,7 +107,51 @@ pub fn layout_image(
     // the frame to the target size, center aligning the image in the
     // process.
     let mut frame = Frame::soft(fitted);
-    frame.push(Point::zero(), FrameItem::Image(image, fitted, span));
+    frame.push(Point::zero(), FrameItem::Image(image.clone(), fitted, span));
+    if let ImageKind::Svg(svg) = image.kind() {
+        fn traverse(svg: &SvgImage, group: &usvg::Group, image_size: Size, engine: &mut Engine, span: Span, styles: StyleChain, parent_frame: &mut Frame) -> Option<()> {
+            for child in group.children() {
+                match child {
+                    Node::Group(g) => {
+                        traverse(svg, g, image_size, engine, span, styles, parent_frame);
+                    },
+                    Node::Text(t) => {
+                        for chunk in t.chunks() {
+                            let mut x = chunk.x().unwrap_or(0.0);
+                            let y = chunk.y().unwrap_or(0.0);
+                            let val = (engine.routines.eval_string)(engine.routines, engine.world, &chunk.text(), span, EvalMode::Markup, Scope::new()).unwrap().display();
+
+                            let locator = Locator::root();
+                            let region = Region::new(Size::new(Abs::inf(), Abs::inf()), Axes::splat(false));
+                            let f = crate::layout_frame(engine, &val, locator, styles, region).unwrap();
+
+                            x = match chunk.anchor() {
+                                TextAnchor::Start => x,
+                                TextAnchor::Middle => x - (f.size().x.to_raw() / 2.0) as f32,
+                                TextAnchor::End => x - f.size().x.to_raw() as f32
+                            };
+
+                            let baseline = f.baseline();
+                            let mut text_frame = GroupItem::new(f);
+
+                            let transform = t.abs_transform()
+                                .pre_concat(Transform::from_translate(x, y))
+                                .post_concat(Transform::from_translate(0.0, baseline.neg().to_raw() as f32))
+                                .post_concat(Transform::from_scale(image_size.x.to_raw() as f32 / svg.tree().size().width(), image_size.y.to_raw() as f32 / svg.tree().size().height()));
+
+                            text_frame.transform = transform.into();
+                            parent_frame.push(Point::zero(), FrameItem::Group(text_frame));
+                        }
+                    },
+                    _ => {}
+                }
+            }
+
+            None
+        }
+
+        traverse(svg, svg.tree().root(), fitted, engine, span, styles, &mut frame);
+    }
     frame.resize(target, Axes::splat(FixedAlignment::Center));
 
     // Create a clipping group if only part of the image should be visible.

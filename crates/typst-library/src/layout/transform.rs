@@ -284,6 +284,20 @@ pub struct Transform {
     pub ty: Abs,
 }
 
+impl From<usvg::Transform> for Transform {
+    fn from(value: usvg::Transform) -> Self {
+        Self {
+            sx: Ratio::new(value.sx as f64),
+            ky: Ratio::new(value.ky as f64),
+            kx: Ratio::new(value.kx as f64),
+            sy: Ratio::new(value.sy as f64),
+            tx: Abs::raw(value.tx as f64),
+            ty: Abs::raw(value.ty as f64),
+        }
+    }
+}
+
+
 impl Transform {
     /// The identity transformation.
     pub const fn identity() -> Self {

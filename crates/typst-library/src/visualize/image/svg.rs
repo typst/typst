@@ -23,6 +23,7 @@ struct Repr {
     data: Bytes,
     size: Axes<f64>,
     font_hash: u128,
+
     tree: usvg::Tree,
 }
 
@@ -40,10 +41,17 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
+        eval: bool,
         families: &[&str],
     ) -> StrResult<SvgImage> {
         let book = world.book();
         let resolver = Mutex::new(FontResolver::new(world, book, families));
+        let stylesheet = if eval {
+            Some("text { visibility: hidden !important }".to_string())
+        }   else {
+            None
+        };
+
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
@@ -55,6 +63,7 @@ impl SvgImage {
                         resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
                     }),
                 },
+                style_sheet: stylesheet,
                 ..base_options()
             },
         )

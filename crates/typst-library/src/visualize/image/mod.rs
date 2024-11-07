@@ -94,6 +94,10 @@ pub struct ImageElem {
     /// ```
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
+
+    /// TODO: Add docs
+    #[default(false)]
+    pub eval: bool
 }
 
 #[scope]
@@ -245,6 +249,7 @@ impl Image {
         format: ImageFormat,
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
+        eval: bool,
         families: &[&str],
     ) -> StrResult<Image> {
         let kind = match format {
@@ -252,7 +257,7 @@ impl Image {
                 ImageKind::Raster(RasterImage::new(data, format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, families)?)
+                ImageKind::Svg(SvgImage::with_fonts(data, world, eval, families)?)
             }
         };
 

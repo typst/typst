@@ -759,9 +759,9 @@ dependencies = [
 
 [[package]]
 name = "fontdb"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37be9fc20d966be438cd57a45767f73349477fb0f85ce86e000557f787298afb"
+checksum = "a3a6f9af55fb97ad673fb7a69533eb2f967648a06fa21f8c9bb2cd6d33975716"
 dependencies = [
  "fontconfig-parser",
  "log",
@@ -1994,9 +1994,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "resvg"
-version = "0.43.0"
+version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7314563c59c7ce31c18e23ad3dd092c37b928a0fa4e1c0a1a6504351ab411d1"
+checksum = "4a325d5e8d1cebddd070b13f44cec8071594ab67d1012797c121f27a669b7958"
 dependencies = [
  "gif",
  "image-webp",
@@ -2364,8 +2364,7 @@ checksum = "74f98178f34057d4d4de93d68104007c6dea4dfac930204a69ab4622daefa648"
 [[package]]
 name = "svg2pdf"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5014c9dadcf318fb7ef8c16438e95abcc9de1ae24d60d5bccc64c55100c50364"
+source = "git+https://github.com/typst/svg2pdf?rev=ed9b142#ed9b1429473368e0566da01c61e46abfec8795b7"
 dependencies = [
  "fontdb",
  "image",
@@ -2837,6 +2836,7 @@ dependencies = [
  "unicode-math-class",
  "unicode-script",
  "unicode-segmentation",
+ "usvg",
 ]
 
 [[package]]
@@ -3180,9 +3180,9 @@ dependencies = [
 
 [[package]]
 name = "usvg"
-version = "0.43.0"
+version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6803057b5cbb426e9fb8ce2216f3a9b4ca1dd2c705ba3cbebc13006e437735fd"
+checksum = "7447e703d7223b067607655e625e0dbca80822880248937da65966194c4864e6"
 dependencies = [
  "base64",
  "data-url",
