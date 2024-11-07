@@ -33,7 +33,13 @@ impl SvgImage {
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
         let tree =
             usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, outlined: false, tree })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            size: tree_size(&tree),
+            font_hash: 0,
+            outlined: false,
+            tree,
+        })))
     }
 
     /// Decode an SVG image with access to fonts.
@@ -62,7 +68,13 @@ impl SvgImage {
         )
         .map_err(format_usvg_error)?;
         let font_hash = resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, outlined, tree })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            size: tree_size(&tree),
+            font_hash,
+            outlined,
+            tree,
+        })))
     }
 
     /// The raw image data.

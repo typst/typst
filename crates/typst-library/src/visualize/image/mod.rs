@@ -99,7 +99,7 @@ pub struct ImageElem {
     /// embedding. This will result in the text becoming unselectable in
     /// the output.
     #[default(false)]
-    pub outlined: bool
+    pub outlined: bool,
 }
 
 #[scope]
