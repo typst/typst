@@ -172,3 +172,8 @@ int main() {
 // Test that overflow does not lead to bad bounds in paragraph optimization.
 #set par(justify: true)
 #block(width: 0pt)[A B]
+
+--- issue-5360-unnecessary-hyphenation ---
+// Test whether `Formal` would be in one line.
+#set par(justify: true)
+#table(columns: 1, [Formal])
