@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 use std::ops::Neg;
-use usvg::{Node, TextAnchor, Transform};
+use usvg::{tiny_skia_path, Node, TextAnchor, Transform};
 use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, Scope, Smart, StyleChain};
@@ -110,6 +110,7 @@ pub fn layout_image(
     frame.push(Point::zero(), FrameItem::Image(image.clone(), fitted, span));
     println!("{:?}", fitted);
     println!("{:?}", target);
+    let mut clip = false;
     if let ImageKind::Svg(svg) = image.kind() {
         println!("{:?}", svg.tree().size());
         fn traverse(svg: &SvgImage, group: &usvg::Group, image_size: Size, engine: &mut Engine, span: Span, styles: StyleChain, parent_frame: &mut Frame) -> SourceResult<()> {
@@ -120,11 +121,13 @@ pub fn layout_image(
                     },
                     Node::Text(t) => {
                         for chunk in t.chunks() {
-                            let dpi_ratio = (Image::USVG_DEFAULT_DPI / Image::DEFAULT_DPI) as f32;
-                            let x_scale = image_size.x.to_raw() as f32 / svg.tree().size().width() * dpi_ratio;
-                            let y_scale = image_size.y.to_raw() as f32 / svg.tree().size().height() * dpi_ratio;
-                            let mut x = chunk.x().unwrap_or(0.0) * x_scale;
-                            let mut y = chunk.y().unwrap_or(0.0) * y_scale;
+                            let x_scale = image_size.x.to_raw() as f32 / svg.width() as f32;
+                            let y_scale = image_size.y.to_raw() as f32 / svg.height() as f32;
+                            let x = chunk.x().unwrap_or(0.0);
+                            let y = chunk.y().unwrap_or(0.0);
+                            let mut pos = tiny_skia_path::Point::from_xy(x, y);
+                            t.abs_transform().map_point(&mut pos);
+                            let (mut x, y) = (pos.x * x_scale, pos.y * y_scale);
                             let val = (engine.routines.eval_string)(engine.routines, engine.world, &chunk.text(), span, EvalMode::Markup, Scope::new())?.display();
 
                             let locator = Locator::root();
@@ -140,13 +143,12 @@ pub fn layout_image(
 
                             let baseline = f.baseline();
                             let mut text_frame = GroupItem::new(f);
+                            println!("abs transform: {:?}", t.abs_transform());
 
-                            let translate_component = Transform::from_translate(t.abs_transform().tx * x_scale, t.abs_transform().ty * y_scale);
                             let rotation = -t.abs_transform().kx.atan2(t.abs_transform().sx).to_degrees();
-                            let transform = translate_component
+                            let transform = Transform::from_translate(x, y)
                                 .pre_concat(Transform::from_rotate(rotation))
-                                .pre_concat(Transform::from_translate(x, y)
-                                .pre_concat(Transform::from_translate(0.0, baseline.neg().to_raw() as f32)));
+                                .pre_concat(Transform::from_translate(0.0, baseline.neg().to_raw() as f32));
 
                             text_frame.transform = transform.into();
                             parent_frame.push(Point::zero(), FrameItem::Group(text_frame));
@@ -159,12 +161,15 @@ pub fn layout_image(
             Ok(())
         }
 
+        clip = true;
         traverse(svg, svg.tree().root(), fitted, engine, span, styles, &mut frame)?;
     }
     frame.resize(target, Axes::splat(FixedAlignment::Center));
 
+    clip |= fit == ImageFit::Cover && !target.fits(fitted);
+
     // Create a clipping group if only part of the image should be visible.
-    if fit == ImageFit::Cover && !target.fits(fitted) {
+    if (clip)  {
         frame.clip(Path::rect(frame.size()));
     }
 
