@@ -5,7 +5,7 @@ use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, Scope, Smart, StyleChain};
 use typst_library::introspection::Locator;
-use typst_library::layout::{Abs, Axes, FixedAlignment, Frame, FrameItem, GroupItem, Point, Region, Size};
+use typst_library::layout::{Abs, Axes, FixedAlignment, Frame, FrameItem, FrameKind, GroupItem, Point, Region, Size};
 use typst_library::loading::Readable;
 use typst_library::routines::EvalMode;
 use typst_library::text::families;
@@ -108,7 +108,10 @@ pub fn layout_image(
     // process.
     let mut frame = Frame::soft(fitted);
     frame.push(Point::zero(), FrameItem::Image(image.clone(), fitted, span));
+    println!("{:?}", fitted);
+    println!("{:?}", target);
     if let ImageKind::Svg(svg) = image.kind() {
+        println!("{:?}", svg.tree().size());
         fn traverse(svg: &SvgImage, group: &usvg::Group, image_size: Size, engine: &mut Engine, span: Span, styles: StyleChain, parent_frame: &mut Frame) -> SourceResult<()> {
             for child in group.children() {
                 match child {
@@ -117,15 +120,17 @@ pub fn layout_image(
                     },
                     Node::Text(t) => {
                         for chunk in t.chunks() {
-                            let x_scale = image_size.x.to_raw() as f32 / svg.tree().size().width();
-                            let y_scale = image_size.y.to_raw() as f32 / svg.tree().size().height();
+                            let dpi_ratio = (Image::USVG_DEFAULT_DPI / Image::DEFAULT_DPI) as f32;
+                            let x_scale = image_size.x.to_raw() as f32 / svg.tree().size().width() * dpi_ratio;
+                            let y_scale = image_size.y.to_raw() as f32 / svg.tree().size().height() * dpi_ratio;
                             let mut x = chunk.x().unwrap_or(0.0) * x_scale;
                             let mut y = chunk.y().unwrap_or(0.0) * y_scale;
                             let val = (engine.routines.eval_string)(engine.routines, engine.world, &chunk.text(), span, EvalMode::Markup, Scope::new())?.display();
 
                             let locator = Locator::root();
                             let region = Region::new(Size::new(Abs::inf(), Abs::inf()), Axes::splat(false));
-                            let f = crate::layout_frame(engine, &val, locator, styles, region).unwrap();
+                            let mut f = crate::layout_frame(engine, &val, locator, styles, region).unwrap();
+                            f.set_kind(FrameKind::Hard);
 
                             x = match chunk.anchor() {
                                 TextAnchor::Start => x,
@@ -138,8 +143,6 @@ pub fn layout_image(
 
                             let translate_component = Transform::from_translate(t.abs_transform().tx * x_scale, t.abs_transform().ty * y_scale);
                             let rotation = -t.abs_transform().kx.atan2(t.abs_transform().sx).to_degrees();
-                            println!("rotation: {:?}", rotation);
-                            println!("translate component: {:?}", translate_component);
                             let transform = translate_component
                                 .pre_concat(Transform::from_rotate(rotation))
                                 .pre_concat(Transform::from_translate(x, y)
