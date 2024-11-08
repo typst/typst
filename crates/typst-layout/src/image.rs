@@ -117,8 +117,10 @@ pub fn layout_image(
                     },
                     Node::Text(t) => {
                         for chunk in t.chunks() {
-                            let mut x = chunk.x().unwrap_or(0.0);
-                            let mut y = chunk.y().unwrap_or(0.0);
+                            let x_scale = image_size.x.to_raw() as f32 / svg.tree().size().width();
+                            let y_scale = image_size.y.to_raw() as f32 / svg.tree().size().height();
+                            let mut x = chunk.x().unwrap_or(0.0) * x_scale;
+                            let mut y = chunk.y().unwrap_or(0.0) * y_scale;
                             let val = (engine.routines.eval_string)(engine.routines, engine.world, &chunk.text(), span, EvalMode::Markup, Scope::new())?.display();
 
                             let locator = Locator::root();
@@ -134,18 +136,13 @@ pub fn layout_image(
                             let baseline = f.baseline();
                             let mut text_frame = GroupItem::new(f);
 
-                            let x_scale = image_size.x.to_raw() as f32 / svg.tree().size().width();
-                            let y_scale = image_size.y.to_raw() as f32 / svg.tree().size().height();
-                            let translate_component = Transform::from_translate(t.abs_transform().tx, t.abs_transform().ty);
+                            let translate_component = Transform::from_translate(t.abs_transform().tx * x_scale, t.abs_transform().ty * y_scale);
                             let rotation = -t.abs_transform().kx.atan2(t.abs_transform().sx).to_degrees();
                             println!("rotation: {:?}", rotation);
                             println!("translate component: {:?}", translate_component);
-                            let transform =
-                                Transform::from_scale(x_scale, y_scale)
-                                .pre_concat(translate_component)
+                            let transform = translate_component
                                 .pre_concat(Transform::from_rotate(rotation))
                                 .pre_concat(Transform::from_translate(x, y)
-                                .pre_concat(Transform::from_scale(1.0 / x_scale, 1.0 / y_scale))
                                 .pre_concat(Transform::from_translate(0.0, baseline.neg().to_raw() as f32)));
 
                             text_frame.transform = transform.into();
