@@ -246,8 +246,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = typst_macros::symbols! {
         triple: '≡',
         triple.not: '≢',
         quad: '≣',
-        equiv: '≍',
-        nequiv: '≭',
     ],
     gt: [
         '>',
@@ -340,6 +338,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = typst_macros::symbols! {
     prop: '∝',
     original: '⊶',
     image: '⊷',
+    asymp: [
+        '≍',
+        not: '≭',
+    ],
 
     // Set theory.
     emptyset: [
