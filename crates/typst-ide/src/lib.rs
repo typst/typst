@@ -97,6 +97,8 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
     use typst::layout::{Abs, Margin, PageElem};
@@ -108,6 +110,7 @@ mod tests {
     /// A world for IDE testing.
     pub struct TestWorld {
         pub main: Source,
+        assets: HashMap<FileId, Bytes>,
         base: &'static TestBase,
     }
 
@@ -120,8 +123,19 @@ mod tests {
             let main = Source::new(Self::main_id(), text.into());
             Self {
                 main,
+                assets: HashMap::new(),
                 base: singleton!(TestBase, TestBase::default()),
             }
+        }
+
+        /// Add an additional file to the test world.
+        #[track_caller]
+        pub fn with_asset_by_name(mut self, filename: &str) -> Self {
+            let id = FileId::new(None, VirtualPath::new(filename));
+            let data = typst_dev_assets::get_by_name(filename).unwrap();
+            let bytes = Bytes::from_static(data);
+            self.assets.insert(id, bytes);
+            self
         }
 
         /// The ID of the main file in a `TestWorld`.
@@ -152,7 +166,10 @@ mod tests {
         }
 
         fn file(&self, id: FileId) -> FileResult<Bytes> {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            match self.assets.get(&id) {
+                Some(bytes) => Ok(bytes.clone()),
+                None => Err(FileError::NotFound(id.vpath().as_rootless_path().into())),
+            }
         }
 
         fn font(&self, index: usize) -> Option<Font> {
