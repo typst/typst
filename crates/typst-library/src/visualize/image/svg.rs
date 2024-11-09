@@ -48,7 +48,7 @@ impl SvgImage {
         let resolver = Mutex::new(FontResolver::new(world, book, families));
         let stylesheet = if eval {
             Some("text { visibility: hidden !important }".to_string())
-        }   else {
+        } else {
             None
         };
 

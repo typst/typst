@@ -297,7 +297,6 @@ impl From<usvg::Transform> for Transform {
     }
 }
 
-
 impl Transform {
     /// The identity transformation.
     pub const fn identity() -> Self {

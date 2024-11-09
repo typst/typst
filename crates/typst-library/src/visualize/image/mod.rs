@@ -97,7 +97,7 @@ pub struct ImageElem {
 
     /// TODO: Add docs
     #[default(false)]
-    pub eval: bool
+    pub eval: bool,
 }
 
 #[scope]
