@@ -1050,7 +1050,7 @@ impl<'a> CompletionContext<'a> {
 
     /// A small window of context before the cursor.
     fn before_window(&self, size: usize) -> &str {
-        Scanner::new(self.before).from(self.cursor.saturating_sub(size))
+        Scanner::new(self.before).get(self.cursor.saturating_sub(size)..self.cursor)
     }
 
     /// Add a prefix and suffix to all applications.
@@ -1454,5 +1454,24 @@ mod tests {
     #[test]
     fn test_autocomplete_before_window_char_boundary() {
         test("😀😀     #text(font: \"\")", -2);
+    }
+
+    /// Ensure that autocompletion for `#cite(|)` completes bibligraphy labels,
+    /// but no other labels.
+    #[test]
+    fn test_autocomplete_cite_function() {
+        // First compile a working file to get a document.
+        let mut world = TestWorld::new("#bibliography(\"works.bib\") <bib>")
+            .with_asset_by_name("works.bib");
+        let doc = typst::compile(&world).output.ok();
+
+        // Then, add the invalid `#cite` call. Had the document been invalid
+        // initially, we would have no populated document to autocomplete with.
+        let end = world.main.len_bytes();
+        world.main.edit(end..end, " #cite()");
+
+        test_with_world_and_doc(&world, doc.as_ref(), -1)
+            .must_include(["netwok", "glacier-melt", "supplement"])
+            .must_exclude(["bib"]);
     }
 }
