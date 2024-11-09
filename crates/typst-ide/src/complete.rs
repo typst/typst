@@ -1191,16 +1191,17 @@ impl<'a> CompletionContext<'a> {
         });
 
         let mut apply = None;
-        if parens && matches!(value, Value::Func(_)) {
+        if parens
+            && matches!(value, Value::Func(_))
+            && !self.after.starts_with(['(', '['])
+        {
             if let Value::Func(func) = value {
-                if func
-                    .params()
-                    .is_some_and(|params| params.iter().all(|param| param.name == "self"))
-                {
-                    apply = Some(eco_format!("{label}()${{}}"));
-                } else {
-                    apply = Some(eco_format!("{label}(${{}})"));
-                }
+                apply = Some(match BracketMode::of(func) {
+                    BracketMode::RoundAfter => eco_format!("{label}()${{}}"),
+                    BracketMode::RoundWithin => eco_format!("{label}(${{}})"),
+                    BracketMode::RoundNewline => eco_format!("{label}(\n  ${{}}\n)"),
+                    BracketMode::SquareWithin => eco_format!("{label}[${{}}]"),
+                });
             }
         } else if at {
             apply = Some(eco_format!("at(\"{label}\")"));
@@ -1351,6 +1352,39 @@ impl<'a> CompletionContext<'a> {
     }
 }
 
+/// What kind of parentheses to autocomplete for a function.
+enum BracketMode {
+    /// Round parenthesis, with the cursor within: `(|)`.
+    RoundWithin,
+    /// Round parenthesis, with the cursor after them: `()|`.
+    RoundAfter,
+    /// Round parenthesis, with newlines and indent.
+    RoundNewline,
+    /// Square brackets, with the cursor within: `[|]`.
+    SquareWithin,
+}
+
+impl BracketMode {
+    fn of(func: &Func) -> Self {
+        if func
+            .params()
+            .is_some_and(|params| params.iter().all(|param| param.name == "self"))
+        {
+            return Self::RoundAfter;
+        }
+
+        match func.name() {
+            Some(
+                "emph" | "footnote" | "quote" | "strong" | "highlight" | "overline"
+                | "underline" | "smallcaps" | "strike" | "sub" | "super",
+            ) => Self::SquareWithin,
+            Some("colbreak" | "parbreak" | "linebreak" | "pagebreak") => Self::RoundAfter,
+            Some("figure" | "table" | "grid" | "stack") => Self::RoundNewline,
+            _ => Self::RoundWithin,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
@@ -1363,19 +1397,24 @@ mod tests {
     type Response = Option<(usize, Vec<Completion>)>;
 
     trait ResponseExt {
+        fn completions(&self) -> &[Completion];
         fn labels(&self) -> BTreeSet<&str>;
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_apply<'a>(&self, label: &str, apply: impl Into<Option<&'a str>>)
+            -> &Self;
     }
 
     impl ResponseExt for Response {
-        fn labels(&self) -> BTreeSet<&str> {
+        fn completions(&self) -> &[Completion] {
             match self {
-                None => BTreeSet::new(),
-                Some((_, completions)) => {
-                    completions.iter().map(|c| c.label.as_str()).collect()
-                }
+                Some((_, completions)) => completions.as_slice(),
+                None => &[],
             }
+        }
+
+        fn labels(&self) -> BTreeSet<&str> {
+            self.completions().iter().map(|c| c.label.as_str()).collect()
         }
 
         #[track_caller]
@@ -1399,6 +1438,20 @@ mod tests {
                     "{item:?} was wrongly contained in {labels:?}",
                 );
             }
+            self
+        }
+
+        #[track_caller]
+        fn must_apply<'a>(
+            &self,
+            label: &str,
+            apply: impl Into<Option<&'a str>>,
+        ) -> &Self {
+            let Some(completion) = self.completions().iter().find(|c| c.label == label)
+            else {
+                panic!("found no completion for {label:?}");
+            };
+            assert_eq!(completion.apply.as_deref(), apply.into());
             self
         }
     }
@@ -1473,5 +1526,19 @@ mod tests {
         test_with_world_and_doc(&world, doc.as_ref(), -1)
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
+    }
+
+    /// Test what kind of brackets we autocomplete for function calls depending
+    /// on the function and existing parens.
+    #[test]
+    fn test_autocomplete_bracket_mode() {
+        test("#", 1).must_apply("list", "list(${})");
+        test("#", 1).must_apply("linebreak", "linebreak()${}");
+        test("#", 1).must_apply("strong", "strong[${}]");
+        test("#", 1).must_apply("footnote", "footnote[${}]");
+        test("#", 1).must_apply("figure", "figure(\n  ${}\n)");
+        test("#", 1).must_apply("table", "table(\n  ${}\n)");
+        test("#()", 1).must_apply("list", None);
+        test("#[]", 1).must_apply("strong", None);
     }
 }
