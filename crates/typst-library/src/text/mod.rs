@@ -882,7 +882,7 @@ cast! {
 
 /// Resolve a prioritized iterator over the font families.
 pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone {
-    static FALLBACKS: Lazy<Vec<FontFamily>> = Lazy::new(|| {
+    static FALLBACKS: LazyLock<Vec<FontFamily>> = LazyLock::new(|| {
         [
             "libertinus serif",
             "twitter color emoji",
