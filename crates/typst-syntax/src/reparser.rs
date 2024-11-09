@@ -157,19 +157,13 @@ fn try_reparse(
         let new_range = shifted..shifted + new_len;
         let at_end = end == children.len();
 
-        // Stop parsing early if this kind is encountered.
-        let stop_kind = match parent_kind {
-            Some(_) => SyntaxKind::RightBracket,
-            None => SyntaxKind::End,
-        };
-
         // Reparse!
         let reparsed = reparse_markup(
             text,
             new_range.clone(),
             &mut at_start,
             &mut nesting,
-            |kind| kind == stop_kind,
+            parent_kind.is_none(),
         );
 
         if let Some(newborns) = reparsed {

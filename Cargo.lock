@@ -2688,7 +2688,6 @@ dependencies = [
  "dirs",
  "ecow",
  "fs_extra",
- "native-tls",
  "notify",
  "open",
  "parking_lot",
@@ -2780,7 +2779,6 @@ dependencies = [
  "comemo",
  "ecow",
  "if_chain",
- "log",
  "once_cell",
  "serde",
  "typst",
@@ -3018,6 +3016,7 @@ dependencies = [
  "typst-pdf",
  "typst-render",
  "typst-svg",
+ "typst-syntax",
  "unscanny",
  "walkdir",
 ]

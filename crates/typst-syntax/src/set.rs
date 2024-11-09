@@ -58,6 +58,7 @@ pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return)
 pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
     MathIdent,
+    FieldAccess,
     Text,
     MathShorthand,
     Linebreak,
@@ -104,7 +105,7 @@ pub const ATOMIC_CODE_PRIMARY: SyntaxSet = syntax_set!(
     Numeric,
     Str,
     Label,
-    RawDelim,
+    Raw,
 );
 
 /// Syntax kinds that are unary operators.
