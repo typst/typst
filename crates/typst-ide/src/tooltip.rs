@@ -6,12 +6,16 @@ use typst::engine::Sink;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
+use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_with_precision, Numeric};
 use typst::World;
 use typst_eval::CapturesVisitor;
 
-use crate::{analyze_expr, analyze_labels, plain_docs_sentence, summarize_font_family};
+use crate::{
+    analyze_expr, analyze_import, analyze_labels, plain_docs_sentence,
+    summarize_font_family,
+};
 
 /// Describe the item under the cursor.
 ///
@@ -33,6 +37,7 @@ pub fn tooltip(
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| document.and_then(|doc| label_tooltip(doc, &leaf)))
+        .or_else(|| import_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
 }
@@ -104,6 +109,25 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 
     let tooltip = repr::pretty_comma_list(&pieces, false);
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
+}
+
+/// Tooltips for imports.
+fn import_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
+    if_chain! {
+        if let Some(parent) = leaf.parent();
+        if let Some(import) = parent.cast::<ast::ModuleImport>();
+        if let Some(node) = parent.find(import.source().span());
+        if let Some(value) = analyze_import(world, &node);
+        if let Some(scope) = value.scope();
+        then {
+            let names: Vec<_> =
+                scope.iter().map(|(name, ..)| eco_format!("`{name}`")).collect();
+            let list = repr::separated_list(&names, "and");
+            return Some(Tooltip::Text(eco_format!("This star imports {list}")));
+        }
+    }
+
+    None
 }
 
 /// Tooltip for a hovered closure.
@@ -316,5 +340,14 @@ mod tests {
     fn test_tooltip_closure() {
         test("#let f(x) = x + y", 11, Side::Before)
             .must_be_text("This closure captures `y`");
+    }
+
+    #[test]
+    fn test_tooltip_star_import() {
+        let world = TestWorld::new("#import \"other.typ\": *")
+            .with_source("other.typ", "#let (a, b, c) = (1, 2, 3)");
+        test_with_world(&world, 21, Side::Before).must_be_none();
+        test_with_world(&world, 21, Side::After)
+            .must_be_text("This star imports `a`, `b`, and `c`");
     }
 }
