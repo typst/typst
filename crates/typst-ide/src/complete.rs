@@ -1390,9 +1390,10 @@ mod tests {
     use std::collections::BTreeSet;
 
     use typst::model::Document;
+    use typst::syntax::Source;
 
     use super::{autocomplete, Completion};
-    use crate::tests::TestWorld;
+    use crate::tests::{SourceExt, TestWorld};
 
     type Response = Option<(usize, Vec<Completion>)>;
 
@@ -1465,21 +1466,17 @@ mod tests {
     #[track_caller]
     fn test_with_world(world: &TestWorld, cursor: isize) -> Response {
         let doc = typst::compile(&world).output.ok();
-        test_with_world_and_doc(world, doc.as_ref(), cursor)
+        test_full(world, &world.main, doc.as_ref(), cursor)
     }
 
     #[track_caller]
-    fn test_with_world_and_doc(
+    fn test_full(
         world: &TestWorld,
+        source: &Source,
         doc: Option<&Document>,
         cursor: isize,
     ) -> Response {
-        let cursor = if cursor < 0 {
-            world.main.len_bytes().checked_add_signed(cursor).unwrap()
-        } else {
-            cursor as usize
-        };
-        autocomplete(&world, doc, &world.main, cursor, true)
+        autocomplete(&world, doc, source, source.cursor(cursor), true)
     }
 
     #[test]
@@ -1523,7 +1520,7 @@ mod tests {
         let end = world.main.len_bytes();
         world.main.edit(end..end, " #cite()");
 
-        test_with_world_and_doc(&world, doc.as_ref(), -1)
+        test_full(&world, &world.main, doc.as_ref(), -1)
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
     }

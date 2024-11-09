@@ -134,7 +134,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     names.sort();
 
     let tooltip = repr::separated_list(&names, "and");
-    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
+    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}")))
 }
 
 /// Tooltip text for a hovered length.
@@ -256,32 +256,65 @@ mod tests {
     use typst::syntax::Side;
 
     use super::{tooltip, Tooltip};
-    use crate::tests::TestWorld;
+    use crate::tests::{SourceExt, TestWorld};
 
-    fn text(text: &str) -> Option<Tooltip> {
-        Some(Tooltip::Text(text.into()))
+    type Response = Option<Tooltip>;
+
+    trait ResponseExt {
+        fn must_be_none(&self) -> &Self;
+        fn must_be_text(&self, text: &str) -> &Self;
+        fn must_be_code(&self, code: &str) -> &Self;
     }
 
-    fn code(code: &str) -> Option<Tooltip> {
-        Some(Tooltip::Code(code.into()))
+    impl ResponseExt for Response {
+        #[track_caller]
+        fn must_be_none(&self) -> &Self {
+            assert_eq!(*self, None);
+            self
+        }
+
+        #[track_caller]
+        fn must_be_text(&self, text: &str) -> &Self {
+            assert_eq!(*self, Some(Tooltip::Text(text.into())));
+            self
+        }
+
+        #[track_caller]
+        fn must_be_code(&self, code: &str) -> &Self {
+            assert_eq!(*self, Some(Tooltip::Code(code.into())));
+            self
+        }
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: usize, side: Side, expected: Option<Tooltip>) {
+    fn test(text: &str, cursor: isize, side: Side) -> Response {
         let world = TestWorld::new(text);
+        test_with_world(&world, cursor, side)
+    }
+
+    #[track_caller]
+    fn test_with_world(world: &TestWorld, cursor: isize, side: Side) -> Response {
+        let source = &world.main;
         let doc = typst::compile(&world).output.ok();
-        assert_eq!(tooltip(&world, doc.as_ref(), &world.main, cursor, side), expected);
+        tooltip(&world, doc.as_ref(), source, source.cursor(cursor), side)
     }
 
     #[test]
     fn test_tooltip() {
-        test("#let x = 1 + 2", 5, Side::After, code("3"));
-        test("#let x = 1 + 2", 6, Side::Before, code("3"));
-        test("#let f(x) = x + y", 11, Side::Before, text("This closure captures `y`."));
+        test("#let x = 1 + 2", 14, Side::After).must_be_none();
+        test("#let x = 1 + 2", 5, Side::After).must_be_code("3");
+        test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
+        test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
     }
 
     #[test]
-    fn test_empty_contextual() {
-        test("#{context}", 10, Side::Before, code("context()"));
+    fn test_tooltip_empty_contextual() {
+        test("#{context}", 10, Side::Before).must_be_code("context()");
+    }
+
+    #[test]
+    fn test_tooltip_closure() {
+        test("#let f(x) = x + y", 11, Side::Before)
+            .must_be_text("This closure captures `y`");
     }
 }

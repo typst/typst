@@ -111,6 +111,7 @@ mod tests {
     pub struct TestWorld {
         pub main: Source,
         assets: HashMap<FileId, Bytes>,
+        sources: HashMap<FileId, Source>,
         base: &'static TestBase,
     }
 
@@ -124,17 +125,26 @@ mod tests {
             Self {
                 main,
                 assets: HashMap::new(),
+                sources: HashMap::new(),
                 base: singleton!(TestBase, TestBase::default()),
             }
         }
 
-        /// Add an additional file to the test world.
+        /// Add an additional asset file to the test world.
         #[track_caller]
         pub fn with_asset_by_name(mut self, filename: &str) -> Self {
             let id = FileId::new(None, VirtualPath::new(filename));
             let data = typst_dev_assets::get_by_name(filename).unwrap();
             let bytes = Bytes::from_static(data);
             self.assets.insert(id, bytes);
+            self
+        }
+
+        /// Add an additional source file to the test world.
+        pub fn with_source(mut self, path: &str, text: &str) -> Self {
+            let id = FileId::new(None, VirtualPath::new(path));
+            let source = Source::new(id, text.into());
+            self.sources.insert(id, source);
             self
         }
 
@@ -160,6 +170,8 @@ mod tests {
         fn source(&self, id: FileId) -> FileResult<Source> {
             if id == self.main.id() {
                 Ok(self.main.clone())
+            } else if let Some(source) = self.sources.get(&id) {
+                Ok(source.clone())
             } else {
                 Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
             }
@@ -178,6 +190,22 @@ mod tests {
 
         fn today(&self, _: Option<i64>) -> Option<Datetime> {
             None
+        }
+    }
+
+    /// Extra methods for [`Source`].
+    pub trait SourceExt {
+        /// Negative cursors index from the back.
+        fn cursor(&self, cursor: isize) -> usize;
+    }
+
+    impl SourceExt for Source {
+        fn cursor(&self, cursor: isize) -> usize {
+            if cursor < 0 {
+                self.len_bytes().checked_add_signed(cursor).unwrap()
+            } else {
+                cursor as usize
+            }
         }
     }
 
