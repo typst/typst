@@ -1,11 +1,12 @@
 use std::ffi::OsStr;
 use std::ops::Neg;
+
 use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, Scope, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Frame, FrameItem, FrameKind, GroupItem, Point, Region,
+    Abs, Axes, FixedAlignment, Frame, FrameItem, GroupItem, Point, Region,
     Size,
 };
 use typst_library::loading::Readable;
@@ -16,6 +17,7 @@ use typst_library::visualize::{
     VectorFormat,
 };
 use typst_syntax::Span;
+
 use usvg::{tiny_skia_path, Node, TextAnchor, Transform};
 
 /// Layout the image.
@@ -183,7 +185,7 @@ pub fn layout_image(
                                 Size::new(Abs::inf(), Abs::inf()),
                                 Axes::splat(false),
                             );
-                            let mut inner_frame = crate::layout_frame(
+                            let inner_frame = crate::layout_frame(
                                 engine, &val, locator, styles, region,
                             )?;
 
@@ -229,9 +231,9 @@ pub fn layout_image(
             Ok(())
         }
 
-        clip = true;
-
         if elem.eval(styles) {
+            clip = true;
+
             eval_text_nodes(
                 svg,
                 svg.tree().root(),
@@ -249,6 +251,7 @@ pub fn layout_image(
     // or if the SVG is evaluated, in which overlaid text might exceed the
     // bounding box.
     clip |= fit == ImageFit::Cover && !target.fits(fitted);
+
     if clip {
         frame.clip(Path::rect(frame.size()));
     }
