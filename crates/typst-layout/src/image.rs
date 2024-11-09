@@ -176,7 +176,7 @@ pub fn layout_image(
                             let val = (engine.routines.eval_string)(
                                 engine.routines,
                                 engine.world,
-                                &chunk.text(),
+                                chunk.text(),
                                 span,
                                 EvalMode::Markup,
                                 Scope::new(),
