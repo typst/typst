@@ -100,7 +100,7 @@ mod tests {
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
     use typst::layout::{Abs, Margin, PageElem};
-    use typst::syntax::{FileId, Source};
+    use typst::syntax::{FileId, Source, VirtualPath};
     use typst::text::{Font, FontBook, TextElem, TextSize};
     use typst::utils::{singleton, LazyHash};
     use typst::{Library, World};
@@ -117,7 +117,7 @@ mod tests {
         /// This is cheap because the shared base for all test runs is lazily
         /// initialized just once.
         pub fn new(text: &str) -> Self {
-            let main = Source::detached(text);
+            let main = Source::new(Self::main_id(), text.into());
             Self {
                 main,
                 base: singleton!(TestBase, TestBase::default()),
@@ -126,7 +126,7 @@ mod tests {
 
         /// The ID of the main file in a `TestWorld`.
         pub fn main_id() -> FileId {
-            *singleton!(FileId, Source::detached("").id())
+            *singleton!(FileId, FileId::new(None, VirtualPath::new("main.typ")))
         }
     }
 

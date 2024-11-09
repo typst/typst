@@ -1353,53 +1353,106 @@ impl<'a> CompletionContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::autocomplete;
+    use std::collections::BTreeSet;
+
+    use typst::model::Document;
+
+    use super::{autocomplete, Completion};
     use crate::tests::TestWorld;
 
-    #[track_caller]
-    fn test(text: &str, cursor: usize, contains: &[&str], excludes: &[&str]) {
-        let world = TestWorld::new(text);
-        let doc = typst::compile(&world).output.ok();
-        let (_, completions) =
-            autocomplete(&world, doc.as_ref(), &world.main, cursor, true)
-                .unwrap_or_default();
+    type Response = Option<(usize, Vec<Completion>)>;
 
-        let labels: Vec<_> = completions.iter().map(|c| c.label.as_str()).collect();
-        for item in contains {
-            assert!(labels.contains(item), "{item:?} was not contained in {labels:?}");
+    trait ResponseExt {
+        fn labels(&self) -> BTreeSet<&str>;
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+    }
+
+    impl ResponseExt for Response {
+        fn labels(&self) -> BTreeSet<&str> {
+            match self {
+                None => BTreeSet::new(),
+                Some((_, completions)) => {
+                    completions.iter().map(|c| c.label.as_str()).collect()
+                }
+            }
         }
-        for item in excludes {
-            assert!(!labels.contains(item), "{item:?} was not excluded in {labels:?}");
+
+        #[track_caller]
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self {
+            let labels = self.labels();
+            for item in includes {
+                assert!(
+                    labels.contains(item),
+                    "{item:?} was not contained in {labels:?}",
+                );
+            }
+            self
         }
+
+        #[track_caller]
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self {
+            let labels = self.labels();
+            for item in excludes {
+                assert!(
+                    !labels.contains(item),
+                    "{item:?} was wrongly contained in {labels:?}",
+                );
+            }
+            self
+        }
+    }
+
+    #[track_caller]
+    fn test(text: &str, cursor: isize) -> Response {
+        let world = TestWorld::new(text);
+        test_with_world(&world, cursor)
+    }
+
+    #[track_caller]
+    fn test_with_world(world: &TestWorld, cursor: isize) -> Response {
+        let doc = typst::compile(&world).output.ok();
+        test_with_world_and_doc(world, doc.as_ref(), cursor)
+    }
+
+    #[track_caller]
+    fn test_with_world_and_doc(
+        world: &TestWorld,
+        doc: Option<&Document>,
+        cursor: isize,
+    ) -> Response {
+        let cursor = if cursor < 0 {
+            world.main.len_bytes().checked_add_signed(cursor).unwrap()
+        } else {
+            cursor as usize
+        };
+        autocomplete(&world, doc, &world.main, cursor, true)
     }
 
     #[test]
-    fn test_autocomplete() {
-        test("#i", 2, &["int", "if conditional"], &["foo"]);
-        test("#().", 4, &["insert", "remove", "len", "all"], &["foo"]);
+    fn test_autocomplete_hash_expr() {
+        test("#i", 2).must_include(["int", "if conditional"]);
     }
 
+    #[test]
+    fn test_autocomplete_array_method() {
+        test("#().", 4).must_include(["insert", "remove", "len", "all"]);
+        test("#{ let x = (1, 2, 3); x. }", -2).must_include(["at", "push", "pop"]);
+    }
+
+    /// Test that extra space before '.' is handled correctly.
     #[test]
     fn test_autocomplete_whitespace() {
-        //Check that extra space before '.' is handled correctly.
-        test("#() .", 5, &[], &["insert", "remove", "len", "all"]);
-        test("#{() .}", 6, &["insert", "remove", "len", "all"], &["foo"]);
-
-        test("#() .a", 6, &[], &["insert", "remove", "len", "all"]);
-        test("#{() .a}", 7, &["at", "any", "all"], &["foo"]);
+        test("#() .", 5).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .}", 6).must_include(["insert", "remove", "len", "all"]);
+        test("#() .a", 6).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .a}", 7).must_include(["at", "any", "all"]);
     }
 
+    /// Test that the `before_window` doesn't slice into invalid byte
+    /// boundaries.
     #[test]
     fn test_autocomplete_before_window_char_boundary() {
-        // Check that the `before_window` doesn't slice into invalid byte
-        // boundaries.
-        let s = "😀😀     #text(font: \"\")";
-        test(s, s.len() - 2, &[], &[]);
-    }
-
-    #[test]
-    fn test_autocomplete_mutable_method() {
-        let s = "#{ let x = (1, 2, 3); x. }";
-        test(s, s.len() - 2, &["at", "push", "pop"], &[]);
+        test("😀😀     #text(font: \"\")", -2);
     }
 }
