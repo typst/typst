@@ -126,7 +126,10 @@ pub fn layout_image(
         /// The algorithm is as follows:
         /// - Any text node will be given visibility hidden (this already happened when generating
         ///   the usvg tree).
-        /// - We iterate over all text nodes
+        /// - We iterate over all text nodes, determine their position and calculate what
+        ///   their position would be after evaluating all transforms.
+        /// - We calculate the rotation of the text, and also resolve the `text-anchor` property
+        /// - We evaluate the SVG text and then place it accordingly.
         fn eval_text_nodes(
             svg: &SvgImage,
             group: &usvg::Group,
