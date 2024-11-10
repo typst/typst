@@ -6,8 +6,8 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, format_str, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo,
-    Repr, Scope, StyleChain, Styles, Type, Value,
+    fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr, Scope,
+    StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
@@ -89,6 +89,14 @@ pub enum CompletionKind {
     Param,
     /// A constant.
     Constant,
+    /// A file path.
+    Path,
+    /// A package.
+    Package,
+    /// A label.
+    Label,
+    /// A font family.
+    Font,
     /// A symbol.
     Symbol(char),
 }
@@ -391,12 +399,12 @@ fn field_access_completions(
     styles: &Option<Styles>,
 ) {
     for (name, value, _) in value.ty().scope().iter() {
-        ctx.value_completion(Some(name.clone()), value, true, None);
+        ctx.call_completion(name.clone(), value);
     }
 
     if let Some(scope) = value.scope() {
         for (name, value, _) in scope.iter() {
-            ctx.value_completion(Some(name.clone()), value, true, None);
+            ctx.call_completion(name.clone(), value);
         }
     }
 
@@ -406,12 +414,7 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(
-            Some(field.into()),
-            &value.field(field).unwrap(),
-            false,
-            None,
-        );
+        ctx.value_completion(field, &value.field(field).unwrap());
     }
 
     match value {
@@ -429,12 +432,12 @@ fn field_access_completions(
         }
         Value::Content(content) => {
             for (name, value) in content.fields() {
-                ctx.value_completion(Some(name.into()), &value, false, None);
+                ctx.value_completion(name, &value);
             }
         }
         Value::Dict(dict) => {
             for (name, value) in dict.iter() {
-                ctx.value_completion(Some(name.clone().into()), value, false, None);
+                ctx.value_completion(name.clone(), value);
             }
         }
         Value::Func(func) => {
@@ -444,12 +447,7 @@ fn field_access_completions(
                     if let Some(value) = elem.field_id(param.name).and_then(|id| {
                         elem.field_from_styles(id, StyleChain::new(styles)).ok()
                     }) {
-                        ctx.value_completion(
-                            Some(param.name.into()),
-                            &value,
-                            false,
-                            None,
-                        );
+                        ctx.value_completion(param.name, &value);
                     }
                 }
             }
@@ -553,7 +551,7 @@ fn import_item_completions<'a>(
 
     for (name, value, _) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(Some(name.clone()), value, false, None);
+            ctx.value_completion(name.clone(), value);
         }
     }
 }
@@ -1122,10 +1120,9 @@ impl<'a> CompletionContext<'a> {
         for (family, iter) in self.world.book().families() {
             let detail = summarize_font_family(iter);
             if !equation || family.contains("Math") {
-                self.value_completion(
-                    None,
-                    &Value::Str(family.into()),
-                    false,
+                self.str_completion(
+                    family,
+                    Some(CompletionKind::Font),
                     Some(detail.as_str()),
                 );
             }
@@ -1142,10 +1139,9 @@ impl<'a> CompletionContext<'a> {
             packages.dedup_by_key(|(spec, _)| (&spec.namespace, &spec.name));
         }
         for (package, description) in packages {
-            self.value_completion(
-                None,
-                &Value::Str(format_str!("{package}")),
-                false,
+            self.str_completion(
+                eco_format!("{package}"),
+                Some(CompletionKind::Package),
                 description.as_deref(),
             );
         }
@@ -1171,7 +1167,7 @@ impl<'a> CompletionContext<'a> {
         paths.sort();
 
         for path in paths {
-            self.value_completion(None, &Value::Str(path.into()), false, None);
+            self.str_completion(path, Some(CompletionKind::Path), None);
         }
     }
 
@@ -1238,7 +1234,7 @@ impl<'a> CompletionContext<'a> {
 
         for (label, detail) in labels.into_iter().skip(skip).take(take) {
             self.completions.push(Completion {
-                kind: CompletionKind::Constant,
+                kind: CompletionKind::Label,
                 apply: (open || close).then(|| {
                     eco_format!(
                         "{}{}{}",
@@ -1253,18 +1249,40 @@ impl<'a> CompletionContext<'a> {
         }
     }
 
+    /// Add a completion for an arbitrary value.
+    fn value_completion(&mut self, label: impl Into<EcoString>, value: &Value) {
+        self.value_completion_full(Some(label.into()), value, false, None, None);
+    }
+
+    /// Add a completion for an arbitrary value, adding parentheses if it's a function.
+    fn call_completion(&mut self, label: impl Into<EcoString>, value: &Value) {
+        self.value_completion_full(Some(label.into()), value, true, None, None);
+    }
+
+    /// Add a completion for a specific string literal.
+    fn str_completion(
+        &mut self,
+        string: impl Into<EcoString>,
+        kind: Option<CompletionKind>,
+        detail: Option<&str>,
+    ) {
+        let string = string.into();
+        self.value_completion_full(None, &Value::Str(string.into()), false, kind, detail);
+    }
+
     /// Add a completion for a specific value.
-    fn value_completion(
+    fn value_completion_full(
         &mut self,
         label: Option<EcoString>,
         value: &Value,
         parens: bool,
-        docs: Option<&str>,
+        kind: Option<CompletionKind>,
+        detail: Option<&str>,
     ) {
         let at = label.as_deref().is_some_and(|field| !is_ident(field));
         let label = label.unwrap_or_else(|| value.repr());
 
-        let detail = docs.map(Into::into).or_else(|| match value {
+        let detail = detail.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
             Value::Type(ty) => Some(plain_docs_sentence(ty.docs())),
@@ -1296,12 +1314,12 @@ impl<'a> CompletionContext<'a> {
         }
 
         self.completions.push(Completion {
-            kind: match value {
+            kind: kind.unwrap_or_else(|| match value {
                 Value::Func(_) => CompletionKind::Func,
                 Value::Type(_) => CompletionKind::Type,
                 Value::Symbol(s) => CompletionKind::Symbol(s.get()),
                 _ => CompletionKind::Constant,
-            },
+            }),
             label,
             apply,
             detail,
@@ -1318,7 +1336,7 @@ impl<'a> CompletionContext<'a> {
         match cast {
             CastInfo::Any => {}
             CastInfo::Value(value, docs) => {
-                self.value_completion(None, value, true, Some(docs));
+                self.value_completion_full(None, value, false, None, Some(docs));
             }
             CastInfo::Type(ty) => {
                 if *ty == Type::of::<NoneValue>() {
@@ -1419,7 +1437,7 @@ impl<'a> CompletionContext<'a> {
         let scope = if in_math { self.math } else { self.global };
         for (name, value, _) in scope.iter() {
             if filter(value) && !defined.contains(name) {
-                self.value_completion(Some(name.clone()), value, parens, None);
+                self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
         }
 
