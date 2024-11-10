@@ -27,8 +27,6 @@ pub mod visualize;
 
 use std::ops::{Deref, Range};
 
-use ecow::EcoString;
-use typst_syntax::package::PackageSpec;
 use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
@@ -83,16 +81,6 @@ pub trait World: Send + Sync {
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
-
-    /// A list of all available packages and optionally descriptions for them.
-    ///
-    /// This function is optional to implement. It enhances the user experience
-    /// by enabling autocompletion for packages. Details about packages from the
-    /// `@preview` namespace are available from
-    /// `https://packages.typst.org/preview/index.json`.
-    fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
-        &[]
-    }
 }
 
 macro_rules! world_impl {
@@ -124,10 +112,6 @@ macro_rules! world_impl {
 
             fn today(&self, offset: Option<i64>) -> Option<Datetime> {
                 self.deref().today(offset)
-            }
-
-            fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
-                self.deref().packages()
             }
         }
     };

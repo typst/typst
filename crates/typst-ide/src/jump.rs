@@ -4,7 +4,8 @@ use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Document, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
-use typst::World;
+
+use crate::IdeWorld;
 
 /// Where to [jump](jump_from_click) to.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -18,7 +19,7 @@ pub enum Jump {
 }
 
 impl Jump {
-    fn from_span(world: &dyn World, span: Span) -> Option<Self> {
+    fn from_span(world: &dyn IdeWorld, span: Span) -> Option<Self> {
         let id = span.id()?;
         let source = world.source(id).ok()?;
         let node = source.find(span)?;
@@ -28,7 +29,7 @@ impl Jump {
 
 /// Determine where to jump to based on a click in a frame.
 pub fn jump_from_click(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     document: &Document,
     frame: &Frame,
     click: Point,

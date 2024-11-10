@@ -15,12 +15,11 @@ use typst::syntax::{
 };
 use typst::text::RawElem;
 use typst::visualize::Color;
-use typst::World;
 use unscanny::Scanner;
 
 use crate::{
     analyze_expr, analyze_import, analyze_labels, named_items, plain_docs_sentence,
-    summarize_font_family,
+    summarize_font_family, IdeWorld,
 };
 
 /// Autocomplete a cursor position in a source file.
@@ -35,7 +34,7 @@ use crate::{
 /// the autocompletions. Label completions, for instance, are only generated
 /// when the document is available.
 pub fn autocomplete(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     document: Option<&Document>,
     source: &Source,
     cursor: usize,
@@ -1023,7 +1022,7 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 
 /// Context for autocompletion.
 struct CompletionContext<'a> {
-    world: &'a (dyn World + 'a),
+    world: &'a (dyn IdeWorld + 'a),
     document: Option<&'a Document>,
     global: &'a Scope,
     math: &'a Scope,
@@ -1042,6 +1041,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn World + 'a),
+        world: &'a (dyn IdeWorld + 'a),
         document: Option<&'a Document>,
         source: &'a Source,
         leaf: &'a LinkedNode<'a>,

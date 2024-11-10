@@ -3,9 +3,10 @@ use typst::foundations::{Label, Module, Selector, Value};
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Side, Source, Span, SyntaxKind};
-use typst::World;
 
-use crate::{analyze_import, deref_target, named_items, DerefTarget, NamedItem};
+use crate::{
+    analyze_import, deref_target, named_items, DerefTarget, IdeWorld, NamedItem,
+};
 
 /// Find the definition of the item under the cursor.
 ///
@@ -13,7 +14,7 @@ use crate::{analyze_import, deref_target, named_items, DerefTarget, NamedItem};
 /// the definition search. Label definitions, for instance, are only generated
 /// when the document is available.
 pub fn definition(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     document: Option<&Document>,
     source: &Source,
     cursor: usize,

@@ -2,13 +2,12 @@ use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind, SyntaxNode};
-use typst::World;
 
-use crate::analyze_import;
+use crate::{analyze_import, IdeWorld};
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     position: LinkedNode,
     mut recv: impl FnMut(NamedItem) -> Option<T>,
 ) -> Option<T> {
