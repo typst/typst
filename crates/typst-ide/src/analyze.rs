@@ -1,11 +1,8 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-use typst::engine::{Engine, Route, Sink, Traced};
-use typst::foundations::{Context, Label, Scopes, Styles, Value};
-use typst::introspection::Introspector;
+use typst::foundations::{Label, Styles, Value};
 use typst::model::{BibliographyElem, Document};
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
-use typst_eval::Vm;
+use typst::syntax::{ast, LinkedNode, SyntaxKind};
 
 use crate::IdeWorld;
 
@@ -46,7 +43,7 @@ pub fn analyze_expr(
     eco_vec![(val, None)]
 }
 
-/// Try to load a module from the current source file.
+/// Tries to load a module from the given `source` node.
 pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value> {
     // Use span in the node for resolving imports with relative paths.
     let source_span = source.span();
@@ -55,29 +52,11 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
         return Some(source);
     }
 
-    let introspector = Introspector::default();
-    let traced = Traced::default();
-    let mut sink = Sink::new();
-    let engine = Engine {
-        routines: &typst::ROUTINES,
-        world: world.upcast().track(),
-        introspector: introspector.track(),
-        traced: traced.track(),
-        sink: sink.track_mut(),
-        route: Route::default(),
-    };
+    let Value::Str(path) = source else { return None };
 
-    let context = Context::none();
-    let mut vm = Vm::new(
-        engine,
-        context.track(),
-        Scopes::new(Some(world.library())),
-        Span::detached(),
-    );
-
-    typst_eval::import(&mut vm, source, source_span, true)
-        .ok()
-        .map(Value::Module)
+    crate::utils::with_engine(world, |engine| {
+        typst_eval::import(engine, &path, source_span).ok().map(Value::Module)
+    })
 }
 
 /// Find all labels and details for them.

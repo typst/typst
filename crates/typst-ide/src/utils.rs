@@ -1,7 +1,32 @@
 use std::fmt::Write;
 
+use comemo::Track;
 use ecow::{eco_format, EcoString};
+use typst::engine::{Engine, Route, Sink, Traced};
+use typst::introspection::Introspector;
 use typst::text::{FontInfo, FontStyle};
+
+use crate::IdeWorld;
+
+/// Create a temporary engine and run a task on it.
+pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
+where
+    F: FnOnce(&mut Engine) -> T,
+{
+    let introspector = Introspector::default();
+    let traced = Traced::default();
+    let mut sink = Sink::new();
+    let mut engine = Engine {
+        routines: &typst::ROUTINES,
+        world: world.upcast().track(),
+        introspector: introspector.track(),
+        traced: traced.track(),
+        sink: sink.track_mut(),
+        route: Route::default(),
+    };
+
+    f(&mut engine)
+}
 
 /// Extract the first sentence of plain text of a piece of documentation.
 ///
