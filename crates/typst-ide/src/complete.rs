@@ -9,6 +9,7 @@ use typst::foundations::{
     Scope, StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
+use typst::syntax::ast::AstNode;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Side, Source, SyntaxKind,
 };
@@ -40,7 +41,9 @@ pub fn autocomplete(
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
-    let mut ctx = CompletionContext::new(world, document, source, cursor, explicit)?;
+    let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
+    let mut ctx =
+        CompletionContext::new(world, document, source, &leaf, cursor, explicit)?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -650,7 +653,7 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 /// Complete call and set rule parameters.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
-    let (callee, set, args) = if_chain! {
+    let (callee, set, args, args_linked) = if_chain! {
         if let Some(parent) = ctx.leaf.parent();
         if let Some(parent) = match parent.kind() {
             SyntaxKind::Named => parent.parent(),
@@ -666,7 +669,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             _ => None,
         };
         then {
-            (callee, set, args)
+            (callee, set, args, parent)
         } else {
             return false;
         }
@@ -706,7 +709,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 ctx.from = ctx.cursor.min(next.offset());
             }
 
-            param_completions(ctx, callee, set, args);
+            param_completions(ctx, callee, set, args, args_linked);
             return true;
         }
     }
@@ -720,39 +723,55 @@ fn param_completions<'a>(
     callee: ast::Expr<'a>,
     set: bool,
     args: ast::Args<'a>,
+    args_linked: &'a LinkedNode<'a>,
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
     let Some(params) = func.params() else { return };
 
-    // Exclude named arguments which are already present.
-    let exclude: Vec<_> = args
-        .items()
-        .filter_map(|arg| match arg {
-            ast::Arg::Named(named) => Some(named.name()),
-            _ => None,
-        })
-        .collect();
-
-    for param in params {
-        if exclude.iter().any(|ident| ident.as_str() == param.name) {
-            continue;
+    // Determine which arguments are already present.
+    let mut existing_positional = 0;
+    let mut existing_named = HashSet::new();
+    for arg in args.items() {
+        match arg {
+            ast::Arg::Pos(_) => {
+                let Some(node) = args_linked.find(arg.span()) else { continue };
+                if node.range().end < ctx.cursor {
+                    existing_positional += 1;
+                }
+            }
+            ast::Arg::Named(named) => {
+                existing_named.insert(named.name().as_str());
+            }
+            _ => {}
         }
+    }
 
+    let mut skipped_positional = 0;
+    for param in params {
         if set && !param.settable {
             continue;
         }
 
+        if param.positional {
+            if skipped_positional < existing_positional && !param.variadic {
+                skipped_positional += 1;
+                continue;
+            }
+
+            ctx.cast_completions(&param.input);
+        }
+
         if param.named {
+            if existing_named.contains(&param.name) {
+                continue;
+            }
+
             ctx.completions.push(Completion {
                 kind: CompletionKind::Param,
                 label: param.name.into(),
                 apply: Some(eco_format!("{}: ${{}}", param.name)),
                 detail: Some(plain_docs_sentence(param.docs)),
             });
-        }
-
-        if param.positional {
-            ctx.cast_completions(&param.input);
         }
     }
 
@@ -1011,7 +1030,7 @@ struct CompletionContext<'a> {
     text: &'a str,
     before: &'a str,
     after: &'a str,
-    leaf: LinkedNode<'a>,
+    leaf: &'a LinkedNode<'a>,
     cursor: usize,
     explicit: bool,
     from: usize,
@@ -1025,12 +1044,12 @@ impl<'a> CompletionContext<'a> {
         world: &'a (dyn World + 'a),
         document: Option<&'a Document>,
         source: &'a Source,
+        leaf: &'a LinkedNode<'a>,
         cursor: usize,
         explicit: bool,
     ) -> Option<Self> {
         let text = source.text();
         let library = world.library();
-        let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
         Some(Self {
             world,
             document,
@@ -1537,5 +1556,21 @@ mod tests {
         test("#", 1).must_apply("table", "table(\n  ${}\n)");
         test("#()", 1).must_apply("list", None);
         test("#[]", 1).must_apply("strong", None);
+    }
+
+    /// Test that we only complete positional parameters if they aren't
+    /// already present.
+    #[test]
+    fn test_autocomplete_positional_param() {
+        // No string given yet.
+        test("#numbering()", -1).must_include(["string", "integer"]);
+        // String is already given.
+        test("#numbering(\"foo\", )", -1)
+            .must_include(["integer"])
+            .must_exclude(["string"]);
+        // Integer is already given, but numbering is variadic.
+        test("#numbering(\"foo\", 1, )", -1)
+            .must_include(["integer"])
+            .must_exclude(["string"]);
     }
 }
