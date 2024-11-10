@@ -11,10 +11,8 @@ use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_with_precision, Numeric};
 use typst_eval::CapturesVisitor;
 
-use crate::{
-    analyze_expr, analyze_import, analyze_labels, plain_docs_sentence,
-    summarize_font_family, IdeWorld,
-};
+use crate::utils::{plain_docs_sentence, summarize_font_family};
+use crate::{analyze_expr, analyze_import, analyze_labels, IdeWorld};
 
 /// Describe the item under the cursor.
 ///
