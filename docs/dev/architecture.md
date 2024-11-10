@@ -156,7 +156,7 @@ builds heavily on the other modules (most importantly, `syntax` and `eval`).
 **Syntactic:**
 Basic IDE functionality is based on a file's syntax. However, the standard
 syntax node is a bit too limited for writing IDE tooling. It doesn't provide
-access to its parents or neighbours. This is a fine for an evaluation-like
+access to its parents or neighbours. This is fine for an evaluation-like
 recursive traversal, but impractical for IDE use cases. For this reason, there
 is an additional abstraction on top of a syntax node called a `LinkedNode`,
 which is used pervasively across the `ide` module.

@@ -286,3 +286,8 @@ B #footnote[b]
 --- issue-4454-footnote-ref-numbering ---
 // Test that footnote references are numbered correctly.
 A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
+
+--- issue-5354-footnote-empty-frame-infinite-loop ---
+// Test whether an empty footnote would cause infinite loop
+#show footnote.entry: it => {}
+#lorem(3) #footnote[A footnote]
