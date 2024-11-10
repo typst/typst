@@ -2780,6 +2780,7 @@ dependencies = [
  "ecow",
  "if_chain",
  "once_cell",
+ "pathdiff",
  "serde",
  "typst",
  "typst-assets",
