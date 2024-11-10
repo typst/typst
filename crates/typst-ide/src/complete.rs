@@ -768,10 +768,16 @@ fn param_completions<'a>(
                 continue;
             }
 
+            let apply = if param.name == "caption" {
+                eco_format!("{}: [${{}}]", param.name)
+            } else {
+                eco_format!("{}: ${{}}", param.name)
+            };
+
             ctx.completions.push(Completion {
                 kind: CompletionKind::Param,
                 label: param.name.into(),
-                apply: Some(eco_format!("{}: ${{}}", param.name)),
+                apply: Some(apply),
                 detail: Some(plain_docs_sentence(param.docs)),
             });
         }
@@ -807,8 +813,6 @@ fn param_value_completions<'a>(
     func: &Func,
     param: &'a ParamInfo,
 ) {
-    ctx.cast_completions(&param.input);
-
     if param.name == "font" {
         ctx.font_completions();
     } else if param.name == "path" {
@@ -824,7 +828,12 @@ fn param_value_completions<'a>(
             Some("bibliography") => &["bib", "yml", "yaml"],
             _ => &[],
         });
+    } else if func.name() == Some("figure") && param.name == "body" {
+        ctx.snippet_completion("image", "image(\"${}\"),", "An image in a figure.");
+        ctx.snippet_completion("table", "table(\n  ${}\n),", "A table in a figure.");
     }
+
+    ctx.cast_completions(&param.input);
 }
 
 /// Resolve a callee expression to a global function.
@@ -1703,5 +1712,14 @@ mod tests {
 
         test_with_path(&world, "content/b.typ", -2)
             .must_include([q!("../data/example.csv")]);
+    }
+
+    #[test]
+    fn test_autocomplete_figure_snippets() {
+        test("#figure()", -1)
+            .must_apply("image", "image(\"${}\"),")
+            .must_apply("table", "table(\n  ${}\n),");
+
+        test("#figure(cap)", -1).must_apply("caption", "caption: [${}]");
     }
 }
