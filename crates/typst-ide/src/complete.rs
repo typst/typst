@@ -19,10 +19,8 @@ use typst::text::RawElem;
 use typst::visualize::Color;
 use unscanny::Scanner;
 
-use crate::{
-    analyze_expr, analyze_import, analyze_labels, named_items, plain_docs_sentence,
-    summarize_font_family, IdeWorld,
-};
+use crate::utils::{plain_docs_sentence, summarize_font_family};
+use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld};
 
 /// Autocomplete a cursor position in a source file.
 ///
