@@ -17,7 +17,30 @@ pub use self::tooltip::{tooltip, Tooltip};
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
+use typst::syntax::package::PackageSpec;
 use typst::text::{FontInfo, FontStyle};
+use typst::World;
+
+/// Extends the `World` for IDE functionality.
+pub trait IdeWorld: World {
+    /// Turn into a normal [`World`].
+    ///
+    /// This is necessary because trait upcasting is experimental in Rust.
+    /// See: https://github.com/rust-lang/rust/issues/65991
+    ///
+    /// Implementors can simply return `self`.
+    fn upcast(&self) -> &dyn World;
+
+    /// A list of all available packages and optionally descriptions for them.
+    ///
+    /// This function is **optional** to implement. It enhances the user
+    /// experience by enabling autocompletion for packages. Details about
+    /// packages from the `@preview` namespace are available from
+    /// `https://packages.typst.org/preview/index.json`.
+    fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
+        &[]
+    }
+}
 
 /// Extract the first sentence of plain text of a piece of documentation.
 ///
@@ -107,6 +130,8 @@ mod tests {
     use typst::utils::{singleton, LazyHash};
     use typst::{Library, World};
 
+    use crate::IdeWorld;
+
     /// A world for IDE testing.
     pub struct TestWorld {
         pub main: Source,
@@ -190,6 +215,12 @@ mod tests {
 
         fn today(&self, _: Option<i64>) -> Option<Datetime> {
             None
+        }
+    }
+
+    impl IdeWorld for TestWorld {
+        fn upcast(&self) -> &dyn World {
+            self
         }
     }
 

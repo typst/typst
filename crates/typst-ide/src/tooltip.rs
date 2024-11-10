@@ -9,12 +9,11 @@ use typst::model::Document;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_with_precision, Numeric};
-use typst::World;
 use typst_eval::CapturesVisitor;
 
 use crate::{
     analyze_expr, analyze_import, analyze_labels, plain_docs_sentence,
-    summarize_font_family,
+    summarize_font_family, IdeWorld,
 };
 
 /// Describe the item under the cursor.
@@ -23,7 +22,7 @@ use crate::{
 /// the tooltips. Label tooltips, for instance, are only generated when the
 /// document is available.
 pub fn tooltip(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     document: Option<&Document>,
     source: &Source,
     cursor: usize,
@@ -52,7 +51,7 @@ pub enum Tooltip {
 }
 
 /// Tooltip for a hovered expression.
-fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
+fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut ancestor = leaf;
     while !ancestor.is::<ast::Expr>() {
         ancestor = ancestor.parent()?;
@@ -112,8 +111,9 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 }
 
 /// Tooltips for imports.
-fn import_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
+fn import_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     if_chain! {
+        if leaf.kind() == SyntaxKind::Star;
         if let Some(parent) = leaf.parent();
         if let Some(import) = parent.cast::<ast::ModuleImport>();
         if let Some(node) = parent.find(import.source().span());
@@ -192,7 +192,7 @@ fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
 }
 
 /// Tooltips for components of a named parameter.
-fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
+fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     let (func, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
         // call or set rule.
@@ -249,7 +249,7 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 }
 
 /// Tooltip for font.
-fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
+fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     if_chain! {
         // Ensure that we are on top of a string.
         if let Some(string) = leaf.cast::<ast::Str>();
@@ -320,7 +320,7 @@ mod tests {
     fn test_with_world(world: &TestWorld, cursor: isize, side: Side) -> Response {
         let source = &world.main;
         let doc = typst::compile(&world).output.ok();
-        tooltip(&world, doc.as_ref(), source, source.cursor(cursor), side)
+        tooltip(world, doc.as_ref(), source, source.cursor(cursor), side)
     }
 
     #[test]
