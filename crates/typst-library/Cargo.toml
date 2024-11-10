@@ -43,6 +43,7 @@ png = { workspace = true }
 qcms = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
+regex-syntax = { workspace = true }
 roxmltree = { workspace = true }
 rust_decimal = { workspace = true }
 rustybuzz = { workspace = true }

@@ -83,21 +83,17 @@ I
 #set text(font: "Linux Libertine")
 
 --- text-font-ranges ---
-#let ubuntu = (name: "Ubuntu", ranges: ("\u{20}-\u{FFFF}",))
+#let ubuntu = (name: "Ubuntu", range-match: "[\u{20}-\u{FFFF}]")
 #set text(font: ubuntu)
 #set text(font: (ubuntu, "Ubuntu"))
 
 --- text-bad-ranges-1 ---
-// Error: 17-55 invalid ranges
-#set text(font: (name: "Ubuntu", ranges: ("20-FFFF",)))
+// Error: 17-57 invalid regex
+#set text(font: (name: "Ubuntu", range-match: "20-FFFF"))
 
 --- text-bad-ranges-2 ---
-// Error: 17-61 invalid ranges
-#set text(font: (name: "Ubuntu", ranges: ("\u{20}-\u{10}",)))
-
---- text-bad-ranges-3 ---
-// Error: 17-58 invalid ranges
-#set text(font: (name: "Ubuntu", ranges: ("\u{11FFFF}",)))
+// Error: 17-63 invalid regex
+#set text(font: (name: "Ubuntu", range-match: "\u{20}-\u{10}"))
 
 --- text-chinese-ranges ---
 // Without ranges, the quotation marks is using Latin font.
@@ -105,5 +101,5 @@ I
 分别设置“中文”和English字体
 
 // With ranges, the quotation marks is using Chinese font.
-#set text(font: ((name: "Noto Serif CJK SC", ranges: ("\u{00B7}", "\u{2014}-\u{3134F}")), "Ubuntu"))
+#set text(font: ((name: "Noto Serif CJK SC", range-match: "[\u{00B7}-\u{3134F}]"), "Ubuntu"))
 分别设置“中文”和English字体

@@ -466,7 +466,7 @@ impl<'a> ShapedText<'a> {
             .map(|family| {
                 family
                     .coverage()
-                    .map_or(true, |c| c.contains('-'.into()))
+                    .map_or(true, |c| c.is_match("-"))
                     .then(|| book.select(family.as_str(), self.variant))
                     .flatten()
             })
@@ -825,7 +825,9 @@ fn shape_segment<'a>(
         let c = text[cluster..].chars().next().unwrap();
 
         // Add the glyph to the shaped output.
-        if info.glyph_id != 0 && coverage.map_or(true, |cov| cov.contains(c.into())) {
+        if info.glyph_id != 0
+            && coverage.map_or(true, |cov| cov.is_match(c.encode_utf8(&mut [0; 4])))
+        {
             let script = c.script();
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {

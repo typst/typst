@@ -2870,6 +2870,7 @@ dependencies = [
  "qcms",
  "rayon",
  "regex",
+ "regex-syntax",
  "roxmltree",
  "rust_decimal",
  "rustybuzz",

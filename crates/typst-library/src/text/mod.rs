@@ -29,12 +29,14 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
+use regex::Regex;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
@@ -100,9 +102,9 @@ pub struct TextElem {
     /// or a dictionary with the following keys:
     ///
     /// - `name` (required): The font family name.
-    /// - `ranges` (optional): An array of Unicode ranges. Every range should be
-    ///   a string of single Unicode code point or a pair of Unicode code points
-    ///   separated by a dash. The ranges should not exceed U+10FFFF.
+    /// - `range-match` (optional): A regex that defines the Unicode points
+    ///   supported by the font. Unicode codepoints that match this regex are
+    ///   considered within the range and will be rendered using this font.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -778,20 +780,54 @@ impl PlainText for Packed<TextElem> {
 }
 
 /// A lowercased font family like "arial".
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone)]
 pub struct FontFamily {
     name: EcoString,
-    coverage: Option<Coverage>,
+    coverage: Option<Regex>,
+}
+
+impl Hash for FontFamily {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.coverage_str().hash(state);
+    }
+}
+
+impl PartialEq for FontFamily {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.coverage_str() == other.coverage_str()
+    }
 }
 
 impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self::new_with_coverage(string, None)
+        Self::new_with_coverage(string, None).unwrap()
     }
 
-    pub fn new_with_coverage(string: &str, coverage: Option<Coverage>) -> Self {
-        Self { name: string.to_lowercase().into(), coverage }
+    pub fn new_with_coverage(
+        string: &str,
+        coverage: Option<&str>,
+    ) -> HintedStrResult<Self> {
+        let coverage = if let Some(coverage) = coverage {
+            let coverage = coverage.replace("[:cjk-ambiguous:]", "[\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]");
+            let ast = regex_syntax::ast::parse::Parser::new()
+                .parse(&coverage)
+                .map_err(|_| "invalid regex")?;
+            match ast {
+                regex_syntax::ast::Ast::ClassBracketed(..)
+                | regex_syntax::ast::Ast::ClassUnicode(..)
+                | regex_syntax::ast::Ast::ClassPerl(..)
+                | regex_syntax::ast::Ast::Dot(..)
+                | regex_syntax::ast::Ast::Literal(..) => (),
+                _ => bail!("invalid regex"),
+            }
+            let coverage = Regex::new(&coverage).unwrap();
+            Some(coverage)
+        } else {
+            None
+        };
+        Ok(Self { name: string.to_lowercase().into(), coverage })
     }
 
     /// The lowercased family name.
@@ -800,35 +836,13 @@ impl FontFamily {
     }
 
     /// The user-set coverage of the font family.
-    pub fn coverage(&self) -> Option<&Coverage> {
+    pub fn coverage(&self) -> Option<&Regex> {
         self.coverage.as_ref()
     }
-}
 
-// Parse unicode-range expression
-fn parse_unicode_range(text: &str) -> Option<(u32, u32)> {
-    let chars: Vec<char> = text.chars().collect();
-    let (start, end) = match chars[..] {
-        [c] => (c as u32, c as u32),
-        [c1, '-', c2] => (c1 as u32, c2 as u32),
-        _ => return None,
-    };
-    if start > end || end > 0x10FFFF {
-        return None;
+    pub fn coverage_str(&self) -> Option<&str> {
+        self.coverage.as_ref().map(|r| r.as_str())
     }
-    Some((start, end))
-}
-
-#[test]
-fn test_parse_unicode_range() {
-    assert_eq!(parse_unicode_range("\u{0}-\u{7F}"), Some((0x0000, 0x007F)));
-    assert_eq!(parse_unicode_range("\u{007F}"), Some((0x007F, 0x007F)));
-    assert_eq!(parse_unicode_range("\u{80}-\u{80}"), Some((0x0080, 0x0080)));
-    assert_eq!(parse_unicode_range("a-z"), Some((0x0061, 0x007A)));
-
-    assert_eq!(parse_unicode_range(""), None);
-    assert_eq!(parse_unicode_range("a-"), None);
-    assert_eq!(parse_unicode_range("a-b-c"), None);
 }
 
 cast! {
@@ -838,26 +852,19 @@ cast! {
     mut v: Dict => {
         let ret = Self::new_with_coverage(
             &v.take("name")?.cast::<String>()?,
-            v.take("ranges")
+            v.take("range-match")
                 .ok()
-                .map(|s| -> HintedStrResult<_> {
-                    let ranges = s
-                        .cast::<Vec<String>>()?
-                        .iter()
-                        .map(|r| parse_unicode_range(r))
-                        .collect::<Option<Vec<_>>>()
-                        .ok_or("invalid ranges")?;
-                    Ok(Coverage::from_ranges(ranges))
-                })
-                .transpose()?,
-        );
-        v.finish(&["name", "unicode-range"])?;
+                .map(|s| s.cast::<String>())
+                .transpose()?
+                .as_deref(),
+        )?;
+        v.finish(&["name", "range-match"])?;
         ret
     },
 }
 
 /// Font family fallback list.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
 
 impl<'a> IntoIterator for &'a FontList {
