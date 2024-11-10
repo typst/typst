@@ -1,17 +1,19 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, HashSet};
+use std::ffi::OsStr;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, format_str, repr, AutoValue, CastInfo, Func, Label, NoneValue, Repr,
-    Scope, StyleChain, Styles, Type, Value,
+    fields_on, format_str, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo,
+    Repr, Scope, StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Side, Source, SyntaxKind,
+    ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
+    SyntaxKind,
 };
 use typst::text::RawElem;
 use typst::visualize::Color;
@@ -480,8 +482,8 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
 
 /// Complete imports.
 fn complete_imports(ctx: &mut CompletionContext) -> bool {
-    // In an import path for a package:
-    // "#import "@|",
+    // In an import path for a file or package:
+    // "#import "|",
     if_chain! {
         if matches!(
             ctx.leaf.parent_kind(),
@@ -489,11 +491,14 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         );
         if let Some(ast::Expr::Str(str)) = ctx.leaf.cast();
         let value = str.get();
-        if value.starts_with('@');
         then {
-            let all_versions = value.contains(':');
             ctx.from = ctx.leaf.offset();
-            ctx.package_completions(all_versions);
+            if value.starts_with('@') {
+                let all_versions = value.contains(':');
+                ctx.package_completions(all_versions);
+            } else {
+                ctx.file_completions_with_extensions(&["typ"]);
+            }
             return true;
         }
     }
@@ -757,7 +762,7 @@ fn param_completions<'a>(
                 continue;
             }
 
-            ctx.cast_completions(&param.input);
+            param_value_completions(ctx, func, param);
         }
 
         if param.named {
@@ -791,13 +796,36 @@ fn named_param_value_completions<'a>(
         return;
     }
 
-    ctx.cast_completions(&param.input);
-    if name == "font" {
-        ctx.font_completions();
-    }
+    param_value_completions(ctx, func, param);
 
     if ctx.before.ends_with(':') {
         ctx.enrich(" ", "");
+    }
+}
+
+/// Add completions for the values of a parameter.
+fn param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    func: &Func,
+    param: &'a ParamInfo,
+) {
+    ctx.cast_completions(&param.input);
+
+    if param.name == "font" {
+        ctx.font_completions();
+    } else if param.name == "path" {
+        ctx.file_completions_with_extensions(match func.name() {
+            Some("image") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+            Some("csv") => &["csv"],
+            Some("plugin") => &["wasm"],
+            Some("cbor") => &["cbor"],
+            Some("json") => &["json"],
+            Some("toml") => &["toml"],
+            Some("xml") => &["xml"],
+            Some("yaml") => &["yml", "yaml"],
+            Some("bibliography") => &["bib", "yml", "yaml"],
+            _ => &[],
+        });
     }
 }
 
@@ -977,25 +1005,19 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 
     ctx.snippet_completion(
         "import (file)",
-        "import \"${file}.typ\": ${items}",
+        "import \"${}\": ${}",
         "Imports variables from another file.",
     );
 
     ctx.snippet_completion(
         "import (package)",
-        "import \"@${}\": ${items}",
-        "Imports variables from another file.",
+        "import \"@${}\": ${}",
+        "Imports variables from a package.",
     );
 
     ctx.snippet_completion(
         "include (file)",
-        "include \"${file}.typ\"",
-        "Includes content from another file.",
-    );
-
-    ctx.snippet_completion(
-        "include (package)",
-        "include \"@${}\"",
+        "include \"${}\"",
         "Includes content from another file.",
     );
 
@@ -1040,7 +1062,6 @@ struct CompletionContext<'a> {
 impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
-        world: &'a (dyn World + 'a),
         world: &'a (dyn IdeWorld + 'a),
         document: Option<&'a Document>,
         source: &'a Source,
@@ -1128,6 +1149,50 @@ impl<'a> CompletionContext<'a> {
                 description.as_deref(),
             );
         }
+    }
+
+    /// Add completions for all available files.
+    fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
+        let Some(base_id) = self.leaf.span().id() else { return };
+        let Some(base_path) = base_id.vpath().as_rooted_path().parent() else { return };
+
+        let mut paths: Vec<EcoString> = self
+            .world
+            .files()
+            .iter()
+            .filter(|&&file_id| file_id != base_id && filter(file_id))
+            .filter_map(|file_id| {
+                let file_path = file_id.vpath().as_rooted_path();
+                pathdiff::diff_paths(file_path, base_path)
+            })
+            .map(|path| path.to_string_lossy().replace('\\', "/").into())
+            .collect();
+
+        paths.sort();
+
+        for path in paths {
+            self.value_completion(None, &Value::Str(path.into()), false, None);
+        }
+    }
+
+    /// Add completions for all files with any of the given extensions.
+    ///
+    /// If the array is empty, all extensions are allowed.
+    fn file_completions_with_extensions(&mut self, extensions: &[&str]) {
+        if extensions.is_empty() {
+            self.file_completions(|_| true);
+        }
+        self.file_completions(|id| {
+            let ext = id
+                .vpath()
+                .as_rooted_path()
+                .extension()
+                .and_then(OsStr::to_str)
+                .map(EcoString::from)
+                .unwrap_or_default()
+                .to_lowercase();
+            extensions.contains(&ext.as_str())
+        });
     }
 
     /// Add completions for raw block tags.
@@ -1409,10 +1474,18 @@ mod tests {
     use std::collections::BTreeSet;
 
     use typst::model::Document;
-    use typst::syntax::Source;
+    use typst::syntax::{FileId, Source, VirtualPath};
+    use typst::World;
 
     use super::{autocomplete, Completion};
     use crate::tests::{SourceExt, TestWorld};
+
+    /// Quote a string.
+    macro_rules! q {
+        ($s:literal) => {
+            concat!("\"", $s, "\"")
+        };
+    }
 
     type Response = Option<(usize, Vec<Completion>)>;
 
@@ -1489,13 +1562,21 @@ mod tests {
     }
 
     #[track_caller]
+    fn test_with_path(world: &TestWorld, path: &str, cursor: isize) -> Response {
+        let doc = typst::compile(&world).output.ok();
+        let id = FileId::new(None, VirtualPath::new(path));
+        let source = world.source(id).unwrap();
+        test_full(world, &source, doc.as_ref(), cursor)
+    }
+
+    #[track_caller]
     fn test_full(
         world: &TestWorld,
         source: &Source,
         doc: Option<&Document>,
         cursor: isize,
     ) -> Response {
-        autocomplete(&world, doc, source, source.cursor(cursor), true)
+        autocomplete(world, doc, source, source.cursor(cursor), true)
     }
 
     #[test]
@@ -1530,8 +1611,8 @@ mod tests {
     #[test]
     fn test_autocomplete_cite_function() {
         // First compile a working file to get a document.
-        let mut world = TestWorld::new("#bibliography(\"works.bib\") <bib>")
-            .with_asset_by_name("works.bib");
+        let mut world =
+            TestWorld::new("#bibliography(\"works.bib\") <bib>").with_asset("works.bib");
         let doc = typst::compile(&world).output.ok();
 
         // Then, add the invalid `#cite` call. Had the document been invalid
@@ -1572,5 +1653,37 @@ mod tests {
         test("#numbering(\"foo\", 1, )", -1)
             .must_include(["integer"])
             .must_exclude(["string"]);
+    }
+
+    #[test]
+    fn test_autocomplete_packages() {
+        test("#import \"@\"", -1).must_include([q!("@preview/example:0.1.0")]);
+    }
+
+    #[test]
+    fn test_autocomplete_file_path() {
+        let world = TestWorld::new("#include \"\"")
+            .with_source("utils.typ", "")
+            .with_source("content/a.typ", "#image()")
+            .with_source("content/b.typ", "#csv(\"\")")
+            .with_source("content/c.typ", "#include \"\"")
+            .with_asset_at("assets/tiger.jpg", "tiger.jpg")
+            .with_asset_at("assets/rhino.png", "rhino.png")
+            .with_asset_at("data/example.csv", "example.csv");
+
+        test_with_path(&world, "main.typ", -1)
+            .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
+            .must_exclude([q!("assets/tiger.jpg")]);
+
+        test_with_path(&world, "content/c.typ", -1)
+            .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
+            .must_exclude([q!("c.typ")]);
+
+        test_with_path(&world, "content/a.typ", -1)
+            .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
+            .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
+
+        test_with_path(&world, "content/b.typ", -2)
+            .must_include([q!("../data/example.csv")]);
     }
 }

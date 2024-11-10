@@ -18,6 +18,7 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use typst::syntax::package::PackageSpec;
+use typst::syntax::FileId;
 use typst::text::{FontInfo, FontStyle};
 use typst::World;
 
@@ -39,6 +40,14 @@ pub trait IdeWorld: World {
     /// `https://packages.typst.org/preview/index.json`.
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         &[]
+    }
+
+    /// Returns a list of all known files.
+    ///
+    /// This function is **optional** to implement. It enhances the user
+    /// experience by enabling autocompletion for file paths.
+    fn files(&self) -> Vec<FileId> {
+        vec![]
     }
 }
 
@@ -122,9 +131,11 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
 mod tests {
     use std::collections::HashMap;
 
+    use ecow::EcoString;
     use typst::diag::{FileError, FileResult};
     use typst::foundations::{Bytes, Datetime, Smart};
     use typst::layout::{Abs, Margin, PageElem};
+    use typst::syntax::package::{PackageSpec, PackageVersion};
     use typst::syntax::{FileId, Source, VirtualPath};
     use typst::text::{Font, FontBook, TextElem, TextSize};
     use typst::utils::{singleton, LazyHash};
@@ -155,21 +166,27 @@ mod tests {
             }
         }
 
-        /// Add an additional asset file to the test world.
-        #[track_caller]
-        pub fn with_asset_by_name(mut self, filename: &str) -> Self {
-            let id = FileId::new(None, VirtualPath::new(filename));
-            let data = typst_dev_assets::get_by_name(filename).unwrap();
-            let bytes = Bytes::from_static(data);
-            self.assets.insert(id, bytes);
-            self
-        }
-
         /// Add an additional source file to the test world.
         pub fn with_source(mut self, path: &str, text: &str) -> Self {
             let id = FileId::new(None, VirtualPath::new(path));
             let source = Source::new(id, text.into());
             self.sources.insert(id, source);
+            self
+        }
+
+        /// Add an additional asset file to the test world.
+        #[track_caller]
+        pub fn with_asset(self, filename: &str) -> Self {
+            self.with_asset_at(filename, filename)
+        }
+
+        /// Add an additional asset file to the test world.
+        #[track_caller]
+        pub fn with_asset_at(mut self, path: &str, filename: &str) -> Self {
+            let id = FileId::new(None, VirtualPath::new(path));
+            let data = typst_dev_assets::get_by_name(filename).unwrap();
+            let bytes = Bytes::from_static(data);
+            self.assets.insert(id, bytes);
             self
         }
 
@@ -221,6 +238,25 @@ mod tests {
     impl IdeWorld for TestWorld {
         fn upcast(&self) -> &dyn World {
             self
+        }
+
+        fn files(&self) -> Vec<FileId> {
+            std::iter::once(self.main.id())
+                .chain(self.sources.keys().copied())
+                .chain(self.assets.keys().copied())
+                .collect()
+        }
+
+        fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
+            const LIST: &[(PackageSpec, Option<EcoString>)] = &[(
+                PackageSpec {
+                    namespace: EcoString::inline("preview"),
+                    name: EcoString::inline("example"),
+                    version: PackageVersion { major: 0, minor: 1, patch: 0 },
+                },
+                None,
+            )];
+            LIST
         }
     }
 
