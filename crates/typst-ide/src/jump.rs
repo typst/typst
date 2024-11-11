@@ -4,14 +4,15 @@ use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Document, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
+use typst::WorldExt;
 
 use crate::IdeWorld;
 
 /// Where to [jump](jump_from_click) to.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Jump {
-    /// Jump to a position in a source file.
-    Source(FileId, usize),
+    /// Jump to a position in a file.
+    File(FileId, usize),
     /// Jump to an external URL.
     Url(Url),
     /// Jump to a point on a page.
@@ -21,9 +22,8 @@ pub enum Jump {
 impl Jump {
     fn from_span(world: &dyn IdeWorld, span: Span) -> Option<Self> {
         let id = span.id()?;
-        let source = world.source(id).ok()?;
-        let node = source.find(span)?;
-        Some(Self::Source(id, node.offset()))
+        let offset = world.range(span)?.start;
+        Some(Self::File(id, offset))
     }
 }
 
@@ -83,7 +83,7 @@ pub fn jump_from_click(
                         } else {
                             node.offset()
                         };
-                        return Some(Jump::Source(source.id(), pos));
+                        return Some(Jump::File(source.id(), pos));
                     }
 
                     pos.x += width;
@@ -194,7 +194,7 @@ mod tests {
     }
 
     fn cursor(cursor: usize) -> Option<Jump> {
-        Some(Jump::Source(TestWorld::main_id(), cursor))
+        Some(Jump::File(TestWorld::main_id(), cursor))
     }
 
     fn pos(page: usize, x: f64, y: f64) -> Option<Position> {

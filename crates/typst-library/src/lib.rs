@@ -125,13 +125,13 @@ world_impl!(W for &W);
 pub trait WorldExt {
     /// Get the byte range for a span.
     ///
-    /// Returns `None` if the `Span` does not point into any source file.
+    /// Returns `None` if the `Span` does not point into any file.
     fn range(&self, span: Span) -> Option<Range<usize>>;
 }
 
-impl<T: World> WorldExt for T {
+impl<T: World + ?Sized> WorldExt for T {
     fn range(&self, span: Span) -> Option<Range<usize>> {
-        self.source(span.id()?).ok()?.range(span)
+        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
     }
 }
 
