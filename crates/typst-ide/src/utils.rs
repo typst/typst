@@ -3,7 +3,9 @@ use std::fmt::Write;
 use comemo::Track;
 use ecow::{eco_format, EcoString};
 use typst::engine::{Engine, Route, Sink, Traced};
+use typst::foundations::Scope;
 use typst::introspection::Introspector;
+use typst::syntax::{LinkedNode, SyntaxKind};
 use typst::text::{FontInfo, FontStyle};
 
 use crate::IdeWorld;
@@ -104,4 +106,22 @@ pub fn summarize_font_family<'a>(
     }
 
     detail
+}
+
+/// The global definitions at the given node.
+pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
+    let in_math = matches!(
+        leaf.parent_kind(),
+        Some(SyntaxKind::Equation)
+            | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathFrac)
+            | Some(SyntaxKind::MathAttach)
+    );
+
+    let library = world.library();
+    if in_math {
+        library.math.scope()
+    } else {
+        library.global.scope()
+    }
 }
