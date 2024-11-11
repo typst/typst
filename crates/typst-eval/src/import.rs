@@ -163,52 +163,15 @@ pub fn import(engine: &mut Engine, from: &str, span: Span) -> SourceResult<Modul
         let spec = from.parse::<PackageSpec>().at(span)?;
         import_package(engine, spec, span)
     } else {
-        import_file(engine, from, span)
+        let id = span.resolve_path(from).at(span)?;
+        import_file(engine, id, span)
     }
-}
-
-/// Import an external package.
-fn import_package(
-    engine: &mut Engine,
-    spec: PackageSpec,
-    span: Span,
-) -> SourceResult<Module> {
-    // Evaluate the manifest.
-    let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
-    let bytes = engine.world.file(manifest_id).at(span)?;
-    let string = std::str::from_utf8(&bytes).map_err(FileError::from).at(span)?;
-    let manifest: PackageManifest = toml::from_str(string)
-        .map_err(|err| eco_format!("package manifest is malformed ({})", err.message()))
-        .at(span)?;
-    manifest.validate(&spec).at(span)?;
-
-    // Evaluate the entry point.
-    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
-    let source = engine.world.source(entrypoint_id).at(span)?;
-
-    // Prevent cyclic importing.
-    if engine.route.contains(source.id()) {
-        bail!(span, "cyclic import");
-    }
-
-    let point = || Tracepoint::Import;
-    Ok(eval(
-        engine.routines,
-        engine.world,
-        engine.traced,
-        TrackedMut::reborrow_mut(&mut engine.sink),
-        engine.route.track(),
-        &source,
-    )
-    .trace(engine.world, point, span)?
-    .with_name(manifest.package.name))
 }
 
 /// Import a file from a path. The path is resolved relative to the given
 /// `span`.
-fn import_file(engine: &mut Engine, path: &str, span: Span) -> SourceResult<Module> {
+fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Module> {
     // Load the source file.
-    let id = span.resolve_path(path).at(span)?;
     let source = engine.world.source(id).at(span)?;
 
     // Prevent cyclic importing.
@@ -227,4 +190,33 @@ fn import_file(engine: &mut Engine, path: &str, span: Span) -> SourceResult<Modu
         &source,
     )
     .trace(engine.world, point, span)
+}
+
+/// Import an external package.
+fn import_package(
+    engine: &mut Engine,
+    spec: PackageSpec,
+    span: Span,
+) -> SourceResult<Module> {
+    let (name, id) = resolve_package(engine, spec, span)?;
+    import_file(engine, id, span).map(|module| module.with_name(name))
+}
+
+/// Resolve the name and entrypoint of a package.
+fn resolve_package(
+    engine: &mut Engine,
+    spec: PackageSpec,
+    span: Span,
+) -> SourceResult<(EcoString, FileId)> {
+    // Evaluate the manifest.
+    let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
+    let bytes = engine.world.file(manifest_id).at(span)?;
+    let string = std::str::from_utf8(&bytes).map_err(FileError::from).at(span)?;
+    let manifest: PackageManifest = toml::from_str(string)
+        .map_err(|err| eco_format!("package manifest is malformed ({})", err.message()))
+        .at(span)?;
+    manifest.validate(&spec).at(span)?;
+
+    // Evaluate the entry point.
+    Ok((manifest.package.name, manifest_id.join(&manifest.package.entrypoint)))
 }

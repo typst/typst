@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr, Scope,
+    fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
     StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
@@ -19,7 +19,7 @@ use typst::text::RawElem;
 use typst::visualize::Color;
 use unscanny::Scanner;
 
-use crate::utils::{plain_docs_sentence, summarize_font_family};
+use crate::utils::{globals, plain_docs_sentence, summarize_font_family};
 use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld};
 
 /// Autocomplete a cursor position in a source file.
@@ -839,10 +839,11 @@ fn resolve_global_callee<'a>(
     ctx: &CompletionContext<'a>,
     callee: ast::Expr<'a>,
 ) -> Option<&'a Func> {
+    let globals = globals(ctx.world, ctx.leaf);
     let value = match callee {
-        ast::Expr::Ident(ident) => ctx.global.get(&ident)?,
+        ast::Expr::Ident(ident) => globals.get(&ident)?,
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match ctx.global.get(&target)? {
+            ast::Expr::Ident(target) => match globals.get(&target)? {
                 Value::Module(module) => module.field(&access.field()).ok()?,
                 Value::Func(func) => func.field(&access.field()).ok()?,
                 _ => return None,
@@ -1051,8 +1052,6 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
     document: Option<&'a Document>,
-    global: &'a Scope,
-    math: &'a Scope,
     text: &'a str,
     before: &'a str,
     after: &'a str,
@@ -1075,12 +1074,9 @@ impl<'a> CompletionContext<'a> {
         explicit: bool,
     ) -> Option<Self> {
         let text = source.text();
-        let library = world.library();
         Some(Self {
             world,
             document,
-            global: library.global.scope(),
-            math: library.math.scope(),
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1433,16 +1429,7 @@ impl<'a> CompletionContext<'a> {
             None::<()>
         });
 
-        let in_math = matches!(
-            self.leaf.parent_kind(),
-            Some(SyntaxKind::Equation)
-                | Some(SyntaxKind::Math)
-                | Some(SyntaxKind::MathFrac)
-                | Some(SyntaxKind::MathAttach)
-        );
-
-        let scope = if in_math { self.math } else { self.global };
-        for (name, value, _) in scope.iter() {
+        for (name, value, _) in globals(self.world, self.leaf).iter() {
             if filter(value) && !defined.contains(name) {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
