@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroU32;
 use std::sync::{LazyLock, RwLock};
 
 /// The global string interner.
@@ -21,7 +22,7 @@ struct Interner {
 /// unnecessarily. For this reason, the user should use the [`PicoStr::resolve`]
 /// method to get the underlying string, such that the lookup is done only once.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct PicoStr(u32);
+pub struct PicoStr(NonZeroU32);
 
 impl PicoStr {
     /// Creates a new interned string.
@@ -38,7 +39,10 @@ impl PicoStr {
 
         // Create a new entry forever by leaking the string. PicoStr is only
         // used for strings that aren't created en masse, so it is okay.
-        let num = interner.from_id.len().try_into().expect("out of string ids");
+        let num = u32::try_from(interner.from_id.len() + 1)
+            .and_then(NonZeroU32::try_from)
+            .expect("out of string ids");
+
         let id = Self(num);
         let string = Box::leak(string.to_string().into_boxed_str());
         interner.to_id.insert(string, id);
@@ -48,7 +52,7 @@ impl PicoStr {
 
     /// Resolves the interned string.
     pub fn resolve(&self) -> &'static str {
-        INTERNER.read().unwrap().from_id[self.0 as usize]
+        INTERNER.read().unwrap().from_id[(self.0.get() - 1) as usize]
     }
 }
 
