@@ -545,7 +545,7 @@ fn raw_ratio(
     // to make it the desired width.
     let delta = {
         let delta = available_width - line_width;
-        if delta.abs().to_pt() < 0.00001 {
+        if delta.approx_eq(Abs::zero()) {
             Abs::zero()
         } else {
             delta
