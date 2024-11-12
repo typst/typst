@@ -5,3 +5,4 @@ bibliography = Бібліографія
 heading = Розділ
 outline = Зміст
 raw = Лістинг
+page = c.

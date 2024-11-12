@@ -5,3 +5,4 @@ bibliography = المراجع
 heading = الفصل
 outline = المحتويات
 raw = قائمة
+page = صفحة

@@ -5,3 +5,4 @@ bibliography = Kaynakça
 heading = Bölüm
 outline = İçindekiler
 raw = Liste
+page = sayfa
