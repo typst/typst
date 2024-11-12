@@ -4,10 +4,10 @@ use ecow::eco_format;
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show,
-    Smart, StyleChain, Synthesize,
+    cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
+    Show, Smart, StyleChain, Synthesize,
 };
-use crate::introspection::{Counter, Locatable};
+use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
 use crate::model::{
     BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, Numbering,
@@ -16,22 +16,35 @@ use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
-/// Produces a textual reference to a label. For example, a reference to a
-/// heading will yield an appropriate string such as "Section 1" for a reference
-/// to the first heading. The references are also links to the respective
-/// element. Reference syntax can also be used to [cite] from a bibliography.
+/// Takes a label and cross-references it. There are two kind of references,
+/// determined by its [`form`]($ref.form): `{"normal"}` and `{"page"}`.
 ///
-/// Referenceable elements include [headings]($heading), [figures]($figure),
-/// [equations]($math.equation), and [footnotes]($footnote). To create a custom
-/// referenceable element like a theorem, you can create a figure of a custom
-/// [`kind`]($figure.kind) and write a show rule for it. In the future, there
-/// might be a more direct way to define a custom referenceable element.
+/// The default, a `{"normal"}` reference, produces a textual reference to a
+/// label. For example, a reference to a heading will yield an appropriate
+/// string such as "Section 1" for a reference to the first heading. The
+/// references are also links to the respective element. Reference syntax can
+/// also be used to [cite] from a bibliography.
+///
+/// As the default form requires a supplement and numbering, the label must be
+/// attached to a _referenceable element_. Referenceable elements include
+/// [headings]($heading), [figures]($figure), [equations]($math.equation), and
+/// [footnotes]($footnote). To create a custom referenceable element like a
+/// theorem, you can create a figure of a custom [`kind`]($figure.kind) and
+/// write a show rule for it. In the future, there might be a more direct way
+/// to define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`] function instead.
 ///
+/// A `{"page"}` reference produces a page reference to a label, displaying the
+/// page number at its location. You can use the
+/// [page's supplement]($page.supplement) to modify the text before the page
+/// number. Unlike a `{"normal"}` reference, the label can be attached to any
+/// element.
+///
 /// # Example
 /// ```example
+/// #set page(numbering: "1")
 /// #set heading(numbering: "1.")
 /// #set math.equation(numbering: "(1)")
 ///
@@ -40,7 +53,9 @@ use crate::text::TextElem;
 /// typesetting software have
 /// rekindled hope in previously
 /// frustrated researchers. @distress
-/// As shown in @results, we ...
+/// As shown in @results (see
+/// #ref(<results>, form: "page")),
+/// we ...
 ///
 /// = Results <results>
 /// We discuss our approach in
@@ -55,9 +70,9 @@ use crate::text::TextElem;
 /// ```
 ///
 /// # Syntax
-/// This function also has dedicated syntax: A reference to a label can be
-/// created by typing an `@` followed by the name of the label (e.g.
-/// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
+/// This function also has dedicated syntax: A `{"normal"}` reference to a
+/// label can be created by typing an `@` followed by the name of the label
+/// (e.g. `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
@@ -95,22 +110,30 @@ use crate::text::TextElem;
 pub struct RefElem {
     /// The target label that should be referenced.
     ///
-    /// Can be a label that is defined in the document or an entry from the
+    /// Can be a label that is defined in the document or, if the
+    /// [`form`]($ref.form) is set to `["normal"]`, an entry from the
     /// [`bibliography`].
     #[required]
     pub target: Label,
 
     /// A supplement for the reference.
     ///
-    /// For references to headings or figures, this is added before the
-    /// referenced number. For citations, this can be used to add a page number.
+    /// If the [`form`]($ref.form) is set to `{"normal"}`:
+    /// - For references to headings or figures, this is added before the
+    ///   referenced number.
+    /// - For citations, this can be used to add a page number.
+    ///
+    /// If the [`form`]($ref.form) is set to `{"page"}`, then this is added
+    /// before the page number of the label referenced.
     ///
     /// If a function is specified, it is passed the referenced element and
     /// should return content.
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #set ref(supplement: it => {
+    /// #show ref.where(
+    ///   form: "normal"
+    /// ): set ref(supplement: it => {
     ///   if it.func() == heading {
     ///     "Chapter"
     ///   } else {
@@ -126,6 +149,17 @@ pub struct RefElem {
     /// ```
     #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
+
+    /// The kind of reference to produce.
+    ///
+    /// ```example
+    /// #set page(numbering: "1")
+    ///
+    /// Here <here> we are on
+    /// #ref(<here>, form: "page").
+    /// ```
+    #[default(RefForm::Normal)]
+    pub form: RefForm,
 
     /// A synthesized citation.
     #[synthesized]
@@ -166,6 +200,34 @@ impl Show for Packed<RefElem> {
         let target = *self.target();
         let elem = engine.introspector.query_label(target);
         let span = self.span();
+
+        let form = self.form(styles);
+        if form == RefForm::Page {
+            let elem = elem.at(span)?;
+            let elem = elem.clone();
+
+            let loc = elem.location().unwrap();
+            let numbering = engine
+                .introspector
+                .page_numbering(loc)
+                .ok_or_else(|| eco_format!("cannot reference without page numbering"))
+                .hint(eco_format!(
+                    "you can enable page numbering with `#set page(numbering: \"1\")`"
+                ))
+                .at(span)?;
+            let supplement = engine.introspector.page_supplement(loc);
+
+            return show_reference(
+                self,
+                engine,
+                styles,
+                Counter::new(CounterKey::Page),
+                numbering.clone(),
+                supplement,
+                elem,
+            );
+        }
+        // RefForm::Normal
 
         if BibliographyElem::has(engine, target) {
             if elem.is_ok() {
@@ -212,29 +274,43 @@ impl Show for Packed<RefElem> {
             ))
             .at(span)?;
 
-        let loc = elem.location().unwrap();
-        let numbers = refable.counter().display_at_loc(
+        show_reference(
+            self,
             engine,
-            loc,
             styles,
-            &numbering.clone().trimmed(),
-        )?;
-
-        let supplement = match self.supplement(styles).as_ref() {
-            Smart::Auto => refable.supplement(),
-            Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, styles, [elem])?
-            }
-        };
-
-        let mut content = numbers;
-        if !supplement.is_empty() {
-            content = supplement + TextElem::packed("\u{a0}") + content;
-        }
-
-        Ok(content.linked(Destination::Location(loc)))
+            refable.counter(),
+            numbering.clone(),
+            refable.supplement(),
+            elem,
+        )
     }
+}
+
+/// Show a reference.
+fn show_reference(
+    reference: &Packed<RefElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+    counter: Counter,
+    numbering: Numbering,
+    supplement: Content,
+    elem: Content,
+) -> SourceResult<Content> {
+    let loc = elem.location().unwrap();
+    let numbers = counter.display_at_loc(engine, loc, styles, &numbering.trimmed())?;
+
+    let supplement = match reference.supplement(styles).as_ref() {
+        Smart::Auto => supplement,
+        Smart::Custom(None) => Content::empty(),
+        Smart::Custom(Some(supplement)) => supplement.resolve(engine, styles, [elem])?,
+    };
+
+    let mut content = numbers;
+    if !supplement.is_empty() {
+        content = supplement + TextElem::packed("\u{a0}") + content;
+    }
+
+    Ok(content.linked(Destination::Location(loc)))
 }
 
 /// Turn a reference into a citation.
@@ -291,6 +367,16 @@ cast! {
     },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
+}
+
+/// The form of the reference.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum RefForm {
+    /// Produces a textual reference to a label.
+    #[default]
+    Normal,
+    /// Produces a page reference to a label.
+    Page,
 }
 
 /// Marks an element as being able to be referenced. This is used to implement
