@@ -180,7 +180,7 @@ pub fn write_font_descriptor<'a>(
         font.to_em(global_bbox.y_max).to_font_units(),
     );
 
-    let italic_angle = ttf.italic_angle().unwrap_or(0.0);
+    let italic_angle = ttf.italic_angle();
     let ascender = metrics.ascender.to_font_units();
     let descender = metrics.descender.to_font_units();
     let cap_height = metrics.cap_height.to_font_units();
