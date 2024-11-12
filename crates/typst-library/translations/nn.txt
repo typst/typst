@@ -5,3 +5,4 @@ bibliography = Bibliografi
 heading = Kapittel
 outline = Innhald
 raw = Utskrift
+page = side

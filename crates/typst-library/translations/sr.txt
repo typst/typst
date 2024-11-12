@@ -5,3 +5,4 @@ bibliography = Литература
 heading = Поглавље
 outline = Садржај
 raw = Програм
+page = страна
