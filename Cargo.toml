@@ -56,7 +56,7 @@ dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
-fontdb = { version = "0.21", default-features = false }
+fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 hayagriva = "0.8.1"
 heck = "0.5"
@@ -86,7 +86,7 @@ parking_lot = "0.12.1"
 pathdiff = "0.2"
 pdf-writer = "0.12.1"
 phf = { version = "0.11", features = ["macros"] }
-pixglyph = "0.5.1"
+pixglyph = "0.6"
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
@@ -96,10 +96,10 @@ quote = "1"
 rayon = "1.7.0"
 regex = "1"
 regex-syntax = "0.8"
-resvg = { version = "0.43", default-features = false, features = ["raster-images"] }
+resvg = { version = "0.45", default-features = false, features = ["raster-images"] }
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
-rustybuzz = "0.18"
+rustybuzz = "0.20"
 same-file = "1"
 self-replace = "1.3.7"
 semver = "1"
@@ -112,7 +112,7 @@ siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
 subsetter = "0.2"
-svg2pdf = "0.12"
+svg2pdf = "0.13"
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
@@ -122,7 +122,7 @@ time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny_http = "0.12"
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
-ttf-parser = "0.24.1"
+ttf-parser = "0.25.0"
 two-face = { version = "0.4.3", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
 unicode-bidi = "0.3.18"
@@ -133,7 +133,7 @@ unicode-normalization = "0.1.24"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
-usvg = { version = "0.43", default-features = false, features = ["text"] }
+usvg = { version = "0.45", default-features = false, features = ["text"] }
 walkdir = "2"
 wasmi = "0.40.0"
 web-sys = "0.3"
