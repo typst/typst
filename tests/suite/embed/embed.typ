@@ -16,4 +16,4 @@
 
 --- embed-raw-document ---
 #let raw_file = read("test.txt")
-#pdf.embed.decode(raw_file, "dir/a_file_name.txt", name: "a_file_name.txt", description: "A description")
+#pdf.embed.decode(raw_file, "dir/a_file_name.txt", name: "a_file_name.txt", description: "A description", mime-type: "text/plain", relationship: "supplement")
