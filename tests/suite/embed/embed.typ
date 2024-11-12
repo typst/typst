@@ -1,6 +1,6 @@
 // Test embeddings.
 
---- embed-basic-document- ---
+--- embed-basic-document ---
 #pdf.embed("test.txt")
 
 --- embed-document ---
