@@ -1,5 +1,5 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::ffi::OsStr;
 
 use ecow::{eco_format, EcoString};
@@ -9,6 +9,7 @@ use typst::foundations::{
     fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
     StyleChain, Styles, Type, Value,
 };
+use typst::layout::{Alignment, Dir};
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
@@ -19,7 +20,9 @@ use typst::text::RawElem;
 use typst::visualize::Color;
 use unscanny::Scanner;
 
-use crate::utils::{globals, plain_docs_sentence, summarize_font_family};
+use crate::utils::{
+    check_value_recursively, globals, plain_docs_sentence, summarize_font_family,
+};
 use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld};
 
 /// Autocomplete a cursor position in a source file.
@@ -903,9 +906,18 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
 /// Add completions for expression snippets.
 #[rustfmt::skip]
 fn code_completions(ctx: &mut CompletionContext, hash: bool) {
-    ctx.scope_completions(true, |value| !hash || {
-        matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_))
-    });
+    if hash {
+        ctx.scope_completions(true, |value| {
+            // If we are in markup, ignore colors, directions, and alignments.
+            // They are useless and bloat the autocomplete results.
+            let ty = value.ty();
+            ty != Type::of::<Color>()
+                && ty != Type::of::<Dir>()
+                && ty != Type::of::<Alignment>()
+        });
+    } else {
+        ctx.scope_completions(true, |_| true);
+    }
 
     ctx.snippet_completion(
         "function call",
@@ -1421,28 +1433,38 @@ impl<'a> CompletionContext<'a> {
     ///
     /// Filters the global/math scope with the given filter.
     fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
-        let mut defined = BTreeSet::new();
-        named_items(self.world, self.leaf.clone(), |name| {
-            if name.value().as_ref().map_or(true, &filter) {
-                defined.insert(name.name().clone());
+        // When any of the constituent parts of the value matches the filter,
+        // that's ok as well. For example, when autocompleting `#rect(fill: |)`,
+        // we propose colors, but also dictionaries and modules that contain
+        // colors.
+        let filter = |value: &Value| check_value_recursively(value, &filter);
+
+        let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
+        named_items(self.world, self.leaf.clone(), |item| {
+            let name = item.name();
+            if !name.is_empty() && item.value().as_ref().map_or(true, filter) {
+                defined.insert(name.clone(), item.value());
             }
+
             None::<()>
         });
 
-        for (name, value, _) in globals(self.world, self.leaf).iter() {
-            if filter(value) && !defined.contains(name) {
-                self.value_completion_full(Some(name.clone()), value, parens, None, None);
-            }
-        }
-
-        for name in defined {
-            if !name.is_empty() {
+        for (name, value) in &defined {
+            if let Some(value) = value {
+                self.value_completion(name.clone(), value);
+            } else {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name,
+                    label: name.clone(),
                     apply: None,
                     detail: None,
                 });
+            }
+        }
+
+        for (name, value, _) in globals(self.world, self.leaf).iter() {
+            if filter(value) && !defined.contains_key(name) {
+                self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
         }
     }
@@ -1665,6 +1687,21 @@ mod tests {
         test("#numbering(\"foo\", 1, )", -1)
             .must_include(["integer"])
             .must_exclude(["string"]);
+    }
+
+    /// Test that autocompletion for values of known type picks up nested
+    /// values.
+    #[test]
+    fn test_autocomplete_value_filter() {
+        let world = TestWorld::new("#import \"design.typ\": clrs; #rect(fill: )")
+            .with_source(
+                "design.typ",
+                "#let clrs = (a: red, b: blue); #let nums = (a: 1, b: 2)",
+            );
+
+        test_with_world(&world, -1)
+            .must_include(["clrs", "aqua"])
+            .must_exclude(["nums", "a", "b"]);
     }
 
     #[test]
