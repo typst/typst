@@ -1,10 +1,10 @@
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{Bytes, Content, Packed, Show, StyleChain};
+use crate::foundations::{func, Bytes, Content, NativeElement, Packed, Show, StyleChain};
 use crate::introspection::Locatable;
 use crate::loading::Readable;
 use crate::text::LocalName;
-use crate::World;
+use crate::{Span, World};
 use ecow::EcoString;
 use std::sync::Arc;
 use typst_macros::{elem, scope, Cast};
@@ -53,7 +53,47 @@ pub struct EmbedElem {
 }
 
 #[scope]
-impl EmbedElem {}
+impl EmbedElem {
+    #[func(title = "Embed the given data as a file")]
+    fn decode(
+        /// The call span of this function.
+        span: Span,
+        /// The data to embed as a file
+        data: Readable,
+        /// The path of the file embedding
+        path: EcoString,
+        /// The name of the attached file
+        ///
+        /// If no name is given, the path is used instead
+        #[named]
+        name: Option<Option<EcoString>>,
+        /// A description for the attached file
+        #[named]
+        description: Option<Option<EcoString>>,
+        /// The mime-type of the embedded file
+        #[named]
+        mime_type: Option<Option<EcoString>>,
+        /// The mime-type of the embedded file
+        #[named]
+        relationship: Option<Option<EmbeddedFileRelationship>>,
+    ) -> StrResult<Content> {
+        let mut elem = EmbedElem::new(path, data);
+        if let Some(name) = name {
+            elem.push_name(name);
+        }
+        if let Some(description) = description {
+            elem.push_description(description);
+        }
+        if let Some(mime_type) = mime_type {
+            elem.push_mime_type(mime_type);
+        }
+        if let Some(relationship) = relationship {
+            elem.push_relationship(relationship);
+        }
+
+        Ok(elem.pack().spanned(span))
+    }
+}
 
 impl LocalName for Packed<EmbedElem> {
     const KEY: &'static str = "embedding";
