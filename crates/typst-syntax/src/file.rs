@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroU16;
 use std::sync::{LazyLock, RwLock};
 
 use crate::package::PackageSpec;
@@ -25,7 +26,7 @@ type Pair = &'static (Option<PackageSpec>, VirtualPath);
 ///
 /// This type is globally interned and thus cheap to copy, compare, and hash.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct FileId(u16);
+pub struct FileId(NonZeroU16);
 
 impl FileId {
     /// Create a new interned file specification.
@@ -48,7 +49,10 @@ impl FileId {
         // Create a new entry forever by leaking the pair. We can't leak more
         // than 2^16 pair (and typically will leak a lot less), so its not a
         // big deal.
-        let num = interner.from_id.len().try_into().expect("out of file ids");
+        let num = u16::try_from(interner.from_id.len() + 1)
+            .and_then(NonZeroU16::try_from)
+            .expect("out of file ids");
+
         let id = FileId(num);
         let leaked = Box::leak(Box::new(pair));
         interner.to_id.insert(leaked, id);
@@ -66,7 +70,9 @@ impl FileId {
     #[track_caller]
     pub fn new_fake(path: VirtualPath) -> Self {
         let mut interner = INTERNER.write().unwrap();
-        let num = interner.from_id.len().try_into().expect("out of file ids");
+        let num = u16::try_from(interner.from_id.len() + 1)
+            .and_then(NonZeroU16::try_from)
+            .expect("out of file ids");
 
         let id = FileId(num);
         let leaked = Box::leak(Box::new((None, path)));
@@ -100,18 +106,18 @@ impl FileId {
     /// Should only be used with numbers retrieved via
     /// [`into_raw`](Self::into_raw). Misuse may results in panics, but no
     /// unsafety.
-    pub const fn from_raw(v: u16) -> Self {
+    pub const fn from_raw(v: NonZeroU16) -> Self {
         Self(v)
     }
 
     /// Extract the raw underlying number.
-    pub const fn into_raw(self) -> u16 {
+    pub const fn into_raw(self) -> NonZeroU16 {
         self.0
     }
 
     /// Get the static pair.
     fn pair(&self) -> Pair {
-        INTERNER.read().unwrap().from_id[usize::from(self.0)]
+        INTERNER.read().unwrap().from_id[usize::from(self.0.get() - 1)]
     }
 }
 

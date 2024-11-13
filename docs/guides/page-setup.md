@@ -433,7 +433,7 @@ frequently used for [figures]($figure.placement).
 ### Use columns anywhere in your document { #columns-anywhere }
 To create columns within a nested layout, e.g. within a rectangle, you can use
 the [`columns` function]($columns) directly. However, it really should only be
-used within nested layouts. At the page-level, the page set rule is preferrable
+used within nested layouts. At the page-level, the page set rule is preferable
 because it has better interactions with things like page-level floats,
 footnotes, and line numbers.
 

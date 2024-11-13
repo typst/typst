@@ -2,13 +2,13 @@
 
 --- math-style-italic-default ---
 // Test italic defaults.
-$a, A, delta, ϵ, diff, Delta, ϴ$
+$a, A, delta, ϵ, partial, Delta, ϴ$
 
 --- math-style ---
 // Test forcing a specific style.
 $A, italic(A), upright(A), bold(A), bold(upright(A)), \
  serif(A), sans(A), cal(A), frak(A), mono(A), bb(A), \
- italic(diff), upright(diff), \
+ italic(partial), upright(partial), \
  bb("hello") + bold(cal("world")), \
  mono("SQRT")(x) wreath mono(123 + 456)$
 

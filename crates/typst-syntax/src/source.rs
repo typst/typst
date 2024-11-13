@@ -166,6 +166,8 @@ impl Source {
     /// Get the byte range for the given span in this file.
     ///
     /// Returns `None` if the span does not point into this source file.
+    ///
+    /// Typically, it's easier to use `WorldExt::range` instead.
     pub fn range(&self, span: Span) -> Option<Range<usize>> {
         Some(self.find(span)?.range())
     }

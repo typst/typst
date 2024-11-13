@@ -55,6 +55,32 @@ $ A = 1 $ <eq2>
 @arrgh
 #bibliography("/assets/bib/works.bib")
 
+--- ref-form-page ---
+#set page(numbering: "1")
+
+Text <text> is on #ref(<text>, form: "page").
+See #ref(<setup>, form: "page").
+
+#set page(supplement: [p.])
+
+== Setup <setup>
+Text seen on #ref(<text>, form: "page").
+Text seen on #ref(<text>, form: "page", supplement: "Page").
+
+--- ref-form-page-unambiguous ---
+// Test that page reference is not ambiguous.
+#set page(numbering: "1")
+
+= Introduction <arrgh>
+
+#ref(<arrgh>, form: "page")
+#bibliography("/assets/bib/works.bib")
+
+--- ref-form-page-bibliography ---
+// Error: 2-28 label `<quark>` does not exist in the document
+#ref(<quark>, form: "page")
+#bibliography("/assets/bib/works.bib")
+
 --- issue-4536-non-whitespace-before-ref ---
 // Test reference with non-whitespace before it.
 #figure[] <1>
