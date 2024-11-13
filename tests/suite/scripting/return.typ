@@ -91,9 +91,22 @@
 
 #let f() = {
   state("hello").update("world")
-  // Warning: 3-16 explicit return value discards content
+  // Warning: 3-16 unconditional explicit return value discards content
   // Hint: 3-16 use `return` without a value to return the joined content
   return "nope"
+}
+
+#test(f(), "nope")
+
+--- return-discard-content-nested ---
+
+#let f() = {
+  state("hello").update("world")
+  {
+    // Warning: 5-18 unconditional explicit return value discards content
+    // Hint: 5-18 use `return` without a value to return the joined content
+    return "nope"
+  }
 }
 
 #test(f(), "nope")

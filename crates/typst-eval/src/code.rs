@@ -55,14 +55,14 @@ fn eval_code<'a>(
         output = ops::join(output, value).at(span)?;
 
         if let Some(event) = &vm.flow {
-            if matches!(event, FlowEvent::Return(_, Some(_)))
-                && matches!(output, Value::Content(_))
-            {
-                vm.engine.sink.warn(warning!(
-                    span,
-                    "explicit return value discards content";
-                    hint: "use `return` without a value to return the joined content"
-                ));
+            if matches!(output, Value::Content(_)) {
+                if let FlowEvent::Return(span, Some(_), false) = event {
+                    vm.engine.sink.warn(warning!(
+                        *span,
+                        "unconditional explicit return value discards content";
+                        hint: "use `return` without a value to return the joined content"
+                    ));
+                }
             }
 
             break;

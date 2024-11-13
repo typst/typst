@@ -17,8 +17,8 @@ pub enum FlowEvent {
     /// Skip the remainder of the current iteration in a loop.
     Continue(Span),
     /// Stop execution of a function early, optionally returning an explicit
-    /// value.
-    Return(Span, Option<Value>),
+    /// value. The final boolean indicates whether the return was conditional.
+    Return(Span, Option<Value>, bool),
 }
 
 impl FlowEvent {
@@ -31,7 +31,7 @@ impl FlowEvent {
             Self::Continue(span) => {
                 error!(span, "cannot continue outside of loop")
             }
-            Self::Return(span, _) => {
+            Self::Return(span, _, _) => {
                 error!(span, "cannot return outside of function")
             }
         }
@@ -43,13 +43,20 @@ impl Eval for ast::Conditional<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let condition = self.condition();
-        if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
-            self.if_body().eval(vm)
+        let output = if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
+            self.if_body().eval(vm)?
         } else if let Some(else_body) = self.else_body() {
-            else_body.eval(vm)
+            else_body.eval(vm)?
         } else {
-            Ok(Value::None)
+            Value::None
+        };
+
+        // Mark the return as conditional.
+        if let Some(FlowEvent::Return(_, _, conditional)) = &mut vm.flow {
+            *conditional = true;
         }
+
+        Ok(output)
     }
 }
 
@@ -168,6 +175,11 @@ impl Eval for ast::ForLoop<'_> {
             vm.flow = flow;
         }
 
+        // Mark the return as conditional.
+        if let Some(FlowEvent::Return(_, _, conditional)) = &mut vm.flow {
+            *conditional = true;
+        }
+
         Ok(output)
     }
 }
@@ -200,7 +212,7 @@ impl Eval for ast::FuncReturn<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.body().map(|body| body.eval(vm)).transpose()?;
         if vm.flow.is_none() {
-            vm.flow = Some(FlowEvent::Return(self.span(), value));
+            vm.flow = Some(FlowEvent::Return(self.span(), value, false));
         }
         Ok(Value::None)
     }
