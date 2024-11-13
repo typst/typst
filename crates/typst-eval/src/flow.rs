@@ -102,6 +102,11 @@ impl Eval for ast::WhileLoop<'_> {
             vm.flow = flow;
         }
 
+        // Mark the return as conditional.
+        if let Some(FlowEvent::Return(_, _, conditional)) = &mut vm.flow {
+            *conditional = true;
+        }
+
         Ok(output)
     }
 }

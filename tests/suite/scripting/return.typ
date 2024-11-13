@@ -111,6 +111,29 @@
 
 #test(f(), "nope")
 
+--- return-discard-for ---
+
+#let f() = {
+  state("hello").update("world")
+  for x in range(3) {
+    return "nope"
+  }
+}
+
+#test(f(), "nope")
+
+--- return-discard-while ---
+
+#let f() = {
+  state("hello").update("world")
+  let i = 0
+  while i < 10 {
+    return "nope"
+  }
+}
+
+#test(f(), "nope")
+
 --- return-no-discard ---
 // Test that returning a joined value is not a warning.
 
