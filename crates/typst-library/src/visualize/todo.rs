@@ -19,24 +19,27 @@ use super::Color;
 /// `warn` argument.
 ///
 /// ```example
-/// #show todo: it => text(fill: red, size: 16pt, it.message)
+/// #show todo: it => box(stroke: 1pt, text(fill: blue, size: 16pt, it.message))
 ///
 /// #todo(message: "Complete this example.")
 /// ```
 ///
 /// # Example
 /// ```example
-/// // Produces a warning and a big bold red "TODO" in the console.
+/// // Warning: "TODO"
 /// #todo()
 ///
-/// // Produces a warning and a big bold red "TODO: this is a message"
+/// // Warning: "TODO: this is a message"
 /// #todo(message: "this is a message")
 ///
-/// // Produces a big bold red "TODO" but not a warning.
+/// // No warning.
 /// #todo(warn: false)
 ///
 /// // Disable warning for all subsequent `todo` elements.
 /// #set todo(warn: false)
+///
+/// // No warning
+/// #todo(message: "this is a message")
 /// ```
 #[elem(Locatable, Synthesize, Show, ShowSet)]
 pub struct TodoElem {
