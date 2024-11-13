@@ -74,8 +74,8 @@ impl Synthesize for Packed<TodoElem> {
 
 impl ShowSet for Packed<TodoElem> {
     fn show_set(&self, _: StyleChain) -> crate::foundations::Styles {
-        const SIZE: Em = Em::new(1.5);
-        // Make the text: red, bold, and 1.5em tall.
+        const SIZE: Em = Em::new(1.2);
+        // Make the text: red, bold, and 1.2em tall.
         let mut out = Styles::new();
         out.set(TextElem::set_fill(Color::RED.into()));
         out.set(TextElem::set_weight(FontWeight::BOLD));
