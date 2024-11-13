@@ -82,12 +82,6 @@ impl CompileCommand {
 
     /// The PDF standards to try to conform with.
     pub fn pdf_standards(&self) -> StrResult<PdfStandards> {
-        if self.pdf_standard.contains(&PdfStandard::A_2b)
-            && self.pdf_standard.contains(&PdfStandard::A_3b)
-        {
-            bail!("PDF can not conform to A-2B and A-3B at the same time")
-        }
-
         let list = self
             .pdf_standard
             .iter()

@@ -12,7 +12,7 @@ use typst_syntax::Span;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, PdfAConformanceLevel, TextStrExt, WithEverything};
+use crate::{hash_base64, outline, TextStrExt, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -123,7 +123,7 @@ pub fn write_catalog(
         xmp.create_date(xmp_date);
         xmp.modify_date(xmp_date);
 
-        if ctx.options.standards.pdfa.is_some() {
+        if ctx.options.standards.pdfa {
             let mut history = xmp.history();
             history
                 .add_event()
@@ -140,7 +140,7 @@ pub fn write_catalog(
     }
 
     // Assert dominance.
-    if let Some(compliance_level) = ctx.options.standards.pdfa {
+    if ctx.options.standards.pdfa {
         let mut extension_schemas = xmp.extension_schemas();
         extension_schemas
             .xmp_media_management()
@@ -148,7 +148,7 @@ pub fn write_catalog(
             .describe_instance_id();
         extension_schemas.pdf().properties().describe_all();
         extension_schemas.finish();
-        xmp.pdfa_part(compliance_level.into());
+        xmp.pdfa_part(if ctx.options.standards.embedded_files { 3 } else { 2 });
         xmp.pdfa_conformance("B");
     }
 
@@ -188,7 +188,7 @@ pub fn write_catalog(
             }
         }
 
-        if Some(PdfAConformanceLevel::A_3) == ctx.options.standards.pdfa {
+        if ctx.options.standards.pdfa {
             // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
             let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
             for (_, file_ref) in ctx.references.embedded_files {
@@ -214,7 +214,7 @@ pub fn write_catalog(
         catalog.lang(TextStr(lang.as_str()));
     }
 
-    if ctx.options.standards.pdfa.is_some() {
+    if ctx.options.standards.pdfa {
         catalog
             .output_intents()
             .push()
@@ -227,7 +227,7 @@ pub fn write_catalog(
 
     catalog.finish();
 
-    if ctx.options.standards.pdfa.is_some() && pdf.refs().count() > 8388607 {
+    if ctx.options.standards.pdfa && pdf.refs().count() > 8388607 {
         bail!(Span::detached(), "too many PDF objects");
     }
 

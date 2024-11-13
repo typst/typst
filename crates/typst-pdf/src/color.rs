@@ -149,7 +149,7 @@ pub fn alloc_color_functions_refs(
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
 
-    if context.options.standards.pdfa.is_some() {
+    if context.options.standards.pdfa {
         used_color_spaces.mark_as_used(ColorSpace::Srgb);
     }
 
@@ -384,7 +384,7 @@ impl QuantizedColor for f32 {
 
 /// Fails with an error if PDF/A processing is enabled.
 pub(super) fn check_cmyk_allowed(options: &PdfOptions) -> SourceResult<()> {
-    if options.standards.pdfa.is_some() {
+    if options.standards.pdfa {
         bail!(
             Span::detached(),
             "cmyk colors are not currently supported by PDF/A export"

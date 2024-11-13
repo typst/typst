@@ -418,7 +418,7 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()> {
-    if ctx.options.standards.pdfa.is_some() && text.font.info().is_last_resort() {
+    if ctx.options.standards.pdfa && text.font.info().is_last_resort() {
         bail!(
             Span::find(text.glyphs.iter().map(|g| g.span.0)),
             "the text {} could not be displayed with any font",
@@ -516,7 +516,7 @@ fn write_normal_text(
 
     // Write the glyphs with kerning adjustments.
     for glyph in text.glyphs() {
-        if ctx.options.standards.pdfa.is_some() && glyph.id == 0 {
+        if ctx.options.standards.pdfa && glyph.id == 0 {
             bail!(tofu(&text, glyph));
         }
 
@@ -607,7 +607,7 @@ fn write_complex_glyphs(
         .or_default();
 
     for glyph in text.glyphs() {
-        if ctx.options.standards.pdfa.is_some() && glyph.id == 0 {
+        if ctx.options.standards.pdfa && glyph.id == 0 {
             bail!(tofu(&text, glyph));
         }
 
@@ -733,7 +733,7 @@ fn write_image(
     let index = ctx.resources.images.insert(image.clone());
     ctx.resources.deferred_images.entry(index).or_insert_with(|| {
         let (image, color_space) =
-            deferred_image(image.clone(), ctx.options.standards.pdfa.is_some());
+            deferred_image(image.clone(), ctx.options.standards.pdfa);
         if let Some(color_space) = color_space {
             ctx.resources.colors.mark_as_used(color_space);
         }
@@ -749,7 +749,7 @@ fn write_image(
     ctx.content.transform([w, 0.0, 0.0, -h, x, y + h]);
 
     if let Some(alt) = image.alt() {
-        if ctx.options.standards.pdfa.is_some() && alt.len() > Str::PDFA_LIMIT {
+        if ctx.options.standards.pdfa && alt.len() > Str::PDFA_LIMIT {
             bail!(span, "the image's alt text is too long");
         }
 

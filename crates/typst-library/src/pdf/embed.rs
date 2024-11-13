@@ -57,7 +57,7 @@ pub struct EmbedElem {
 }
 
 #[scope]
-impl EmbedElem {    
+impl EmbedElem {
     /// Decode a file embedding from bytes or a string.
     #[func(title = "Embed bytes or a string as a file")]
     fn decode(

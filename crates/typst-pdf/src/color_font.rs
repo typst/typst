@@ -244,7 +244,7 @@ impl ColorFontMap<()> {
             }
 
             let (frame, tofu) = glyph_frame(font, glyph.id);
-            if options.standards.pdfa.is_some() && tofu {
+            if options.standards.pdfa && tofu {
                 bail!(failed_to_convert(text, glyph));
             }
 

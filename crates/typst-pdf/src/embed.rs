@@ -1,5 +1,5 @@
 use crate::catalog::pdf_date;
-use crate::{PdfAConformanceLevel, PdfChunk, WithGlobalRefs};
+use crate::{PdfChunk, WithGlobalRefs};
 use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
@@ -14,9 +14,7 @@ pub fn write_embedded_files(
     let mut chunk = PdfChunk::new();
 
     let elements = ctx.document.introspector.query(&EmbedElem::elem().select());
-    if !elements.is_empty()
-        && Some(PdfAConformanceLevel::A_2) == ctx.options.standards.pdfa
-    {
+    if !elements.is_empty() && !ctx.options.standards.embedded_files {
         bail!(
             Span::detached(),
             "file embeddings are currently only supported for PDF/A-3"
@@ -66,7 +64,7 @@ fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref 
         .pair(Name(b"UF"), embedded_file_stream_ref)
         .finish();
     if let Some(relationship) = embed.relationship() {
-        if Some(PdfAConformanceLevel::A_3) == ctx.options.standards.pdfa {
+        if ctx.options.standards.pdfa {
             let name = match relationship {
                 EmbeddedFileRelationship::Source => "Source",
                 EmbeddedFileRelationship::Data => "Data",
