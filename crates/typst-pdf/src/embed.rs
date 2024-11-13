@@ -5,9 +5,12 @@ use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
-use typst_library::pdf::embed::{Embed, EmbedElem, EmbeddedFileRelationship};
-use typst_syntax::Span;
+use typst_library::pdf::embed::{Embed, EmbedElem};
 
+/// Query for all [`EmbedElem`] and write them and their file specifications.
+///
+/// This returns a map of embedding names and references so that we can later add them to the
+/// catalog's name dictionary.
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
 ) -> SourceResult<(PdfChunk, HashMap<EcoString, Ref>)> {
@@ -33,6 +36,7 @@ pub fn write_embedded_files(
     Ok((chunk, embedded_files))
 }
 
+/// Write the embedded file stream and its file specification.
 fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref {
     let embedded_file_stream_ref = chunk.alloc.bump();
     let file_spec_dict_ref = chunk.alloc.bump();
@@ -63,20 +67,10 @@ fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref 
         .insert(Name(b"EF"))
         .dict()
         .pair(Name(b"F"), embedded_file_stream_ref)
-        .pair(Name(b"UF"), embedded_file_stream_ref)
-        .finish();
+        .pair(Name(b"UF"), embedded_file_stream_ref);
     if let Some(relationship) = embed.relationship() {
         if ctx.options.standards.pdfa {
-            let name = match relationship {
-                EmbeddedFileRelationship::Source => "Source",
-                EmbeddedFileRelationship::Data => "Data",
-                EmbeddedFileRelationship::Alternative => "Alternative",
-                EmbeddedFileRelationship::Supplement => "Supplement",
-                EmbeddedFileRelationship::EncryptedPayload => "EncryptedPayload",
-                EmbeddedFileRelationship::FormData => "FormData",
-                EmbeddedFileRelationship::Schema => "Schema",
-                EmbeddedFileRelationship::Unspecified => "Unspecified",
-            };
+            let name = relationship.name();
             // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
             file_spec.pair(Name(b"AFRelationship"), Name(name.as_bytes()));
         }

@@ -110,23 +110,6 @@ impl Show for Packed<EmbedElem> {
     }
 }
 
-/// The internal representation of a file embedding.
-#[derive(Hash)]
-pub struct Repr {
-    /// The raw file data.
-    data: Bytes,
-    /// Path of this embedding.
-    path: EcoString,
-    /// Name of this embedding.
-    name: EcoString,
-    /// Name of this embedding.
-    description: Option<EcoString>,
-    /// Name of this embedding.
-    mime_type: Option<EcoString>,
-    /// Name of this embedding.
-    relationship: Option<EmbeddedFileRelationship>,
-}
-
 /// The relationship of an embedded file with the relevant document content.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum EmbeddedFileRelationship {
@@ -152,11 +135,43 @@ pub enum EmbeddedFileRelationship {
     Unspecified,
 }
 
+impl EmbeddedFileRelationship {
+    pub fn name(&self) -> &'static str {
+        match self {
+            EmbeddedFileRelationship::Source => "Source",
+            EmbeddedFileRelationship::Data => "Data",
+            EmbeddedFileRelationship::Alternative => "Alternative",
+            EmbeddedFileRelationship::Supplement => "Supplement",
+            EmbeddedFileRelationship::EncryptedPayload => "EncryptedPayload",
+            EmbeddedFileRelationship::FormData => "FormData",
+            EmbeddedFileRelationship::Schema => "Schema",
+            EmbeddedFileRelationship::Unspecified => "Unspecified",
+        }
+    }
+}
+
 /// A loaded file to be embedded.
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct Embed(Arc<LazyHash<Repr>>);
+
+/// The internal representation of a file embedding.
+#[derive(Hash)]
+pub struct Repr {
+    /// The raw file data.
+    data: Bytes,
+    /// Path of this embedding.
+    path: EcoString,
+    /// Name of this embedding.
+    name: EcoString,
+    /// Name of this embedding.
+    description: Option<EcoString>,
+    /// Name of this embedding.
+    mime_type: Option<EcoString>,
+    /// Name of this embedding.
+    relationship: Option<EmbeddedFileRelationship>,
+}
 
 impl Embed {
     pub fn from_element(element: &Packed<EmbedElem>) -> Self {
