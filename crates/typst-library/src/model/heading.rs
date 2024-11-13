@@ -18,7 +18,7 @@ use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 /// A section heading.
 ///
 /// With headings, you can structure your document into sections. Each heading
-/// has a _level_, which starts at one and is unbounded upwards. This level
+/// has a _level,_ which starts at one and is unbounded upwards. This level
 /// indicates the logical role of the following content (section, subsection,
 /// etc.) A top-level heading indicates a top-level section of the document
 /// (not the document's title).
