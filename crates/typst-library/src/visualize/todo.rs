@@ -21,7 +21,7 @@ use super::Color;
 /// ```example
 /// #show todo: it => text(fill: red, size: 16pt, it.message)
 ///
-/// #todo("Complete this example.")
+/// #todo(message: "Complete this example.")
 /// ```
 ///
 /// # Example
@@ -30,7 +30,7 @@ use super::Color;
 /// #todo()
 ///
 /// // Produces a warning and a big bold red "TODO: this is a message"
-/// #todo("this is a message")
+/// #todo(message: "this is a message")
 ///
 /// // Produces a big bold red "TODO" but not a warning.
 /// #todo(warn: false)
