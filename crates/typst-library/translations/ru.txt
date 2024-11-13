@@ -5,3 +5,4 @@ bibliography = Библиография
 heading = Раздел
 outline = Содержание
 raw = Листинг
+page = с.

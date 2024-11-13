@@ -723,7 +723,7 @@ fn layout_line_numbers(
             continue;
         }
 
-        // Layout the number and record its width in search of the maximium.
+        // Layout the number and record its width in search of the maximum.
         let frame = layout_line_number(engine, config, &mut locator, &marker.numbering)?;
 
         // Note that this line.y is larger than the previous due to sorting.
