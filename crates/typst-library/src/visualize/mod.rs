@@ -10,6 +10,7 @@ mod pattern;
 mod polygon;
 mod shape;
 mod stroke;
+mod todo;
 
 pub use self::color::*;
 pub use self::gradient::*;
@@ -21,6 +22,7 @@ pub use self::pattern::*;
 pub use self::polygon::*;
 pub use self::shape::*;
 pub use self::stroke::*;
+pub use self::todo::*;
 
 use crate::foundations::{category, Category, Scope};
 
@@ -47,4 +49,5 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<CircleElem>();
     global.define_elem::<PolygonElem>();
     global.define_elem::<PathElem>();
+    global.define_elem::<TodoElem>();
 }
