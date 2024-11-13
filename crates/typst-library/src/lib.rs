@@ -28,8 +28,6 @@ pub mod visualize;
 
 use std::ops::{Deref, Range};
 
-use ecow::EcoString;
-use typst_syntax::package::PackageSpec;
 use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
@@ -84,16 +82,6 @@ pub trait World: Send + Sync {
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
-
-    /// A list of all available packages and optionally descriptions for them.
-    ///
-    /// This function is optional to implement. It enhances the user experience
-    /// by enabling autocompletion for packages. Details about packages from the
-    /// `@preview` namespace are available from
-    /// `https://packages.typst.org/preview/index.json`.
-    fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
-        &[]
-    }
 }
 
 macro_rules! world_impl {
@@ -126,10 +114,6 @@ macro_rules! world_impl {
             fn today(&self, offset: Option<i64>) -> Option<Datetime> {
                 self.deref().today(offset)
             }
-
-            fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
-                self.deref().packages()
-            }
         }
     };
 }
@@ -142,13 +126,13 @@ world_impl!(W for &W);
 pub trait WorldExt {
     /// Get the byte range for a span.
     ///
-    /// Returns `None` if the `Span` does not point into any source file.
+    /// Returns `None` if the `Span` does not point into any file.
     fn range(&self, span: Span) -> Option<Range<usize>>;
 }
 
-impl<T: World> WorldExt for T {
+impl<T: World + ?Sized> WorldExt for T {
     fn range(&self, span: Span) -> Option<Range<usize>> {
-        self.source(span.id()?).ok()?.range(span)
+        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
     }
 }
 

@@ -3,6 +3,7 @@ use ecow::{eco_format, eco_vec, EcoString};
 use typst_library::diag::{
     bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint,
 };
+use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Module, Value};
 use typst_library::World;
 use typst_syntax::ast::{self, AstNode};
@@ -28,8 +29,16 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
             Value::Type(_) => {}
-            other => {
-                source = Value::Module(import(vm, other.clone(), source_span, true)?);
+            Value::Module(_) => {}
+            Value::Str(path) => {
+                source = Value::Module(import(&mut vm.engine, path, source_span)?);
+            }
+            v => {
+                bail!(
+                    source_span,
+                    "expected path, module, function, or type, found {}",
+                    v.ty()
+                )
             }
         }
 
@@ -139,43 +148,69 @@ impl Eval for ast::ModuleInclude<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        let module = import(vm, source, span, false)?;
+        let module = match source {
+            Value::Str(path) => import(&mut vm.engine, &path, span)?,
+            Value::Module(module) => module,
+            v => bail!(span, "expected path or module, found {}", v.ty()),
+        };
         Ok(module.content())
     }
 }
 
-/// Process an import of a module relative to the current location.
-pub fn import(
-    vm: &mut Vm,
-    source: Value,
-    span: Span,
-    allow_scopes: bool,
-) -> SourceResult<Module> {
-    let path = match source {
-        Value::Str(path) => path,
-        Value::Module(module) => return Ok(module),
-        v if allow_scopes => {
-            bail!(span, "expected path, module, function, or type, found {}", v.ty())
-        }
-        v => bail!(span, "expected path or module, found {}", v.ty()),
-    };
-
-    // Handle package and file imports.
-    let path = path.as_str();
-    if path.starts_with('@') {
-        let spec = path.parse::<PackageSpec>().at(span)?;
-        import_package(vm, spec, span)
+/// Process an import of a package or file relative to the current location.
+pub fn import(engine: &mut Engine, from: &str, span: Span) -> SourceResult<Module> {
+    if from.starts_with('@') {
+        let spec = from.parse::<PackageSpec>().at(span)?;
+        import_package(engine, spec, span)
     } else {
-        import_file(vm, path, span)
+        let id = span.resolve_path(from).at(span)?;
+        import_file(engine, id, span)
     }
 }
 
+/// Import a file from a path. The path is resolved relative to the given
+/// `span`.
+fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Module> {
+    // Load the source file.
+    let source = engine.world.source(id).at(span)?;
+
+    // Prevent cyclic importing.
+    if engine.route.contains(source.id()) {
+        bail!(span, "cyclic import");
+    }
+
+    // Evaluate the file.
+    let point = || Tracepoint::Import;
+    eval(
+        engine.routines,
+        engine.world,
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        &source,
+    )
+    .trace(engine.world, point, span)
+}
+
 /// Import an external package.
-fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Module> {
+fn import_package(
+    engine: &mut Engine,
+    spec: PackageSpec,
+    span: Span,
+) -> SourceResult<Module> {
+    let (name, id) = resolve_package(engine, spec, span)?;
+    import_file(engine, id, span).map(|module| module.with_name(name))
+}
+
+/// Resolve the name and entrypoint of a package.
+fn resolve_package(
+    engine: &mut Engine,
+    spec: PackageSpec,
+    span: Span,
+) -> SourceResult<(EcoString, FileId)> {
     // Evaluate the manifest.
-    let world = vm.world();
     let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
-    let bytes = world.file(manifest_id).at(span)?;
+    let bytes = engine.world.file(manifest_id).at(span)?;
     let string = std::str::from_utf8(&bytes).map_err(FileError::from).at(span)?;
     let manifest: PackageManifest = toml::from_str(string)
         .map_err(|err| eco_format!("package manifest is malformed ({})", err.message()))
@@ -183,48 +218,5 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
-    let source = world.source(entrypoint_id).at(span)?;
-
-    // Prevent cyclic importing.
-    if vm.engine.route.contains(source.id()) {
-        bail!(span, "cyclic import");
-    }
-
-    let point = || Tracepoint::Import;
-    Ok(eval(
-        vm.engine.routines,
-        vm.engine.world,
-        vm.engine.traced,
-        TrackedMut::reborrow_mut(&mut vm.engine.sink),
-        vm.engine.route.track(),
-        &source,
-    )
-    .trace(world, point, span)?
-    .with_name(manifest.package.name))
-}
-
-/// Import a file from a path.
-fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
-    // Load the source file.
-    let world = vm.world();
-    let id = span.resolve_path(path).at(span)?;
-    let source = world.source(id).at(span)?;
-
-    // Prevent cyclic importing.
-    if vm.engine.route.contains(source.id()) {
-        bail!(span, "cyclic import");
-    }
-
-    // Evaluate the file.
-    let point = || Tracepoint::Import;
-    eval(
-        vm.engine.routines,
-        vm.engine.world,
-        vm.engine.traced,
-        TrackedMut::reborrow_mut(&mut vm.engine.sink),
-        vm.engine.route.track(),
-        &source,
-    )
-    .trace(world, point, span)
+    Ok((manifest.package.name, manifest_id.join(&manifest.package.entrypoint)))
 }
