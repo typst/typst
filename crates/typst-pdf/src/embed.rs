@@ -14,11 +14,13 @@ pub fn write_embedded_files(
     let mut chunk = PdfChunk::new();
 
     let elements = ctx.document.introspector.query(&EmbedElem::elem().select());
-    if !elements.is_empty() && !ctx.options.standards.embedded_files {
-        bail!(
-            Span::detached(),
-            "file embeddings are currently only supported for PDF/A-3"
-        );
+    if !ctx.options.standards.embedded_files {
+        if let Some(element) = elements.first() {
+            bail!(
+                element.span(),
+                "file embeddings are currently only supported for PDF/A-3"
+            );
+        }
     }
 
     let mut embedded_files = HashMap::default();
