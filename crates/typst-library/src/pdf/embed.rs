@@ -136,6 +136,7 @@ pub enum EmbeddedFileRelationship {
 }
 
 impl EmbeddedFileRelationship {
+    /// Corresponding values of AFRelationship according to ISO 32000-2 7.11.3
     pub fn name(&self) -> &'static str {
         match self {
             EmbeddedFileRelationship::Source => "Source",
@@ -174,6 +175,7 @@ pub struct Repr {
 }
 
 impl Embed {
+    /// Create a file embedding from a packed [`EmbedElem`].
     pub fn from_element(element: &Packed<EmbedElem>) -> Self {
         let repr = Repr {
             data: element.data.clone().into(),
