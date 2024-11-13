@@ -2831,6 +2831,7 @@ dependencies = [
  "if_chain",
  "log",
  "once_cell",
+ "pathdiff",
  "serde",
  "typst",
  "typst-assets",

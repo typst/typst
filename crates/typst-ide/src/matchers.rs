@@ -2,13 +2,12 @@ use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind, SyntaxNode};
-use typst::World;
 
-use crate::analyze_import;
+use crate::{analyze_import, IdeWorld};
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     position: LinkedNode,
     mut recv: impl FnMut(NamedItem) -> Option<T>,
 ) -> Option<T> {
@@ -163,6 +162,14 @@ impl<'a> NamedItem<'a> {
             NamedItem::Import(_, _, value) => value.cloned(),
         }
     }
+
+    pub(crate) fn span(&self) -> Span {
+        match *self {
+            NamedItem::Var(name) | NamedItem::Fn(name) => name.span(),
+            NamedItem::Module(_, site) => site.span(),
+            NamedItem::Import(_, span, _) => span,
+        }
+    }
 }
 
 /// Categorize an expression into common classes IDE functionality can operate
@@ -178,29 +185,29 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
     let expr_node = ancestor;
     let expr = expr_node.cast::<ast::Expr>()?;
     Some(match expr {
-        ast::Expr::Label(..) => DerefTarget::Label(expr_node),
-        ast::Expr::Ref(..) => DerefTarget::Ref(expr_node),
+        ast::Expr::Label(_) => DerefTarget::Label(expr_node),
+        ast::Expr::Ref(_) => DerefTarget::Ref(expr_node),
         ast::Expr::FuncCall(call) => {
             DerefTarget::Callee(expr_node.find(call.callee().span())?)
         }
         ast::Expr::Set(set) => DerefTarget::Callee(expr_node.find(set.target().span())?),
-        ast::Expr::Ident(..) | ast::Expr::MathIdent(..) | ast::Expr::FieldAccess(..) => {
+        ast::Expr::Ident(_) | ast::Expr::MathIdent(_) | ast::Expr::FieldAccess(_) => {
             DerefTarget::VarAccess(expr_node)
         }
-        ast::Expr::Str(..) => {
+        ast::Expr::Str(_) => {
             let parent = expr_node.parent()?;
             if parent.kind() == SyntaxKind::ModuleImport {
                 DerefTarget::ImportPath(expr_node)
             } else if parent.kind() == SyntaxKind::ModuleInclude {
                 DerefTarget::IncludePath(expr_node)
             } else {
-                DerefTarget::Code(expr_node.kind(), expr_node)
+                DerefTarget::Code(expr_node)
             }
         }
         _ if expr.hash()
             || matches!(expr_node.kind(), SyntaxKind::MathIdent | SyntaxKind::Error) =>
         {
-            DerefTarget::Code(expr_node.kind(), expr_node)
+            DerefTarget::Code(expr_node)
         }
         _ => return None,
     })
@@ -209,10 +216,6 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
 /// Classes of expressions that can be operated on by IDE functionality.
 #[derive(Debug, Clone)]
 pub enum DerefTarget<'a> {
-    /// A label expression.
-    Label(LinkedNode<'a>),
-    /// A reference expression.
-    Ref(LinkedNode<'a>),
     /// A variable access expression.
     ///
     /// It can be either an identifier or a field access.
@@ -224,7 +227,11 @@ pub enum DerefTarget<'a> {
     /// An include path expression.
     IncludePath(LinkedNode<'a>),
     /// Any code expression.
-    Code(SyntaxKind, LinkedNode<'a>),
+    Code(LinkedNode<'a>),
+    /// A label expression.
+    Label(LinkedNode<'a>),
+    /// A reference expression.
+    Ref(LinkedNode<'a>),
 }
 
 #[cfg(test)]

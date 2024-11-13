@@ -1,26 +1,29 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
+use std::ffi::OsStr;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, format_str, repr, AutoValue, CastInfo, Func, Label, NoneValue, Repr,
-    Scope, StyleChain, Styles, Type, Value,
+    fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
+    StyleChain, Styles, Type, Value,
 };
+use typst::layout::{Alignment, Dir};
 use typst::model::Document;
+use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Side, Source, SyntaxKind,
+    ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
+    SyntaxKind,
 };
 use typst::text::RawElem;
 use typst::visualize::Color;
-use typst::World;
 use unscanny::Scanner;
 
-use crate::{
-    analyze_expr, analyze_import, analyze_labels, named_items, plain_docs_sentence,
-    summarize_font_family,
+use crate::utils::{
+    check_value_recursively, globals, plain_docs_sentence, summarize_font_family,
 };
+use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -34,13 +37,15 @@ use crate::{
 /// the autocompletions. Label completions, for instance, are only generated
 /// when the document is available.
 pub fn autocomplete(
-    world: &dyn World,
+    world: &dyn IdeWorld,
     document: Option<&Document>,
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
-    let mut ctx = CompletionContext::new(world, document, source, cursor, explicit)?;
+    let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
+    let mut ctx =
+        CompletionContext::new(world, document, source, &leaf, cursor, explicit)?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -85,6 +90,14 @@ pub enum CompletionKind {
     Param,
     /// A constant.
     Constant,
+    /// A file path.
+    Path,
+    /// A package.
+    Package,
+    /// A label.
+    Label,
+    /// A font family.
+    Font,
     /// A symbol.
     Symbol(char),
 }
@@ -387,12 +400,12 @@ fn field_access_completions(
     styles: &Option<Styles>,
 ) {
     for (name, value, _) in value.ty().scope().iter() {
-        ctx.value_completion(Some(name.clone()), value, true, None);
+        ctx.call_completion(name.clone(), value);
     }
 
     if let Some(scope) = value.scope() {
         for (name, value, _) in scope.iter() {
-            ctx.value_completion(Some(name.clone()), value, true, None);
+            ctx.call_completion(name.clone(), value);
         }
     }
 
@@ -402,12 +415,7 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(
-            Some(field.into()),
-            &value.field(field).unwrap(),
-            false,
-            None,
-        );
+        ctx.value_completion(field, &value.field(field).unwrap());
     }
 
     match value {
@@ -425,12 +433,12 @@ fn field_access_completions(
         }
         Value::Content(content) => {
             for (name, value) in content.fields() {
-                ctx.value_completion(Some(name.into()), &value, false, None);
+                ctx.value_completion(name, &value);
             }
         }
         Value::Dict(dict) => {
             for (name, value) in dict.iter() {
-                ctx.value_completion(Some(name.clone().into()), value, false, None);
+                ctx.value_completion(name.clone(), value);
             }
         }
         Value::Func(func) => {
@@ -440,12 +448,7 @@ fn field_access_completions(
                     if let Some(value) = elem.field_id(param.name).and_then(|id| {
                         elem.field_from_styles(id, StyleChain::new(styles)).ok()
                     }) {
-                        ctx.value_completion(
-                            Some(param.name.into()),
-                            &value,
-                            false,
-                            None,
-                        );
+                        ctx.value_completion(param.name, &value);
                     }
                 }
             }
@@ -478,8 +481,8 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
 
 /// Complete imports.
 fn complete_imports(ctx: &mut CompletionContext) -> bool {
-    // In an import path for a package:
-    // "#import "@|",
+    // In an import path for a file or package:
+    // "#import "|",
     if_chain! {
         if matches!(
             ctx.leaf.parent_kind(),
@@ -487,11 +490,14 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         );
         if let Some(ast::Expr::Str(str)) = ctx.leaf.cast();
         let value = str.get();
-        if value.starts_with('@');
         then {
-            let all_versions = value.contains(':');
             ctx.from = ctx.leaf.offset();
-            ctx.package_completions(all_versions);
+            if value.starts_with('@') {
+                let all_versions = value.contains(':');
+                ctx.package_completions(all_versions);
+            } else {
+                ctx.file_completions_with_extensions(&["typ"]);
+            }
             return true;
         }
     }
@@ -546,7 +552,7 @@ fn import_item_completions<'a>(
 
     for (name, value, _) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(Some(name.clone()), value, false, None);
+            ctx.value_completion(name.clone(), value);
         }
     }
 }
@@ -650,7 +656,7 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 /// Complete call and set rule parameters.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
-    let (callee, set, args) = if_chain! {
+    let (callee, set, args, args_linked) = if_chain! {
         if let Some(parent) = ctx.leaf.parent();
         if let Some(parent) = match parent.kind() {
             SyntaxKind::Named => parent.parent(),
@@ -666,7 +672,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             _ => None,
         };
         then {
-            (callee, set, args)
+            (callee, set, args, parent)
         } else {
             return false;
         }
@@ -706,7 +712,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 ctx.from = ctx.cursor.min(next.offset());
             }
 
-            param_completions(ctx, callee, set, args);
+            param_completions(ctx, callee, set, args, args_linked);
             return true;
         }
     }
@@ -720,39 +726,61 @@ fn param_completions<'a>(
     callee: ast::Expr<'a>,
     set: bool,
     args: ast::Args<'a>,
+    args_linked: &'a LinkedNode<'a>,
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
     let Some(params) = func.params() else { return };
 
-    // Exclude named arguments which are already present.
-    let exclude: Vec<_> = args
-        .items()
-        .filter_map(|arg| match arg {
-            ast::Arg::Named(named) => Some(named.name()),
-            _ => None,
-        })
-        .collect();
-
-    for param in params {
-        if exclude.iter().any(|ident| ident.as_str() == param.name) {
-            continue;
+    // Determine which arguments are already present.
+    let mut existing_positional = 0;
+    let mut existing_named = HashSet::new();
+    for arg in args.items() {
+        match arg {
+            ast::Arg::Pos(_) => {
+                let Some(node) = args_linked.find(arg.span()) else { continue };
+                if node.range().end < ctx.cursor {
+                    existing_positional += 1;
+                }
+            }
+            ast::Arg::Named(named) => {
+                existing_named.insert(named.name().as_str());
+            }
+            _ => {}
         }
+    }
 
+    let mut skipped_positional = 0;
+    for param in params {
         if set && !param.settable {
             continue;
         }
 
+        if param.positional {
+            if skipped_positional < existing_positional && !param.variadic {
+                skipped_positional += 1;
+                continue;
+            }
+
+            param_value_completions(ctx, func, param);
+        }
+
         if param.named {
+            if existing_named.contains(&param.name) {
+                continue;
+            }
+
+            let apply = if param.name == "caption" {
+                eco_format!("{}: [${{}}]", param.name)
+            } else {
+                eco_format!("{}: ${{}}", param.name)
+            };
+
             ctx.completions.push(Completion {
                 kind: CompletionKind::Param,
                 label: param.name.into(),
-                apply: Some(eco_format!("{}: ${{}}", param.name)),
+                apply: Some(apply),
                 detail: Some(plain_docs_sentence(param.docs)),
             });
-        }
-
-        if param.positional {
-            ctx.cast_completions(&param.input);
         }
     }
 
@@ -773,14 +801,40 @@ fn named_param_value_completions<'a>(
         return;
     }
 
-    ctx.cast_completions(&param.input);
-    if name == "font" {
-        ctx.font_completions();
-    }
+    param_value_completions(ctx, func, param);
 
     if ctx.before.ends_with(':') {
         ctx.enrich(" ", "");
     }
+}
+
+/// Add completions for the values of a parameter.
+fn param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    func: &Func,
+    param: &'a ParamInfo,
+) {
+    if param.name == "font" {
+        ctx.font_completions();
+    } else if param.name == "path" {
+        ctx.file_completions_with_extensions(match func.name() {
+            Some("image") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+            Some("csv") => &["csv"],
+            Some("plugin") => &["wasm"],
+            Some("cbor") => &["cbor"],
+            Some("json") => &["json"],
+            Some("toml") => &["toml"],
+            Some("xml") => &["xml"],
+            Some("yaml") => &["yml", "yaml"],
+            Some("bibliography") => &["bib", "yml", "yaml"],
+            _ => &[],
+        });
+    } else if func.name() == Some("figure") && param.name == "body" {
+        ctx.snippet_completion("image", "image(\"${}\"),", "An image in a figure.");
+        ctx.snippet_completion("table", "table(\n  ${}\n),", "A table in a figure.");
+    }
+
+    ctx.cast_completions(&param.input);
 }
 
 /// Resolve a callee expression to a global function.
@@ -788,10 +842,11 @@ fn resolve_global_callee<'a>(
     ctx: &CompletionContext<'a>,
     callee: ast::Expr<'a>,
 ) -> Option<&'a Func> {
+    let globals = globals(ctx.world, ctx.leaf);
     let value = match callee {
-        ast::Expr::Ident(ident) => ctx.global.get(&ident)?,
+        ast::Expr::Ident(ident) => globals.get(&ident)?,
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match ctx.global.get(&target)? {
+            ast::Expr::Ident(target) => match globals.get(&target)? {
                 Value::Module(module) => module.field(&access.field()).ok()?,
                 Value::Func(func) => func.field(&access.field()).ok()?,
                 _ => return None,
@@ -851,9 +906,18 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
 /// Add completions for expression snippets.
 #[rustfmt::skip]
 fn code_completions(ctx: &mut CompletionContext, hash: bool) {
-    ctx.scope_completions(true, |value| !hash || {
-        matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_))
-    });
+    if hash {
+        ctx.scope_completions(true, |value| {
+            // If we are in markup, ignore colors, directions, and alignments.
+            // They are useless and bloat the autocomplete results.
+            let ty = value.ty();
+            ty != Type::of::<Color>()
+                && ty != Type::of::<Dir>()
+                && ty != Type::of::<Alignment>()
+        });
+    } else {
+        ctx.scope_completions(true, |_| true);
+    }
 
     ctx.snippet_completion(
         "function call",
@@ -959,25 +1023,19 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 
     ctx.snippet_completion(
         "import (file)",
-        "import \"${file}.typ\": ${items}",
+        "import \"${}\": ${}",
         "Imports variables from another file.",
     );
 
     ctx.snippet_completion(
         "import (package)",
-        "import \"@${}\": ${items}",
-        "Imports variables from another file.",
+        "import \"@${}\": ${}",
+        "Imports variables from a package.",
     );
 
     ctx.snippet_completion(
         "include (file)",
-        "include \"${file}.typ\"",
-        "Includes content from another file.",
-    );
-
-    ctx.snippet_completion(
-        "include (package)",
-        "include \"@${}\"",
+        "include \"${}\"",
         "Includes content from another file.",
     );
 
@@ -1004,14 +1062,12 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 
 /// Context for autocompletion.
 struct CompletionContext<'a> {
-    world: &'a (dyn World + 'a),
+    world: &'a (dyn IdeWorld + 'a),
     document: Option<&'a Document>,
-    global: &'a Scope,
-    math: &'a Scope,
     text: &'a str,
     before: &'a str,
     after: &'a str,
-    leaf: LinkedNode<'a>,
+    leaf: &'a LinkedNode<'a>,
     cursor: usize,
     explicit: bool,
     from: usize,
@@ -1022,20 +1078,17 @@ struct CompletionContext<'a> {
 impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
-        world: &'a (dyn World + 'a),
+        world: &'a (dyn IdeWorld + 'a),
         document: Option<&'a Document>,
         source: &'a Source,
+        leaf: &'a LinkedNode<'a>,
         cursor: usize,
         explicit: bool,
     ) -> Option<Self> {
         let text = source.text();
-        let library = world.library();
-        let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
         Some(Self {
             world,
             document,
-            global: library.global.scope(),
-            math: library.math.scope(),
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1050,7 +1103,7 @@ impl<'a> CompletionContext<'a> {
 
     /// A small window of context before the cursor.
     fn before_window(&self, size: usize) -> &str {
-        Scanner::new(self.before).from(self.cursor.saturating_sub(size))
+        Scanner::new(self.before).get(self.cursor.saturating_sub(size)..self.cursor)
     }
 
     /// Add a prefix and suffix to all applications.
@@ -1082,10 +1135,9 @@ impl<'a> CompletionContext<'a> {
         for (family, iter) in self.world.book().families() {
             let detail = summarize_font_family(iter);
             if !equation || family.contains("Math") {
-                self.value_completion(
-                    None,
-                    &Value::Str(family.into()),
-                    false,
+                self.str_completion(
+                    family,
+                    Some(CompletionKind::Font),
                     Some(detail.as_str()),
                 );
             }
@@ -1102,13 +1154,56 @@ impl<'a> CompletionContext<'a> {
             packages.dedup_by_key(|(spec, _)| (&spec.namespace, &spec.name));
         }
         for (package, description) in packages {
-            self.value_completion(
-                None,
-                &Value::Str(format_str!("{package}")),
-                false,
+            self.str_completion(
+                eco_format!("{package}"),
+                Some(CompletionKind::Package),
                 description.as_deref(),
             );
         }
+    }
+
+    /// Add completions for all available files.
+    fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
+        let Some(base_id) = self.leaf.span().id() else { return };
+        let Some(base_path) = base_id.vpath().as_rooted_path().parent() else { return };
+
+        let mut paths: Vec<EcoString> = self
+            .world
+            .files()
+            .iter()
+            .filter(|&&file_id| file_id != base_id && filter(file_id))
+            .filter_map(|file_id| {
+                let file_path = file_id.vpath().as_rooted_path();
+                pathdiff::diff_paths(file_path, base_path)
+            })
+            .map(|path| path.to_string_lossy().replace('\\', "/").into())
+            .collect();
+
+        paths.sort();
+
+        for path in paths {
+            self.str_completion(path, Some(CompletionKind::Path), None);
+        }
+    }
+
+    /// Add completions for all files with any of the given extensions.
+    ///
+    /// If the array is empty, all extensions are allowed.
+    fn file_completions_with_extensions(&mut self, extensions: &[&str]) {
+        if extensions.is_empty() {
+            self.file_completions(|_| true);
+        }
+        self.file_completions(|id| {
+            let ext = id
+                .vpath()
+                .as_rooted_path()
+                .extension()
+                .and_then(OsStr::to_str)
+                .map(EcoString::from)
+                .unwrap_or_default()
+                .to_lowercase();
+            extensions.contains(&ext.as_str())
+        });
     }
 
     /// Add completions for raw block tags.
@@ -1154,7 +1249,7 @@ impl<'a> CompletionContext<'a> {
 
         for (label, detail) in labels.into_iter().skip(skip).take(take) {
             self.completions.push(Completion {
-                kind: CompletionKind::Constant,
+                kind: CompletionKind::Label,
                 apply: (open || close).then(|| {
                     eco_format!(
                         "{}{}{}",
@@ -1169,18 +1264,40 @@ impl<'a> CompletionContext<'a> {
         }
     }
 
+    /// Add a completion for an arbitrary value.
+    fn value_completion(&mut self, label: impl Into<EcoString>, value: &Value) {
+        self.value_completion_full(Some(label.into()), value, false, None, None);
+    }
+
+    /// Add a completion for an arbitrary value, adding parentheses if it's a function.
+    fn call_completion(&mut self, label: impl Into<EcoString>, value: &Value) {
+        self.value_completion_full(Some(label.into()), value, true, None, None);
+    }
+
+    /// Add a completion for a specific string literal.
+    fn str_completion(
+        &mut self,
+        string: impl Into<EcoString>,
+        kind: Option<CompletionKind>,
+        detail: Option<&str>,
+    ) {
+        let string = string.into();
+        self.value_completion_full(None, &Value::Str(string.into()), false, kind, detail);
+    }
+
     /// Add a completion for a specific value.
-    fn value_completion(
+    fn value_completion_full(
         &mut self,
         label: Option<EcoString>,
         value: &Value,
         parens: bool,
-        docs: Option<&str>,
+        kind: Option<CompletionKind>,
+        detail: Option<&str>,
     ) {
         let at = label.as_deref().is_some_and(|field| !is_ident(field));
         let label = label.unwrap_or_else(|| value.repr());
 
-        let detail = docs.map(Into::into).or_else(|| match value {
+        let detail = detail.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
             Value::Type(ty) => Some(plain_docs_sentence(ty.docs())),
@@ -1191,16 +1308,17 @@ impl<'a> CompletionContext<'a> {
         });
 
         let mut apply = None;
-        if parens && matches!(value, Value::Func(_)) {
+        if parens
+            && matches!(value, Value::Func(_))
+            && !self.after.starts_with(['(', '['])
+        {
             if let Value::Func(func) = value {
-                if func
-                    .params()
-                    .is_some_and(|params| params.iter().all(|param| param.name == "self"))
-                {
-                    apply = Some(eco_format!("{label}()${{}}"));
-                } else {
-                    apply = Some(eco_format!("{label}(${{}})"));
-                }
+                apply = Some(match BracketMode::of(func) {
+                    BracketMode::RoundAfter => eco_format!("{label}()${{}}"),
+                    BracketMode::RoundWithin => eco_format!("{label}(${{}})"),
+                    BracketMode::RoundNewline => eco_format!("{label}(\n  ${{}}\n)"),
+                    BracketMode::SquareWithin => eco_format!("{label}[${{}}]"),
+                });
             }
         } else if at {
             apply = Some(eco_format!("at(\"{label}\")"));
@@ -1211,12 +1329,12 @@ impl<'a> CompletionContext<'a> {
         }
 
         self.completions.push(Completion {
-            kind: match value {
+            kind: kind.unwrap_or_else(|| match value {
                 Value::Func(_) => CompletionKind::Func,
                 Value::Type(_) => CompletionKind::Type,
                 Value::Symbol(s) => CompletionKind::Symbol(s.get()),
                 _ => CompletionKind::Constant,
-            },
+            }),
             label,
             apply,
             detail,
@@ -1233,7 +1351,7 @@ impl<'a> CompletionContext<'a> {
         match cast {
             CastInfo::Any => {}
             CastInfo::Value(value, docs) => {
-                self.value_completion(None, value, true, Some(docs));
+                self.value_completion_full(None, value, false, None, Some(docs));
             }
             CastInfo::Type(ty) => {
                 if *ty == Type::of::<NoneValue>() {
@@ -1315,92 +1433,315 @@ impl<'a> CompletionContext<'a> {
     ///
     /// Filters the global/math scope with the given filter.
     fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
-        let mut defined = BTreeSet::new();
-        named_items(self.world, self.leaf.clone(), |name| {
-            if name.value().as_ref().map_or(true, &filter) {
-                defined.insert(name.name().clone());
+        // When any of the constituent parts of the value matches the filter,
+        // that's ok as well. For example, when autocompleting `#rect(fill: |)`,
+        // we propose colors, but also dictionaries and modules that contain
+        // colors.
+        let filter = |value: &Value| check_value_recursively(value, &filter);
+
+        let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
+        named_items(self.world, self.leaf.clone(), |item| {
+            let name = item.name();
+            if !name.is_empty() && item.value().as_ref().map_or(true, filter) {
+                defined.insert(name.clone(), item.value());
             }
+
             None::<()>
         });
 
-        let in_math = matches!(
-            self.leaf.parent_kind(),
-            Some(SyntaxKind::Equation)
-                | Some(SyntaxKind::Math)
-                | Some(SyntaxKind::MathFrac)
-                | Some(SyntaxKind::MathAttach)
-        );
-
-        let scope = if in_math { self.math } else { self.global };
-        for (name, value, _) in scope.iter() {
-            if filter(value) && !defined.contains(name) {
-                self.value_completion(Some(name.clone()), value, parens, None);
-            }
-        }
-
-        for name in defined {
-            if !name.is_empty() {
+        for (name, value) in &defined {
+            if let Some(value) = value {
+                self.value_completion(name.clone(), value);
+            } else {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name,
+                    label: name.clone(),
                     apply: None,
                     detail: None,
                 });
             }
+        }
+
+        for (name, value, _) in globals(self.world, self.leaf).iter() {
+            if filter(value) && !defined.contains_key(name) {
+                self.value_completion_full(Some(name.clone()), value, parens, None, None);
+            }
+        }
+    }
+}
+
+/// What kind of parentheses to autocomplete for a function.
+enum BracketMode {
+    /// Round parenthesis, with the cursor within: `(|)`.
+    RoundWithin,
+    /// Round parenthesis, with the cursor after them: `()|`.
+    RoundAfter,
+    /// Round parenthesis, with newlines and indent.
+    RoundNewline,
+    /// Square brackets, with the cursor within: `[|]`.
+    SquareWithin,
+}
+
+impl BracketMode {
+    fn of(func: &Func) -> Self {
+        if func
+            .params()
+            .is_some_and(|params| params.iter().all(|param| param.name == "self"))
+        {
+            return Self::RoundAfter;
+        }
+
+        match func.name() {
+            Some(
+                "emph" | "footnote" | "quote" | "strong" | "highlight" | "overline"
+                | "underline" | "smallcaps" | "strike" | "sub" | "super",
+            ) => Self::SquareWithin,
+            Some("colbreak" | "parbreak" | "linebreak" | "pagebreak") => Self::RoundAfter,
+            Some("figure" | "table" | "grid" | "stack") => Self::RoundNewline,
+            _ => Self::RoundWithin,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
 
-    use super::autocomplete;
-    use crate::tests::TestWorld;
+    use typst::model::Document;
+    use typst::syntax::{FileId, Source, VirtualPath};
+    use typst::World;
+
+    use super::{autocomplete, Completion};
+    use crate::tests::{SourceExt, TestWorld};
+
+    /// Quote a string.
+    macro_rules! q {
+        ($s:literal) => {
+            concat!("\"", $s, "\"")
+        };
+    }
+
+    type Response = Option<(usize, Vec<Completion>)>;
+
+    trait ResponseExt {
+        fn completions(&self) -> &[Completion];
+        fn labels(&self) -> BTreeSet<&str>;
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_apply<'a>(&self, label: &str, apply: impl Into<Option<&'a str>>)
+            -> &Self;
+    }
+
+    impl ResponseExt for Response {
+        fn completions(&self) -> &[Completion] {
+            match self {
+                Some((_, completions)) => completions.as_slice(),
+                None => &[],
+            }
+        }
+
+        fn labels(&self) -> BTreeSet<&str> {
+            self.completions().iter().map(|c| c.label.as_str()).collect()
+        }
+
+        #[track_caller]
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self {
+            let labels = self.labels();
+            for item in includes {
+                assert!(
+                    labels.contains(item),
+                    "{item:?} was not contained in {labels:?}",
+                );
+            }
+            self
+        }
+
+        #[track_caller]
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self {
+            let labels = self.labels();
+            for item in excludes {
+                assert!(
+                    !labels.contains(item),
+                    "{item:?} was wrongly contained in {labels:?}",
+                );
+            }
+            self
+        }
+
+        #[track_caller]
+        fn must_apply<'a>(
+            &self,
+            label: &str,
+            apply: impl Into<Option<&'a str>>,
+        ) -> &Self {
+            let Some(completion) = self.completions().iter().find(|c| c.label == label)
+            else {
+                panic!("found no completion for {label:?}");
+            };
+            assert_eq!(completion.apply.as_deref(), apply.into());
+            self
+        }
+    }
 
     #[track_caller]
-    fn test(text: &str, cursor: usize, contains: &[&str], excludes: &[&str]) {
+    fn test(text: &str, cursor: isize) -> Response {
         let world = TestWorld::new(text);
-        let doc = typst::compile(&world).output.ok();
-        let (_, completions) =
-            autocomplete(&world, doc.as_ref(), &world.main, cursor, true)
-                .unwrap_or_default();
+        test_with_world(&world, cursor)
+    }
 
-        let labels: Vec<_> = completions.iter().map(|c| c.label.as_str()).collect();
-        for item in contains {
-            assert!(labels.contains(item), "{item:?} was not contained in {labels:?}");
-        }
-        for item in excludes {
-            assert!(!labels.contains(item), "{item:?} was not excluded in {labels:?}");
-        }
+    #[track_caller]
+    fn test_with_world(world: &TestWorld, cursor: isize) -> Response {
+        let doc = typst::compile(&world).output.ok();
+        test_full(world, &world.main, doc.as_ref(), cursor)
+    }
+
+    #[track_caller]
+    fn test_with_path(world: &TestWorld, path: &str, cursor: isize) -> Response {
+        let doc = typst::compile(&world).output.ok();
+        let id = FileId::new(None, VirtualPath::new(path));
+        let source = world.source(id).unwrap();
+        test_full(world, &source, doc.as_ref(), cursor)
+    }
+
+    #[track_caller]
+    fn test_full(
+        world: &TestWorld,
+        source: &Source,
+        doc: Option<&Document>,
+        cursor: isize,
+    ) -> Response {
+        autocomplete(world, doc, source, source.cursor(cursor), true)
     }
 
     #[test]
-    fn test_autocomplete() {
-        test("#i", 2, &["int", "if conditional"], &["foo"]);
-        test("#().", 4, &["insert", "remove", "len", "all"], &["foo"]);
+    fn test_autocomplete_hash_expr() {
+        test("#i", 2).must_include(["int", "if conditional"]);
     }
 
+    #[test]
+    fn test_autocomplete_array_method() {
+        test("#().", 4).must_include(["insert", "remove", "len", "all"]);
+        test("#{ let x = (1, 2, 3); x. }", -2).must_include(["at", "push", "pop"]);
+    }
+
+    /// Test that extra space before '.' is handled correctly.
     #[test]
     fn test_autocomplete_whitespace() {
-        //Check that extra space before '.' is handled correctly.
-        test("#() .", 5, &[], &["insert", "remove", "len", "all"]);
-        test("#{() .}", 6, &["insert", "remove", "len", "all"], &["foo"]);
-
-        test("#() .a", 6, &[], &["insert", "remove", "len", "all"]);
-        test("#{() .a}", 7, &["at", "any", "all"], &["foo"]);
+        test("#() .", 5).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .}", 6).must_include(["insert", "remove", "len", "all"]);
+        test("#() .a", 6).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .a}", 7).must_include(["at", "any", "all"]);
     }
 
+    /// Test that the `before_window` doesn't slice into invalid byte
+    /// boundaries.
     #[test]
     fn test_autocomplete_before_window_char_boundary() {
-        // Check that the `before_window` doesn't slice into invalid byte
-        // boundaries.
-        let s = "😀😀     #text(font: \"\")";
-        test(s, s.len() - 2, &[], &[]);
+        test("😀😀     #text(font: \"\")", -2);
+    }
+
+    /// Ensure that autocompletion for `#cite(|)` completes bibligraphy labels,
+    /// but no other labels.
+    #[test]
+    fn test_autocomplete_cite_function() {
+        // First compile a working file to get a document.
+        let mut world =
+            TestWorld::new("#bibliography(\"works.bib\") <bib>").with_asset("works.bib");
+        let doc = typst::compile(&world).output.ok();
+
+        // Then, add the invalid `#cite` call. Had the document been invalid
+        // initially, we would have no populated document to autocomplete with.
+        let end = world.main.len_bytes();
+        world.main.edit(end..end, " #cite()");
+
+        test_full(&world, &world.main, doc.as_ref(), -1)
+            .must_include(["netwok", "glacier-melt", "supplement"])
+            .must_exclude(["bib"]);
+    }
+
+    /// Test what kind of brackets we autocomplete for function calls depending
+    /// on the function and existing parens.
+    #[test]
+    fn test_autocomplete_bracket_mode() {
+        test("#", 1).must_apply("list", "list(${})");
+        test("#", 1).must_apply("linebreak", "linebreak()${}");
+        test("#", 1).must_apply("strong", "strong[${}]");
+        test("#", 1).must_apply("footnote", "footnote[${}]");
+        test("#", 1).must_apply("figure", "figure(\n  ${}\n)");
+        test("#", 1).must_apply("table", "table(\n  ${}\n)");
+        test("#()", 1).must_apply("list", None);
+        test("#[]", 1).must_apply("strong", None);
+    }
+
+    /// Test that we only complete positional parameters if they aren't
+    /// already present.
+    #[test]
+    fn test_autocomplete_positional_param() {
+        // No string given yet.
+        test("#numbering()", -1).must_include(["string", "integer"]);
+        // String is already given.
+        test("#numbering(\"foo\", )", -1)
+            .must_include(["integer"])
+            .must_exclude(["string"]);
+        // Integer is already given, but numbering is variadic.
+        test("#numbering(\"foo\", 1, )", -1)
+            .must_include(["integer"])
+            .must_exclude(["string"]);
+    }
+
+    /// Test that autocompletion for values of known type picks up nested
+    /// values.
+    #[test]
+    fn test_autocomplete_value_filter() {
+        let world = TestWorld::new("#import \"design.typ\": clrs; #rect(fill: )")
+            .with_source(
+                "design.typ",
+                "#let clrs = (a: red, b: blue); #let nums = (a: 1, b: 2)",
+            );
+
+        test_with_world(&world, -1)
+            .must_include(["clrs", "aqua"])
+            .must_exclude(["nums", "a", "b"]);
     }
 
     #[test]
-    fn test_autocomplete_mutable_method() {
-        let s = "#{ let x = (1, 2, 3); x. }";
-        test(s, s.len() - 2, &["at", "push", "pop"], &[]);
+    fn test_autocomplete_packages() {
+        test("#import \"@\"", -1).must_include([q!("@preview/example:0.1.0")]);
+    }
+
+    #[test]
+    fn test_autocomplete_file_path() {
+        let world = TestWorld::new("#include \"\"")
+            .with_source("utils.typ", "")
+            .with_source("content/a.typ", "#image()")
+            .with_source("content/b.typ", "#csv(\"\")")
+            .with_source("content/c.typ", "#include \"\"")
+            .with_asset_at("assets/tiger.jpg", "tiger.jpg")
+            .with_asset_at("assets/rhino.png", "rhino.png")
+            .with_asset_at("data/example.csv", "example.csv");
+
+        test_with_path(&world, "main.typ", -1)
+            .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
+            .must_exclude([q!("assets/tiger.jpg")]);
+
+        test_with_path(&world, "content/c.typ", -1)
+            .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
+            .must_exclude([q!("c.typ")]);
+
+        test_with_path(&world, "content/a.typ", -1)
+            .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
+            .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
+
+        test_with_path(&world, "content/b.typ", -2)
+            .must_include([q!("../data/example.csv")]);
+    }
+
+    #[test]
+    fn test_autocomplete_figure_snippets() {
+        test("#figure()", -1)
+            .must_apply("image", "image(\"${}\"),")
+            .must_apply("table", "table(\n  ${}\n),");
+
+        test("#figure(cap)", -1).must_apply("caption", "caption: [${}]");
     }
 }
