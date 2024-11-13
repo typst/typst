@@ -11,6 +11,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_module(module());
 }
 
+/// PDF specific functionality.
 #[category]
 pub static PDF: Category;
 
@@ -18,6 +19,5 @@ pub static PDF: Category;
 pub fn module() -> Module {
     let mut pdf = Scope::deduplicating();
     pdf.define_elem::<EmbedElem>();
-
     Module::new("pdf", pdf)
 }

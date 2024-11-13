@@ -1,3 +1,10 @@
+use std::sync::Arc;
+
+use ecow::EcoString;
+use typst_macros::{elem, scope, Cast};
+use typst_syntax::Spanned;
+use typst_utils::LazyHash;
+
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{func, Bytes, Content, NativeElement, Packed, Show, StyleChain};
@@ -5,15 +12,12 @@ use crate::introspection::Locatable;
 use crate::loading::Readable;
 use crate::text::LocalName;
 use crate::{Span, World};
-use ecow::EcoString;
-use std::sync::Arc;
-use typst_macros::{elem, scope, Cast};
-use typst_syntax::Spanned;
-use typst_utils::LazyHash;
 
+/// A file that will be embedded into the output PDF.
+/// This element is ignored by other export formats.
 #[elem(scope, Show, LocalName, Locatable)]
 pub struct EmbedElem {
-    /// Path to a file to be embedded
+    /// Path to a file to be embedded.
     ///
     /// For more details, see the [Paths section]($syntax/#paths).
     #[required]
@@ -33,47 +37,48 @@ pub struct EmbedElem {
     #[parse(Readable::Bytes(data))]
     pub data: Readable,
 
-    /// The name of the attached file
+    /// The name of the attached file.
     ///
-    /// If no name is given, the path is used instead
+    /// If no name is given, the path is used instead.
     #[borrowed]
     pub name: Option<EcoString>,
 
-    /// A description for the attached file
+    /// A description for the attached file.
     #[borrowed]
     pub description: Option<EcoString>,
 
-    /// The mime-type of the embedded file
+    /// The mime-type of the embedded file.
     #[borrowed]
     pub mime_type: Option<EcoString>,
 
-    /// The relationship of the embedded file to the document
+    /// The relationship of the embedded file to the document.
     #[borrowed]
     pub relationship: Option<EmbeddedFileRelationship>,
 }
 
 #[scope]
-impl EmbedElem {
-    #[func(title = "Embed the given data as a file")]
+impl EmbedElem {    
+    /// Decode a file embedding from bytes or a string.
+    #[func(title = "Embed bytes or a string as a file")]
     fn decode(
         /// The call span of this function.
         span: Span,
-        /// The data to embed as a file
+        /// The data to embed as a file.
         data: Readable,
-        /// The path of the file embedding
+        /// The path of the file embedding.
         path: EcoString,
-        /// The name of the attached file
+        /// The name of the attached file.
         ///
-        /// If no name is given, the path is used instead
+        /// If no name is given, the path is used instead.
         #[named]
         name: Option<Option<EcoString>>,
-        /// A description for the attached file
+        /// A description for the attached file.
         #[named]
         description: Option<Option<EcoString>>,
-        /// The mime-type of the embedded file
+        /// The mime-type of the embedded file.
         #[named]
         mime_type: Option<Option<EcoString>>,
-        /// The mime-type of the embedded file
+        /// The mime-type of the embedded file.
         #[named]
         relationship: Option<Option<EmbeddedFileRelationship>>,
     ) -> StrResult<Content> {
@@ -105,45 +110,45 @@ impl Show for Packed<EmbedElem> {
     }
 }
 
-/// The internal representation of a file embedding
+/// The internal representation of a file embedding.
 #[derive(Hash)]
 pub struct Repr {
     /// The raw file data.
     data: Bytes,
-    /// Path of this embedding
+    /// Path of this embedding.
     path: EcoString,
-    /// Name of this embedding
+    /// Name of this embedding.
     name: EcoString,
-    /// Name of this embedding
+    /// Name of this embedding.
     description: Option<EcoString>,
-    /// Name of this embedding
+    /// Name of this embedding.
     mime_type: Option<EcoString>,
-    /// Name of this embedding
+    /// Name of this embedding.
     relationship: Option<EmbeddedFileRelationship>,
 }
 
-/// The relationship of an embedded file with the relevant document content
+/// The relationship of an embedded file with the relevant document content.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum EmbeddedFileRelationship {
-    /// The embedded file is the original source material of the document content
+    /// The embedded file is the original source material of the document content.
     Source,
     /// The embedded file represents information used to derive a visual presentation – such
     /// as for a table or a graph.
     Data,
-    /// The embedded file is an alternative representation of document content
+    /// The embedded file is an alternative representation of document content.
     Alternative,
-    /// The embedded file is a supplemental representation of document content
+    /// The embedded file is a supplemental representation of document content.
     Supplement,
     /// The embedded file is encrypted and should be displayed to the user if
     /// the PDF processor has the cryptographic filter needed to
     /// decrypt the document.
     EncryptedPayload,
-    /// The embedded file is data associated with an AcroForm
+    /// The embedded file is data associated with an AcroForm.
     FormData,
-    /// The embedded file is a schema definition
+    /// The embedded file is a schema definition.
     Schema,
     /// The embedded file has an unknown relationship to the document or the relationship cannot be
-    /// described by the other variants
+    /// described by the other variants.
     Unspecified,
 }
 
@@ -189,27 +194,27 @@ impl Embed {
         &self.0.data
     }
 
-    /// The name of the file embedding
+    /// The name of the file embedding.
     pub fn name(&self) -> &EcoString {
         &self.0.name
     }
 
-    /// The path of the file embedding
+    /// The path of the file embedding.
     pub fn path(&self) -> &EcoString {
         &self.0.path
     }
 
-    /// The description of the file embedding
+    /// The description of the file embedding.
     pub fn description(&self) -> Option<&str> {
         self.0.description.as_deref()
     }
 
-    /// The mime type of the embedded file
+    /// The mime type of the embedded file.
     pub fn mime_type(&self) -> Option<&str> {
         self.0.mime_type.as_deref()
     }
 
-    /// The relationship of the file with the document
+    /// The relationship of the file with the document.
     pub fn relationship(&self) -> Option<&EmbeddedFileRelationship> {
         self.0.relationship.as_ref()
     }
