@@ -85,3 +85,45 @@
   // Error: 16-16 expected semicolon or line break
   #return a + b Hello World
 ]
+
+--- return-discard-content ---
+// Test that discarding joined content is a warning.
+
+#let f() = {
+  state("hello").update("world")
+  // Warning: 3-16 explicit return value discards content
+  // Hint: 3-16 use `return` without a value to return the joined content
+  return "nope"
+}
+
+#test(f(), "nope")
+
+--- return-no-discard ---
+// Test that returning a joined value is not a warning.
+
+#let f() = {
+  state("hello").update("world")
+  return
+}
+
+#test(f(), state("hello").update("world"))
+
+--- return-discard-not-content ---
+// Test that non-joined value is not a warning.
+
+#let f() = {
+  (33, )
+  return (66, )
+}
+
+#test(f(), (66, ))
+
+--- return-discard-markup ---
+// Test that discarding markup is not a warning.
+
+#let f() = [
+  hello
+  #return [nope]
+]
+
+#test(f(), [nope])

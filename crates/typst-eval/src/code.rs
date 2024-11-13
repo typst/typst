@@ -1,12 +1,12 @@
 use ecow::{eco_vec, EcoVec};
-use typst_library::diag::{bail, error, At, SourceResult};
+use typst_library::diag::{bail, error, warning, At, SourceResult};
 use typst_library::foundations::{
     ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str,
     Value,
 };
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{CapturesVisitor, Eval, Vm};
+use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
 
 impl Eval for ast::Code<'_> {
     type Output = Value;
@@ -54,7 +54,17 @@ fn eval_code<'a>(
 
         output = ops::join(output, value).at(span)?;
 
-        if vm.flow.is_some() {
+        if let Some(event) = &vm.flow {
+            if matches!(event, FlowEvent::Return(_, Some(_)))
+                && matches!(output, Value::Content(_))
+            {
+                vm.engine.sink.warn(warning!(
+                    span,
+                    "explicit return value discards content";
+                    hint: "use `return` without a value to return the joined content"
+                ));
+            }
+
             break;
         }
     }
