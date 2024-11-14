@@ -544,7 +544,7 @@ fn raw_ratio(
     // Determine how much the line's spaces would need to be stretched
     // to make it the desired width.
     let mut delta = available_width - line_width;
-    
+
     // Avoid possible floating point errors in previous calculation.
     if delta.approx_eq(Abs::zero()) {
         delta = Abs::zero();
