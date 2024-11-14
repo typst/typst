@@ -798,12 +798,11 @@ cast! {
 
 /// Convert an item of std's `match_indices` to a dictionary.
 fn match_to_dict((start, text): (usize, &str)) -> Dict {
-    let span = Span::detached();
     dict! {
         "start" => start,
         "end" => start + text.len(),
         "text" => text,
-        "captures" => Args::new(span, Dict::new().iter()),
+        "captures" => Args { span: Span::detached(), items: EcoVec::new() },
     }
 }
 
