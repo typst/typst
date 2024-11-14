@@ -1,6 +1,3 @@
-#[doc(inline)]
-pub use typst_macros::symbols;
-
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
@@ -54,14 +51,14 @@ pub struct SymChar(char, Option<fn() -> Func>);
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
     Single(SymChar),
-    Const(&'static [(&'static str, SymChar)]),
+    Const(Box<[(&'static str, SymChar)]>),
     Multi(Arc<(List, EcoString)>),
 }
 
 /// A collection of symbols.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum List {
-    Static(&'static [(&'static str, SymChar)]),
+    Static(Box<[(&'static str, SymChar)]>),
     Runtime(Box<[(EcoString, SymChar)]>),
 }
 
@@ -73,7 +70,7 @@ impl Symbol {
 
     /// Create a symbol with a static variant list.
     #[track_caller]
-    pub const fn list(list: &'static [(&'static str, SymChar)]) -> Self {
+    pub const fn list(list: Box<[(&'static str, SymChar)]>) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Const(list))
     }
@@ -294,7 +291,7 @@ cast! {
 /// Iterator over variants.
 enum Variants<'a> {
     Single(std::option::IntoIter<SymChar>),
-    Static(std::slice::Iter<'static, (&'static str, SymChar)>),
+    Static(std::slice::Iter<'a, (&'static str, SymChar)>),
     Runtime(std::slice::Iter<'a, (EcoString, SymChar)>),
 }
 
