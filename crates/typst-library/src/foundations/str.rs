@@ -809,16 +809,12 @@ fn match_to_dict((start, text): (usize, &str)) -> Dict {
 
 /// Convert regex captures to a dictionary.
 /// The key `captures` is struct of [`Args`] which supports both index and named access.
-fn captures_to_dict(caps: regex::Captures, cap_names: &Vec<Option<&str>>) -> Dict {
+fn captures_to_dict(caps: regex::Captures, cap_names: &[Option<&str>]) -> Dict {
     let m = caps.get(0).expect("missing first match");
     let mut args = Args { span: Span::detached(), items: EcoVec::new() };
     for (i, cap) in caps.iter().enumerate().skip(1) {
         let value = cap.map_or(Value::None, |m| m.as_str().into_value());
-        let name = cap_names
-            .get(i)
-            .copied()
-            .expect("missing group name")
-            .map(|s| Str::from(s));
+        let name = cap_names.get(i).copied().expect("missing group name").map(Str::from);
         args.items.push(Arg {
             span: args.span,
             name,
