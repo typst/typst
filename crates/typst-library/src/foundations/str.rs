@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
 use comemo::Tracked;
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
 use typst_utils::PicoStr;
@@ -13,8 +13,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
-    IntoValue, Label, Repr, Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Arg, Args, Array, Bytes, Context, Decimal, Dict,
+    Func, IntoValue, Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
 
@@ -392,7 +392,10 @@ impl Str {
             StrPattern::Str(pat) => {
                 self.0.match_indices(pat.as_str()).next().map(match_to_dict)
             }
-            StrPattern::Regex(re) => re.captures(self).map(captures_to_dict),
+            StrPattern::Regex(re) => {
+                let cap_names: Vec<Option<&str>> = re.capture_names().collect();
+                re.captures(self).map(|caps| captures_to_dict(caps, &cap_names))
+            }
         }
     }
 
@@ -412,11 +415,13 @@ impl Str {
                 .map(match_to_dict)
                 .map(Value::Dict)
                 .collect(),
-            StrPattern::Regex(re) => re
-                .captures_iter(self)
-                .map(captures_to_dict)
-                .map(Value::Dict)
-                .collect(),
+            StrPattern::Regex(re) => {
+                let cap_names: Vec<Option<&str>> = re.capture_names().collect();
+                re.captures_iter(self)
+                    .map(|caps| captures_to_dict(caps, &cap_names))
+                    .map(Value::Dict)
+                    .collect()
+            }
         }
     }
 
@@ -476,10 +481,12 @@ impl Str {
                 }
             }
             StrPattern::Regex(re) => {
+                let cap_names: Vec<Option<&str>> = re.capture_names().collect();
+
                 for caps in re.captures_iter(self).take(count) {
                     // Extract the entire match over all capture groups.
                     let m = caps.get(0).unwrap();
-                    handle_match(m.start()..m.end(), captures_to_dict(caps))?;
+                    handle_match(m.start()..m.end(), captures_to_dict(caps, &cap_names))?;
                 }
             }
         }
@@ -791,25 +798,39 @@ cast! {
 
 /// Convert an item of std's `match_indices` to a dictionary.
 fn match_to_dict((start, text): (usize, &str)) -> Dict {
+    let span = Span::detached();
     dict! {
         "start" => start,
         "end" => start + text.len(),
         "text" => text,
-        "captures" => Array::new(),
+        "captures" => Args::new(span, Dict::new().iter()),
     }
 }
 
 /// Convert regex captures to a dictionary.
-fn captures_to_dict(cap: regex::Captures) -> Dict {
-    let m = cap.get(0).expect("missing first match");
+/// The key `captures` is struct of [`Args`] which supports both index and named access.
+fn captures_to_dict(caps: regex::Captures, cap_names: &Vec<Option<&str>>) -> Dict {
+    let m = caps.get(0).expect("missing first match");
+    let mut args = Args { span: Span::detached(), items: EcoVec::new() };
+    for (i, cap) in caps.iter().enumerate().skip(1) {
+        let value = cap.map_or(Value::None, |m| m.as_str().into_value());
+        let name = cap_names
+            .get(i)
+            .copied()
+            .expect("missing group name")
+            .map(|s| Str::from(s));
+        args.items.push(Arg {
+            span: args.span,
+            name,
+            value: Spanned::new(value, args.span),
+        });
+    }
+
     dict! {
         "start" => m.start(),
         "end" => m.end(),
         "text" => m.as_str(),
-        "captures" =>  cap.iter()
-            .skip(1)
-            .map(|opt| opt.map_or(Value::None, |m| m.as_str().into_value()))
-            .collect::<Array>(),
+        "captures" => args,
     }
 }
 

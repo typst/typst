@@ -187,15 +187,15 @@
 #test("Is there a".match("for this?"), none)
 #test(
   "The time of my life.".match(regex("[mit]+e")),
-  (start: 4, end: 8, text: "time", captures: ()),
+  (start: 4, end: 8, text: "time", captures: arguments()),
 )
 
 --- string-matches ---
 // Test the `matches` method.
 #test("Hello there".matches("\d"), ())
 #test("Day by Day.".matches("Day"), (
-  (start: 0, end: 3, text: "Day", captures: ()),
-  (start: 7, end: 10, text: "Day", captures: ()),
+  (start: 0, end: 3, text: "Day", captures: arguments()),
+  (start: 7, end: 10, text: "Day", captures: arguments()),
 ))
 
 // Compute the sum of all timestamps in the text.
@@ -237,15 +237,6 @@
 #test("abcd, efgh".replace(regex("\w+"), m => {
   upper(m.text)
 }), "ABCD, EFGH")
-#test("hello : world".replace(regex("^(.+)\s*(:)\s*(.+)$"), m => {
-  upper(m.captures.at(0)) + m.captures.at(1) + " " + upper(m.captures.at(2))
-}), "HELLO : WORLD")
-#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), m => {
-  m.captures.at(1) + " " + m.captures.at(0)
-}), "world hello, ipsum lorem")
-#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), count: 1, m => {
-  m.captures.at(1) + " " + m.captures.at(0)
-}), "world hello, lorem ipsum")
 #test("123 456".replace(regex("[a-z]+"), "a"), "123 456")
 
 #test("abc".replace("", m => "-"), "-a-b-c-")
@@ -259,7 +250,28 @@
   if m.start == 1 { "e" }
   else if m.start == 4 or m.start == 7 { "o" }
 }), "hello world")
-#test("aaa".replace("a", m => str(m.captures.len())), "000")
+
+--- string-replace-function-index-group ---
+#test("hello : world".replace(regex("^(.+)\s*(:)\s*(.+)$"), m => {
+  upper(m.captures.at(0)) + m.captures.at(1) + " " + upper(m.captures.at(2))
+}), "HELLO : WORLD")
+#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), m => {
+  m.captures.at(1) + " " + m.captures.at(0)
+}), "world hello, ipsum lorem")
+#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), count: 1, m => {
+  m.captures.at(1) + " " + m.captures.at(0)
+}), "world hello, lorem ipsum")
+
+--- string-replace-function-named-group ---
+#test("hello : world".replace(regex("^(?<first>.+)\s*(:)\s*(?<second>.+)$"), m => {
+  upper(m.captures.at("first")) + m.captures.at(0) + " " + upper(m.captures.at("second"))
+}), "HELLO : WORLD")
+#test("hello world, lorem ipsum".replace(regex("(?<first>\w+) (?<second>\w+)"), m => {
+  m.captures.at("second") + " " + m.captures.at("first")
+}), "world hello, ipsum lorem")
+#test("hello world, lorem ipsum".replace(regex("(?<first>\w+) (?<second>\w+)"), count: 1, m => {
+  m.captures.at("second") + " " + m.captures.at("first")
+}), "world hello, lorem ipsum")
 
 --- string-replace-function-bad-type ---
 // Error: 23-24 expected string, found integer
