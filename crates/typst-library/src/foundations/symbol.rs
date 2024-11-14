@@ -105,6 +105,10 @@ impl Symbol {
 
     /// Apply a modifier to the symbol.
     pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
+        if modifier.is_empty() {
+            return Ok(self);
+        }
+
         if let Repr::Const(list) = self.0 {
             self.0 = Repr::Multi(Arc::new((List::Static(list), EcoString::new())));
         }

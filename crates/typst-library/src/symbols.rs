@@ -1,6 +1,8 @@
 //! Modifiable symbols.
 
-use crate::foundations::{category, Category, Module, Scope, SymChar, Symbol, Value};
+use crate::foundations::{
+    category, Category, Func, Module, Scope, SymChar, Symbol, Value,
+};
 
 /// These two modules give names to symbols and emoji to make them easy to
 /// insert with a normal keyboard. Alternatively, you can also always directly
@@ -47,12 +49,135 @@ pub(super) fn define(global: &mut Scope) {
     extend_scope_from_codex_module(global, codex::ROOT);
 }
 
+macro_rules! declare_callables {
+    {
+        $(
+            $name:literal $( [$default:path] )? $( {
+                $( $modifiers:literal => $handler:path ),*
+                $(,)?
+            } )?
+        )*
+    } => {
+        &[
+            $(
+                (
+                    $name,
+                    &[
+                        $( ("", <$default as ::typst_library::foundations::NativeFunc>::func), )?
+                        $($(
+                            (
+                                $modifiers,
+                                <$handler as ::typst_library::foundations::NativeFunc>::func,
+                            )
+                        ),*)?
+                    ]
+                )
+            ),*
+        ]
+    };
+}
+
+#[allow(clippy::type_complexity)]
+const MATH_CALLABLES: &[(&str, &[(&str, fn() -> Func)])] = declare_callables! {
+    "ceil" { "l" => crate::math::ceil }
+    "floor" { "l" => crate::math::floor }
+    "dash" { "en" => crate::math::accent::dash }
+    "dot" {
+        "op" => crate::math::accent::dot,
+        "double" => crate::math::accent::dot_double,
+        "triple" => crate::math::accent::dot_triple,
+        "quad" => crate::math::accent::dot_quad,
+    }
+    "tilde" { "op" => crate::math::accent::tilde }
+    "acute" [crate::math::accent::acute] {
+        "double" => crate::math::accent::acute_double,
+    }
+    "breve" [crate::math::accent::breve]
+    "caron" [crate::math::accent::caron]
+    "hat" [crate::math::accent::hat]
+    "diaer" [crate::math::accent::dot_double]
+    "grave" [crate::math::accent::grave]
+    "macron" [crate::math::accent::macron]
+    "circle" { "stroked" => crate::math::accent::circle }
+    "arrow" {
+        "r" => crate::math::accent::arrow,
+        "l" => crate::math::accent::arrow_l,
+        "l.r" => crate::math::accent::arrow_l_r,
+    }
+    "harpoon" {
+        "rt" => crate::math::accent::harpoon,
+        "lt" => crate::math::accent::harpoon_lt,
+    }
+};
+
+fn build_math_symbol(name: &str, symbol: codex::Symbol) -> Symbol {
+    let Some(handlers) = MATH_CALLABLES.iter().find(|(n, _)| *n == name) else {
+        return symbol.into();
+    };
+    match (symbol, handlers.1) {
+        (codex::Symbol::Single(c), &[]) => Symbol::single(SymChar::pure(c)),
+        (codex::Symbol::Single(c), &[("", func)]) => {
+            Symbol::single(SymChar::with_func(c, func))
+        }
+        (codex::Symbol::Single(_), _) => {
+            panic!("symbol {name} has no variant")
+        }
+        (codex::Symbol::Multi(list), handlers) => Symbol::list(
+            list.iter()
+                .map(|&(modifiers, c)| {
+                    if let Some(handler) = handlers.iter().find(|(m, _)| *m == modifiers)
+                    {
+                        (modifiers, SymChar::with_func(c, handler.1))
+                    } else {
+                        (modifiers, SymChar::pure(c))
+                    }
+                })
+                .collect(),
+        ),
+    }
+}
+
 /// Hook up all math `symbol` definitions, i.e., elements of the `sym` module.
 pub(super) fn define_math(math: &mut Scope) {
     for (name, definition) in codex::SYM.iter() {
         match definition {
-            codex::Def::Symbol(s) => math.define(name, Value::Symbol(s.into())),
+            codex::Def::Symbol(s) => {
+                math.define(name, Value::Symbol(build_math_symbol(name, s)))
+            }
             codex::Def::Module(_) => {}
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{define_math, MATH_CALLABLES};
+    use crate::foundations::{Scope, Value};
+
+    #[test]
+    fn all_handlers_are_valid_variants() {
+        let mut math = Scope::new();
+        define_math(&mut math);
+        for (name, handlers) in MATH_CALLABLES {
+            let Some(value) = math.get(name) else {
+                panic!("{name} does not exist");
+            };
+            let Value::Symbol(symbol) = value else {
+                panic!("{name} is not a symbol");
+            };
+            for (modifiers, _) in *handlers {
+                if modifiers.is_empty() {
+                    assert!(
+                        symbol.clone().modified(modifiers).is_ok(),
+                        "{name} is not a valid symbol",
+                    )
+                } else {
+                    assert!(
+                        symbol.clone().modified(modifiers).is_ok(),
+                        "{name}.{modifiers} is not a valid variant",
+                    )
+                }
+            }
+        }
     }
 }
