@@ -10,10 +10,12 @@ use typst::model::Document;
 use typst::visualize::Color;
 use typst::WorldExt;
 use typst_pdf::PdfOptions;
+use typst_syntax::{is_newline, FileId};
+use unscanny::Scanner;
 
 use crate::collect::{FileSize, NoteKind, Test};
 use crate::logger::TestResult;
-use crate::world::TestWorld;
+use crate::world::{read, system_path, TestWorld};
 
 /// Runs a single test.
 ///
@@ -105,7 +107,7 @@ impl<'a> Runner<'a> {
             if seen {
                 continue;
             }
-            let note_range = self.format_range(&note.range);
+            let note_range = self.format_range(note.file, &note.range);
             if first {
                 log!(self, "not emitted");
                 first = false;
@@ -239,18 +241,13 @@ impl<'a> Runner<'a> {
     /// Compare a subset of notes with a given kind against diagnostics of
     /// that same kind.
     fn check_diagnostic(&mut self, kind: NoteKind, diag: &SourceDiagnostic) {
-        // Ignore diagnostics from other sources than the test file itself.
-        if diag.span.id().is_some_and(|id| id != self.test.source.id()) {
-            return;
-        }
-
         let message = diag.message.replace("\\", "/");
         let range = self.world.range(diag.span);
-        self.validate_note(kind, range.clone(), &message);
+        self.validate_note(kind, range.clone(), diag.span.id(), &message);
 
         // Check hints.
         for hint in &diag.hints {
-            self.validate_note(NoteKind::Hint, range.clone(), hint);
+            self.validate_note(NoteKind::Hint, range.clone(), diag.span.id(), hint);
         }
     }
 
@@ -263,14 +260,17 @@ impl<'a> Runner<'a> {
         &mut self,
         kind: NoteKind,
         range: Option<Range<usize>>,
+        file: Option<FileId>,
         message: &str,
     ) {
         // Try to find perfect match.
+        let file = file.unwrap_or_else(|| self.test.source.id());
         if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
             !self.seen[i]
                 && note.kind == kind
                 && note.range == range
                 && note.message == message
+                && note.file == file
         }) {
             self.seen[i] = true;
             return;
@@ -284,7 +284,7 @@ impl<'a> Runner<'a> {
                 && (note.range == range || note.message == message)
         }) else {
             // Not even a close match, diagnostic is not annotated.
-            let diag_range = self.format_range(&range);
+            let diag_range = self.format_range(file, &range);
             log!(into: self.not_annotated, "  {kind}: {diag_range} {}", message);
             return;
         };
@@ -294,10 +294,10 @@ impl<'a> Runner<'a> {
 
         // Range is wrong.
         if range != note.range {
-            let note_range = self.format_range(&note.range);
-            let note_text = self.text_for_range(&note.range);
-            let diag_range = self.format_range(&range);
-            let diag_text = self.text_for_range(&range);
+            let note_range = self.format_range(note.file, &note.range);
+            let note_text = self.text_for_range(note.file, &note.range);
+            let diag_range = self.format_range(note.file, &range);
+            let diag_text = self.text_for_range(note.file, &range);
             log!(self, "mismatched range ({}):", note.pos);
             log!(self, "  message   | {}", note.message);
             log!(self, "  annotated | {note_range:<9} | {note_text}");
@@ -313,39 +313,90 @@ impl<'a> Runner<'a> {
     }
 
     /// Display the text for a range.
-    fn text_for_range(&self, range: &Option<Range<usize>>) -> String {
+    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No text".into() };
         if range.is_empty() {
             "(empty)".into()
-        } else {
+        } else if file == self.test.source.id() {
             format!("`{}`", self.test.source.text()[range.clone()].replace('\n', "\\n"))
+        } else {
+            let path = system_path(file).unwrap();
+            let bytes = read(&path).unwrap();
+            let text = String::from_utf8_lossy(&bytes);
+            format!("`{}`", &text[range.clone()].replace('\n', "\\n"))
         }
     }
 
     /// Display a byte range as a line:column range.
-    fn format_range(&self, range: &Option<Range<usize>>) -> String {
+    fn format_range(&self, id: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No range".into() };
+        let mut preamble = String::new();
+        if id != self.test.source.id() {
+            preamble = format!("\"{}\" ", system_path(id).unwrap().display());
+        }
+
         if range.start == range.end {
-            self.format_pos(range.start)
+            format!("{preamble}{}", self.format_pos(id, range.start))
         } else {
-            format!("{}-{}", self.format_pos(range.start,), self.format_pos(range.end,))
+            format!(
+                "{preamble}{}-{}",
+                self.format_pos(id, range.start),
+                self.format_pos(id, range.end)
+            )
         }
     }
 
     /// Display a position as a line:column pair.
-    fn format_pos(&self, pos: usize) -> String {
-        if let (Some(line_idx), Some(column_idx)) =
-            (self.test.source.byte_to_line(pos), self.test.source.byte_to_column(pos))
-        {
-            let line = self.test.pos.line + line_idx;
-            let column = column_idx + 1;
-            if line == 1 {
-                format!("{column}")
-            } else {
-                format!("{line}:{column}")
-            }
+    fn format_pos(&self, id: FileId, pos: usize) -> String {
+        if id != self.test.source.id() {
+            self.format_pos_external(id, pos)
         } else {
-            "oob".into()
+            if let (Some(line_idx), Some(column_idx)) =
+                (self.test.source.byte_to_line(pos), self.test.source.byte_to_column(pos))
+            {
+                let line = self.test.pos.line + line_idx;
+                let column = column_idx + 1;
+                if line == 1 {
+                    format!("{column}")
+                } else {
+                    format!("{line}:{column}")
+                }
+            } else {
+                "oob".into()
+            }
+        }
+    }
+
+    fn format_pos_external(&self, id: FileId, pos: usize) -> String {
+        // We can unwrap since test has run, these paths are correct
+        let path = system_path(id).unwrap();
+        let bytes = read(&path).unwrap();
+        if pos > bytes.len() {
+            return "oob".into();
+        }
+
+        let text = String::from_utf8_lossy(&bytes);
+
+        let mut line = 1;
+        let mut column = 1;
+        let mut s = Scanner::new(&text);
+        while let Some(c) = s.eat() {
+            if is_newline(c) {
+                line += 1;
+                column = 1;
+            }
+
+            if s.cursor() == pos {
+                break;
+            }
+
+            column += 1;
+        }
+
+        if line == 1 {
+            format!("{column}")
+        } else {
+            format!("{line}:{column}")
         }
     }
 }

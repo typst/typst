@@ -2976,6 +2976,7 @@ dependencies = [
  "ttf-parser",
  "typst-library",
  "typst-macros",
+ "typst-syntax",
  "typst-timing",
  "typst-utils",
  "xmlparser",

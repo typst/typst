@@ -1,8 +1,8 @@
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use roxmltree::ParsingOptions;
-use typst_syntax::Spanned;
+use typst_syntax::{FileId, Span, Spanned};
 
-use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
+use crate::diag::{format_xml_like_error, At, FileError, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
 use crate::loading::Readable;
@@ -68,7 +68,7 @@ pub fn xml(
     let Spanned { v: path, span } = path;
     let id = span.resolve_path(&path).at(span)?;
     let data = engine.world.file(id).at(span)?;
-    xml::decode(Spanned::new(Readable::Bytes(data), span))
+    decode_inner(Spanned::new(Readable::Bytes(data), span), Some(id))
 }
 
 #[scope]
@@ -79,18 +79,22 @@ impl xml {
         /// XML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        let text = std::str::from_utf8(data.as_slice())
-            .map_err(FileError::from)
-            .at(span)?;
-        let document = roxmltree::Document::parse_with_options(
-            text,
-            ParsingOptions { allow_dtd: true, ..Default::default() },
-        )
-        .map_err(format_xml_error)
-        .at(span)?;
-        Ok(convert_xml(document.root()))
+        decode_inner(data, None)
     }
+}
+
+fn decode_inner(data: Spanned<Readable>, file: Option<FileId>) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    let text = std::str::from_utf8(data.as_slice())
+        .map_err(FileError::from)
+        .at(span)?;
+    let document = roxmltree::Document::parse_with_options(
+        text,
+        ParsingOptions { allow_dtd: true, ..Default::default() },
+    )
+    .map_err(|err| format_xml_error(err, span, file, text))?;
+
+    Ok(convert_xml(document.root()))
 }
 
 /// Convert an XML node to a Typst value.
@@ -118,6 +122,11 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(error: roxmltree::Error) -> EcoString {
-    format_xml_like_error("XML", error)
+fn format_xml_error(
+    error: roxmltree::Error,
+    span: Span,
+    file: Option<FileId>,
+    text: &str,
+) -> EcoVec<SourceDiagnostic> {
+    format_xml_like_error("XML", error, span, file, text)
 }

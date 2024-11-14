@@ -48,6 +48,12 @@ pub fn layout_image(
         }
     }
 
+    // Resolve the image file ID, but only if the path is present.
+    let mut id = None;
+    if !elem.path.is_empty() {
+        id = Some(span.resolve_path(&elem.path).at(span)?);
+    }
+
     // Construct the image itself.
     let image = Image::with_fonts(
         data.clone().into(),
@@ -55,8 +61,9 @@ pub fn layout_image(
         elem.alt(styles),
         engine.world,
         &families(styles).collect::<Vec<_>>(),
-    )
-    .at(span)?;
+        span,
+        id,
+    )?;
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();

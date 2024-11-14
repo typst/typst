@@ -7,8 +7,12 @@ use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
+use typst_syntax::{
+    is_id_continue, is_ident, is_newline, FileId, Source, Span, VirtualPath,
+};
 use unscanny::Scanner;
+
+use crate::world::{read, system_path};
 
 /// Collects all tests from all files.
 ///
@@ -70,6 +74,7 @@ impl Display for FileSize {
 pub struct Note {
     pub pos: FilePos,
     pub kind: NoteKind,
+    pub file: FileId,
     pub range: Option<Range<usize>>,
     pub message: String,
 }
@@ -314,12 +319,30 @@ impl<'a> Parser<'a> {
         let kind: NoteKind = head.parse().ok()?;
         self.s.eat_if(' ');
 
+        let mut file = None;
+        if self.s.eat_if('"') {
+            let path = self.s.eat_until('"');
+            let vpath = VirtualPath::new(path);
+            file = Some(FileId::new(None, vpath));
+
+            self.s.eat_if('"');
+            self.s.eat_if(' ');
+        }
+
         let mut range = None;
-        if self.s.at('-') || self.s.at(char::is_numeric) {
-            range = self.parse_range(source);
-            if range.is_none() {
-                self.error("range is malformed");
-                return None;
+        if self.s.at('-') || self.s.at(char::is_numeric) || self.s.at('#') {
+            if let Some(file) = file {
+                range = self.parse_range_external(file);
+                if range.is_none() {
+                    self.error("range is malformed");
+                    return None;
+                }
+            } else {
+                range = self.parse_range(source);
+                if range.is_none() {
+                    self.error("range is malformed");
+                    return None;
+                }
             }
         }
 
@@ -331,6 +354,7 @@ impl<'a> Parser<'a> {
 
         Some(Note {
             pos: FilePos::new(self.path, self.line),
+            file: file.unwrap_or_else(|| source.id()),
             kind,
             range,
             message,
@@ -345,11 +369,60 @@ impl<'a> Parser<'a> {
         Some(start..end)
     }
 
+    /// Parse a range in an external file, optionally abbreviated as just a position
+    /// if the range is empty.
+    fn parse_range_external(&mut self, id: FileId) -> Option<Range<usize>> {
+        let path = match system_path(id) {
+            Ok(path) => path,
+            Err(err) => {
+                self.error(err.to_string());
+                return None;
+            }
+        };
+
+        let text = match read(&path) {
+            Ok(text) => text,
+            Err(err) => {
+                self.error(err.to_string());
+                return None;
+            }
+        };
+
+        // Allow parsing of byte positions for external files.
+        if self.s.peek() == Some('#') {
+            let start = self.parse_byte()?;
+            let end = if self.s.eat_if('-') { self.parse_byte()? } else { start };
+
+            if start < 0 || end < 0 {
+                self.error("byte positions must be positive");
+                return None;
+            }
+
+            return Some((start as usize)..(end as usize));
+        }
+
+        let start = self.parse_row_col()?;
+        if start.0 < 0 || start.1 < 0 {
+            self.error("line and columns must be positive");
+            return None;
+        }
+
+        let end = if self.s.eat_if('-') { self.parse_row_col()? } else { start };
+        if end.0 < 0 || end.1 < 0 {
+            self.error("line and columns must be positive");
+            return None;
+        }
+
+        let start =
+            (start.0.saturating_sub(1) as usize, start.1.saturating_sub(1) as usize);
+        let end = (end.0.saturating_sub(1) as usize, end.1.saturating_sub(1) as usize);
+        Span::from_row_column(id, start, end, &String::from_utf8_lossy(&text))
+            .and_then(|span| span.range())
+    }
+
     /// Parses a relative `(line:)?column` position.
     fn parse_position(&mut self, source: &Source) -> Option<usize> {
-        let first = self.parse_number()?;
-        let (line_delta, column) =
-            if self.s.eat_if(':') { (first, self.parse_number()?) } else { (1, first) };
+        let (line_delta, column) = self.parse_row_col()?;
 
         let text = source.text();
         let line_idx_in_test = self.line - self.test_start_line;
@@ -369,6 +442,20 @@ impl<'a> Parser<'a> {
         };
 
         source.line_column_to_byte(line_idx, column_idx)
+    }
+
+    /// Parses an absolute `(line:)?column` position in an external file.
+    fn parse_row_col(&mut self) -> Option<(isize, isize)> {
+        let first = self.parse_number()?;
+        let (line_delta, column) =
+            if self.s.eat_if(':') { (first, self.parse_number()?) } else { (1, first) };
+
+        Some((line_delta, column))
+    }
+
+    /// Parses a number after a `#` character.
+    fn parse_byte(&mut self) -> Option<isize> {
+        self.s.eat_if("#").then(|| self.parse_number()).flatten()
     }
 
     /// Parse a number.

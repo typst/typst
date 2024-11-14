@@ -3,10 +3,12 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use ecow::EcoString;
+use ecow::{eco_vec, EcoVec};
 use siphasher::sip128::{Hasher128, SipHasher13};
+use typst_syntax::{FileId, Span};
+use usvg::decompress_svgz;
 
-use crate::diag::{format_xml_like_error, StrResult};
+use crate::diag::{error, format_xml_like_error, SourceDiagnostic, SourceResult};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
@@ -26,12 +28,36 @@ struct Repr {
     tree: usvg::Tree,
 }
 
+fn svg_parse_inner(
+    data: &Bytes,
+    options: &usvg::Options,
+    span: Span,
+    file: Option<FileId>,
+) -> SourceResult<usvg::Tree> {
+    if data.starts_with(&[0x1f, 0x8b]) {
+        let data = decompress_svgz(data.as_slice())
+            .map_err(|err| format_usvg_error(err, span, None, ""))?;
+
+        let text = std::str::from_utf8(&data)
+            .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str, span, None, ""))?;
+
+        usvg::Tree::from_str(text, &options)
+            .map_err(|err| format_usvg_error(err, span, file, text))
+    } else {
+        let text = std::str::from_utf8(data.as_slice())
+            .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str, span, None, ""))?;
+
+        usvg::Tree::from_str(text, &options)
+            .map_err(|err| format_usvg_error(err, span, file, text))
+    }
+}
+
 impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
-    pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let tree =
-            usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
+    pub fn new(data: Bytes, span: Span, file: Option<FileId>) -> SourceResult<SvgImage> {
+        let tree = svg_parse_inner(&data, &base_options(), span, file)?;
+
         Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
@@ -41,10 +67,12 @@ impl SvgImage {
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
-    ) -> StrResult<SvgImage> {
+        span: Span,
+        file: Option<FileId>,
+    ) -> SourceResult<SvgImage> {
         let book = world.book();
         let resolver = Mutex::new(FontResolver::new(world, book, families));
-        let tree = usvg::Tree::from_data(
+        let tree = svg_parse_inner(
             &data,
             &usvg::Options {
                 font_resolver: usvg::FontResolver {
@@ -57,8 +85,9 @@ impl SvgImage {
                 },
                 ..base_options()
             },
-        )
-        .map_err(format_usvg_error)?;
+            span,
+            file,
+        )?;
         let font_hash = resolver.into_inner().unwrap().finish();
         Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
@@ -123,15 +152,27 @@ fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
 }
 
 /// Format the user-facing SVG decoding error message.
-fn format_usvg_error(error: usvg::Error) -> EcoString {
+fn format_usvg_error(
+    error: usvg::Error,
+    span: Span,
+    file: Option<FileId>,
+    text: &str,
+) -> EcoVec<SourceDiagnostic> {
     match error {
-        usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
-        usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
-        usvg::Error::ElementsLimitReached => "file is too large".into(),
-        usvg::Error::InvalidSize => {
-            "failed to parse SVG (width, height, or viewbox is invalid)".into()
+        usvg::Error::NotAnUtf8Str => eco_vec![error!(span, "file is not valid utf-8")],
+        usvg::Error::MalformedGZip => {
+            eco_vec![error!(span, "file is not compressed correctly")]
         }
-        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
+        usvg::Error::ElementsLimitReached => eco_vec![error!(span, "file is too large")],
+        usvg::Error::InvalidSize => {
+            eco_vec![error!(
+                span,
+                "failed to parse SVG (width, height, or viewbox is invalid)"
+            )]
+        }
+        usvg::Error::ParsingFailed(error) => {
+            format_xml_like_error("SVG", error, span, file, text)
+        }
     }
 }
 

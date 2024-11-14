@@ -1,7 +1,7 @@
-use ecow::{eco_format, EcoString};
-use typst_syntax::Spanned;
+use ecow::{eco_vec, EcoString, EcoVec};
+use typst_syntax::{FileId, Span, Spanned};
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
 use crate::loading::Readable;
@@ -51,7 +51,7 @@ pub fn csv(
     let Spanned { v: path, span } = path;
     let id = span.resolve_path(&path).at(span)?;
     let data = engine.world.file(id).at(span)?;
-    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter, row_type)
+    decode_inner(Spanned::new(Readable::Bytes(data), span), delimiter, row_type, Some(id))
 }
 
 #[scope]
@@ -77,52 +77,60 @@ impl csv {
         #[default(RowType::Array)]
         row_type: RowType,
     ) -> SourceResult<Array> {
-        let Spanned { v: data, span } = data;
-        let has_headers = row_type == RowType::Dict;
-
-        let mut builder = ::csv::ReaderBuilder::new();
-        builder.has_headers(has_headers);
-        builder.delimiter(delimiter.0 as u8);
-
-        // Counting lines from 1 by default.
-        let mut line_offset: usize = 1;
-        let mut reader = builder.from_reader(data.as_slice());
-        let mut headers: Option<::csv::StringRecord> = None;
-
-        if has_headers {
-            // Counting lines from 2 because we have a header.
-            line_offset += 1;
-            headers = Some(
-                reader
-                    .headers()
-                    .map_err(|err| format_csv_error(err, 1))
-                    .at(span)?
-                    .clone(),
-            );
-        }
-
-        let mut array = Array::new();
-        for (line, result) in reader.records().enumerate() {
-            // Original solution was to use line from error, but that is
-            // incorrect with `has_headers` set to `false`. See issue:
-            // https://github.com/BurntSushi/rust-csv/issues/184
-            let line = line + line_offset;
-            let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
-            let item = if let Some(headers) = &headers {
-                let mut dict = Dict::new();
-                for (field, value) in headers.iter().zip(&row) {
-                    dict.insert(field.into(), value.into_value());
-                }
-                dict.into_value()
-            } else {
-                let sub = row.into_iter().map(|field| field.into_value()).collect();
-                Value::Array(sub)
-            };
-            array.push(item);
-        }
-
-        Ok(array)
+        decode_inner(data, delimiter, row_type, None)
     }
+}
+
+fn decode_inner(
+    data: Spanned<Readable>,
+    delimiter: Delimiter,
+    row_type: RowType,
+    source: Option<FileId>,
+) -> SourceResult<Array> {
+    let Spanned { v: data, span } = data;
+    let has_headers = row_type == RowType::Dict;
+
+    let mut builder = ::csv::ReaderBuilder::new();
+    builder.has_headers(has_headers);
+    builder.delimiter(delimiter.0 as u8);
+
+    // Counting lines from 1 by default.
+    let mut line_offset: usize = 1;
+    let mut reader = builder.from_reader(data.as_slice());
+    let mut headers: Option<::csv::StringRecord> = None;
+
+    if has_headers {
+        // Counting lines from 2 because we have a header.
+        line_offset += 1;
+        headers = Some(
+            reader
+                .headers()
+                .map_err(|err| format_csv_error(err, 1, span, source))?
+                .clone(),
+        );
+    }
+
+    let mut array = Array::new();
+    for (line, result) in reader.records().enumerate() {
+        // Original solution was to use line from error, but that is
+        // incorrect with `has_headers` set to `false`. See issue:
+        // https://github.com/BurntSushi/rust-csv/issues/184
+        let line = line + line_offset;
+        let row = result.map_err(|err| format_csv_error(err, line, span, source))?;
+        let item = if let Some(headers) = &headers {
+            let mut dict = Dict::new();
+            for (field, value) in headers.iter().zip(&row) {
+                dict.insert(field.into(), value.into_value());
+            }
+            dict.into_value()
+        } else {
+            let sub = row.into_iter().map(|field| field.into_value()).collect();
+            Value::Array(sub)
+        };
+        array.push(item);
+    }
+
+    Ok(array)
 }
 
 /// The delimiter to use when parsing CSV files.
@@ -177,15 +185,25 @@ cast! {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(err: ::csv::Error, line: usize) -> EcoString {
-    match err.kind() {
-        ::csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
+fn format_csv_error(
+    err: ::csv::Error,
+    line: usize,
+    span: Span,
+    file_id: Option<FileId>,
+) -> EcoVec<SourceDiagnostic> {
+    let span = file_id
+        .and_then(|id| err.position().map(|pos| (id, pos.byte() as usize)))
+        .map_or(span, |(id, pos)| Span::from_range(id, pos..pos));
+
+    eco_vec![match err.kind() {
+        ::csv::ErrorKind::Utf8 { .. } => error!(span, "file is not valid utf-8"),
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-            eco_format!(
+            error!(
+                span,
                 "failed to parse CSV (found {len} instead of \
                  {expected_len} fields in line {line})"
             )
         }
-        _ => eco_format!("failed to parse CSV ({err})"),
-    }
+        _ => error!(span, "failed to parse CSV ({err})"),
+    }]
 }

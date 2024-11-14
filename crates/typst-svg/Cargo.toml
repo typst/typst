@@ -15,6 +15,7 @@ readme = { workspace = true }
 [dependencies]
 typst-library = { workspace = true }
 typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 base64 = { workspace = true }

@@ -1,7 +1,7 @@
-use ecow::{eco_format, EcoString};
-use typst_syntax::{is_newline, Spanned};
+use ecow::{eco_format, eco_vec, EcoString};
+use typst_syntax::{is_newline, FileId, Span, Spanned};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{error, At, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::Readable;
@@ -39,7 +39,11 @@ pub fn toml(
     let Spanned { v: path, span } = path;
     let id = span.resolve_path(&path).at(span)?;
     let data = engine.world.file(id).at(span)?;
-    toml::decode(Spanned::new(Readable::Bytes(data), span))
+    let raw = std::str::from_utf8(data.as_slice())
+        .map_err(|_| "file is not valid utf-8")
+        .at(span)?;
+    ::toml::from_str(raw)
+        .map_err(|err| eco_vec![format_toml_error(err, raw, span, Some(id))])
 }
 
 #[scope]
@@ -55,8 +59,7 @@ impl toml {
             .map_err(|_| "file is not valid utf-8")
             .at(span)?;
         ::toml::from_str(raw)
-            .map_err(|err| format_toml_error(err, raw))
-            .at(span)
+            .map_err(|err| eco_vec![format_toml_error(err, raw, span, None)])
     }
 
     /// Encodes structured data into a TOML string.
@@ -78,15 +81,25 @@ impl toml {
 }
 
 /// Format the user-facing TOML error message.
-fn format_toml_error(error: ::toml::de::Error, raw: &str) -> EcoString {
+fn format_toml_error(
+    error: ::toml::de::Error,
+    raw: &str,
+    span: Span,
+    file_id: Option<FileId>,
+) -> SourceDiagnostic {
+    let span = file_id
+        .and_then(|id| error.span().map(|range| (id, range)))
+        .map_or(span, |(id, range)| Span::from_range(id, range));
+
     if let Some(head) = error.span().and_then(|range| raw.get(..range.start)) {
         let line = head.lines().count();
         let column = 1 + head.chars().rev().take_while(|&c| !is_newline(c)).count();
-        eco_format!(
+        error!(
+            span,
             "failed to parse TOML ({} at line {line} column {column})",
             error.message(),
         )
     } else {
-        eco_format!("failed to parse TOML ({})", error.message())
+        error!(span, "failed to parse TOML ({})", error.message())
     }
 }

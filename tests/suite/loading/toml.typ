@@ -37,5 +37,5 @@
 ))
 
 --- toml-invalid ---
-// Error: 7-30 failed to parse TOML (expected `.`, `=` at line 1 column 16)
+// Error: "/assets/data/bad.toml" #15-#16 failed to parse TOML (expected `.`, `=` at line 1 column 16)
 #toml("/assets/data/bad.toml")

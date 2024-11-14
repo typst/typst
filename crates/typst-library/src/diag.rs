@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Span, Spanned, SyntaxError};
+use typst_syntax::{FileId, Span, Spanned, SyntaxError};
 
 use crate::{World, WorldExt};
 
@@ -551,30 +551,49 @@ impl From<PackageError> for EcoString {
 }
 
 /// Format a user-facing error message for an XML-like file format.
-pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString {
-    match error {
+pub fn format_xml_like_error(
+    format: &str,
+    error: roxmltree::Error,
+    span: Span,
+    file: Option<FileId>,
+    text: &str,
+) -> EcoVec<SourceDiagnostic> {
+    let span = file
+        .and_then(|id| {
+            let pos = error.pos();
+            let pos =
+                (pos.row.saturating_sub(1) as usize, pos.col.saturating_sub(1) as usize);
+
+            Span::from_row_column(id, pos, pos, text)
+        })
+        .unwrap_or(span);
+
+    eco_vec![match error {
         roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => {
-            eco_format!(
+            error!(
+                span,
                 "failed to parse {format} (found closing tag '{actual}' \
                  instead of '{expected}' in line {})",
                 pos.row
             )
         }
         roxmltree::Error::UnknownEntityReference(entity, pos) => {
-            eco_format!(
+            error!(
+                span,
                 "failed to parse {format} (unknown entity '{entity}' in line {})",
                 pos.row
             )
         }
         roxmltree::Error::DuplicatedAttribute(attr, pos) => {
-            eco_format!(
+            error!(
+                span,
                 "failed to parse {format} (duplicate attribute '{attr}' in line {})",
                 pos.row
             )
         }
         roxmltree::Error::NoRootNode => {
-            eco_format!("failed to parse {format} (missing root node)")
+            error!(span, "failed to parse {format} (missing root node)")
         }
-        err => eco_format!("failed to parse {format} ({err})"),
-    }
+        err => error!(span, "failed to parse {format} ({err})"),
+    }]
 }
