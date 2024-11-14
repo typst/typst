@@ -54,7 +54,7 @@ dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
-fontdb = { version = "0.21", default-features = false }
+fontdb = { version = "0.22", default-features = false }
 fs_extra = "1.3"
 hayagriva = "0.8"
 heck = "0.5"
@@ -68,6 +68,7 @@ if_chain = "1"
 image = { version = "0.25.2", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.5"
+krilla = { path = "../krilla/crates/krilla" }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -92,7 +93,7 @@ qcms = "0.3.0"
 quote = "1"
 rayon = "1.7.0"
 regex = "1"
-resvg = { version = "0.43", default-features = false, features = ["raster-images"] }
+resvg = { version = "0.44", default-features = false, features = ["raster-images"] }
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustybuzz = "0.18"
@@ -126,7 +127,7 @@ unicode-script = "0.5"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
-usvg = { version = "0.43", default-features = false, features = ["text"] }
+usvg = { version = "0.44", default-features = false, features = ["text"] }
 walkdir = "2"
 wasmi = "0.39.0"
 xmlparser = "0.13.5"

@@ -206,10 +206,11 @@ fn encode_svg(
     svg: &SvgImage,
     pdfa: bool,
 ) -> Result<(Chunk, Ref), svg2pdf::ConversionError> {
-    svg2pdf::to_chunk(
-        svg.tree(),
-        svg2pdf::ConversionOptions { pdfa, ..Default::default() },
-    )
+    unimplemented!();
+    // svg2pdf::to_chunk(
+    //     svg.tree(),
+    //     svg2pdf::ConversionOptions { pdfa, ..Default::default() },
+    // )
 }
 
 /// A pre-encoded image.

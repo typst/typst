@@ -8,6 +8,7 @@ mod extg;
 mod font;
 mod gradient;
 mod image;
+mod krilla;
 mod named_destination;
 mod outline;
 mod page;
@@ -50,6 +51,7 @@ use crate::resources::{
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &Document, options: &PdfOptions) -> SourceResult<Vec<u8>> {
+    return Ok(krilla::pdf(document));
     PdfBuilder::new(document, options)
         .phase(|builder| builder.run(traverse_pages))?
         .phase(|builder| {
