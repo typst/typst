@@ -79,6 +79,9 @@ macro_rules! declare_callables {
 
 #[allow(clippy::type_complexity)]
 const MATH_CALLABLES: &[(&str, &[(&str, fn() -> Func)])] = declare_callables! {
+    // Multiple modifiers should be specified in the same order as they are
+    // defined in `codex`. For example, `r.l` instead of `l.r` in `arrow` below
+    // would not work. If something is wrong, the test should detect it.
     "ceil" { "l" => crate::math::ceil }
     "floor" { "l" => crate::math::floor }
     "dash" { "en" => crate::math::accent::dash }
@@ -166,16 +169,21 @@ mod tests {
                 panic!("{name} is not a symbol");
             };
             for (modifiers, _) in *handlers {
-                if modifiers.is_empty() {
-                    assert!(
-                        symbol.clone().modified(modifiers).is_ok(),
-                        "{name} is not a valid symbol",
-                    )
-                } else {
-                    assert!(
-                        symbol.clone().modified(modifiers).is_ok(),
-                        "{name}.{modifiers} is not a valid variant",
-                    )
+                let Ok(variant) = symbol.clone().modified(modifiers) else {
+                    if modifiers.is_empty() {
+                        panic!("{name} is not a valid symbol")
+                    } else {
+                        panic!("{name}.{modifiers} is not a valid variant")
+                    }
+                };
+                if variant.func().is_err() {
+                    if modifiers.is_empty() {
+                        panic!("{name} should be callable, but is not")
+                    } else {
+                        panic!("{name}.{modifiers} should be callable, but is not (hint: the \
+                        modifiers must be specified in the right order when defining a callable \
+                        variant)")
+                    }
                 }
             }
         }
