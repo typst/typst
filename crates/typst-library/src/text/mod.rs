@@ -141,7 +141,7 @@ pub struct TextElem {
     /// هذا عربي.
     ///
     /// #set text(font: (
-    ///   (name: "Noto Serif CJK SC", ranges: ("\u{00B7}", "\u{2014}-\u{3134F}")),
+    ///   (name: "Noto Serif CJK SC", range-match: "[\u{00B7}\u{2014}-\u{3134F}]"),
     ///   "Inria Serif",
     /// ))
     /// 分别设置“中文”和English字体
