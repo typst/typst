@@ -431,6 +431,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Find nested footnotes in the entry.
         let nested = find_in_frames::<FootnoteElem>(&frames);
 
+        // Check if there are any non-empty frames.
+        let exist_non_empty_frame = frames.iter().any(|f| !f.is_empty());
+
         // Extract the first frame.
         let mut iter = frames.into_iter();
         let first = iter.next().unwrap();
@@ -440,7 +443,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // possible, we then migrate the origin frame to the next region to
         // uphold the footnote invariant (that marker and entry are on the same
         // page). If not, we just queue the footnote for the next page.
-        if first.is_empty() {
+        if first.is_empty() && exist_non_empty_frame {
             if migratable {
                 return Err(Stop::Finish(false));
             } else {
@@ -720,7 +723,7 @@ fn layout_line_numbers(
             continue;
         }
 
-        // Layout the number and record its width in search of the maximium.
+        // Layout the number and record its width in search of the maximum.
         let frame = layout_line_number(engine, config, &mut locator, &marker.numbering)?;
 
         // Note that this line.y is larger than the previous due to sorting.

@@ -1,5 +1,7 @@
 //! Performance timing for Typst.
 
+#![cfg_attr(target_arch = "wasm32", allow(dead_code, unused_variables))]
+
 use std::hash::Hash;
 use std::io::Write;
 use std::num::NonZeroU64;

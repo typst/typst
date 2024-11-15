@@ -5,3 +5,4 @@ bibliography = Bibliografi
 heading = Afsnit
 outline = Indhold
 raw = Liste
+page = side
