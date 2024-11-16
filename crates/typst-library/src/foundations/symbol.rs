@@ -50,9 +50,14 @@ pub struct SymChar(char, Option<fn() -> Func>);
 /// The internal representation.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
+    /// A native symbol that has no named variant.
     Single(SymChar),
-    Const(Box<[(&'static str, SymChar)]>),
-    Multi(Arc<(List, EcoString)>),
+    /// A native symbol with multiple named variants.
+    Complex(Box<[(&'static str, SymChar)]>),
+    /// A symbol with multiple named variants, where some modifiers may have
+    /// been applied. Also used for symbols defined at runtime by the user with
+    /// no modifier applied.
+    Modified(Arc<(List, EcoString)>),
 }
 
 /// A collection of symbols.
@@ -72,14 +77,14 @@ impl Symbol {
     #[track_caller]
     pub const fn list(list: Box<[(&'static str, SymChar)]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Const(list))
+        Self(Repr::Complex(list))
     }
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
     pub fn runtime(list: Box<[(EcoString, SymChar)]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
+        Self(Repr::Modified(Arc::new((List::Runtime(list), EcoString::new()))))
     }
 
     /// Get the symbol's char.
@@ -91,8 +96,8 @@ impl Symbol {
     pub fn sym(&self) -> SymChar {
         match &self.0 {
             Repr::Single(c) => *c,
-            Repr::Const(_) => find(self.variants(), "").unwrap(),
-            Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap(),
+            Repr::Complex(_) => find(self.variants(), "").unwrap(),
+            Repr::Modified(arc) => find(self.variants(), &arc.1).unwrap(),
         }
     }
 
@@ -109,11 +114,11 @@ impl Symbol {
             return Ok(self);
         }
 
-        if let Repr::Const(list) = self.0 {
-            self.0 = Repr::Multi(Arc::new((List::Static(list), EcoString::new())));
+        if let Repr::Complex(list) = self.0 {
+            self.0 = Repr::Modified(Arc::new((List::Static(list), EcoString::new())));
         }
 
-        if let Repr::Multi(arc) = &mut self.0 {
+        if let Repr::Modified(arc) = &mut self.0 {
             let (list, modifiers) = Arc::make_mut(arc);
             if !modifiers.is_empty() {
                 modifiers.push('.');
@@ -131,8 +136,8 @@ impl Symbol {
     pub fn variants(&self) -> impl Iterator<Item = (&str, SymChar)> {
         match &self.0 {
             Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
-            Repr::Const(list) => Variants::Static(list.iter()),
-            Repr::Multi(arc) => arc.0.variants(),
+            Repr::Complex(list) => Variants::Static(list.iter()),
+            Repr::Modified(arc) => arc.0.variants(),
         }
     }
 
@@ -140,7 +145,7 @@ impl Symbol {
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
         let mut set = BTreeSet::new();
         let modifiers = match &self.0 {
-            Repr::Multi(arc) => arc.1.as_str(),
+            Repr::Modified(arc) => arc.1.as_str(),
             _ => "",
         };
         for modifier in self.variants().flat_map(|(name, _)| name.split('.')) {
@@ -237,8 +242,8 @@ impl Debug for Repr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Single(c) => Debug::fmt(c, f),
-            Self::Const(list) => list.fmt(f),
-            Self::Multi(lists) => lists.fmt(f),
+            Self::Complex(list) => list.fmt(f),
+            Self::Modified(lists) => lists.fmt(f),
         }
     }
 }
