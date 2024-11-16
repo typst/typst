@@ -244,9 +244,33 @@ impl Debug for List {
     }
 }
 
+fn repr_variants<'a>(variants: impl Iterator<Item = (&'a str, char)>) -> String {
+    crate::foundations::repr::pretty_array_like(
+        &variants
+            .map(|(modifiers, c)| {
+                if modifiers.is_empty() {
+                    eco_format!("\"{c}\"")
+                } else {
+                    eco_format!("(\"{modifiers}\", \"{c}\")")
+                }
+            })
+            .collect::<Vec<_>>(),
+        false,
+    )
+}
+
 impl crate::foundations::Repr for Symbol {
     fn repr(&self) -> EcoString {
-        eco_format!("\"{}\"", self.get())
+        match &self.0 {
+            Repr::Single(c) => eco_format!("symbol(\"{}\")", *c),
+            Repr::Complex(variants) => {
+                eco_format!("symbol{}", repr_variants(variants.iter().copied()))
+            }
+            Repr::Modified(arc) => {
+                let (list, modifiers) = arc.as_ref();
+                eco_format!("symbol{}.{}", repr_variants(list.variants()), modifiers)
+            }
+        }
     }
 }
 
