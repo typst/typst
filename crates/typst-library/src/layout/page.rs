@@ -795,6 +795,7 @@ macro_rules! papers {
 // - https://en.wikipedia.org/wiki/Paper_size
 // - https://www.theedkins.co.uk/jo/units/oldunits/print.htm
 // - https://vintagepaper.co/blogs/news/traditional-paper-sizes
+// - https://en.wikipedia.org/wiki/QSL_card
 papers! {
     // ---------------------------------------------------------------------- //
     // ISO 216 A Series
@@ -883,6 +884,9 @@ papers! {
     (ISO_ID_1: 85.6, 53.98, "iso-id-1")
     (ISO_ID_2: 74.0, 105.0, "iso-id-2")
     (ISO_ID_3: 88.0, 125.0, "iso-id-3")
+
+    // QSL (used in amateur radio)
+    (QSL: 140.0, 90.0, "qsl")
 
     // ---------------------------------------------------------------------- //
     // Asia
