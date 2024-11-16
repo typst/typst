@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{is_ident, Span, Spanned};
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::foundations::{cast, func, scope, ty, Array, Func};
@@ -198,6 +198,17 @@ impl Symbol {
             if list.iter().any(|(prev, _)| &v.0 == prev) {
                 bail!(span, "duplicate variant");
             }
+            if !v.0.is_empty() {
+                for modifier in v.0.split('.') {
+                    if !is_ident(modifier) {
+                        bail!(
+                            span,
+                            "invalid symbol modifier: {}",
+                            crate::foundations::Repr::repr(modifier),
+                        );
+                    }
+                }
+            }
             list.push((v.0, SymChar::pure(v.1)));
         }
         Ok(Symbol::runtime(list.into_boxed_slice()))
@@ -292,7 +303,7 @@ cast! {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => Self(a.cast()?, b.cast()?),
-            _ => Err("point array must contain exactly two entries")?,
+            _ => Err("variant array must contain exactly two entries")?,
         }
     },
 }
