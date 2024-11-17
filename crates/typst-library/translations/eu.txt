@@ -5,4 +5,4 @@ bibliography = Bibliografia
 heading = Atala
 outline = Aurkibidea
 raw = Kodea
-page = Orria
+page = orria
