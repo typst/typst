@@ -87,7 +87,7 @@ impl SvgImage {
         self.0.size.x
     }
 
-    /// Whether the SVG's text should be outlined.
+    /// Whether the SVG's text should be flattened.
     pub fn flatten_text(&self) -> bool {
         self.0.flatten_text
     }

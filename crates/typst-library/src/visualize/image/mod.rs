@@ -252,14 +252,14 @@ impl Image {
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
         families: &[&str],
-        outlined: bool,
+        flatten_text: bool,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
                 ImageKind::Raster(RasterImage::new(data, format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, outlined, families)?)
+                ImageKind::Svg(SvgImage::with_fonts(data, world, flatten_text, families)?)
             }
         };
 
