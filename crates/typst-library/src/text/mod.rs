@@ -495,10 +495,9 @@ pub struct TextElem {
     ///
     /// Hyphenation is generally avoided by placing the whole word on the next
     /// line, so a higher hyphenation cost can result in awkward justification
-    /// spacing.
-    ///
-    /// Note: Hyphenation costs will only be applied when the
-    /// [`linebreaks`]($par.linebreaks) are set to "optimized".
+    /// spacing. Note: Hyphenation costs will only be applied when the
+    /// [`linebreaks`]($par.linebreaks) are set to "optimized". (For example
+    /// by default implied by [`justify`]($par.justify).)
     ///
     /// Runts are avoided by placing more or fewer words on previous lines, so a
     /// higher runt cost can result in more awkward in justification spacing.
