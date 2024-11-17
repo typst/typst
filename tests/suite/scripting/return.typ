@@ -148,8 +148,8 @@
 // Test that non-joined value is not a warning.
 
 #let f() = {
-  (33, )
-  return (66, )
+  (33,)
+  return (66,)
 }
 
 #test(f(), (66, ))
