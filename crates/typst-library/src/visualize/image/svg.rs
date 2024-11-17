@@ -22,7 +22,7 @@ pub struct SvgImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     size: Axes<f64>,
-    outlined: bool,
+    flatten_text: bool,
     font_hash: u128,
     tree: usvg::Tree,
 }
@@ -37,7 +37,7 @@ impl SvgImage {
             data,
             size: tree_size(&tree),
             font_hash: 0,
-            outlined: false,
+            flatten_text: false,
             tree,
         })))
     }
@@ -47,7 +47,7 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        outlined: bool,
+        flatten_text: bool,
         families: &[&str],
     ) -> StrResult<SvgImage> {
         let book = world.book();
@@ -72,7 +72,7 @@ impl SvgImage {
             data,
             size: tree_size(&tree),
             font_hash,
-            outlined,
+            flatten_text,
             tree,
         })))
     }
@@ -88,8 +88,8 @@ impl SvgImage {
     }
 
     /// Whether the SVG's text should be outlined.
-    pub fn outlined(&self) -> bool {
-        self.0.outlined
+    pub fn flatten_text(&self) -> bool {
+        self.0.flatten_text
     }
 
     /// The SVG's height in pixels.

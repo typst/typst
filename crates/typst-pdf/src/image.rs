@@ -210,7 +210,7 @@ fn encode_svg(
         svg.tree(),
         svg2pdf::ConversionOptions {
             pdfa,
-            embed_text: !svg.outlined(),
+            embed_text: !svg.flatten_text(),
             ..Default::default()
         },
     )
