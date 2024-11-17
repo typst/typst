@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 use typst_syntax::{is_ident, Span, Spanned};
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc};
+use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
 
 /// A Unicode symbol.
 ///
@@ -122,10 +122,6 @@ impl Symbol {
 
     /// Apply a modifier to the symbol.
     pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
-        if modifier.is_empty() {
-            return Ok(self);
-        }
-
         if let Repr::Complex(list) = self.0 {
             self.0 = Repr::Modified(Arc::new((List::Static(list), EcoString::new())));
         }
@@ -213,11 +209,7 @@ impl Symbol {
             if !v.0.is_empty() {
                 for modifier in v.0.split('.') {
                     if !is_ident(modifier) {
-                        bail!(
-                            span,
-                            "invalid symbol modifier: {}",
-                            crate::foundations::Repr::repr(modifier),
-                        );
+                        bail!(span, "invalid symbol modifier: {}", modifier.repr());
                     }
                 }
             }
@@ -295,7 +287,7 @@ cast! {
 /// Iterator over variants.
 enum Variants<'a> {
     Single(std::option::IntoIter<char>),
-    Static(std::slice::Iter<'a, (&'static str, char)>),
+    Static(std::slice::Iter<'static, (&'static str, char)>),
     Runtime(std::slice::Iter<'a, (EcoString, char)>),
 }
 
