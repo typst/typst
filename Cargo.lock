@@ -396,6 +396,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex"
+version = "0.1.0"
+source = "git+https://github.com/typst/codex?rev=343a9b1#343a9b199430681ba3ca0e2242097c6419492d55"
+
+[[package]]
 name = "color-print"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2849,6 +2854,7 @@ dependencies = [
  "bumpalo",
  "chinese-number",
  "ciborium",
+ "codex",
  "comemo",
  "csv",
  "ecow",
