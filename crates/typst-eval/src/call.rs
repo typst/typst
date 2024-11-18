@@ -6,8 +6,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Bytes, Capturer, Closure, Content, Context, Func, IntoValue,
-    NativeElement, Scope, Scopes, Value,
+    Arg, Args, Bytes, Capturer, Closure, Content, Context, DictionaryKey, Func,
+    IntoValue, NativeElement, Scope, Scopes, Str, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -345,7 +345,12 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
         error!(field.span(), "type {} has no method `{}`", target.ty(), field.as_str());
 
     match target {
-        Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
+        Value::Dict(ref dict)
+            if matches!(
+                dict.get(&DictionaryKey::Name(Str::from(field.as_str()))),
+                Ok(Value::Func(_))
+            ) =>
+        {
             error.hint(eco_format!(
                 "to call the function stored in the dictionary, surround \
                 the field access with parentheses, e.g. `(dict.{})(..)`",

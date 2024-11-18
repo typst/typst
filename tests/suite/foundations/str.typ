@@ -187,15 +187,15 @@
 #test("Is there a".match("for this?"), none)
 #test(
   "The time of my life.".match(regex("[mit]+e")),
-  (start: 4, end: 8, text: "time", captures: arguments()),
+  (start: 4, end: 8, text: "time", captures: (:)),
 )
 
 --- string-matches ---
 // Test the `matches` method.
 #test("Hello there".matches("\d"), ())
 #test("Day by Day.".matches("Day"), (
-  (start: 0, end: 3, text: "Day", captures: arguments()),
-  (start: 7, end: 10, text: "Day", captures: arguments()),
+  (start: 0, end: 3, text: "Day", captures: (:)),
+  (start: 7, end: 10, text: "Day", captures: (:)),
 ))
 
 // Compute the sum of all timestamps in the text.
@@ -261,10 +261,13 @@
 #test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), count: 1, m => {
   m.captures.at(1) + " " + m.captures.at(0)
 }), "world hello, lorem ipsum")
+#test("hello : world".replace(regex("^(?<first>.+)\s*(:)\s*(?<second>.+)$"), m => {
+  upper(m.captures.at(0)) + m.captures.at(1) + " " + upper(m.captures.at(2))
+}), "HELLO : WORLD")
 
 --- string-replace-function-named-group ---
 #test("hello : world".replace(regex("^(?<first>.+)\s*(:)\s*(?<second>.+)$"), m => {
-  upper(m.captures.at("first")) + m.captures.at(0) + " " + upper(m.captures.at("second"))
+  upper(m.captures.at("first")) + m.captures.at(1) + " " + upper(m.captures.at("second"))
 }), "HELLO : WORLD")
 #test("hello world, lorem ipsum".replace(regex("(?<first>\w+) (?<second>\w+)"), m => {
   m.captures.at("second") + " " + m.captures.at("first")

@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
 use comemo::Tracked;
-use ecow::{EcoString, EcoVec};
+use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
 use typst_utils::PicoStr;
@@ -13,8 +13,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Arg, Args, Array, Bytes, Context, Decimal, Dict,
-    Func, IntoValue, Label, Repr, Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
+    IntoValue, Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
 
@@ -802,7 +802,7 @@ fn match_to_dict((start, text): (usize, &str)) -> Dict {
         "start" => start,
         "end" => start + text.len(),
         "text" => text,
-        "captures" => Args { span: Span::detached(), items: EcoVec::new() },
+        "captures" => Dict::new(),
     }
 }
 
@@ -810,22 +810,23 @@ fn match_to_dict((start, text): (usize, &str)) -> Dict {
 /// The key `captures` is struct of [`Args`] which supports both index and named access.
 fn captures_to_dict(caps: regex::Captures, cap_names: &[Option<&str>]) -> Dict {
     let m = caps.get(0).expect("missing first match");
-    let mut args = Args { span: Span::detached(), items: EcoVec::new() };
+    let mut dict = Dict::new();
     for (i, cap) in caps.iter().enumerate().skip(1) {
         let value = cap.map_or(Value::None, |m| m.as_str().into_value());
-        let name = cap_names.get(i).copied().expect("missing group name").map(Str::from);
-        args.items.push(Arg {
-            span: args.span,
-            name,
-            value: Spanned::new(value, args.span),
-        });
+        let name = cap_names
+            .get(i)
+            .copied()
+            .expect("missing group name")
+            .map(Str::from)
+            .unwrap_or_else(|| Str::from(i.to_string()));
+        dict.insert(name, value);
     }
 
     dict! {
         "start" => m.start(),
         "end" => m.end(),
         "text" => m.as_str(),
-        "captures" => args,
+        "captures" => dict,
     }
 }
 

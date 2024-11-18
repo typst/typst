@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use ecow::eco_format;
 use typst_library::diag::{bail, error, At, SourceDiagnostic, SourceResult};
-use typst_library::foundations::{Array, Dict, Value};
+use typst_library::foundations::{Array, Dict, DictionaryKey, Str, Value};
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{Access, Eval, Vm};
@@ -145,13 +145,17 @@ where
             ast::DestructuringItem::Pattern(ast::Pattern::Normal(ast::Expr::Ident(
                 ident,
             ))) => {
-                let v = dict.get(&ident).at(ident.span())?;
+                let v = dict
+                    .get(&DictionaryKey::Name(Str::from(ident.as_str())))
+                    .at(ident.span())?;
                 f(vm, ast::Expr::Ident(ident), v.clone())?;
                 used.insert(ident.get().clone());
             }
             ast::DestructuringItem::Named(named) => {
                 let name = named.name();
-                let v = dict.get(&name).at(name.span())?;
+                let v = dict
+                    .get(&DictionaryKey::Name(Str::from(name.as_str())))
+                    .at(name.span())?;
                 destructure_impl(vm, named.pattern(), v.clone(), f)?;
                 used.insert(name.get().clone());
             }

@@ -10,7 +10,7 @@ use time::{format_description, Month, PrimitiveDateTime};
 use crate::diag::{bail, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Dict, Duration, Repr, Smart, Str, Value,
+    cast, func, repr, scope, ty, Dict, DictionaryKey, Duration, Repr, Smart, Str, Value,
 };
 use crate::World;
 
@@ -180,7 +180,9 @@ impl Datetime {
             return None;
         }
 
-        let Ok(Value::Str(string)) = dict.get("$__toml_private_datetime") else {
+        let Ok(Value::Str(string)) =
+            dict.get(&DictionaryKey::Name(Str::from("$__toml_private_datetime")))
+        else {
             return None;
         };
 

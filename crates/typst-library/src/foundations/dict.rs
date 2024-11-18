@@ -29,6 +29,29 @@ macro_rules! __dict {
 #[doc(inline)]
 pub use crate::__dict as dict;
 
+/// A key that can be used to get a dictionary: either the index of a positional
+/// argument, or the name of a named argument.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DictionaryKey {
+    Index(i64),
+    Name(Str),
+}
+
+cast! {
+    DictionaryKey,
+    v: i64 => Self::Index(v),
+    v: Str => Self::Name(v),
+}
+
+impl Repr for DictionaryKey {
+    fn repr(&self) -> EcoString {
+        match self {
+            DictionaryKey::Index(i) => eco_format!("[{}]", i),
+            DictionaryKey::Name(name) => eco_format!("{}", name),
+        }
+    }
+}
+
 /// A map from string keys to values.
 ///
 /// You can construct a dictionary by enclosing comma-separated `key: value`
@@ -61,6 +84,7 @@ pub use crate::__dict as dict;
 /// #dict.keys() \
 /// #dict.values() \
 /// #dict.at("born") \
+/// #dict.at(1) \
 /// #dict.insert("city", "Berlin ")
 /// #("name" in dict)
 /// ```
@@ -80,8 +104,14 @@ impl Dict {
     }
 
     /// Borrow the value at the given key.
-    pub fn get(&self, key: &str) -> StrResult<&Value> {
-        self.0.get(key).ok_or_else(|| missing_key(key))
+    pub fn get(&self, key: &DictionaryKey) -> StrResult<&Value> {
+        let item = match key {
+            DictionaryKey::Index(i) => {
+                self.0.get_index(*i as usize).map(|(_, item)| item)
+            }
+            DictionaryKey::Name(name) => self.0.get(name),
+        };
+        item.ok_or_else(|| missing_key(&key.repr()))
     }
 
     /// Mutably borrow the value the given `key` maps to.
@@ -192,16 +222,15 @@ impl Dict {
     pub fn at(
         &self,
         /// The key at which to retrieve the item.
-        key: Str,
+        key: DictionaryKey,
         /// A default value to return if the key is not part of the dictionary.
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        self.0
-            .get(&key)
-            .cloned()
-            .or(default)
-            .ok_or_else(|| missing_key_no_default(&key))
+        match self.get(&key) {
+            Ok(value) => Ok(value.clone()),
+            Err(_) => default.ok_or_else(|| missing_key_no_default(&key.repr())),
+        }
     }
 
     /// Inserts a new pair into the dictionary. If the dictionary already
