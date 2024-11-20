@@ -33,6 +33,19 @@
 // Error: 2-10 expected at least one variant
 #symbol()
 
+--- symbol-constructor-invalid-modifier ---
+// Error: 2:3-2:24 invalid symbol modifier: " id!"
+#symbol(
+  ("invalid. id!", "x")
+)
+
+--- symbol-constructor-duplicate-variant ---
+// Error: 3:3-3:29 duplicate variant
+#symbol(
+  ("duplicate.variant", "x"),
+  ("duplicate.variant", "y"),
+)
+
 --- symbol-unknown-modifier ---
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
