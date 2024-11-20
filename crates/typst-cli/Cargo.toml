@@ -45,6 +45,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+sigpipe = "0.1"
 shell-escape = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }

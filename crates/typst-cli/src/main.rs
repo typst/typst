@@ -23,7 +23,6 @@ use clap::Parser;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use typst::diag::HintedStrResult;
-
 use crate::args::{CliArguments, Command};
 use crate::timings::Timer;
 
@@ -44,6 +43,7 @@ static ARGS: LazyLock<CliArguments> = LazyLock::new(|| {
 
 /// Entry point.
 fn main() -> ExitCode {
+    sigpipe::reset();
     let res = dispatch();
 
     if let Err(msg) = res {
