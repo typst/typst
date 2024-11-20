@@ -32,7 +32,7 @@ impl Eval for ast::MathShorthand<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::single(self.get().into())))
+        Ok(Value::Symbol(Symbol::single(self.get())))
     }
 }
 
