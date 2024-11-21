@@ -35,7 +35,8 @@ _Shopping list_
 - D
 
 --- list-indent-trivia-nesting ---
-// Test indent nesting behavior with odd trivia (comments and spaces).
+// Test indent nesting behavior with odd trivia (comments and spaces). The
+// comments should _not_ affect the nesting. Only the final column matters.
 
 #let indented = [
 - a
@@ -48,9 +49,6 @@ _Shopping list_
 /**/       - f
 /**/  - g
 ]
-// Current behavior is that list columns are based on the first non-whitespace
-// element in their line, so the block comments here determine the column the
-// list starts at
 
 #let item = list.item
 #let manual = {
