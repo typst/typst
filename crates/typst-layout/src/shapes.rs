@@ -365,6 +365,9 @@ fn layout_shape(
         let default = Size::new(Abs::pt(45.0), Abs::pt(30.0));
         let mut size = region.expand.select(region.size, default.min(region.size));
         if kind.is_quadratic() {
+            if region.expand.any(|ex| *ex) {
+                size = region.size;
+            }
             size = Size::splat(size.min_by_side());
         }
         frame = Frame::soft(size);
