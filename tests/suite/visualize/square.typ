@@ -149,4 +149,5 @@
 #set page(width: 6cm)
 // Test that setting a square's height beyond its default sizes the square correctly.
 #square(height: 5cm)
+#square(width: 5cm)
 #square(size: 5cm)

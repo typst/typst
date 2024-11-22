@@ -67,3 +67,10 @@ Expanded by height.
   circle(width: 10%),
   circle(height: 50%),
 )
+
+--- circle-height ---
+#set page(width: 6cm)
+// Test that setting a circle's height beyond its default sizes the circle correctly.
+#circle(height: 5cm)
+#circle(width: 5cm)
+#circle(radius: 5cm / 2)
