@@ -330,7 +330,7 @@ impl FileSlot {
         self.last_modified.get_or_init(
             || read(self.id, project_root, package_storage),
             |(_, modified), _| {
-                Ok(modified.map(|system| convert_datetime(system.into())).flatten())
+                Ok(modified.and_then(|system| convert_datetime(system.into())))
             },
         )
     }
