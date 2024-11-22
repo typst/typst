@@ -119,6 +119,7 @@ impl IdeWorld for TestWorld {
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         const LIST: &[(PackageSpec, Option<EcoString>)] = &[(
             PackageSpec {
+                // NOTE: DEFAULT_NAMESPACE (i.e. "preview") in typst-kit/src/package.rs
                 namespace: EcoString::inline("preview"),
                 name: EcoString::inline("example"),
                 version: PackageVersion { major: 0, minor: 1, patch: 0 },

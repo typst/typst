@@ -15,6 +15,9 @@ use crate::download::{Downloader, Progress};
 /// The default Typst registry.
 pub const DEFAULT_REGISTRY: &str = "https://packages.typst.org";
 
+/// The public namespace in the default Typst registry.
+pub const DEFAULT_NAMESPACE: &str = "preview";
+
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
@@ -85,7 +88,7 @@ impl PackageStorage {
             }
 
             // Download from network if it doesn't exist yet.
-            if spec.namespace == "preview" {
+            if spec.namespace == DEFAULT_NAMESPACE {
                 self.download_package(spec, &dir, progress)?;
                 if dir.exists() {
                     return Ok(dir);
@@ -101,7 +104,7 @@ impl PackageStorage {
         &self,
         spec: &VersionlessPackageSpec,
     ) -> StrResult<PackageVersion> {
-        if spec.namespace == "preview" {
+        if spec.namespace == DEFAULT_NAMESPACE {
             // For `@preview`, download the package index and find the latest
             // version.
             self.download_index()?
@@ -155,7 +158,7 @@ impl PackageStorage {
         package_dir: &Path,
         progress: &mut dyn Progress,
     ) -> PackageResult<()> {
-        assert_eq!(spec.namespace, "preview");
+        assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
 
         let url =
             format!("{DEFAULT_REGISTRY}/preview/{}-{}.tar.gz", spec.name, spec.version);
