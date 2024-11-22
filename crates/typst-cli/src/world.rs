@@ -1,12 +1,12 @@
+use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
+use ecow::{eco_format, EcoString};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
+use std::time::SystemTime;
 use std::{fmt, fs, io, mem};
-
-use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
-use ecow::{eco_format, EcoString};
-use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -235,6 +235,10 @@ impl World for SystemWorld {
             with_offset.day().try_into().ok()?,
         )
     }
+
+    fn last_modified(&self, id: FileId) -> FileResult<Option<Datetime>> {
+        self.slot(id, |slot| slot.last_modified(&self.root, &self.package_storage))
+    }
 }
 
 impl SystemWorld {
@@ -258,12 +262,19 @@ struct FileSlot {
     source: SlotCell<Source>,
     /// The lazily loaded raw byte buffer.
     file: SlotCell<Bytes>,
+    /// The lazily loaded last modified time of the slot's file
+    last_modified: SlotCell<Option<Datetime>>,
 }
 
 impl FileSlot {
     /// Create a new file slot.
     fn new(id: FileId) -> Self {
-        Self { id, file: SlotCell::new(), source: SlotCell::new() }
+        Self {
+            id,
+            file: SlotCell::new(),
+            source: SlotCell::new(),
+            last_modified: SlotCell::new(),
+        }
     }
 
     /// Whether the file was accessed in the ongoing compilation.
@@ -286,7 +297,7 @@ impl FileSlot {
     ) -> FileResult<Source> {
         self.source.get_or_init(
             || read(self.id, project_root, package_storage),
-            |data, prev| {
+            |(data, _), prev| {
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
@@ -306,7 +317,21 @@ impl FileSlot {
     ) -> FileResult<Bytes> {
         self.file.get_or_init(
             || read(self.id, project_root, package_storage),
-            |data, _| Ok(data.into()),
+            |(data, _), _| Ok(data.into()),
+        )
+    }
+
+    /// Retrieve the file's modification datetime.
+    fn last_modified(
+        &mut self,
+        project_root: &Path,
+        package_storage: &PackageStorage,
+    ) -> FileResult<Option<Datetime>> {
+        self.last_modified.get_or_init(
+            || read(self.id, project_root, package_storage),
+            |(_, modified), _| {
+                Ok(modified.map(|system| convert_datetime(system.into())).flatten())
+            },
         )
     }
 }
@@ -341,8 +366,8 @@ impl<T: Clone> SlotCell<T> {
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
-        load: impl FnOnce() -> FileResult<Vec<u8>>,
-        f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
+        load: impl FnOnce() -> FileResult<(Vec<u8>, Option<SystemTime>)>,
+        f: impl FnOnce((Vec<u8>, Option<SystemTime>), Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
         if mem::replace(&mut self.accessed, true) {
@@ -399,21 +424,22 @@ fn read(
     id: FileId,
     project_root: &Path,
     package_storage: &PackageStorage,
-) -> FileResult<Vec<u8>> {
+) -> FileResult<(Vec<u8>, Option<SystemTime>)> {
     if id == *STDIN_ID {
-        read_from_stdin()
+        Ok((read_from_stdin()?, None))
     } else {
         read_from_disk(&system_path(project_root, id, package_storage)?)
     }
 }
 
 /// Read a file from disk.
-fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
+fn read_from_disk(path: &Path) -> FileResult<(Vec<u8>, Option<SystemTime>)> {
     let f = |e| FileError::from_io(e, path);
-    if fs::metadata(path).map_err(f)?.is_dir() {
+    let metadata = fs::metadata(path).map_err(f)?;
+    if metadata.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(path).map_err(f)
+        Ok((fs::read(path).map_err(f)?, metadata.modified().ok()))
     }
 }
 
@@ -478,4 +504,15 @@ impl From<WorldCreationError> for EcoString {
     fn from(err: WorldCreationError) -> Self {
         eco_format!("{err}")
     }
+}
+
+fn convert_datetime(date_time: DateTime<Utc>) -> Option<Datetime> {
+    Datetime::from_ymd_hms(
+        date_time.year(),
+        date_time.month().try_into().ok()?,
+        date_time.day().try_into().ok()?,
+        date_time.hour().try_into().ok()?,
+        date_time.minute().try_into().ok()?,
+        date_time.second().try_into().ok()?,
+    )
 }
