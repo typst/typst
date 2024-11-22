@@ -145,7 +145,7 @@
 #set page(height: 80pt)
 #square(width: 40%, rect(width: 60%, height: 80%))
 
---- square-height ---
+--- square-sizing ---
 #set page(width: 6cm)
 // Test that setting a square's height beyond its default sizes the square correctly.
 #square(height: 5cm)
