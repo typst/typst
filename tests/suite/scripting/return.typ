@@ -90,9 +90,10 @@
 // Test that discarding joined content is a warning.
 
 #let f() = {
-  state("hello").update("world")
-  // Warning: 3-16 unconditional explicit return value discards content
+  [ Hello, World! ]
+  // Warning: 3-16 this return unconditionally discards the content before it
   // Hint: 3-16 use `return` without a value to return the joined content
+  // Hint: 3-16 or try omitting the `return` keyword to also join this value
   return "nope"
 }
 
@@ -101,10 +102,11 @@
 --- return-discard-content-nested ---
 
 #let f() = {
-  state("hello").update("world")
+  [ Hello, World! ]
   {
-    // Warning: 5-18 unconditional explicit return value discards content
+    // Warning: 5-18 this return unconditionally discards the content before it
     // Hint: 5-18 use `return` without a value to return the joined content
+    // Hint: 5-18 or try omitting the `return` keyword to also join this value
     return "nope"
   }
 }
@@ -134,8 +136,23 @@
 
 #test(f(), "nope")
 
+--- return-discard-state ---
+// Test that discarding a joined content with state is special warning
+
+#let f() = {
+  state("hello").update("world")
+
+  // Warning: 3-19 this return unconditionally discards the content before it
+  // Hint: 3-19 it discards state and/or counter updates
+  // Hint: 3-19 use `return` without a value to return the joined content
+  // Hint: 3-19 or try omitting the `return` keyword to also join this value
+  return [ Hello ]
+}
+
+#test(f(), [ Hello ])
+
 --- return-no-discard ---
-// Test that returning a joined value is not a warning.
+// Test that returning a joined content is not a warning.
 
 #let f() = {
   state("hello").update("world")
@@ -145,7 +162,7 @@
 #test(f(), state("hello").update("world"))
 
 --- return-discard-not-content ---
-// Test that non-joined value is not a warning.
+// Test that non-content joined value is not a warning.
 
 #let f() = {
   (33,)

@@ -257,7 +257,7 @@ impl Synthesize for Packed<FigureElem> {
         // Determine the figure's kind.
         let kind = elem.kind(styles).unwrap_or_else(|| {
             elem.body()
-                .query_first(Selector::can::<dyn Figurable>())
+                .query_first(&Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
         });
@@ -289,7 +289,7 @@ impl Synthesize for Packed<FigureElem> {
                 let descendant = match kind {
                     FigureKind::Elem(func) => elem
                         .body()
-                        .query_first(Selector::Elem(func, None))
+                        .query_first(&Selector::Elem(func, None))
                         .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };

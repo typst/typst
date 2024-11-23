@@ -1,12 +1,20 @@
+use std::sync::LazyLock;
+
 use ecow::{eco_vec, EcoVec};
 use typst_library::diag::{bail, error, warning, At, SourceResult};
 use typst_library::foundations::{
-    ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str,
-    Value,
+    ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement,
+    Selector, Str, Value,
 };
+use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
+
+/// Selector for introspection elements.
+/// This is purposefully a lazy static to avoid allocations.
+static INTROSPECTION_SELECTOR: LazyLock<Selector> =
+    LazyLock::new(|| Selector::Or(eco_vec![State::select_any(), Counter::select_any(),]));
 
 impl Eval for ast::Code<'_> {
     type Output = Value;
@@ -55,13 +63,24 @@ fn eval_code<'a>(
         output = ops::join(output, value).at(span)?;
 
         if let Some(event) = &vm.flow {
-            if matches!(output, Value::Content(_)) {
+            if let Value::Content(tree) = &output {
                 if let FlowEvent::Return(span, Some(_), false) = event {
-                    vm.engine.sink.warn(warning!(
-                        *span,
-                        "unconditional explicit return value discards content";
-                        hint: "use `return` without a value to return the joined content"
-                    ));
+                    if tree.query_first(&INTROSPECTION_SELECTOR).is_some() {
+                        vm.engine.sink.warn(warning!(
+                            *span,
+                            "this return unconditionally discards the content before it";
+                            hint: "it discards state and/or counter updates";
+                            hint: "use `return` without a value to return the joined content";
+                            hint: "or try omitting the `return` keyword to also join this value"
+                        ));
+                    } else {
+                        vm.engine.sink.warn(warning!(
+                            *span,
+                            "this return unconditionally discards the content before it";
+                            hint: "use `return` without a value to return the joined content";
+                            hint: "or try omitting the `return` keyword to also join this value"
+                        ));
+                    }
                 }
             }
 
