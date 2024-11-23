@@ -321,11 +321,16 @@ impl<'a> Parser<'a> {
 
         let mut file = None;
         if self.s.eat_if('"') {
-            let path = self.s.eat_until('"');
+            // Eat until either: newline or closing quote
+            let path = self.s.eat_until(|c| is_newline(c) || c == '"');
+            if !self.s.eat_if('"') || self.s.done() {
+                self.error("expected closing quote after file path");
+                return None;
+            }
+
             let vpath = VirtualPath::new(path);
             file = Some(FileId::new(None, vpath));
 
-            self.s.eat_if('"');
             self.s.eat_if(' ');
         }
 
