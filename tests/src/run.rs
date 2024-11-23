@@ -396,6 +396,8 @@ impl<'a> Runner<'a> {
                     line += 1;
                     column = 1;
                 }
+            } else {
+                was_cr = false;
             }
 
             if s.cursor() == pos {
