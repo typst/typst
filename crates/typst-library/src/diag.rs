@@ -554,7 +554,7 @@ impl From<PackageError> for EcoString {
 pub fn format_xml_like_error(
     format: &str,
     error: roxmltree::Error,
-    span: Span,
+    call_span: Span,
     file: Option<FileId>,
     text: &str,
 ) -> EcoVec<SourceDiagnostic> {
@@ -566,7 +566,7 @@ pub fn format_xml_like_error(
 
             Span::from_row_column(id, pos, pos, text)
         })
-        .unwrap_or(span);
+        .unwrap_or(call_span);
 
     eco_vec![match error {
         roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => {

@@ -318,12 +318,20 @@ impl<'a> Runner<'a> {
         if range.is_empty() {
             "(empty)".into()
         } else if file == self.test.source.id() {
-            format!("`{}`", self.test.source.text()[range.clone()].replace('\n', "\\n"))
+            format!(
+                "`{}`",
+                self.test.source.text()[range.clone()]
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+            )
         } else {
             let path = system_path(file).unwrap();
             let bytes = read(&path).unwrap();
             let text = String::from_utf8_lossy(&bytes);
-            format!("`{}`", &text[range.clone()].replace('\n', "\\n"))
+            format!(
+                "`{}`",
+                &text[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
+            )
         }
     }
 
@@ -350,20 +358,18 @@ impl<'a> Runner<'a> {
     fn format_pos(&self, id: FileId, pos: usize) -> String {
         if id != self.test.source.id() {
             self.format_pos_external(id, pos)
-        } else {
-            if let (Some(line_idx), Some(column_idx)) =
-                (self.test.source.byte_to_line(pos), self.test.source.byte_to_column(pos))
-            {
-                let line = self.test.pos.line + line_idx;
-                let column = column_idx + 1;
-                if line == 1 {
-                    format!("{column}")
-                } else {
-                    format!("{line}:{column}")
-                }
+        } else if let (Some(line_idx), Some(column_idx)) =
+            (self.test.source.byte_to_line(pos), self.test.source.byte_to_column(pos))
+        {
+            let line = self.test.pos.line + line_idx;
+            let column = column_idx + 1;
+            if line == 1 {
+                format!("{column}")
             } else {
-                "oob".into()
+                format!("{line}:{column}")
             }
+        } else {
+            "oob".into()
         }
     }
 
@@ -380,10 +386,16 @@ impl<'a> Runner<'a> {
         let mut line = 1;
         let mut column = 1;
         let mut s = Scanner::new(&text);
+        let mut was_cr = false;
         while let Some(c) = s.eat() {
             if is_newline(c) {
-                line += 1;
-                column = 1;
+                if was_cr && c == '\n' {
+                    was_cr = false;
+                } else {
+                    was_cr = c == '\r';
+                    line += 1;
+                    column = 1;
+                }
             }
 
             if s.cursor() == pos {

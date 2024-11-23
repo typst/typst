@@ -188,12 +188,12 @@ cast! {
 fn format_csv_error(
     err: ::csv::Error,
     line: usize,
-    span: Span,
+    call_span: Span,
     file_id: Option<FileId>,
 ) -> EcoVec<SourceDiagnostic> {
     let span = file_id
         .and_then(|id| err.position().map(|pos| (id, pos.byte() as usize)))
-        .map_or(span, |(id, pos)| Span::from_range(id, pos..pos));
+        .map_or(call_span, |(id, pos)| Span::from_range(id, pos..pos));
 
     eco_vec![match err.kind() {
         ::csv::ErrorKind::Utf8 { .. } => error!(span, "file is not valid utf-8"),

@@ -331,18 +331,18 @@ impl<'a> Parser<'a> {
 
         let mut range = None;
         if self.s.at('-') || self.s.at(char::is_numeric) || self.s.at('#') {
-            if let Some(file) = file {
-                range = self.parse_range_external(file);
-                if range.is_none() {
-                    self.error("range is malformed");
-                    return None;
-                }
+            range = if let Some(file) = file {
+                self.parse_range_external(file)
+            } else if !self.s.at('#') {
+                self.parse_range(source)
             } else {
-                range = self.parse_range(source);
-                if range.is_none() {
-                    self.error("range is malformed");
-                    return None;
-                }
+                self.error("raw byte positions are only allowed in external files");
+                return None;
+            };
+
+            if range.is_none() {
+                self.error("range is malformed");
+                return None;
             }
         }
 

@@ -84,12 +84,12 @@ impl toml {
 fn format_toml_error(
     error: ::toml::de::Error,
     raw: &str,
-    span: Span,
+    call_span: Span,
     file_id: Option<FileId>,
 ) -> SourceDiagnostic {
     let span = file_id
         .and_then(|id| error.span().map(|range| (id, range)))
-        .map_or(span, |(id, range)| Span::from_range(id, range));
+        .map_or(call_span, |(id, range)| Span::from_range(id, range));
 
     if let Some(head) = error.span().and_then(|range| raw.get(..range.start)) {
         let line = head.lines().count();

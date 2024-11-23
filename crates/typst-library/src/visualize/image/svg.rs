@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
@@ -26,30 +27,6 @@ struct Repr {
     size: Axes<f64>,
     font_hash: u128,
     tree: usvg::Tree,
-}
-
-fn svg_parse_inner(
-    data: &Bytes,
-    options: &usvg::Options,
-    span: Span,
-    file: Option<FileId>,
-) -> SourceResult<usvg::Tree> {
-    if data.starts_with(&[0x1f, 0x8b]) {
-        let data = decompress_svgz(data.as_slice())
-            .map_err(|err| format_usvg_error(err, span, None, ""))?;
-
-        let text = std::str::from_utf8(&data)
-            .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str, span, None, ""))?;
-
-        usvg::Tree::from_str(text, &options)
-            .map_err(|err| format_usvg_error(err, span, file, text))
-    } else {
-        let text = std::str::from_utf8(data.as_slice())
-            .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str, span, None, ""))?;
-
-        usvg::Tree::from_str(text, &options)
-            .map_err(|err| format_usvg_error(err, span, file, text))
-    }
 }
 
 impl SvgImage {
@@ -327,4 +304,31 @@ impl FontResolver<'_> {
 
         Some(id)
     }
+}
+
+/// Equivalent to [`usvg::Tree::from_data`], but with proper span handling.
+///
+/// It produces a parsed SVG tree from the given data, which can be either
+/// an SVG string or a gzip compressed data.
+fn svg_parse_inner(
+    data: &Bytes,
+    options: &usvg::Options,
+    span: Span,
+    file: Option<FileId>,
+) -> SourceResult<usvg::Tree> {
+    // Use a Cow to avoid unnecessary cloning.
+    let mut data = Cow::Borrowed(data.as_slice());
+
+    // The bytes `0x1f 0x8b` are the magic number for gzip files.
+    if data.starts_with(&[0x1f, 0x8b]) {
+        data = decompress_svgz(&data)
+            .map(Cow::Owned)
+            .map_err(|err| format_usvg_error(err, span, None, ""))?;
+    }
+
+    let text = std::str::from_utf8(&data)
+        .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str, span, None, ""))?;
+
+    usvg::Tree::from_str(text, options)
+        .map_err(|err| format_usvg_error(err, span, file, text))
 }
