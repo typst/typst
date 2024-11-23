@@ -13,7 +13,7 @@ use super::Color;
 
 /// A reminder to implement a feature, add content, or fix a bug.
 ///
-/// By default this element is shown as a big bold red "TODO", and produces
+/// By default this element is shown as a big red bold "TODO", and produces
 /// a warning with an optional message. You can optionally restyle the shown
 /// text by using the `show` rule, and you can disable the warning by using the
 /// `warn` argument.
