@@ -1,7 +1,7 @@
 
 use crate::{AbsExt};
 use krilla::color::rgb;
-use krilla::font::{GlyphUnits};
+use krilla::font::{GlyphId, GlyphUnits};
 use krilla::geom::{Point, Transform};
 use krilla::path::{Fill, PathBuilder, Stroke};
 use krilla::surface::Surface;
@@ -9,7 +9,8 @@ use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::Arc;
-use image::{GenericImageView, Rgba};
+use bytemuck::TransparentWrapper;
+use image::GenericImageView;
 use krilla::validation::Validator;
 use krilla::version::PdfVersion;
 use svg2pdf::usvg::{NormalizedF32, Rect};
@@ -17,6 +18,36 @@ use typst_library::layout::{Frame, FrameItem, GroupItem, Size};
 use typst_library::model::Document;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::{ColorSpace, FillRule, FixedStroke, Geometry, Image, ImageKind, LineCap, LineJoin, Paint, Path, PathItem, Shape};
+
+#[derive(TransparentWrapper)]
+#[repr(transparent)]
+struct PdfGlyph(Glyph);
+
+impl krilla::font::Glyph for PdfGlyph {
+    fn glyph_id(&self) -> GlyphId {
+        GlyphId::new(self.0.id as u32)
+    }
+
+    fn text_range(&self) -> Range<usize> {
+        self.0.range.start as usize..self.0.range.end as usize
+    }
+
+    fn x_advance(&self) -> f32 {
+        self.0.x_advance.get() as f32
+    }
+
+    fn x_offset(&self) -> f32 {
+        self.0.x_offset.get() as f32
+    }
+
+    fn y_offset(&self) -> f32 {
+        0.0
+    }
+
+    fn y_advance(&self) -> f32 {
+        0.0
+    }
+}
 
 pub struct ExportContext {
     fonts: HashMap<Font, krilla::font::Font>,
@@ -39,7 +70,6 @@ pub fn pdf(typst_document: &Document) -> Vec<u8> {
         no_device_cs: false,
         ascii_compatible: false,
         xmp_metadata: true,
-        force_type3_fonts: false,
         cmyk_profile: None,
         validator: Validator::None,
         enable_tagging: false,
@@ -86,8 +116,7 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportCont
             krilla::font::Font::new(
                 // TODO: Don't do to_vec here!
                 Arc::new(t.font.data().to_vec()),
-                t.font.index(),
-                vec![],
+                t.font.index()
             )
                 // TODO: DOn't unwrap
             .unwrap()
@@ -102,8 +131,7 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportCont
     let text = t.text.as_str();
     let size = t.size;
 
-    // TODO: Avoid creating vector?
-    let glyphs = t.glyphs.iter().map(|g| WrapperGlyph(g.clone())).collect::<Vec<_>>();
+    let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
     surface.fill_glyphs(
         Point::from_xy(0.0, 0.0),
@@ -231,34 +259,6 @@ pub fn process_frame(frame: &Frame, surface: &mut Surface, context: &mut ExportC
         }
 
         surface.pop();
-    }
-}
-
-struct WrapperGlyph(Glyph);
-
-impl krilla::font::Glyph for WrapperGlyph {
-    fn glyph_id(&self) -> krilla::font::GlyphId {
-        krilla::font::GlyphId::new(self.0.id as u32)
-    }
-
-    fn text_range(&self) -> Range<usize> {
-        self.0.range.start as usize..self.0.range.end as usize
-    }
-
-    fn x_advance(&self) -> f32 {
-        self.0.x_advance.get() as f32
-    }
-
-    fn x_offset(&self) -> f32 {
-        self.0.x_offset.get() as f32
-    }
-
-    fn y_offset(&self) -> f32 {
-        0.0
-    }
-
-    fn y_advance(&self) -> f32 {
-        0.0
     }
 }
 
