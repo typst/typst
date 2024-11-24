@@ -285,6 +285,7 @@ impl State {
     /// Retrieves the value of the state at the current location.
     ///
     /// This is equivalent to `{state.at(here())}`.
+    #[typst_macros::time(name = "state.get", span = span)]
     #[func(contextual)]
     pub fn get(
         &self,
@@ -308,6 +309,7 @@ impl State {
     /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
     /// function also works without a known context if the `selector` is a
     /// location. This behaviour will be removed in a future release.
+    #[typst_macros::time(name = "state.at", span = span)]
     #[func(contextual)]
     pub fn at(
         &self,
