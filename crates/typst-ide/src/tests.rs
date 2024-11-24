@@ -119,7 +119,10 @@ impl IdeWorld for TestWorld {
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         const LIST: &[(PackageSpec, Option<EcoString>)] = &[(
             PackageSpec {
-                // NOTE: DEFAULT_NAMESPACE (i.e. "preview") in typst-kit/src/package.rs
+                // NOTE: This literal, `"preview"`, should match the const, `DEFAULT_NAMESPACE`,
+                // defined in `crates/typst-kit/src/package.rs`. However, we should always use the
+                // literal here, not `DEFAULT_NAMESPACE`, so that this test fails if its value
+                // changes in an unexpected way.
                 namespace: EcoString::inline("preview"),
                 name: EcoString::inline("example"),
                 version: PackageVersion { major: 0, minor: 1, patch: 0 },
