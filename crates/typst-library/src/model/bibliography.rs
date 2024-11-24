@@ -179,16 +179,13 @@ impl BibliographyElem {
     }
 
     /// Find all bibliography keys.
-    pub fn keys(
-        introspector: Tracked<Introspector>,
-    ) -> Vec<(EcoString, Option<EcoString>)> {
+    pub fn keys(introspector: Tracked<Introspector>) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
         for elem in introspector.query(&Self::elem().select()).iter() {
             let this = elem.to_packed::<Self>().unwrap();
-            for entry in this.bibliography().entries() {
-                let key = entry.key().into();
+            for (key, entry) in this.bibliography().iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
-                vec.push((key, detail))
+                vec.push((Label::new(key), detail))
             }
         }
         vec
@@ -341,7 +338,7 @@ impl Bibliography {
             };
 
             for entry in library {
-                match map.entry(entry.key().into()) {
+                match map.entry(PicoStr::intern(entry.key())) {
                     indexmap::map::Entry::Vacant(vacant) => {
                         vacant.insert(entry);
                     }
@@ -366,8 +363,8 @@ impl Bibliography {
         self.map.contains_key(&key.into())
     }
 
-    fn entries(&self) -> impl Iterator<Item = &hayagriva::Entry> {
-        self.map.values()
+    fn iter(&self) -> impl Iterator<Item = (PicoStr, &hayagriva::Entry)> {
+        self.map.iter().map(|(&k, v)| (k, v))
     }
 }
 

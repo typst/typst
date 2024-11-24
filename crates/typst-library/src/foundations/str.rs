@@ -7,7 +7,6 @@ use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
-use typst_utils::PicoStr;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
@@ -751,12 +750,6 @@ cast! {
     EcoString,
     self => Value::Str(self.into()),
     v: Str => v.into(),
-}
-
-cast! {
-    PicoStr,
-    self => Value::Str(self.resolve().into()),
-    v: Str => v.as_str().into(),
 }
 
 cast! {

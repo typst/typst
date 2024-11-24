@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -26,7 +27,7 @@ pub struct PicoStr(NonZeroU32);
 
 impl PicoStr {
     /// Creates a new interned string.
-    pub fn new(string: &str) -> Self {
+    pub fn intern(string: &str) -> Self {
         // Try to find an existing entry that we can reuse.
         //
         // We could check with just a read lock, but if the string is not yet
@@ -80,8 +81,8 @@ impl AsRef<str> for PicoStr {
     }
 }
 
-impl From<&str> for PicoStr {
-    fn from(value: &str) -> Self {
-        Self::new(value)
+impl Borrow<str> for PicoStr {
+    fn borrow(&self) -> &str {
+        self.resolve()
     }
 }

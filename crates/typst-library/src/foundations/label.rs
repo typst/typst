@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 use typst_utils::PicoStr;
 
-use crate::foundations::{func, scope, ty, Repr};
+use crate::foundations::{func, scope, ty, Repr, Str};
 
 /// A label for an element.
 ///
@@ -49,9 +49,9 @@ use crate::foundations::{func, scope, ty, Repr};
 pub struct Label(PicoStr);
 
 impl Label {
-    /// Creates a label from a string, interning it.
-    pub fn new(name: impl Into<PicoStr>) -> Self {
-        Self(name.into())
+    /// Creates a label from an interned string.
+    pub fn new(name: PicoStr) -> Self {
+        Self(name)
     }
 
     /// Resolves the label to a string.
@@ -71,9 +71,9 @@ impl Label {
     #[func(constructor)]
     pub fn construct(
         /// The name of the label.
-        name: PicoStr,
+        name: Str,
     ) -> Label {
-        Self(name)
+        Self(PicoStr::intern(name.as_str()))
     }
 }
 
