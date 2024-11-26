@@ -815,6 +815,17 @@ impl Array {
     ///
     /// Returns an error if two values could not be compared or if the key
     /// function (if given) yields an error.
+    /// 
+    /// The key function can return a tuple to sort by multiple keys.
+    ///
+    /// ```example
+    /// #let array = (
+    ///   (a: "foo", b: "baz"),
+    ///   (a: "fizz", b: "buzz"),
+    ///   (a: "foo", b: "bar"),
+    /// )
+    /// #array.sorted(key: it => (it.a, it.b))
+    /// ```
     #[func]
     pub fn sorted(
         self,
