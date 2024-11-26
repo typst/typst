@@ -264,7 +264,7 @@ impl State {
 
     /// Selects all state updates.
     pub fn select_any() -> Selector {
-        select_where!(StateUpdateElem)
+        StateUpdateElem::elem().select()
     }
 }
 

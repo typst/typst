@@ -1,20 +1,15 @@
-use std::sync::LazyLock;
-
 use ecow::{eco_vec, EcoVec};
 use typst_library::diag::{bail, error, warning, At, SourceResult};
+use typst_library::engine::Engine;
 use typst_library::foundations::{
     ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement,
     Selector, Str, Value,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
+use typst_utils::singleton;
 
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
-
-/// Selector for introspection elements.
-/// This is purposefully a lazy static to avoid allocations.
-static INTROSPECTION_SELECTOR: LazyLock<Selector> =
-    LazyLock::new(|| Selector::Or(eco_vec![State::select_any(), Counter::select_any(),]));
 
 impl Eval for ast::Code<'_> {
     type Output = Value;
@@ -63,27 +58,7 @@ fn eval_code<'a>(
         output = ops::join(output, value).at(span)?;
 
         if let Some(event) = &vm.flow {
-            if let Value::Content(tree) = &output {
-                if let FlowEvent::Return(span, Some(_), false) = event {
-                    if tree.query_first(&INTROSPECTION_SELECTOR).is_some() {
-                        vm.engine.sink.warn(warning!(
-                            *span,
-                            "this return unconditionally discards the content before it";
-                            hint: "it discards state and/or counter updates";
-                            hint: "use `return` without a value to return the joined content";
-                            hint: "or try omitting the `return` keyword to also join this value"
-                        ));
-                    } else {
-                        vm.engine.sink.warn(warning!(
-                            *span,
-                            "this return unconditionally discards the content before it";
-                            hint: "use `return` without a value to return the joined content";
-                            hint: "or try omitting the `return` keyword to also join this value"
-                        ));
-                    }
-                }
-            }
-
+            warn_for_discarded_content(&mut vm.engine, event, &output);
             break;
         }
     }
@@ -386,4 +361,27 @@ impl Eval for ast::Contextual<'_> {
         let func = Func::from(closure).spanned(body.span());
         Ok(ContextElem::new(func).pack())
     }
+}
+
+/// Emits a warning when we discard content while returning unconditionally.
+fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &Value) {
+    let FlowEvent::Return(span, Some(_), false) = event else { return };
+    let Value::Content(tree) = &joined else { return };
+
+    let selector = singleton!(
+        Selector,
+        Selector::Or(eco_vec![State::select_any(), Counter::select_any()])
+    );
+
+    let mut warning = warning!(
+        *span,
+        "this return unconditionally discards the content before it";
+        hint: "try omitting the `return` to automatically join all values"
+    );
+
+    if tree.query_first(selector).is_some() {
+        warning.hint("state/counter updates are content that must end up in the document to have an effect");
+    }
+
+    engine.sink.warn(warning);
 }

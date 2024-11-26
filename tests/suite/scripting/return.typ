@@ -88,48 +88,21 @@
 
 --- return-discard-content ---
 // Test that discarding joined content is a warning.
-
 #let f() = {
-  [ Hello, World! ]
+  [Hello, World!]
   // Warning: 3-16 this return unconditionally discards the content before it
-  // Hint: 3-16 use `return` without a value to return the joined content
-  // Hint: 3-16 or try omitting the `return` keyword to also join this value
+  // Hint: 3-16 try omitting the `return` to automatically join all values
   return "nope"
 }
 
 #test(f(), "nope")
 
 --- return-discard-content-nested ---
-
 #let f() = {
-  [ Hello, World! ]
+  [Hello, World!]
   {
     // Warning: 5-18 this return unconditionally discards the content before it
-    // Hint: 5-18 use `return` without a value to return the joined content
-    // Hint: 5-18 or try omitting the `return` keyword to also join this value
-    return "nope"
-  }
-}
-
-#test(f(), "nope")
-
---- return-discard-for ---
-
-#let f() = {
-  state("hello").update("world")
-  for x in range(3) {
-    return "nope"
-  }
-}
-
-#test(f(), "nope")
-
---- return-discard-while ---
-
-#let f() = {
-  state("hello").update("world")
-  let i = 0
-  while i < 10 {
+    // Hint: 5-18 try omitting the `return` to automatically join all values
     return "nope"
   }
 }
@@ -143,17 +116,35 @@
   state("hello").update("world")
 
   // Warning: 3-19 this return unconditionally discards the content before it
-  // Hint: 3-19 it discards state and/or counter updates
-  // Hint: 3-19 use `return` without a value to return the joined content
-  // Hint: 3-19 or try omitting the `return` keyword to also join this value
+  // Hint: 3-19 try omitting the `return` to automatically join all values
+  // Hint: 3-19 state/counter updates are content that must end up in the document to have an effect
   return [ Hello ]
 }
 
 #test(f(), [ Hello ])
 
---- return-no-discard ---
-// Test that returning a joined content is not a warning.
+--- return-discard-loop ---
+// Test that return from within a control flow construct is not a warning.
+#let f1() = {
+  state("hello").update("world")
+  for x in range(3) {
+    return "nope1"
+  }
+}
 
+#let f2() = {
+  state("hello").update("world")
+  let i = 0
+  while i < 10 {
+    return "nope2"
+  }
+}
+
+#test(f1(), "nope1")
+#test(f2(), "nope2")
+
+--- return-no-discard ---
+// Test that returning the joined content is not a warning.
 #let f() = {
   state("hello").update("world")
   return
@@ -163,7 +154,6 @@
 
 --- return-discard-not-content ---
 // Test that non-content joined value is not a warning.
-
 #let f() = {
   (33,)
   return (66,)
@@ -173,7 +163,6 @@
 
 --- return-discard-markup ---
 // Test that discarding markup is not a warning.
-
 #let f() = [
   hello
   #return [nope]

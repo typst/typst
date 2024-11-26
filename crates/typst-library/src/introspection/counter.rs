@@ -396,7 +396,7 @@ impl Counter {
 
     /// Selects all state updates.
     pub fn select_any() -> Selector {
-        select_where!(CounterUpdateElem)
+        CounterUpdateElem::elem().select()
     }
 }
 
