@@ -98,6 +98,23 @@ $lr(lr(|, size: #4em), size: #50%)$
 $lr(body1, size: #50%)$
 $lr(body2, size: #50%)$
 
+--- math-lr-ignore-ignorant ---
+// Test ignoring leading and trailing ignorant fragments.
+#box($ (1 / 2) $)
+#box({
+  show "(": it => context it
+  $ (1 / 2) $
+})
+#box({
+  show ")": it => context it
+  $ (1 / 2) $
+})
+#box({
+  show "(": it => context it
+  show ")": it => context it
+  $ (1 / 2) $
+})
+
 --- issue-4188-lr-corner-brackets ---
 // Test positioning of U+231C to U+231F
 $⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$

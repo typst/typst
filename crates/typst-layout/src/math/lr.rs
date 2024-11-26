@@ -28,8 +28,21 @@ pub fn layout_lr(
     }
 
     let mut fragments = ctx.layout_into_fragments(body, styles)?;
+
+    // Ignore leading and trailing ignorant fragments.
+    let start_idx = fragments
+        .iter()
+        .position(|f| !f.is_ignorant())
+        .unwrap_or(fragments.len());
+    let end_idx = fragments
+        .iter()
+        .skip(start_idx)
+        .rposition(|f| !f.is_ignorant())
+        .map_or(start_idx, |i| start_idx + i + 1);
+    let inner_fragments = &mut fragments[start_idx..end_idx];
+
     let axis = scaled!(ctx, styles, axis_height);
-    let max_extent = fragments
+    let max_extent = inner_fragments
         .iter()
         .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
         .max()
@@ -39,7 +52,7 @@ pub fn layout_lr(
     let height = elem.size(styles);
 
     // Scale up fragments at both ends.
-    match fragments.as_mut_slice() {
+    match inner_fragments {
         [one] => scale(ctx, styles, one, relative_to, height, None),
         [first, .., last] => {
             scale(ctx, styles, first, relative_to, height, Some(MathClass::Opening));
@@ -49,7 +62,7 @@ pub fn layout_lr(
     }
 
     // Handle MathFragment::Variant fragments that should be scaled up.
-    for fragment in &mut fragments {
+    for fragment in inner_fragments {
         if let MathFragment::Variant(ref mut variant) = fragment {
             if variant.mid_stretched == Some(false) {
                 variant.mid_stretched = Some(true);
@@ -60,11 +73,10 @@ pub fn layout_lr(
 
     // Remove weak SpacingFragment immediately after the opening or immediately
     // before the closing.
-    let original_len = fragments.len();
     let mut index = 0;
     fragments.retain(|fragment| {
         index += 1;
-        (index != 2 && index + 1 != original_len)
+        (index != start_idx + 2 && index + 1 != end_idx)
             || !matches!(fragment, MathFragment::Spacing(_, true))
     });
 
