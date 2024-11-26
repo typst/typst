@@ -816,7 +816,7 @@ impl Array {
     /// Returns an error if two values could not be compared or if the key
     /// function (if given) yields an error.
     /// 
-    /// The key function can return a tuple to sort by multiple keys.
+    /// The key function can return a tuple to sort according to the lexicographic order.
     ///
     /// ```example
     /// #let array = (
