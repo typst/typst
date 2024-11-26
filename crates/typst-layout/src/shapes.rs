@@ -114,6 +114,10 @@ pub fn layout_path(
         path.close_path();
     }
 
+    if !size.is_finite() {
+        bail!(elem.span(), "cannot create path with infinite length");
+    }
+
     // Prepare fill and stroke.
     let fill = elem.fill(styles);
     let fill_rule = elem.fill_rule(styles);
