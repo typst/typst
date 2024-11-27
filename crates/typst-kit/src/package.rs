@@ -31,7 +31,7 @@ pub struct PackageStorage {
     package_path: Option<PathBuf>,
     /// The downloader used for fetching the index and packages.
     downloader: Downloader,
-    /// The cached index of the preview namespace.
+    /// The cached index of the default namespace.
     index: OnceCell<Vec<PackageInfo>>,
 }
 
@@ -105,7 +105,7 @@ impl PackageStorage {
         spec: &VersionlessPackageSpec,
     ) -> StrResult<PackageVersion> {
         if spec.namespace == DEFAULT_NAMESPACE {
-            // For `@preview`, download the package index and find the latest
+            // For `DEFAULT_NAMESPACE`, download the package index and find the latest
             // version.
             self.download_index()?
                 .iter()
@@ -134,7 +134,7 @@ impl PackageStorage {
     pub fn download_index(&self) -> StrResult<&[PackageInfo]> {
         self.index
             .get_or_try_init(|| {
-                let url = format!("{DEFAULT_REGISTRY}/preview/index.json");
+                let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
                 match self.downloader.download(&url) {
                     Ok(response) => response.into_json().map_err(|err| {
                         eco_format!("failed to parse package index: {err}")
@@ -151,7 +151,7 @@ impl PackageStorage {
     /// Download a package over the network.
     ///
     /// # Panics
-    /// Panics if the package spec namespace isn't `preview`.
+    /// Panics if the package spec namespace isn't `DEFAULT_NAMESPACE`.
     pub fn download_package(
         &self,
         spec: &PackageSpec,
@@ -160,8 +160,10 @@ impl PackageStorage {
     ) -> PackageResult<()> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
 
-        let url =
-            format!("{DEFAULT_REGISTRY}/preview/{}-{}.tar.gz", spec.name, spec.version);
+        let url = format!(
+            "{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/{}-{}.tar.gz",
+            spec.name, spec.version
+        );
 
         let data = match self.downloader.download_with_progress(&url, progress) {
             Ok(data) => data,
