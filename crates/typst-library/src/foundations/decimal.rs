@@ -317,6 +317,7 @@ impl Decimal {
                     })
                     .at(value.span)
             }
+            ToDecimal::Decimal(decimal) => Ok(decimal),
         }
     }
 }
@@ -435,6 +436,7 @@ pub enum ToDecimal {
     Int(i64),
     /// A float to be converted to the equivalent decimal.
     Float(f64),
+    Decimal(Decimal),
 }
 
 cast! {
@@ -442,6 +444,7 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
+    v: Decimal => Self::Decimal(v),
 }
 
 #[cfg(test)]
