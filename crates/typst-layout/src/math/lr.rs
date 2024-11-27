@@ -62,7 +62,7 @@ pub fn layout_lr(
     }
 
     // Handle MathFragment::Variant fragments that should be scaled up.
-    for fragment in inner_fragments {
+    for fragment in &mut *inner_fragments {
         if let MathFragment::Variant(ref mut variant) = fragment {
             if variant.mid_stretched == Some(false) {
                 variant.mid_stretched = Some(true);
@@ -74,10 +74,18 @@ pub fn layout_lr(
     // Remove weak SpacingFragment immediately after the opening or immediately
     // before the closing.
     let mut index = 0;
+    let opening_exists = inner_fragments
+        .first()
+        .map_or(false, |f| f.class() == MathClass::Opening);
+    let closing_exists = inner_fragments
+        .last()
+        .map_or(false, |f| f.class() == MathClass::Closing);
     fragments.retain(|fragment| {
+        let discard = (index == start_idx + 1 && opening_exists
+            || index + 2 == end_idx && closing_exists)
+            && matches!(fragment, MathFragment::Spacing(_, true));
         index += 1;
-        (index != start_idx + 2 && index + 1 != end_idx)
-            || !matches!(fragment, MathFragment::Spacing(_, true))
+        !discard
     });
 
     ctx.extend(fragments);
