@@ -430,21 +430,22 @@ impl Hash for Decimal {
 
 /// A value that can be cast to a decimal.
 pub enum ToDecimal {
+    /// A decimal to be converted to itself.
+    Decimal(Decimal),
     /// A string with the decimal's representation.
     Str(EcoString),
     /// An integer to be converted to the equivalent decimal.
     Int(i64),
     /// A float to be converted to the equivalent decimal.
     Float(f64),
-    Decimal(Decimal),
 }
 
 cast! {
     ToDecimal,
+    v: Decimal => Self::Decimal(v),
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
-    v: Decimal => Self::Decimal(v),
 }
 
 #[cfg(test)]

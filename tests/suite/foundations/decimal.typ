@@ -8,7 +8,7 @@
 #test(type(decimal(10)), decimal)
 
 --- decimal-constructor-bad-type ---
-// Error: 10-17 expected integer, float, string, or decimal, found type
+// Error: 10-17 expected decimal, integer, float, or string, found type
 #decimal(decimal)
 
 --- decimal-constructor-bad-value ---
