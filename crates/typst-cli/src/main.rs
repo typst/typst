@@ -18,13 +18,15 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 use std::sync::LazyLock;
 
-use crate::args::{CliArguments, Command};
-use crate::timings::Timer;
+
 use clap::error::ErrorKind;
 use clap::Parser;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use typst::diag::HintedStrResult;
+
+use crate::args::{CliArguments, Command};
+use crate::timings::Timer;
 
 thread_local! {
     /// The CLI's exit code.
