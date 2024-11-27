@@ -317,6 +317,7 @@ impl Decimal {
                     })
                     .at(value.span)
             }
+            ToDecimal::Decimal(decimal) => Ok(decimal),
         }
     }
 }
@@ -429,6 +430,8 @@ impl Hash for Decimal {
 
 /// A value that can be cast to a decimal.
 pub enum ToDecimal {
+    /// A decimal to be converted to itself.
+    Decimal(Decimal),
     /// A string with the decimal's representation.
     Str(EcoString),
     /// An integer to be converted to the equivalent decimal.
@@ -439,7 +442,9 @@ pub enum ToDecimal {
 
 cast! {
     ToDecimal,
+    v: Decimal => Self::Decimal(v),
     v: i64 => Self::Int(v),
+    v: bool => Self::Int(v as i64),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
 }
