@@ -444,6 +444,7 @@ cast! {
     ToDecimal,
     v: Decimal => Self::Decimal(v),
     v: i64 => Self::Int(v),
+    v: bool => Self::Int(v as i64),
     v: f64 => Self::Float(v),
     v: Str => Self::Str(EcoString::from(v)),
 }
