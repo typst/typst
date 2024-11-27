@@ -18,7 +18,6 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 use std::sync::LazyLock;
 
-
 use clap::error::ErrorKind;
 use clap::Parser;
 use codespan_reporting::term;
