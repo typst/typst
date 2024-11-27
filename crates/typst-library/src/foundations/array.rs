@@ -816,8 +816,9 @@ impl Array {
     /// Returns an error if two values could not be compared or if the key
     /// function (if given) yields an error.
     ///
-    /// The key function can return an array to sort according to the
-    /// lexicographic order.
+    /// To sort according to multiple criteria at once, e.g. in case of equality
+    /// between some criteria, the key function can return an array. The results
+    /// are in inlexicographic order.
     ///
     /// ```example
     /// #let array = (
