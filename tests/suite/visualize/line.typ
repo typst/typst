@@ -90,3 +90,7 @@
 --- line-bad-point-component-type ---
 // Error: 14-26 expected relative length, found angle
 #line(start: (3deg, 10pt), length: 5cm)
+
+--- line-infinite-length ---
+// Error: 2-54 cannot create line with infinite length
+#line(start: (0pt, 0pt), end: (float.inf * 1pt, 0pt))

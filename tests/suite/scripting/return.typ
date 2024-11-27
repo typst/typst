@@ -85,3 +85,87 @@
   // Error: 16-16 expected semicolon or line break
   #return a + b Hello World
 ]
+
+--- return-discard-content ---
+// Test that discarding joined content is a warning.
+#let f() = {
+  [Hello, World!]
+  // Warning: 3-16 this return unconditionally discards the content before it
+  // Hint: 3-16 try omitting the `return` to automatically join all values
+  return "nope"
+}
+
+#test(f(), "nope")
+
+--- return-discard-content-nested ---
+#let f() = {
+  [Hello, World!]
+  {
+    // Warning: 5-18 this return unconditionally discards the content before it
+    // Hint: 5-18 try omitting the `return` to automatically join all values
+    return "nope"
+  }
+}
+
+#test(f(), "nope")
+
+--- return-discard-state ---
+// Test that discarding a joined content with state is special warning
+
+#let f() = {
+  state("hello").update("world")
+
+  // Warning: 3-19 this return unconditionally discards the content before it
+  // Hint: 3-19 try omitting the `return` to automatically join all values
+  // Hint: 3-19 state/counter updates are content that must end up in the document to have an effect
+  return [ Hello ]
+}
+
+#test(f(), [ Hello ])
+
+--- return-discard-loop ---
+// Test that return from within a control flow construct is not a warning.
+#let f1() = {
+  state("hello").update("world")
+  for x in range(3) {
+    return "nope1"
+  }
+}
+
+#let f2() = {
+  state("hello").update("world")
+  let i = 0
+  while i < 10 {
+    return "nope2"
+  }
+}
+
+#test(f1(), "nope1")
+#test(f2(), "nope2")
+
+--- return-no-discard ---
+// Test that returning the joined content is not a warning.
+#let f() = {
+  state("hello").update("world")
+  return
+}
+
+#test(f(), state("hello").update("world"))
+
+--- return-discard-not-content ---
+// Test that non-content joined value is not a warning.
+#let f() = {
+  (33,)
+  return (66,)
+}
+
+#test(f(), (66, ))
+
+--- return-discard-markup ---
+// Test that discarding markup is not a warning.
+#let f() = [
+  hello
+  #return [nope]
+]
+
+#test(f(), [nope])

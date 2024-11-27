@@ -426,7 +426,7 @@ impl Content {
     /// selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
-    pub fn query_first(&self, selector: Selector) -> Option<Content> {
+    pub fn query_first(&self, selector: &Selector) -> Option<Content> {
         let mut result = None;
         self.traverse(&mut |element| {
             if result.is_none() && selector.matches(&element, None) {
