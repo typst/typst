@@ -818,7 +818,7 @@ impl Array {
     ///
     /// To sort according to multiple criteria at once, e.g. in case of equality
     /// between some criteria, the key function can return an array. The results
-    /// are in inlexicographic order.
+    /// are in lexicographic order.
     ///
     /// ```example
     /// #let array = (
