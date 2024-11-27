@@ -62,7 +62,7 @@ pub fn layout_lr(
     }
 
     // Handle MathFragment::Variant fragments that should be scaled up.
-    for fragment in &mut *inner_fragments {
+    for fragment in inner_fragments.iter_mut() {
         if let MathFragment::Variant(ref mut variant) = fragment {
             if variant.mid_stretched == Some(false) {
                 variant.mid_stretched = Some(true);
@@ -76,10 +76,10 @@ pub fn layout_lr(
     let mut index = 0;
     let opening_exists = inner_fragments
         .first()
-        .map_or(false, |f| f.class() == MathClass::Opening);
+        .is_some_and(|f| f.class() == MathClass::Opening);
     let closing_exists = inner_fragments
         .last()
-        .map_or(false, |f| f.class() == MathClass::Closing);
+        .is_some_and(|f| f.class() == MathClass::Closing);
     fragments.retain(|fragment| {
         let discard = (index == start_idx + 1 && opening_exists
             || index + 2 == end_idx && closing_exists)
