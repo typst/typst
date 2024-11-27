@@ -816,7 +816,7 @@ impl Array {
     /// Returns an error if two values could not be compared or if the key
     /// function (if given) yields an error.
     ///
-    /// The key function can return an array to sort according to the 
+    /// The key function can return an array to sort according to the
     /// lexicographic order.
     ///
     /// ```example
