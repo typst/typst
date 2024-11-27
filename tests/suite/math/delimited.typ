@@ -115,6 +115,12 @@ $lr(body2, size: #50%)$
   $ (1 / 2) $
 })
 
+--- math-lr-scripts ---
+// Test interactions with script attachments.
+$ lr(size: #3em, |)_a^b lr(size: #3em, zws|)_a^b
+  lr(size: #3em, [x])_0^1 [x]_0^1
+  lr(size: #1em, lr(size: #10em, [x]))_0^1 $
+
 --- issue-4188-lr-corner-brackets ---
 // Test positioning of U+231C to U+231F
 $⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$
