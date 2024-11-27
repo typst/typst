@@ -148,7 +148,8 @@ impl MathFragment {
 
     pub fn is_text_like(&self) -> bool {
         match self {
-            Self::Glyph(_) | Self::Variant(_) => self.class() != MathClass::Large,
+            Self::Glyph(glyph) => !glyph.extended_shape,
+            Self::Variant(variant) => !variant.extended_shape,
             MathFragment::Frame(frame) => frame.text_like,
             _ => false,
         }
@@ -247,6 +248,7 @@ pub struct GlyphFragment {
     pub dests: SmallVec<[Destination; 1]>,
     pub hidden: bool,
     pub limits: Limits,
+    pub extended_shape: bool,
 }
 
 impl GlyphFragment {
@@ -302,6 +304,7 @@ impl GlyphFragment {
             span,
             dests: LinkElem::dests_in(styles),
             hidden: HideElem::hidden_in(styles),
+            extended_shape: false,
         };
         fragment.set_id(ctx, id);
         fragment
@@ -332,7 +335,8 @@ impl GlyphFragment {
         let accent_attach =
             accent_attach(ctx, id, self.font_size).unwrap_or((width + italics) / 2.0);
 
-        if !is_extended_shape(ctx, id) {
+        let extended_shape = is_extended_shape(ctx, id);
+        if !extended_shape {
             width += italics;
         }
 
@@ -342,6 +346,7 @@ impl GlyphFragment {
         self.descent = -bbox.y_min.scaled(ctx, self.font_size);
         self.italics_correction = italics;
         self.accent_attach = accent_attach;
+        self.extended_shape = extended_shape;
     }
 
     pub fn height(&self) -> Abs {
@@ -358,6 +363,7 @@ impl GlyphFragment {
             math_size: self.math_size,
             span: self.span,
             limits: self.limits,
+            extended_shape: self.extended_shape,
             frame: self.into_frame(),
             mid_stretched: None,
         }
@@ -465,6 +471,7 @@ pub struct VariantFragment {
     pub span: Span,
     pub limits: Limits,
     pub mid_stretched: Option<bool>,
+    pub extended_shape: bool,
 }
 
 impl VariantFragment {
