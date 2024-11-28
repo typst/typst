@@ -658,7 +658,7 @@ impl<'a> Generator<'a> {
                     errors.push(error!(
                         child.span(),
                         "key `{}` does not exist in the bibliography",
-                        key.as_str()
+                        key.resolve()
                     ));
                     continue;
                 };
@@ -772,7 +772,9 @@ impl<'a> Generator<'a> {
         let mut output = std::mem::take(&mut self.failures);
         for (info, citation) in self.infos.iter().zip(&rendered.citations) {
             let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
-            let link = |i: usize| links.get(info.subinfos.get(i)?.key.as_str()).copied();
+            let link = |i: usize| {
+                links.get(info.subinfos.get(i)?.key.resolve().as_str()).copied()
+            };
 
             let renderer = ElemRenderer {
                 routines: self.routines,
@@ -817,7 +819,7 @@ impl<'a> Generator<'a> {
         let mut first_occurrences = HashMap::new();
         for info in &self.infos {
             for subinfo in &info.subinfos {
-                let key = subinfo.key.as_str();
+                let key = subinfo.key.resolve();
                 first_occurrences.entry(key).or_insert(info.location);
             }
         }

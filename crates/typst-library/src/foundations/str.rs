@@ -777,7 +777,7 @@ cast! {
             .map_err(|_| "bytes are not valid utf-8")?
             .into()
     ),
-    v: Label => Self::Str(v.as_str().into()),
+    v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
 }
