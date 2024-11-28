@@ -46,7 +46,7 @@ use crate::World;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file
+    /// Path to an image file.
     ///
     /// For more details, see the [Paths section]($syntax/#paths).
     #[required]

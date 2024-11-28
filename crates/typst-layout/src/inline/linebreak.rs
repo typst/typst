@@ -543,7 +543,12 @@ fn raw_ratio(
 ) -> f64 {
     // Determine how much the line's spaces would need to be stretched
     // to make it the desired width.
-    let delta = available_width - line_width;
+    let mut delta = available_width - line_width;
+
+    // Avoid possible floating point errors in previous calculation.
+    if delta.approx_eq(Abs::zero()) {
+        delta = Abs::zero();
+    }
 
     // Determine how much stretch or shrink is natural.
     let adjustability = if delta >= Abs::zero() { stretchability } else { shrinkability };

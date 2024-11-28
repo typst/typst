@@ -23,6 +23,7 @@ pub fn finalize(
         foreground,
         fill,
         numbering,
+        supplement,
     }: LayoutedPage,
 ) -> SourceResult<Page> {
     // If two sided, left becomes inside and right becomes outside.
@@ -69,5 +70,5 @@ pub fn finalize(
     let number = counter.logical();
     counter.step();
 
-    Ok(Page { frame, fill, numbering, number })
+    Ok(Page { frame, fill, numbering, supplement, number })
 }

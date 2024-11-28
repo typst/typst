@@ -295,6 +295,7 @@ fn assemble(
         span: base.span,
         limits: base.limits,
         mid_stretched: None,
+        extended_shape: true,
     }
 }
 
