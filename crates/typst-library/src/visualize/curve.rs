@@ -19,7 +19,7 @@ use CurveComponent::*;
 ///   fill: blue.lighten(80%),
 ///   stroke: blue,
 ///   curve.vertex(point: (0pt, 50pt)),
-///   curve.vertex(point: (100%, 50pt),
+///   curve.vertex(point: (100%, 50pt)),
 ///   curve.vertex(point: (50%, 0pt), control-into: (40pt, 0pt), control-from: auto),
 ///   curve.close()
 /// )

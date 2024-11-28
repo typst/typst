@@ -156,10 +156,7 @@ struct PathBuilder {
 }
 
 impl PathBuilder {
-    fn new(
-        region: Region,
-        close_mode: Option<CloseMode>,
-    ) -> Self {
+    fn new(region: Region, close_mode: Option<CloseMode>) -> Self {
         Self {
             path: Path::new(),
             size: Size::zero(),
