@@ -74,8 +74,8 @@
     fill: yellow,
     stroke: black,
     curve.move(start: (10pt, 10pt)),
-    curve.cubic(cstart:(5pt, 20pt), cend:(15pt, 20pt), end:(20pt, 0pt), relative: true),
-    curve.cubic(cstart: auto, cend:(15pt, -10pt), end:(20pt, 0pt), relative: true),
+    curve.cubic(control-start:(5pt, 20pt), control-end:(15pt, 20pt), end:(20pt, 0pt), relative: true),
+    curve.cubic(control-start: auto, control-end:(15pt, -10pt), end:(20pt, 0pt), relative: true),
     curve.close(mode: "line")
   ),
   curve(
