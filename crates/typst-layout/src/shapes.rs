@@ -10,8 +10,9 @@ use typst_library::layout::{
     Sides, Size,
 };
 use typst_library::visualize::{
-    CircleElem, CloseMode, EllipseElem, FillRule, FixedStroke, Geometry, LineElem, Paint,
-    Path, PathComponent, PathElem, PolygonElem, RectElem, Shape, SquareElem, Stroke,
+    CircleElem, CloseMode, CurveComponent, CurveElem, EllipseElem, FillRule, FixedStroke,
+    Geometry, LineElem, Paint, Path, PathElem, PathVertex, PolygonElem, RectElem, Shape,
+    SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -48,12 +49,101 @@ pub fn layout_line(
     Ok(frame)
 }
 
-struct PathBuilder<'a> {
+/// Layout the path.
+#[typst_macros::time(span = elem.span())]
+pub fn layout_path(
+    elem: &Packed<PathElem>,
+    _: &mut Engine,
+    _: Locator,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let resolve = |axes: Axes<Rel<Length>>| {
+        axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
+    };
+
+    let vertices = elem.vertices();
+    let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
+
+    let mut size = Size::zero();
+    if points.is_empty() {
+        return Ok(Frame::soft(size));
+    }
+
+    // Only create a path if there are more than zero points.
+    // Construct a closed path given all points.
+    let mut path = Path::new();
+    path.move_to(points[0]);
+
+    let mut add_cubic = |from_point: Point,
+                         to_point: Point,
+                         from: PathVertex,
+                         to: PathVertex| {
+        let from_control_point = resolve(from.control_point_from()) + from_point;
+        let to_control_point = resolve(to.control_point_to()) + to_point;
+        path.cubic_to(from_control_point, to_control_point, to_point);
+
+        let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
+        let p1 = kurbo::Point::new(
+            from_control_point.x.to_raw(),
+            from_control_point.y.to_raw(),
+        );
+        let p2 =
+            kurbo::Point::new(to_control_point.x.to_raw(), to_control_point.y.to_raw());
+        let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
+        let extrema = kurbo::CubicBez::new(p0, p1, p2, p3).bounding_box();
+        size.x.set_max(Abs::raw(extrema.x1));
+        size.y.set_max(Abs::raw(extrema.y1));
+    };
+
+    for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
+        let from = vertex_window[0];
+        let to = vertex_window[1];
+        let from_point = point_window[0];
+        let to_point = point_window[1];
+
+        add_cubic(from_point, to_point, from, to);
+    }
+
+    if elem.closed(styles) {
+        let from = *vertices.last().unwrap(); // We checked that we have at least one element.
+        let to = vertices[0];
+        let from_point = *points.last().unwrap();
+        let to_point = points[0];
+
+        add_cubic(from_point, to_point, from, to);
+        path.close_path();
+    }
+
+    if !size.is_finite() {
+        bail!(elem.span(), "cannot create path with infinite length");
+    }
+
+    // Prepare fill and stroke.
+    let fill = elem.fill(styles);
+    let fill_rule = elem.fill_rule(styles);
+    let stroke = match elem.stroke(styles) {
+        Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
+        Smart::Auto => None,
+        Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
+    };
+
+    let mut frame = Frame::soft(size);
+    let shape = Shape {
+        geometry: Geometry::Path(path),
+        stroke,
+        fill,
+        fill_rule,
+    };
+    frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
+    Ok(frame)
+}
+
+struct PathBuilder {
     path: Path,
     size: Size,
     close_mode: Option<CloseMode>,
     region: Region,
-    styles: StyleChain<'a>,
     start_point: Point,
     start_control_into: Point, // cubic
     last_point: Point,
@@ -65,10 +155,9 @@ struct PathBuilder<'a> {
     is_empty: bool,
 }
 
-impl<'a> PathBuilder<'a> {
+impl PathBuilder {
     fn new(
         region: Region,
-        styles: StyleChain<'a>,
         close_mode: Option<CloseMode>,
     ) -> Self {
         Self {
@@ -76,7 +165,6 @@ impl<'a> PathBuilder<'a> {
             size: Size::zero(),
             close_mode,
             region,
-            styles,
             start_point: Default::default(),
             start_control_into: Default::default(),
             last_point: Default::default(),
@@ -89,12 +177,6 @@ impl<'a> PathBuilder<'a> {
     fn adjust_bounds(&mut self, point: Point) {
         self.size.x.set_max(point.x);
         self.size.y.set_max(point.y);
-    }
-
-    fn resolve_old_point(&self, axes: &Axes<Rel<Length>>) -> Point {
-        axes.resolve(self.styles)
-            .zip_map(self.region.size, Rel::relative_to)
-            .to_point()
     }
 
     fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
@@ -218,8 +300,8 @@ fn mirror_c(p: Point, c: Point) -> Point {
 
 /// Layout the path.
 #[typst_macros::time(span = elem.span())]
-pub fn layout_path(
-    elem: &Packed<PathElem>,
+pub fn layout_curve(
+    elem: &Packed<CurveElem>,
     _: &mut Engine,
     _: Locator,
     styles: StyleChain,
@@ -227,26 +309,11 @@ pub fn layout_path(
 ) -> SourceResult<Frame> {
     let default_close_mode = elem.close_mode(styles);
     let close_mode = elem.closed(styles).then_some(default_close_mode).flatten();
-    let mut builder = PathBuilder::new(region, styles, close_mode);
+    let mut builder = PathBuilder::new(region, close_mode);
 
-    for item in elem.vertices() {
+    for item in elem.components() {
         match item {
-            PathComponent::SimplePoint(point) => {
-                let point = builder.resolve_old_point(point);
-                builder.vertex(point, Default::default(), Default::default());
-            }
-            PathComponent::MirroredControlPoint(point, cinto) => {
-                let point = builder.resolve_old_point(point);
-                let cinto = builder.resolve_old_point(cinto);
-                builder.vertex(point, cinto, -cinto);
-            }
-            PathComponent::AllControlPoints(point, cinto, cfrom) => {
-                let point = builder.resolve_old_point(point);
-                let cinto = builder.resolve_old_point(cinto);
-                let cfrom = builder.resolve_old_point(cfrom);
-                builder.vertex(point, cinto, cfrom);
-            }
-            PathComponent::Vertex(element) => {
+            CurveComponent::Vertex(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.point(styles), relative);
                 let cinto = builder.resolve_point(element.control_into(styles), false);
@@ -256,17 +323,20 @@ pub fn layout_path(
                     .unwrap_or(-cinto);
                 builder.vertex(point, cinto, cfrom);
             }
-            PathComponent::MoveTo(element) => {
+
+            CurveComponent::MoveTo(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.start(styles), relative);
                 builder.move_to(point);
             }
-            PathComponent::LineTo(element) => {
+
+            CurveComponent::LineTo(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.end(styles), relative);
                 builder.line_to(point);
             }
-            PathComponent::QuadraticTo(element) => {
+
+            CurveComponent::QuadraticTo(element) => {
                 let relative = element.relative(styles);
                 let control = match element.control(styles) {
                     Smart::Custom(p) => builder.resolve_point(p, relative),
@@ -277,17 +347,19 @@ pub fn layout_path(
                 let end = builder.resolve_point(element.end(styles), relative);
                 builder.quadratic_to(control, end);
             }
-            PathComponent::CubicTo(element) => {
+
+            CurveComponent::CubicTo(element) => {
                 let relative = element.relative(styles);
-                let c1 = match element.cstart(styles) {
+                let c1 = match element.control_start(styles) {
                     Smart::Custom(p) => builder.resolve_point(p, relative),
                     Smart::Auto => builder.last_control_from,
                 };
-                let c2 = builder.resolve_point(element.cend(styles), relative);
+                let c2 = builder.resolve_point(element.control_end(styles), relative);
                 let end = builder.resolve_point(element.end(styles), relative);
                 builder.cubic_to(c1, c2, end);
             }
-            PathComponent::ClosePath(element) => {
+
+            CurveComponent::Close(element) => {
                 let mode = element.mode(styles);
                 builder.close(mode.unwrap_or(default_close_mode));
             }

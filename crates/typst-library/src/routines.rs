@@ -21,8 +21,8 @@ use crate::layout::{
 use crate::math::EquationElem;
 use crate::model::{Document, DocumentInfo, EnumElem, ListElem, TableElem};
 use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
-    SquareElem,
+    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
+    RectElem, SquareElem,
 };
 use crate::World;
 
@@ -241,6 +241,15 @@ routines! {
     /// Lays out a [`LineElem`].
     fn layout_line(
         elem: &Packed<LineElem>,
+        _: &mut Engine,
+        _: Locator,
+        styles: StyleChain,
+        region: Region,
+    ) -> SourceResult<Frame>
+
+    /// Lays out a [`CurveElem`].
+    fn layout_curve(
+        elem: &Packed<CurveElem>,
         _: &mut Engine,
         _: Locator,
         styles: StyleChain,
