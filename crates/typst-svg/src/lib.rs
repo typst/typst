@@ -241,7 +241,7 @@ impl SVGRenderer {
         self.xml.write_attribute("class", "typst-group");
 
         if let Some(label) = group.label {
-            self.xml.write_attribute("data-typst-label", label.as_str());
+            self.xml.write_attribute("data-typst-label", &label.resolve());
         }
 
         if let Some(clip_path) = &group.clip_path {

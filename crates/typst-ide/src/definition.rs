@@ -1,6 +1,7 @@
 use typst::foundations::{Label, Selector, Value};
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Side, Source, Span};
+use typst::utils::PicoStr;
 
 use crate::utils::globals;
 use crate::{
@@ -71,7 +72,7 @@ pub fn definition(
 
         // Try to jump to the referenced content.
         DerefTarget::Ref(node) => {
-            let label = Label::new(node.cast::<ast::Ref>()?.target());
+            let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()));
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
             return Some(Definition::Span(elem.span()));

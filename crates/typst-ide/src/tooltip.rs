@@ -181,7 +181,7 @@ fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
     };
 
     for (label, detail) in analyze_labels(document).0 {
-        if label.as_str() == target {
+        if label.resolve().as_str() == target {
             return Some(Tooltip::Text(detail?));
         }
     }
