@@ -291,3 +291,23 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 // Test whether an empty footnote would cause infinite loop
 #show footnote.entry: it => {}
 #lorem(3) #footnote[A footnote]
+
+--- issue-5435-footnote-migration-in-floats ---
+// Test that a footnote should not prompt migration when in a float that was
+// queued to the next page (due to the float being too large), even if the
+// footnote does not fit, breaking the footnote invariant.
+#set page(height: 50pt)
+
+#place(
+  top,
+  float: true,
+  {
+    v(100pt)
+    footnote[a]
+  }
+)
+#place(
+  top,
+  float: true,
+  footnote[b]
+)
