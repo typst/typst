@@ -2246,6 +2246,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
+name = "sigpipe"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5584bfb3e0d348139d8210285e39f6d2f8a1902ac06de343e06357d1d763d8e6"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2705,6 +2714,7 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "shell-escape",
+ "sigpipe",
  "tar",
  "tempfile",
  "toml",
