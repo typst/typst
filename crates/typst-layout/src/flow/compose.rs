@@ -236,8 +236,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// (depending on `placed.scope`).
     ///
     /// When the float does not fit, it is queued into `work.floats`. The
-    /// value of `clearance` that between the float and flow content is needed
-    /// --- it is set if there are already distributed items.
+    /// value of `clearance` indicates that between the float and flow content
+    /// is needed --- it is set if there are already distributed items.
     pub fn float(
         &mut self,
         placed: &'b PlacedChild<'a>,
