@@ -249,7 +249,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// The value of `migratable` determines whether footnotes within the float
     /// should be allowed to prompt its migration if they don't fit in order to
     /// respect the footnote invariant (entries in the same page as the
-    /// references), triggering [`Stop::Finish`].
+    /// references), triggering [`Stop::Finish`]. This is usually `true` within
+    /// the distributor, as it can handle that particular flow event, and
+    /// `false` elsewhere.
     pub fn float(
         &mut self,
         placed: &'b PlacedChild<'a>,
@@ -339,9 +341,12 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lays out footnotes in the `frame` if this is the root flow and there are
     /// any. The value of `breakable` indicates whether the element that
     /// produced the frame is breakable. If not, the frame is treated as atomic.
+    ///
     /// The value of `migratable` indicates whether footnote migration should be
     /// possible (at least for the first footnote found in the frame, as it is
-    /// forbidden for the second footnote onwards).
+    /// forbidden for the second footnote onwards). It is usually `true` within
+    /// the distributor and `false` elsewhere, as the distributor can handle
+    /// [`Stop::Finish`] which is returned when migration is requested.
     pub fn footnotes(
         &mut self,
         regions: &Regions,
