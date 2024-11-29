@@ -502,12 +502,18 @@ impl<'a> Line<'a> {
 
     /// How much can the line stretch
     fn stretchability(&self) -> Abs {
-        self.items().filter_map(Item::text).map(|s| s.stretchability()).sum()
+        self.items()
+            .filter_map(Item::text)
+            .map(|s| s.stretchability())
+            .fold(Abs::zero(), |acc, x| acc + x)
     }
 
     /// How much can the line shrink
     fn shrinkability(&self) -> Abs {
-        self.items().filter_map(Item::text).map(|s| s.shrinkability()).sum()
+        self.items()
+            .filter_map(Item::text)
+            .map(|s| s.shrinkability())
+            .fold(Abs::zero(), |acc, x| acc + x)
     }
 
     /// The sum of fractions in the line.
