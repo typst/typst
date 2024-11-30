@@ -646,7 +646,7 @@ mod tests {
         test("#[#let x = 1]#x", &["x"]);
 
         // Field access.
-        test("#foo(body: 1)", &[]);
+        test("#f(body: 1)", &["f"]);
         test("#(body: 1)", &[]);
         test("#(body = 1)", &[]);
         test("#(body += y)", &["y"]);
