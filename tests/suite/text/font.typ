@@ -81,3 +81,25 @@ I
 // Warning: 17-34 Typst's default font has changed from Linux Libertine to its successor Libertinus Serif
 // Hint: 17-34 please set the font to `"Libertinus Serif"` instead
 #set text(font: "Linux Libertine")
+
+--- text-font-ranges ---
+#let ubuntu = (name: "Ubuntu", range-match: "[\u{20}-\u{FFFF}]")
+#set text(font: ubuntu)
+#set text(font: (ubuntu, "Ubuntu"))
+
+--- text-bad-ranges-1 ---
+// Error: 17-57 invalid regex
+#set text(font: (name: "Ubuntu", range-match: "20-FFFF"))
+
+--- text-bad-ranges-2 ---
+// Error: 17-63 invalid regex
+#set text(font: (name: "Ubuntu", range-match: "\u{20}-\u{10}"))
+
+--- text-chinese-ranges ---
+// Without ranges, the quotation marks is using Latin font.
+#set text(font: ("Ubuntu", "Noto Serif CJK SC"))
+分别设置“中文”和English字体
+
+// With ranges, the quotation marks is using Chinese font.
+#set text(font: ((name: "Noto Serif CJK SC", range-match: "[\u{00B7}-\u{3134F}]"), "Ubuntu"))
+分别设置“中文”和English字体
