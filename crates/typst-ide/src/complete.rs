@@ -1254,11 +1254,11 @@ impl<'a> CompletionContext<'a> {
                     eco_format!(
                         "{}{}{}",
                         if open { "<" } else { "" },
-                        label.as_str(),
+                        label.resolve(),
                         if close { ">" } else { "" }
                     )
                 }),
-                label: label.as_str().into(),
+                label: label.resolve().as_str().into(),
                 detail,
             });
         }

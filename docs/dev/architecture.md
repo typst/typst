@@ -11,12 +11,20 @@ Let's start with a broad overview of the directories in this repository:
   and library.
 - `crates/typst-cli`: Typst's command line interface. This is a relatively small
   layer on top of the compiler and the exporters.
+- `crates/typst-eval`: The interpreter for the Typst language.
 - `crates/typst-ide`: Exposes IDE functionality.
+- `crates/typst-kit`: Contains various default implementation of
+  functionality used in `typst-cli`.
+- `crates/typst-layout`: Typst's layout engine.
+- `crates/typst-library`: Typst's standard library.
 - `crates/typst-macros`: Procedural macros for the compiler.
 - `crates/typst-pdf`: The PDF exporter.
+- `crates/typst-realize`: Typst's realization subsystem.
 - `crates/typst-render`: A renderer for Typst frames.
 - `crates/typst-svg`: The SVG exporter.
 - `crates/typst-syntax`: Home to the parser and syntax tree definition.
+- `crates/typst-timing`: Performance timing for Typst.
+- `crates/typst-utils`: Utilities for Typst.
 - `docs`: Generates the content of the official
   [documentation][docs] from markdown files and the inline
   Rust documentation. Only generates the content and structure, not the concrete
@@ -30,8 +38,8 @@ The source-to-PDF compilation process of a Typst file proceeds in four phases.
 
 1. **Parsing:** Turns a source string into a syntax tree.
 2. **Evaluation:** Turns a syntax tree and its dependencies into content.
-4. **Layout:** Layouts content into frames.
-5. **Export:** Turns frames into an output format like PDF or a raster graphic.
+3. **Layout:** Layouts content into frames.
+4. **Export:** Turns frames into an output format like PDF or a raster graphic.
 
 The Typst compiler is _incremental:_ Recompiling a document that was compiled
 previously is much faster than compiling from scratch. Most of the hard work is

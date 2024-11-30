@@ -104,6 +104,7 @@ serde = { version = "1.0.184", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 shell-escape = "0.1.5"
+sigpipe = "0.1"
 siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
