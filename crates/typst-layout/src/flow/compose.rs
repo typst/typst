@@ -442,8 +442,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // If the first frame is empty, then none of its content fit. If
         // possible, we then migrate the origin frame to the next region to
         // uphold the footnote invariant (that marker and entry are on the same
-        // page). If not, we just queue the footnote for the next page.
-        if first.is_empty() && exist_non_empty_frame {
+        // page). If not, we just queue the footnote for the next page, but
+        // only if that would actually make a difference (that is, if the
+        // footnote isn't alone in the page after not fitting in any previous
+        // pages, so it probably won't ever fit).
+        if first.is_empty() && exist_non_empty_frame && regions.may_progress() {
             if migratable {
                 return Err(Stop::Finish(false));
             } else {

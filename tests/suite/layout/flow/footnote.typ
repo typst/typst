@@ -291,3 +291,10 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 // Test whether an empty footnote would cause infinite loop
 #show footnote.entry: it => {}
 #lorem(3) #footnote[A footnote]
+
+--- issue-5496-overlarge-footnote ---
+// Test whether a footnote which is always too large would cause an infinite
+// loop
+#set page(width: 20pt, height: 20pt)
+
+#footnote(text(size: 15pt)[a] * 100)
