@@ -292,9 +292,35 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 #show footnote.entry: it => {}
 #lorem(3) #footnote[A footnote]
 
---- issue-5496-overlarge-footnote ---
+--- issue-5496-footnote-never-fits ---
 // Test whether a footnote which is always too large would cause an infinite
-// loop
+// loop.
 #set page(width: 20pt, height: 20pt)
 
 #footnote(text(size: 15pt)[a] * 100)
+
+--- issue-5496-footnote-in-float-never-fits ---
+// Test whether an overlarge footnote in a float also does not cause an
+// infinite loop.
+#set page(width: 20pt, height: 20pt)
+
+#place(
+  top,
+  float: true,
+  footnote(text(size: 15pt)[a] * 100)
+)
+
+--- issue-5496-footnote-never-fits-multiple ---
+// Test whether multiple overlarge footnotes are properly split up across
+// pages.
+#set page(width: 20pt, height: 20pt)
+
+A
+
+#footnote(text(size: 15pt)[a] * 100)
+#footnote(text(size: 15pt)[a] * 100)
+#footnote[Fit]
+
+B
+
+C

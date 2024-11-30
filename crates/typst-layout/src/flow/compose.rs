@@ -445,7 +445,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // page). If not, we just queue the footnote for the next page, but
         // only if that would actually make a difference (that is, if the
         // footnote isn't alone in the page after not fitting in any previous
-        // pages, so it probably won't ever fit).
+        // pages, as it probably won't ever fit then).
         if first.is_empty() && exist_non_empty_frame && regions.may_progress() {
             if migratable {
                 return Err(Stop::Finish(false));
