@@ -352,7 +352,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let mut relayout = false;
         let mut regions = *regions;
-        let mut migratable = !breakable && regions.may_progress();
+
+        // The first footnote's origin frame should be migratable if the region
+        // may progress (already checked by the footnote function) and if the
+        // origin frame isn't breakable (checked here).
+        let mut migratable = !breakable;
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the
