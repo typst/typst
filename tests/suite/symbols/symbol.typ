@@ -49,3 +49,8 @@
 --- symbol-unknown-modifier ---
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
+
+--- symbol-repr ---
+#repr(sym.amp) \
+#repr(sym.amp.inv) \
+#repr(sym.smash)
