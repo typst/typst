@@ -1,26 +1,31 @@
-
-use crate::{AbsExt};
+use crate::AbsExt;
+use bytemuck::TransparentWrapper;
+use image::{DynamicImage, GenericImageView, Rgba};
+use krilla::action::{Action, LinkAction};
+use krilla::annotation::{LinkAnnotation, Target};
 use krilla::color::rgb;
+use krilla::destination::XyzDestination;
 use krilla::font::{GlyphId, GlyphUnits};
 use krilla::geom::{Point, Transform};
+use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::path::{Fill, PathBuilder, Stroke};
 use krilla::surface::Surface;
+use krilla::validation::Validator;
+use krilla::version::PdfVersion;
 use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::{Arc, OnceLock};
-use bytemuck::TransparentWrapper;
-use image::{DynamicImage, GenericImageView, Rgba};
-use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
-use krilla::validation::Validator;
-use krilla::version::PdfVersion;
 use svg2pdf::usvg::{NormalizedF32, Rect};
-use svg2pdf::usvg::filter::ColorChannel;
-use typst_library::layout::{Frame, FrameItem, GroupItem, Size};
-use typst_library::model::Document;
+use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Page, Size};
+use typst_library::model::{Destination, Document};
 use typst_library::text::{Font, Glyph, TextItem};
-use typst_library::visualize::{ColorSpace, FillRule, FixedStroke, Geometry, Image, ImageKind, LineCap, LineJoin, Paint, Path, PathItem, RasterFormat, RasterImage, Shape};
+use typst_library::visualize::{
+    ColorSpace, FillRule, FixedStroke, Geometry, Image, ImageKind, LineCap, LineJoin,
+    Paint, Path, PathItem, RasterFormat, RasterImage, Shape,
+};
+use typst_syntax::ast::Link;
 
 #[derive(TransparentWrapper)]
 #[repr(transparent)]
@@ -54,12 +59,16 @@ impl krilla::font::Glyph for PdfGlyph {
 
 pub struct ExportContext {
     fonts: HashMap<Font, krilla::font::Font>,
+    cur_transform: typst_library::layout::Transform,
+    annotations: Vec<krilla::annotation::Annotation>,
 }
 
 impl ExportContext {
     pub fn new() -> Self {
         Self {
             fonts: Default::default(),
+            cur_transform: typst_library::layout::Transform::identity(),
+            annotations: vec![],
         }
     }
 }
@@ -90,6 +99,12 @@ pub fn pdf(typst_document: &Document) -> Vec<u8> {
         let mut page = document.start_page_with(settings);
         let mut surface = page.surface();
         process_frame(&typst_page.frame, &mut surface, &mut context);
+        surface.finish();
+
+        let annotations = std::mem::take(&mut context.annotations);
+        for annotation in annotations {
+            page.add_annotation(annotation);
+        }
     }
 
     finish(document)
@@ -106,8 +121,13 @@ pub fn handle_group(
     surface: &mut Surface,
     context: &mut ExportContext,
 ) {
+    let old = context.cur_transform;
+    context.cur_transform = context.cur_transform.pre_concat(group.transform);
+
     surface.push_transform(&convert_transform(group.transform));
     process_frame(&group.frame, surface, context);
+
+    context.cur_transform = old;
     surface.pop();
 }
 
@@ -116,14 +136,9 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportCont
         .fonts
         .entry(t.font.clone())
         .or_insert_with(|| {
-            krilla::font::Font::new(
-                // TODO: Don't do to_vec here!
-                Arc::new(t.font.data().to_vec()),
-                t.font.index(),
-                true
-            )
+            krilla::font::Font::new(Arc::new(t.font.data().clone()), t.font.index(), true)
                 // TODO: DOn't unwrap
-            .unwrap()
+                .unwrap()
         })
         .clone();
     let (paint, opacity) = convert_paint(&t.fill);
@@ -166,7 +181,7 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportCont
 struct PdfImage {
     raster: RasterImage,
     alpha_channel: OnceLock<Option<Arc<Vec<u8>>>>,
-    actual_dynamic: OnceLock<Arc<DynamicImage>>
+    actual_dynamic: OnceLock<Arc<DynamicImage>>,
 }
 
 impl PdfImage {
@@ -187,29 +202,36 @@ impl Hash for PdfImage {
 
 impl CustomImage for PdfImage {
     fn color_channel(&self) -> &[u8] {
-        self.actual_dynamic.get_or_init(|| {
-            let dynamic = self.raster.dynamic();
-            let channel_count = dynamic.color().channel_count();
+        self.actual_dynamic
+            .get_or_init(|| {
+                let dynamic = self.raster.dynamic();
+                let channel_count = dynamic.color().channel_count();
 
-            match (dynamic.as_ref(), channel_count) {
-                (DynamicImage::ImageLuma8(_), _) => dynamic.clone(),
-                (DynamicImage::ImageRgb8(_), _) => dynamic.clone(),
-                (_, 1 | 2) => Arc::new(DynamicImage::ImageLuma8(dynamic.to_luma8())),
-                _ => Arc::new(DynamicImage::ImageRgb8(dynamic.to_rgb8())),
-            }
-        }).as_bytes()
+                match (dynamic.as_ref(), channel_count) {
+                    (DynamicImage::ImageLuma8(_), _) => dynamic.clone(),
+                    (DynamicImage::ImageRgb8(_), _) => dynamic.clone(),
+                    (_, 1 | 2) => Arc::new(DynamicImage::ImageLuma8(dynamic.to_luma8())),
+                    _ => Arc::new(DynamicImage::ImageRgb8(dynamic.to_rgb8())),
+                }
+            })
+            .as_bytes()
     }
 
     fn alpha_channel(&self) -> Option<&[u8]> {
-        self.alpha_channel.get_or_init(||
-            self.raster.dynamic().color().has_alpha()
-                .then(|| Arc::new(self.raster
-                    .dynamic()
-                    .pixels()
-                    .map(|(_, _, Rgba([_, _, _, a]))| a)
-                    .collect())
-                )
-        ).as_ref().map(|v| &***v)
+        self.alpha_channel
+            .get_or_init(|| {
+                self.raster.dynamic().color().has_alpha().then(|| {
+                    Arc::new(
+                        self.raster
+                            .dynamic()
+                            .pixels()
+                            .map(|(_, _, Rgba([_, _, _, a]))| a)
+                            .collect(),
+                    )
+                })
+            })
+            .as_ref()
+            .map(|v| &***v)
     }
 
     fn bits_per_component(&self) -> BitsPerComponent {
@@ -220,10 +242,26 @@ impl CustomImage for PdfImage {
         (self.raster.width(), self.raster.height())
     }
 
+    fn icc_profile(&self) -> Option<&[u8]> {
+        if matches!(
+            self.raster.dynamic().as_ref(),
+            DynamicImage::ImageLuma8(_)
+                | DynamicImage::ImageLumaA8(_)
+                | DynamicImage::ImageRgb8(_)
+                | DynamicImage::ImageRgba8(_)
+        ) {
+            self.raster.icc()
+        } else {
+            // In all other cases, the dynamic will be converted into RGB8, so the ICC
+            // profile may become invalid, and thus we don't include it.
+            None
+        }
+    }
+
     fn color_space(&self) -> ImageColorspace {
         if self.raster.dynamic().color().has_color() {
             ImageColorspace::Rgb
-        }   else {
+        } else {
             ImageColorspace::Luma
         }
     }
@@ -257,10 +295,12 @@ pub fn handle_image(
 #[comemo::memoize]
 fn convert_raster(raster: RasterImage) -> krilla::image::Image {
     match raster.format() {
-        // TODO: Remove to_vec
-        RasterFormat::Jpg => krilla::image::Image::from_jpeg(Arc::new(raster.data().to_vec())),
-        _ => krilla::image::Image::from_custom(PdfImage::new(raster))
-    }.unwrap()
+        RasterFormat::Jpg => {
+            krilla::image::Image::from_jpeg(Arc::new(raster.data().clone()))
+        }
+        _ => krilla::image::Image::from_custom(PdfImage::new(raster)),
+    }
+    .unwrap()
 }
 
 pub fn handle_shape(shape: &Shape, surface: &mut Surface) {
@@ -333,12 +373,59 @@ pub fn process_frame(frame: &Frame, surface: &mut Surface, context: &mut ExportC
             FrameItem::Image(image, size, _) => {
                 handle_image(image, size, surface, context)
             }
-            FrameItem::Link(_, _) => {}
+            FrameItem::Link(d, s) => handle_link(*point, d, *s, context, surface),
             FrameItem::Tag(_) => {}
         }
 
         surface.pop();
     }
+}
+
+fn handle_link(
+    pos: typst_library::layout::Point,
+    dest: &Destination,
+    size: typst_library::layout::Size,
+    ctx: &mut ExportContext,
+    surface: &mut Surface,
+) {
+    let mut min_x = Abs::inf();
+    let mut min_y = Abs::inf();
+    let mut max_x = -Abs::inf();
+    let mut max_y = -Abs::inf();
+
+    // Compute the bounding box of the transformed link.
+    for point in [
+        pos,
+        pos + typst_library::layout::Point::with_x(size.x),
+        pos + typst_library::layout::Point::with_y(size.y),
+        pos + size.to_point(),
+    ] {
+        let t = point.transform(ctx.cur_transform);
+        min_x.set_min(t.x);
+        min_y.set_min(t.y);
+        max_x.set_max(t.x);
+        max_y.set_max(t.y);
+    }
+
+    let x1 = min_x.to_f32();
+    let x2 = max_x.to_f32();
+    let y1 = min_y.to_f32();
+    let y2 = max_y.to_f32();
+    let rect = krilla::geom::Rect::from_ltrb(x1, y1, x2, y2).unwrap();
+
+    let target = match dest {
+        Destination::Url(u) => {
+            Target::Action(Action::Link(LinkAction::new(u.to_string())))
+        }
+        Destination::Position(p) => {
+            Target::Destination(krilla::destination::Destination::Xyz(
+                XyzDestination::new(p.page.get() - 1, convert_point(p.point)),
+            ))
+        }
+        Destination::Location(_) => return,
+    };
+
+    ctx.annotations.push(LinkAnnotation::new(rect, target).into());
 }
 
 fn convert_fill_rule(fill_rule: FillRule) -> krilla::path::FillRule {
@@ -359,6 +446,10 @@ fn convert_fixed_stroke(stroke: &FixedStroke) -> Stroke {
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
         ..Default::default()
     }
+}
+
+fn convert_point(p: typst_library::layout::Point) -> krilla::geom::Point {
+    Point::from_xy(p.x.to_f32(), p.y.to_f32())
 }
 
 fn convert_linecap(l: LineCap) -> krilla::path::LineCap {
