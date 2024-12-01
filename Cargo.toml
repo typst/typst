@@ -68,7 +68,7 @@ if_chain = "1"
 image = { version = "0.25.2", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.5"
-krilla = { path = "../krilla/crates/krilla" }
+krilla = { path = "../krilla/crates/krilla", features = ["comemo", "rayon"] }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -139,13 +139,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
 opt-level = 2
-
-[profile.release]
-lto = "thin"
-codegen-units = 1
-
-[profile.release.package."typst-cli"]
-strip = true
 
 [workspace.lints.clippy]
 blocks_in_conditions = "allow"

@@ -7,17 +7,20 @@ use krilla::path::{Fill, PathBuilder, Stroke};
 use krilla::surface::Surface;
 use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use bytemuck::TransparentWrapper;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView, Rgba};
+use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::validation::Validator;
 use krilla::version::PdfVersion;
 use svg2pdf::usvg::{NormalizedF32, Rect};
+use svg2pdf::usvg::filter::ColorChannel;
 use typst_library::layout::{Frame, FrameItem, GroupItem, Size};
 use typst_library::model::Document;
 use typst_library::text::{Font, Glyph, TextItem};
-use typst_library::visualize::{ColorSpace, FillRule, FixedStroke, Geometry, Image, ImageKind, LineCap, LineJoin, Paint, Path, PathItem, Shape};
+use typst_library::visualize::{ColorSpace, FillRule, FixedStroke, Geometry, Image, ImageKind, LineCap, LineJoin, Paint, Path, PathItem, RasterFormat, RasterImage, Shape};
 
 #[derive(TransparentWrapper)]
 #[repr(transparent)]
@@ -116,7 +119,8 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportCont
             krilla::font::Font::new(
                 // TODO: Don't do to_vec here!
                 Arc::new(t.font.data().to_vec()),
-                t.font.index()
+                t.font.index(),
+                true
             )
                 // TODO: DOn't unwrap
             .unwrap()
@@ -158,6 +162,73 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportCont
     }
 }
 
+#[derive(Clone)]
+struct PdfImage {
+    raster: RasterImage,
+    alpha_channel: OnceLock<Option<Arc<Vec<u8>>>>,
+    actual_dynamic: OnceLock<Arc<DynamicImage>>
+}
+
+impl PdfImage {
+    pub fn new(raster: RasterImage) -> Self {
+        Self {
+            raster,
+            alpha_channel: OnceLock::new(),
+            actual_dynamic: OnceLock::new(),
+        }
+    }
+}
+
+impl Hash for PdfImage {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.raster.hash(state);
+    }
+}
+
+impl CustomImage for PdfImage {
+    fn color_channel(&self) -> &[u8] {
+        self.actual_dynamic.get_or_init(|| {
+            let dynamic = self.raster.dynamic();
+            let channel_count = dynamic.color().channel_count();
+
+            match (dynamic.as_ref(), channel_count) {
+                (DynamicImage::ImageLuma8(_), _) => dynamic.clone(),
+                (DynamicImage::ImageRgb8(_), _) => dynamic.clone(),
+                (_, 1 | 2) => Arc::new(DynamicImage::ImageLuma8(dynamic.to_luma8())),
+                _ => Arc::new(DynamicImage::ImageRgb8(dynamic.to_rgb8())),
+            }
+        }).as_bytes()
+    }
+
+    fn alpha_channel(&self) -> Option<&[u8]> {
+        self.alpha_channel.get_or_init(||
+            self.raster.dynamic().color().has_alpha()
+                .then(|| Arc::new(self.raster
+                    .dynamic()
+                    .pixels()
+                    .map(|(_, _, Rgba([_, _, _, a]))| a)
+                    .collect())
+                )
+        ).as_ref().map(|v| &***v)
+    }
+
+    fn bits_per_component(&self) -> BitsPerComponent {
+        BitsPerComponent::Eight
+    }
+
+    fn size(&self) -> (u32, u32) {
+        (self.raster.width(), self.raster.height())
+    }
+
+    fn color_space(&self) -> ImageColorspace {
+        if self.raster.dynamic().color().has_color() {
+            ImageColorspace::Rgb
+        }   else {
+            ImageColorspace::Luma
+        }
+    }
+}
+
 #[typst_macros::time(name = "handle image")]
 pub fn handle_image(
     image: &Image,
@@ -167,8 +238,7 @@ pub fn handle_image(
 ) {
     match image.kind() {
         ImageKind::Raster(raster) => {
-            let image = krilla::image::Image::from_png(raster.data())
-            .unwrap();
+            let image = convert_raster(raster.clone());
             surface.draw_image(
                 image,
                 krilla::geom::Size::from_wh(size.x.to_f32(), size.y.to_f32()).unwrap(),
@@ -182,6 +252,15 @@ pub fn handle_image(
             );
         }
     }
+}
+
+#[comemo::memoize]
+fn convert_raster(raster: RasterImage) -> krilla::image::Image {
+    match raster.format() {
+        // TODO: Remove to_vec
+        RasterFormat::Jpg => krilla::image::Image::from_jpeg(Arc::new(raster.data().to_vec())),
+        _ => krilla::image::Image::from_custom(PdfImage::new(raster))
+    }.unwrap()
 }
 
 pub fn handle_shape(shape: &Shape, surface: &mut Surface) {

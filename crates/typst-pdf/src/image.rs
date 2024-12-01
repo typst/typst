@@ -167,26 +167,27 @@ pub fn deferred_image(
 /// Skips the alpha channel as that's encoded separately.
 #[typst_macros::time(name = "encode raster image")]
 fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
-    let dynamic = image.dynamic();
-    let channel_count = dynamic.color().channel_count();
-    let has_color = channel_count > 2;
-
-    if image.format() == RasterFormat::Jpg {
-        let mut data = Cursor::new(vec![]);
-        dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-        (data.into_inner(), Filter::DctDecode, has_color)
-    } else {
-        // TODO: Encode flate streams with PNG-predictor?
-        let data = match (dynamic, channel_count) {
-            (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
-            (DynamicImage::ImageRgb8(rgb), _) => deflate(rgb.as_raw()),
-            // Grayscale image
-            (_, 1 | 2) => deflate(dynamic.to_luma8().as_raw()),
-            // Anything else
-            _ => deflate(dynamic.to_rgb8().as_raw()),
-        };
-        (data, Filter::FlateDecode, has_color)
-    }
+    // let dynamic = image.dynamic();
+    // let channel_count = dynamic.color().channel_count();
+    // let has_color = channel_count > 2;
+    //
+    // if image.format() == RasterFormat::Jpg {
+    //     let mut data = Cursor::new(vec![]);
+    //     dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
+    //     (data.into_inner(), Filter::DctDecode, has_color)
+    // } else {
+    //     // TODO: Encode flate streams with PNG-predictor?
+    //     let data = match (dynamic, channel_count) {
+    //         (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
+    //         (DynamicImage::ImageRgb8(rgb), _) => deflate(rgb.as_raw()),
+    //         // Grayscale image
+    //         (_, 1 | 2) => deflate(dynamic.to_luma8().as_raw()),
+    //         // Anything else
+    //         _ => deflate(dynamic.to_rgb8().as_raw()),
+    //     };
+    //     (data, Filter::FlateDecode, has_color)
+    // }
+    unimplemented!()
 }
 
 /// Encode an image's alpha channel if present.
