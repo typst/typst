@@ -1,6 +1,9 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Show, StyleChain, TargetElem,
+};
+use crate::html::{tag, HtmlElem};
 use crate::text::{ItalicToggle, TextElem};
 
 /// Emphasizes content by toggling italics.
@@ -35,7 +38,15 @@ pub struct EmphElem {
 
 impl Show for Packed<EmphElem> {
     #[typst_macros::time(name = "emph", span = self.span())]
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_emph(ItalicToggle(true))))
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let body = self.body.clone();
+        Ok(if TargetElem::target_in(styles).is_html() {
+            HtmlElem::new(tag::em)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span())
+        } else {
+            body.styled(TextElem::set_emph(ItalicToggle(true)))
+        })
     }
 }
