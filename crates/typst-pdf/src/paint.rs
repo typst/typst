@@ -1,7 +1,8 @@
 //! Convert paint types from typst to krilla.
 
 use krilla::geom::NormalizedF32;
-use typst_library::visualize::{ColorSpace, FillRule, FixedStroke, Paint};
+use typst_library::layout::Abs;
+use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Paint};
 
 use crate::primitive::{linecap, linejoin};
 use crate::AbsExt;
@@ -25,8 +26,14 @@ pub(crate) fn stroke(stroke: &FixedStroke) -> krilla::path::Stroke {
         line_join: linejoin(stroke.join),
         line_cap: linecap(stroke.cap),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
-        // TODO: Convert dash
-        dash: None,
+        dash: stroke.dash.as_ref().map(|d| dash(d)),
+    }
+}
+
+fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
+    krilla::path::StrokeDash {
+        array: dash.array.iter().map(|e| e.to_f32()).collect(),
+        offset: dash.phase.to_f32(),
     }
 }
 
