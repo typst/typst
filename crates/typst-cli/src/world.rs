@@ -17,7 +17,7 @@ use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Input, SharedArgs};
+use crate::args::{Feature, Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::download::PrintDownload;
 use crate::package;
@@ -112,8 +112,13 @@ impl SystemWorld {
                 .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
                 .collect();
 
-            let features =
-                command.feature.iter().map(|&feature| match feature {}).collect();
+            let features = command
+                .feature
+                .iter()
+                .map(|&feature| match feature {
+                    Feature::Html => typst::Feature::Html,
+                })
+                .collect();
 
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
