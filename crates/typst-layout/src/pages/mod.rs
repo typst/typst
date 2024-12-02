@@ -11,8 +11,8 @@ use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
     Introspector, Locator, ManualPageCounter, SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Page, Point};
-use typst_library::model::{Document, DocumentInfo};
+use typst_library::layout::{FrameItem, Page, PagedDocument, Point};
+use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::World;
 
@@ -26,12 +26,12 @@ use self::run::{layout_blank_page, layout_page_run, LayoutedPage};
 /// elements. In contrast to [`layout_fragment`](crate::layout_fragment),
 /// this does not take regions since the regions are defined by the page
 /// configuration in the content and style chain.
-#[typst_macros::time(name = "document")]
+#[typst_macros::time(name = "layout document")]
 pub fn layout_document(
     engine: &mut Engine,
     content: &Content,
     styles: StyleChain,
-) -> SourceResult<Document> {
+) -> SourceResult<PagedDocument> {
     layout_document_impl(
         engine.routines,
         engine.world,
@@ -56,7 +56,7 @@ fn layout_document_impl(
     route: Tracked<Route>,
     content: &Content,
     styles: StyleChain,
-) -> SourceResult<Document> {
+) -> SourceResult<PagedDocument> {
     let mut locator = Locator::root().split();
     let mut engine = Engine {
         routines,
@@ -86,7 +86,7 @@ fn layout_document_impl(
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
     let introspector = Introspector::new(&pages);
 
-    Ok(Document { pages, info, introspector })
+    Ok(PagedDocument { pages, info, introspector })
 }
 
 /// Layouts the document's pages.

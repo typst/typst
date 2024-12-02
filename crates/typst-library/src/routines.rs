@@ -16,10 +16,11 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{
     Abs, BoxElem, ColumnsElem, Fragment, Frame, GridElem, InlineItem, MoveElem, PadElem,
-    Region, Regions, Rel, RepeatElem, RotateElem, ScaleElem, Size, SkewElem, StackElem,
+    PagedDocument, Region, Regions, Rel, RepeatElem, RotateElem, ScaleElem, Size,
+    SkewElem, StackElem,
 };
 use crate::math::EquationElem;
-use crate::model::{Document, DocumentInfo, EnumElem, ListElem, TableElem};
+use crate::model::{DocumentInfo, EnumElem, ListElem, TableElem};
 use crate::visualize::{
     CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
     SquareElem,
@@ -90,7 +91,7 @@ routines! {
         engine: &mut Engine,
         content: &Content,
         styles: StyleChain,
-    ) -> SourceResult<Document>
+    ) -> SourceResult<PagedDocument>
 
     /// Lays out content into multiple regions.
     fn layout_fragment(

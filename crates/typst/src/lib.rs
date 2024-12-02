@@ -47,7 +47,7 @@ use typst_library::diag::{warning, FileError, SourceDiagnostic, SourceResult, Wa
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{StyleChain, Styles, Value};
 use typst_library::introspection::Introspector;
-use typst_library::model::Document;
+use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
 use typst_timing::{timed, TimingScope};
@@ -57,7 +57,7 @@ use typst_timing::{timed, TimingScope};
 /// - Returns `Ok(document)` if there were no fatal errors.
 /// - Returns `Err(errors)` if there were fatal errors.
 #[typst_macros::time]
-pub fn compile(world: &dyn World) -> Warned<SourceResult<Document>> {
+pub fn compile(world: &dyn World) -> Warned<SourceResult<PagedDocument>> {
     let mut sink = Sink::new();
     let output = compile_impl(world.track(), Traced::default().track(), &mut sink)
         .map_err(deduplicate);
@@ -80,7 +80,7 @@ fn compile_impl(
     world: Tracked<dyn World + '_>,
     traced: Tracked<Traced>,
     sink: &mut Sink,
-) -> SourceResult<Document> {
+) -> SourceResult<PagedDocument> {
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -103,7 +103,7 @@ fn compile_impl(
 
     let mut iter = 0;
     let mut subsink;
-    let mut document = Document::default();
+    let mut document = PagedDocument::default();
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.

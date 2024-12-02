@@ -12,8 +12,7 @@ use typst::diag::{
     bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Frame, Page, PageRanges};
-use typst::model::Document;
+use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
 use typst_pdf::{PdfOptions, PdfStandards};
@@ -171,7 +170,7 @@ pub fn compile_once(
 /// Export into the target format.
 fn export(
     world: &mut SystemWorld,
-    document: &Document,
+    document: &PagedDocument,
     command: &CompileCommand,
     watching: bool,
 ) -> SourceResult<()> {
@@ -189,7 +188,7 @@ fn export(
 }
 
 /// Export to a PDF.
-fn export_pdf(document: &Document, command: &CompileCommand) -> SourceResult<()> {
+fn export_pdf(document: &PagedDocument, command: &CompileCommand) -> SourceResult<()> {
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp: convert_datetime(
@@ -229,7 +228,7 @@ enum ImageExportFormat {
 /// Export to one or multiple images.
 fn export_image(
     world: &mut SystemWorld,
-    document: &Document,
+    document: &PagedDocument,
     command: &CompileCommand,
     watching: bool,
     fmt: ImageExportFormat,

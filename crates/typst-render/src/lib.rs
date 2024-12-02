@@ -7,9 +7,9 @@ mod text;
 
 use tiny_skia as sk;
 use typst_library::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Size, Transform,
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Size,
+    Transform,
 };
-use typst_library::model::Document;
 use typst_library::visualize::{Color, Geometry, Paint};
 
 /// Export a page into a raster image.
@@ -43,7 +43,7 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
 
 /// Export a document with potentially multiple pages into a single raster image.
 pub fn render_merged(
-    document: &Document,
+    document: &PagedDocument,
     pixel_per_pt: f32,
     gap: Abs,
     fill: Option<Color>,
