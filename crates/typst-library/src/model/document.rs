@@ -37,6 +37,10 @@ pub struct DocumentElem {
     #[ghost]
     pub author: Author,
 
+    /// The document's description.
+    #[ghost]
+    pub description: Option<Content>,
+
     /// The document's keywords.
     #[ghost]
     pub keywords: Keywords,
@@ -91,6 +95,8 @@ pub struct DocumentInfo {
     pub title: Option<EcoString>,
     /// The document's author.
     pub author: Vec<EcoString>,
+    /// The document's description.
+    pub description: Option<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
@@ -110,6 +116,10 @@ impl DocumentInfo {
         }
         if has(<DocumentElem as Fields>::Enum::Author) {
             self.author = DocumentElem::author_in(chain).0;
+        }
+        if has(<DocumentElem as Fields>::Enum::Description) {
+            self.description =
+                DocumentElem::description_in(chain).map(|content| content.plain_text());
         }
         if has(<DocumentElem as Fields>::Enum::Keywords) {
             self.keywords = DocumentElem::keywords_in(chain).0;
