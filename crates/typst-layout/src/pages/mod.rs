@@ -75,7 +75,7 @@ fn layout_document_impl(
     let arenas = Arenas::default();
     let mut info = DocumentInfo::default();
     let mut children = (engine.routines.realize)(
-        RealizationKind::Root(&mut info),
+        RealizationKind::LayoutDocument(&mut info),
         &mut engine,
         &mut locator,
         &arenas,
@@ -84,7 +84,7 @@ fn layout_document_impl(
     )?;
 
     let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
-    let introspector = Introspector::new(&pages);
+    let introspector = Introspector::paged(&pages);
 
     Ok(PagedDocument { pages, info, introspector })
 }

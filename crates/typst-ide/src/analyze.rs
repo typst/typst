@@ -37,7 +37,7 @@ pub fn analyze_expr(
                 }
             }
 
-            return typst::trace(world.upcast(), node.span());
+            return typst::trace::<PagedDocument>(world.upcast(), node.span());
         }
     };
 

@@ -86,13 +86,6 @@ routines! {
         styles: StyleChain<'a>,
     ) -> SourceResult<Vec<Pair<'a>>>
 
-    /// Layout content into a document.
-    fn layout_document(
-        engine: &mut Engine,
-        content: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<PagedDocument>
-
     /// Lays out content into multiple regions.
     fn layout_fragment(
         engine: &mut Engine,
@@ -343,11 +336,16 @@ pub enum EvalMode {
 
 /// Defines what kind of realization we are performing.
 pub enum RealizationKind<'a> {
-    /// This the root realization for the document. Requires a mutable reference
+    /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
-    Root(&'a mut DocumentInfo),
+    LayoutDocument(&'a mut DocumentInfo),
     /// A nested realization in a container (e.g. a `block`).
-    Container,
+    LayoutFragment,
+    /// This the root realization for HTML. Requires a mutable reference
+    /// to document metadata that will be filled from `set document` rules.
+    HtmlDocument(&'a mut DocumentInfo),
+    /// A nested realization in a container (e.g. a `block`).
+    HtmlFragment,
     /// A realization within math.
     Math,
 }

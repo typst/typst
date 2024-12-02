@@ -2674,6 +2674,7 @@ dependencies = [
  "comemo",
  "ecow",
  "typst-eval",
+ "typst-html",
  "typst-layout",
  "typst-library",
  "typst-macros",
@@ -2720,6 +2721,7 @@ dependencies = [
  "toml",
  "typst",
  "typst-eval",
+ "typst-html",
  "typst-kit",
  "typst-macros",
  "typst-pdf",
@@ -2785,6 +2787,20 @@ dependencies = [
  "typst-assets",
  "typst-render",
  "typst-syntax",
+]
+
+[[package]]
+name = "typst-html"
+version = "0.12.0"
+dependencies = [
+ "comemo",
+ "ecow",
+ "typst-library",
+ "typst-macros",
+ "typst-svg",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
 ]
 
 [[package]]
