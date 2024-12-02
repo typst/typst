@@ -193,7 +193,7 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs);
+        let global = global(math.clone(), inputs, &self.features);
         let std = Value::Module(global.clone());
         Library {
             global,
@@ -236,9 +236,9 @@ pub enum Feature {
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict) -> Module {
+fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global, inputs);
+    self::foundations::define(&mut global, inputs, features);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();
