@@ -646,11 +646,17 @@ impl Repr for str {
                 '\0' => r.push_str(r"\u{0}"),
                 '\'' => r.push('\''),
                 '"' => r.push_str(r#"\""#),
-                _ => c.escape_debug().for_each(|c| r.push(c)),
+                _ => r.extend(c.escape_debug()),
             }
         }
         r.push('"');
         r
+    }
+}
+
+impl Repr for char {
+    fn repr(&self) -> EcoString {
+        EcoString::from(*self).repr()
     }
 }
 
