@@ -26,6 +26,7 @@ comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+krilla = { workspace = true }
 miniz_oxide = { workspace = true }
 pdf-writer = { workspace = true }
 serde = { workspace = true }

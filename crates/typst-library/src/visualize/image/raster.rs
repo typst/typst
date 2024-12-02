@@ -20,7 +20,7 @@ pub struct RasterImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     format: RasterFormat,
-    dynamic: image::DynamicImage,
+    dynamic: Arc<image::DynamicImage>,
     icc: Option<Vec<u8>>,
     dpi: Option<f64>,
 }
@@ -59,7 +59,7 @@ impl RasterImage {
         // Extract pixel density.
         let dpi = determine_dpi(&data, exif.as_ref());
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr { data, format, dynamic: Arc::new(dynamic), icc, dpi })))
     }
 
     /// The raw image data.
@@ -88,8 +88,8 @@ impl RasterImage {
     }
 
     /// Access the underlying dynamic image.
-    pub fn dynamic(&self) -> &image::DynamicImage {
-        &self.0.dynamic
+    pub fn dynamic(&self) -> Arc<image::DynamicImage> {
+        self.0.dynamic.clone()
     }
 
     /// Access the ICC profile, if any.

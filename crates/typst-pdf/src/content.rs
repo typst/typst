@@ -28,7 +28,7 @@ use typst_utils::{Deferred, Numeric, SliceExt};
 use crate::color::PaintEncode;
 use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
-use crate::image::deferred_image;
+use crate::image_old::deferred_image;
 use crate::resources::Resources;
 use crate::{deflate_deferred, AbsExt, ContentExt, EmExt, PdfOptions, StrExt};
 

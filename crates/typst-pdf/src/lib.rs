@@ -8,10 +8,14 @@ mod extg;
 mod font;
 mod gradient;
 mod image;
+mod image_old;
+mod krilla;
 mod named_destination;
 mod outline;
 mod page;
+mod paint;
 mod pattern;
+mod primitive;
 mod resources;
 
 use std::collections::HashMap;
@@ -37,7 +41,7 @@ use crate::color_font::{write_color_fonts, ColorFontSlice};
 use crate::extg::{write_graphic_states, ExtGState};
 use crate::font::write_fonts;
 use crate::gradient::{write_gradients, PdfGradient};
-use crate::image::write_images;
+use crate::image_old::write_images;
 use crate::named_destination::{write_named_destinations, NamedDestinations};
 use crate::page::{alloc_page_refs, traverse_pages, write_page_tree, EncodedPage};
 use crate::pattern::{write_patterns, PdfPattern};
@@ -50,6 +54,7 @@ use crate::resources::{
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &Document, options: &PdfOptions) -> SourceResult<Vec<u8>> {
+    return Ok(krilla::pdf(document));
     PdfBuilder::new(document, options)
         .phase(|builder| builder.run(traverse_pages))?
         .phase(|builder| {
