@@ -231,7 +231,9 @@ impl FromIterator<Feature> for Features {
 /// An in-development feature that should be enabled.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[non_exhaustive]
-pub enum Feature {}
+pub enum Feature {
+    Html,
+}
 
 /// Construct the module with global definitions.
 fn global(math: Module, inputs: Dict) -> Module {
