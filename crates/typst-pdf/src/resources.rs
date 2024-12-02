@@ -22,7 +22,7 @@ use crate::color::ColorSpaces;
 use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
-use crate::image::EncodedImage;
+use crate::image_old::EncodedImage;
 use crate::pattern::PatternRemapper;
 use crate::{PdfChunk, Renumber, WithEverything, WithResources};
 
