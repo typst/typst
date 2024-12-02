@@ -6,8 +6,9 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
-    Styles, Synthesize,
+    Styles, Synthesize, TargetElem,
 };
+use crate::html::{tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
@@ -216,6 +217,22 @@ impl Synthesize for Packed<HeadingElem> {
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles).is_html() {
+            // HTML's h1 is closer to a title element. There should only be one.
+            // Meanwhile, a level 1 Typst heading is a section heading. For this
+            // reason, levels are offset by one: A Typst level 1 heading becomes
+            // a `<h2>`.
+            let level = self.resolve_level(styles);
+            let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level.get().min(5) - 1];
+
+            // TODO: Don't ignore the various non-body properties.
+            let body = self.body().clone();
+            return Ok(HtmlElem::new(t)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
+
         const SPACING_TO_NUMBERING: Em = Em::new(0.3);
 
         let span = self.span();
