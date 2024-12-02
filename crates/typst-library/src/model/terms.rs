@@ -127,7 +127,7 @@ impl Show for Packed<TermsElem> {
 
         let pad = hanging_indent + indent;
         let unpad = (!hanging_indent.is_zero())
-            .then(|| HElem::new((-hanging_indent).into()).pack());
+            .then(|| HElem::new((-hanging_indent).into()).pack().spanned(self.span()));
 
         let mut children = vec![];
         for child in self.children().iter() {
@@ -149,12 +149,16 @@ impl Show for Packed<TermsElem> {
         let mut realized = StackElem::new(children)
             .with_spacing(Some(gutter.into()))
             .pack()
+            .spanned(self.span())
             .padded(padding);
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
-            let spacing =
-                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
+            let spacing = VElem::new(leading.into())
+                .with_weak(true)
+                .with_attach(true)
+                .pack()
+                .spanned(self.span());
             realized = spacing + realized;
         }
 

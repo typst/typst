@@ -391,7 +391,9 @@ fn wrap_args_in_math(
     }
     Ok(Value::Content(
         callee.display().spanned(callee_span)
-            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')')).pack(),
+            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+                .pack()
+                .spanned(args.span),
     ))
 }
 
