@@ -32,6 +32,17 @@ pub fn svg(page: &Page) -> String {
     renderer.finalize()
 }
 
+/// Export a frame into a SVG file.
+#[typst_macros::time(name = "svg frame")]
+pub fn svg_frame(frame: &Frame) -> String {
+    let mut renderer = SVGRenderer::new();
+    renderer.write_header(frame.size());
+
+    let state = State::new(frame.size(), Transform::identity());
+    renderer.render_frame(state, Transform::identity(), frame);
+    renderer.finalize()
+}
+
 /// Export a document with potentially multiple pages into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.

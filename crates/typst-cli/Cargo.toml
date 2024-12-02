@@ -20,6 +20,7 @@ doc = false
 [dependencies]
 typst = { workspace = true }
 typst-eval = { workspace = true }
+typst-html = { workspace = true }
 typst-kit = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }

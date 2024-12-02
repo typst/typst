@@ -19,6 +19,7 @@ readme = "README.md"
 typst = { path = "crates/typst", version = "0.12.0" }
 typst-cli = { path = "crates/typst-cli", version = "0.12.0" }
 typst-eval = { path = "crates/typst-eval", version = "0.12.0" }
+typst-html = { path = "crates/typst-html", version = "0.12.0" }
 typst-ide = { path = "crates/typst-ide", version = "0.12.0" }
 typst-kit = { path = "crates/typst-kit", version = "0.12.0" }
 typst-layout = { path = "crates/typst-layout", version = "0.12.0" }
