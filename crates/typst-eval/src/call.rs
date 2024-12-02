@@ -1,8 +1,7 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString, EcoVec};
 use typst_library::diag::{
-    bail, error, At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
-    Trace, Tracepoint,
+    bail, error, At, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -136,7 +135,8 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Function);
+            // TODO: Maybe add warnings about undefined variables?
+            let mut visitor = CapturesVisitor::new(&vm.scopes, Capturer::Function, None);
             visitor.visit(self.to_untyped());
             visitor.finish()
         };
@@ -414,20 +414,30 @@ fn hint_if_shadowed_std(
 
 /// A visitor that determines which variables to capture for a closure.
 pub struct CapturesVisitor<'a> {
-    external: Option<&'a Scopes<'a>>,
+    external: &'a Scopes<'a>,
     internal: Scopes<'a>,
     captures: Scope,
     capturer: Capturer,
+    /// Any undefined variable accesses encountered while visiting. May include
+    /// duplicate names if referenced at unique locations.
+    undefined: Option<&'a mut Vec<(EcoString, Span)>>,
 }
 
 impl<'a> CapturesVisitor<'a> {
-    /// Create a new visitor for the given external scopes.
-    pub fn new(external: Option<&'a Scopes<'a>>, capturer: Capturer) -> Self {
+    /// Create a new visitor for the given external scopes. If undefined is
+    /// `Some`, it will have any undefined variables pushed into it, otherwise
+    /// undefined variables are ignored.
+    pub fn new(
+        external: &'a Scopes<'a>,
+        capturer: Capturer,
+        undefined: Option<&'a mut Vec<(EcoString, Span)>>,
+    ) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
             captures: Scope::new(),
             capturer,
+            undefined,
         }
     }
 
@@ -444,10 +454,10 @@ impl<'a> CapturesVisitor<'a> {
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => {
-                self.capture(ident.get(), ident.span(), Scopes::get)
+                self.capture(ident.get(), ident.span(), false)
             }
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), ident.span(), Scopes::get_in_math)
+                self.capture(ident.get(), ident.span(), true)
             }
 
             // Code and content blocks create a scope.
@@ -559,27 +569,23 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    fn capture(
-        &mut self,
-        ident: &EcoString,
-        span: Span,
-        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
-    ) {
+    fn capture(&mut self, ident: &EcoString, span: Span, in_math: bool) {
         if self.internal.get(ident).is_err() {
-            let Some(value) = self
-                .external
-                .map(|external| getter(external, ident).ok())
-                .unwrap_or(Some(&Value::None))
-            else {
-                return;
+            let maybe_value = if in_math {
+                self.external.get_in_math(ident).ok()
+            } else {
+                self.external.get(ident).ok()
             };
-
-            self.captures.define_captured(
-                ident.clone(),
-                value.clone(),
-                self.capturer,
-                span,
-            );
+            if let Some(value) = maybe_value {
+                self.captures.define_captured(
+                    ident.clone(),
+                    value.clone(),
+                    self.capturer,
+                    span,
+                );
+            } else if let Some(vec) = self.undefined.as_mut() {
+                vec.push((ident.clone(), span))
+            }
         }
     }
 }
@@ -591,14 +597,10 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn test(text: &str, result: &[&str]) {
-        let mut scopes = Scopes::new(None);
-        scopes.top.define("f", 0);
-        scopes.top.define("x", 0);
-        scopes.top.define("y", 0);
-        scopes.top.define("z", 0);
-
-        let mut visitor = CapturesVisitor::new(Some(&scopes), Capturer::Function);
+    fn test(scopes: &Scopes, text: &str, result: &[&str]) {
+        let mut undef = Vec::new();
+        let mut visitor =
+            CapturesVisitor::new(scopes, Capturer::Function, Some(&mut undef));
         let root = parse(text);
         visitor.visit(&root);
 
@@ -607,48 +609,100 @@ mod tests {
         names.sort();
 
         assert_eq!(names, result);
+        assert!(undef.is_empty());
     }
 
     #[test]
     fn test_captures() {
+        let mut scopes = Scopes::new(None);
+        scopes.top.define("f", 0);
+        scopes.top.define("x", 0);
+        scopes.top.define("y", 0);
+        scopes.top.define("z", 0);
+        let s = &scopes;
+
         // Let binding and function definition.
-        test("#let x = x", &["x"]);
-        test("#let x; #(x + y)", &["y"]);
-        test("#let f(x, y) = x + y", &[]);
-        test("#let f(x, y) = f", &[]);
-        test("#let f = (x, y) => f", &["f"]);
+        test(s, "#let x = x", &["x"]);
+        test(s, "#let x; #(x + y)", &["y"]);
+        test(s, "#let f(x, y) = x + y", &[]);
+        test(s, "#let f(x, y) = f", &[]);
+        test(s, "#let f = (x, y) => f", &["f"]);
 
         // Closure with different kinds of params.
-        test("#((x, y) => x + z)", &["z"]);
-        test("#((x: y, z) => x + z)", &["y"]);
-        test("#((..x) => x + y)", &["y"]);
-        test("#((x, y: x + z) => x + y)", &["x", "z"]);
-        test("#{x => x; x}", &["x"]);
+        test(s, "#((x, y) => x + z)", &["z"]);
+        test(s, "#((x: y, z) => x + z)", &["y"]);
+        test(s, "#((..x) => x + y)", &["y"]);
+        test(s, "#((x, y: x + z) => x + y)", &["x", "z"]);
+        test(s, "#{x => x; x}", &["x"]);
 
         // Show rule.
-        test("#show y: x => x", &["y"]);
-        test("#show y: x => x + z", &["y", "z"]);
-        test("#show x: x => x", &["x"]);
+        test(s, "#show y: x => x", &["y"]);
+        test(s, "#show y: x => x + z", &["y", "z"]);
+        test(s, "#show x: x => x", &["x"]);
 
         // For loop.
-        test("#for x in y { x + z }", &["y", "z"]);
-        test("#for (x, y) in y { x + y }", &["y"]);
-        test("#for x in y {} #x", &["x", "y"]);
+        test(s, "#for x in y { x + z }", &["y", "z"]);
+        test(s, "#for (x, y) in y { x + y }", &["y"]);
+        test(s, "#for x in y {} #x", &["x", "y"]);
 
         // Import.
-        test("#import z: x, y", &["z"]);
-        test("#import x + y: x, y, z", &["x", "y"]);
+        test(s, "#import z: x, y", &["z"]);
+        test(s, "#import x + y: x, y, z", &["x", "y"]);
 
         // Blocks.
-        test("#{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
-        test("#[#let x = 1]#x", &["x"]);
+        test(s, "#{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
+        test(s, "#[#let x = 1]#x", &["x"]);
 
         // Field access.
-        test("#foo(body: 1)", &[]);
-        test("#(body: 1)", &[]);
-        test("#(body = 1)", &[]);
-        test("#(body += y)", &["y"]);
-        test("#{ (body, a) = (y, 1) }", &["y"]);
-        test("#(x.at(y) = 5)", &["x", "y"])
+        test(s, "#x.y.f(z)", &["x", "z"]);
+
+        // Parenthesized expressions.
+        test(s, "#f(x: 1)", &["f"]);
+        test(s, "#(x: 1)", &[]);
+        test(s, "#(x = 1)", &["x"]);
+        test(s, "#(x += y)", &["x", "y"]);
+        test(s, "#{ (x, z) = (y, 1) }", &["x", "y", "z"]);
+        test(s, "#(x.at(y) = 5)", &["x", "y"]);
+    }
+
+    #[test]
+    fn test_captures_in_math() {
+        let mut scopes = Scopes::new(None);
+        scopes.top.define("f", 0);
+        scopes.top.define("x", 0);
+        scopes.top.define("y", 0);
+        scopes.top.define("z", 0);
+        // Multi-letter variables are required for math.
+        scopes.top.define("foo", 0);
+        scopes.top.define("bar", 0);
+        scopes.top.define("x-bar", 0);
+        scopes.top.define("x_bar", 0);
+        let s = &scopes;
+
+        // Basic math identifier differences.
+        test(s, "$ x f(z) $", &[]); // single letters not captured.
+        test(s, "$ #x #f(z) $", &["f", "x", "z"]);
+        test(s, "$ foo f(bar) $", &["bar", "foo"]);
+        test(s, "$ #foo[#$bar$] $", &["bar", "foo"]);
+        test(s, "$ #let foo = x; foo $", &["x"]);
+
+        // Math idents don't have dashes/underscores
+        test(s, "$ x-y x_y foo-x x_bar $", &["bar", "foo"]);
+        test(s, "$ #x-bar #x_bar $", &["x-bar", "x_bar"]);
+
+        // Named-params.
+        test(s, "$ foo(bar: y) $", &["foo"]);
+        // This should be updated when we improve named-param parsing:
+        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["bar", "foo"]);
+
+        // Field access in math.
+        test(s, "$ foo.bar $", &["foo"]);
+        test(s, "$ foo.x $", &["foo"]);
+        test(s, "$ x.foo $", &["foo"]);
+        test(s, "$ foo . bar $", &["bar", "foo"]);
+        test(s, "$ foo.x.y.bar(z) $", &["foo"]);
+        test(s, "$ foo.x-bar $", &["bar", "foo"]);
+        test(s, "$ foo.x_bar $", &["bar", "foo"]);
+        test(s, "$ #x_bar.x-bar $", &["x_bar"]);
     }
 }

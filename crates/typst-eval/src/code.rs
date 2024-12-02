@@ -345,7 +345,8 @@ impl Eval for ast::Contextual<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Context);
+            // TODO: Maybe add warnings about undefined variables?
+            let mut visitor = CapturesVisitor::new(&vm.scopes, Capturer::Context, None);
             visitor.visit(body.to_untyped());
             visitor.finish()
         };

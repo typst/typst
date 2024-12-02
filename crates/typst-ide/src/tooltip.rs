@@ -3,7 +3,7 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::engine::Sink;
-use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
+use typst::foundations::{repr, Capturer, CastInfo, Repr, Scopes, Value};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::ast::AstNode;
@@ -143,17 +143,22 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     // Analyze the closure's captures.
-    let mut visitor = CapturesVisitor::new(None, Capturer::Function);
+    let empty = Scopes::new(None);
+    let mut undef = Vec::new();
+    // Since we passs an empty scope, all variables will be added to `undef`.
+    let mut visitor = CapturesVisitor::new(&empty, Capturer::Function, Some(&mut undef));
     visitor.visit(parent);
+    let captues = visitor.finish();
+    assert!(captues.iter().next().is_none());
 
-    let captures = visitor.finish();
     let mut names: Vec<_> =
-        captures.iter().map(|(name, ..)| eco_format!("`{name}`")).collect();
+        undef.iter().map(|(name, _span)| eco_format!("`{name}`")).collect();
     if names.is_empty() {
         return None;
     }
 
     names.sort();
+    names.dedup();
 
     let tooltip = repr::separated_list(&names, "and");
     Some(Tooltip::Text(eco_format!("This closure captures {tooltip}")))
@@ -338,6 +343,21 @@ mod tests {
     fn test_tooltip_closure() {
         test("#let f(x) = x + y", 11, Side::Before)
             .must_be_text("This closure captures `y`");
+        // Same tooltip if `y` is defined first.
+        test("#let y = 10; #let f(x) = x + y", 24, Side::Before)
+            .must_be_text("This closure captures `y`");
+        // Names are sorted.
+        test("#let f(x) = x + y + z + a", 11, Side::Before)
+            .must_be_text("This closure captures `a`, `y`, and `z`");
+        // Names are de-duplicated.
+        test("#let f(x) = x + y + z + y", 11, Side::Before)
+            .must_be_text("This closure captures `y` and `z`");
+        // With arrow syntax.
+        test("#let f = (x) => x + y", 15, Side::Before)
+            .must_be_text("This closure captures `y`");
+        // No recursion with arrow syntax.
+        test("#let f = (x) => x + y + f", 13, Side::After)
+            .must_be_text("This closure captures `f` and `y`");
     }
 
     #[test]
