@@ -1,22 +1,22 @@
 //! Exporting of Typst documents into PDFs.
 
-mod catalog;
-mod color;
+mod catalog_old;
+mod color_old;
 mod color_font;
-mod content;
-mod extg;
-mod font;
-mod gradient;
+mod content_old;
+mod extg_old;
+mod font_old;
+mod gradient_old;
 mod image;
 mod image_old;
 mod krilla;
-mod named_destination;
-mod outline;
-mod page;
+mod named_destination_old;
+mod outline_old;
+mod page_old;
 mod paint;
-mod pattern;
+mod pattern_old;
 mod primitive;
-mod resources;
+mod resources_old;
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -35,17 +35,17 @@ use typst_library::visualize::Image;
 use typst_syntax::Span;
 use typst_utils::Deferred;
 
-use crate::catalog::write_catalog;
-use crate::color::{alloc_color_functions_refs, ColorFunctionRefs};
+use crate::catalog_old::write_catalog;
+use crate::color_old::{alloc_color_functions_refs, ColorFunctionRefs};
 use crate::color_font::{write_color_fonts, ColorFontSlice};
-use crate::extg::{write_graphic_states, ExtGState};
-use crate::font::write_fonts;
-use crate::gradient::{write_gradients, PdfGradient};
+use crate::extg_old::{write_graphic_states, ExtGState};
+use crate::font_old::write_fonts;
+use crate::gradient_old::{write_gradients, PdfGradient};
 use crate::image_old::write_images;
-use crate::named_destination::{write_named_destinations, NamedDestinations};
-use crate::page::{alloc_page_refs, traverse_pages, write_page_tree, EncodedPage};
-use crate::pattern::{write_patterns, PdfPattern};
-use crate::resources::{
+use crate::named_destination_old::{write_named_destinations, NamedDestinations};
+use crate::page_old::{alloc_page_refs, traverse_pages, write_page_tree, EncodedPage};
+use crate::pattern_old::{write_patterns, PdfPattern};
+use crate::resources_old::{
     alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
 };
 

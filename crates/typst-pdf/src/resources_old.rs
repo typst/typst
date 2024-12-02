@@ -4,7 +4,7 @@
 //! a PDF reference. Each [content stream] is associated with a resource dictionary.
 //! The identifiers defined in the resources can then be used in content streams.
 //!
-//! [content stream]: `crate::content`
+//! [content stream]: `crate::content_old`
 
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
@@ -18,12 +18,12 @@ use typst_library::visualize::Image;
 use typst_syntax::Span;
 use typst_utils::Deferred;
 
-use crate::color::ColorSpaces;
+use crate::color_old::ColorSpaces;
 use crate::color_font::ColorFontMap;
-use crate::extg::ExtGState;
-use crate::gradient::PdfGradient;
+use crate::extg_old::ExtGState;
+use crate::gradient_old::PdfGradient;
 use crate::image_old::EncodedImage;
-use crate::pattern::PatternRemapper;
+use crate::pattern_old::PatternRemapper;
 use crate::{PdfChunk, Renumber, WithEverything, WithResources};
 
 /// All the resources that have been collected when traversing the document.

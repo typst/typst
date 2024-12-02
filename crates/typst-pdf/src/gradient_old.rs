@@ -13,10 +13,10 @@ use typst_library::visualize::{
 };
 use typst_utils::Numeric;
 
-use crate::color::{
+use crate::color_old::{
     self, check_cmyk_allowed, ColorSpaceExt, PaintEncode, QuantizedColor,
 };
-use crate::{content, deflate, transform_to_array, AbsExt, PdfChunk, WithGlobalRefs};
+use crate::{content_old, deflate, transform_to_array, AbsExt, PdfChunk, WithGlobalRefs};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -69,7 +69,7 @@ pub fn write_gradients(
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Axial);
 
-                    color::write(
+                    color_old::write(
                         color_space,
                         shading.color_space(),
                         &context.globals.color_functions,
@@ -106,7 +106,7 @@ pub fn write_gradients(
                     let mut shading = shading_pattern.function_shading();
                     shading.shading_type(FunctionShadingType::Radial);
 
-                    color::write(
+                    color_old::write(
                         color_space,
                         shading.color_space(),
                         &context.globals.color_functions,
@@ -136,7 +136,7 @@ pub fn write_gradients(
                     let mut stream_shading =
                         chunk.chunk.stream_shading(stream_shading_id, &vertices);
 
-                    color::write(
+                    color_old::write(
                         color_space,
                         stream_shading.color_space(),
                         &context.globals.color_functions,
@@ -251,9 +251,9 @@ fn single_gradient(
 impl PaintEncode for Gradient {
     fn set_as_fill(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()> {
         ctx.reset_fill_color_space();
 
@@ -268,9 +268,9 @@ impl PaintEncode for Gradient {
 
     fn set_as_stroke(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()> {
         ctx.reset_stroke_color_space();
 
@@ -286,10 +286,10 @@ impl PaintEncode for Gradient {
 
 /// Deduplicates a gradient to a named PDF resource.
 fn register_gradient(
-    ctx: &mut content::Builder,
+    ctx: &mut content_old::Builder,
     gradient: &Gradient,
     on_text: bool,
-    mut transforms: content::Transforms,
+    mut transforms: content_old::Transforms,
 ) -> usize {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {

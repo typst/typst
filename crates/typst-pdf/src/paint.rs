@@ -2,7 +2,7 @@
 
 use krilla::geom::NormalizedF32;
 use typst_library::layout::Abs;
-use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Paint};
+use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Paint, Pattern};
 
 use crate::primitive::{linecap, linejoin};
 use crate::AbsExt;
@@ -61,4 +61,8 @@ fn fill_rule(fill_rule: FillRule) -> krilla::path::FillRule {
         FillRule::NonZero => krilla::path::FillRule::NonZero,
         FillRule::EvenOdd => krilla::path::FillRule::EvenOdd,
     }
+}
+
+fn pattern(pattern: &Pattern) -> krilla::paint::Pattern {
+
 }

@@ -10,7 +10,7 @@ use typst_library::visualize::{
 };
 use typst_utils::Deferred;
 
-use crate::{color, deflate, PdfChunk, WithGlobalRefs};
+use crate::{color_old, deflate, PdfChunk, WithGlobalRefs};
 
 /// Embed all used images into the PDF.
 #[typst_macros::time(name = "write images")]
@@ -54,13 +54,13 @@ pub fn write_images(
                         space.icc_based(id);
                         icc_ref = Some(id);
                     } else if *has_color {
-                        color::write(
+                        color_old::write(
                             ColorSpace::Srgb,
                             space,
                             &context.globals.color_functions,
                         );
                     } else {
-                        color::write(
+                        color_old::write(
                             ColorSpace::D65Gray,
                             space,
                             &context.globals.color_functions,

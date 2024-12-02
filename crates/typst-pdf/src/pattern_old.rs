@@ -8,9 +8,9 @@ use typst_library::layout::{Abs, Ratio, Transform};
 use typst_library::visualize::{Pattern, RelativeTo};
 use typst_utils::Numeric;
 
-use crate::color::PaintEncode;
-use crate::resources::{Remapper, ResourcesRefs};
-use crate::{content, transform_to_array, PdfChunk, Resources, WithGlobalRefs};
+use crate::color_old::PaintEncode;
+use crate::resources_old::{Remapper, ResourcesRefs};
+use crate::{content_old, transform_to_array, PdfChunk, Resources, WithGlobalRefs};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
@@ -80,10 +80,10 @@ pub struct PdfPattern {
 
 /// Registers a pattern with the PDF.
 fn register_pattern(
-    ctx: &mut content::Builder,
+    ctx: &mut content_old::Builder,
     pattern: &Pattern,
     on_text: bool,
-    mut transforms: content::Transforms,
+    mut transforms: content_old::Transforms,
 ) -> SourceResult<usize> {
     let patterns = ctx
         .resources
@@ -105,7 +105,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let content = content::build(
+    let content = content_old::build(
         ctx.options,
         &mut patterns.resources,
         pattern.frame(),
@@ -125,9 +125,9 @@ fn register_pattern(
 impl PaintEncode for Pattern {
     fn set_as_fill(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()> {
         ctx.reset_fill_color_space();
 
@@ -142,9 +142,9 @@ impl PaintEncode for Pattern {
 
     fn set_as_stroke(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()> {
         ctx.reset_stroke_color_space();
 

@@ -25,11 +25,11 @@ use typst_library::visualize::{
 use typst_syntax::Span;
 use typst_utils::{Deferred, Numeric, SliceExt};
 
-use crate::color::PaintEncode;
+use crate::color_old::PaintEncode;
 use crate::color_font::ColorFontMap;
-use crate::extg::ExtGState;
+use crate::extg_old::ExtGState;
 use crate::image_old::deferred_image;
-use crate::resources::Resources;
+use crate::resources_old::Resources;
 use crate::{deflate_deferred, AbsExt, ContentExt, EmExt, PdfOptions, StrExt};
 
 /// Encode a [`Frame`] into a content stream.

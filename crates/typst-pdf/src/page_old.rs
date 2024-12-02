@@ -11,7 +11,7 @@ use typst_library::layout::{Abs, Page};
 use typst_library::model::{Destination, Numbering};
 
 use crate::{
-    content, AbsExt, PdfChunk, PdfOptions, Resources, WithDocument, WithRefs,
+    content_old, AbsExt, PdfChunk, PdfOptions, Resources, WithDocument, WithRefs,
     WithResources,
 };
 
@@ -65,7 +65,7 @@ fn construct_page(
     page: &Page,
 ) -> SourceResult<EncodedPage> {
     Ok(EncodedPage {
-        content: content::build(
+        content: content_old::build(
             options,
             out,
             &page.frame,
@@ -305,6 +305,6 @@ impl PdfPageLabelStyle {
 
 /// Data for an exported page.
 pub struct EncodedPage {
-    pub content: content::Encoded,
+    pub content: content_old::Encoded,
     pub label: Option<PdfPageLabel>,
 }

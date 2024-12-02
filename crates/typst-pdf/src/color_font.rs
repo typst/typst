@@ -18,9 +18,9 @@ use typst_library::layout::Em;
 use typst_library::text::color::glyph_frame;
 use typst_library::text::{Font, Glyph, TextItemView};
 
-use crate::font::{base_font_name, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
-use crate::resources::{Resources, ResourcesRefs};
-use crate::{content, EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
+use crate::font_old::{base_font_name, write_font_descriptor, CMAP_NAME, SYSTEM_INFO};
+use crate::resources_old::{Resources, ResourcesRefs};
+use crate::{content_old, EmExt, PdfChunk, PdfOptions, WithGlobalRefs};
 
 /// Write color fonts in the PDF document.
 ///
@@ -190,7 +190,7 @@ pub struct ColorGlyph {
     /// The ID of the glyph.
     pub gid: u16,
     /// Instructions to draw the glyph.
-    pub instructions: content::Encoded,
+    pub instructions: content_old::Encoded,
 }
 
 impl ColorFontMap<()> {
@@ -250,7 +250,7 @@ impl ColorFontMap<()> {
 
             let width = font.advance(glyph.id).unwrap_or(Em::new(0.0)).get()
                 * font.units_per_em();
-            let instructions = content::build(
+            let instructions = content_old::build(
                 options,
                 &mut self.resources,
                 &frame,

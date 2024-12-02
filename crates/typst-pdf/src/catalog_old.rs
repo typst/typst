@@ -11,8 +11,8 @@ use typst_library::text::Lang;
 use typst_syntax::Span;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
-use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, TextStrExt, WithEverything};
+use crate::page_old::PdfPageLabel;
+use crate::{hash_base64, outline_old, TextStrExt, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -34,7 +34,7 @@ pub fn write_catalog(
     };
 
     // Write the outline tree.
-    let outline_root_id = outline::write_outline(pdf, alloc, &ctx);
+    let outline_root_id = outline_old::write_outline(pdf, alloc, &ctx);
 
     // Write the page labels.
     let page_labels = write_page_labels(pdf, alloc, &ctx);

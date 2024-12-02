@@ -6,7 +6,7 @@ use typst_library::diag::{bail, SourceResult};
 use typst_library::visualize::{Color, ColorSpace, Paint};
 use typst_syntax::Span;
 
-use crate::{content, deflate, PdfChunk, PdfOptions, Renumber, WithResources};
+use crate::{content_old, deflate, PdfChunk, PdfOptions, Renumber, WithResources};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -198,26 +198,26 @@ pub(super) trait PaintEncode {
     /// Set the paint as the fill color.
     fn set_as_fill(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()>;
 
     /// Set the paint as the stroke color.
     fn set_as_stroke(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()>;
 }
 
 impl PaintEncode for Paint {
     fn set_as_fill(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()> {
         match self {
             Self::Solid(c) => c.set_as_fill(ctx, on_text, transforms),
@@ -228,9 +228,9 @@ impl PaintEncode for Paint {
 
     fn set_as_stroke(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         on_text: bool,
-        transforms: content::Transforms,
+        transforms: content_old::Transforms,
     ) -> SourceResult<()> {
         match self {
             Self::Solid(c) => c.set_as_stroke(ctx, on_text, transforms),
@@ -243,9 +243,9 @@ impl PaintEncode for Paint {
 impl PaintEncode for Color {
     fn set_as_fill(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         _: bool,
-        _: content::Transforms,
+        _: content_old::Transforms,
     ) -> SourceResult<()> {
         match self {
             Color::Luma(_) => {
@@ -287,9 +287,9 @@ impl PaintEncode for Color {
 
     fn set_as_stroke(
         &self,
-        ctx: &mut content::Builder,
+        ctx: &mut content_old::Builder,
         _: bool,
-        _: content::Transforms,
+        _: content_old::Transforms,
     ) -> SourceResult<()> {
         match self {
             Color::Luma(_) => {
