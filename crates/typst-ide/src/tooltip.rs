@@ -4,8 +4,7 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::engine::Sink;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
-use typst::layout::Length;
-use typst::model::Document;
+use typst::layout::{Length, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_with_precision, Numeric};
@@ -21,7 +20,7 @@ use crate::{analyze_expr, analyze_import, analyze_labels, IdeWorld};
 /// document is available.
 pub fn tooltip(
     world: &dyn IdeWorld,
-    document: Option<&Document>,
+    document: Option<&PagedDocument>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -173,7 +172,7 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
+fn label_tooltip(document: &PagedDocument, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
