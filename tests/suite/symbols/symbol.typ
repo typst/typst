@@ -51,6 +51,12 @@
 #emoji.face.garbage
 
 --- symbol-repr ---
-#repr(sym.amp) \
-#repr(sym.amp.inv) \
-#repr(sym.smash)
+#test(
+  repr(sym.amp),
+  `symbol("&", ("inv", "⅋"))`.text,
+)
+#test(
+  repr(sym.amp.inv),
+  `symbol("&", ("inv", "⅋")).inv`.text,
+)
+#test(repr(sym.smash), "symbol(\"⨳\")")
