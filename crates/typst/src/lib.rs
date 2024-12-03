@@ -234,18 +234,21 @@ fn warn_or_error_for_html(
     world: Tracked<dyn World + '_>,
     sink: &mut Sink,
 ) -> SourceResult<()> {
+    const ISSUE: &str = "https://github.com/typst/typst/issues/5512";
     if world.library().features.is_enabled(Feature::Html) {
         sink.warn(warning!(
             Span::detached(),
             "html export is under active development and incomplete";
             hint: "its behaviour may change at any time";
-            hint: "do not rely on this feature for production use cases"
+            hint: "do not rely on this feature for production use cases";
+            hint: "see {ISSUE} for more information"
         ));
     } else {
         bail!(
             Span::detached(),
             "html export is only available when `--feature html` is passed";
-            hint: "html export is under active development and incomplete"
+            hint: "html export is under active development and incomplete";
+            hint: "see {ISSUE} for more information"
         );
     }
     Ok(())
