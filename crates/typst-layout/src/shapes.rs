@@ -363,16 +363,23 @@ fn layout_shape(
         // The default size that a shape takes on if it has no child and
         // enough space.
         let default = Size::new(Abs::pt(45.0), Abs::pt(30.0));
-        // `region.expand` is true for axes whose size was specified.
-        let mut size = region.expand.select(region.size, default.min(region.size));
-        if kind.is_quadratic() {
-            if region.expand.any(|ex| *ex) {
-                // If only one of the dimensions was specified, then
-                // that must take precedence over the default size.
-                size = region.size;
-            }
-            size = Size::splat(size.min_by_side());
-        }
+        let size = if kind.is_quadratic() {
+            // `region.expand` is true for axes whose size was specified.
+            let length = if region.expand.x && region.expand.y {
+                // If both `width` and `height` are specified, we choose the
+                // smaller one.
+                region.size.x.min(region.size.y)
+            } else if region.expand.x {
+                region.size.x
+            } else if region.expand.y {
+                region.size.y
+            } else {
+                default.min(region.size).min_by_side()
+            };
+            Size::splat(length)
+        } else {
+            region.expand.select(region.size, default.min(region.size))
+        };
         frame = Frame::soft(size);
     }
 

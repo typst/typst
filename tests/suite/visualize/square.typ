@@ -80,8 +80,8 @@
 --- square-overflow ---
 // Test that square doesn't overflow due to its aspect ratio.
 #set page(width: 40pt, height: 25pt, margin: 5pt)
-#square(width: 100%)
-#square(width: 100%)[Hello there]
+#square(height: 100%)
+#square(height: 100%)[Hello there]
 
 --- square-size-relative-invalid ---
 // Size cannot be relative because we wouldn't know

@@ -74,3 +74,9 @@ Expanded by height.
 #circle(height: 5cm)
 #circle(width: 5cm)
 #circle(radius: 5cm / 2)
+
+
+--- circle-beyond-page-width-overflows ---
+// Test that sizing a circle beyond the page width correctly overflows the page.
+#set page(height: 100pt)
+#circle(width: 150%)
