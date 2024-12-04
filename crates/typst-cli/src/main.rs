@@ -60,11 +60,11 @@ fn main() -> ExitCode {
 
 /// Execute the requested command.
 fn dispatch() -> HintedStrResult<()> {
-    let timer = Timer::new(&ARGS);
+    let mut timer = Timer::new(&ARGS);
 
     match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(timer, command.clone())?,
-        Command::Watch(command) => crate::watch::watch(timer, command.clone())?,
+        Command::Compile(command) => crate::compile::compile(&mut timer, command)?,
+        Command::Watch(command) => crate::watch::watch(&mut timer, command)?,
         Command::Init(command) => crate::init::init(command)?,
         Command::Query(command) => crate::query::query(command)?,
         Command::Fonts(command) => crate::fonts::fonts(command),

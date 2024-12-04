@@ -22,8 +22,8 @@ impl Timer {
     /// record timings for a specific function invocation.
     pub fn new(args: &CliArguments) -> Timer {
         let record = match &args.command {
-            Command::Compile(command) => command.timings.clone(),
-            Command::Watch(command) => command.timings.clone(),
+            Command::Compile(command) => command.args.timings.clone(),
+            Command::Watch(command) => command.args.timings.clone(),
             _ => None,
         };
 
