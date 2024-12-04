@@ -15,7 +15,7 @@ use crate::world::SystemWorld;
 
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
-    let mut world = SystemWorld::new(&command.common)?;
+    let mut world = SystemWorld::new(&command.input, &command.world, &command.process)?;
 
     // Reset everything and ensure that the main file is present.
     world.reset();
@@ -29,7 +29,7 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
             let data = retrieve(&world, command, &document)?;
             let serialized = format(data, command)?;
             println!("{serialized}");
-            print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
+            print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
 
@@ -40,7 +40,7 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
                 &world,
                 &errors,
                 &warnings,
-                command.common.diagnostic_format,
+                command.process.diagnostic_format,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
