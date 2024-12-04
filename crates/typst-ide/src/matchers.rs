@@ -123,6 +123,32 @@ pub fn named_items<T>(
                 }
             }
 
+            if let Some(v) = parent.cast::<ast::Closure>() {
+                for param in v.params().children() {
+                    match param {
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.bindings() {
+                                if let Some(t) = recv(NamedItem::Var(ident)) {
+                                    return Some(t);
+                                }
+                            }
+                        }
+                        ast::Param::Named(n) => {
+                            if let Some(t) = recv(NamedItem::Var(n.name())) {
+                                return Some(t);
+                            }
+                        }
+                        ast::Param::Spread(s) => {
+                            if let Some(sink_ident) = s.sink_ident() {
+                                if let Some(t) = recv(NamedItem::Var(sink_ident)) {
+                                    return Some(t);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             ancestor = Some(parent.clone());
             continue;
         }
