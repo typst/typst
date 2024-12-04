@@ -260,6 +260,15 @@ $ q &= sum_k ln A \
 // Test numbering on empty equations.
 #math.equation(numbering: "1", block: true, [])
 
+--- math-equation-tag-affects-row-height ---
+// Tags should not affect the row height of equations.
+#box($ - - $, fill: silver)
+#box($ #metadata(none) - - $, fill: silver) \
+#box($ a \ - - $, fill: silver)
+#box($ a \ #metadata(none) - - $, fill: silver)
+#box($ - - \ a $, fill: silver)
+#box($ #metadata(none) - - \ a $, fill: silver)
+
 --- issue-4187-alignment-point-affects-row-height ---
 // In this bug, a row of "-" only should have a very small height; but
 // after adding an alignment point "&", the row gains a larger height.

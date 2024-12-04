@@ -1,12 +1,15 @@
 use ecow::{eco_vec, EcoVec};
-use typst_library::diag::{bail, error, At, SourceResult};
+use typst_library::diag::{bail, error, warning, At, SourceResult};
+use typst_library::engine::Engine;
 use typst_library::foundations::{
-    ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str,
-    Value,
+    ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement,
+    Selector, Str, Value,
 };
+use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
+use typst_utils::singleton;
 
-use crate::{CapturesVisitor, Eval, Vm};
+use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
 
 impl Eval for ast::Code<'_> {
     type Output = Value;
@@ -54,7 +57,8 @@ fn eval_code<'a>(
 
         output = ops::join(output, value).at(span)?;
 
-        if vm.flow.is_some() {
+        if let Some(event) = &vm.flow {
+            warn_for_discarded_content(&mut vm.engine, event, &output);
             break;
         }
     }
@@ -357,4 +361,27 @@ impl Eval for ast::Contextual<'_> {
         let func = Func::from(closure).spanned(body.span());
         Ok(ContextElem::new(func).pack())
     }
+}
+
+/// Emits a warning when we discard content while returning unconditionally.
+fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &Value) {
+    let FlowEvent::Return(span, Some(_), false) = event else { return };
+    let Value::Content(tree) = &joined else { return };
+
+    let selector = singleton!(
+        Selector,
+        Selector::Or(eco_vec![State::select_any(), Counter::select_any()])
+    );
+
+    let mut warning = warning!(
+        *span,
+        "this return unconditionally discards the content before it";
+        hint: "try omitting the `return` to automatically join all values"
+    );
+
+    if tree.query_first(selector).is_some() {
+        warning.hint("state/counter updates are content that must end up in the document to have an effect");
+    }
+
+    engine.sink.warn(warning);
 }

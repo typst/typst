@@ -253,8 +253,8 @@ pub fn eval_closure(
     // Handle control flow.
     let output = body.eval(&mut vm)?;
     match vm.flow {
-        Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
-        Some(FlowEvent::Return(_, None)) => {}
+        Some(FlowEvent::Return(_, Some(explicit), _)) => return Ok(explicit),
+        Some(FlowEvent::Return(_, None, _)) => {}
         Some(flow) => bail!(flow.forbidden()),
         None => {}
     }
