@@ -117,7 +117,7 @@ impl SystemWorld {
                 .collect();
 
             let features = process_args
-                .feature
+                .features
                 .iter()
                 .map(|&feature| match feature {
                     Feature::Html => typst::Feature::Html,

@@ -315,8 +315,8 @@ pub struct ProcessArgs {
 
     /// Enables in-development features that may be changed or removed at any
     /// time.
-    #[arg(long = "feature", value_delimiter = ',')]
-    pub feature: Vec<Feature>,
+    #[arg(long = "features", value_delimiter = ',', env = "TYPST_FEATURES")]
+    pub features: Vec<Feature>,
 
     /// The format to emit diagnostics in.
     #[clap(long, default_value_t)]
