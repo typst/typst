@@ -123,7 +123,11 @@ pub fn named_items<T>(
                 }
             }
 
-            if let Some(v) = parent.cast::<ast::Closure>() {
+            if let Some(v) = parent.cast::<ast::Closure>().filter(|v| {
+                // Check if the node is in the body of the closure.
+                let body = parent.find(v.body().span());
+                body.is_some_and(|n| n.find(node.span()).is_some())
+            }) {
                 for param in v.params().children() {
                     match param {
                         ast::Param::Pos(pattern) => {
