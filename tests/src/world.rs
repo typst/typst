@@ -73,6 +73,10 @@ impl World for TestWorld {
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
+
+    fn last_modified(&self, _id: FileId) -> FileResult<Option<Datetime>> {
+        Ok(None)
+    }
 }
 
 impl TestWorld {
