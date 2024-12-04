@@ -220,12 +220,16 @@ World
 }
 
 --- issue-5503-list-interrupted-by-par-align ---
-// `par` and `align` are block-level and should interrupt a list
+// `align` is block-level and should interrupt a list
+// but not a `par`
 #show list: [List]
 - a
 - b
 #par(leading: 5em)[- c]
 - d
 - e
-#align(right)[- f]
+#par[- f]
 - g
+- h
+#align(right)[- i]
+- j

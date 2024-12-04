@@ -861,9 +861,7 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
             let elem = content.elem();
             elem == SpaceElem::elem() || elem == ParbreakElem::elem()
         },
-        interrupt: |elem| {
-            elem == T::elem() || elem == ParElem::elem() || elem == AlignElem::elem()
-        },
+        interrupt: |elem| elem == T::elem() || elem == AlignElem::elem(),
         finish: finish_list_like::<T>,
     }
 }
