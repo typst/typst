@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
@@ -267,18 +267,22 @@ impl Show for Packed<HeadingElem> {
             realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
         }
 
-        Ok(if html {
+        if html {
             // HTML's h1 is closer to a title element. There should only be one.
             // Meanwhile, a level 1 Typst heading is a section heading. For this
             // reason, levels are offset by one: A Typst level 1 heading becomes
             // a `<h2>`.
-            let level = self.resolve_level(styles);
-            let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level.get().min(5) - 1];
-            HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
+            let level = self.resolve_level(styles).get();
+            if level >= 6 {
+                bail!(span, "heading of level {} cannot be transformed to HTML", level;
+                    hint: "only headings of level 5 and smaller can be transformed to HTML");
+            }
+            let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
+            Ok(HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span))
         } else {
             let realized = BlockBody::Content(realized);
-            BlockElem::new().with_body(Some(realized)).pack().spanned(span)
-        })
+            Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
+        }
     }
 }
 
