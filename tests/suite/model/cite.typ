@@ -114,6 +114,14 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-author-date")
 
+--- issue-5503-cite-in-align ---
+// The two aligned elements should be displayed in separate lines.
+#align(right)[@netwok]
+#align(right)[b]
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
 --- issue-5503-cite-group-interrupted-by-par-align ---
 // `par` and `align` are block-level and should interrupt a cite group
 @netwok
