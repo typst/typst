@@ -21,7 +21,7 @@ use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
 pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
-    let mut config = CompileConfig::new(&command.args)?;
+    let mut config = CompileConfig::watching(command)?;
 
     let Output::Path(output) = &config.output else {
         bail!("cannot write document to stdout in watch mode");
@@ -53,7 +53,7 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
     };
 
     // Perform initial compilation.
-    timer.record(&mut world, |world| compile_once(world, &mut config, true))??;
+    timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
     // Watch all dependencies of the initial compilation.
     watcher.update(world.dependencies())?;
@@ -67,7 +67,7 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
         world.reset();
 
         // Recompile.
-        timer.record(&mut world, |world| compile_once(world, &mut config, true))??;
+        timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
         // Evict the cache.
         comemo::evict(10);
@@ -292,6 +292,13 @@ impl Status {
         write!(out, "writing to")?;
         out.reset()?;
         writeln!(out, " {}", config.output)?;
+
+        if let Some(server) = &config.server {
+            out.set_color(&color)?;
+            write!(out, "serving at")?;
+            out.reset()?;
+            writeln!(out, " http://{}", server.addr())?;
+        }
 
         writeln!(out)?;
         writeln!(out, "[{timestamp}] {}", self.message())?;

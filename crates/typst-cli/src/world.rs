@@ -18,7 +18,6 @@ use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
 use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
-use crate::compile::ExportCache;
 use crate::download::PrintDownload;
 use crate::package;
 
@@ -49,9 +48,6 @@ pub struct SystemWorld {
     /// always the same within one compilation.
     /// Reset between compilations if not [`Now::Fixed`].
     now: Now,
-    /// The export cache, used for caching output files in `typst watch`
-    /// sessions.
-    export_cache: ExportCache,
 }
 
 impl SystemWorld {
@@ -146,7 +142,6 @@ impl SystemWorld {
             slots: Mutex::new(HashMap::new()),
             package_storage: package::storage(&world_args.package),
             now,
-            export_cache: ExportCache::new(),
         })
     }
 
@@ -190,11 +185,6 @@ impl SystemWorld {
     #[track_caller]
     pub fn lookup(&self, id: FileId) -> Source {
         self.source(id).expect("file id does not point to any source file")
-    }
-
-    /// Gets access to the export cache.
-    pub fn export_cache(&self) -> &ExportCache {
-        &self.export_cache
     }
 }
 

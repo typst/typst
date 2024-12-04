@@ -6,6 +6,7 @@ mod greet;
 mod init;
 mod package;
 mod query;
+mod server;
 mod terminal;
 mod timings;
 #[cfg(feature = "self-update")]

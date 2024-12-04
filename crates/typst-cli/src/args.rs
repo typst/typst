@@ -97,6 +97,21 @@ pub struct WatchCommand {
     /// Arguments for compilation.
     #[clap(flatten)]
     pub args: CompileArgs,
+
+    /// Disables the built-in HTTP server for HTML export.
+    #[clap(long)]
+    pub no_serve: bool,
+
+    /// Disables the injected live reload script for HTML export. The HTML that
+    /// is written to disk isn't affected either way.
+    #[clap(long)]
+    pub no_reload: bool,
+
+    /// The port where HTML is served.
+    ///
+    /// Defaults to the first free port in the range 3000-3005.
+    #[clap(long)]
+    pub port: Option<u16>,
 }
 
 /// Initializes a new project from a template.
