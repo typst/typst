@@ -5,7 +5,7 @@ use std::hash::Hash;
 use bumpalo::boxed::Box as BumpBox;
 use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{bail, warning, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::{
@@ -83,7 +83,11 @@ impl<'a> Collector<'a, '_, '_> {
                     hint: "try using a `#colbreak()` instead",
                 );
             } else {
-                bail!(child.span(), "{} is not allowed here", child.func().name());
+                self.engine.sink.warn(warning!(
+                    child.span(),
+                    "{} was ignored during paged export",
+                    child.func().name()
+                ));
             }
         }
 

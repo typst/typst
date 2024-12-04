@@ -17,7 +17,7 @@ use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Input, SharedArgs};
+use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
 use crate::compile::ExportCache;
 use crate::download::PrintDownload;
 use crate::package;
@@ -56,9 +56,13 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
+    pub fn new(
+        input: &Input,
+        world_args: &WorldArgs,
+        process_args: &ProcessArgs,
+    ) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
-        if let Some(jobs) = command.jobs {
+        if let Some(jobs) = process_args.jobs {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(jobs)
                 .use_current_thread()
@@ -67,7 +71,7 @@ impl SystemWorld {
         }
 
         // Resolve the system-global input path.
-        let input = match &command.input {
+        let input = match input {
             Input::Stdin => None,
             Input::Path(path) => {
                 Some(path.canonicalize().map_err(|err| match err.kind() {
@@ -81,7 +85,7 @@ impl SystemWorld {
 
         // Resolve the system-global root directory.
         let root = {
-            let path = command
+            let path = world_args
                 .root
                 .as_deref()
                 .or_else(|| input.as_deref().and_then(|i| i.parent()))
@@ -106,23 +110,28 @@ impl SystemWorld {
 
         let library = {
             // Convert the input pairs to a dictionary.
-            let inputs: Dict = command
+            let inputs: Dict = world_args
                 .inputs
                 .iter()
                 .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
                 .collect();
 
-            let features =
-                command.feature.iter().map(|&feature| match feature {}).collect();
+            let features = process_args
+                .features
+                .iter()
+                .map(|&feature| match feature {
+                    Feature::Html => typst::Feature::Html,
+                })
+                .collect();
 
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
         let fonts = Fonts::searcher()
-            .include_system_fonts(!command.font_args.ignore_system_fonts)
-            .search_with(&command.font_args.font_paths);
+            .include_system_fonts(!world_args.font.ignore_system_fonts)
+            .search_with(&world_args.font.font_paths);
 
-        let now = match command.creation_timestamp {
+        let now = match world_args.creation_timestamp {
             Some(time) => Now::Fixed(time),
             None => Now::System(OnceLock::new()),
         };
@@ -135,7 +144,7 @@ impl SystemWorld {
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
             slots: Mutex::new(HashMap::new()),
-            package_storage: package::storage(&command.package_storage_args),
+            package_storage: package::storage(&world_args.package),
             now,
             export_cache: ExportCache::new(),
         })

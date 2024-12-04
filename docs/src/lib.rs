@@ -21,10 +21,10 @@ use typst::foundations::{
     Scope, Smart, Type, Value, FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
-use typst::layout::{Abs, Margin, PageElem, LAYOUT};
+use typst::layout::{Abs, Margin, PageElem, PagedDocument, LAYOUT};
 use typst::loading::DATA_LOADING;
 use typst::math::MATH;
-use typst::model::{Document, MODEL};
+use typst::model::MODEL;
 use typst::pdf::PDF;
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
@@ -106,7 +106,8 @@ pub trait Resolver {
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
     /// Produce HTML for an example.
-    fn example(&self, hash: u128, source: Option<Html>, document: &Document) -> Html;
+    fn example(&self, hash: u128, source: Option<Html>, document: &PagedDocument)
+        -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -802,7 +803,7 @@ mod tests {
             None
         }
 
-        fn example(&self, _: u128, _: Option<Html>, _: &Document) -> Html {
+        fn example(&self, _: u128, _: Option<Html>, _: &PagedDocument) -> Html {
             Html::new(String::new())
         }
 

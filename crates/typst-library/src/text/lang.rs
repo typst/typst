@@ -14,8 +14,9 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 36] = [
+const TRANSLATIONS: [(&str, &str); 38] = [
     translation!("ar"),
+    translation!("bg"),
     translation!("ca"),
     translation!("cs"),
     translation!("da"),
@@ -23,6 +24,7 @@ const TRANSLATIONS: [(&str, &str); 36] = [
     translation!("en"),
     translation!("es"),
     translation!("et"),
+    translation!("eu"),
     translation!("fi"),
     translation!("fr"),
     translation!("gl"),
@@ -60,7 +62,9 @@ pub struct Lang([u8; 3], u8);
 impl Lang {
     pub const ALBANIAN: Self = Self(*b"sq ", 2);
     pub const ARABIC: Self = Self(*b"ar ", 2);
+    pub const BASQUE: Self = Self(*b"eu ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
+    pub const BULGARIAN: Self = Self(*b"bg ", 2);
     pub const CATALAN: Self = Self(*b"ca ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const CROATIAN: Self = Self(*b"hr ", 2);

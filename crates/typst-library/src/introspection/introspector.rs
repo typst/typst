@@ -10,6 +10,7 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
+use crate::html::{HtmlElement, HtmlNode};
 use crate::introspection::{Location, Tag};
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
@@ -47,9 +48,15 @@ type Pair = (Content, Position);
 
 impl Introspector {
     /// Creates an introspector for a page list.
-    #[typst_macros::time(name = "introspect")]
-    pub fn new(pages: &[Page]) -> Self {
-        IntrospectorBuilder::new().build(pages)
+    #[typst_macros::time(name = "introspect pages")]
+    pub fn paged(pages: &[Page]) -> Self {
+        IntrospectorBuilder::new().build_paged(pages)
+    }
+
+    /// Creates an introspector for HTML.
+    #[typst_macros::time(name = "introspect html")]
+    pub fn html(root: &HtmlElement) -> Self {
+        IntrospectorBuilder::new().build_html(root)
     }
 
     /// Iterates over all locatable elements.
@@ -346,6 +353,7 @@ impl Clone for QueryCache {
 /// Builds the introspector.
 #[derive(Default)]
 struct IntrospectorBuilder {
+    pages: usize,
     page_numberings: Vec<Option<Numbering>>,
     page_supplements: Vec<Content>,
     seen: HashSet<Location>,
@@ -361,46 +369,37 @@ impl IntrospectorBuilder {
         Self::default()
     }
 
-    /// Build the introspector.
-    fn build(mut self, pages: &[Page]) -> Introspector {
+    /// Build an introspector for a page list.
+    fn build_paged(mut self, pages: &[Page]) -> Introspector {
+        self.pages = pages.len();
         self.page_numberings.reserve(pages.len());
         self.page_supplements.reserve(pages.len());
 
         // Discover all elements.
-        let mut root = Vec::new();
+        let mut elems = Vec::new();
         for (i, page) in pages.iter().enumerate() {
             self.page_numberings.push(page.numbering.clone());
             self.page_supplements.push(page.supplement.clone());
-            self.discover(
-                &mut root,
+            self.discover_in_frame(
+                &mut elems,
                 &page.frame,
                 NonZeroUsize::new(1 + i).unwrap(),
                 Transform::identity(),
             );
         }
 
-        self.locations.reserve(self.seen.len());
+        self.finalize(elems)
+    }
 
-        // Save all pairs and their descendants in the correct order.
-        let mut elems = Vec::with_capacity(self.seen.len());
-        for pair in root {
-            self.visit(&mut elems, pair);
-        }
-
-        Introspector {
-            pages: pages.len(),
-            page_numberings: self.page_numberings,
-            page_supplements: self.page_supplements,
-            elems,
-            keys: self.keys,
-            locations: self.locations,
-            labels: self.labels,
-            queries: QueryCache::default(),
-        }
+    /// Build an introspector for an HTML document.
+    fn build_html(mut self, root: &HtmlElement) -> Introspector {
+        let mut elems = Vec::new();
+        self.discover_in_html(&mut elems, root);
+        self.finalize(elems)
     }
 
     /// Processes the tags in the frame.
-    fn discover(
+    fn discover_in_frame(
         &mut self,
         sink: &mut Vec<Pair>,
         frame: &Frame,
@@ -416,24 +415,80 @@ impl IntrospectorBuilder {
 
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
-                        self.discover(&mut nested, &group.frame, page, ts);
+                        self.discover_in_frame(&mut nested, &group.frame, page, ts);
                         self.insertions.insert(parent, nested);
                     } else {
-                        self.discover(sink, &group.frame, page, ts);
+                        self.discover_in_frame(sink, &group.frame, page, ts);
                     }
                 }
-                FrameItem::Tag(Tag::Start(elem)) => {
-                    let loc = elem.location().unwrap();
-                    if self.seen.insert(loc) {
-                        let point = pos.transform(ts);
-                        sink.push((elem.clone(), Position { page, point }));
-                    }
-                }
-                FrameItem::Tag(Tag::End(loc, key)) => {
-                    self.keys.insert(*key, *loc);
+                FrameItem::Tag(tag) => {
+                    self.discover_in_tag(
+                        sink,
+                        tag,
+                        Position { page, point: pos.transform(ts) },
+                    );
                 }
                 _ => {}
             }
+        }
+    }
+
+    /// Processes the tags in the HTML element.
+    fn discover_in_html(&mut self, sink: &mut Vec<Pair>, elem: &HtmlElement) {
+        for child in &elem.children {
+            match child {
+                HtmlNode::Tag(tag) => self.discover_in_tag(
+                    sink,
+                    tag,
+                    Position { page: NonZeroUsize::ONE, point: Point::zero() },
+                ),
+                HtmlNode::Text(_, _) => {}
+                HtmlNode::Element(elem) => self.discover_in_html(sink, elem),
+                HtmlNode::Frame(frame) => self.discover_in_frame(
+                    sink,
+                    frame,
+                    NonZeroUsize::ONE,
+                    Transform::identity(),
+                ),
+            }
+        }
+    }
+
+    /// Handle a tag.
+    fn discover_in_tag(&mut self, sink: &mut Vec<Pair>, tag: &Tag, position: Position) {
+        match tag {
+            Tag::Start(elem) => {
+                let loc = elem.location().unwrap();
+                if self.seen.insert(loc) {
+                    sink.push((elem.clone(), position));
+                }
+            }
+            Tag::End(loc, key) => {
+                self.keys.insert(*key, *loc);
+            }
+        }
+    }
+
+    /// Build a complete introspector with all acceleration structures from a
+    /// list of top-level pairs.
+    fn finalize(mut self, root: Vec<Pair>) -> Introspector {
+        self.locations.reserve(self.seen.len());
+
+        // Save all pairs and their descendants in the correct order.
+        let mut elems = Vec::with_capacity(self.seen.len());
+        for pair in root {
+            self.visit(&mut elems, pair);
+        }
+
+        Introspector {
+            pages: self.pages,
+            page_numberings: self.page_numberings,
+            page_supplements: self.page_supplements,
+            elems,
+            keys: self.keys,
+            locations: self.locations,
+            labels: self.labels,
+            queries: QueryCache::default(),
         }
     }
 

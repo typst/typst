@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
-use typst_utils::PicoStr;
+use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::foundations::{func, scope, ty, Repr};
+use crate::foundations::{func, scope, ty, Repr, Str};
 
 /// A label for an element.
 ///
@@ -45,17 +45,17 @@ use crate::foundations::{func, scope, ty, Repr};
 /// Currently, labels can only be attached to elements in markup mode, not in
 /// code mode. This might change in the future.
 #[ty(scope, cast)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Label(PicoStr);
 
 impl Label {
-    /// Creates a label from a string, interning it.
-    pub fn new(name: impl Into<PicoStr>) -> Self {
-        Self(name.into())
+    /// Creates a label from an interned string.
+    pub fn new(name: PicoStr) -> Self {
+        Self(name)
     }
 
     /// Resolves the label to a string.
-    pub fn as_str(&self) -> &'static str {
+    pub fn resolve(self) -> ResolvedPicoStr {
         self.0.resolve()
     }
 
@@ -71,15 +71,15 @@ impl Label {
     #[func(constructor)]
     pub fn construct(
         /// The name of the label.
-        name: PicoStr,
+        name: Str,
     ) -> Label {
-        Self(name)
+        Self(PicoStr::intern(name.as_str()))
     }
 }
 
 impl Repr for Label {
     fn repr(&self) -> EcoString {
-        eco_format!("<{}>", self.as_str())
+        eco_format!("<{}>", self.resolve())
     }
 }
 

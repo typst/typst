@@ -1,0 +1,26 @@
+[package]
+name = "typst-html"
+description = "Typst's HTML exporter."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+typst-library = { workspace = true }
+typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+typst-svg = { workspace = true }
+comemo = { workspace = true }
+ecow = { workspace = true }
+
+[lints]
+workspace = true

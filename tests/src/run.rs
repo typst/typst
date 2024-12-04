@@ -5,8 +5,7 @@ use std::path::Path;
 use ecow::eco_vec;
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, Warned};
-use typst::layout::{Abs, Frame, FrameItem, Page, Transform};
-use typst::model::Document;
+use typst::layout::{Abs, Frame, FrameItem, Page, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst::WorldExt;
 use typst_pdf::PdfOptions;
@@ -116,7 +115,7 @@ impl<'a> Runner<'a> {
 
     /// Run custom checks for which it is not worth to create special
     /// annotations.
-    fn check_custom(&mut self, doc: Option<&Document>) {
+    fn check_custom(&mut self, doc: Option<&PagedDocument>) {
         let errors = crate::custom::check(self.test, &self.world, doc);
         if !errors.is_empty() {
             log!(self, "custom check failed");
@@ -127,7 +126,7 @@ impl<'a> Runner<'a> {
     }
 
     /// Check that the document output is correct.
-    fn check_document(&mut self, document: Option<&Document>) {
+    fn check_document(&mut self, document: Option<&PagedDocument>) {
         let live_path = format!("{}/render/{}.png", crate::STORE_PATH, self.test.name);
         let ref_path = format!("{}/{}.png", crate::REF_PATH, self.test.name);
         let has_ref = Path::new(&ref_path).exists();
@@ -351,7 +350,7 @@ impl<'a> Runner<'a> {
 }
 
 /// Draw all frames into one image with padding in between.
-fn render(document: &Document, pixel_per_pt: f32) -> sk::Pixmap {
+fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
     for page in &document.pages {
         let limit = Abs::cm(100.0);
         if page.frame.width() > limit || page.frame.height() > limit {

@@ -301,6 +301,9 @@ impl Route<'_> {
     /// The maximum layout nesting depth.
     const MAX_LAYOUT_DEPTH: usize = 72;
 
+    /// The maximum HTML nesting depth.
+    const MAX_HTML_DEPTH: usize = 72;
+
     /// The maximum function call nesting depth.
     const MAX_CALL_DEPTH: usize = 80;
 
@@ -321,6 +324,17 @@ impl Route<'_> {
             bail!(
                 "maximum layout depth exceeded";
                 hint: "try to reduce the amount of nesting in your layout",
+            );
+        }
+        Ok(())
+    }
+
+    /// Ensures that we are within the maximum HTML depth.
+    pub fn check_html_depth(&self) -> HintedStrResult<()> {
+        if !self.within(Route::MAX_HTML_DEPTH) {
+            bail!(
+                "maximum HTML depth exceeded";
+                hint: "try to reduce the amount of nesting of your HTML",
             );
         }
         Ok(())

@@ -12,11 +12,12 @@ use crate::foundations::{
     cast, elem, Args, AutoValue, Cast, Construct, Content, Context, Dict, Fold, Func,
     NativeElement, Set, Smart, StyleChain, Value,
 };
+use crate::introspection::Introspector;
 use crate::layout::{
     Abs, Alignment, FlushElem, Frame, HAlignment, Length, OuterVAlignment, Ratio, Rel,
     Sides, SpecificAlignment,
 };
-use crate::model::Numbering;
+use crate::model::{DocumentInfo, Numbering};
 use crate::text::LocalName;
 use crate::visualize::{Color, Paint};
 
@@ -449,6 +450,17 @@ impl PagebreakElem {
             PagebreakElem::new().with_weak(true).with_boundary(true).pack()
         )
     }
+}
+
+/// A finished document with metadata and page frames.
+#[derive(Debug, Default, Clone)]
+pub struct PagedDocument {
+    /// The document's finished pages.
+    pub pages: Vec<Page>,
+    /// Details about the document.
+    pub info: DocumentInfo,
+    /// Provides the ability to execute queries on the document.
+    pub introspector: Introspector,
 }
 
 /// A finished page.
@@ -941,4 +953,15 @@ papers! {
     (NEWSPAPER_BROADSHEET: 381.0,    578.0, "newspaper-broadsheet")
     (PRESENTATION_16_9:    297.0, 167.0625, "presentation-16-9")
     (PRESENTATION_4_3:     280.0,    210.0, "presentation-4-3")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_paged_document_is_send_and_sync() {
+        fn ensure_send_and_sync<T: Send + Sync>() {}
+        ensure_send_and_sync::<PagedDocument>();
+    }
 }
