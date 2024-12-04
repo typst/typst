@@ -114,6 +114,20 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-author-date")
 
+--- issue-5503-cite-group-interrupted-by-par-align ---
+// `par` and `align` are block-level and should interrupt a cite group
+@netwok
+@arrgh
+#par(leading: 5em)[@netwok]
+#par[@arrgh]
+@netwok
+@arrgh
+#align(right)[@netwok]
+@arrgh
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
 --- cite-type-error-hint ---
 // Test hint for cast error from str to label
 // Error: 7-15 expected label, found string

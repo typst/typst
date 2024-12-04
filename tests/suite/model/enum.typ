@@ -163,3 +163,13 @@ a + 0.
 // Enum item (pre-emptive)
 #enum.item(none)[Hello]
 #enum.item(17)[Hello]
+
+--- issue-5503-enum-interrupted-by-par-align ---
+// `par` and `align` are block-level and should interrupt an enum
++ a
++ b
+#par(leading: 5em)[+ par]
++ d
++ e
+#align(right)[+ align]
++ g
