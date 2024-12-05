@@ -246,7 +246,7 @@ fn warn_or_error_for_html(
     } else {
         bail!(
             Span::detached(),
-            "html export is only available when `--feature html` is passed";
+            "html export is only available when `--features html` is passed";
             hint: "html export is under active development and incomplete";
             hint: "see {ISSUE} for more information"
         );
