@@ -8,7 +8,7 @@ use typst_syntax::Span;
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer { pretty: false, ..Writer::default() };
+    let mut w = Writer { pretty: true, ..Writer::default() };
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, &document.root)?;
