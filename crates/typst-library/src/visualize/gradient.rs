@@ -697,6 +697,7 @@ impl Gradient {
     }
 
     /// Returns the angle of this gradient.
+    ///
     /// Used only for Linear and Conic gradients, otherwise returns None.
     #[func]
     pub fn angle(&self) -> Option<Angle> {
@@ -708,6 +709,7 @@ impl Gradient {
     }
 
     /// Returns the center of this gradient.
+    ///
     /// Used only for Radial and Conic gradients, otherwise returns None.
     #[func]
     pub fn center(&self) -> Option<Axes<Ratio>> {
@@ -719,6 +721,7 @@ impl Gradient {
     }
 
     /// Returns the radius of this gradient.
+    ///
     /// Useful only for Radial gradients, otherwise returns None.
     #[func]
     pub fn radius(&self) -> Option<Ratio> {
@@ -730,6 +733,7 @@ impl Gradient {
     }
 
     /// Returns the focal-center of this gradient.
+    ///
     /// Useful only for Radial gradients, otherwise returns None.
     #[func]
     pub fn focal_center(&self) -> Option<Axes<Ratio>> {
@@ -741,6 +745,7 @@ impl Gradient {
     }
 
     /// Returns the focal-radius of this gradient.
+    ///
     /// Useful only for Radial gradients, otherwise returns None.
     #[func]
     pub fn focal_radius(&self) -> Option<Ratio> {
