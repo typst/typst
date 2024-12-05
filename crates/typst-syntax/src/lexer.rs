@@ -251,8 +251,9 @@ impl Lexer<'_> {
         }
     }
 
-    /// Lex an entire raw segment at once. This is a convenience to avoid going
-    /// to and from the parser for each raw section.
+    /// We parse entire raw segments in the lexer as a convenience to avoid
+    /// going to and from the parser for each raw section. See comments in
+    /// [`Self::blocky_raw`] and [`Self::inline_raw`] for specific details.
     fn raw(&mut self) -> (SyntaxKind, SyntaxNode) {
         let start = self.s.cursor() - 1;
 
@@ -313,6 +314,35 @@ impl Lexer<'_> {
         (SyntaxKind::Raw, SyntaxNode::inner(SyntaxKind::Raw, nodes))
     }
 
+    /// Raw blocks parse a language tag, have smart behavior for trimming
+    /// whitespace in the start/end lines, and trim common leading whitespace
+    /// from all other lines as the "dedent". The exact behavior is described
+    /// below.
+    ///
+    /// ### The initial line:
+    /// - A valid Typst identifier immediately following the opening delimiter
+    ///   is parsed as the language tag.
+    /// - We check the rest of the line and if all characters are whitespace,
+    ///   trim it. Otherwise we trim a single leading space if present.
+    ///   - If more trimmed characters follow on future lines, they will be
+    ///     merged into the same trimmed element.
+    /// - If we didn't trim the entire line, the rest is kept as text.
+    ///
+    /// ### Inner lines:
+    /// - We determine the "dedent" by iterating over the lines. The dedent is
+    ///   the minimum number of leading whitespace characters (not bytes) before
+    ///   each line that has any non-whitespace characters.
+    ///   - The opening delimiter's line does not contribute to the dedent, but
+    ///     the closing delimiter's line does (even if that line is entirely
+    ///     whitespace up to the delimiter).
+    /// - We then trim the newline and dedent characters of each line, and add a
+    ///   (potentially empty) text element of all remaining characters.
+    ///
+    /// ### The final line:
+    /// - If the last line is entirely whitespace, it is trimmed.
+    /// - Otherwise its text is kept like an inner line. However, if the last
+    ///   non-whitespace character of the final line is a backtick, then one
+    ///   ascii space (if present) is trimmed from the end.
     fn blocky_raw<F>(&mut self, inner_end: usize, mut push_raw: F)
     where
         F: FnMut(SyntaxKind, &Scanner),
@@ -323,12 +353,10 @@ impl Lexer<'_> {
             push_raw(SyntaxKind::RawLang, &self.s);
         }
 
-        // Determine inner content between backticks.
-        self.s.eat_if(' ');
-        let inner = self.s.to(inner_end);
+        // The rest of the function operates on the lines between the backticks.
+        let mut lines = split_newlines(self.s.to(inner_end));
 
         // Determine dedent level.
-        let mut lines = split_newlines(inner);
         let dedent = lines
             .iter()
             .skip(1)
@@ -339,50 +367,64 @@ impl Lexer<'_> {
             .min()
             .unwrap_or(0);
 
-        // Trim single space in last line if text ends with a backtick. The last
-        // line is the one directly before the closing backticks and if it is
-        // just whitespace, it will be completely trimmed below.
-        if inner.trim_end().ends_with('`') {
-            if let Some(last) = lines.last_mut() {
+        // Trim whitespace from the last line. Will be added as a `RawTrimmed`
+        // kind by the check for `self.s.cursor() != inner_end` below.
+        if lines.last().is_some_and(|last| last.chars().all(char::is_whitespace)) {
+            lines.pop();
+        } else if let Some(last) = lines.last_mut() {
+            // If last line ends in a backtick, try to trim a single space. This
+            // check must happen before we add the first line since the last and
+            // first lines might be the same.
+            if last.trim_end().ends_with('`') {
                 *last = last.strip_suffix(' ').unwrap_or(last);
             }
         }
 
-        let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
-        let starts_whitespace = lines.first().is_some_and(is_whitespace);
-        let ends_whitespace = lines.last().is_some_and(is_whitespace);
-
         let mut lines = lines.into_iter();
-        let mut skipped = false;
+        let mut needs_trim = false; // haircuts :)
 
-        // Trim whitespace + newline at start.
-        if starts_whitespace {
-            self.s.advance(lines.next().unwrap().len());
-            skipped = true;
-        }
-        // Trim whitespace + newline at end.
-        if ends_whitespace {
-            lines.next_back();
+        // Handle the first line: trim if all whitespace, or trim a single space
+        // at the start. Note that the first line does not affect the dedent
+        // value.
+        if let Some(first_line) = lines.next() {
+            if first_line.chars().all(char::is_whitespace) {
+                // Include this whitespace in the next line's `RawTrimmed`
+                // prefix.
+                self.s.advance(first_line.len());
+                needs_trim = !first_line.is_empty()
+            } else {
+                let line_end = self.s.cursor() + first_line.len();
+                if self.s.eat_if(' ') {
+                    // Trim a single space after the lang tag on the first line.
+                    push_raw(SyntaxKind::RawTrimmed, &self.s);
+                }
+                // We know here that the rest of the line is non-empty.
+                self.s.jump(line_end);
+                push_raw(SyntaxKind::Text, &self.s);
+            }
         }
 
         // Add lines.
-        for (i, line) in lines.enumerate() {
-            let dedent = if i == 0 && !skipped { 0 } else { dedent };
+        for line in lines {
             let offset: usize = line.chars().take(dedent).map(char::len_utf8).sum();
             self.s.eat_newline();
             self.s.advance(offset);
             push_raw(SyntaxKind::RawTrimmed, &self.s);
+            needs_trim = false;
             self.s.advance(line.len() - offset);
             push_raw(SyntaxKind::Text, &self.s);
         }
 
         // Add final trimmed.
-        if self.s.cursor() < inner_end {
+        if needs_trim || self.s.cursor() != inner_end {
             self.s.jump(inner_end);
             push_raw(SyntaxKind::RawTrimmed, &self.s);
         }
     }
 
+    /// Inline raw text is split on lines with non-newlines as `Text` kinds and
+    /// newlines as `RawTrimmed`. Inline raw text does not dedent the text, all
+    /// non-newline whitespace is kept.
     fn inline_raw<F>(&mut self, inner_end: usize, mut push_raw: F)
     where
         F: FnMut(SyntaxKind, &Scanner),
