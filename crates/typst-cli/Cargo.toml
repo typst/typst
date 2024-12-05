@@ -50,6 +50,7 @@ shell-escape = { workspace = true }
 sigpipe = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
+tiny_http = { workspace = true }
 toml = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
