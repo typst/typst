@@ -711,7 +711,7 @@ impl Gradient {
     pub fn center(&self) -> Option<Axes<Ratio>> {
         match self {
             Self::Linear(_) => None,
-            Self::Radial(radial) => Some(radial.center), 
+            Self::Radial(radial) => Some(radial.center),
             Self::Conic(conic) => Some(conic.center),
         }
     }
@@ -721,7 +721,7 @@ impl Gradient {
     pub fn radius(&self) -> Option<Ratio> {
         match self {
             Self::Linear(_) => None,
-            Self::Radial(radial) => Some(radial.radius), 
+            Self::Radial(radial) => Some(radial.radius),
             Self::Conic(_) => None,
         }
     }
@@ -731,7 +731,7 @@ impl Gradient {
     pub fn focal_center(&self) -> Option<Axes<Ratio>> {
         match self {
             Self::Linear(_) => None,
-            Self::Radial(radial) => Some(radial.focal_center), 
+            Self::Radial(radial) => Some(radial.focal_center),
             Self::Conic(_) => None,
         }
     }
@@ -741,7 +741,7 @@ impl Gradient {
     pub fn focal_radius(&self) -> Option<Ratio> {
         match self {
             Self::Linear(_) => None,
-            Self::Radial(radial) => Some(radial.focal_radius), 
+            Self::Radial(radial) => Some(radial.focal_radius),
             Self::Conic(_) => None,
         }
     }
