@@ -24,6 +24,7 @@ use typst_library::visualize::{
     FillRule, Geometry, Image, ImageKind, Path, PathItem, RasterFormat, RasterImage,
     Shape,
 };
+use crate::primitive::{PointExt, SizeExt, TransformExt};
 
 #[derive(TransparentWrapper)]
 #[repr(transparent)]
@@ -122,7 +123,7 @@ pub fn handle_group(
     let old = context.cur_transform;
     context.cur_transform = context.cur_transform.pre_concat(group.transform);
 
-    surface.push_transform(&primitive::transform(group.transform));
+    surface.push_transform(&group.transform.as_krilla());
     process_frame(&group.frame, surface, context);
 
     context.cur_transform = old;
@@ -180,10 +181,10 @@ pub fn handle_image(
         ImageKind::Raster(raster) => {
             // TODO: Don't unwrap
             let image = crate::image::raster(raster.clone()).unwrap();
-            surface.draw_image(image, primitive::size(size));
+            surface.draw_image(image, size.as_krilla());
         }
         ImageKind::Svg(svg) => {
-            surface.draw_svg(svg.tree(), primitive::size(size), SvgSettings::default());
+            surface.draw_svg(svg.tree(), size.as_krilla(), SvgSettings::default());
         }
     }
 }
@@ -297,7 +298,7 @@ fn handle_link(
         }
         Destination::Position(p) => {
             Target::Destination(krilla::destination::Destination::Xyz(
-                XyzDestination::new(p.page.get() - 1, primitive::point(p.point)),
+                XyzDestination::new(p.page.get() - 1, p.point.as_krilla()),
             ))
         }
         Destination::Location(_) => return,

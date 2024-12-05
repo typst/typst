@@ -2,17 +2,17 @@
 
 use krilla::geom::NormalizedF32;
 use typst_library::layout::Abs;
-use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Paint, Pattern};
+use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Paint};
 
-use crate::primitive::{linecap, linejoin};
 use crate::AbsExt;
+use crate::primitive::{FillRuleExt, LineCapExt, LineJoinExt};
 
 pub(crate) fn fill(paint_: &Paint, fill_rule_: FillRule) -> krilla::path::Fill {
     let (paint, opacity) = paint(paint_);
 
     krilla::path::Fill {
         paint,
-        rule: fill_rule(fill_rule_),
+        rule: fill_rule_.as_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
     }
 }
@@ -23,8 +23,8 @@ pub(crate) fn stroke(stroke: &FixedStroke) -> krilla::path::Stroke {
         paint,
         width: stroke.thickness.to_f32(),
         miter_limit: stroke.miter_limit.get() as f32,
-        line_join: linejoin(stroke.join),
-        line_cap: linecap(stroke.cap),
+        line_join: stroke.join.as_krilla(),
+        line_cap: stroke.cap.as_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
         dash: stroke.dash.as_ref().map(|d| dash(d)),
     }
@@ -54,15 +54,4 @@ fn paint(paint: &Paint) -> (krilla::paint::Paint, u8) {
         Paint::Gradient(_) => (krilla::color::rgb::Color::black().into(), 255),
         Paint::Pattern(_) => (krilla::color::rgb::Color::black().into(), 255),
     }
-}
-
-fn fill_rule(fill_rule: FillRule) -> krilla::path::FillRule {
-    match fill_rule {
-        FillRule::NonZero => krilla::path::FillRule::NonZero,
-        FillRule::EvenOdd => krilla::path::FillRule::EvenOdd,
-    }
-}
-
-fn pattern(pattern: &Pattern) -> krilla::paint::Pattern {
-
 }
