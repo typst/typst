@@ -6,6 +6,7 @@ mod greet;
 mod init;
 mod package;
 mod query;
+#[cfg(feature = "http-server")]
 mod server;
 mod terminal;
 mod timings;
