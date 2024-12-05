@@ -273,7 +273,7 @@ fn create_output_body(input: &CastInput) -> TokenStream {
     if input.dynamic {
         quote! { #foundations::CastInfo::Type(#foundations::Type::of::<Self>()) }
     } else {
-        quote! { Self::input() }
+        quote! { <Self as #foundations::Reflect>::input() }
     }
 }
 

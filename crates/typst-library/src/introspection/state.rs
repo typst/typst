@@ -261,6 +261,11 @@ impl State {
     fn selector(&self) -> Selector {
         select_where!(StateUpdateElem, Key => self.key.clone())
     }
+
+    /// Selects all state updates.
+    pub fn select_any() -> Selector {
+        StateUpdateElem::elem().select()
+    }
 }
 
 #[scope]

@@ -9,8 +9,9 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
-    Show, ShowSet, Smart, StyleChain, Styles, Synthesize,
+    Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
 };
+use crate::html::{tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
@@ -257,7 +258,7 @@ impl Synthesize for Packed<FigureElem> {
         // Determine the figure's kind.
         let kind = elem.kind(styles).unwrap_or_else(|| {
             elem.body()
-                .query_first(Selector::can::<dyn Figurable>())
+                .query_first(&Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
         });
@@ -289,7 +290,7 @@ impl Synthesize for Packed<FigureElem> {
                 let descendant = match kind {
                     FigureKind::Elem(func) => elem
                         .body()
-                        .query_first(Selector::Elem(func, None))
+                        .query_first(&Selector::Elem(func, None))
                         .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };
@@ -326,15 +327,30 @@ impl Synthesize for Packed<FigureElem> {
 impl Show for Packed<FigureElem> {
     #[typst_macros::time(name = "figure", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body().clone();
+        let target = TargetElem::target_in(styles);
+        let mut realized = self.body.clone();
 
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
-            let v = VElem::new(self.gap(styles).into()).with_weak(true).pack();
-            realized = match caption.position(styles) {
-                OuterVAlignment::Top => caption.pack() + v + realized,
-                OuterVAlignment::Bottom => realized + v + caption.pack(),
+            let (first, second) = match caption.position(styles) {
+                OuterVAlignment::Top => (caption.pack(), realized),
+                OuterVAlignment::Bottom => (realized, caption.pack()),
             };
+            let mut seq = Vec::with_capacity(3);
+            seq.push(first);
+            if !target.is_html() {
+                let v = VElem::new(self.gap(styles).into()).with_weak(true);
+                seq.push(v.pack().spanned(self.span()))
+            }
+            seq.push(second);
+            realized = Content::sequence(seq)
+        }
+
+        if target.is_html() {
+            return Ok(HtmlElem::new(tag::figure)
+                .with_body(Some(realized))
+                .pack()
+                .spanned(self.span()));
         }
 
         // Wrap the contents in a block.
@@ -605,6 +621,13 @@ impl Show for Packed<FigureCaption> {
                 supplement += TextElem::packed('\u{a0}');
             }
             realized = supplement + numbers + self.get_separator(styles) + realized;
+        }
+
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::figcaption)
+                .with_body(Some(realized))
+                .pack()
+                .spanned(self.span()));
         }
 
         Ok(realized)

@@ -15,6 +15,7 @@ extern crate self as typst_library;
 pub mod diag;
 pub mod engine;
 pub mod foundations;
+pub mod html;
 pub mod introspection;
 pub mod layout;
 pub mod loading;
@@ -193,7 +194,7 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs);
+        let global = global(math.clone(), inputs, &self.features);
         let std = Value::Module(global.clone());
         Library {
             global,
@@ -231,12 +232,14 @@ impl FromIterator<Feature> for Features {
 /// An in-development feature that should be enabled.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[non_exhaustive]
-pub enum Feature {}
+pub enum Feature {
+    Html,
+}
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict) -> Module {
+fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global, inputs);
+    self::foundations::define(&mut global, inputs, features);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();
@@ -246,6 +249,10 @@ fn global(math: Module, inputs: Dict) -> Module {
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
+    global.reset_category();
+    if features.is_enabled(Feature::Html) {
+        global.define_module(self::html::module());
+    }
     prelude(&mut global);
     Module::new("global", global)
 }

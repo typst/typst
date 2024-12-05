@@ -1,6 +1,7 @@
 use typst::foundations::{Label, Selector, Value};
-use typst::model::Document;
+use typst::layout::PagedDocument;
 use typst::syntax::{ast, LinkedNode, Side, Source, Span};
+use typst::utils::PicoStr;
 
 use crate::utils::globals;
 use crate::{
@@ -24,7 +25,7 @@ pub enum Definition {
 /// when the document is available.
 pub fn definition(
     world: &dyn IdeWorld,
-    document: Option<&Document>,
+    document: Option<&PagedDocument>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -71,7 +72,7 @@ pub fn definition(
 
         // Try to jump to the referenced content.
         DerefTarget::Ref(node) => {
-            let label = Label::new(node.cast::<ast::Ref>()?.target());
+            let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()));
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
             return Some(Definition::Span(elem.span()));

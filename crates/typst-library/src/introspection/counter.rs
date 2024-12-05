@@ -393,6 +393,11 @@ impl Counter {
         let context = Context::new(Some(location), styles);
         state.display(engine, context.track(), &numbering)
     }
+
+    /// Selects all state updates.
+    pub fn select_any() -> Selector {
+        CounterUpdateElem::elem().select()
+    }
 }
 
 #[scope]

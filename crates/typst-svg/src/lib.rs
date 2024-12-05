@@ -11,9 +11,9 @@ use std::fmt::{self, Display, Formatter, Write};
 use ecow::EcoString;
 use ttf_parser::OutlineBuilder;
 use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, Point, Ratio, Size, Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
+    Transform,
 };
-use typst_library::model::Document;
 use typst_library::visualize::{Geometry, Gradient, Pattern};
 use typst_utils::hash128;
 use xmlwriter::XmlWriter;
@@ -32,10 +32,21 @@ pub fn svg(page: &Page) -> String {
     renderer.finalize()
 }
 
+/// Export a frame into a SVG file.
+#[typst_macros::time(name = "svg frame")]
+pub fn svg_frame(frame: &Frame) -> String {
+    let mut renderer = SVGRenderer::new();
+    renderer.write_header(frame.size());
+
+    let state = State::new(frame.size(), Transform::identity());
+    renderer.render_frame(state, Transform::identity(), frame);
+    renderer.finalize()
+}
+
 /// Export a document with potentially multiple pages into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.
-pub fn svg_merged(document: &Document, padding: Abs) -> String {
+pub fn svg_merged(document: &PagedDocument, padding: Abs) -> String {
     let width = 2.0 * padding
         + document
             .pages
@@ -241,7 +252,7 @@ impl SVGRenderer {
         self.xml.write_attribute("class", "typst-group");
 
         if let Some(label) = group.label {
-            self.xml.write_attribute("data-typst-label", label.as_str());
+            self.xml.write_attribute("data-typst-label", &label.resolve());
         }
 
         if let Some(clip_path) = &group.clip_path {
