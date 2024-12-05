@@ -98,20 +98,10 @@ pub struct WatchCommand {
     #[clap(flatten)]
     pub args: CompileArgs,
 
-    /// Disables the built-in HTTP server for HTML export.
-    #[clap(long)]
-    pub no_serve: bool,
-
-    /// Disables the injected live reload script for HTML export. The HTML that
-    /// is written to disk isn't affected either way.
-    #[clap(long)]
-    pub no_reload: bool,
-
-    /// The port where HTML is served.
-    ///
-    /// Defaults to the first free port in the range 3000-3005.
-    #[clap(long)]
-    pub port: Option<u16>,
+    /// Arguments for the HTTP server.
+    #[cfg(feature = "http-server")]
+    #[clap(flatten)]
+    pub server: ServerArgs,
 }
 
 /// Initializes a new project from a template.
@@ -354,7 +344,7 @@ pub struct PackageArgs {
     pub package_cache_path: Option<PathBuf>,
 }
 
-/// Common arguments to customize available fonts
+/// Common arguments to customize available fonts.
 #[derive(Debug, Clone, Parser)]
 pub struct FontArgs {
     /// Adds additional directories that are recursively searched for fonts.
@@ -373,6 +363,26 @@ pub struct FontArgs {
     /// `--font-path`.
     #[arg(long)]
     pub ignore_system_fonts: bool,
+}
+
+/// Arguments for the HTTP server.
+#[cfg(feature = "http-server")]
+#[derive(Debug, Clone, Parser)]
+pub struct ServerArgs {
+    /// Disables the built-in HTTP server for HTML export.
+    #[clap(long)]
+    pub no_serve: bool,
+
+    /// Disables the injected live reload script for HTML export. The HTML that
+    /// is written to disk isn't affected either way.
+    #[clap(long)]
+    pub no_reload: bool,
+
+    /// The port where HTML is served.
+    ///
+    /// Defaults to the first free port in the range 3000-3005.
+    #[clap(long)]
+    pub port: Option<u16>,
 }
 
 macro_rules! display_possible_values {

@@ -7,7 +7,7 @@ use parking_lot::{Condvar, Mutex, MutexGuard};
 use tiny_http::{Header, Request, Response, StatusCode};
 use typst::diag::{bail, StrResult};
 
-use crate::args::Input;
+use crate::args::{Input, ServerArgs};
 
 /// Serves HTML with live reload.
 pub struct HtmlServer {
@@ -17,8 +17,9 @@ pub struct HtmlServer {
 
 impl HtmlServer {
     /// Create a new HTTP server that serves live HTML.
-    pub fn new(input: &Input, port: Option<u16>, reload: bool) -> StrResult<Self> {
-        let (addr, server) = start_server(port)?;
+    pub fn new(input: &Input, args: &ServerArgs) -> StrResult<Self> {
+        let reload = !args.no_reload;
+        let (addr, server) = start_server(args.port)?;
 
         let placeholder = PLACEHOLDER_HTML.replace("{INPUT}", &input.to_string());
         let bucket = Arc::new(Bucket::new(placeholder));

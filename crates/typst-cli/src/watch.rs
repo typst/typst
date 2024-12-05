@@ -293,6 +293,7 @@ impl Status {
         out.reset()?;
         writeln!(out, " {}", config.output)?;
 
+        #[cfg(feature = "http-server")]
         if let Some(server) = &config.server {
             out.set_color(&color)?;
             write!(out, "serving at")?;
