@@ -39,6 +39,14 @@ impl HtmlNode {
     pub fn text(text: impl Into<EcoString>, span: Span) -> Self {
         Self::Text(text.into(), span)
     }
+
+    /// Can the node be surrounded by whitespace without impacting the document?
+    pub fn whitespace_around(&self) -> bool {
+        match self {
+            Self::Element(element) => tag::whitespace_around(element.tag),
+            Self::Tag(_) | Self::Text(..) | Self::Frame(_) => false,
+        }
+    }
 }
 
 impl From<HtmlElement> for HtmlNode {
@@ -468,6 +476,36 @@ pub mod tag {
         var
         video
         wbr
+    }
+
+    /// Can a node with the tag be surrounded by whitespace without impacting the document?
+    ///
+    /// This is an underapproximation.
+    pub fn whitespace_around(tag: HtmlTag) -> bool {
+        // TODO: this list is not exhaustive yet
+        whitespace_inside(tag) || matches!(tag, self::title | self::meta)
+    }
+
+    /// Can the content of a node with the tag be surrounded by whitespace without impacting the document?
+    ///
+    /// This is an underapproximation.
+    pub fn whitespace_inside(tag: HtmlTag) -> bool {
+        // TODO: this list is not exhaustive yet
+        matches!(
+            tag,
+            self::html
+                | self::head
+                | self::meta
+                | self::body
+                | self::h1
+                | self::h2
+                | self::h3
+                | self::h4
+                | self::h5
+                | self::h6
+                | self::p
+                | self::div
+        )
     }
 
     /// Whether the element is inline-level as opposed to being block-level.
