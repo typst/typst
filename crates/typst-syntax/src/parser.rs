@@ -1911,7 +1911,7 @@ struct PartialState {
 }
 
 /// The Memoization interface.
-impl<'s> Parser<'s> {
+impl Parser<'_> {
     /// Store the already parsed nodes and the parser state into the memo map by
     /// extending the arena and storing the extended range and a checkpoint.
     fn memoize_parsed_nodes(&mut self, key: MemoKey, prev_len: usize) {
@@ -1967,7 +1967,7 @@ impl<'s> Parser<'s> {
 
 /// Functions for eating expected or unexpected tokens and generating errors if
 /// we don't get what we expect.
-impl<'s> Parser<'s> {
+impl Parser<'_> {
     /// Consume the given `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
