@@ -93,7 +93,7 @@ struct State<'a> {
     size: Size,
 }
 
-impl<'a> State<'a> {
+impl State<'_> {
     fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
         Self {
             size,

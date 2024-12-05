@@ -85,7 +85,7 @@ pub struct CellMeasurementData<'layouter> {
     pub frames_in_previous_regions: usize,
 }
 
-impl<'a> GridLayouter<'a> {
+impl GridLayouter<'_> {
     /// Layout a rowspan over the already finished regions, plus the current
     /// region's frame and resolved rows, if it wasn't finished yet (because
     /// we're being called from `finish_region`, but note that this function is
