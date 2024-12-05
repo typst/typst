@@ -706,6 +706,46 @@ impl Gradient {
         }
     }
 
+    /// Returns the radius of this gradient.
+    #[func]
+    pub fn center(&self) -> Option<Axes<Ratio>> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.center), 
+            Self::Conic(conic) => Some(conic.center),
+        }
+    }
+
+    /// Returns the radius of this gradient.
+    #[func]
+    pub fn radius(&self) -> Option<Ratio> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.radius), 
+            Self::Conic(_) => None,
+        }
+    }
+
+    /// Returns the focal-center of this gradient.
+    #[func]
+    pub fn focal_center(&self) -> Option<Axes<Ratio>> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.focal_center), 
+            Self::Conic(_) => None,
+        }
+    }
+
+    /// Returns the focal-center of this gradient.
+    #[func]
+    pub fn focal_radius(&self) -> Option<Ratio> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.focal_radius), 
+            Self::Conic(_) => None,
+        }
+    }
+
     /// Sample the gradient at a given position.
     ///
     /// The position is either a position along the gradient (a [ratio] between
