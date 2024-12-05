@@ -2,13 +2,13 @@ use std::num::NonZeroUsize;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{warning, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
     Styles, Synthesize, TargetElem,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{tag, HtmlAttr, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
@@ -274,11 +274,18 @@ impl Show for Packed<HeadingElem> {
             // a `<h2>`.
             let level = self.resolve_level(styles).get();
             if level >= 6 {
-                bail!(span, "heading of level {} cannot be transformed to HTML", level;
-                    hint: "only headings of level 5 and smaller can be transformed to HTML");
+                engine.sink.warn(warning!(span, "heading of level {} should be transformed to <h{}> in HTML, but only <h1> to <h6> are supported; instead transformed to <div role=\"heading\" aria-level=\"{}\">, but note that this is not supported by all screen readers", level, level + 1, level + 1;
+                    hint: "you may want to restructure your document so that it doesn't contain deep headings"));
+                Ok(HtmlElem::new(tag::div)
+                    .with_body(Some(realized))
+                    .with_attr(const { HtmlAttr::constant("role") }, "heading")
+                    .with_attr(const { HtmlAttr::constant("aria-level") }, (level + 1).to_string())
+                    .pack()
+                    .spanned(span))
+            } else {
+                let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
+                Ok(HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span))
             }
-            let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
-            Ok(HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span))
         } else {
             let realized = BlockBody::Content(realized);
             Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
