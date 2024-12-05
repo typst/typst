@@ -521,6 +521,8 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Ident;
         if let Some(parent) = ctx.leaf.parent();
+        if parent.kind() == SyntaxKind::ImportItemPath;
+        if let Some(parent) = ctx.leaf.parent();
         if parent.kind() == SyntaxKind::ImportItems;
         if let Some(grand) = parent.parent();
         if let Some(ast::Expr::Import(import)) = grand.get().cast();
