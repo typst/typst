@@ -5,9 +5,7 @@ use ecow::eco_format;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
-use typst_library::visualize::{
-    ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
-};
+use typst_library::visualize::{ColorSpace, Image, ImageKind, RasterFormat, SvgImage};
 use typst_utils::Deferred;
 
 use crate::{color, deflate, PdfChunk, WithGlobalRefs};
@@ -32,10 +30,11 @@ pub fn write_images(
                 EncodedImage::Raster {
                     data,
                     filter,
-                    has_color,
+                    color_space,
+                    bits_per_component,
                     width,
                     height,
-                    icc,
+                    icc_profile,
                     alpha,
                 } => {
                     let image_ref = chunk.alloc();
@@ -45,23 +44,17 @@ pub fn write_images(
                     image.filter(*filter);
                     image.width(*width as i32);
                     image.height(*height as i32);
-                    image.bits_per_component(8);
+                    image.bits_per_component(i32::from(*bits_per_component));
 
                     let mut icc_ref = None;
                     let space = image.color_space();
-                    if icc.is_some() {
+                    if icc_profile.is_some() {
                         let id = chunk.alloc.bump();
                         space.icc_based(id);
                         icc_ref = Some(id);
-                    } else if *has_color {
-                        color::write(
-                            ColorSpace::Srgb,
-                            space,
-                            &context.globals.color_functions,
-                        );
                     } else {
                         color::write(
-                            ColorSpace::D65Gray,
+                            *color_space,
                             space,
                             &context.globals.color_functions,
                         );
@@ -79,20 +72,24 @@ pub fn write_images(
                         mask.width(*width as i32);
                         mask.height(*height as i32);
                         mask.color_space().device_gray();
-                        mask.bits_per_component(8);
+                        mask.bits_per_component(i32::from(*bits_per_component));
                     } else {
                         image.finish();
                     }
 
-                    if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
-                        let mut stream = chunk.icc_profile(icc_ref, icc);
+                    if let (Some(icc_profile), Some(icc_ref)) = (icc_profile, icc_ref) {
+                        let mut stream = chunk.icc_profile(icc_ref, icc_profile);
                         stream.filter(Filter::FlateDecode);
-                        if *has_color {
-                            stream.n(3);
-                            stream.alternate().srgb();
-                        } else {
-                            stream.n(1);
-                            stream.alternate().d65_gray();
+                        match color_space {
+                            ColorSpace::Srgb => {
+                                stream.n(3);
+                                stream.alternate().srgb();
+                            }
+                            ColorSpace::D65Gray => {
+                                stream.n(1);
+                                stream.alternate().d65_gray();
+                            }
+                            _ => unimplemented!(),
                         }
                     }
                 }
@@ -121,82 +118,97 @@ pub fn deferred_image(
     pdfa: bool,
 ) -> (Deferred<StrResult<EncodedImage>>, Option<ColorSpace>) {
     let color_space = match image.kind() {
-        ImageKind::Raster(raster) if raster.icc().is_none() => {
-            if raster.dynamic().color().channel_count() > 2 {
-                Some(ColorSpace::Srgb)
-            } else {
-                Some(ColorSpace::D65Gray)
-            }
+        ImageKind::Raster(raster) if raster.icc_profile().is_none() => {
+            Some(to_color_space(raster.dynamic().color()))
+        }
+        ImageKind::Pixmap(pixmap) if pixmap.icc_profile().is_none() => {
+            Some(to_color_space(pixmap.to_image().color()))
         }
         _ => None,
     };
 
     let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
-            let raster = raster.clone();
-            let (width, height) = (raster.width(), raster.height());
-            let (data, filter, has_color) = encode_raster_image(&raster);
-            let icc = raster.icc().map(deflate);
-
-            let alpha =
-                raster.dynamic().color().has_alpha().then(|| encode_alpha(&raster));
-
-            Ok(EncodedImage::Raster {
-                data,
-                filter,
-                has_color,
-                width,
-                height,
-                icc,
-                alpha,
-            })
+            let format = if raster.format() == RasterFormat::Jpg {
+                EncodeFormat::DctDecode
+            } else {
+                EncodeFormat::Flate
+            };
+            Ok(encode_raster_image(&raster.dynamic(), raster.icc_profile(), format))
         }
         ImageKind::Svg(svg) => {
             let (chunk, id) = encode_svg(svg, pdfa)
                 .map_err(|err| eco_format!("failed to convert SVG to PDF: {err}"))?;
             Ok(EncodedImage::Svg(chunk, id))
         }
+        ImageKind::Pixmap(pixmap) => Ok(encode_raster_image(
+            &pixmap.to_image(),
+            pixmap.icc_profile(),
+            EncodeFormat::Flate,
+        )),
     });
 
     (deferred, color_space)
 }
 
-/// Encode an image with a suitable filter and return the data, filter and
-/// whether the image has color.
-///
-/// Skips the alpha channel as that's encoded separately.
+/// Encode an image with a suitable filter.
 #[typst_macros::time(name = "encode raster image")]
-fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
-    let dynamic = image.dynamic();
-    let channel_count = dynamic.color().channel_count();
-    let has_color = channel_count > 2;
+fn encode_raster_image(
+    image: &DynamicImage,
+    icc_profile: Option<&[u8]>,
+    format: EncodeFormat,
+) -> EncodedImage {
+    let color_space = to_color_space(image.color());
 
-    if image.format() == RasterFormat::Jpg {
-        let mut data = Cursor::new(vec![]);
-        dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-        (data.into_inner(), Filter::DctDecode, has_color)
-    } else {
-        // TODO: Encode flate streams with PNG-predictor?
-        let data = match (dynamic, channel_count) {
-            (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
-            (DynamicImage::ImageRgb8(rgb), _) => deflate(rgb.as_raw()),
-            // Grayscale image
-            (_, 1 | 2) => deflate(dynamic.to_luma8().as_raw()),
-            // Anything else
-            _ => deflate(dynamic.to_rgb8().as_raw()),
-        };
-        (data, Filter::FlateDecode, has_color)
+    let (filter, data, bits_per_component) = match format {
+        EncodeFormat::DctDecode => {
+            let mut data = Cursor::new(vec![]);
+            image.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
+            (Filter::DctDecode, data.into_inner(), 8)
+        }
+        EncodeFormat::Flate => {
+            // TODO: Encode flate streams with PNG-predictor?
+            let (data, bits_per_component) = match (image, color_space) {
+                (DynamicImage::ImageRgb8(rgb), _) => (deflate(rgb.as_raw()), 8),
+                // Grayscale image
+                (DynamicImage::ImageLuma8(luma), _) => (deflate(luma.as_raw()), 8),
+                (_, ColorSpace::D65Gray) => (deflate(image.to_luma8().as_raw()), 8),
+                // Anything else
+                _ => (deflate(image.to_rgb8().as_raw()), 8),
+            };
+            (Filter::FlateDecode, data, bits_per_component)
+        }
+    };
+
+    let compressed_icc = icc_profile.map(deflate);
+    let alpha = image.color().has_alpha().then(|| encode_alpha(image));
+
+    EncodedImage::Raster {
+        data,
+        filter,
+        color_space,
+        bits_per_component,
+        width: image.width(),
+        height: image.height(),
+        icc_profile: compressed_icc,
+        alpha,
+    }
+}
+
+/// Matches an [`image::ColorType`] to [`ColorSpace`].
+fn to_color_space(color: image::ColorType) -> ColorSpace {
+    use image::ColorType::*;
+    match color {
+        L8 | La8 | L16 | La16 => ColorSpace::D65Gray,
+        Rgb8 | Rgba8 | Rgb16 | Rgba16 | Rgb32F | Rgba32F => ColorSpace::Srgb,
+        _ => unimplemented!(),
     }
 }
 
 /// Encode an image's alpha channel if present.
 #[typst_macros::time(name = "encode alpha")]
-fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
-    let pixels: Vec<_> = raster
-        .dynamic()
-        .pixels()
-        .map(|(_, _, Rgba([_, _, _, a]))| a)
-        .collect();
+fn encode_alpha(image: &DynamicImage) -> (Vec<u8>, Filter) {
+    let pixels: Vec<_> = image.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
     (deflate(&pixels), Filter::FlateDecode)
 }
 
@@ -224,14 +236,16 @@ pub enum EncodedImage {
         data: Vec<u8>,
         /// The filter to use for the image.
         filter: Filter,
-        /// Whether the image has color.
-        has_color: bool,
+        /// Which color space this image is encoded in.
+        color_space: ColorSpace,
+        /// How many bits of each color component are stored.
+        bits_per_component: u8,
         /// The image's width.
         width: u32,
         /// The image's height.
         height: u32,
         /// The image's ICC profile, pre-deflated, if any.
-        icc: Option<Vec<u8>>,
+        icc_profile: Option<Vec<u8>>,
         /// The alpha channel of the image, pre-deflated, if any.
         alpha: Option<(Vec<u8>, Filter)>,
     },
@@ -239,4 +253,10 @@ pub enum EncodedImage {
     ///
     /// The chunk is the SVG converted to PDF objects.
     Svg(Chunk, Ref),
+}
+
+/// How the raster image should be encoded.
+enum EncodeFormat {
+    DctDecode,
+    Flate,
 }

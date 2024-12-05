@@ -10,7 +10,8 @@ use typst_library::layout::{
 use typst_library::loading::Readable;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Curve, Image, ImageElem, ImageFit, ImageFormat, RasterFormat, VectorFormat,
+    Curve, Image, ImageElem, ImageFit, ImageFormat, ImageSource, RasterFormat,
+    VectorFormat,
 };
 
 /// Layout the image.
@@ -26,31 +27,38 @@ pub fn layout_image(
 
     // Take the format that was explicitly defined, or parse the extension,
     // or try to detect the format.
-    let data = elem.data();
-    let format = match elem.format(styles) {
-        Smart::Custom(v) => v,
-        Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
+    let source = elem.source();
+    let format = match (elem.format(styles), source) {
+        (Smart::Custom(v), _) => v,
+        (Smart::Auto, ImageSource::Readable(data)) => {
+            determine_format(elem.path().as_str(), data).at(span)?
+        }
+        (Smart::Auto, ImageSource::Pixmap(_)) => {
+            bail!(span, "pixmaps require an explicit image format to be given");
+        }
     };
 
     // Warn the user if the image contains a foreign object. Not perfect
     // because the svg could also be encoded, but that's an edge case.
-    if format == ImageFormat::Vector(VectorFormat::Svg) {
-        let has_foreign_object =
-            data.as_str().is_some_and(|s| s.contains("<foreignObject"));
+    if let ImageSource::Readable(data) = source {
+        if format == ImageFormat::Vector(VectorFormat::Svg) {
+            let has_foreign_object =
+                data.as_str().is_some_and(|s| s.contains("<foreignObject"));
 
-        if has_foreign_object {
-            engine.sink.warn(warning!(
-                span,
-                "image contains foreign object";
-                hint: "SVG images with foreign objects might render incorrectly in typst";
-                hint: "see https://github.com/typst/typst/issues/1421 for more information"
-            ));
+            if has_foreign_object {
+                engine.sink.warn(warning!(
+                    span,
+                    "image contains foreign object";
+                    hint: "SVG images with foreign objects might render incorrectly in typst";
+                    hint: "see https://github.com/typst/typst/issues/1421 for more information"
+                ));
+            }
         }
     }
 
     // Construct the image itself.
     let image = Image::with_fonts(
-        data.clone().into(),
+        source.clone(),
         format,
         elem.alt(styles),
         engine.world,

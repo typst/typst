@@ -21,7 +21,7 @@ struct Repr {
     data: Bytes,
     format: RasterFormat,
     dynamic: image::DynamicImage,
-    icc: Option<Vec<u8>>,
+    icc_profile: Option<Vec<u8>>,
     dpi: Option<f64>,
 }
 
@@ -40,7 +40,7 @@ impl RasterImage {
         }
 
         let cursor = io::Cursor::new(&data);
-        let (mut dynamic, icc) = match format {
+        let (mut dynamic, icc_profile) = match format {
             RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
             RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
             RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
@@ -59,7 +59,7 @@ impl RasterImage {
         // Extract pixel density.
         let dpi = determine_dpi(&data, exif.as_ref());
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr { data, format, dynamic, icc_profile, dpi })))
     }
 
     /// The raw image data.
@@ -93,8 +93,8 @@ impl RasterImage {
     }
 
     /// Access the ICC profile, if any.
-    pub fn icc(&self) -> Option<&[u8]> {
-        self.0.icc.as_deref()
+    pub fn icc_profile(&self) -> Option<&[u8]> {
+        self.0.icc_profile.as_deref()
     }
 }
 

@@ -1,5 +1,6 @@
 //! Image handling.
 
+mod pixmap;
 mod raster;
 mod svg;
 
@@ -11,14 +12,15 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::EcoString;
+use pixmap::{Pixmap, PixmapFormat, PixmapSource};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Show, Smart,
-    StyleChain,
+    cast, elem, func, scope, Bytes, Cast, Content, Dict, NativeElement, Packed, Show,
+    Smart, StyleChain,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
 use crate::loading::Readable;
@@ -60,11 +62,11 @@ pub struct ImageElem {
     #[borrowed]
     pub path: EcoString,
 
-    /// The raw file data.
+    /// The data required to decode the image.
     #[internal]
     #[required]
-    #[parse(Readable::Bytes(data))]
-    pub data: Readable,
+    #[parse(data.into())]
+    pub source: ImageSource,
 
     /// The image's format. Detected automatically by default.
     ///
@@ -103,6 +105,7 @@ pub struct ImageElem {
 }
 
 #[scope]
+#[allow(clippy::too_many_arguments)]
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
     ///
@@ -121,7 +124,7 @@ impl ImageElem {
         /// The call span of this function.
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
-        data: Readable,
+        source: ImageSource,
         /// The image's format. Detected automatically by default.
         #[named]
         format: Option<Smart<ImageFormat>>,
@@ -138,7 +141,7 @@ impl ImageElem {
         #[named]
         fit: Option<ImageFit>,
     ) -> StrResult<Content> {
-        let mut elem = ImageElem::new(EcoString::new(), data);
+        let mut elem = ImageElem::new(EcoString::new(), source);
         if let Some(format) = format {
             elem.push_format(format);
         }
@@ -213,6 +216,8 @@ pub enum ImageKind {
     Raster(RasterImage),
     /// An SVG image.
     Svg(SvgImage),
+    /// An image constructed from a pixmap.
+    Pixmap(Pixmap),
 }
 
 impl Image {
@@ -223,20 +228,32 @@ impl Image {
     /// Should always be the same as the default DPI used by usvg.
     pub const USVG_DEFAULT_DPI: f64 = 96.0;
 
-    /// Create an image from a buffer and a format.
+    /// Create an image from a source and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn new(
-        data: Bytes,
+        source: ImageSource,
         format: ImageFormat,
         alt: Option<EcoString>,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                let ImageSource::Readable(readable) = source else {
+                    bail!("expected readable source for the given format (str or bytes)");
+                };
+                ImageKind::Raster(RasterImage::new(readable.into(), format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::new(data)?)
+                let ImageSource::Readable(readable) = source else {
+                    bail!("expected readable source for the given format (str or bytes)");
+                };
+                ImageKind::Svg(SvgImage::new(readable.into())?)
+            }
+            ImageFormat::Pixmap(format) => {
+                let ImageSource::Pixmap(source) = source else {
+                    bail!("source must be a pixmap");
+                };
+                ImageKind::Pixmap(Pixmap::new(source, format)?)
             }
         };
 
@@ -247,7 +264,7 @@ impl Image {
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn with_fonts(
-        data: Bytes,
+        source: ImageSource,
         format: ImageFormat,
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
@@ -256,22 +273,31 @@ impl Image {
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                let ImageSource::Readable(readable) = source else {
+                    bail!("expected readable source for the given format (str or bytes)");
+                };
+                ImageKind::Raster(RasterImage::new(readable.into(), format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, flatten_text, families)?)
+                let ImageSource::Readable(readable) = source else {
+                    bail!("expected readable source for the given format (str or bytes)");
+                };
+                ImageKind::Svg(SvgImage::with_fonts(
+                    readable.into(),
+                    world,
+                    flatten_text,
+                    families,
+                )?)
+            }
+            ImageFormat::Pixmap(format) => {
+                let ImageSource::Pixmap(source) = source else {
+                    bail!("source must be pixmap");
+                };
+                ImageKind::Pixmap(Pixmap::new(source, format)?)
             }
         };
 
         Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
-    }
-
-    /// The raw image data.
-    pub fn data(&self) -> &Bytes {
-        match &self.0.kind {
-            ImageKind::Raster(raster) => raster.data(),
-            ImageKind::Svg(svg) => svg.data(),
-        }
     }
 
     /// The format of the image.
@@ -279,6 +305,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.format().into(),
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
+            ImageKind::Pixmap(pixmap) => pixmap.format().into(),
         }
     }
 
@@ -287,6 +314,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
+            ImageKind::Pixmap(pixmap) => pixmap.width() as f64,
         }
     }
 
@@ -295,6 +323,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+            ImageKind::Pixmap(pixmap) => pixmap.height() as f64,
         }
     }
 
@@ -303,6 +332,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
+            ImageKind::Pixmap(_) => None,
         }
     }
 
@@ -328,6 +358,34 @@ impl Debug for Image {
     }
 }
 
+/// Information required to decode an image.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum ImageSource {
+    Readable(Readable),
+    Pixmap(Arc<PixmapSource>),
+}
+
+impl From<Bytes> for ImageSource {
+    fn from(bytes: Bytes) -> Self {
+        ImageSource::Readable(Readable::Bytes(bytes))
+    }
+}
+
+cast! {
+    ImageSource,
+    data: Readable => ImageSource::Readable(data),
+    mut dict: Dict => {
+        let source = ImageSource::Pixmap(Arc::new(PixmapSource {
+            data: dict.take("data")?.cast()?,
+            pixel_width: dict.take("pixel-width")?.cast()?,
+            pixel_height: dict.take("pixel-height")?.cast()?,
+            icc_profile: dict.take("icc-profile").ok().map(|value| value.cast()).transpose()?,
+        }));
+        dict.finish(&["data", "pixel-width", "pixel-height", "icc-profile"])?;
+        source
+    },
+}
+
 /// A raster or vector image format.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ImageFormat {
@@ -335,6 +393,8 @@ pub enum ImageFormat {
     Raster(RasterFormat),
     /// A vector graphics format.
     Vector(VectorFormat),
+    /// A format made up of flat pixels without metadata or compression.
+    Pixmap(PixmapFormat),
 }
 
 /// A vector graphics format.
@@ -356,12 +416,20 @@ impl From<VectorFormat> for ImageFormat {
     }
 }
 
+impl From<PixmapFormat> for ImageFormat {
+    fn from(format: PixmapFormat) -> Self {
+        Self::Pixmap(format)
+    }
+}
+
 cast! {
     ImageFormat,
     self => match self {
         Self::Raster(v) => v.into_value(),
-        Self::Vector(v) => v.into_value()
+        Self::Vector(v) => v.into_value(),
+        Self::Pixmap(v) => v.into_value(),
     },
     v: RasterFormat => Self::Raster(v),
     v: VectorFormat => Self::Vector(v),
+    v: PixmapFormat => Self::Pixmap(v),
 }

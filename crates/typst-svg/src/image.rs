@@ -1,7 +1,13 @@
+use std::io::Cursor;
+
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use image::error::UnsupportedError;
+use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::layout::{Abs, Axes};
-use typst_library::visualize::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst_library::visualize::{
+    Image, ImageFormat, ImageKind, RasterFormat, VectorFormat,
+};
 
 use crate::SVGRenderer;
 
@@ -31,10 +37,27 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
         ImageFormat::Vector(f) => match f {
             VectorFormat::Svg => "svg+xml",
         },
+        ImageFormat::Pixmap(_) => "png",
+    };
+    let data_owned;
+    let data = match image.kind() {
+        ImageKind::Raster(raster) => raster.data(),
+        ImageKind::Svg(svg) => svg.data(),
+        ImageKind::Pixmap(pixmap) => {
+            let mut data = Cursor::new(vec![]);
+            let mut encoder = PngEncoder::new(&mut data);
+            if let Some(icc_profile) = pixmap.icc_profile() {
+                let _: Result<(), UnsupportedError> =
+                    encoder.set_icc_profile(icc_profile.to_vec());
+            }
+            pixmap.to_image().write_with_encoder(encoder).unwrap();
+            data_owned = data.into_inner();
+            &*data_owned
+        }
     };
 
     let mut url = eco_format!("data:image/{format};base64,");
-    let data = base64::engine::general_purpose::STANDARD.encode(image.data());
+    let data = base64::engine::general_purpose::STANDARD.encode(data);
     url.push_str(&data);
     url
 }

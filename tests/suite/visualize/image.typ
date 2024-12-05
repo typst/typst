@@ -65,6 +65,58 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   caption: [Bilingual text]
 )
 
+--- image-pixmap-rgb8 ---
+#image.decode(
+  (
+    data: bytes((
+      0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
+      0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80,
+      0x80, 0x80, 0x00, 0x80, 0x80, 0x00, 0x80, 0x00, 0x80,
+    )),
+    pixel-width: 3,
+    pixel-height: 3,
+  ),
+  format: "rgb8",
+  width: 1cm,
+)
+
+--- image-pixmap-rgba8 ---
+#image.decode(
+  (
+    data: bytes((
+      0xFF, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0xFF,
+      0xFF, 0x00, 0x00, 0x80, 0x00, 0xFF, 0x00, 0x80, 0x00, 0x00, 0xFF, 0x80,
+      0xFF, 0x00, 0x00, 0x10, 0x00, 0xFF, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x10,
+    )),
+    pixel-width: 3,
+    pixel-height: 3,
+  ),
+  format: "rgba8",
+  width: 1cm,
+)
+
+--- image-pixmap-luma8 ---
+#image.decode(
+  (
+    data: bytes(range(16).map(x => x * 16)),
+    pixel-width: 4,
+    pixel-height: 4,
+  ),
+  format: "luma8",
+  width: 1cm,
+)
+
+--- image-pixmap-lumaa8 ---
+#image.decode(
+  (
+    data: bytes(range(16).map(x => (0x80, x * 16)).flatten()),
+    pixel-width: 4,
+    pixel-height: 4,
+  ),
+  format: "lumaa8",
+  width: 1cm,
+)
+
 --- image-natural-dpi-sizing ---
 // Test that images aren't upscaled.
 // Image is just 48x80 at 220dpi. It should not be scaled to fit the page
@@ -102,6 +154,58 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-decode-specify-wrong-format ---
 // Error: 2-91 failed to decode image (Format error decoding Png: Invalid PNG signature.)
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
+
+--- image-pixmap-empty ---
+// Error: 1:2-8:2 zero-sized images are not allowed 
+#image.decode(
+  (
+    data: bytes(()),
+    pixel-width: 0,
+    pixel-height: 0,
+  ),
+  format: "rgb8",
+)
+
+--- image-pixmap-invalid-size ---
+// Error: 1:2-8:2 provided pixel dimensions and pixmap data do not match
+#image.decode(
+  (
+    data: bytes((0x00, 0x00, 0x00)),
+    pixel-width: 16,
+    pixel-height: 16,
+  ),
+  format: "rgb8",
+)
+
+--- image-pixmap-unknown-attribute ---
+// Error: 2:3-7:4 unexpected key "stowaway", valid keys are "data", "pixel-width", "pixel-height", and "icc-profile"
+#image.decode(
+  (
+    data: bytes((0x00, 0x00, 0x00)),
+    pixel-width: 1,
+    pixel-height: 1,
+    stowaway: "I do work here, promise",
+  ),
+  format: "rgb8",
+)
+
+--- image-pixmap-but-png-format ---
+// Error: 1:2-8:2 expected readable source for the given format (str or bytes)
+#image.decode(
+  (
+    data: bytes((0x00, 0x00, 0x00)),
+    pixel-width: 1,
+    pixel-height: 1,
+  ),
+  format: "png",
+)
+
+--- image-png-but-pixmap-format ---
+// Error: 1:2-4:2 source must be pixmap
+#image.decode(
+  read("/assets/images/tiger.jpg", encoding: none),
+  format: "rgba8",
+)
 
 --- issue-870-image-rotation ---
 // Ensure that EXIF rotation is applied.
