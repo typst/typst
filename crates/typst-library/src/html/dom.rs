@@ -538,7 +538,7 @@ pub mod tag {
     /// <https://www.w3.org/TR/html401/struct/global.html#block-inline>
     /// <https://developer.mozilla.org/en-US/docs/Glossary/Inline-level_content>
     /// <https://github.com/orgs/mdn/discussions/353>
-    pub fn is_inline(tag: HtmlTag) -> bool {
+    pub fn is_inline_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,
             self::abbr
