@@ -40,10 +40,10 @@ impl HtmlNode {
         Self::Text(text.into(), span)
     }
 
-    /// Can the node be surrounded by whitespace without impacting the document?
-    pub fn whitespace_around(&self) -> bool {
+    /// Whether the node should be pretty-printed.
+    pub fn is_pretty(&self) -> bool {
         match self {
-            Self::Element(element) => tag::whitespace_around(element.tag),
+            Self::Element(element) => element.is_pretty(),
             Self::Tag(_) | Self::Text(..) | Self::Frame(_) => false,
         }
     }
@@ -97,6 +97,11 @@ impl HtmlElement {
     pub fn spanned(mut self, span: Span) -> Self {
         self.span = span;
         self
+    }
+
+    /// Whether the element should be pretty-printed.
+    pub fn is_pretty(&self) -> bool {
+        tag::is_block_by_default(self.tag)
     }
 }
 
@@ -478,18 +483,10 @@ pub mod tag {
         wbr
     }
 
-    /// Can a node with the tag be surrounded by whitespace without impacting the document?
-    ///
-    /// This is an underapproximation.
-    pub fn whitespace_around(tag: HtmlTag) -> bool {
-        // TODO: this list is not exhaustive yet
-        whitespace_inside(tag) || matches!(tag, self::title | self::meta)
-    }
-
     /// Can the content of a node with the tag be surrounded by whitespace without impacting the document?
     ///
     /// This is an underapproximation.
-    pub fn whitespace_inside(tag: HtmlTag) -> bool {
+    pub fn is_block_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,
             self::html

@@ -81,9 +81,10 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         return Ok(());
     }
 
+    let pretty = w.pretty;
     if !element.children.is_empty() {
-        let whitespace_inside = tag::whitespace_inside(element.tag);
-        let mut indent = whitespace_inside;
+        w.pretty &= element.is_pretty();
+        let mut indent = w.pretty;
 
         w.level += 1;
         for c in &element.children {
@@ -91,18 +92,17 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
                 continue;
             }
 
-            if core::mem::take(&mut indent) || c.whitespace_around() {
+            if core::mem::take(&mut indent) || c.is_pretty() {
                 write_indent(w);
             }
             write_node(w, c)?;
-            indent = c.whitespace_around();
+            indent = c.is_pretty();
         }
         w.level -= 1;
 
-        if whitespace_inside {
-            write_indent(w)
-        }
+        write_indent(w)
     }
+    w.pretty = pretty;
 
     w.buf.push_str("</");
     w.buf.push_str(&element.tag.resolve());
