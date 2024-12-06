@@ -211,7 +211,7 @@ impl<'s> SmartQuotes<'s> {
     /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin,
     /// Lithuanian, Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish,
     /// Swedish, French, Swiss French, Hungarian, Polish, Romanian, Japanese,
-    /// Traditional Chinese, Russian, Norwegian, and Hebrew.
+    /// Traditional Chinese, Russian, Norwegian, Hebrew and Croatian.
     ///
     /// For unknown languages, the English quotes are used as fallback.
     pub fn get(
@@ -245,7 +245,7 @@ impl<'s> SmartQuotes<'s> {
             "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
             "it" | "la" => ("“", "”", "«", "»"),
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
-            "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
+            "hr" | "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,
             "ru" | "no" | "nb" | "nn" | "uk" => ("’", "’", "«", "»"),
             "el" => ("‘", "’", "«", "»"),
