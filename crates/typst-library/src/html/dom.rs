@@ -490,21 +490,44 @@ pub mod tag {
     ///
     /// This is an underapproximation.
     pub fn whitespace_inside(tag: HtmlTag) -> bool {
-        // TODO: this list is not exhaustive yet
         matches!(
             tag,
             self::html
                 | self::head
-                | self::meta
                 | self::body
+                | self::article
+                | self::aside
                 | self::h1
                 | self::h2
                 | self::h3
                 | self::h4
                 | self::h5
                 | self::h6
-                | self::p
+                | self::hgroup
+                | self::nav
+                | self::section
+                | self::dd
+                | self::dl
+                | self::dt
+                | self::menu
+                | self::ol
+                | self::ul
+                | self::address
+                | self::blockquote
+                | self::dialog
                 | self::div
+                | self::fieldset
+                | self::figure
+                | self::figcaption
+                | self::footer
+                | self::form
+                | self::header
+                | self::hr
+                | self::legend
+                | self::main
+                | self::p
+                | self::pre
+                | self::search
         )
     }
 
