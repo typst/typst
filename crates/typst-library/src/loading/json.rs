@@ -1,7 +1,7 @@
-use ecow::{eco_format, EcoString};
-use typst_syntax::Spanned;
+use ecow::{eco_format, eco_vec, EcoString};
+use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{self, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::Readable;
@@ -61,7 +61,20 @@ pub fn json(
     let Spanned { v: path, span } = path;
     let id = span.resolve_path(&path).at(span)?;
     let data = engine.world.file(id).at(span)?;
-    json::decode(Spanned::new(Readable::Bytes(data), span))
+
+    serde_json::from_slice(data.as_slice()).map_err(|err| {
+        let loc = (err.line() - 1, err.column().saturating_sub(1));
+        eco_vec![diag::error!(
+            Span::from_row_column(
+                id,
+                loc,
+                loc,
+                &String::from_utf8_lossy(data.as_slice())
+            )
+            .unwrap_or(span),
+            "failed to parse JSON ({err})"
+        )]
+    })
 }
 
 #[scope]

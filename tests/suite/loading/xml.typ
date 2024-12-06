@@ -24,5 +24,5 @@
 ),))
 
 --- xml-invalid ---
-// Error: 6-28 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
+// Error: "/assets/data/bad.xml" 3:1 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
 #xml("/assets/data/bad.xml")

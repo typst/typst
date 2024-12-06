@@ -18,10 +18,10 @@
 #csv("nope.csv")
 
 --- csv-invalid ---
-// Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
+// Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv")
 
 --- csv-invalid-row-type-dict ---
 // Test error numbering with dictionary rows.
-// Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
+// Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv", row-type: dictionary)

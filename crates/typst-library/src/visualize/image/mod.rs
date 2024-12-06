@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::EcoString;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{FileId, Span, Spanned};
 use typst_utils::LazyHash;
 
 use crate::diag::{At, SourceResult, StrResult};
@@ -224,13 +224,15 @@ impl Image {
         data: Bytes,
         format: ImageFormat,
         alt: Option<EcoString>,
-    ) -> StrResult<Image> {
+        span: Span,
+        file: Option<FileId>,
+    ) -> SourceResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                ImageKind::Raster(RasterImage::new(data, format).at(span)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::new(data)?)
+                ImageKind::Svg(SvgImage::new(data, span, file)?)
             }
         };
 
@@ -246,13 +248,15 @@ impl Image {
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
         families: &[&str],
-    ) -> StrResult<Image> {
+        span: Span,
+        file: Option<FileId>,
+    ) -> SourceResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                ImageKind::Raster(RasterImage::new(data, format).at(span)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, families)?)
+                ImageKind::Svg(SvgImage::with_fonts(data, world, families, span, file)?)
             }
         };
 

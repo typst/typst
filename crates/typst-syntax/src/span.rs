@@ -3,8 +3,9 @@ use std::num::{NonZeroU16, NonZeroU64};
 use std::ops::Range;
 
 use ecow::EcoString;
+use unscanny::Scanner;
 
-use crate::FileId;
+use crate::{is_newline, FileId};
 
 /// Defines a range in a file.
 ///
@@ -97,6 +98,63 @@ impl Span {
         let end = if range.end > max { max } else { range.end } as u64;
         let number = (start << Self::RANGE_PART_SHIFT) | end;
         Self::pack(id, Self::RANGE_BASE + number)
+    }
+
+    /// Creates a new span from the row and column numbers in a file.
+    ///
+    /// If one of the range's parts exceeds the maximum value (2^23), it is
+    /// saturated.
+    pub fn from_row_column(
+        id: FileId,
+        (start_row, start_col): (usize, usize),
+        (end_row, end_col): (usize, usize),
+        file: &str,
+    ) -> Option<Self> {
+        assert!(start_row <= end_row, "start must be before end");
+        if start_row == end_row {
+            assert!(start_col <= end_col, "start must be before end");
+        }
+
+        let mut s = Scanner::new(file);
+
+        // Read along the new lines until the right row and column are reached.
+        let mut current_row = 0;
+        let mut current_col = 0;
+        let mut start_byte = None;
+        let mut end_byte = None;
+
+        let mut was_cr = false;
+        let mut idx = 0;
+        while let Some(c) = s.eat() {
+            if start_byte.is_none()
+                && current_row == start_row
+                && current_col == start_col
+            {
+                start_byte = Some(idx);
+            }
+
+            if current_row == end_row && current_col == end_col {
+                end_byte = Some(idx);
+                break;
+            }
+
+            if is_newline(c) {
+                if was_cr && c == '\n' {
+                    was_cr = false;
+                } else {
+                    was_cr = c == '\r';
+                    current_row += 1;
+                    current_col = 0;
+                }
+            } else {
+                current_col += 1;
+                was_cr = false;
+            }
+
+            idx += c.len_utf8();
+        }
+
+        Some(Self::from_range(id, start_byte?..end_byte?))
     }
 
     /// Construct from a raw number.
