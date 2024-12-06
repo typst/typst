@@ -47,11 +47,10 @@ fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
     at_start |= p.had_newline();
     let mut nesting: usize = 0;
-    let mut at_nested_bracket = false;
-    while !p.at_set(stop_set) || at_nested_bracket {
+    // Keep going if we're at a nested right-bracket regardless of the stop set.
+    while !p.at_set(stop_set) || (nesting > 0 && p.at(SyntaxKind::RightBracket)) {
         markup_expr(p, at_start, &mut nesting);
         at_start = p.had_newline();
-        at_nested_bracket = nesting > 0 && p.at(SyntaxKind::RightBracket);
     }
 }
 
