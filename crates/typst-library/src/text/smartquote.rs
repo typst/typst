@@ -245,7 +245,7 @@ impl<'s> SmartQuotes<'s> {
             "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
             "it" | "la" => ("“", "”", "«", "»"),
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
-            "hr" | "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
+            "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,
             "ru" | "no" | "nb" | "nn" | "uk" => ("’", "’", "«", "»"),
             "el" => ("‘", "’", "«", "»"),
