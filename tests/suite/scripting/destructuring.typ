@@ -373,3 +373,19 @@
 // Error: 6-12 too many elements to destructure
 // Hint: 6-12 the provided array has a length of 3, but the pattern expects 2 elements
 #for (x, y) in ((1,2,3), (4,5,6)) {}
+
+--- issue-4573-destructuring-unclosed-delimiter ---
+// See comment in issue for explanation. This one's complex.
+#{
+  (
+    // Error: 5-7 expected pattern, found keyword `if`
+    // Hint: 5-7 keyword `if` is not allowed as an identifier; try `if_` instead
+    // Error: 9 expected comma
+    // Error: 13-17 unexpected keyword `else`
+    // Error: 20 expected comma
+    if x {} else {}
+    // Error: 5-6 unclosed delimiter
+    { () = 2
+  ) = 3
+}
+
