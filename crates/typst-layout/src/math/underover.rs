@@ -297,7 +297,7 @@ fn layout_underoverspreader(
             if let Some(annotation) = annotation {
                 let under_style = style_for_subscript(styles);
                 let annotation_styles = styles.chain(&under_style);
-                rows.push(ctx.layout_into_run(annotation, annotation_styles)?);
+                rows.extend(ctx.layout_into_run(annotation, annotation_styles)?.rows());
             }
             0
         }
@@ -305,7 +305,7 @@ fn layout_underoverspreader(
             if let Some(annotation) = annotation {
                 let over_style = style_for_superscript(styles);
                 let annotation_styles = styles.chain(&over_style);
-                rows.push(ctx.layout_into_run(annotation, annotation_styles)?);
+                rows.extend(ctx.layout_into_run(annotation, annotation_styles)?.rows());
             }
             rows.push(stretched.into());
             rows.push(MathRun::new(vec![body]));

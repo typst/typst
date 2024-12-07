@@ -127,7 +127,9 @@ fn layout_vec_body(
     let denom_style = style_for_denominator(styles);
     let mut flat = vec![];
     for child in column {
-        flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
+        // We allow linebreaks in cases and vectors, which are functionally
+        // identical to commas.
+        flat.extend(ctx.layout_into_run(child, styles.chain(&denom_style))?.rows());
     }
     // We pad ascent and descent with the ascent and descent of the paren
     // to ensure that normal vectors are aligned with others unless they are
