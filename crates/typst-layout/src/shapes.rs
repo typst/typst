@@ -350,7 +350,13 @@ fn layout_shape(
         // If the child is a square or circle, relayout with full expansion into
         // square region to make sure the result is really quadratic.
         if kind.is_quadratic() {
-            let length = frame.size().max_by_side().min(pod.size.min_by_side());
+            let mut length = frame.size().max_by_side();
+            if region.expand.x {
+                length = length.min(pod.size.x);
+            }
+            if region.expand.y {
+                length = length.min(pod.size.y);
+            }
             let quad_pod = Region::new(Size::splat(length), Axes::splat(true));
             frame = crate::layout_frame(engine, child, locator, styles, quad_pod)?;
         }

@@ -83,6 +83,13 @@
 #square(height: 100%)
 #square(height: 100%)[Hello there]
 
+--- square-overflow-2 ---
+// Test that an overflowing square is laid out regardless of the
+// presence of inner content.
+#set page(width: 120pt, height: 100pt)
+#square(width: 150%)
+#square(width: 150%)[Hello there]
+
 --- square-size-relative-invalid ---
 // Size cannot be relative because we wouldn't know
 // relative to which axis.
