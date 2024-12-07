@@ -375,7 +375,11 @@
 #for (x, y) in ((1,2,3), (4,5,6)) {}
 
 --- issue-4573-destructuring-unclosed-delimiter ---
-// See comment in issue for explanation. This one's complex.
+// Tests a case where parsing within an incorrectly predicted paren expression
+// (the "outer" assignment) would put the parser in an invalid state when
+// reloading a stored prediction (the "inner" assignment) and cause a panic when
+// generating the unclosed delimiter error. See the comment in the issue for
+// more details.
 #{
   (
     // Error: 5-7 expected pattern, found keyword `if`
@@ -385,7 +389,7 @@
     // Error: 20 expected comma
     if x {} else {}
     // Error: 5-6 unclosed delimiter
-    { () = 2
-  ) = 3
+    { () = "inner"
+  ) = "outer"
 }
 
