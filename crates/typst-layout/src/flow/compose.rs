@@ -470,7 +470,20 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Lay out nested footnotes.
         for (_, note) in nested {
-            self.footnote(note, regions, flow_need, migratable)?;
+            match self.footnote(note, regions, flow_need, migratable) {
+                // This footnote was already processed or queued.
+                Ok(_) => {}
+                // Footnotes always request a relayout when processed for the
+                // first time, so we ignore a relayout request since we're
+                // about to do so afterwards. Without this check, the first
+                // inner footnote interrupts processing of the following ones.
+                Err(Stop::Relayout(_)) => {}
+                // Either of
+                // - A `Stop::Finish` indicating that the frame's origin element
+                //   should migrate to uphold the footnote invariant.
+                // - A fatal error.
+                err => return err,
+            }
         }
 
         // Since we laid out a footnote, we need a relayout.
