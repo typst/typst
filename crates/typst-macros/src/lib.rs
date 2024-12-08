@@ -280,7 +280,7 @@ pub fn category(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream 
 /// - `Reflect` makes Typst's runtime aware of the type's characteristics.
 ///   It's important for autocompletion, error messages, etc.
 /// - `FromValue` defines how to cast from a value into this type.
-/// - `IntoValue` defines how to cast fromthis type into a value.
+/// - `IntoValue` defines how to cast from this type into a value.
 ///
 /// ```ignore
 /// /// An integer between 0 and 13.
