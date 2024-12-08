@@ -371,7 +371,7 @@ fn layout_shape(
         }
     } else {
         // The default size that a shape takes on if it has no child and no
-        // forced sized.
+        // forced sizes.
         let default = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(region.size);
 
         let size = if kind.is_quadratic() {
@@ -380,6 +380,9 @@ fn layout_shape(
                 None => default.min_by_side(),
             })
         } else {
+            // For each dimension, pick the region size if forced, otherwise
+            // use the default size (or the region size if the default
+            // is too large for the region).
             region.expand.select(region.size, default)
         };
 
