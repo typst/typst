@@ -67,3 +67,23 @@ Expanded by height.
   circle(width: 10%),
   circle(height: 50%),
 )
+
+--- circle-sizing ---
+#set page(width: 6cm)
+// Test that setting a circle's height beyond its default sizes the circle correctly.
+#circle(height: 5cm)
+#circle(width: 5cm)
+#circle(radius: 5cm / 2)
+
+
+--- circle-beyond-page-width-overflows ---
+// Test that sizing a circle beyond the page width correctly overflows the page.
+#set page(height: 100pt)
+#circle(width: 150%)
+
+--- circle-size-beyond-default ---
+// Test that setting a square's height beyond its default sizes the square correctly.
+#circle()
+#circle(height: 60pt)
+#circle(width: 60pt)
+#circle(radius: 30pt)

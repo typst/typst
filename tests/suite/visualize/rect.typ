@@ -105,3 +105,9 @@
 #align(right, rect(width: -1cm, fill: gradient.linear(red, blue))[Reverse right])
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
+
+--- rectangle-sizing ---
+#set page(width: 6cm)
+// Test that we can set one of the rectangle's dimensions beyond its default.
+#rect(height: 5cm)
+#rect(width: 5cm)
