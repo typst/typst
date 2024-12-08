@@ -53,7 +53,7 @@ pub fn collect<'a>(
 
             // The initial styles for the next page are ours unless this is a
             // "boundary" pagebreak. Such a pagebreak is generated at the end of
-            // the scope of a page set rule to ensure a page boundary. It's
+            // the scope of a page set rule to ensure a page boundary. Its
             // styles correspond to the styles _before_ the page set rule, so we
             // don't want to apply it to a potential empty page.
             if !pagebreak.boundary(styles) {

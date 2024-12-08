@@ -194,7 +194,7 @@ cast! {
 /// before any page content, typically at the very start of the document.
 #[elem(name = "entry", title = "Footnote Entry", Show, ShowSet)]
 pub struct FootnoteEntry {
-    /// The footnote for this entry. It's location can be used to determine
+    /// The footnote for this entry. Its location can be used to determine
     /// the footnote counter state.
     ///
     /// ```example
