@@ -2,13 +2,13 @@ use std::num::NonZeroUsize;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::SourceResult;
+use crate::diag::{warning, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
     Styles, Synthesize, TargetElem,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
@@ -272,9 +272,26 @@ impl Show for Packed<HeadingElem> {
             // Meanwhile, a level 1 Typst heading is a section heading. For this
             // reason, levels are offset by one: A Typst level 1 heading becomes
             // a `<h2>`.
-            let level = self.resolve_level(styles);
-            let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level.get().min(5) - 1];
-            HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
+            let level = self.resolve_level(styles).get();
+            if level >= 6 {
+                engine.sink.warn(warning!(span,
+                    "heading of level {} was transformed to \
+                    <div role=\"heading\" aria-level=\"{}\">, which is not \
+                    supported by all screen readers",
+                    level, level + 1;
+                    hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
+                    hint: "you may want to restructure your document so that \
+                          it doesn't contain deep headings"));
+                HtmlElem::new(tag::div)
+                    .with_body(Some(realized))
+                    .with_attr(attr::role, "heading")
+                    .with_attr(attr::aria_level, (level + 1).to_string())
+                    .pack()
+                    .spanned(span)
+            } else {
+                let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
+                HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
+            }
         } else {
             let realized = BlockBody::Content(realized);
             BlockElem::new().with_body(Some(realized)).pack().spanned(span)
