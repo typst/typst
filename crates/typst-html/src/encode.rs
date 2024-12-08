@@ -8,14 +8,28 @@ use typst_syntax::Span;
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer { buf: String::new() };
+    let mut w = Writer { pretty: true, ..Writer::default() };
     w.buf.push_str("<!DOCTYPE html>");
+    write_indent(&mut w);
     write_element(&mut w, &document.root)?;
     Ok(w.buf)
 }
 
+#[derive(Default)]
 struct Writer {
     buf: String,
+    /// current indentation level
+    level: usize,
+    /// pretty printing enabled?
+    pretty: bool,
+}
+
+/// Write a newline and indent, if pretty printing is enabled.
+fn write_indent(w: &mut Writer) {
+    if w.pretty {
+        w.buf.push('\n');
+        w.buf.push_str(&"  ".repeat(w.level));
+    }
 }
 
 /// Encode an HTML node into the writer.
@@ -67,9 +81,28 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         return Ok(());
     }
 
-    for node in &element.children {
-        write_node(w, node)?;
+    let pretty = w.pretty;
+    if !element.children.is_empty() {
+        w.pretty &= element.is_pretty();
+        let mut indent = w.pretty;
+
+        w.level += 1;
+        for c in &element.children {
+            if matches!(c, HtmlNode::Tag(_)) {
+                continue;
+            }
+
+            if core::mem::take(&mut indent) || c.is_pretty() {
+                write_indent(w);
+            }
+            write_node(w, c)?;
+            indent = c.is_pretty();
+        }
+        w.level -= 1;
+
+        write_indent(w)
     }
+    w.pretty = pretty;
 
     w.buf.push_str("</");
     w.buf.push_str(&element.tag.resolve());

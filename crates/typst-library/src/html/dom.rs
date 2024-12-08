@@ -39,6 +39,14 @@ impl HtmlNode {
     pub fn text(text: impl Into<EcoString>, span: Span) -> Self {
         Self::Text(text.into(), span)
     }
+
+    /// Whether the node should be pretty-printed.
+    pub fn is_pretty(&self) -> bool {
+        match self {
+            Self::Element(element) => element.is_pretty(),
+            Self::Tag(_) | Self::Text(..) | Self::Frame(_) => false,
+        }
+    }
 }
 
 impl From<HtmlElement> for HtmlNode {
@@ -89,6 +97,11 @@ impl HtmlElement {
     pub fn spanned(mut self, span: Span) -> Self {
         self.span = span;
         self
+    }
+
+    /// Whether the element should be pretty-printed.
+    pub fn is_pretty(&self) -> bool {
+        tag::is_block_by_default(self.tag)
     }
 }
 
@@ -470,6 +483,51 @@ pub mod tag {
         wbr
     }
 
+    /// Can the content of a node with the tag be surrounded by whitespace without impacting the document?
+    ///
+    /// This is an underapproximation.
+    pub fn is_block_by_default(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::html
+                | self::head
+                | self::body
+                | self::article
+                | self::aside
+                | self::h1
+                | self::h2
+                | self::h3
+                | self::h4
+                | self::h5
+                | self::h6
+                | self::hgroup
+                | self::nav
+                | self::section
+                | self::dd
+                | self::dl
+                | self::dt
+                | self::menu
+                | self::ol
+                | self::ul
+                | self::address
+                | self::blockquote
+                | self::dialog
+                | self::div
+                | self::fieldset
+                | self::figure
+                | self::figcaption
+                | self::footer
+                | self::form
+                | self::header
+                | self::hr
+                | self::legend
+                | self::main
+                | self::p
+                | self::pre
+                | self::search
+        )
+    }
+
     /// Whether the element is inline-level as opposed to being block-level.
     ///
     /// Not sure whether this distinction really makes sense. But we somehow
@@ -480,7 +538,7 @@ pub mod tag {
     /// <https://www.w3.org/TR/html401/struct/global.html#block-inline>
     /// <https://developer.mozilla.org/en-US/docs/Glossary/Inline-level_content>
     /// <https://github.com/orgs/mdn/discussions/353>
-    pub fn is_inline(tag: HtmlTag) -> bool {
+    pub fn is_inline_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,
             self::abbr
