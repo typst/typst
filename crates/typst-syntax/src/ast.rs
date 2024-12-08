@@ -1009,7 +1009,15 @@ impl Numeric<'_> {
             .count();
 
         let split = text.len() - count;
-        let value = text[..split].parse().unwrap_or_default();
+        let value: f64 = if let Some(rest) = text[..split].strip_prefix("0x") {
+            i64::from_str_radix(rest, 16).unwrap_or_default() as f64
+        } else if let Some(rest) = text[..split].strip_prefix("0o") {
+            i64::from_str_radix(rest, 8).unwrap_or_default() as f64
+        } else if let Some(rest) = text[..split].strip_prefix("0b") {
+            i64::from_str_radix(rest, 2).unwrap_or_default() as f64
+        } else {
+            text[..split].parse().unwrap_or_default()
+        };
         let unit = match &text[split..] {
             "pt" => Unit::Pt,
             "mm" => Unit::Mm,

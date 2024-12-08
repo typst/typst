@@ -12,6 +12,10 @@
 // Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
 
+--- Numeral-base-invalid-issue-5519 ---
+#test(0b100000pt,32pt)
+
+
 --- int-constructor ---
 // Test conversion to numbers.
 #test(int(false), 0)
