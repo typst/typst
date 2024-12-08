@@ -344,48 +344,45 @@ fn layout_shape(
             pod.size = crate::pad::shrink(region.size, &inset);
         }
 
-        // Layout the child.
-        frame = crate::layout_frame(engine, child, locator.relayout(), styles, pod)?;
-
-        // If the child is a square or circle, relayout with full expansion into
-        // square region to make sure the result is really quadratic.
+        // If the shape is quadratic, we first measure it to determine its size
+        // and then layout with full expansion to force the aspect ratio and
+        // make sure it's really quadratic.
         if kind.is_quadratic() {
-            let mut length = frame.size().max_by_side();
-            if region.expand.x {
-                length = length.min(pod.size.x);
-            }
-            if region.expand.y {
-                length = length.min(pod.size.y);
-            }
-            let quad_pod = Region::new(Size::splat(length), Axes::splat(true));
-            frame = crate::layout_frame(engine, child, locator, styles, quad_pod)?;
+            let length = match quadratic_size(pod) {
+                Some(length) => length,
+                None => {
+                    // Take as much as the child wants, but without overflowing.
+                    crate::layout_frame(engine, child, locator.relayout(), styles, pod)?
+                        .size()
+                        .max_by_side()
+                        .min(pod.size.min_by_side())
+                }
+            };
+
+            pod = Region::new(Size::splat(length), Axes::splat(true));
         }
+
+        // Layout the child.
+        frame = crate::layout_frame(engine, child, locator, styles, pod)?;
 
         // Apply the inset.
         if has_inset {
             crate::pad::grow(&mut frame, &inset);
         }
     } else {
-        // The default size that a shape takes on if it has no child and
-        // enough space.
-        let default = Size::new(Abs::pt(45.0), Abs::pt(30.0));
+        // The default size that a shape takes on if it has no child and no
+        // forced sized.
+        let default = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(region.size);
+
         let size = if kind.is_quadratic() {
-            // `region.expand` is true for axes whose size was specified.
-            let length = if region.expand.x && region.expand.y {
-                // If both `width` and `height` are specified, we choose the
-                // smaller one.
-                region.size.x.min(region.size.y)
-            } else if region.expand.x {
-                region.size.x
-            } else if region.expand.y {
-                region.size.y
-            } else {
-                default.min(region.size).min_by_side()
-            };
-            Size::splat(length)
+            Size::splat(match quadratic_size(region) {
+                Some(length) => length,
+                None => default.min_by_side(),
+            })
         } else {
-            region.expand.select(region.size, default.min(region.size))
+            region.expand.select(region.size, default)
         };
+
         frame = Frame::soft(size);
     }
 
@@ -424,6 +421,24 @@ fn layout_shape(
     }
 
     Ok(frame)
+}
+
+/// Determines the forced size of a quadratic shape based on the region, if any.
+///
+/// The size is forced if at least one axis is expanded because `expand` is
+/// `true` for axes whose size was manually specified by the user.
+fn quadratic_size(region: Region) -> Option<Abs> {
+    if region.expand.x && region.expand.y {
+        // If both `width` and `height` are specified, we choose the
+        // smaller one.
+        Some(region.size.x.min(region.size.y))
+    } else if region.expand.x {
+        Some(region.size.x)
+    } else if region.expand.y {
+        Some(region.size.y)
+    } else {
+        None
+    }
 }
 
 /// Creates a new rectangle as a path.

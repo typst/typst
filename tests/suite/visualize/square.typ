@@ -77,18 +77,25 @@
 #set page(width: 20pt, height: 10pt, margin: 0pt)
 #stack(dir: ltr, square(fill: forest), square(fill: conifer))
 
---- square-overflow ---
+--- square-no-overflow ---
 // Test that square doesn't overflow due to its aspect ratio.
 #set page(width: 40pt, height: 25pt, margin: 5pt)
-#square(height: 100%)
-#square(height: 100%)[Hello there]
+#square()
+#square[Hello there]
 
---- square-overflow-2 ---
-// Test that an overflowing square is laid out regardless of the
+--- square-overflow-forced-width ---
+// Test that a width-overflowing square is laid out regardless of the
 // presence of inner content.
-#set page(width: 120pt, height: 100pt)
+#set page(width: 60pt, height: 100pt)
 #square(width: 150%)
 #square(width: 150%)[Hello there]
+
+--- square-overflow-forced-height ---
+// Test that a height-overflowing square is laid out regardless of the
+// presence of inner content.
+#set page(width: 120pt, height: 60pt)
+#square(height: 150%)
+#square(height: 150%)[Hello there]
 
 --- square-size-relative-invalid ---
 // Size cannot be relative because we wouldn't know
@@ -152,9 +159,9 @@
 #set page(height: 80pt)
 #square(width: 40%, rect(width: 60%, height: 80%))
 
---- square-sizing ---
-#set page(width: 6cm)
+--- square-size-beyond-default ---
 // Test that setting a square's height beyond its default sizes the square correctly.
-#square(height: 5cm)
-#square(width: 5cm)
-#square(size: 5cm)
+#square()
+#square(height: 60pt)
+#square(width: 60pt)
+#square(size: 60pt)
