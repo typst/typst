@@ -49,3 +49,14 @@
 --- symbol-unknown-modifier ---
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
+
+--- symbol-repr ---
+#test(
+  repr(sym.amp),
+  `symbol("&", ("inv", "⅋"))`.text,
+)
+#test(
+  repr(sym.amp.inv),
+  `symbol("&", ("inv", "⅋")).inv`.text,
+)
+#test(repr(sym.smash), "symbol(\"⨳\")")
