@@ -1,26 +1,52 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain};
+use typst_library::foundations::{Content, Packed, StyleChain};
 use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
-use typst_library::math::{EquationElem, MathSize, RootElem};
+use typst_library::math::{EquationElem, LongdivisionElem, MathSize, RootElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
+use typst_syntax::Span;
 
 use super::{style_cramped, FrameFragment, GlyphFragment, MathContext};
 
 /// Lays out a [`RootElem`].
-///
-/// TeXbook page 443, page 360
-/// See also: <https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot>
 #[typst_macros::time(name = "math.root", span = elem.span())]
 pub fn layout_root(
     elem: &Packed<RootElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let index = elem.index(styles);
-    let radicand = elem.radicand();
-    let span = elem.span();
+    layout_radical(
+        ctx,
+        styles,
+        elem.index(styles).as_ref(),
+        elem.radicand(),
+        '√',
+        elem.span(),
+    )
+}
 
+/// Lays out a [`LongdivisionElem`].
+#[typst_macros::time(name = "math.longdivision", span = elem.span())]
+pub fn layout_longdivision(
+    elem: &Packed<LongdivisionElem>,
+    ctx: &mut MathContext,
+    styles: StyleChain,
+) -> SourceResult<()> {
+    layout_radical(ctx, styles, None, elem.dividend(), '⟌', elem.span())
+}
+
+/// Layout radicals.
+///
+/// TeXbook page 443, page 360
+/// See also: <https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot>
+pub fn layout_radical(
+    ctx: &mut MathContext,
+    styles: StyleChain,
+    index: Option<&Content>,
+    radicand: &Content,
+    c: char,
+    span: Span,
+) -> SourceResult<()> {
     let gap = scaled!(
         ctx, styles,
         text: radical_vertical_gap,
@@ -50,7 +76,7 @@ pub fn layout_root(
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let sqrt = GlyphFragment::new(ctx, styles, '√', span)
+    let sqrt = GlyphFragment::new(ctx, styles, c, span)
         .stretch_vertical(ctx, target, Abs::zero())
         .frame;
 
