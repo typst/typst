@@ -352,7 +352,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let mut relayout = false;
         let mut regions = *regions;
-        let mut migratable = !breakable && regions.may_progress();
+
+        // The first footnote's origin frame should be migratable if the region
+        // may progress (already checked by the footnote function) and if the
+        // origin frame isn't breakable (checked here).
+        let mut migratable = !breakable;
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the
@@ -442,8 +446,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // If the first frame is empty, then none of its content fit. If
         // possible, we then migrate the origin frame to the next region to
         // uphold the footnote invariant (that marker and entry are on the same
-        // page). If not, we just queue the footnote for the next page.
-        if first.is_empty() && exist_non_empty_frame {
+        // page). If not, we just queue the footnote for the next page, but
+        // only if that would actually make a difference (that is, if the
+        // footnote isn't alone in the page after not fitting in any previous
+        // pages, as it probably won't ever fit then).
+        if first.is_empty() && exist_non_empty_frame && regions.may_progress() {
             if migratable {
                 return Err(Stop::Finish(false));
             } else {
