@@ -244,9 +244,49 @@ impl Debug for List {
     }
 }
 
+fn repr_variants<'a, 'b>(
+    variants: impl Iterator<Item = (&'a str, char)>,
+    applied_modifiers: &str,
+) -> String {
+    crate::foundations::repr::pretty_array_like(
+        &variants
+            .filter(|(variant, _)| {
+                // Only keep variants that can still be accessed, i.e., variants
+                // that contain all applied modifiers.
+                parts(applied_modifiers).all(|am| variant.split('.').any(|m| m == am))
+            })
+            .map(|(variant, c)| {
+                let trimmed_variant = variant
+                    .split('.')
+                    .filter(|&m| parts(applied_modifiers).all(|am| m != am))
+                    .collect::<Vec<_>>();
+                if trimmed_variant.iter().all(|m| m.is_empty()) {
+                    eco_format!("\"{c}\"")
+                } else {
+                    eco_format!("(\"{}\", \"{}\")", trimmed_variant.join("."), c)
+                }
+            })
+            .collect::<Vec<_>>(),
+        false,
+    )
+}
+
 impl crate::foundations::Repr for Symbol {
     fn repr(&self) -> EcoString {
-        eco_format!("\"{}\"", self.get())
+        match &self.0 {
+            Repr::Single(c) => eco_format!("symbol(\"{}\")", *c),
+            Repr::Complex(variants) => {
+                eco_format!("symbol{}", repr_variants(variants.iter().copied(), ""))
+            }
+            Repr::Modified(arc) => {
+                let (list, modifiers) = arc.as_ref();
+                if modifiers.is_empty() {
+                    eco_format!("symbol{}", repr_variants(list.variants(), ""))
+                } else {
+                    eco_format!("symbol{}", repr_variants(list.variants(), modifiers))
+                }
+            }
+        }
     }
 }
 
