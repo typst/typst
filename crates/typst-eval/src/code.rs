@@ -359,7 +359,7 @@ impl Eval for ast::Contextual<'_> {
         };
 
         let func = Func::from(closure).spanned(body.span());
-        Ok(ContextElem::new(func).pack())
+        Ok(ContextElem::new(func).pack().spanned(body.span()))
     }
 }
 

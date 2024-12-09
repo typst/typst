@@ -6,6 +6,8 @@ mod greet;
 mod init;
 mod package;
 mod query;
+#[cfg(feature = "http-server")]
+mod server;
 mod terminal;
 mod timings;
 #[cfg(feature = "self-update")]
@@ -44,6 +46,10 @@ static ARGS: LazyLock<CliArguments> = LazyLock::new(|| {
 
 /// Entry point.
 fn main() -> ExitCode {
+    // Handle SIGPIPE
+    // https://stackoverflow.com/questions/65755853/simple-word-count-rust-program-outputs-valid-stdout-but-panicks-when-piped-to-he/65760807
+    sigpipe::reset();
+
     let res = dispatch();
 
     if let Err(msg) = res {
@@ -56,11 +62,11 @@ fn main() -> ExitCode {
 
 /// Execute the requested command.
 fn dispatch() -> HintedStrResult<()> {
-    let timer = Timer::new(&ARGS);
+    let mut timer = Timer::new(&ARGS);
 
     match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(timer, command.clone())?,
-        Command::Watch(command) => crate::watch::watch(timer, command.clone())?,
+        Command::Compile(command) => crate::compile::compile(&mut timer, command)?,
+        Command::Watch(command) => crate::watch::watch(&mut timer, command)?,
         Command::Init(command) => crate::init::init(command)?,
         Command::Query(command) => crate::query::query(command)?,
         Command::Fonts(command) => crate::fonts::fonts(command),

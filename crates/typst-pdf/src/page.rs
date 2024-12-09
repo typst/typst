@@ -154,7 +154,7 @@ fn write_page(
                         .action()
                         .action_type(ActionType::GoTo)
                         // `key` must be a `Str`, not a `Name`.
-                        .pair(Name(b"D"), Str(key.as_str().as_bytes()));
+                        .pair(Name(b"D"), Str(key.resolve().as_bytes()));
                     continue;
                 } else {
                     ctx.document.introspector.position(*loc)

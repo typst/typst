@@ -520,8 +520,7 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
     Link(Destination, Size),
-    /// An introspectable element that produced something within this frame
-    /// alongside its key.
+    /// An introspectable element that produced something within this frame.
     Tag(Tag),
 }
 

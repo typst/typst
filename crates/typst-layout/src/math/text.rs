@@ -150,8 +150,8 @@ fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
         auto_italic
             && matches!(
                 c,
-                'a'..='z' | 'ı' | 'ȷ' | 'A'..='Z' | 'α'..='ω' |
-                '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
+                'a'..='z' | 'ħ' | 'ı' | 'ȷ' | 'A'..='Z' |
+                'α'..='ω' | '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
             )
             && matches!(variant, Sans | Serif),
     );
@@ -306,6 +306,7 @@ fn latin_exception(
         ('e', Cal, false, _) => 'ℯ',
         ('g', Cal, false, _) => 'ℊ',
         ('o', Cal, false, _) => 'ℴ',
+        ('ħ', Serif, .., true) => 'ℏ',
         ('ı', Serif, .., true) => '𝚤',
         ('ȷ', Serif, .., true) => '𝚥',
         _ => return None,

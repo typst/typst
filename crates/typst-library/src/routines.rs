@@ -16,10 +16,11 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{
     Abs, BoxElem, ColumnsElem, Fragment, Frame, GridElem, InlineItem, MoveElem, PadElem,
-    Region, Regions, Rel, RepeatElem, RotateElem, ScaleElem, Size, SkewElem, StackElem,
+    PagedDocument, Region, Regions, Rel, RepeatElem, RotateElem, ScaleElem, Size,
+    SkewElem, StackElem,
 };
 use crate::math::EquationElem;
-use crate::model::{Document, DocumentInfo, EnumElem, ListElem, TableElem};
+use crate::model::{DocumentInfo, EnumElem, ListElem, TableElem};
 use crate::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
     RectElem, SquareElem,
@@ -84,13 +85,6 @@ routines! {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<Vec<Pair<'a>>>
-
-    /// Layout content into a document.
-    fn layout_document(
-        engine: &mut Engine,
-        content: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<Document>
 
     /// Lays out content into multiple regions.
     fn layout_fragment(
@@ -351,11 +345,16 @@ pub enum EvalMode {
 
 /// Defines what kind of realization we are performing.
 pub enum RealizationKind<'a> {
-    /// This the root realization for the document. Requires a mutable reference
+    /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
-    Root(&'a mut DocumentInfo),
+    LayoutDocument(&'a mut DocumentInfo),
     /// A nested realization in a container (e.g. a `block`).
-    Container,
+    LayoutFragment,
+    /// This the root realization for HTML. Requires a mutable reference
+    /// to document metadata that will be filled from `set document` rules.
+    HtmlDocument(&'a mut DocumentInfo),
+    /// A nested realization in a container (e.g. a `block`).
+    HtmlFragment,
     /// A realization within math.
     Math,
 }

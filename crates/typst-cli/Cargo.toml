@@ -20,6 +20,7 @@ doc = false
 [dependencies]
 typst = { workspace = true }
 typst-eval = { workspace = true }
+typst-html = { workspace = true }
 typst-kit = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
@@ -46,8 +47,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 shell-escape = { workspace = true }
+sigpipe = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
+tiny_http = { workspace = true, optional = true }
 toml = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
@@ -62,10 +65,13 @@ color-print = { workspace = true }
 semver = { workspace = true }
 
 [features]
-default = ["embed-fonts"]
+default = ["embed-fonts", "http-server"]
 
 # Embeds some fonts into the binary, see typst-kit
 embed-fonts = ["typst-kit/embed-fonts"]
+
+# Enables the built-in HTTP server for `typst watch` and HTML export.
+http-server = ["dep:tiny_http"]
 
 # Permits the CLI to update itself without a package manager.
 self-update = ["dep:self-replace", "dep:xz2", "dep:zip"]

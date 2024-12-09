@@ -38,7 +38,7 @@ pub struct Line<'a> {
     pub dash: Option<Dash>,
 }
 
-impl<'a> Line<'a> {
+impl Line<'_> {
     /// Create an empty line.
     pub fn empty() -> Self {
         Self {
@@ -685,7 +685,7 @@ impl<'a> Deref for Items<'a> {
     }
 }
 
-impl<'a> DerefMut for Items<'a> {
+impl DerefMut for Items<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

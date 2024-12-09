@@ -11,7 +11,12 @@ use crate::foundations::{
 ///
 /// The number can be negative, zero, or positive. As Typst uses 64 bits to
 /// store integers, integers cannot be smaller than `{-9223372036854775808}` or
-/// larger than `{9223372036854775807}`.
+/// larger than `{9223372036854775807}`. Integer literals are always positive,
+/// so a negative integer such as `{-1}` is semantically the negation `-` of the
+/// positive literal `1`. A positive integer greater than the maximum value and
+/// a negative integer less than or equal to the minimum value cannot be
+/// represented as an integer literal, and are instead parsed as a `{float}`.
+/// The minimum integer value can still be obtained through integer arithmetic.
 ///
 /// The number can also be specified as hexadecimal, octal, or binary by
 /// starting it with a zero followed by either `x`, `o`, or `b`.

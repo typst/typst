@@ -74,3 +74,8 @@
 // Hint: 2-24 use `length.to-absolute()` to resolve its em component (requires context)
 // Hint: 2-24 or use `length.abs.inches()` instead to ignore its em component
 #(4.5em + 6in).inches()
+
+--- issue-5519-length-base ---
+// Error: 2-9 invalid base-2 prefix
+// Hint: 2-9 numbers with a unit cannot have a base prefix
+#0b100pt

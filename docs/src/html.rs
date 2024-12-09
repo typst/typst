@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
-use typst::layout::{Abs, Point, Size};
+use typst::layout::{Abs, PagedDocument, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
@@ -419,7 +419,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let source = Source::new(id, compile);
     let world = DocWorld(source);
 
-    let mut document = match typst::compile(&world).output {
+    let mut document = match typst::compile::<PagedDocument>(&world).output {
         Ok(doc) => doc,
         Err(err) => {
             let msg = &err[0].message;

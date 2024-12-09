@@ -13,32 +13,38 @@ use same_file::is_same_file;
 use typst::diag::{bail, StrResult};
 use typst::utils::format_duration;
 
-use crate::args::{CompileCommand, Input, Output};
-use crate::compile::compile_once;
+use crate::args::{Input, Output, WatchCommand};
+use crate::compile::{compile_once, CompileConfig};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
-pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
-    let Output::Path(output) = command.output() else {
+pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
+    let mut config = CompileConfig::watching(command)?;
+
+    let Output::Path(output) = &config.output else {
         bail!("cannot write document to stdout in watch mode");
     };
 
     // Create a file system watcher.
-    let mut watcher = Watcher::new(output)?;
+    let mut watcher = Watcher::new(output.clone())?;
 
     // Create the world that serves sources, files, and fonts.
     // Additionally, if any files do not exist, wait until they do.
     let mut world = loop {
-        match SystemWorld::new(&command.common) {
+        match SystemWorld::new(
+            &command.args.input,
+            &command.args.world,
+            &command.args.process,
+        ) {
             Ok(world) => break world,
             Err(
                 ref err @ (WorldCreationError::InputNotFound(ref path)
                 | WorldCreationError::RootNotFound(ref path)),
             ) => {
                 watcher.update([path.clone()])?;
-                Status::Error.print(&command).unwrap();
+                Status::Error.print(&config).unwrap();
                 print_error(&err.to_string()).unwrap();
                 watcher.wait()?;
             }
@@ -47,7 +53,7 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     };
 
     // Perform initial compilation.
-    timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
+    timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
     // Watch all dependencies of the initial compilation.
     watcher.update(world.dependencies())?;
@@ -61,7 +67,7 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
         world.reset();
 
         // Recompile.
-        timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
+        timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
         // Evict the cache.
         comemo::evict(10);
@@ -267,8 +273,7 @@ pub enum Status {
 
 impl Status {
     /// Clear the terminal and render the status message.
-    pub fn print(&self, command: &CompileCommand) -> io::Result<()> {
-        let output = command.output();
+    pub fn print(&self, config: &CompileConfig) -> io::Result<()> {
         let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
         let color = self.color();
 
@@ -278,7 +283,7 @@ impl Status {
         out.set_color(&color)?;
         write!(out, "watching")?;
         out.reset()?;
-        match &command.common.input {
+        match &config.input {
             Input::Stdin => writeln!(out, " <stdin>"),
             Input::Path(path) => writeln!(out, " {}", path.display()),
         }?;
@@ -286,7 +291,15 @@ impl Status {
         out.set_color(&color)?;
         write!(out, "writing to")?;
         out.reset()?;
-        writeln!(out, " {output}")?;
+        writeln!(out, " {}", config.output)?;
+
+        #[cfg(feature = "http-server")]
+        if let Some(server) = &config.server {
+            out.set_color(&color)?;
+            write!(out, "serving at")?;
+            out.reset()?;
+            writeln!(out, " http://{}", server.addr())?;
+        }
 
         writeln!(out)?;
         writeln!(out, "[{timestamp}] {}", self.message())?;

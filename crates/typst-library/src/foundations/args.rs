@@ -187,7 +187,7 @@ impl Args {
         self.items.retain(|item| {
             if item.name.is_some() {
                 return true;
-            };
+            }
             let span = item.value.span;
             let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
             match T::from_value(spanned).at(span) {
