@@ -1,6 +1,6 @@
 use std::f64::consts::SQRT_2;
 
-use kurbo::ParamCurveExtrema;
+use kurbo::{CubicBez, ParamCurveExtrema};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
@@ -10,8 +10,9 @@ use typst_library::layout::{
     Sides, Size,
 };
 use typst_library::visualize::{
-    CircleElem, EllipseElem, FillRule, FixedStroke, Geometry, LineElem, Paint, Path,
-    PathElem, PathVertex, PolygonElem, RectElem, Shape, SquareElem, Stroke,
+    CircleElem, CloseMode, CurveComponent, CurveElem, EllipseElem, FillRule, FixedStroke,
+    Geometry, LineElem, Paint, Path, PathElem, PathVertex, PolygonElem, RectElem, Shape,
+    SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -112,6 +113,237 @@ pub fn layout_path(
 
         add_cubic(from_point, to_point, from, to);
         path.close_path();
+    }
+
+    if !size.is_finite() {
+        bail!(elem.span(), "cannot create path with infinite length");
+    }
+
+    // Prepare fill and stroke.
+    let fill = elem.fill(styles);
+    let fill_rule = elem.fill_rule(styles);
+    let stroke = match elem.stroke(styles) {
+        Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
+        Smart::Auto => None,
+        Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
+    };
+
+    let mut frame = Frame::soft(size);
+    let shape = Shape {
+        geometry: Geometry::Path(path),
+        stroke,
+        fill,
+        fill_rule,
+    };
+    frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
+    Ok(frame)
+}
+
+struct PathBuilder {
+    path: Path,
+    size: Size,
+    region: Region,
+    start_point: Point,
+    start_control_into: Point, // cubic
+    last_point: Point,
+    last_control_from: Point, // cubic
+    /// Has a new component be started?
+    /// This does not mean that something has been added to self.path yet.
+    is_started: bool,
+    /// Has anything actually be added to self.path for the current component?
+    is_empty: bool,
+}
+
+impl PathBuilder {
+    fn new(region: Region) -> Self {
+        Self {
+            path: Path::new(),
+            size: Size::zero(),
+            region,
+            start_point: Default::default(),
+            start_control_into: Default::default(),
+            last_point: Default::default(),
+            last_control_from: Default::default(),
+            is_started: false,
+            is_empty: true,
+        }
+    }
+
+    fn adjust_bounds(&mut self, point: Point) {
+        self.size.x.set_max(point.x);
+        self.size.y.set_max(point.y);
+    }
+
+    fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
+        let p = point.zip_map(self.region.size, Rel::relative_to);
+        let mut p = Point::new(p.x, p.y);
+        if relative {
+            p += self.last_point;
+        }
+        p
+    }
+
+    /// Push the initial move of a new component to self.path.
+    fn start_component(&mut self) {
+        self.path.move_to(self.start_point);
+        self.is_empty = false;
+        self.is_started = true;
+    }
+
+    fn move_to(&mut self, point: Point) {
+        // Delay calling path.move_to in case there is another move_to element
+        // before any actual drawing.
+        self.adjust_bounds(point);
+        self.start_point = point;
+        self.start_control_into = point;
+        self.last_point = point;
+        self.last_control_from = point;
+        self.is_started = true;
+    }
+
+    fn line_to(&mut self, point: Point) {
+        if self.is_empty {
+            self.start_component();
+            self.start_control_into = self.start_point;
+        }
+        self.path.line_to(point);
+        self.adjust_bounds(point);
+        self.last_point = point;
+        self.last_control_from = point;
+    }
+
+    fn quadratic_to(&mut self, control: Point, end: Point) {
+        let c1 = control_q2c(self.last_point, control);
+        let c2 = control_q2c(end, control);
+        self.cubic_to(c1, c2, end);
+    }
+
+    fn cubic_to(&mut self, c1: Point, c2: Point, end: Point) {
+        if self.is_empty {
+            self.start_component();
+            self.start_control_into = mirror_c(self.start_point, c1);
+        }
+        self.path.cubic_to(c1, c2, end);
+
+        fn to_kurbo(point: Point) -> kurbo::Point {
+            kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
+        }
+        let p0 = to_kurbo(self.last_point);
+        let p1 = to_kurbo(c1);
+        let p2 = to_kurbo(c2);
+        let p3 = to_kurbo(end);
+        let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
+        self.size.x.set_max(Abs::raw(extrema.x1));
+        self.size.y.set_max(Abs::raw(extrema.y1));
+
+        self.last_point = end;
+        self.last_control_from = mirror_c(end, c2);
+    }
+
+    fn close(&mut self, mode: Option<CloseMode>) {
+        if self.is_started && !self.is_empty {
+            if let Some(mode) = mode {
+                if mode == CloseMode::Curve {
+                    self.cubic_to(
+                        self.last_control_from,
+                        self.start_control_into,
+                        self.start_point,
+                    );
+                }
+                self.path.close_path();
+                self.last_point = self.start_point;
+                self.last_control_from = self.start_point;
+            }
+        }
+        self.is_started = false;
+        self.is_empty = true;
+    }
+
+    fn build(self) -> (Path, Size) {
+        (self.path, self.size)
+    }
+}
+
+/// Convert a cubic control point into a quadratic one.
+fn control_c2q(p: Point, c: Point) -> Point {
+    1.5 * c - 0.5 * p
+}
+
+/// Convert a quadratic control point into a cubic one.
+fn control_q2c(p: Point, c: Point) -> Point {
+    (p + 2. * c) / 3.
+}
+
+/// Mirror a control point.
+fn mirror_c(p: Point, c: Point) -> Point {
+    2. * p - c
+}
+
+/// Layout the path.
+#[typst_macros::time(span = elem.span())]
+pub fn layout_curve(
+    elem: &Packed<CurveElem>,
+    _: &mut Engine,
+    _: Locator,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let default_close_mode = elem.close_mode(styles);
+    let mut builder = PathBuilder::new(region);
+
+    for item in elem.components() {
+        match item {
+            CurveComponent::Move(element) => {
+                let relative = element.relative(styles);
+                let point = builder.resolve_point(element.start(styles), relative);
+                builder.move_to(point);
+            }
+
+            CurveComponent::Line(element) => {
+                let relative = element.relative(styles);
+                let point = builder.resolve_point(element.end(styles), relative);
+                builder.line_to(point);
+            }
+
+            CurveComponent::Quad(element) => {
+                let relative = element.relative(styles);
+                let end = builder.resolve_point(element.end(styles), relative);
+                let control = match element.control(styles) {
+                    Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
+                    Some(Smart::Auto) => {
+                        control_c2q(builder.last_point, builder.last_control_from)
+                    }
+                    None => end,
+                };
+                builder.quadratic_to(control, end);
+            }
+
+            CurveComponent::Cubic(element) => {
+                let relative = element.relative(styles);
+                let end = builder.resolve_point(element.end(styles), relative);
+                let c1 = match element.control_start(styles) {
+                    Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
+                    Some(Smart::Auto) => builder.last_control_from,
+                    None => builder.last_point,
+                };
+                let c2 = match element.control_end(styles) {
+                    Some(p) => builder.resolve_point(p, relative),
+                    None => end,
+                };
+                builder.cubic_to(c1, c2, end);
+            }
+
+            CurveComponent::Close(element) => {
+                let mode = element.mode(styles);
+                builder.close(mode.unwrap_or(default_close_mode));
+            }
+        }
+    }
+
+    let (path, size) = builder.build();
+
+    if path.is_empty() {
+        return Ok(Frame::soft(size));
     }
 
     if !size.is_finite() {
