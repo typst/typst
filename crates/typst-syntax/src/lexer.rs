@@ -765,7 +765,10 @@ impl Lexer<'_> {
         ) {
             return self.error(eco_format!("invalid number suffix: {}", suffix));
         }
-
+        if base != 10 {
+            return self
+                .error(eco_format!("invalid base: {}, only support base 10", base));
+        }
         SyntaxKind::Numeric
     }
 
