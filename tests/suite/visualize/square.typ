@@ -160,7 +160,7 @@
 #square(width: 40%, rect(width: 60%, height: 80%))
 
 --- square-size-beyond-default ---
-// Test that setting a square's height beyond its default sizes the square correctly.
+// Test that setting a square's height beyond its default sizes it correctly.
 #square()
 #square(height: 60pt)
 #square(width: 60pt)

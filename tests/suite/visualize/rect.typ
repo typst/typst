@@ -106,8 +106,8 @@
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
 
---- rectangle-sizing ---
-#set page(width: 6cm)
-// Test that we can set one of the rectangle's dimensions beyond its default.
-#rect(height: 5cm)
-#rect(width: 5cm)
+--- rect-size-beyond-default ---
+// Test that setting a rectangle's height beyond its default sizes it correctly.
+#rect()
+#rect(height: 60pt)
+#rect(width: 60pt)
