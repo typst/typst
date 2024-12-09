@@ -293,19 +293,19 @@ pub fn layout_curve(
 
     for item in elem.components() {
         match item {
-            CurveComponent::MoveTo(element) => {
+            CurveComponent::Move(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.start(styles), relative);
                 builder.move_to(point);
             }
 
-            CurveComponent::LineTo(element) => {
+            CurveComponent::Line(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.end(styles), relative);
                 builder.line_to(point);
             }
 
-            CurveComponent::QuadraticTo(element) => {
+            CurveComponent::Quadratic(element) => {
                 let relative = element.relative(styles);
                 let control = match element.control(styles) {
                     Smart::Custom(p) => builder.resolve_point(p, relative),
@@ -317,7 +317,7 @@ pub fn layout_curve(
                 builder.quadratic_to(control, end);
             }
 
-            CurveComponent::CubicTo(element) => {
+            CurveComponent::Cubic(element) => {
                 let relative = element.relative(styles);
                 let c1 = match element.control_start(styles) {
                     Smart::Custom(p) => builder.resolve_point(p, relative),

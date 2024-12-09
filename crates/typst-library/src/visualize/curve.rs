@@ -82,16 +82,16 @@ impl Show for Packed<CurveElem> {
 #[scope]
 impl CurveElem {
     #[elem]
-    type CurveMoveTo;
+    type CurveMove;
 
     #[elem]
-    type CurveLineTo;
+    type CurveLine;
 
     #[elem]
-    type CurveQuadraticTo;
+    type CurveQuadratic;
 
     #[elem]
-    type CurveCubicTo;
+    type CurveCubic;
 
     #[elem]
     type CurveClose;
@@ -100,20 +100,20 @@ impl CurveElem {
 /// A component used for path creation.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CurveComponent {
-    MoveTo(Packed<CurveMoveTo>),
-    LineTo(Packed<CurveLineTo>),
-    QuadraticTo(Packed<CurveQuadraticTo>),
-    CubicTo(Packed<CurveCubicTo>),
+    Move(Packed<CurveMove>),
+    Line(Packed<CurveLine>),
+    Quadratic(Packed<CurveQuadratic>),
+    Cubic(Packed<CurveCubic>),
     Close(Packed<CurveClose>),
 }
 
 cast! {
     CurveComponent,
     self => match self {
-        MoveTo(element) => element.into_value(),
-        LineTo(element) => element.into_value(),
-        QuadraticTo(element) => element.into_value(),
-        CubicTo(element) => element.into_value(),
+        Move(element) => element.into_value(),
+        Line(element) => element.into_value(),
+        Quadratic(element) => element.into_value(),
+        Cubic(element) => element.into_value(),
         Close(element) => element.into_value(),
     },
     v: Content => {
@@ -125,13 +125,11 @@ impl TryFrom<Content> for CurveComponent {
     type Error = HintedString;
     fn try_from(value: Content) -> HintedStrResult<Self> {
         value
-            .into_packed::<CurveMoveTo>()
-            .map(Self::MoveTo)
-            .or_else(|value| value.into_packed::<CurveLineTo>().map(Self::LineTo))
-            .or_else(|value| {
-                value.into_packed::<CurveQuadraticTo>().map(Self::QuadraticTo)
-            })
-            .or_else(|value| value.into_packed::<CurveCubicTo>().map(Self::CubicTo))
+            .into_packed::<CurveMove>()
+            .map(Self::Move)
+            .or_else(|value| value.into_packed::<CurveLine>().map(Self::Line))
+            .or_else(|value| value.into_packed::<CurveQuadratic>().map(Self::Quadratic))
+            .or_else(|value| value.into_packed::<CurveCubic>().map(Self::Cubic))
             .or_else(|value| value.into_packed::<CurveClose>().map(Self::Close))
             .or_else(|_| bail!("expecting a curve element"))
     }
@@ -144,8 +142,8 @@ impl TryFrom<Content> for CurveComponent {
 ///
 /// If `closed` is `true` in the containing path, previous components
 /// will be closed.
-#[elem(name = "move", title = "Path Move To")]
-pub struct CurveMoveTo {
+#[elem(name = "move", title = "Path Move Element")]
+pub struct CurveMove {
     /// The starting point for the new component.
     #[resolve]
     pub start: Axes<Rel<Length>>,
@@ -157,8 +155,8 @@ pub struct CurveMoveTo {
 
 /// An element used to add a segment from the last point to
 /// the `end`point.
-#[elem(name = "line", title = "Path Line To")]
-pub struct CurveLineTo {
+#[elem(name = "line", title = "Path Line Element")]
+pub struct CurveLine {
     #[resolve]
     pub end: Axes<Rel<Length>>,
 
@@ -175,8 +173,8 @@ pub struct CurveLineTo {
 ///
 /// If set to `auto` and this curve follows an other quadratic Bezier curve,
 /// the previous control point will be mirrored.
-#[elem(name = "quadratic", title = "Path Quadratic Curve To")]
-pub struct CurveQuadraticTo {
+#[elem(name = "quadratic", title = "Path Quadratic Curve Element")]
+pub struct CurveQuadratic {
     /// The control point of the Bezier curve.
     #[resolve]
     pub control: Smart<Axes<Rel<Length>>>,
@@ -192,8 +190,8 @@ pub struct CurveQuadraticTo {
 
 /// An element used to add a cubic Bezier curve from the last
 /// point to `end`, using `cstart` and 'cend' as the control points.
-#[elem(name = "cubic", title = "Path Cubic Curve To")]
-pub struct CurveCubicTo {
+#[elem(name = "cubic", title = "Path Cubic Curve Element")]
+pub struct CurveCubic {
     /// The first control point.
     ///
     /// If set to `auto` and this element follows another `curve.cubic` element,
@@ -222,7 +220,7 @@ pub struct CurveCubicTo {
 ///
 /// If the containing path has the `closed` attribute set, all components will
 /// be closed anyway.
-#[elem(name = "close", title = "Path Close")]
+#[elem(name = "close", title = "Path Close Element")]
 pub struct CurveClose {
     /// How to close the path. If set to `auto`, use the `close-mode` parameter
     /// of the path.
