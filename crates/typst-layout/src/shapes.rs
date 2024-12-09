@@ -305,7 +305,7 @@ pub fn layout_curve(
                 builder.line_to(point);
             }
 
-            CurveComponent::Quadratic(element) => {
+            CurveComponent::Quad(element) => {
                 let relative = element.relative(styles);
                 let end = builder.resolve_point(element.end(styles), relative);
                 let control = match element.control(styles) {

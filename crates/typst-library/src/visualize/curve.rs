@@ -88,7 +88,7 @@ impl CurveElem {
     type CurveLine;
 
     #[elem]
-    type CurveQuadratic;
+    type CurveQuad;
 
     #[elem]
     type CurveCubic;
@@ -102,7 +102,7 @@ impl CurveElem {
 pub enum CurveComponent {
     Move(Packed<CurveMove>),
     Line(Packed<CurveLine>),
-    Quadratic(Packed<CurveQuadratic>),
+    Quad(Packed<CurveQuad>),
     Cubic(Packed<CurveCubic>),
     Close(Packed<CurveClose>),
 }
@@ -112,7 +112,7 @@ cast! {
     self => match self {
         Move(element) => element.into_value(),
         Line(element) => element.into_value(),
-        Quadratic(element) => element.into_value(),
+        Quad(element) => element.into_value(),
         Cubic(element) => element.into_value(),
         Close(element) => element.into_value(),
     },
@@ -128,7 +128,7 @@ impl TryFrom<Content> for CurveComponent {
             .into_packed::<CurveMove>()
             .map(Self::Move)
             .or_else(|value| value.into_packed::<CurveLine>().map(Self::Line))
-            .or_else(|value| value.into_packed::<CurveQuadratic>().map(Self::Quadratic))
+            .or_else(|value| value.into_packed::<CurveQuad>().map(Self::Quad))
             .or_else(|value| value.into_packed::<CurveCubic>().map(Self::Cubic))
             .or_else(|value| value.into_packed::<CurveClose>().map(Self::Close))
             .or_else(|_| bail!("expecting a curve element"))
@@ -175,8 +175,8 @@ pub struct CurveLine {
 ///
 /// If set to `auto` and this curve follows an other quadratic Bezier curve,
 /// the previous control point will be mirrored.
-#[elem(name = "quadratic", title = "Path Quadratic Curve Element")]
-pub struct CurveQuadratic {
+#[elem(name = "quad", title = "Path Quadratic Curve Element")]
+pub struct CurveQuad {
     /// The control point of the Bezier curve.
     #[resolve]
     #[positional]
