@@ -214,6 +214,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     }
 
     /// Lay out the inner contents of a column.
+    ///
+    /// Pending floats and footnotes are also laid out at this step. For those,
+    /// however, we forbid footnote migration (moving the frame containing the
+    /// footnote reference if the corresponding entry doesn't fit), allowing
+    /// the footnote invariant to be broken, as it would require handling a
+    /// [`Stop::Finish`] at this point, but that is exclusively handled by the
+    /// distributor.
     fn column_contents(&mut self, regions: Regions) -> FlowResult<Frame> {
         // Process pending footnotes.
         for note in std::mem::take(&mut self.work.footnotes) {
@@ -222,7 +229,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Process pending floats.
         for placed in std::mem::take(&mut self.work.floats) {
-            self.float(placed, &regions, false)?;
+            self.float(placed, &regions, false, false)?;
         }
 
         distribute(self, regions)
@@ -236,13 +243,21 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// (depending on `placed.scope`).
     ///
     /// When the float does not fit, it is queued into `work.floats`. The
-    /// value of `clearance` that between the float and flow content is needed
-    /// --- it is set if there are already distributed items.
+    /// value of `clearance` indicates that between the float and flow content
+    /// is needed --- it is set if there are already distributed items.
+    ///
+    /// The value of `migratable` determines whether footnotes within the float
+    /// should be allowed to prompt its migration if they don't fit in order to
+    /// respect the footnote invariant (entries in the same page as the
+    /// references), triggering [`Stop::Finish`]. This is usually `true` within
+    /// the distributor, as it can handle that particular flow event, and
+    /// `false` elsewhere.
     pub fn float(
         &mut self,
         placed: &'b PlacedChild<'a>,
         regions: &Regions,
         clearance: bool,
+        migratable: bool,
     ) -> FlowResult<()> {
         // If the float is already processed, skip it.
         let loc = placed.location();
@@ -291,7 +306,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Handle footnotes in the float.
-        self.footnotes(regions, &frame, need, false)?;
+        self.footnotes(regions, &frame, need, false, migratable)?;
 
         // Determine the float's vertical alignment. We can unwrap the inner
         // `Option` because `Custom(None)` is checked for during collection.
@@ -326,12 +341,19 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lays out footnotes in the `frame` if this is the root flow and there are
     /// any. The value of `breakable` indicates whether the element that
     /// produced the frame is breakable. If not, the frame is treated as atomic.
+    ///
+    /// The value of `migratable` indicates whether footnote migration should be
+    /// possible (at least for the first footnote found in the frame, as it is
+    /// forbidden for the second footnote onwards). It is usually `true` within
+    /// the distributor and `false` elsewhere, as the distributor can handle
+    /// [`Stop::Finish`] which is returned when migration is requested.
     pub fn footnotes(
         &mut self,
         regions: &Regions,
         frame: &Frame,
         flow_need: Abs,
         breakable: bool,
+        migratable: bool,
     ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
         if !self.config.root {
@@ -352,7 +374,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let mut relayout = false;
         let mut regions = *regions;
-        let mut migratable = !breakable && regions.may_progress();
+        let mut migratable = migratable && !breakable && regions.may_progress();
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the

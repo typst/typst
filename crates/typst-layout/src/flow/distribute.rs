@@ -240,7 +240,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Handle fractionally sized blocks.
         if let Some(fr) = single.fr {
-            self.composer.footnotes(&self.regions, &frame, Abs::zero(), false)?;
+            self.composer
+                .footnotes(&self.regions, &frame, Abs::zero(), false, true)?;
             self.flush_tags();
             self.items.push(Item::Fr(fr, Some(single)));
             return Ok(());
@@ -323,8 +324,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         // Handle footnotes.
-        self.composer
-            .footnotes(&self.regions, &frame, frame.height(), breakable)?;
+        self.composer.footnotes(
+            &self.regions,
+            &frame,
+            frame.height(),
+            breakable,
+            true,
+        )?;
 
         // Push an item for the frame.
         self.regions.size.y -= frame.height();
@@ -347,11 +353,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 placed,
                 &self.regions,
                 self.items.iter().any(|item| matches!(item, Item::Frame(..))),
+                true,
             )?;
             self.regions.size.y -= weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
-            self.composer.footnotes(&self.regions, &frame, Abs::zero(), true)?;
+            self.composer
+                .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;
             self.flush_tags();
             self.items.push(Item::Placed(frame, placed));
         }
