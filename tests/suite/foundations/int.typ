@@ -108,3 +108,7 @@
 --- number-invalid-suffix ---
 // Error: 2-4 invalid number suffix: u
 #1u
+
+--- numeric-format-issue-5519 ---
+// Error: 9-16 invalid base: 2, only support base 10
+First#h(0b100pt)Second
