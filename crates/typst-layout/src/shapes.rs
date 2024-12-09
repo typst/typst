@@ -190,18 +190,6 @@ impl PathBuilder {
         self.is_started = true;
     }
 
-    fn vertex(&mut self, point: Point, cinto: Point, cfrom: Point) {
-        if !self.is_started {
-            self.move_to(point);
-            self.start_control_into = point + cinto;
-        } else {
-            let old = self.start_control_into;
-            self.cubic_to(self.last_control_from, point + cinto, point);
-            self.start_control_into = old;
-        }
-        self.last_control_from = point + cfrom;
-    }
-
     fn move_to(&mut self, point: Point) {
         // Delay calling path.move_to in case there is another move_to element
         // before any actual drawing.
@@ -305,17 +293,6 @@ pub fn layout_curve(
 
     for item in elem.components() {
         match item {
-            CurveComponent::Vertex(element) => {
-                let relative = element.relative(styles);
-                let point = builder.resolve_point(element.point(styles), relative);
-                let cinto = builder.resolve_point(element.control_into(styles), false);
-                let cfrom = element
-                    .control_from(styles)
-                    .map(|p| builder.resolve_point(p, false))
-                    .unwrap_or(-cinto);
-                builder.vertex(point, cinto, cfrom);
-            }
-
             CurveComponent::MoveTo(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.start(styles), relative);

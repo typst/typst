@@ -18,10 +18,10 @@ use CurveComponent::*;
 /// #curve(
 ///   fill: blue.lighten(80%),
 ///   stroke: blue,
-///   curve.vertex(point: (0pt, 50pt)),
-///   curve.vertex(point: (100%, 50pt)),
-///   curve.vertex(point: (50%, 0pt), control-into: (40pt, 0pt), control-from: auto),
-///   curve.close()
+///   curve.move(start: (0pt, 50pt)),
+///   curve.line(end: (100%, 50pt)),
+///   curve.cubic(control-end: (50%+40pt, 0pt), end: (50%, 0pt)),
+///   curve.close(mode: "curve")
 /// )
 /// ```
 #[elem(scope, Show)]
@@ -40,11 +40,11 @@ pub struct CurveElem {
     /// // arguments pre-applied.
     /// #let star = curve.with(
     ///   fill: red,
-    ///   curve.vertex(point: (25pt, 0pt)),
-    ///   curve.vertex(point: (10pt, 50pt)),
-    ///   curve.vertex(point: (50pt, 20pt)),
-    ///   curve.vertex(point: (0pt, 20pt)),
-    ///   curve.vertex(point: (40pt, 50pt)),
+    ///   curve.move(start: (25pt, 0pt)),
+    ///   curve.line(end: (10pt, 50pt)),
+    ///   curve.line(end: (50pt, 20pt)),
+    ///   curve.line(end: (0pt, 20pt)),
+    ///   curve.line(end: (40pt, 50pt)),
     ///   curve.close()
     /// )
     ///
@@ -66,20 +66,7 @@ pub struct CurveElem {
     #[default(Some(CloseMode::Curve))]
     pub close_mode: Option<CloseMode>,
 
-    /// The vertices of the path.
-    ///
-    /// Each vertex can be defined in 3 ways:
-    ///
-    /// - A regular point, as given to the [`line`] or [`polygon`] function.
-    /// - An array of two points, the first being the vertex and the second
-    ///   being the control point. The control point is expressed relative to
-    ///   the vertex and is mirrored to get the second control point. The given
-    ///   control point is the one that affects the curve coming _into_ this
-    ///   vertex (even for the first point). The mirrored control point affects
-    ///   the curve going out of this vertex.
-    /// - An array of three points, the first being the vertex and the next
-    ///   being the control points (control point for curves coming in and out,
-    ///   respectively).
+    /// The components of the path.
     #[variadic]
     pub components: Vec<CurveComponent>,
 }
@@ -94,9 +81,6 @@ impl Show for Packed<CurveElem> {
 
 #[scope]
 impl CurveElem {
-    #[elem]
-    type CurveVertex;
-
     #[elem]
     type CurveMoveTo;
 
@@ -116,7 +100,6 @@ impl CurveElem {
 /// A component used for path creation.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CurveComponent {
-    Vertex(Packed<CurveVertex>),
     MoveTo(Packed<CurveMoveTo>),
     LineTo(Packed<CurveLineTo>),
     QuadraticTo(Packed<CurveQuadraticTo>),
@@ -127,7 +110,6 @@ pub enum CurveComponent {
 cast! {
     CurveComponent,
     self => match self {
-        Vertex(element) => element.into_value(),
         MoveTo(element) => element.into_value(),
         LineTo(element) => element.into_value(),
         QuadraticTo(element) => element.into_value(),
@@ -143,9 +125,8 @@ impl TryFrom<Content> for CurveComponent {
     type Error = HintedString;
     fn try_from(value: Content) -> HintedStrResult<Self> {
         value
-            .into_packed::<CurveVertex>()
-            .map(Self::Vertex)
-            .or_else(|value| value.into_packed::<CurveMoveTo>().map(Self::MoveTo))
+            .into_packed::<CurveMoveTo>()
+            .map(Self::MoveTo)
             .or_else(|value| value.into_packed::<CurveLineTo>().map(Self::LineTo))
             .or_else(|value| {
                 value.into_packed::<CurveQuadraticTo>().map(Self::QuadraticTo)
@@ -154,37 +135,6 @@ impl TryFrom<Content> for CurveComponent {
             .or_else(|value| value.into_packed::<CurveClose>().map(Self::Close))
             .or_else(|_| bail!("expecting a curve element"))
     }
-}
-
-/// An element used to define a vertex and its control points.
-///
-/// - `point`
-/// - `control-into` controls the curve coming into this vertex.
-/// - `control-from` controls the curve coming out of this vertex. If set
-///    to `auto`, the `control-into` point is mirrored.
-/// - If `relative` is set, the vertex
-/// Control points are defined relative to the vertex.
-///
-#[elem(name = "vertex", title = "Vertex with control points")]
-pub struct CurveVertex {
-    /// Position of the vertex.
-    #[resolve]
-    pub point: Axes<Rel<Length>>,
-
-    /// Control point affecting the curve coming into the vertex.
-    /// Relative to the vertex.
-    #[resolve]
-    pub control_into: Axes<Rel<Length>>,
-
-    /// Control point affecting the curve coming from the vertex.
-    /// Relative to the vertex.
-    /// If set to `auto`, the other control point is mirrored.
-    #[resolve]
-    pub control_from: Smart<Axes<Rel<Length>>>,
-
-    /// Is the point relative to the previous vertex?
-    #[default(false)]
-    pub relative: bool,
 }
 
 /// An element used to start a new path component.
