@@ -350,6 +350,7 @@ impl Route<'_> {
 }
 
 #[comemo::track]
+#[allow(clippy::needless_lifetimes)]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {
