@@ -18,9 +18,9 @@ use CurveComponent::*;
 /// #curve(
 ///   fill: blue.lighten(80%),
 ///   stroke: blue,
-///   curve.move(start: (0pt, 50pt)),
-///   curve.line(end: (100%, 50pt)),
-///   curve.cubic(control-end: (50%+40pt, 0pt), end: (50%, 0pt)),
+///   curve.move((0pt, 50pt)),
+///   curve.line((100%, 50pt)),
+///   curve.cubic(none, (50%+40pt, 0pt), (50%, 0pt)),
 ///   curve.close(mode: "curve")
 /// )
 /// ```
@@ -40,11 +40,11 @@ pub struct CurveElem {
     /// // arguments pre-applied.
     /// #let star = curve.with(
     ///   fill: red,
-    ///   curve.move(start: (25pt, 0pt)),
-    ///   curve.line(end: (10pt, 50pt)),
-    ///   curve.line(end: (50pt, 20pt)),
-    ///   curve.line(end: (0pt, 20pt)),
-    ///   curve.line(end: (40pt, 50pt)),
+    ///   curve.move((25pt, 0pt)),
+    ///   curve.line((10pt, 50pt)),
+    ///   curve.line((50pt, 20pt)),
+    ///   curve.line((0pt, 20pt)),
+    ///   curve.line((40pt, 50pt)),
     ///   curve.close()
     /// )
     ///
@@ -137,7 +137,7 @@ impl TryFrom<Content> for CurveComponent {
 
 /// An element used to start a new path component.
 ///
-/// If no `path.moveto` element is provided, the component will
+/// If no `path.move` element is provided, the component will
 /// start at `(0pt, 0pt)`.
 ///
 /// If `closed` is `true` in the containing path, previous components
@@ -146,6 +146,7 @@ impl TryFrom<Content> for CurveComponent {
 pub struct CurveMove {
     /// The starting point for the new component.
     #[resolve]
+    #[positional]
     pub start: Axes<Rel<Length>>,
 
     /// Are the coordinates relative to the previous point?
@@ -154,10 +155,11 @@ pub struct CurveMove {
 }
 
 /// An element used to add a segment from the last point to
-/// the `end`point.
+/// the `end` point.
 #[elem(name = "line", title = "Path Line Element")]
 pub struct CurveLine {
     #[resolve]
+    #[positional]
     pub end: Axes<Rel<Length>>,
 
     /// Are the coordinates relative to the previous point?
@@ -177,41 +179,46 @@ pub struct CurveLine {
 pub struct CurveQuadratic {
     /// The control point of the Bezier curve.
     #[resolve]
-    pub control: Smart<Axes<Rel<Length>>>,
+    #[positional]
+    pub control: Option<Smart<Axes<Rel<Length>>>>,
 
     /// The end point.
     #[resolve]
+    #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates of the `end`and `control` points relative to the previous point?
+    /// Are the coordinates of the `end` and `control` points relative to the previous point?
     #[default(false)]
     pub relative: bool,
 }
 
 /// An element used to add a cubic Bezier curve from the last
-/// point to `end`, using `cstart` and 'cend' as the control points.
+/// point to `end`, using `control-start` and `control-end` as the control points.
 #[elem(name = "cubic", title = "Path Cubic Curve Element")]
 pub struct CurveCubic {
     /// The first control point.
     ///
+    /// If set to `none`, the curve starting point is used.
+    ///
     /// If set to `auto` and this element follows another `curve.cubic` element,
     /// the last control point will be mirrored.
-    ///
-    /// Defaults to the last used point.
     #[resolve]
-    pub control_start: Smart<Axes<Rel<Length>>>,
+    #[positional]
+    pub control_start: Option<Smart<Axes<Rel<Length>>>>,
 
     /// The second control point.
     ///
-    /// Defaults to the end point.
+    /// If set to `none`, the end point is used.
     #[resolve]
-    pub control_end: Axes<Rel<Length>>,
+    #[positional]
+    pub control_end: Option<Axes<Rel<Length>>>,
 
     /// The end point.
     #[resolve]
+    #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates of the `end`and `control` points relative to the previous point?
+    /// Are the coordinates of the `end` and `control` points relative to the previous point?
     pub relative: bool,
 }
 

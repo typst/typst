@@ -307,24 +307,29 @@ pub fn layout_curve(
 
             CurveComponent::Quadratic(element) => {
                 let relative = element.relative(styles);
+                let end = builder.resolve_point(element.end(styles), relative);
                 let control = match element.control(styles) {
-                    Smart::Custom(p) => builder.resolve_point(p, relative),
-                    Smart::Auto => {
+                    Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
+                    Some(Smart::Auto) => {
                         control_c2q(builder.last_point, builder.last_control_from)
                     }
+                    None => end,
                 };
-                let end = builder.resolve_point(element.end(styles), relative);
                 builder.quadratic_to(control, end);
             }
 
             CurveComponent::Cubic(element) => {
                 let relative = element.relative(styles);
-                let c1 = match element.control_start(styles) {
-                    Smart::Custom(p) => builder.resolve_point(p, relative),
-                    Smart::Auto => builder.last_control_from,
-                };
-                let c2 = builder.resolve_point(element.control_end(styles), relative);
                 let end = builder.resolve_point(element.end(styles), relative);
+                let c1 = match element.control_start(styles) {
+                    Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
+                    Some(Smart::Auto) => builder.last_control_from,
+                    None => builder.last_point,
+                };
+                let c2 = match element.control_end(styles) {
+                    Some(p) => builder.resolve_point(p, relative),
+                    None => end,
+                };
                 builder.cubic_to(c1, c2, end);
             }
 
