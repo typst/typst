@@ -281,7 +281,7 @@ impl crate::foundations::Repr for Symbol {
             Repr::Complex(variants) => {
                 eco_format!(
                     "symbol{}",
-                    repr_variants(variants.iter().copied(), iter::empty())
+                    repr_variants(variants.iter().copied(), iter::empty()),
                 )
             }
             Repr::Modified(arc) => {
