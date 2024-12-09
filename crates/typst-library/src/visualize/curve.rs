@@ -56,7 +56,7 @@ pub struct CurveElem {
 
     /// How to [stroke] the path. This can be:
     ///
-    /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
+    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
     #[resolve]
     #[fold]
@@ -139,9 +139,6 @@ impl TryFrom<Content> for CurveComponent {
 ///
 /// If no `path.move` element is provided, the component will
 /// start at `(0pt, 0pt)`.
-///
-/// If `closed` is `true` in the containing path, previous components
-/// will be closed.
 #[elem(name = "move", title = "Path Move Element")]
 pub struct CurveMove {
     /// The starting point for the new component.
@@ -173,7 +170,7 @@ pub struct CurveLine {
 /// If no control point is specified, it defaults to `end`, and
 /// the curve will be a straight line.
 ///
-/// If set to `auto` and this curve follows an other quadratic Bezier curve,
+/// If set to `{auto}` and this curve follows an other quadratic Bezier curve,
 /// the previous control point will be mirrored.
 #[elem(name = "quad", title = "Path Quadratic Curve Element")]
 pub struct CurveQuad {
@@ -187,28 +184,30 @@ pub struct CurveQuad {
     #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates of the `end` and `control` points relative to the previous point?
+    /// Are the coordinates of the `end` and `control` points relative to the
+    /// previous point?
     #[default(false)]
     pub relative: bool,
 }
 
 /// An element used to add a cubic Bezier curve from the last
-/// point to `end`, using `control-start` and `control-end` as the control points.
+/// point to `end`, using `control-start` and `control-end` as the control
+/// points.
 #[elem(name = "cubic", title = "Path Cubic Curve Element")]
 pub struct CurveCubic {
     /// The first control point.
     ///
-    /// If set to `none`, the curve starting point is used.
+    /// If set to `{none}`, the curve starting point is used.
     ///
-    /// If set to `auto` and this element follows another `curve.cubic` element,
-    /// the last control point will be mirrored.
+    /// If set to `{auto}` and this element follows another `curve.cubic`
+    /// element, the last control point will be mirrored.
     #[resolve]
     #[positional]
     pub control_start: Option<Smart<Axes<Rel<Length>>>>,
 
     /// The second control point.
     ///
-    /// If set to `none`, the end point is used.
+    /// If set to `{none}`, the end point is used.
     #[resolve]
     #[positional]
     pub control_end: Option<Axes<Rel<Length>>>,
@@ -218,19 +217,17 @@ pub struct CurveCubic {
     #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates of the `end` and `control` points relative to the previous point?
+    /// Are the coordinates of the `end` and `control` points relative to the
+    /// previous point?
     pub relative: bool,
 }
 
-/// An element used to close a component. A segment from last point to the last `curve.move()`
-/// point will be added.
-///
-/// If the containing path has the `closed` attribute set, all components will
-/// be closed anyway.
+/// An element used to close a component. A segment or a curve from last point
+/// to the last `curve.move` point will be added.
 #[elem(name = "close", title = "Path Close Element")]
 pub struct CurveClose {
-    /// How to close the path. If set to `auto`, use the `close-mode` parameter
-    /// of the path.
+    /// How to close the path. If set to `{auto}`, use the `close-mode`
+    /// parameter of the path.
     pub mode: Smart<Option<CloseMode>>,
 }
 
