@@ -82,7 +82,7 @@ Expanded by height.
 #circle(width: 150%)
 
 --- circle-size-beyond-default ---
-// Test that setting a square's height beyond its default sizes the square correctly.
+// Test that setting a circle's height beyond its default sizes the circle correctly.
 #circle()
 #circle(height: 60pt)
 #circle(width: 60pt)
