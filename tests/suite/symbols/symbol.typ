@@ -57,6 +57,57 @@
 )
 #test(
   repr(sym.amp.inv),
-  `symbol("&", ("inv", "⅋")).inv`.text,
+  `symbol("⅋")`.text,
+)
+#test(
+  repr(sym.arrow.double.r),
+  ```
+  symbol(
+    "⇒",
+    ("bar", "⤇"),
+    ("long", "⟹"),
+    ("long.bar", "⟾"),
+    ("not", "⇏"),
+    ("l", "⇔"),
+    ("l.long", "⟺"),
+    ("l.not", "⇎"),
+  )
+  ```.text,
 )
 #test(repr(sym.smash), "symbol(\"⨳\")")
+
+#let envelope = symbol(
+  "🖂",
+  ("stamped", "🖃"),
+  ("stamped.pen", "🖆"),
+  ("lightning", "🖄"),
+  ("fly", "🖅"),
+)
+#test(
+  repr(envelope),
+  ```
+  symbol(
+    "🖂",
+    ("stamped", "🖃"),
+    ("stamped.pen", "🖆"),
+    ("lightning", "🖄"),
+    ("fly", "🖅"),
+  )
+  ```.text,
+)
+#test(
+  repr(envelope.stamped),
+  `symbol("🖃", ("pen", "🖆"))`.text,
+)
+#test(
+  repr(envelope.stamped.pen),
+  `symbol("🖆")`.text,
+)
+#test(
+  repr(envelope.lightning),
+  `symbol("🖄")`.text,
+)
+#test(
+  repr(envelope.fly),
+  `symbol("🖅")`.text,
+)
