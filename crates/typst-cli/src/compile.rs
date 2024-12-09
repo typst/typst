@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -23,6 +23,7 @@ use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
     PdfStandard, WatchCommand,
 };
+#[cfg(feature = "http-server")]
 use crate::server::HtmlServer;
 use crate::timings::Timer;
 
@@ -72,6 +73,7 @@ pub struct CompileConfig {
     /// watch` sessions with images.
     pub export_cache: ExportCache,
     /// Server for `typst watch` to HTML.
+    #[cfg(feature = "http-server")]
     pub server: Option<HtmlServer>,
 }
 
@@ -139,17 +141,18 @@ impl CompileConfig {
             PdfStandards::new(&list)?
         };
 
-        let mut server = None;
-        let mut watching = false;
-        if let Some(command) = watch {
-            watching = true;
-            if output_format == OutputFormat::Html && !command.no_serve {
-                server = Some(HtmlServer::new(&input, command.port, !command.no_reload)?);
+        #[cfg(feature = "http-server")]
+        let server = match watch {
+            Some(command)
+                if output_format == OutputFormat::Html && !command.server.no_serve =>
+            {
+                Some(HtmlServer::new(&input, &command.server)?)
             }
-        }
+            _ => None,
+        };
 
         Ok(Self {
-            watching,
+            watching: watch.is_some(),
             input,
             output,
             output_format,
@@ -161,6 +164,7 @@ impl CompileConfig {
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
             export_cache: ExportCache::new(),
+            #[cfg(feature = "http-server")]
             server,
         })
     }
@@ -241,6 +245,7 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
     let html = typst_html::html(document)?;
     let result = config.output.write(html.as_bytes());
 
+    #[cfg(feature = "http-server")]
     if let Some(server) = &config.server {
         server.update(html);
     }
@@ -556,30 +561,37 @@ fn write_make_deps(world: &mut SystemWorld, config: &CompileConfig) -> StrResult
         })
 }
 
-/// Opens the output if desired, with:
-/// - The default file viewer if `open` is `None`.
-/// - The given viewer provided by `open` if it is `Some`.
-///
-/// If the file could not be opened, an error is returned.
+/// Opens the output if desired.
 fn open_output(config: &mut CompileConfig) -> StrResult<()> {
-    let Some(open) = config.open.take() else { return Ok(()) };
+    let Some(viewer) = config.open.take() else { return Ok(()) };
 
-    let path = if let Some(server) = &config.server {
-        OsString::from(format!("http://{}", server.addr()))
-    } else if let Output::Path(path) = &config.output {
-        // Some resource openers require the path to be canonicalized.
-        path.canonicalize()
-            .map_err(|err| eco_format!("failed to canonicalize path ({err})"))?
-            .into_os_string()
-    } else {
-        return Ok(());
-    };
+    #[cfg(feature = "http-server")]
+    if let Some(server) = &config.server {
+        let url = format!("http://{}", server.addr());
+        return open_path(OsStr::new(&url), viewer.as_deref());
+    }
 
-    if let Some(app) = &open {
-        open::with_detached(&path, app)
-            .map_err(|err| eco_format!("failed to open file with {} ({})", app, err))
+    // Can't open stdout.
+    let Output::Path(path) = &config.output else { return Ok(()) };
+
+    // Some resource openers require the path to be canonicalized.
+    let path = path
+        .canonicalize()
+        .map_err(|err| eco_format!("failed to canonicalize path ({err})"))?;
+
+    open_path(path.as_os_str(), viewer.as_deref())
+}
+
+/// Opens the given file using:
+///
+/// - The default file viewer if `app` is `None`.
+/// - The given viewer provided by `app` if it is `Some`.
+fn open_path(path: &OsStr, viewer: Option<&str>) -> StrResult<()> {
+    if let Some(viewer) = viewer {
+        open::with_detached(path, viewer)
+            .map_err(|err| eco_format!("failed to open file with {} ({})", viewer, err))
     } else {
-        open::that_detached(&path).map_err(|err| {
+        open::that_detached(path).map_err(|err| {
             let openers = open::commands(path)
                 .iter()
                 .map(|command| command.get_program().to_string_lossy())
