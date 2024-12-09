@@ -483,17 +483,17 @@ pub mod tag {
         wbr
     }
 
-    /// Can the content of a node with the tag be surrounded by whitespace without impacting the document?
+    /// Whether nodes with the tag have the CSS property `display: block`
+    /// by default.
     ///
-    /// This is true for all tags that have the CSS property `display: block` by default.
-    /// That means that pretty-printing can insert spaces
-    /// around such tags and around the contents of such tags.
+    /// If this is true, then pretty-printing can insert spaces
+    /// around such nodes and around the contents of such nodes.
     ///
     /// However, when users change the properties of such tags via CSS,
     /// the insertion of whitespace may actually impact the visual output;
-    /// for example, <https://www.w3.org/TR/css-text-3/#example-af2745cd> shows how
-    /// adding CSS rules to `<p>` can make it sensitive to whitespace.
-    /// In such cases, pretty-printing should be disabled to preserve intended output.
+    /// for example, <https://www.w3.org/TR/css-text-3/#example-af2745cd> shows
+    /// how adding CSS rules to `<p>` can make it sensitive to whitespace.
+    /// In such cases, users should disable pretty-printing.
     pub fn is_block_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,
