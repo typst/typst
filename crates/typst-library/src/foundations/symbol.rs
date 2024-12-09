@@ -1,7 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
-use std::iter;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
@@ -247,21 +246,19 @@ impl Debug for List {
 
 fn repr_variants<'a, 'b>(
     variants: impl Iterator<Item = (&'a str, char)>,
-    applied_modifiers: impl Iterator<Item = &'b str> + Clone,
+    applied_modifiers: &str,
 ) -> String {
     crate::foundations::repr::pretty_array_like(
         &variants
             .filter(|(variant, _)| {
                 // Only keep variants that can still be accessed, i.e., variants
                 // that contain all applied modifiers.
-                applied_modifiers
-                    .clone()
-                    .all(|am| variant.split('.').any(|m| m == am))
+                parts(applied_modifiers).all(|am| variant.split('.').any(|m| m == am))
             })
             .map(|(variant, c)| {
                 let trimmed_variant = variant
                     .split('.')
-                    .filter(|&m| applied_modifiers.clone().all(|am| m != am))
+                    .filter(|&m| parts(applied_modifiers).all(|am| m != am))
                     .collect::<Vec<_>>();
                 if trimmed_variant.iter().all(|m| m.is_empty()) {
                     eco_format!("\"{c}\"")
@@ -279,20 +276,14 @@ impl crate::foundations::Repr for Symbol {
         match &self.0 {
             Repr::Single(c) => eco_format!("symbol(\"{}\")", *c),
             Repr::Complex(variants) => {
-                eco_format!(
-                    "symbol{}",
-                    repr_variants(variants.iter().copied(), iter::empty()),
-                )
+                eco_format!("symbol{}", repr_variants(variants.iter().copied(), ""))
             }
             Repr::Modified(arc) => {
                 let (list, modifiers) = arc.as_ref();
                 if modifiers.is_empty() {
-                    eco_format!("symbol{}", repr_variants(list.variants(), iter::empty()))
+                    eco_format!("symbol{}", repr_variants(list.variants(), ""))
                 } else {
-                    eco_format!(
-                        "symbol{}",
-                        repr_variants(list.variants(), modifiers.split('.')),
-                    )
+                    eco_format!("symbol{}", repr_variants(list.variants(), modifiers))
                 }
             }
         }
