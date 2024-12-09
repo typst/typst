@@ -291,3 +291,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 // Test whether an empty footnote would cause infinite loop
 #show footnote.entry: it => {}
 #lorem(3) #footnote[A footnote]
+
+--- issue-5256-multiple-footnotes-in-footnote ---
+// Test whether all footnotes inside another footnote are listed.
+#footnote[#footnote[A]#footnote[B]#footnote[C]]

@@ -218,3 +218,18 @@ World
   part($ x $ + parbreak() + list[A])
   part($ x $ + parbreak() + parbreak() + list[A])
 }
+
+--- issue-5503-list-interrupted-by-par-align ---
+// `align` is block-level and should interrupt a list
+// but not a `par`
+#show list: [List]
+- a
+- b
+#par(leading: 5em)[- c]
+- d
+- e
+#par[- f]
+- g
+- h
+#align(right)[- i]
+- j

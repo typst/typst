@@ -308,6 +308,7 @@ impl Synthesize for Packed<FigureElem> {
         // Fill the figure's caption.
         let mut caption = elem.caption(styles);
         if let Some(caption) = &mut caption {
+            caption.synthesize(engine, styles)?;
             caption.push_kind(kind.clone());
             caption.push_supplement(supplement.clone());
             caption.push_numbering(numbering.clone());

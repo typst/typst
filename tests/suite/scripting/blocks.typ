@@ -136,7 +136,44 @@
 #}
 
 --- single-right-bracket ---
+// Error: 1-2 unexpected closing bracket
+// Hint: 1-2 try using a backslash escape: \]
 ]
+
+--- right-bracket-nesting ---
+[
+= [ Hi ]]
+- how [
+  - are ]
+// Error: 10-11 unexpected closing bracket
+// Hint: 10-11 try using a backslash escape: \]
+  - error][]
+[[]]
+
+--- right-bracket-hash ---
+// Error: 2-3 unexpected closing bracket
+#]
+
+--- right-bracket-in-blocks ---
+// Error: 3-4 unclosed delimiter
+// Error: 6-7 unexpected closing bracket
+// Hint: 6-7 try using a backslash escape: \]
+[#{]}]
+
+// Error: 4-5 unexpected closing bracket
+// Hint: 4-5 try using a backslash escape: \]
+#[]]
+
+// Error: 4-5 unclosed delimiter
+// Error: 7-8 unexpected closing bracket
+// Hint: 7-8 try using a backslash escape: \]
+#[#{]}]
+
+// Error: 2-3 unclosed delimiter
+// Error: 3-4 unclosed delimiter
+// Error: 4-5 unexpected closing bracket
+// Hint: 4-5 try using a backslash escape: \]
+#{{]}}
 
 --- content-block-in-markup-scope ---
 // Content blocks also create a scope.

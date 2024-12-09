@@ -55,6 +55,7 @@ pub fn layout_image(
         elem.alt(styles),
         engine.world,
         &families(styles).collect::<Vec<_>>(),
+        elem.flatten_text(styles),
     )
     .at(span)?;
 
