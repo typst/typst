@@ -142,7 +142,6 @@ pub fn layout_path(
 struct PathBuilder {
     path: Path,
     size: Size,
-    close_mode: Option<CloseMode>,
     region: Region,
     start_point: Point,
     start_control_into: Point, // cubic
@@ -156,11 +155,10 @@ struct PathBuilder {
 }
 
 impl PathBuilder {
-    fn new(region: Region, close_mode: Option<CloseMode>) -> Self {
+    fn new(region: Region) -> Self {
         Self {
             path: Path::new(),
             size: Size::zero(),
-            close_mode,
             region,
             start_point: Default::default(),
             start_control_into: Default::default(),
@@ -205,7 +203,6 @@ impl PathBuilder {
     }
 
     fn move_to(&mut self, point: Point) {
-        self.close(self.close_mode);
         // Delay calling path.move_to in case there is another move_to element
         // before any actual drawing.
         self.adjust_bounds(point);
@@ -274,8 +271,7 @@ impl PathBuilder {
         self.is_empty = true;
     }
 
-    fn build(mut self) -> (Path, Size) {
-        self.close(self.close_mode);
+    fn build(self) -> (Path, Size) {
         (self.path, self.size)
     }
 }
@@ -305,8 +301,7 @@ pub fn layout_curve(
     region: Region,
 ) -> SourceResult<Frame> {
     let default_close_mode = elem.close_mode(styles);
-    let close_mode = elem.closed(styles).then_some(default_close_mode).flatten();
-    let mut builder = PathBuilder::new(region, close_mode);
+    let mut builder = PathBuilder::new(region);
 
     for item in elem.components() {
         match item {

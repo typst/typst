@@ -62,13 +62,6 @@ pub struct CurveElem {
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// Whether to close this path with one last bezier curve. This curve will
-    /// take into account the adjacent control points. If you want to close
-    /// with a straight line, simply add one last point that's the same as the
-    /// start point.
-    #[default(false)]
-    pub closed: bool,
-
     /// How to close the path.
     #[default(Some(CloseMode::Curve))]
     pub close_mode: Option<CloseMode>,
