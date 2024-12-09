@@ -491,6 +491,10 @@ pub mod tag {
             tag,
             self::html
                 | self::head
+                // `<meta>` is a special case because it is not really a block element,
+                // but because it cannot have children and may only appear in `<head>`,
+                // we include it here so that it is put on its own line by pretty-printing
+                | self::meta
                 | self::body
                 | self::article
                 | self::aside
