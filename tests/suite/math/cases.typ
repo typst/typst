@@ -15,3 +15,8 @@ $ x = cases(1, 2) $
 --- math-cases-delim ---
 #set math.cases(delim: sym.angle.l)
 $ cases(a, b, c) $
+
+--- math-cases-linebreaks ---
+// Currently linebreaks are equivalent to commas, though this behaviour may
+// change in the future.
+$ cases(a, b, c) cases(reverse: #true, a \ b \ c) $

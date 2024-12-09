@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
-use typst::layout::{Frame, FrameItem, Point, Position, Size};
-use typst::model::{Destination, Document, Url};
+use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
+use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
 use typst::WorldExt;
@@ -30,7 +30,7 @@ impl Jump {
 /// Determine where to jump to based on a click in a frame.
 pub fn jump_from_click(
     world: &dyn IdeWorld,
-    document: &Document,
+    document: &PagedDocument,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
@@ -110,7 +110,7 @@ pub fn jump_from_click(
 
 /// Find the output location in the document for a cursor position.
 pub fn jump_from_cursor(
-    document: &Document,
+    document: &PagedDocument,
     source: &Source,
     cursor: usize,
 ) -> Vec<Position> {

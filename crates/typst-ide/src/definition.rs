@@ -1,5 +1,5 @@
 use typst::foundations::{Label, Selector, Value};
-use typst::model::Document;
+use typst::layout::PagedDocument;
 use typst::syntax::{ast, LinkedNode, Side, Source, Span};
 use typst::utils::PicoStr;
 
@@ -25,7 +25,7 @@ pub enum Definition {
 /// when the document is available.
 pub fn definition(
     world: &dyn IdeWorld,
-    document: Option<&Document>,
+    document: Option<&PagedDocument>,
     source: &Source,
     cursor: usize,
     side: Side,

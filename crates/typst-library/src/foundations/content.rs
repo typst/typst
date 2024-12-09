@@ -481,17 +481,20 @@ impl Content {
 impl Content {
     /// Strongly emphasize this content.
     pub fn strong(self) -> Self {
-        StrongElem::new(self).pack()
+        let span = self.span();
+        StrongElem::new(self).pack().spanned(span)
     }
 
     /// Emphasize this content.
     pub fn emph(self) -> Self {
-        EmphElem::new(self).pack()
+        let span = self.span();
+        EmphElem::new(self).pack().spanned(span)
     }
 
     /// Underline this content.
     pub fn underlined(self) -> Self {
-        UnderlineElem::new(self).pack()
+        let span = self.span();
+        UnderlineElem::new(self).pack().spanned(span)
     }
 
     /// Link the content somewhere.
@@ -506,17 +509,24 @@ impl Content {
 
     /// Pad this content at the sides.
     pub fn padded(self, padding: Sides<Rel<Length>>) -> Self {
+        let span = self.span();
         PadElem::new(self)
             .with_left(padding.left)
             .with_top(padding.top)
             .with_right(padding.right)
             .with_bottom(padding.bottom)
             .pack()
+            .spanned(span)
     }
 
     /// Transform this content's contents without affecting layout.
     pub fn moved(self, delta: Axes<Rel<Length>>) -> Self {
-        MoveElem::new(self).with_dx(delta.x).with_dy(delta.y).pack()
+        let span = self.span();
+        MoveElem::new(self)
+            .with_dx(delta.x)
+            .with_dy(delta.y)
+            .pack()
+            .spanned(span)
     }
 }
 

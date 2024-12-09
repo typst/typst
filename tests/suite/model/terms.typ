@@ -75,3 +75,18 @@ Not in list
 --- issue-2530-term-item-panic ---
 // Term item (pre-emptive)
 #terms.item[Hello][World!]
+
+--- issue-5503-terms-interrupted-by-par-align ---
+// `align` is block-level and should interrupt a `terms`
+// but not a `par`
+#show terms: [Terms]
+/ a: a
+/ b: b
+#par(leading: 5em)[/ c: c]
+/ d: d
+/ e: e
+#par[/ f: f]
+/ g: g
+/ h: h
+#align(right)[/ i: i]
+/ j: j

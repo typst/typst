@@ -697,12 +697,62 @@ impl Gradient {
     }
 
     /// Returns the angle of this gradient.
+    ///
+    /// Returns `{none}` if the gradient is neither linear nor conic.
     #[func]
     pub fn angle(&self) -> Option<Angle> {
         match self {
             Self::Linear(linear) => Some(linear.angle),
             Self::Radial(_) => None,
             Self::Conic(conic) => Some(conic.angle),
+        }
+    }
+
+    /// Returns the center of this gradient.
+    ///
+    /// Returns `{none}` if the gradient is neither radial nor conic.
+    #[func]
+    pub fn center(&self) -> Option<Axes<Ratio>> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.center),
+            Self::Conic(conic) => Some(conic.center),
+        }
+    }
+
+    /// Returns the radius of this gradient.
+    ///
+    /// Returns `{none}` if the gradient is not radial.
+    #[func]
+    pub fn radius(&self) -> Option<Ratio> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.radius),
+            Self::Conic(_) => None,
+        }
+    }
+
+    /// Returns the focal-center of this gradient.
+    ///
+    /// Returns `{none}` if the gradient is not radial.
+    #[func]
+    pub fn focal_center(&self) -> Option<Axes<Ratio>> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.focal_center),
+            Self::Conic(_) => None,
+        }
+    }
+
+    /// Returns the focal-radius of this gradient.
+    ///
+    /// Returns `{none}` if the gradient is not radial.
+    #[func]
+    pub fn focal_radius(&self) -> Option<Ratio> {
+        match self {
+            Self::Linear(_) => None,
+            Self::Radial(radial) => Some(radial.focal_radius),
+            Self::Conic(_) => None,
         }
     }
 

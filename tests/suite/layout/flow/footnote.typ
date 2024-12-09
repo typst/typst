@@ -292,6 +292,10 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 #show footnote.entry: it => {}
 #lorem(3) #footnote[A footnote]
 
+--- issue-5256-multiple-footnotes-in-footnote ---
+// Test whether all footnotes inside another footnote are listed.
+#footnote[#footnote[A]#footnote[B]#footnote[C]]
+
 --- issue-5435-footnote-migration-in-floats ---
 // Test that a footnote should not prompt migration when in a float that was
 // queued to the next page (due to the float being too large), even if the

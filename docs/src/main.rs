@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use typst::model::Document;
+use typst::layout::PagedDocument;
 use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
 
@@ -13,7 +13,7 @@ struct CliResolver<'a> {
     base: &'a str,
 }
 
-impl<'a> Resolver for CliResolver<'a> {
+impl Resolver for CliResolver<'_> {
     fn commits(&self, from: &str, to: &str) -> Vec<typst_docs::Commit> {
         if self.verbose {
             eprintln!("commits({from}, {to})");
@@ -25,7 +25,7 @@ impl<'a> Resolver for CliResolver<'a> {
         &self,
         hash: u128,
         source: Option<Html>,
-        document: &Document,
+        document: &PagedDocument,
     ) -> typst_docs::Html {
         if self.verbose {
             eprintln!(
