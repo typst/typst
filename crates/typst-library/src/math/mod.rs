@@ -207,9 +207,7 @@ pub fn module() -> Module {
     math.define("wide", HElem::new(WIDE.into()).pack());
 
     // Symbols.
-    for (name, symbol) in crate::symbols::SYM {
-        math.define(*name, symbol.clone());
-    }
+    crate::symbols::define_math(&mut math);
 
     Module::new("math", math)
 }

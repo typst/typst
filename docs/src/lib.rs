@@ -21,10 +21,10 @@ use typst::foundations::{
     Scope, Smart, Type, Value, FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
-use typst::layout::{Abs, Margin, PageElem, LAYOUT};
+use typst::layout::{Abs, Margin, PageElem, PagedDocument, LAYOUT};
 use typst::loading::DATA_LOADING;
 use typst::math::MATH;
-use typst::model::{Document, MODEL};
+use typst::model::MODEL;
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
 use typst::utils::LazyHash;
@@ -105,7 +105,8 @@ pub trait Resolver {
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
     /// Produce HTML for an example.
-    fn example(&self, hash: u128, source: Option<Html>, document: &Document) -> Html;
+    fn example(&self, hash: u128, source: Option<Html>, document: &PagedDocument)
+        -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -671,15 +672,15 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, c) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c.char()).map(|(s, _)| s)
+                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
             };
 
             list.push(SymbolModel {
                 name: complete(variant),
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
                 math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
-                codepoint: c.char() as _,
-                accent: typst::math::Accent::combine(c.char()).is_some(),
+                codepoint: c as _,
+                accent: typst::math::Accent::combine(c).is_some(),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _)| other != &variant)
@@ -800,7 +801,7 @@ mod tests {
             None
         }
 
-        fn example(&self, _: u128, _: Option<Html>, _: &Document) -> Html {
+        fn example(&self, _: u128, _: Option<Html>, _: &PagedDocument) -> Html {
             Html::new(String::new())
         }
 

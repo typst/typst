@@ -253,8 +253,8 @@ pub fn eval_closure(
     // Handle control flow.
     let output = body.eval(&mut vm)?;
     match vm.flow {
-        Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
-        Some(FlowEvent::Return(_, None)) => {}
+        Some(FlowEvent::Return(_, Some(explicit), _)) => return Ok(explicit),
+        Some(FlowEvent::Return(_, None, _)) => {}
         Some(flow) => bail!(flow.forbidden()),
         None => {}
     }
@@ -391,7 +391,9 @@ fn wrap_args_in_math(
     }
     Ok(Value::Content(
         callee.display().spanned(callee_span)
-            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')')).pack(),
+            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+                .pack()
+                .spanned(args.span),
     ))
 }
 

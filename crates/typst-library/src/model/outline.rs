@@ -248,7 +248,7 @@ impl Show for Packed<OutlineElem> {
             )?;
 
             // Add the overridable outline entry, followed by a line break.
-            seq.push(entry.pack());
+            seq.push(entry.pack().spanned(self.span()));
             seq.push(LinebreakElem::shared().clone());
 
             ancestors.push(elem);
@@ -332,15 +332,18 @@ impl OutlineIndent {
                 }
 
                 if !ancestors.is_empty() {
-                    seq.push(HideElem::new(hidden).pack());
-                    seq.push(SpaceElem::shared().clone());
+                    seq.push(HideElem::new(hidden).pack().spanned(span));
+                    seq.push(SpaceElem::shared().clone().spanned(span));
                 }
             }
 
             // Length => indent with some fixed spacing per level
             Some(Smart::Custom(OutlineIndent::Rel(length))) => {
                 seq.push(
-                    HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()),
+                    HElem::new(Spacing::Rel(*length))
+                        .pack()
+                        .spanned(span)
+                        .repeat(ancestors.len()),
                 );
             }
 
@@ -535,7 +538,7 @@ impl Show for Packed<OutlineEntry> {
             );
             seq.push(SpaceElem::shared().clone());
         } else {
-            seq.push(HElem::new(Fr::one().into()).pack());
+            seq.push(HElem::new(Fr::one().into()).pack().spanned(self.span()));
         }
 
         // Add the page number.

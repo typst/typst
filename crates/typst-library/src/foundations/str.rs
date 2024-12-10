@@ -7,7 +7,6 @@ use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
-use typst_utils::PicoStr;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
@@ -647,11 +646,17 @@ impl Repr for str {
                 '\0' => r.push_str(r"\u{0}"),
                 '\'' => r.push('\''),
                 '"' => r.push_str(r#"\""#),
-                _ => c.escape_debug().for_each(|c| r.push(c)),
+                _ => r.extend(c.escape_debug()),
             }
         }
         r.push('"');
         r
+    }
+}
+
+impl Repr for char {
+    fn repr(&self) -> EcoString {
+        EcoString::from(*self).repr()
     }
 }
 
@@ -754,12 +759,6 @@ cast! {
 }
 
 cast! {
-    PicoStr,
-    self => Value::Str(self.resolve().into()),
-    v: Str => v.as_str().into(),
-}
-
-cast! {
     String,
     self => Value::Str(self.into()),
     v: Str => v.into(),
@@ -784,7 +783,7 @@ cast! {
             .map_err(|_| "bytes are not valid utf-8")?
             .into()
     ),
-    v: Label => Self::Str(v.as_str().into()),
+    v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
 }

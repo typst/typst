@@ -16,7 +16,7 @@ pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
 pub use self::duration::format_duration;
 pub use self::hash::LazyHash;
-pub use self::pico::PicoStr;
+pub use self::pico::{PicoStr, ResolvedPicoStr};
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
 
