@@ -123,6 +123,12 @@ pub const ARRAY_OR_DICT_ITEM: SyntaxSet = CODE_EXPR.add(SyntaxKind::Dots);
 /// Syntax kinds that can start an argument in a function call.
 pub const ARG: SyntaxSet = CODE_EXPR.add(SyntaxKind::Dots);
 
+/// Syntax kinds that can end an argument in a math function call.
+pub const MATH_ARG_END: SyntaxSet = syntax_set!(Comma, Semicolon, RightParen);
+
+/// Syntax kinds that can end a math function call.
+pub const MATH_ARGS_END: SyntaxSet = syntax_set!(End, Dollar, RightParen);
+
 /// Syntax kinds that can start a parameter in a parameter list.
 pub const PARAM: SyntaxSet = PATTERN.add(SyntaxKind::Dots);
 
