@@ -140,7 +140,7 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
-    /// 
+    ///
     /// // Change font only for numbers.
     /// #set text(font: (
     ///   (name: "New Computer Modern", covers: regex("[0-9]")),
