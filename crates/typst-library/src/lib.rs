@@ -21,6 +21,7 @@ pub mod layout;
 pub mod loading;
 pub mod math;
 pub mod model;
+pub mod pdf;
 pub mod routines;
 pub mod symbols;
 pub mod text;
@@ -82,6 +83,12 @@ pub trait World: Send + Sync {
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
+
+    /// Get the last modified date of a file.
+    ///
+    /// This is used for file embeddings. If this method returns `None`,
+    /// embeddings will only get a last modified date if defined by the user.
+    fn last_modified(&self, id: FileId) -> FileResult<Option<Datetime>>;
 }
 
 macro_rules! world_impl {
@@ -113,6 +120,10 @@ macro_rules! world_impl {
 
             fn today(&self, offset: Option<i64>) -> Option<Datetime> {
                 self.deref().today(offset)
+            }
+
+            fn last_modified(&self, id: FileId) -> FileResult<Option<Datetime>> {
+                self.deref().last_modified(id)
             }
         }
     };
@@ -249,6 +260,7 @@ fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
+    self::pdf::define(&mut global);
     global.reset_category();
     if features.is_enabled(Feature::Html) {
         global.define_module(self::html::module());

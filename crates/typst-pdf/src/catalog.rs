@@ -153,7 +153,7 @@ pub fn write_catalog(
             .describe_instance_id();
         extension_schemas.pdf().properties().describe_all();
         extension_schemas.finish();
-        xmp.pdfa_part(2);
+        xmp.pdfa_part(if ctx.options.standards.embedded_files { 3 } else { 2 });
         xmp.pdfa_conformance("B");
     }
 
@@ -180,6 +180,25 @@ pub fn write_catalog(
         let mut names = dests_name_tree.names();
         for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
             names.insert(Str(name.resolve().as_bytes()), dest_ref);
+        }
+    }
+
+    if !ctx.references.embedded_files.is_empty() {
+        {
+            let mut name_dict = catalog.names();
+            let mut embedded_files = name_dict.embedded_files();
+            let mut names = embedded_files.names();
+            for (name, file_ref) in &ctx.references.embedded_files {
+                names.insert(Str(name.as_bytes()), *file_ref);
+            }
+        }
+
+        if ctx.options.standards.pdfa {
+            // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
+            let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
+            for (_, file_ref) in ctx.references.embedded_files {
+                associated_files.item(file_ref).finish();
+            }
         }
     }
 
@@ -281,7 +300,7 @@ pub(crate) fn write_page_labels(
 }
 
 /// Converts a datetime to a pdf-writer date.
-fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
+pub fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut pdf_date = pdf_writer::Date::new(year);
