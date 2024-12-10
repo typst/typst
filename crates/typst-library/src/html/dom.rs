@@ -39,14 +39,6 @@ impl HtmlNode {
     pub fn text(text: impl Into<EcoString>, span: Span) -> Self {
         Self::Text(text.into(), span)
     }
-
-    /// Whether the node should be pretty-printed.
-    pub fn is_pretty(&self) -> bool {
-        match self {
-            Self::Element(element) => element.is_pretty(),
-            Self::Tag(_) | Self::Text(..) | Self::Frame(_) => false,
-        }
-    }
 }
 
 impl From<HtmlElement> for HtmlNode {
@@ -97,11 +89,6 @@ impl HtmlElement {
     pub fn spanned(mut self, span: Span) -> Self {
         self.span = span;
         self
-    }
-
-    /// Whether the element should be pretty-printed.
-    pub fn is_pretty(&self) -> bool {
-        tag::is_block_by_default(self.tag) || matches!(self.tag, tag::meta)
     }
 }
 
@@ -483,17 +470,17 @@ pub mod tag {
         wbr
     }
 
-    /// Whether nodes with the tag have the CSS property `display: block`
-    /// by default.
+    /// Whether nodes with the tag have the CSS property `display: block` by
+    /// default.
     ///
-    /// If this is true, then pretty-printing can insert spaces
-    /// around such nodes and around the contents of such nodes.
+    /// If this is true, then pretty-printing can insert spaces around such
+    /// nodes and around the contents of such nodes.
     ///
-    /// However, when users change the properties of such tags via CSS,
-    /// the insertion of whitespace may actually impact the visual output;
-    /// for example, <https://www.w3.org/TR/css-text-3/#example-af2745cd> shows
-    /// how adding CSS rules to `<p>` can make it sensitive to whitespace.
-    /// In such cases, users should disable pretty-printing.
+    /// However, when users change the properties of such tags via CSS, the
+    /// insertion of whitespace may actually impact the visual output; for
+    /// example, <https://www.w3.org/TR/css-text-3/#example-af2745cd> shows how
+    /// adding CSS rules to `<p>` can make it sensitive to whitespace. In such
+    /// cases, users should disable pretty-printing.
     pub fn is_block_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,

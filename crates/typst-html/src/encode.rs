@@ -28,7 +28,9 @@ struct Writer {
 fn write_indent(w: &mut Writer) {
     if w.pretty {
         w.buf.push('\n');
-        w.buf.push_str(&"  ".repeat(w.level));
+        for _ in 0..w.level {
+            w.buf.push_str("  ");
+        }
     }
 }
 
@@ -83,20 +85,22 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 
     let pretty = w.pretty;
     if !element.children.is_empty() {
-        w.pretty &= element.is_pretty();
+        w.pretty &= is_pretty(element);
         let mut indent = w.pretty;
 
         w.level += 1;
         for c in &element.children {
-            if matches!(c, HtmlNode::Tag(_)) {
-                continue;
-            }
+            let pretty_child = match c {
+                HtmlNode::Tag(_) => continue,
+                HtmlNode::Element(element) => is_pretty(element),
+                HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
+            };
 
-            if core::mem::take(&mut indent) || c.is_pretty() {
+            if core::mem::take(&mut indent) || pretty_child {
                 write_indent(w);
             }
             write_node(w, c)?;
-            indent = c.is_pretty();
+            indent = pretty_child;
         }
         w.level -= 1;
 
@@ -109,6 +113,11 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     w.buf.push('>');
 
     Ok(())
+}
+
+/// Whether the element should be pretty-printed.
+fn is_pretty(element: &HtmlElement) -> bool {
+    tag::is_block_by_default(element.tag) || matches!(element.tag, tag::meta)
 }
 
 /// Escape a character.
