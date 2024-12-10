@@ -823,7 +823,7 @@ static PAR: GroupingRule = GroupingRule {
                 RealizationKind::HtmlDocument(_) | RealizationKind::HtmlFragment
             ) && content
                 .to_packed::<HtmlElem>()
-                .is_some_and(|elem| tag::is_inline(elem.tag)))
+                .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
     },
     inner: |content| content.elem() == SpaceElem::elem(),
     interrupt: |elem| elem == ParElem::elem() || elem == AlignElem::elem(),
