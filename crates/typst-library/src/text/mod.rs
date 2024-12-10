@@ -36,7 +36,6 @@ use ecow::{eco_format, EcoString};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
-use regex::Regex;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
@@ -46,8 +45,8 @@ use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Repr, Resolve,
-    Scope, Set, Smart, StyleChain,
+    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr,
+    Resolve, Scope, Set, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
@@ -102,9 +101,11 @@ pub struct TextElem {
     /// or a dictionary with the following keys:
     ///
     /// - `name` (required): The font family name.
-    /// - `range-match` (optional): A regex that defines the Unicode points
+    /// - `covers` (optional): A regex that defines the Unicode points
     ///   supported by the font. Unicode codepoints that match this regex are
     ///   considered within the range and will be rendered using this font.
+    ///   A special `"latin-in-cjk"` value can also be specified to cover common
+    ///   codepoints that both used in Latin and CJK fonts.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -139,10 +140,17 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
-    ///
+    /// 
+    /// // Change font only for numbers.
     /// #set text(font: (
-    ///   (name: "Noto Serif CJK SC", range-match: "[\u{00B7}\u{2014}-\u{3134F}]"),
-    ///   "Inria Serif",
+    ///   (name: "New Computer Modern", covers: regex("[0-9]")),
+    ///   "Linbertinus Serif"
+    /// ))
+    ///
+    /// // Mix Latin and CJK fonts.
+    /// #set text(font: (
+    ///   (name: "Inria Serif", covers: "latin-in-cjk"),
+    ///   "Noto Serif CJK SC"
     /// ))
     /// 分别设置“中文”和English字体
     /// ```
@@ -809,25 +817,35 @@ impl FontFamily {
 
     pub fn new_with_coverage(
         string: &str,
-        coverage: Option<&str>,
+        coverage: Option<Value>,
     ) -> HintedStrResult<Self> {
-        let coverage = if let Some(coverage) = coverage {
-            let coverage = coverage.replace("[:cjk-ambiguous:]", "[\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]");
-            let ast = regex_syntax::ast::parse::Parser::new()
-                .parse(&coverage)
-                .map_err(|_| "invalid regex")?;
-            match ast {
-                regex_syntax::ast::Ast::ClassBracketed(..)
-                | regex_syntax::ast::Ast::ClassUnicode(..)
-                | regex_syntax::ast::Ast::ClassPerl(..)
-                | regex_syntax::ast::Ast::Dot(..)
-                | regex_syntax::ast::Ast::Literal(..) => (),
-                _ => bail!("invalid regex"),
+        let coverage = match coverage {
+            Some(Value::Str(name)) => {
+                if &*name == "latin-in-cjk" {
+                    static LATIN_IN_CJK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+                        Regex::new( "[\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
+                    });
+                    Some(LATIN_IN_CJK_REGEX.clone())
+                } else {
+                    bail!("unknown character set");
+                }
             }
-            let coverage = Regex::new(&coverage).unwrap();
-            Some(coverage)
-        } else {
-            None
+            Some(coverage) => {
+                let regex = coverage.cast::<Regex>()?;
+                let ast = regex_syntax::ast::parse::Parser::new()
+                    .parse(regex.as_str())
+                    .unwrap();
+                match ast {
+                    regex_syntax::ast::Ast::ClassBracketed(..)
+                    | regex_syntax::ast::Ast::ClassUnicode(..)
+                    | regex_syntax::ast::Ast::ClassPerl(..)
+                    | regex_syntax::ast::Ast::Dot(..)
+                    | regex_syntax::ast::Ast::Literal(..) => (),
+                    _ => bail!("invalid regex in font coverage"),
+                }
+                Some(regex)
+            }
+            None => None,
         };
         Ok(Self { name: string.to_lowercase().into(), coverage })
     }
@@ -854,13 +872,9 @@ cast! {
     mut v: Dict => {
         let ret = Self::new_with_coverage(
             &v.take("name")?.cast::<String>()?,
-            v.take("range-match")
-                .ok()
-                .map(|s| s.cast::<String>())
-                .transpose()?
-                .as_deref(),
+            v.take("covers").ok()
         )?;
-        v.finish(&["name", "range-match"])?;
+        v.finish(&["name", "covers"])?;
         ret
     },
 }
