@@ -455,39 +455,6 @@ impl Coverage {
         Self(runs)
     }
 
-    /// Encode codepoints ranges. The ranges are inclusive.
-    pub fn from_ranges(mut ranges: Vec<(u32, u32)>) -> Self {
-        ranges.sort();
-
-        if ranges.is_empty() {
-            return Self(vec![]);
-        }
-
-        let mut runs = Vec::new();
-        // last_end should be one past the last codepoint that was covered.
-        let mut last_end = 0;
-        // begin..=end is the current range that contains codepoints.
-        let (mut begin, mut end) = ranges[0];
-        // Add guards to the ranges so that we can flush the last range.
-        ranges.push((u32::MAX, 0));
-
-        for (s, e) in ranges.into_iter().skip(1) {
-            if s > end + 1 {
-                // If the range is not connected to the current range, flush and
-                // start a new one.
-                runs.push(begin - last_end);
-                runs.push(end - begin + 1);
-                last_end = end + 1;
-                (begin, end) = (s, e);
-            } else {
-                // Or else extend the current range.
-                end = end.max(e);
-            }
-        }
-
-        Self(runs)
-    }
-
     /// Whether the codepoint is covered.
     pub fn contains(&self, c: u32) -> bool {
         let mut inside = false;
@@ -568,31 +535,6 @@ mod tests {
             &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
             &[2, 3, 4, 3, 3, 1, 2, 2],
         )
-    }
-
-    #[test]
-    fn test_coverage_from_ranges() {
-        #[track_caller]
-        fn test(ranges: &[(u32, u32)], runs: &[u32]) {
-            let coverage = Coverage::from_ranges(ranges.to_vec());
-            assert_eq!(coverage.0, runs);
-
-            let max =
-                5 + ranges.iter().map(|(_, e)| e).max().copied().unwrap_or_default();
-            for c in 0..max {
-                assert_eq!(
-                    ranges.iter().any(|(s, e)| c >= *s && c <= *e),
-                    coverage.contains(c)
-                );
-            }
-        }
-
-        test(&[], &[]);
-        test(&[(0, 0)], &[0, 1]);
-        test(&[(1, 1)], &[1, 1]);
-        test(&[(0, 1)], &[0, 2]);
-        test(&[(1, 1), (2, 3), (5, 5)], &[1, 3, 1, 1]);
-        test(&[(2, 4), (9, 11), (15, 15), (18, 19)], &[2, 3, 4, 3, 3, 1, 2, 2]);
     }
 
     #[test]
