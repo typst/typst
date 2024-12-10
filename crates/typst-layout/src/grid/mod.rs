@@ -35,15 +35,12 @@ use self::lines::{
 use self::repeated::{Footer, Header, Repeatable};
 use self::rowspans::{Rowspan, UnbreakableRowGroup};
 
-/// Layout the grid.
-#[typst_macros::time(span = elem.span())]
-pub fn layout_grid(
+fn cellgrid_of_grid<'a>(
     elem: &Packed<GridElem>,
     engine: &mut Engine,
-    locator: Locator,
+    locator: Locator<'a>,
     styles: StyleChain,
-    regions: Regions,
-) -> SourceResult<Fragment> {
+) -> SourceResult<CellGrid<'a>> {
     let inset = elem.inset(styles);
     let align = elem.align(styles);
     let columns = elem.columns(styles);
@@ -73,7 +70,7 @@ pub fn layout_grid(
             ResolvableGridChild::Item(grid_item_to_resolvable(item, styles))
         }
     });
-    let grid = CellGrid::resolve(
+    CellGrid::resolve(
         tracks,
         gutter,
         locator,
@@ -86,23 +83,31 @@ pub fn layout_grid(
         styles,
         elem.span(),
     )
-    .trace(engine.world, tracepoint, elem.span())?;
+    .trace(engine.world, tracepoint, elem.span())
+}
 
+/// Layout the grid.
+#[typst_macros::time(span = elem.span())]
+pub fn layout_grid(
+    elem: &Packed<GridElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let grid = cellgrid_of_grid(elem, engine, locator, styles)?;
     let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
 
     // Measure the columns and layout the grid row-by-row.
     layouter.layout(engine)
 }
 
-/// Layout the table.
-#[typst_macros::time(span = elem.span())]
-pub fn layout_table(
+fn cellgrid_of_table<'a>(
     elem: &Packed<TableElem>,
     engine: &mut Engine,
-    locator: Locator,
+    locator: Locator<'a>,
     styles: StyleChain,
-    regions: Regions,
-) -> SourceResult<Fragment> {
+) -> SourceResult<CellGrid<'a>> {
     let inset = elem.inset(styles);
     let align = elem.align(styles);
     let columns = elem.columns(styles);
@@ -132,7 +137,7 @@ pub fn layout_table(
             ResolvableGridChild::Item(table_item_to_resolvable(item, styles))
         }
     });
-    let grid = CellGrid::resolve(
+    CellGrid::resolve(
         tracks,
         gutter,
         locator,
@@ -145,7 +150,19 @@ pub fn layout_table(
         styles,
         elem.span(),
     )
-    .trace(engine.world, tracepoint, elem.span())?;
+    .trace(engine.world, tracepoint, elem.span())
+}
+
+/// Layout the table.
+#[typst_macros::time(span = elem.span())]
+pub fn layout_table(
+    elem: &Packed<TableElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let grid = cellgrid_of_table(elem, engine, locator, styles)?;
 
     let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
     layouter.layout(engine)
