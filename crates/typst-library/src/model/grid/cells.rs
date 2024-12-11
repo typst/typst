@@ -132,6 +132,7 @@ impl<'a> Cell<'a> {
         }
     }
 
+    /*
     /// Layout the cell into the given regions.
     ///
     /// The `disambiguator` indicates which instance of this cell this should be
@@ -151,6 +152,7 @@ impl<'a> Cell<'a> {
         }
         crate::layout_fragment(engine, &self.body, locator, styles, regions)
     }
+    */
 }
 
 /// Indicates whether the line should be drawn before or after the track with
