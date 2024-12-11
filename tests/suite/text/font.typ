@@ -134,3 +134,6 @@ I
 // With ranges, the quotation marks is using Chinese font.
 #set text(font: ((name: "Noto Serif CJK SC", covers: regex("[\u{00B7}-\u{3134F}]")), "Ubuntu"))
 分别设置“中文”和English字体
+
+#set text(font: ((name: "Ubuntu", covers: "latin-in-cjk"), "Noto Serif CJK SC"))
+分别设置“中文”和English字体

@@ -808,13 +808,13 @@ fn shape_segment<'a>(
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
 
-    let char_in_coverage = |i| {
-        let next = text[i..]
+    let char_in_coverage = |char_start| {
+        let char_end = text[char_start..]
             .char_indices()
             .nth(1)
-            .map(|(offset, _)| offset + i)
+            .map(|(offset, _)| offset + char_start)
             .unwrap_or(text.len());
-        coverage.map_or(true, |cov| cov.is_match(&text[i..next]))
+        coverage.map_or(true, |cov| cov.is_match(&text[char_start..char_end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
