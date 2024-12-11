@@ -310,6 +310,56 @@ fn resolve_breakable(
         .any(|row| row == &Sizing::Auto)
 }
 
+fn bla(
+    cell: &Cell,
+    header: &mut Option<Header>,
+    footer: &mut Option<(usize, Span, Footer)>,
+    i: Idx,
+    c: usize,
+) -> SourceResult<()> {
+    if let Some(header) = header {
+        let y = i.xy(c).y;
+        if y < header.end {
+            // Ensure the header expands enough such that
+            // all cells inside it, even those added later,
+            // are fully contained within the header.
+            // FIXME: check if start < y < end when start can
+            // be != 0.
+            // FIXME: when start can be != 0, decide what
+            // happens when a cell after the header placed
+            // above it tries to span the header (either
+            // error or expand upwards).
+            header.end = header.end.max(y + cell.rowspan.get());
+        }
+    }
+
+    if let Some((end, footer_span, footer)) = footer {
+        let Axes { x, y } = i.xy(c);
+        let cell_end = y + cell.rowspan.get();
+        if y < footer.start && cell_end > footer.start {
+            // Don't allow a cell before the footer to span
+            // it. Surely, we could move the footer to
+            // start at where this cell starts, so this is
+            // more of a design choice, as it's unlikely
+            // for the user to intentionally include a cell
+            // before the footer spanning it but not
+            // being repeated with it.
+            bail!(
+                *footer_span,
+                "footer would conflict with a cell placed before it at column {x} row {y}";
+                hint: "try reducing that cell's rowspan or moving the footer"
+            );
+        }
+        if y >= footer.start && y < *end {
+            // Expand the footer to include all rows
+            // spanned by this cell, as it is inside the
+            // footer.
+            *end = (*end).max(cell_end);
+        }
+    }
+    Ok(())
+}
+
 impl<'a> CellGrid<'a> {
     /// Generates the cell grid, given the tracks and cells.
     pub fn new(
@@ -585,6 +635,7 @@ impl<'a> CellGrid<'a> {
             bail!(span, "too many rows were specified");
         };
         let missing_cells = expected_total_cells.saturating_sub(s.resolved_cells.len());
+        let missing_cells = std::iter::repeat_with(|| None).take(missing_cells);
 
         // Fixup phase (final step in cell grid generation):
         // 1. Replace absent entries by resolved empty cells, and produce a
@@ -595,155 +646,107 @@ impl<'a> CellGrid<'a> {
         // creation, ensure the header expands enough to accommodate them
         // across all of their spanned rows. Same for the footer.
         // 4. If any cells before the footer try to span it, error.
-        let resolved_cells = s.resolved_cells
-            .into_iter()
-            .chain(std::iter::repeat_with(|| None).take(missing_cells))
-            .enumerate()
-            .map(|(i, cell)| {
-                if let Some(cell) = cell {
-                    if let Some(parent_cell) = cell.as_cell() {
-                        if let Some(header) = &mut header
-                        {
-                            let y = i / c;
-                            if y < header.end {
-                                // Ensure the header expands enough such that
-                                // all cells inside it, even those added later,
-                                // are fully contained within the header.
-                                // FIXME: check if start < y < end when start can
-                                // be != 0.
-                                // FIXME: when start can be != 0, decide what
-                                // happens when a cell after the header placed
-                                // above it tries to span the header (either
-                                // error or expand upwards).
-                                header.end = header.end.max(y + parent_cell.rowspan.get());
-                            }
-                        }
-
-                        if let Some((end, footer_span, footer)) = &mut footer {
-                            let x = i % c;
-                            let y = i / c;
-                            let cell_end = y + parent_cell.rowspan.get();
-                            if y < footer.start && cell_end > footer.start {
-                                // Don't allow a cell before the footer to span
-                                // it. Surely, we could move the footer to
-                                // start at where this cell starts, so this is
-                                // more of a design choice, as it's unlikely
-                                // for the user to intentionally include a cell
-                                // before the footer spanning it but not
-                                // being repeated with it.
-                                bail!(
-                                    *footer_span,
-                                    "footer would conflict with a cell placed before it at column {x} row {y}";
-                                    hint: "try reducing that cell's rowspan or moving the footer"
-                                );
-                            }
-                            if y >= footer.start && y < *end {
-                                // Expand the footer to include all rows
-                                // spanned by this cell, as it is inside the
-                                // footer.
-                                *end = (*end).max(cell_end);
-                            }
-                        }
-                    }
-
-                    Ok(cell)
-                } else {
-                    let x = i % c;
-                    let y = i / c;
-
-                    // Ensure all absent entries are affected by show rules and
-                    // grid styling by turning them into resolved empty cells.
-                    let new_cell = T::default().resolve_cell(
-                        x,
-                        y,
-                        &fill.resolve(engine, styles, x, y)?,
-                        align.resolve(engine, styles, x, y)?,
-                        inset.resolve(engine, styles, x, y)?,
-                        stroke.resolve(engine, styles, x, y)?,
-                        resolve_breakable(tracks.y, gutter.y, y, 1),
-                        locator.next(&()),
-                        styles,
-                    );
-                    Ok(Entry::Cell(new_cell))
+        let resolved_cells = s.resolved_cells.into_iter().chain(missing_cells);
+        let resolved_cells = resolved_cells.enumerate().map(|(i, cell)| {
+            let i = Idx(i);
+            if let Some(cell) = cell {
+                if let Some(parent_cell) = cell.as_cell() {
+                    bla(parent_cell, &mut header, &mut footer, i, c)?
                 }
-            })
-            .collect::<SourceResult<Vec<Entry>>>()?;
+                Ok(cell)
+            } else {
+                let Axes { x, y } = i.xy(c);
+
+                // Ensure all absent entries are affected by show rules and
+                // grid styling by turning them into resolved empty cells.
+                let new_cell = T::default().resolve_cell(
+                    x,
+                    y,
+                    &fill.resolve(engine, styles, x, y)?,
+                    align.resolve(engine, styles, x, y)?,
+                    inset.resolve(engine, styles, x, y)?,
+                    stroke.resolve(engine, styles, x, y)?,
+                    resolve_breakable(tracks.y, gutter.y, y, 1),
+                    locator.next(&()),
+                    styles,
+                );
+                Ok(Entry::Cell(new_cell))
+            }
+        });
+        let resolved_cells = resolved_cells.collect::<SourceResult<Vec<Entry>>>()?;
 
         let row_amount = resolved_cells.len().div_ceil(c);
         let (hlines, vlines) =
             populate(c, row_amount, has_gutter, s.pending_hlines, s.pending_vlines)?;
 
-        let header = header
-            .map(|mut header| {
-                // Repeat the gutter below a header (hence why we don't
-                // subtract 1 from the gutter case).
-                // Don't do this if there are no rows under the header.
-                if has_gutter {
-                    // - 'header.end' is always 'last y + 1'. The header stops
-                    // before that row.
-                    // - Therefore, '2 * header.end' will be 2 * (last y + 1),
-                    // which is the adjusted index of the row before which the
-                    // header stops, meaning it will still stop right before it
-                    // even with gutter thanks to the multiplication below.
-                    // - This means that it will span all rows up to
-                    // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates
-                    // to the index of the gutter row right below the header,
-                    // which is what we want (that gutter spacing should be
-                    // repeated across pages to maintain uniformity).
-                    header.end *= 2;
+        let header = header.map(|mut header| {
+            // Repeat the gutter below a header (hence why we don't
+            // subtract 1 from the gutter case).
+            // Don't do this if there are no rows under the header.
+            if has_gutter {
+                // - 'header.end' is always 'last y + 1'. The header stops
+                // before that row.
+                // - Therefore, '2 * header.end' will be 2 * (last y + 1),
+                // which is the adjusted index of the row before which the
+                // header stops, meaning it will still stop right before it
+                // even with gutter thanks to the multiplication below.
+                // - This means that it will span all rows up to
+                // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates
+                // to the index of the gutter row right below the header,
+                // which is what we want (that gutter spacing should be
+                // repeated across pages to maintain uniformity).
+                header.end *= 2;
 
-                    // If the header occupies the entire grid, ensure we don't
-                    // include an extra gutter row when it doesn't exist, since
-                    // the last row of the header is at the very bottom,
-                    // therefore '2 * last y + 1' is not a valid index.
-                    let row_amount = (2 * row_amount).saturating_sub(1);
-                    header.end = header.end.min(row_amount);
+                // If the header occupies the entire grid, ensure we don't
+                // include an extra gutter row when it doesn't exist, since
+                // the last row of the header is at the very bottom,
+                // therefore '2 * last y + 1' is not a valid index.
+                let row_amount = (2 * row_amount).saturating_sub(1);
+                header.end = header.end.min(row_amount);
+            }
+            header
+        });
+        let header = header.map(|header| {
+            if repeat_header {
+                Repeatable::Repeated(header)
+            } else {
+                Repeatable::NotRepeated(header)
+            }
+        });
+
+        let footer = footer.map(|(footer_end, footer_span, mut footer)| {
+            if footer_end != row_amount {
+                bail!(footer_span, "footer must end at the last row");
+            }
+
+            let header_end =
+                header.as_ref().map(Repeatable::unwrap).map(|header| header.end);
+
+            if has_gutter {
+                // Convert the footer's start index to post-gutter coordinates.
+                footer.start *= 2;
+
+                // Include the gutter right before the footer, unless there is
+                // none, or the gutter is already included in the header (no
+                // rows between the header and the footer).
+                if header_end.map_or(true, |header_end| header_end != footer.start) {
+                    footer.start = footer.start.saturating_sub(1);
                 }
-                header
-            })
-            .map(|header| {
-                if repeat_header {
-                    Repeatable::Repeated(header)
-                } else {
-                    Repeatable::NotRepeated(header)
-                }
-            });
+            }
 
-        let footer = footer
-            .map(|(footer_end, footer_span, mut footer)| {
-                if footer_end != row_amount {
-                    bail!(footer_span, "footer must end at the last row");
-                }
+            if header_end.is_some_and(|header_end| header_end > footer.start) {
+                bail!(footer_span, "header and footer must not have common rows");
+            }
 
-                let header_end =
-                    header.as_ref().map(Repeatable::unwrap).map(|header| header.end);
-
-                if has_gutter {
-                    // Convert the footer's start index to post-gutter coordinates.
-                    footer.start *= 2;
-
-                    // Include the gutter right before the footer, unless there is
-                    // none, or the gutter is already included in the header (no
-                    // rows between the header and the footer).
-                    if header_end.map_or(true, |header_end| header_end != footer.start) {
-                        footer.start = footer.start.saturating_sub(1);
-                    }
-                }
-
-                if header_end.is_some_and(|header_end| header_end > footer.start) {
-                    bail!(footer_span, "header and footer must not have common rows");
-                }
-
-                Ok(footer)
-            })
-            .transpose()?
-            .map(|footer| {
-                if repeat_footer {
-                    Repeatable::Repeated(footer)
-                } else {
-                    Repeatable::NotRepeated(footer)
-                }
-            });
+            Ok(footer)
+        });
+        let footer = footer.transpose()?.map(|footer| {
+            if repeat_footer {
+                Repeatable::Repeated(footer)
+            } else {
+                Repeatable::NotRepeated(footer)
+            }
+        });
 
         Ok(Self::new_internal(
             tracks,
@@ -951,15 +954,14 @@ impl<'a> CellGrid<'a> {
 /// fully automatically positioned, it should start a new, empty row. This is
 /// useful for headers and footers, which must start at their own rows, without
 /// interference from previous cells.
-#[allow(clippy::too_many_arguments)]
 fn resolve_cell_position(
-    cell_x: Smart<usize>,
-    cell_y: Smart<usize>,
-    colspan: usize,
-    rowspan: usize,
+    pos: Axes<Smart<usize>>,
+    spans: Axes<usize>,
     s: &mut State,
     columns: usize,
 ) -> HintedStrResult<Idx> {
+    let (cell_x, cell_y) = (pos.x, pos.y);
+    let (colspan, rowspan) = (spans.x, spans.y);
     // Translates a (x, y) position to the equivalent index in the final cell vector.
     // Errors if the position would be too large.
     let cell_index = |x, y: usize| {
@@ -1214,32 +1216,27 @@ fn cell_x_y<T: ResolvableCell>(
     s: &mut State,
     styles: StyleChain,
 ) -> SourceResult<Idx> {
-    let cell_span = cell.span();
-    let colspan = cell.colspan(styles).get();
-    let rowspan = cell.rowspan(styles).get();
+    let spans = Axes::new(cell.colspan(styles).get(), cell.rowspan(styles).get());
+    let pos = Axes::new(cell.x(styles), cell.y(styles));
     // Calculate the cell's final position based on its requested position
-    let resolved_index = {
-        let cell_x = cell.x(styles);
-        let cell_y = cell.y(styles);
-        resolve_cell_position(cell_x, cell_y, colspan, rowspan, s, c).at(cell_span)?
-    };
+    let resolved_index = resolve_cell_position(pos, spans, s, c).at(cell.span())?;
     let x = resolved_index.xy(c).x;
 
-    if colspan > c - x {
+    if spans.x > c - x {
         bail!(
-            cell_span,
+            cell.span(),
             "cell's colspan would cause it to exceed the available column(s)";
             hint: "try placing the cell in another position or reducing its colspan"
         )
     }
 
     let Some(largest_index) = c
-        .checked_mul(rowspan - 1)
+        .checked_mul(spans.y - 1)
         .and_then(|full_rowspan_offset| resolved_index.0.checked_add(full_rowspan_offset))
-        .and_then(|last_row_pos| last_row_pos.checked_add(colspan - 1))
+        .and_then(|last_row_pos| last_row_pos.checked_add(spans.x - 1))
     else {
         bail!(
-            cell_span,
+            cell.span(),
             "cell would span an exceedingly large position";
             hint: "try reducing the cell's rowspan or colspan"
         )
@@ -1259,7 +1256,7 @@ fn cell_x_y<T: ResolvableCell>(
             .checked_add(1)
             .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
         else {
-            bail!(cell_span, "cell position too large")
+            bail!(cell.span(), "cell position too large")
         };
 
         // Here, the cell needs to be placed in a position which
