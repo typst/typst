@@ -79,3 +79,30 @@
 // Error: 2-9 invalid base-2 prefix
 // Hint: 2-9 numbers with a unit cannot have a base prefix
 #0b100pt
+
+--- number-syntax-edge-cases ---
+// Test numeric syntax edge cases with suffixes and which spans of text are
+// highlighted. Valid items are those not annotated with an error comment since
+// syntax is handled at parse time.
+
+// All fine
+#2em
+#6.3e5em
+#.5pt
+#1.2E+0%
+#1.2e-0%
+#0.0e0deg
+#5in%
+#0.%
+// Error: 2-8 invalid number suffix: hello
+#1hello
+// Error: 2-7 invalid number suffix: infr
+#1infr
+// Error: 2-5 invalid number: 2E
+#2EM
+// Error: 2-8 invalid number: .1E-
+#.1E-fr
+// Error: 2-16 invalid number: 0.1E+
+#0.1E+fr123e456
+// Error: 2-11 invalid number: .1e-
+#.1e-fr123.456

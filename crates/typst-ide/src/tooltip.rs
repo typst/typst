@@ -337,6 +337,21 @@ mod tests {
     fn test_tooltip_closure() {
         test("#let f(x) = x + y", 11, Side::Before)
             .must_be_text("This closure captures `y`");
+        // Same tooltip if `y` is defined first.
+        test("#let y = 10; #let f(x) = x + y", 24, Side::Before)
+            .must_be_text("This closure captures `y`");
+        // Names are sorted.
+        test("#let f(x) = x + y + z + a", 11, Side::Before)
+            .must_be_text("This closure captures `a`, `y`, and `z`");
+        // Names are de-duplicated.
+        test("#let f(x) = x + y + z + y", 11, Side::Before)
+            .must_be_text("This closure captures `y` and `z`");
+        // With arrow syntax.
+        test("#let f = (x) => x + y", 15, Side::Before)
+            .must_be_text("This closure captures `y`");
+        // No recursion with arrow syntax.
+        test("#let f = (x) => x + y + f", 13, Side::After)
+            .must_be_text("This closure captures `f` and `y`");
     }
 
     #[test]
