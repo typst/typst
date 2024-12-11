@@ -297,7 +297,7 @@ fn resolve_breakable(
     tracks: &[Sizing],
     gutter: &[Sizing],
     y: usize,
-    rowspan: usize,
+    rowspan: NonZeroUsize,
 ) -> bool {
     use core::iter::repeat;
     let auto = Sizing::Auto;
@@ -305,8 +305,8 @@ fn resolve_breakable(
     let tracks = tracks.iter().chain(repeat(tracks.last().unwrap_or(&auto))).skip(y);
     let gutter = gutter.iter().chain(repeat(gutter.last().unwrap_or(&zero))).skip(y);
     tracks
-        .take(rowspan)
-        .chain(gutter.take(rowspan - 1))
+        .take(rowspan.get())
+        .chain(gutter.take(rowspan.get() - 1))
         .any(|row| row == &Sizing::Auto)
 }
 
@@ -500,11 +500,14 @@ impl<'a> CellGrid<'a> {
                 let Some(cell) = item_to_cell(item, c, &mut s)? else {
                     continue;
                 };
-                let idx = cell_x_y(&cell, c, &mut s, styles)?;
+                let spans = Axes::new(cell.colspan(styles), cell.rowspan(styles));
+                let pos = Axes::new(cell.x(styles), cell.y(styles));
+                // Calculate the cell's final position based on its requested position
+                let idx = resolve_cell_position(pos, spans, &mut s, c).at(cell.span())?;
+                reserve_space(idx, spans, c, &mut s, cell.span())?;
                 let Axes { x, y } = idx.xy(c);
 
                 let cell_span = cell.span();
-                let rowspan = cell.rowspan(styles).get();
                 // Let's resolve the cell so it can determine its own fields
                 // based on its final position.
                 let cell = cell.resolve_cell(
@@ -514,7 +517,7 @@ impl<'a> CellGrid<'a> {
                     align.resolve(engine, styles, x, y)?,
                     inset.resolve(engine, styles, x, y)?,
                     stroke.resolve(engine, styles, x, y)?,
-                    resolve_breakable(tracks.y, gutter.y, y, rowspan),
+                    resolve_breakable(tracks.y, gutter.y, y, spans.y),
                     locator.next(&cell_span),
                     styles,
                 );
@@ -525,7 +528,7 @@ impl<'a> CellGrid<'a> {
                     // Ensure each cell in a header or footer is fully
                     // contained within it.
                     child_start = child_start.min(y);
-                    child_end = child_end.max(y + rowspan);
+                    child_end = child_end.max(y + spans.y.get());
 
                     if s.start_new_row && child_start <= s.auto_index.div_ceil(c) {
                         // No need to start a new row as we already include
@@ -666,7 +669,7 @@ impl<'a> CellGrid<'a> {
                     align.resolve(engine, styles, x, y)?,
                     inset.resolve(engine, styles, x, y)?,
                     stroke.resolve(engine, styles, x, y)?,
-                    resolve_breakable(tracks.y, gutter.y, y, 1),
+                    resolve_breakable(tracks.y, gutter.y, y, NonZeroUsize::MIN),
                     locator.next(&()),
                     styles,
                 );
@@ -956,12 +959,12 @@ impl<'a> CellGrid<'a> {
 /// interference from previous cells.
 fn resolve_cell_position(
     pos: Axes<Smart<usize>>,
-    spans: Axes<usize>,
+    spans: Axes<NonZeroUsize>,
     s: &mut State,
     columns: usize,
 ) -> HintedStrResult<Idx> {
     let (cell_x, cell_y) = (pos.x, pos.y);
-    let (colspan, rowspan) = (spans.x, spans.y);
+    let (colspan, rowspan) = (spans.x.get(), spans.y.get());
     // Translates a (x, y) position to the equivalent index in the final cell vector.
     // Errors if the position would be too large.
     let cell_index = |x, y: usize| {
@@ -1210,33 +1213,31 @@ fn item_to_cell<T: ResolvableCell>(
     }
 }
 
-fn cell_x_y<T: ResolvableCell>(
-    cell: &T,
+fn reserve_space(
+    i: Idx,
+    spans: Axes<NonZeroUsize>,
     c: usize,
     s: &mut State,
-    styles: StyleChain,
-) -> SourceResult<Idx> {
-    let spans = Axes::new(cell.colspan(styles).get(), cell.rowspan(styles).get());
-    let pos = Axes::new(cell.x(styles), cell.y(styles));
-    // Calculate the cell's final position based on its requested position
-    let resolved_index = resolve_cell_position(pos, spans, s, c).at(cell.span())?;
-    let x = resolved_index.xy(c).x;
+    span: Span,
+) -> SourceResult<()> {
+    let x = i.xy(c).x;
+    let (colspan, rowspan) = (spans.x.get(), spans.y.get());
 
-    if spans.x > c - x {
+    if colspan > c - x {
         bail!(
-            cell.span(),
+            span,
             "cell's colspan would cause it to exceed the available column(s)";
             hint: "try placing the cell in another position or reducing its colspan"
         )
     }
 
     let Some(largest_index) = c
-        .checked_mul(spans.y - 1)
-        .and_then(|full_rowspan_offset| resolved_index.0.checked_add(full_rowspan_offset))
-        .and_then(|last_row_pos| last_row_pos.checked_add(spans.x - 1))
+        .checked_mul(rowspan - 1)
+        .and_then(|full_rowspan_offset| i.0.checked_add(full_rowspan_offset))
+        .and_then(|last_row_pos| last_row_pos.checked_add(colspan - 1))
     else {
         bail!(
-            cell.span(),
+            span,
             "cell would span an exceedingly large position";
             hint: "try reducing the cell's rowspan or colspan"
         )
@@ -1256,7 +1257,7 @@ fn cell_x_y<T: ResolvableCell>(
             .checked_add(1)
             .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
         else {
-            bail!(cell.span(), "cell position too large")
+            bail!(span, "cell position too large")
         };
 
         // Here, the cell needs to be placed in a position which
@@ -1269,9 +1270,10 @@ fn cell_x_y<T: ResolvableCell>(
         s.resolved_cells.resize_with(new_len, || None);
     }
 
-    Ok(resolved_index)
+    Ok(())
 }
 
+#[derive(Copy, Clone)]
 struct Idx(usize);
 
 impl Idx {
