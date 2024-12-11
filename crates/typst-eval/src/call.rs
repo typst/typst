@@ -1,7 +1,8 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString, EcoVec};
 use typst_library::diag::{
-    bail, error, At, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
+    bail, error, At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
+    Trace, Tracepoint,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -135,8 +136,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            // TODO: Maybe add warnings about undefined variables?
-            let mut visitor = CapturesVisitor::new(&vm.scopes, Capturer::Function, None);
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Function);
             visitor.visit(self.to_untyped());
             visitor.finish()
         };
@@ -416,31 +416,20 @@ fn hint_if_shadowed_std(
 
 /// A visitor that determines which variables to capture for a closure.
 pub struct CapturesVisitor<'a> {
-    external: &'a Scopes<'a>,
+    external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
     capturer: Capturer,
-    /// Any undefined variable accesses encountered while visiting (managed by
-    /// the caller). May include duplicate names if referenced at unique
-    /// locations.
-    undefined: Option<&'a mut Vec<(EcoString, Span)>>,
 }
 
 impl<'a> CapturesVisitor<'a> {
-    /// Create a new visitor for the given external scopes. If `undefined` is
-    /// `Some`, any encountered undefined variables get added, otherwise
-    /// undefined variables are ignored.
-    pub fn new(
-        external: &'a Scopes<'a>,
-        capturer: Capturer,
-        undefined: Option<&'a mut Vec<(EcoString, Span)>>,
-    ) -> Self {
+    /// Create a new visitor for the given external scopes.
+    pub fn new(external: Option<&'a Scopes<'a>>, capturer: Capturer) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
             captures: Scope::new(),
             capturer,
-            undefined,
         }
     }
 
@@ -457,10 +446,10 @@ impl<'a> CapturesVisitor<'a> {
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => {
-                self.capture(ident.get(), ident.span(), false)
+                self.capture(ident.get(), ident.span(), Scopes::get)
             }
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), ident.span(), true)
+                self.capture(ident.get(), ident.span(), Scopes::get_in_math)
             }
 
             // Code and content blocks create a scope.
@@ -572,23 +561,27 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    fn capture(&mut self, ident: &EcoString, span: Span, in_math: bool) {
+    fn capture(
+        &mut self,
+        ident: &EcoString,
+        span: Span,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
+    ) {
         if self.internal.get(ident).is_err() {
-            let maybe_value = if in_math {
-                self.external.get_in_math(ident).ok()
-            } else {
-                self.external.get(ident).ok()
+            let Some(value) = self
+                .external
+                .map(|external| getter(external, ident).ok())
+                .unwrap_or(Some(&Value::None))
+            else {
+                return;
             };
-            if let Some(value) = maybe_value {
-                self.captures.define_captured(
-                    ident.clone(),
-                    value.clone(),
-                    self.capturer,
-                    span,
-                );
-            } else if let Some(vec) = self.undefined.as_mut() {
-                vec.push((ident.clone(), span))
-            }
+
+            self.captures.define_captured(
+                ident.clone(),
+                value.clone(),
+                self.capturer,
+                span,
+            );
         }
     }
 }
@@ -601,9 +594,7 @@ mod tests {
 
     #[track_caller]
     fn test(scopes: &Scopes, text: &str, result: &[&str]) {
-        let mut undef = Vec::new();
-        let mut visitor =
-            CapturesVisitor::new(scopes, Capturer::Function, Some(&mut undef));
+        let mut visitor = CapturesVisitor::new(Some(scopes), Capturer::Function);
         let root = parse(text);
         visitor.visit(&root);
 
@@ -612,7 +603,6 @@ mod tests {
         names.sort();
 
         assert_eq!(names, result);
-        assert!(undef.is_empty());
     }
 
     #[test]
