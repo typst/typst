@@ -71,6 +71,13 @@ a + 0.
 + First
   + Nested
 
+--- enum-numbering-reversed ---
+// Test reverse numbering.
+#set enum(reversed: true)
++ Coffee
++ Tea
++ Milk
+
 --- enum-numbering-closure ---
 // Test numbering with closure.
 #enum(
