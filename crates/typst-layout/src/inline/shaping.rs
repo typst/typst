@@ -808,6 +808,15 @@ fn shape_segment<'a>(
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
 
+    let char_in_coverage = |i| {
+        let next = text[i..]
+            .char_indices()
+            .nth(1)
+            .map(|(offset, _)| offset + i)
+            .unwrap_or(text.len());
+        coverage.map_or(true, |cov| cov.is_match(&text[i..next]))
+    };
+
     // Collect the shaped glyphs, doing fallback and shaping parts again with
     // the next font if necessary.
     let mut i = 0;
@@ -815,19 +824,17 @@ fn shape_segment<'a>(
         let info = &infos[i];
         let cluster = info.cluster as usize;
 
-        // Determine the text range of the glyph.
-        let start = base + cluster;
-        let end = base
-            + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
-                .and_then(|last| infos.get(last))
-                .map_or(text.len(), |info| info.cluster as usize);
-
-        let c = text[cluster..].chars().next().unwrap();
-
         // Add the glyph to the shaped output.
-        if info.glyph_id != 0
-            && coverage.map_or(true, |cov| cov.is_match(c.encode_utf8(&mut [0; 4])))
-        {
+        if info.glyph_id != 0 && char_in_coverage(cluster) {
+            // Determine the text range of the glyph.
+            let start = base + cluster;
+            let end = base
+                + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
+                    .and_then(|last| infos.get(last))
+                    .map_or(text.len(), |info| info.cluster as usize);
+
+            let c = text[cluster..].chars().next().unwrap();
+
             let script = c.script();
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
@@ -852,7 +859,9 @@ fn shape_segment<'a>(
         } else {
             // First, search for the end of the tofu sequence.
             let k = i;
-            while infos.get(i + 1).is_some_and(|info| info.glyph_id == 0) {
+            while infos.get(i + 1).is_some_and(|info| {
+                info.glyph_id == 0 || !char_in_coverage(info.cluster as _)
+            }) {
                 i += 1;
             }
 
