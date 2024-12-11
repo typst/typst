@@ -29,6 +29,7 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
@@ -44,8 +45,8 @@ use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Repr, Resolve,
-    Scope, Set, Smart, StyleChain,
+    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr,
+    Resolve, Scope, Set, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
@@ -94,7 +95,17 @@ pub(super) fn define(global: &mut Scope) {
 /// ```
 #[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
-    /// A font family name or priority list of font family names.
+    /// A font family descriptor or priority list of font family descriptor.
+    ///
+    /// The font family descriptor can be a string representing the family name
+    /// or a dictionary with the following keys:
+    ///
+    /// - `name` (required): The font family name.
+    /// - `covers` (optional): A regex that defines the Unicode points
+    ///   supported by the font. Unicode codepoints that match this regex are
+    ///   considered within the range and will be rendered using this font.
+    ///   A special `"latin-in-cjk"` value can also be specified to cover all
+    ///   codepoints except that both used in Latin and CJK fonts.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -129,6 +140,19 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
+    ///
+    /// // Change font only for numbers.
+    /// #set text(font: (
+    ///   (name: "New Computer Modern", covers: regex("[0-9]")),
+    ///   "Linbertinus Serif"
+    /// ))
+    ///
+    /// // Mix Latin and CJK fonts.
+    /// #set text(font: (
+    ///   (name: "Inria Serif", covers: "latin-in-cjk"),
+    ///   "Noto Serif CJK SC"
+    /// ))
+    /// 分别设置“中文”和English字体
     /// ```
     #[parse({
         let font_list: Option<Spanned<FontList>> = args.named("font")?;
@@ -766,35 +790,97 @@ impl PlainText for Packed<TextElem> {
 }
 
 /// A lowercased font family like "arial".
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct FontFamily(EcoString);
+#[derive(Debug, Clone)]
+pub struct FontFamily {
+    name: EcoString,
+    coverage: Option<Regex>,
+}
+
+impl Hash for FontFamily {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.coverage_str().hash(state);
+    }
+}
+
+impl PartialEq for FontFamily {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.coverage_str() == other.coverage_str()
+    }
+}
 
 impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self(string.to_lowercase().into())
+        Self::new_with_coverage(string, None).unwrap()
+    }
+
+    pub fn new_with_coverage(
+        string: &str,
+        coverage: Option<Value>,
+    ) -> HintedStrResult<Self> {
+        let coverage = match coverage {
+            Some(Value::Str(name)) => {
+                if &*name == "latin-in-cjk" {
+                    static LATIN_IN_CJK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+                        Regex::new( "[^\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
+                    });
+                    Some(LATIN_IN_CJK_REGEX.clone())
+                } else {
+                    bail!("unknown character set");
+                }
+            }
+            Some(coverage) => {
+                let regex = coverage.cast::<Regex>()?;
+                let ast = regex_syntax::ast::parse::Parser::new()
+                    .parse(regex.as_str())
+                    .unwrap();
+                match ast {
+                    regex_syntax::ast::Ast::ClassBracketed(..)
+                    | regex_syntax::ast::Ast::ClassUnicode(..)
+                    | regex_syntax::ast::Ast::ClassPerl(..)
+                    | regex_syntax::ast::Ast::Dot(..)
+                    | regex_syntax::ast::Ast::Literal(..) => (),
+                    _ => bail!("invalid regex in font coverage"),
+                }
+                Some(regex)
+            }
+            None => None,
+        };
+        Ok(Self { name: string.to_lowercase().into(), coverage })
     }
 
     /// The lowercased family name.
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.name
     }
-}
 
-impl Debug for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+    /// The user-set coverage of the font family.
+    pub fn coverage(&self) -> Option<&Regex> {
+        self.coverage.as_ref()
+    }
+
+    pub fn coverage_str(&self) -> Option<&str> {
+        self.coverage.as_ref().map(|r| r.as_str())
     }
 }
 
 cast! {
     FontFamily,
-    self => self.0.into_value(),
+    self => self.name.into_value(),
     string: EcoString => Self::new(&string),
+    mut v: Dict => {
+        let ret = Self::new_with_coverage(
+            &v.take("name")?.cast::<String>()?,
+            v.take("covers").ok()
+        )?;
+        v.finish(&["name", "covers"])?;
+        ret
+    },
 }
 
 /// Font family fallback list.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
 
 impl<'a> IntoIterator for &'a FontList {
@@ -809,7 +895,7 @@ impl<'a> IntoIterator for &'a FontList {
 cast! {
     FontList,
     self => if self.0.len() == 1 {
-        self.0.into_iter().next().unwrap().0.into_value()
+        self.0.into_iter().next().unwrap().name.into_value()
     } else {
         self.0.into_value()
     },
@@ -818,20 +904,22 @@ cast! {
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
-    const FALLBACKS: &[&str] = &[
-        "libertinus serif",
-        "twitter color emoji",
-        "noto color emoji",
-        "apple color emoji",
-        "segoe ui emoji",
-    ];
-
-    let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
-    TextElem::font_in(styles)
+pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone {
+    static FALLBACKS: LazyLock<Vec<FontFamily>> = LazyLock::new(|| {
+        [
+            "libertinus serif",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
         .into_iter()
-        .map(|family| family.as_str())
-        .chain(tail.iter().copied())
+        .map(FontFamily::new)
+        .collect()
+    });
+
+    let tail = if TextElem::fallback_in(styles) { FALLBACKS.as_slice() } else { &[] };
+    TextElem::font_in(styles).into_iter().chain(tail.iter())
 }
 
 /// Resolve the font variant.
