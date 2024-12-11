@@ -104,8 +104,8 @@ pub struct TextElem {
     /// - `covers` (optional): A regex that defines the Unicode points
     ///   supported by the font. Unicode codepoints that match this regex are
     ///   considered within the range and will be rendered using this font.
-    ///   A special `"latin-in-cjk"` value can also be specified to cover common
-    ///   codepoints that both used in Latin and CJK fonts.
+    ///   A special `"latin-in-cjk"` value can also be specified to cover all
+    ///   codepoints except that both used in Latin and CJK fonts.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -823,7 +823,7 @@ impl FontFamily {
             Some(Value::Str(name)) => {
                 if &*name == "latin-in-cjk" {
                     static LATIN_IN_CJK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-                        Regex::new( "[\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
+                        Regex::new( "[^\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
                     });
                     Some(LATIN_IN_CJK_REGEX.clone())
                 } else {
