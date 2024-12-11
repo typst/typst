@@ -27,6 +27,7 @@ pub(super) enum LexMode {
     Markup,
     /// Math atoms, operators, etc.
     Math,
+    MathArgs,
     /// Keywords, literals and operators.
     Code,
 }
@@ -113,10 +114,16 @@ impl Lexer<'_> {
                 );
                 kind
             }
-            Some('`') if self.mode != LexMode::Math => return self.raw(),
+            Some('`') if self.mode != LexMode::Math && self.mode != LexMode::MathArgs => {
+                return self.raw()
+            }
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => match self.math(start, c) {
+                    (kind, None) => kind,
+                    (kind, Some(node)) => return (kind, node),
+                },
+                LexMode::MathArgs => match self.math_args(start, c) {
                     (kind, None) => kind,
                     (kind, Some(node)) => return (kind, node),
                 },
@@ -559,6 +566,11 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '*' | '-' | '~' => SyntaxKind::MathShorthand,
 
+            '.' if self.is_math_spread_arg() => SyntaxKind::Dots,
+            ',' => SyntaxKind::Comma,
+            ';' => SyntaxKind::Semicolon,
+            ')' => SyntaxKind::RightParen,
+
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
@@ -579,6 +591,22 @@ impl Lexer<'_> {
             _ => self.math_text(start, c),
         };
         (kind, None)
+    }
+
+    // Handle spread arguments in math function call.
+    fn is_math_spread_arg(&mut self) -> bool {
+        let cursor = self.s.cursor();
+        if !self.s.eat_if('.') {
+            return false;
+        }
+
+        // Check that a space does not follow the spread syntax.
+        if !self.space_or_end() {
+            true
+        } else {
+            self.s.jump(cursor);
+            false
+        }
     }
 
     /// Parse a single `MathIdent` or an entire `FieldAccess`.
@@ -627,6 +655,43 @@ impl Lexer<'_> {
             self.s.jump(start + len);
         }
         SyntaxKind::Text
+    }
+}
+
+/// Math arguments.
+impl Lexer<'_> {
+    fn math_args(&mut self, start: usize, c: char) -> (SyntaxKind, Option<SyntaxNode>) {
+        match c {
+            c if self.is_math_named_arg(start, c) => (SyntaxKind::Ident, None),
+            _ => self.math(start, c),
+        }
+    }
+
+    fn is_math_named_arg(&mut self, start: usize, c: char) -> bool {
+        // Handle named arguments in math function call.
+        let cursor = self.s.cursor();
+
+        if !is_id_start(c) {
+            return false;
+        }
+        self.s.eat_while(is_id_continue);
+        // Identifier is just "_", and so invalid.
+        let ident = self.s.from(start);
+        if ident == "_" {
+            return false;
+        }
+
+        // Check that a colon proceeds the identifier.
+        if let Some(c) = self.s.peek() {
+            if c == ':' {
+                return true;
+            }
+        }
+
+        // No colon, and so we need to go back as we don't want to treat this
+        // as an identifier then.
+        self.s.jump(cursor);
+        false
     }
 }
 
@@ -939,7 +1004,7 @@ fn count_newlines(text: &str) -> usize {
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
 /// - `_` as a starting character,
-/// - `_` and `-` as continuing characters.
+/// - `-` as a continuing character.
 ///
 /// [uax31]: http://www.unicode.org/reports/tr31/
 #[inline]
@@ -959,7 +1024,7 @@ pub fn is_id_start(c: char) -> bool {
 /// Whether a character can continue an identifier.
 #[inline]
 pub fn is_id_continue(c: char) -> bool {
-    is_xid_continue(c) || c == '_' || c == '-'
+    is_xid_continue(c) || c == '-'
 }
 
 /// Whether a character can start an identifier in math.
