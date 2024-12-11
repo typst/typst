@@ -381,17 +381,33 @@ impl Lexer<'_> {
         }
 
         let mut lines = lines.into_iter();
-        let mut needs_trim = false; // haircuts :)
 
         // Handle the first line: trim if all whitespace, or trim a single space
         // at the start. Note that the first line does not affect the dedent
         // value.
         if let Some(first_line) = lines.next() {
             if first_line.chars().all(char::is_whitespace) {
-                // Include this whitespace in the next line's `RawTrimmed`
-                // prefix.
                 self.s.advance(first_line.len());
-                needs_trim = !first_line.is_empty()
+                // This is the only spot we advance the scanner, but don't
+                // immediately call `push_raw`. But the rest of the function
+                // ensures we will always add this text to a `RawTrimmed` later.
+                debug_assert!(self.s.cursor() != inner_end);
+                // A proof by cases follows:
+                // # First case: The loop runs
+                // If the loop runs, there must be a newline following, so
+                // `cursor != inner_end`. And if the loop runs, the first thing
+                // it does is add a trimmed element.
+                // # Second case: The final if-statement runs.
+                // To _not_ reach the loop from here, we must have only one or
+                // two lines:
+                // 1. If one line, we cannot be here, because the first and last
+                //    lines are the same, so this line will have been removed by
+                //    the check for the last line being all whitespace.
+                // 2. If two lines, the loop will run unless the last is fully
+                //    whitespace, but if it is, it will have been popped, then
+                //    the final if-statement will run because the text removed
+                //    by the last line must include at least a newline, so
+                //    `cursor != inner_end` here.
             } else {
                 let line_end = self.s.cursor() + first_line.len();
                 if self.s.eat_if(' ') {
@@ -410,13 +426,12 @@ impl Lexer<'_> {
             self.s.eat_newline();
             self.s.advance(offset);
             push_raw(SyntaxKind::RawTrimmed, &self.s);
-            needs_trim = false;
             self.s.advance(line.len() - offset);
             push_raw(SyntaxKind::Text, &self.s);
         }
 
         // Add final trimmed.
-        if needs_trim || self.s.cursor() != inner_end {
+        if self.s.cursor() < inner_end {
             self.s.jump(inner_end);
             push_raw(SyntaxKind::RawTrimmed, &self.s);
         }

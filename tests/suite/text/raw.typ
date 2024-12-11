@@ -453,6 +453,13 @@ test
   block: true,
 )
 
+#let extra-first-line-ws = (
+  name: "extra-first-line-ws",
+  input: eval("```   \n```"),
+  text: "",
+  block: true,
+)
+
 #let cases = (
   empty,
   empty-spaces,
@@ -471,6 +478,7 @@ test
   blocky-dedent-lastline2,
   blocky-tab,
   blocky-tab-dedent,
+  extra-first-line-ws,
 )
 
 #for c in cases {
