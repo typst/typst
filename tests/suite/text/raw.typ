@@ -282,10 +282,40 @@ int main() {
 
 --- raw-blocky ---
 // Test various raw parsing edge cases.
+
 #let empty = (
   name: "empty",
   input: ``,
   text: "",
+  block: false,
+)
+
+#let empty-spaces = (
+  name: "empty-spaces",
+  input: ```   ```,
+  text: "",
+  block: false,
+)
+
+#let empty-newlines = (
+  name: "empty-newlines",
+  input: ```
+
+
+```,
+  text: "\n",
+  block: true,
+)
+
+#let newlines-backtick = (
+  name: "newlines-backtick",
+  input: ```
+
+`
+
+```,
+  text: "\n`\n",
+  block: true,
 )
 
 #let backtick = (
@@ -423,8 +453,18 @@ test
   block: true,
 )
 
+#let extra-first-line-ws = (
+  name: "extra-first-line-ws",
+  input: eval("```   \n```"),
+  text: "",
+  block: true,
+)
+
 #let cases = (
   empty,
+  empty-spaces,
+  empty-newlines,
+  newlines-backtick,
   backtick,
   lang-backtick,
   lang-space,
@@ -438,10 +478,11 @@ test
   blocky-dedent-lastline2,
   blocky-tab,
   blocky-tab-dedent,
+  extra-first-line-ws,
 )
 
 #for c in cases {
-  let block = c.at("block", default: false)
+  let block = c.block
   assert.eq(c.text, c.input.text, message: "in point " + c.name + ", expect " + repr(c.text) + ", got " + repr(c.input.text) + "")
   assert.eq(block, c.input.block, message: "in point " + c.name + ", expect " + repr(block) + ", got " + repr(c.input.block) + "")
 }
@@ -556,6 +597,18 @@ print(y)
 --- issue-3601-empty-raw ---
 // Test that empty raw block with `typ` language doesn't cause a crash.
 ```typ
+```
+
+--- raw-empty-lines ---
+// Test raw with multiple empty lines.
+
+#show raw: block.with(width: 100%, fill: gray)
+
+```
+
+
+
+
 ```
 
 --- issue-3841-tabs-in-raw-type-code ---
