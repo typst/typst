@@ -7,14 +7,11 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Alignment, Axes, Celled, Fragment, Length, Regions, Rel, ResolvedCelled, Sides,
-    Sizing,
+    Abs, Alignment, Axes, Celled, Length, Rel, ResolvedCelled, Sides, Sizing,
 };
 use typst_library::visualize::{Paint, Stroke};
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
-
-use super::{Footer, Header, Line, Repeatable};
 
 /// Used for cell-like elements which are aware of their final properties in
 /// the table, and may have property overrides.
@@ -131,28 +128,76 @@ impl<'a> Cell<'a> {
             breakable: true,
         }
     }
+}
 
-    /*
-    /// Layout the cell into the given regions.
+/// Represents an explicit grid line (horizontal or vertical) specified by the
+/// user.
+pub struct Line {
+    /// The index of the track after this line. This will be the index of the
+    /// row a horizontal line is above of, or of the column right after a
+    /// vertical line.
     ///
-    /// The `disambiguator` indicates which instance of this cell this should be
-    /// layouted as. For normal cells, it is always `0`, but for headers and
-    /// footers, it indicates the index of the header/footer among all. See the
-    /// [`Locator`] docs for more details on the concepts behind this.
-    pub fn layout(
-        &self,
-        engine: &mut Engine,
-        disambiguator: usize,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let mut locator = self.locator.relayout();
-        if disambiguator > 0 {
-            locator = locator.split().next_inner(disambiguator as u128);
+    /// Must be within `0..=tracks.len()` (where `tracks` is either `grid.cols`
+    /// or `grid.rows`, ignoring gutter tracks, as appropriate).
+    pub index: usize,
+    /// The index of the track at which this line starts being drawn.
+    /// This is the first column a horizontal line appears in, or the first row
+    /// a vertical line appears in.
+    ///
+    /// Must be within `0..tracks.len()` minus gutter tracks.
+    pub start: usize,
+    /// The index after the last track through which the line is drawn.
+    /// Thus, the line is drawn through tracks `start..end` (note that `end` is
+    /// exclusive).
+    ///
+    /// Must be within `1..=tracks.len()` minus gutter tracks.
+    /// `None` indicates the line should go all the way to the end.
+    pub end: Option<NonZeroUsize>,
+    /// The line's stroke. This is `None` when the line is explicitly used to
+    /// override a previously specified line.
+    pub stroke: Option<Arc<Stroke<Abs>>>,
+    /// The line's position in relation to the track with its index.
+    pub position: LinePosition,
+}
+
+/// A repeatable grid header. Starts at the first row.
+pub struct Header {
+    /// The index after the last row included in this header.
+    pub end: usize,
+}
+
+/// A repeatable grid footer. Stops at the last row.
+pub struct Footer {
+    /// The first row included in this footer.
+    pub start: usize,
+}
+
+/// A possibly repeatable grid object.
+/// It still exists even when not repeatable, but must not have additional
+/// considerations by grid layout, other than for consistency (such as making
+/// a certain group of rows unbreakable).
+pub enum Repeatable<T> {
+    Repeated(T),
+    NotRepeated(T),
+}
+
+impl<T> Repeatable<T> {
+    /// Gets the value inside this repeatable, regardless of whether
+    /// it repeats.
+    pub fn unwrap(&self) -> &T {
+        match self {
+            Self::Repeated(repeated) => repeated,
+            Self::NotRepeated(not_repeated) => not_repeated,
         }
-        crate::layout_fragment(engine, &self.body, locator, styles, regions)
     }
-    */
+
+    /// Returns `Some` if the value is repeated, `None` otherwise.
+    pub fn as_repeated(&self) -> Option<&T> {
+        match self {
+            Self::Repeated(repeated) => Some(repeated),
+            Self::NotRepeated(_) => None,
+        }
+    }
 }
 
 /// Indicates whether the line should be drawn before or after the track with

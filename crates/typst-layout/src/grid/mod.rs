@@ -6,24 +6,18 @@ mod rowspans;
 pub use self::layouter::GridLayouter;
 pub use typst_library::model::grid::{Cell, CellGrid};
 
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-
-use ecow::eco_format;
-use typst_library::diag::{SourceResult, Trace, Tracepoint};
+use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Fold, Packed, Smart, StyleChain, TargetElem};
-use typst_library::html::{tag, HtmlElem};
+use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{Fragment, GridElem, Regions};
 use typst_library::model::TableElem;
 
 use self::layouter::RowPiece;
 use self::lines::{
-    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Line,
-    LineSegment,
+    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LineSegment,
 };
-use self::repeated::{Footer, Header, Repeatable};
+use self::repeated::Repeatable;
 use self::rowspans::{Rowspan, UnbreakableRowGroup};
 use typst_library::model::grid::{grid_to_cellgrid, table_to_cellgrid, LinePosition};
 

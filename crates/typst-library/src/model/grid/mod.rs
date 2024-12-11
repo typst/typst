@@ -1,10 +1,5 @@
+//! Unified handling for tables and grids.
 mod cells;
-mod lines;
-mod repeated;
-
-pub use self::cells::{Cell, CellGrid};
-pub use self::lines::Line;
-pub use self::repeated::{Footer, Header, Repeatable};
 
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -12,21 +7,19 @@ use std::sync::Arc;
 use ecow::eco_format;
 use typst_library::diag::{SourceResult, Trace, Tracepoint};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Fold, Packed, Smart, StyleChain, TargetElem};
-use typst_library::html::{tag, HtmlElem};
+use typst_library::foundations::{Fold, Packed, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Alignment, Axes, Dir, Fragment, GridCell, GridChild, GridElem, GridItem, Length,
-    OuterHAlignment, OuterVAlignment, Regions, Rel, Sides,
+    Abs, Alignment, Axes, Dir, GridCell, GridChild, GridElem, GridItem, Length,
+    OuterHAlignment, OuterVAlignment, Rel, Sides,
 };
 use typst_library::model::{TableCell, TableChild, TableElem, TableItem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{Paint, Stroke};
 use typst_syntax::Span;
 
-pub use self::cells::{
-    LinePosition, ResolvableCell, ResolvableGridChild, ResolvableGridItem,
-};
+pub use self::cells::{Cell, CellGrid, Footer, Header, Line, LinePosition, Repeatable};
+use self::cells::{ResolvableCell, ResolvableGridChild, ResolvableGridItem};
 
 pub fn grid_to_cellgrid<'a>(
     elem: &Packed<GridElem>,

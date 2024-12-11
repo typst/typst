@@ -1,13 +1,11 @@
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
 use typst_library::layout::Abs;
+use typst_library::model::grid::{CellGrid, Line, Repeatable};
 use typst_library::visualize::Stroke;
-// TODO!
-pub use typst_library::model::grid::Line;
 
-use super::{CellGrid, LinePosition, Repeatable, RowPiece};
+use super::RowPiece;
 
 /// Indicates which priority a particular grid line segment should have, based
 /// on the highest priority configuration that defined the segment's stroke.
