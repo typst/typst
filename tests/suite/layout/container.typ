@@ -279,3 +279,22 @@ First!
 // Test box in 100% width block.
 #block(width: 100%, fill: red, box("a box"))
 #block(width: 100%, fill: red, [#box("a box") #box()])
+
+--- issue-5296-block-sticky-in-block-at-top ---
+
+#set page(height: 3cm)
+#v(1.6cm)
+#block(height: 2cm, breakable: true)[
+  #block(sticky: true)[*A*]
+
+  b
+]
+
+--- issue-5296-block-sticky-spaced-from-top-of-page ---
+
+#set page(height: 3cm)
+#v(2cm)
+
+#block(sticky: true)[*A*]
+
+b
