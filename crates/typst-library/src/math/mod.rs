@@ -82,8 +82,9 @@ use crate::text::TextElem;
 /// - Within them, Typst is still in "math mode". Thus, you can write math
 ///   directly into them, but need to use hash syntax to pass code expressions
 ///   (except for strings, which are available in the math syntax).
-/// - They support positional and named arguments, but don't support trailing
-///   content blocks and argument spreading.
+/// - They support positional and named arguments, as well as argument
+///   spreading.
+/// - They don't support trailing content blocks.
 /// - They provide additional syntax for 2-dimensional argument lists. The
 ///   semicolon (`;`) merges preceding arguments separated by commas into an
 ///   array argument.
@@ -92,6 +93,7 @@ use crate::text::TextElem;
 /// $ frac(a^2, 2) $
 /// $ vec(1, 2, delim: "[") $
 /// $ mat(1, 2; 3, 4) $
+/// $ mat(..#range(1, 5).chunks(2)) $
 /// $ lim_x =
 ///     op("lim", limits: #true)_x $
 /// ```
