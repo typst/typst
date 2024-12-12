@@ -229,6 +229,11 @@ $ mat(delim: angle.r, 1, 2; 3, 4) $
 $ mat(delim: #(none, "["), 1, 2; 3, 4) $
 $ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $
 
+--- math-mat-linebreaks ---
+// Unlike cases and vectors, linebreaks are discarded in matrices. This
+// behaviour may change in the future.
+$ mat(a; b; c) mat(a \ b \ c) $
+
 --- issue-1617-mat-align ---
 #set page(width: auto)
 $ mat(a, b; c, d) mat(x; y) $

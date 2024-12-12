@@ -301,6 +301,9 @@ impl Route<'_> {
     /// The maximum layout nesting depth.
     const MAX_LAYOUT_DEPTH: usize = 72;
 
+    /// The maximum HTML nesting depth.
+    const MAX_HTML_DEPTH: usize = 72;
+
     /// The maximum function call nesting depth.
     const MAX_CALL_DEPTH: usize = 80;
 
@@ -326,6 +329,17 @@ impl Route<'_> {
         Ok(())
     }
 
+    /// Ensures that we are within the maximum HTML depth.
+    pub fn check_html_depth(&self) -> HintedStrResult<()> {
+        if !self.within(Route::MAX_HTML_DEPTH) {
+            bail!(
+                "maximum HTML depth exceeded";
+                hint: "try to reduce the amount of nesting of your HTML",
+            );
+        }
+        Ok(())
+    }
+
     /// Ensures that we are within the maximum function call depth.
     pub fn check_call_depth(&self) -> StrResult<()> {
         if !self.within(Route::MAX_CALL_DEPTH) {
@@ -336,6 +350,7 @@ impl Route<'_> {
 }
 
 #[comemo::track]
+#[allow(clippy::needless_lifetimes)]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {

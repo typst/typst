@@ -4,8 +4,9 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles,
+    Styles, TargetElem,
 };
+use crate::html::{tag, HtmlElem};
 use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
 use crate::model::{ListItemLike, ListLike, ParElem};
 use crate::text::TextElem;
@@ -114,6 +115,26 @@ impl TermsElem {
 
 impl Show for Packed<TermsElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::dl)
+                .with_body(Some(Content::sequence(self.children.iter().flat_map(
+                    |item| {
+                        [
+                            HtmlElem::new(tag::dt)
+                                .with_body(Some(item.term.clone()))
+                                .pack()
+                                .spanned(item.term.span()),
+                            HtmlElem::new(tag::dd)
+                                .with_body(Some(item.description.clone()))
+                                .pack()
+                                .spanned(item.description.span()),
+                        ]
+                    },
+                ))))
+                .pack());
+        }
+
         let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
@@ -127,7 +148,7 @@ impl Show for Packed<TermsElem> {
 
         let pad = hanging_indent + indent;
         let unpad = (!hanging_indent.is_zero())
-            .then(|| HElem::new((-hanging_indent).into()).pack());
+            .then(|| HElem::new((-hanging_indent).into()).pack().spanned(span));
 
         let mut children = vec![];
         for child in self.children().iter() {
@@ -149,12 +170,16 @@ impl Show for Packed<TermsElem> {
         let mut realized = StackElem::new(children)
             .with_spacing(Some(gutter.into()))
             .pack()
+            .spanned(span)
             .padded(padding);
 
         if self.tight(styles) {
             let leading = ParElem::leading_in(styles);
-            let spacing =
-                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
+            let spacing = VElem::new(leading.into())
+                .with_weak(true)
+                .with_attach(true)
+                .pack()
+                .spanned(span);
             realized = spacing + realized;
         }
 

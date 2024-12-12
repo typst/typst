@@ -203,6 +203,7 @@ impl<'a> Locator<'a> {
 }
 
 #[comemo::track]
+#[allow(clippy::needless_lifetimes)]
 impl<'a> Locator<'a> {
     /// Resolves the locator based on its local and the outer information.
     fn resolve(&self) -> Resolved {

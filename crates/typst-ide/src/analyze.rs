@@ -1,7 +1,8 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::foundations::{Label, Styles, Value};
-use typst::model::{BibliographyElem, Document};
+use typst::layout::PagedDocument;
+use typst::model::BibliographyElem;
 use typst::syntax::{ast, LinkedNode, SyntaxKind};
 
 use crate::IdeWorld;
@@ -36,7 +37,7 @@ pub fn analyze_expr(
                 }
             }
 
-            return typst::trace(world.upcast(), node.span());
+            return typst::trace::<PagedDocument>(world.upcast(), node.span());
         }
     };
 
@@ -65,7 +66,9 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
 /// - All labels and descriptions for them, if available
 /// - A split offset: All labels before this offset belong to nodes, all after
 ///   belong to a bibliography.
-pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, usize) {
+pub fn analyze_labels(
+    document: &PagedDocument,
+) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];
 
     // Labels in the document.

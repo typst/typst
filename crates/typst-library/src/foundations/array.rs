@@ -815,6 +815,19 @@ impl Array {
     ///
     /// Returns an error if two values could not be compared or if the key
     /// function (if given) yields an error.
+    ///
+    /// To sort according to multiple criteria at once, e.g. in case of equality
+    /// between some criteria, the key function can return an array. The results
+    /// are in lexicographic order.
+    ///
+    /// ```example
+    /// #let array = (
+    ///   (a: 2, b: 4),
+    ///   (a: 1, b: 5),
+    ///   (a: 2, b: 3),
+    /// )
+    /// #array.sorted(key: it => (it.a, it.b))
+    /// ```
     #[func]
     pub fn sorted(
         self,

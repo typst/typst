@@ -18,6 +18,7 @@ use typst_library::foundations::{
     SequenceElem, Show, ShowSet, Style, StyleChain, StyleVec, StyledElem, Styles,
     Synthesize, Transformation,
 };
+use typst_library::html::{tag, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -47,12 +48,16 @@ pub fn realize<'a>(
         locator,
         arenas,
         rules: match kind {
-            RealizationKind::Root(_) | RealizationKind::Container => NORMAL_RULES,
+            RealizationKind::LayoutDocument(_) | RealizationKind::LayoutFragment => {
+                LAYOUT_RULES
+            }
+            RealizationKind::HtmlDocument(_) => HTML_DOCUMENT_RULES,
+            RealizationKind::HtmlFragment => HTML_FRAGMENT_RULES,
             RealizationKind::Math => MATH_RULES,
         },
         sink: vec![],
         groupings: ArrayVec::new(),
-        outside: matches!(kind, RealizationKind::Root(_)),
+        outside: matches!(kind, RealizationKind::LayoutDocument(_)),
         may_attach: false,
         kind,
     };
@@ -105,10 +110,10 @@ struct GroupingRule {
     /// be visible to `finish`.
     tags: bool,
     /// Defines which kinds of elements start and make up this kind of grouping.
-    trigger: fn(Element) -> bool,
+    trigger: fn(&Content, &RealizationKind) -> bool,
     /// Defines elements that may appear in the interior of the grouping, but
     /// not at the edges.
-    inner: fn(Element) -> bool,
+    inner: fn(&Content) -> bool,
     /// Defines whether styles for this kind of element interrupt the grouping.
     interrupt: fn(Element) -> bool,
     /// Should convert the accumulated elements in `s.sink[start..]` into
@@ -555,14 +560,16 @@ fn visit_styled<'a>(
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::elem() {
-            let RealizationKind::Root(info) = &mut s.kind else {
-                let span = style.span();
-                bail!(span, "document set rules are not allowed inside of containers");
-            };
-
-            info.populate(&local);
+            match &mut s.kind {
+                RealizationKind::LayoutDocument(info)
+                | RealizationKind::HtmlDocument(info) => info.populate(&local),
+                _ => bail!(
+                    style.span(),
+                    "document set rules are not allowed inside of containers"
+                ),
+            }
         } else if elem == PageElem::elem() {
-            let RealizationKind::Root(_) = s.kind else {
+            let RealizationKind::LayoutDocument(_) = s.kind else {
                 let span = style.span();
                 bail!(span, "page configuration is not allowed inside of containers");
             };
@@ -618,8 +625,7 @@ fn visit_grouping_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    let elem = content.elem();
-    let matching = s.rules.iter().find(|&rule| (rule.trigger)(elem));
+    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, &s.kind));
 
     // Try to continue or finish an existing grouping.
     while let Some(active) = s.groupings.last() {
@@ -629,7 +635,7 @@ fn visit_grouping_rules<'a>(
         }
 
         // If the element can be added to the active grouping, do it.
-        if (active.rule.trigger)(elem) || (active.rule.inner)(elem) {
+        if (active.rule.trigger)(content, &s.kind) || (active.rule.inner)(content) {
             s.sink.push((content, styles));
             return Ok(true);
         }
@@ -655,7 +661,9 @@ fn visit_filter_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    if content.is::<SpaceElem>() && !matches!(s.kind, RealizationKind::Math) {
+    if content.is::<SpaceElem>()
+        && !matches!(s.kind, RealizationKind::Math | RealizationKind::HtmlFragment)
+    {
         // Outside of maths, spaces that were not collected by the paragraph
         // grouper don't interest us.
         return Ok(true);
@@ -730,7 +738,7 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     let Grouping { start, rule } = s.groupings.pop().unwrap();
 
     // Trim trailing non-trigger elements.
-    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c.elem()));
+    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, &s.kind));
     let end = start + trimmed.len();
     let tail = s.store_slice(&s.sink[end..]);
     s.sink.truncate(end);
@@ -768,22 +776,30 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
 /// number of unique priority levels.
 const MAX_GROUP_NESTING: usize = 3;
 
-/// Grouping rules used in normal realizations.
-static NORMAL_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+/// Grouping rules used in layout realization.
+static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
 
-/// Grouping rules used in math realization.
+/// Grouping rules used in HTML root realization.
+static HTML_DOCUMENT_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+
+/// Grouping rules used in HTML fragment realization.
+static HTML_FRAGMENT_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
+
+/// Grouping rules used in math realizatio.
 static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
 
 /// Groups adjacent textual elements for text show rule application.
 static TEXTUAL: GroupingRule = GroupingRule {
     priority: 3,
     tags: true,
-    trigger: |elem| {
+    trigger: |content, _| {
+        let elem = content.elem();
         elem == TextElem::elem()
             || elem == LinebreakElem::elem()
             || elem == SmartQuoteElem::elem()
     },
-    inner: |elem| elem == SpaceElem::elem(),
+    inner: |content| content.elem() == SpaceElem::elem(),
     // Any kind of style interrupts this kind of grouping since regex show
     // rules cannot match over style changes anyway.
     interrupt: |_| true,
@@ -794,15 +810,22 @@ static TEXTUAL: GroupingRule = GroupingRule {
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
-    trigger: |elem| {
+    trigger: |content, kind| {
+        let elem = content.elem();
         elem == TextElem::elem()
             || elem == HElem::elem()
             || elem == LinebreakElem::elem()
             || elem == SmartQuoteElem::elem()
             || elem == InlineElem::elem()
             || elem == BoxElem::elem()
+            || (matches!(
+                kind,
+                RealizationKind::HtmlDocument(_) | RealizationKind::HtmlFragment
+            ) && content
+                .to_packed::<HtmlElem>()
+                .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
     },
-    inner: |elem| elem == SpaceElem::elem(),
+    inner: |content| content.elem() == SpaceElem::elem(),
     interrupt: |elem| elem == ParElem::elem() || elem == AlignElem::elem(),
     finish: finish_par,
 };
@@ -811,9 +834,11 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |elem| elem == CiteElem::elem(),
-    inner: |elem| elem == SpaceElem::elem(),
-    interrupt: |elem| elem == CiteGroup::elem(),
+    trigger: |content, _| content.elem() == CiteElem::elem(),
+    inner: |content| content.elem() == SpaceElem::elem(),
+    interrupt: |elem| {
+        elem == CiteGroup::elem() || elem == ParElem::elem() || elem == AlignElem::elem()
+    },
     finish: finish_cites,
 };
 
@@ -831,9 +856,12 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |elem| elem == T::Item::elem(),
-        inner: |elem| elem == SpaceElem::elem() || elem == ParbreakElem::elem(),
-        interrupt: |elem| elem == T::elem(),
+        trigger: |content, _| content.elem() == T::Item::elem(),
+        inner: |content| {
+            let elem = content.elem();
+            elem == SpaceElem::elem() || elem == ParbreakElem::elem()
+        },
+        interrupt: |elem| elem == T::elem() || elem == AlignElem::elem(),
         finish: finish_list_like::<T>,
     }
 }
@@ -867,7 +895,7 @@ fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
     // 1. We are already in a paragraph group. In this case, the elements just
     //    transparently become part of it.
     // 2. There is no group at all. In this case, we create one.
-    if s.groupings.is_empty() {
+    if s.groupings.is_empty() && s.rules.iter().any(|&rule| std::ptr::eq(rule, &PAR)) {
         s.groupings.push(Grouping { start, rule: &PAR });
     }
 

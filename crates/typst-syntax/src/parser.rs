@@ -47,14 +47,9 @@ fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
     at_start |= p.had_newline();
     let mut nesting: usize = 0;
-    loop {
-        match p.current() {
-            SyntaxKind::LeftBracket => nesting += 1,
-            SyntaxKind::RightBracket if nesting > 0 => nesting -= 1,
-            _ if p.at_set(stop_set) => break,
-            _ => {}
-        }
-        markup_expr(p, at_start);
+    // Keep going if we're at a nested right-bracket regardless of the stop set.
+    while !p.at_set(stop_set) || (nesting > 0 && p.at(SyntaxKind::RightBracket)) {
+        markup_expr(p, at_start, &mut nesting);
         at_start = p.had_newline();
     }
 }
@@ -69,15 +64,12 @@ pub(super) fn reparse_markup(
 ) -> Option<Vec<SyntaxNode>> {
     let mut p = Parser::new(text, range.start, LexMode::Markup);
     *at_start |= p.had_newline();
-    while p.current_start() < range.end {
-        match p.current() {
-            SyntaxKind::LeftBracket => *nesting += 1,
-            SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
-            SyntaxKind::RightBracket if !top_level => break,
-            SyntaxKind::End => break,
-            _ => {}
+    while !p.end() && p.current_start() < range.end {
+        // If not top-level and at a new RightBracket, stop the reparse.
+        if !top_level && *nesting == 0 && p.at(SyntaxKind::RightBracket) {
+            break;
         }
-        markup_expr(&mut p, *at_start);
+        markup_expr(&mut p, *at_start, nesting);
         *at_start = p.had_newline();
     }
     (p.balanced && p.current_start() == range.end).then(|| p.finish())
@@ -86,8 +78,21 @@ pub(super) fn reparse_markup(
 /// Parses a single markup expression. This includes markup elements like text,
 /// headings, strong/emph, lists/enums, etc. This is also the entry point for
 /// parsing math equations and embedded code expressions.
-fn markup_expr(p: &mut Parser, at_start: bool) {
+fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
     match p.current() {
+        SyntaxKind::LeftBracket => {
+            *nesting += 1;
+            p.convert_and_eat(SyntaxKind::Text);
+        }
+        SyntaxKind::RightBracket if *nesting > 0 => {
+            *nesting -= 1;
+            p.convert_and_eat(SyntaxKind::Text);
+        }
+        SyntaxKind::RightBracket => {
+            p.unexpected();
+            p.hint("try using a backslash escape: \\]");
+        }
+
         SyntaxKind::Text
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape
@@ -108,9 +113,7 @@ fn markup_expr(p: &mut Parser, at_start: bool) {
         SyntaxKind::RefMarker => reference(p),
         SyntaxKind::Dollar => equation(p),
 
-        SyntaxKind::LeftBracket
-        | SyntaxKind::RightBracket
-        | SyntaxKind::HeadingMarker
+        SyntaxKind::HeadingMarker
         | SyntaxKind::ListMarker
         | SyntaxKind::EnumMarker
         | SyntaxKind::TermMarker
@@ -201,7 +204,7 @@ fn equation(p: &mut Parser) {
     let m = p.marker();
     p.enter_modes(LexMode::Math, AtNewline::Continue, |p| {
         p.assert(SyntaxKind::Dollar);
-        math(p, syntax_set!(Dollar, RightBracket, End));
+        math(p, syntax_set!(Dollar, End));
         p.expect_closing_delimiter(m, SyntaxKind::Dollar);
     });
     p.wrap(m, SyntaxKind::Equation);
@@ -1911,7 +1914,7 @@ struct PartialState {
 }
 
 /// The Memoization interface.
-impl<'s> Parser<'s> {
+impl Parser<'_> {
     /// Store the already parsed nodes and the parser state into the memo map by
     /// extending the arena and storing the extended range and a checkpoint.
     fn memoize_parsed_nodes(&mut self, key: MemoKey, prev_len: usize) {
@@ -1967,7 +1970,7 @@ impl<'s> Parser<'s> {
 
 /// Functions for eating expected or unexpected tokens and generating errors if
 /// we don't get what we expect.
-impl<'s> Parser<'s> {
+impl Parser<'_> {
     /// Consume the given `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);

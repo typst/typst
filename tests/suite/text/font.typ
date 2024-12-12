@@ -81,3 +81,34 @@ I
 // Warning: 17-34 Typst's default font has changed from Linux Libertine to its successor Libertinus Serif
 // Hint: 17-34 please set the font to `"Libertinus Serif"` instead
 #set text(font: "Linux Libertine")
+
+--- issue-5499-text-fill-in-clip-block ---
+
+#let pat = pattern(
+  size: (30pt, 30pt),
+  relative: "parent",
+  square(
+    size: 30pt,
+    fill: gradient
+      .conic(..color.map.rainbow),
+  )
+)
+
+#block(clip: false, height: 2em, {
+  text(fill: blue, "Hello")
+  [ ]
+  text(fill: blue.darken(20%).transparentize(50%), "Hello")
+  [ ]
+  text(fill: gradient.linear(..color.map.rainbow), "Hello")
+  [ ]
+  text(fill: pat, "Hello")
+})
+#block(clip: true, height: 2em, {
+  text(fill: blue, "Hello")
+  [ ]
+  text(fill: blue.darken(20%).transparentize(50%), "Hello")
+  [ ]
+  text(fill: gradient.linear(..color.map.rainbow), "Hello")
+  [ ]
+  text(fill: pat, "Hello")
+})

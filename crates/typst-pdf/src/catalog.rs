@@ -48,6 +48,11 @@ pub fn write_catalog(
         xmp.title([(None, title.as_str())]);
     }
 
+    if let Some(description) = &ctx.document.info.description {
+        info.subject(TextStr::trimmed(description));
+        xmp.description([(None, description.as_str())]);
+    }
+
     let authors = &ctx.document.info.author;
     if !authors.is_empty() {
         // Turns out that if the authors are given in both the document

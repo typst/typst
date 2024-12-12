@@ -216,6 +216,8 @@ mod exceptions {
     pub const LIST: &[&str] = &[
         "cjk-latin-spacing",
         "discretionary-ligatures",
+        "h5",
+        "h6",
         "historical-ligatures",
         "number-clearance",
         "number-margin",
