@@ -684,52 +684,49 @@ fn resolve_breakable(
         .any(|row| row == &Sizing::Auto)
 }
 
-fn bla(
+fn fix_header(cell: &Cell, header: &mut Header, i: Idx, c: usize) {
+    let y = i.xy(c).y;
+    if y < header.end {
+        // Ensure the header expands enough such that
+        // all cells inside it, even those added later,
+        // are fully contained within the header.
+        // FIXME: check if start < y < end when start can
+        // be != 0.
+        // FIXME: when start can be != 0, decide what
+        // happens when a cell after the header placed
+        // above it tries to span the header (either
+        // error or expand upwards).
+        header.end = header.end.max(y + cell.rowspan.get());
+    }
+}
+
+fn fix_footer(
     cell: &Cell,
-    header: &mut Option<Header>,
-    footer: &mut Option<(usize, Span, Footer)>,
+    (end, footer_span, footer): &mut (usize, Span, Footer),
     i: Idx,
     c: usize,
 ) -> SourceResult<()> {
-    if let Some(header) = header {
-        let y = i.xy(c).y;
-        if y < header.end {
-            // Ensure the header expands enough such that
-            // all cells inside it, even those added later,
-            // are fully contained within the header.
-            // FIXME: check if start < y < end when start can
-            // be != 0.
-            // FIXME: when start can be != 0, decide what
-            // happens when a cell after the header placed
-            // above it tries to span the header (either
-            // error or expand upwards).
-            header.end = header.end.max(y + cell.rowspan.get());
-        }
+    let Axes { x, y } = i.xy(c);
+    let cell_end = y + cell.rowspan.get();
+    if y < footer.start && cell_end > footer.start {
+        // Don't allow a cell before the footer to span
+        // it. Surely, we could move the footer to
+        // start at where this cell starts, so this is
+        // more of a design choice, as it's unlikely
+        // for the user to intentionally include a cell
+        // before the footer spanning it but not
+        // being repeated with it.
+        bail!(
+            *footer_span,
+            "footer would conflict with a cell placed before it at column {x} row {y}";
+            hint: "try reducing that cell's rowspan or moving the footer"
+        );
     }
-
-    if let Some((end, footer_span, footer)) = footer {
-        let Axes { x, y } = i.xy(c);
-        let cell_end = y + cell.rowspan.get();
-        if y < footer.start && cell_end > footer.start {
-            // Don't allow a cell before the footer to span
-            // it. Surely, we could move the footer to
-            // start at where this cell starts, so this is
-            // more of a design choice, as it's unlikely
-            // for the user to intentionally include a cell
-            // before the footer spanning it but not
-            // being repeated with it.
-            bail!(
-                *footer_span,
-                "footer would conflict with a cell placed before it at column {x} row {y}";
-                hint: "try reducing that cell's rowspan or moving the footer"
-            );
-        }
-        if y >= footer.start && y < *end {
-            // Expand the footer to include all rows
-            // spanned by this cell, as it is inside the
-            // footer.
-            *end = (*end).max(cell_end);
-        }
+    if y >= footer.start && y < *end {
+        // Expand the footer to include all rows
+        // spanned by this cell, as it is inside the
+        // footer.
+        *end = (*end).max(cell_end);
     }
     Ok(())
 }
@@ -1028,7 +1025,12 @@ impl<'a> CellGrid<'a> {
             let i = Idx(i);
             if let Some(cell) = cell {
                 if let Some(parent_cell) = cell.as_cell() {
-                    bla(parent_cell, &mut header, &mut footer, i, c)?
+                    if let Some(header) = &mut header {
+                        fix_header(parent_cell, header, i, c)
+                    }
+                    if let Some(footer) = &mut footer {
+                        fix_footer(parent_cell, footer, i, c)?
+                    }
                 }
                 Ok(cell)
             } else {
