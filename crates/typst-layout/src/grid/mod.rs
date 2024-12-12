@@ -5,7 +5,7 @@ mod rowspans;
 
 pub use self::layouter::GridLayouter;
 pub use typst_library::layout::{
-    grid_to_cellgrid, table_to_cellgrid, Cell, CellGrid, LinePosition, Repeatable,
+    grid_to_raster, table_to_raster, Cell, RasterLinePosition, Raster, Repeatable,
 };
 
 use typst_library::diag::SourceResult;
@@ -50,7 +50,7 @@ pub fn layout_grid(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let grid = grid_to_cellgrid(elem, engine, locator, styles)?;
+    let grid = grid_to_raster(elem, engine, locator, styles)?;
     let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
 
     // Measure the columns and layout the grid row-by-row.
@@ -66,7 +66,7 @@ pub fn layout_table(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let grid = table_to_cellgrid(elem, engine, locator, styles)?;
+    let grid = table_to_raster(elem, engine, locator, styles)?;
 
     let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
     layouter.layout(engine)

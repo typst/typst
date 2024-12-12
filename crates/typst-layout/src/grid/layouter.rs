@@ -14,14 +14,14 @@ use typst_utils::{MaybeReverseIter, Numeric};
 
 use super::layout_cell;
 use super::{
-    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Cell, CellGrid,
-    LinePosition, LineSegment, Repeatable, Rowspan, UnbreakableRowGroup,
+    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Cell,
+    LineSegment, Raster, RasterLinePosition, Repeatable, Rowspan, UnbreakableRowGroup,
 };
 
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The grid of cells.
-    pub(super) grid: &'a CellGrid<'a>,
+    pub(super) grid: &'a Raster<'a>,
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
     /// The inherited styles.
@@ -97,7 +97,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
-        grid: &'a CellGrid<'a>,
+        grid: &'a Raster<'a>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -256,9 +256,9 @@ impl<'a> GridLayouter<'a> {
             // it the same treatment as a line before a gutter track.
             let expected_line_position = |index, is_max_index: bool| {
                 if self.grid.is_gutter_track(index) && !is_max_index {
-                    LinePosition::After
+                    RasterLinePosition::After
                 } else {
-                    LinePosition::Before
+                    RasterLinePosition::Before
                 }
             };
 
@@ -381,7 +381,7 @@ impl<'a> GridLayouter<'a> {
                             prev_y + 1 == self.grid.rows.len(),
                         )
                     })
-                    .unwrap_or(LinePosition::Before);
+                    .unwrap_or(RasterLinePosition::Before);
 
                 // FIXME: In the future, directly specify in 'self.rrows' when
                 // we place a repeated header rather than its original rows.
@@ -440,7 +440,7 @@ impl<'a> GridLayouter<'a> {
                     &[]
                 };
 
-                let mut expected_header_line_position = LinePosition::Before;
+                let mut expected_header_line_position = RasterLinePosition::Before;
                 let header_hlines = if let Some((Repeatable::Repeated(header), prev_y)) =
                     self.grid.header.as_ref().zip(prev_y)
                 {
@@ -493,9 +493,9 @@ impl<'a> GridLayouter<'a> {
                         .filter(|line| line.position == expected_prev_line_position)
                         .chain(hlines_at_y)
                         .chain(
-                            top_border_hlines
-                                .iter()
-                                .filter(|line| line.position == LinePosition::Before),
+                            top_border_hlines.iter().filter(|line| {
+                                line.position == RasterLinePosition::Before
+                            }),
                         )
                         .chain(header_hlines.iter().filter(|line| {
                             line.position == expected_header_line_position

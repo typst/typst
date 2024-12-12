@@ -8,7 +8,7 @@ use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignm
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem};
 use typst_library::text::TextElem;
 
-use crate::grid::{Cell, CellGrid, GridLayouter};
+use crate::grid::{Cell, GridLayouter, Raster};
 
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]
@@ -49,7 +49,7 @@ pub fn layout_list(
         ));
     }
 
-    let grid = CellGrid::new(
+    let grid = Raster::new(
         Axes::with_x(&[
             Sizing::Rel(indent.into()),
             Sizing::Auto,
@@ -130,7 +130,7 @@ pub fn layout_enum(
         number = number.saturating_add(1);
     }
 
-    let grid = CellGrid::new(
+    let grid = Raster::new(
         Axes::with_x(&[
             Sizing::Rel(indent.into()),
             Sizing::Auto,

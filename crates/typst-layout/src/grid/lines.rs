@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
 use typst_library::layout::Abs;
-use typst_library::layout::{CellGrid, Line, Repeatable};
+use typst_library::layout::{Raster, RasterLine, Repeatable};
 use typst_library::visualize::Stroke;
 
 use super::RowPiece;
@@ -77,7 +77,7 @@ pub struct LineSegment {
 /// vertical lines, for instance, `tracks` would describe the rows in the
 /// current region, as pairs (row index, row height).
 pub fn generate_line_segments<'grid, F, I, L>(
-    grid: &'grid CellGrid,
+    grid: &'grid Raster,
     tracks: I,
     index: usize,
     lines: L,
@@ -85,7 +85,7 @@ pub fn generate_line_segments<'grid, F, I, L>(
 ) -> impl Iterator<Item = LineSegment> + 'grid
 where
     F: Fn(
-            &CellGrid,
+            &Raster,
             usize,
             usize,
             Option<Option<Arc<Stroke<Abs>>>>,
@@ -93,7 +93,7 @@ where
         + 'grid,
     I: IntoIterator<Item = (usize, Abs)>,
     I::IntoIter: 'grid,
-    L: IntoIterator<Item = &'grid Line>,
+    L: IntoIterator<Item = &'grid RasterLine>,
     L::IntoIter: Clone + 'grid,
 {
     // The segment currently being drawn.
@@ -272,7 +272,7 @@ where
 /// The priority associated with the returned stroke follows the rules
 /// described in the docs for `generate_line_segment`.
 pub fn vline_stroke_at_row(
-    grid: &CellGrid,
+    grid: &Raster,
     x: usize,
     y: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
@@ -392,7 +392,7 @@ pub fn vline_stroke_at_row(
 /// This function assumes columns are sorted by increasing `x`, and rows are
 /// sorted by increasing `y`.
 pub fn hline_stroke_at_column(
-    grid: &CellGrid,
+    grid: &Raster,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
     in_last_region: bool,
@@ -562,7 +562,7 @@ mod test {
     use typst_library::foundations::Content;
     use typst_library::introspection::Locator;
     use typst_library::layout::{Axes, Sides, Sizing};
-    use typst_library::layout::{Cell, Entry, LinePosition};
+    use typst_library::layout::{Cell, RasterEntry, RasterLinePosition};
     use typst_utils::NonZeroExt;
 
     use super::*;
@@ -593,42 +593,42 @@ mod test {
         }
     }
 
-    fn sample_grid_for_vlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_vlines(gutters: bool) -> Raster<'static> {
         const COLS: usize = 4;
         const ROWS: usize = 6;
         let entries = vec![
             // row 0
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
-            Entry::Merged { parent: 2 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
+            RasterEntry::Merged { parent: 2 },
             // row 1
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(3, 1)),
-            Entry::Merged { parent: 5 },
-            Entry::Merged { parent: 5 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(3, 1)),
+            RasterEntry::Merged { parent: 5 },
+            RasterEntry::Merged { parent: 5 },
             // row 2
-            Entry::Merged { parent: 4 },
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
-            Entry::Merged { parent: 10 },
+            RasterEntry::Merged { parent: 4 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
+            RasterEntry::Merged { parent: 10 },
             // row 3
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(3, 2)),
-            Entry::Merged { parent: 13 },
-            Entry::Merged { parent: 13 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(3, 2)),
+            RasterEntry::Merged { parent: 13 },
+            RasterEntry::Merged { parent: 13 },
             // row 4
-            Entry::Cell(sample_cell()),
-            Entry::Merged { parent: 13 },
-            Entry::Merged { parent: 13 },
-            Entry::Merged { parent: 13 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Merged { parent: 13 },
+            RasterEntry::Merged { parent: 13 },
+            RasterEntry::Merged { parent: 13 },
             // row 5
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
-            Entry::Merged { parent: 22 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
+            RasterEntry::Merged { parent: 22 },
         ];
-        CellGrid::new_internal(
+        Raster::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
                 Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
@@ -1094,19 +1094,19 @@ mod test {
                     tracks,
                     x,
                     &[
-                        Line {
+                        RasterLine {
                             index: x,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: LinePosition::Before
+                            position: RasterLinePosition::Before
                         },
-                        Line {
+                        RasterLine {
                             index: x,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: LinePosition::After
+                            position: RasterLinePosition::After
                         },
                     ],
                     vline_stroke_at_row
@@ -1116,57 +1116,57 @@ mod test {
         }
     }
 
-    fn sample_grid_for_hlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_hlines(gutters: bool) -> Raster<'static> {
         const COLS: usize = 4;
         const ROWS: usize = 9;
         let entries = vec![
             // row 0
-            Entry::Cell(cell_with_colspan_rowspan(1, 2)),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
-            Entry::Merged { parent: 2 },
+            RasterEntry::Cell(cell_with_colspan_rowspan(1, 2)),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 2)),
+            RasterEntry::Merged { parent: 2 },
             // row 1
-            Entry::Merged { parent: 0 },
-            Entry::Cell(sample_cell()),
-            Entry::Merged { parent: 2 },
-            Entry::Merged { parent: 2 },
+            RasterEntry::Merged { parent: 0 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Merged { parent: 2 },
+            RasterEntry::Merged { parent: 2 },
             // row 2
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
             // row 3
-            Entry::Cell(cell_with_colspan_rowspan(4, 2)),
-            Entry::Merged { parent: 12 },
-            Entry::Merged { parent: 12 },
-            Entry::Merged { parent: 12 },
+            RasterEntry::Cell(cell_with_colspan_rowspan(4, 2)),
+            RasterEntry::Merged { parent: 12 },
+            RasterEntry::Merged { parent: 12 },
+            RasterEntry::Merged { parent: 12 },
             // row 4
-            Entry::Merged { parent: 12 },
-            Entry::Merged { parent: 12 },
-            Entry::Merged { parent: 12 },
-            Entry::Merged { parent: 12 },
+            RasterEntry::Merged { parent: 12 },
+            RasterEntry::Merged { parent: 12 },
+            RasterEntry::Merged { parent: 12 },
+            RasterEntry::Merged { parent: 12 },
             // row 5
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan_rowspan(1, 2)),
-            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
-            Entry::Merged { parent: 22 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(cell_with_colspan_rowspan(1, 2)),
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
+            RasterEntry::Merged { parent: 22 },
             // row 6
-            Entry::Cell(sample_cell()),
-            Entry::Merged { parent: 21 },
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Merged { parent: 21 },
+            RasterEntry::Cell(sample_cell()),
+            RasterEntry::Cell(sample_cell()),
             // row 7 (adjacent rowspans covering the whole row)
-            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
-            Entry::Merged { parent: 28 },
-            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
-            Entry::Merged { parent: 30 },
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 2)),
+            RasterEntry::Merged { parent: 28 },
+            RasterEntry::Cell(cell_with_colspan_rowspan(2, 2)),
+            RasterEntry::Merged { parent: 30 },
             // row 8
-            Entry::Merged { parent: 28 },
-            Entry::Merged { parent: 28 },
-            Entry::Merged { parent: 30 },
-            Entry::Merged { parent: 30 },
+            RasterEntry::Merged { parent: 28 },
+            RasterEntry::Merged { parent: 28 },
+            RasterEntry::Merged { parent: 30 },
+            RasterEntry::Merged { parent: 30 },
         ];
-        CellGrid::new_internal(
+        Raster::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
                 Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
@@ -1442,19 +1442,19 @@ mod test {
                     tracks,
                     y,
                     &[
-                        Line {
+                        RasterLine {
                             index: y,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: LinePosition::Before
+                            position: RasterLinePosition::Before
                         },
-                        Line {
+                        RasterLine {
                             index: y,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: LinePosition::After
+                            position: RasterLinePosition::After
                         },
                     ],
                     |grid, y, x, stroke| hline_stroke_at_column(
