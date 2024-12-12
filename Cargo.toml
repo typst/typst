@@ -116,7 +116,7 @@ syntect = { version = "5", default-features = false, features = ["parsing", "reg
 tar = "0.4"
 tempfile = "3.7.0"
 thin-vec = "0.2.13"
-time = { version = "0.3.20", features = ["formatting", "macros", "parsing", "local-offset"] }
+time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny_http = "0.12"
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }

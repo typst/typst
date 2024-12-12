@@ -4,7 +4,7 @@ use ecow::eco_format;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use time::PrimitiveDateTime;
+use time::{PrimitiveDateTime, UtcOffset};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
@@ -342,8 +342,15 @@ fn xmp_date(datetime: Datetime, tz: Option<Timezone>) -> Option<xmp_writer::Date
 
 /// Converts a utc datetime to local datetime.
 fn convert_utc_datetime_to_local(datetime: Datetime) -> (Datetime, Timezone) {
-    match (datetime, time::UtcOffset::current_local_offset()) {
-        (Datetime::Datetime(datetime), Ok(current_local_offset)) => {
+    // This should never fail if `time` and `chrono` both work correctly.
+    let current_local_offset =
+        UtcOffset::from_whole_seconds(chrono::Local::now().offset().local_minus_utc());
+
+    match (datetime, current_local_offset) {
+        (Datetime::Datetime(datetime), Ok(current_local_offset))
+            if !current_local_offset.is_utc() =>
+            // TODO: distinguish between GMT and UTC
+        {
             let local = datetime.assume_utc().to_offset(current_local_offset);
             (
                 Datetime::Datetime(PrimitiveDateTime::new(local.date(), local.time())),
