@@ -197,6 +197,43 @@ fn table_item_to_resolvable(
     }
 }
 
+/// Used for cell-like elements which are aware of their final properties in
+/// the table, and may have property overrides.
+trait ResolvableCell {
+    /// Resolves the cell's fields, given its coordinates and default grid-wide
+    /// fill, align, inset and stroke properties, plus the expected value of
+    /// the `breakable` field.
+    /// Returns a final Cell.
+    #[allow(clippy::too_many_arguments)]
+    fn resolve_cell<'a>(
+        self,
+        x: usize,
+        y: usize,
+        fill: &Option<Paint>,
+        align: Smart<Alignment>,
+        inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        breakable: bool,
+        locator: Locator<'a>,
+        styles: StyleChain,
+    ) -> Cell<'a>;
+
+    /// Returns this cell's column override.
+    fn x(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// Returns this cell's row override.
+    fn y(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// The amount of columns spanned by this cell.
+    fn colspan(&self, styles: StyleChain) -> NonZeroUsize;
+
+    /// The amount of rows spanned by this cell.
+    fn rowspan(&self, styles: StyleChain) -> NonZeroUsize;
+
+    /// The cell's span, for errors.
+    fn span(&self) -> Span;
+}
+
 impl ResolvableCell for Packed<TableCell> {
     fn resolve_cell<'a>(
         mut self,
@@ -385,43 +422,6 @@ impl ResolvableCell for Packed<GridCell> {
     fn span(&self) -> Span {
         Packed::span(self)
     }
-}
-
-/// Used for cell-like elements which are aware of their final properties in
-/// the table, and may have property overrides.
-trait ResolvableCell {
-    /// Resolves the cell's fields, given its coordinates and default grid-wide
-    /// fill, align, inset and stroke properties, plus the expected value of
-    /// the `breakable` field.
-    /// Returns a final Cell.
-    #[allow(clippy::too_many_arguments)]
-    fn resolve_cell<'a>(
-        self,
-        x: usize,
-        y: usize,
-        fill: &Option<Paint>,
-        align: Smart<Alignment>,
-        inset: Sides<Option<Rel<Length>>>,
-        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
-        breakable: bool,
-        locator: Locator<'a>,
-        styles: StyleChain,
-    ) -> Cell<'a>;
-
-    /// Returns this cell's column override.
-    fn x(&self, styles: StyleChain) -> Smart<usize>;
-
-    /// Returns this cell's row override.
-    fn y(&self, styles: StyleChain) -> Smart<usize>;
-
-    /// The amount of columns spanned by this cell.
-    fn colspan(&self, styles: StyleChain) -> NonZeroUsize;
-
-    /// The amount of rows spanned by this cell.
-    fn rowspan(&self, styles: StyleChain) -> NonZeroUsize;
-
-    /// The cell's span, for errors.
-    fn span(&self) -> Span;
 }
 
 /// A grid item, possibly affected by automatic cell positioning. Can be either
