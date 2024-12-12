@@ -349,7 +349,7 @@ fn convert_utc_datetime_to_local(datetime: Datetime) -> (Datetime, Timezone) {
     match (datetime, current_local_offset) {
         (Datetime::Datetime(datetime), Ok(current_local_offset))
             if !current_local_offset.is_utc() =>
-            // TODO: distinguish between GMT and UTC
+        // TODO: distinguish between GMT and UTC
         {
             let local = datetime.assume_utc().to_offset(current_local_offset);
             (
