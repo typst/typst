@@ -5,7 +5,7 @@ mod rowspans;
 
 pub use self::layouter::GridLayouter;
 pub use typst_library::layout::{
-    grid_to_raster, table_to_raster, Cell, RasterLinePosition, Raster, Repeatable,
+    grid_to_raster, table_to_raster, Cell, Raster, RasterLinePosition, Repeatable,
 };
 
 use typst_library::diag::SourceResult;
