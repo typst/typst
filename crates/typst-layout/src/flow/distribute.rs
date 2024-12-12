@@ -17,7 +17,7 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
         regions,
         items: vec![],
         sticky: None,
-        stickable: false,
+        stickable: None,
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
@@ -42,9 +42,23 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
     /// the next region.
     sticky: Option<DistributionSnapshot<'a, 'b>>,
-    /// Whether there was at least one proper block. Otherwise, sticky blocks
-    /// are disabled (or else they'd keep being migrated).
-    stickable: bool,
+    /// Whether sticky blocks are enabled and may migrate with the next frame,
+    /// as the migration would make a difference in the lack of space
+    /// (otherwise, we should not migrate to avoid an infinite loop). This
+    /// begins as `None` as that is unknown until the first sticky block in a
+    /// sequence of sticky blocks. At the first sticky block where `stickable`
+    /// is `None`, this value will be set to `Some(true)` if that and upcoming
+    /// sticky blocks can migrate, or `Some(false)` otherwise. This is then
+    /// reset to `None` on the first proper (non-sticky) block, prompting
+    /// upcoming sticky blocks to reevaluate.
+    ///
+    /// The idea is that, if the first sticky block in a sequence of
+    /// consecutive sticky blocks is disabled, all the remaining blocks also
+    /// are, so we don't get into a situation where they never fit but the
+    /// first one in each page keeps getting disabled, resulting in multiple
+    /// empty pages with just one (disabled) sticky block at the top, when they
+    /// could all have fit together in the same, original page.
+    stickable: Option<bool>,
 }
 
 /// A snapshot of the distribution state.
@@ -314,13 +328,36 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // If the frame is sticky and we haven't remembered a preceding
             // sticky element, make a checkpoint which we can restore should we
             // end on this sticky element.
-            if self.stickable && self.sticky.is_none() {
-                self.sticky = Some(self.snapshot());
+            if self.sticky.is_none() {
+                let stickable = match self.stickable {
+                    Some(stickable) => stickable,
+                    None => {
+                        // The first sticky block within consecutive sticky
+                        // blocks determines whether this group of sticky
+                        // blocks has stickiness disabled or not.
+                        //
+                        // The criteria used here is: if migrating this group
+                        // of sticky blocks together with the "attached" block
+                        // can't improve the lack of space, since we're at the
+                        // start of the region, then we don't do so, and
+                        // stickiness is disabled (at least, for this region).
+                        // Otherwise, migration is allowed.
+                        let can_stick = self.regions.may_progress();
+                        self.stickable = Some(can_stick);
+                        can_stick
+                    }
+                };
+                if stickable {
+                    self.sticky = Some(self.snapshot());
+                }
             }
         } else if !frame.is_empty() {
             // If the frame isn't sticky, we can forget a previous snapshot.
-            self.stickable = true;
             self.sticky = None;
+
+            // We interrupted a group of sticky blocks, if there was one, so
+            // redo the stickable check for the next group of sticky blocks.
+            self.stickable = None;
         }
 
         // Handle footnotes.
