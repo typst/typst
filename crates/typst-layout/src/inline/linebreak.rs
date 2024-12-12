@@ -971,11 +971,13 @@ where
     }
 
     /// Estimates the metrics for the line spanned by the range.
+    #[track_caller]
     fn estimate(&self, range: Range) -> T {
         self.get(range.end) - self.get(range.start)
     }
 
     /// Get the metric at the given byte position.
+    #[track_caller]
     fn get(&self, index: usize) -> T {
         match index.checked_sub(1) {
             None => T::default(),
