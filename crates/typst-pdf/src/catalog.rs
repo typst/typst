@@ -4,6 +4,7 @@ use ecow::eco_format;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use time::PrimitiveDateTime;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
@@ -87,8 +88,14 @@ pub fn write_catalog(
         xmp.pdf_keywords(&joined);
     }
 
-    let date = ctx.document.info.date.unwrap_or(ctx.options.timestamp);
-    let tz = ctx.document.info.date.is_auto();
+    let (date, tz) = match (ctx.document.info.date, ctx.options.timestamp) {
+        (Smart::Custom(date), _) => (date, None),
+        (Smart::Auto, Some(datetime)) => {
+            let (datetime, tz) = convert_utc_datetime_to_local(datetime);
+            (Some(datetime), Some(tz))
+        }
+        _ => (None, None),
+    };
     if let Some(date) = date {
         if let Some(pdf_date) = pdf_date(date, tz) {
             info.creation_date(pdf_date);
@@ -281,7 +288,7 @@ pub(crate) fn write_page_labels(
 }
 
 /// Converts a datetime to a pdf-writer date.
-fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
+fn pdf_date(datetime: Datetime, tz: Option<Timezone>) -> Option<pdf_writer::Date> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut pdf_date = pdf_writer::Date::new(year);
@@ -306,15 +313,21 @@ fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
         pdf_date = pdf_date.second(s);
     }
 
-    if tz {
-        pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0);
+    match tz {
+        Some(Timezone::Utc) => {
+            pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0)
+        }
+        Some(Timezone::Local { hour, minute }) => {
+            pdf_date = pdf_date.utc_offset_hour(hour).utc_offset_minute(minute as u8)
+        }
+        None => {}
     }
 
     Some(pdf_date)
 }
 
 /// Converts a datetime to an xmp-writer datetime.
-fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
+fn xmp_date(datetime: Datetime, tz: Option<Timezone>) -> Option<xmp_writer::DateTime> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
     Some(DateTime {
         year,
@@ -323,6 +336,23 @@ fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
         hour: datetime.hour(),
         minute: datetime.minute(),
         second: datetime.second(),
-        timezone: if tz { Some(Timezone::Utc) } else { None },
+        timezone: tz,
     })
+}
+
+/// Converts a utc datetime to local datetime.
+fn convert_utc_datetime_to_local(datetime: Datetime) -> (Datetime, Timezone) {
+    match (datetime, time::UtcOffset::current_local_offset()) {
+        (Datetime::Datetime(datetime), Ok(current_local_offset)) => {
+            let local = datetime.assume_utc().to_offset(current_local_offset);
+            (
+                Datetime::Datetime(PrimitiveDateTime::new(local.date(), local.time())),
+                Timezone::Local {
+                    hour: current_local_offset.whole_hours(),
+                    minute: current_local_offset.minutes_past_hour(),
+                },
+            )
+        }
+        _ => (datetime, Timezone::Utc),
+    }
 }

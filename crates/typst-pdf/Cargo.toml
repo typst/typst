@@ -33,6 +33,7 @@ subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 ttf-parser = { workspace = true }
 xmp-writer = { workspace = true }
+time = { workspace = true }
 
 [lints]
 workspace = true
