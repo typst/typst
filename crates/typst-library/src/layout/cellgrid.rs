@@ -389,7 +389,7 @@ impl ResolvableCell for Packed<GridCell> {
 
 /// Used for cell-like elements which are aware of their final properties in
 /// the table, and may have property overrides.
-pub trait ResolvableCell {
+trait ResolvableCell {
     /// Resolves the cell's fields, given its coordinates and default grid-wide
     /// fill, align, inset and stroke properties, plus the expected value of
     /// the `breakable` field.
@@ -426,7 +426,7 @@ pub trait ResolvableCell {
 
 /// A grid item, possibly affected by automatic cell positioning. Can be either
 /// a line or a cell.
-pub enum ResolvableGridItem<T: ResolvableCell> {
+enum ResolvableGridItem<T: ResolvableCell> {
     /// A horizontal line in the grid.
     HLine {
         /// The row above which the horizontal line is drawn.
@@ -608,7 +608,7 @@ impl<'a> Entry<'a> {
 }
 
 /// Any grid child, which can be either a header or an item.
-pub enum ResolvableGridChild<T: ResolvableCell, I> {
+enum ResolvableGridChild<T: ResolvableCell, I> {
     Header { repeat: bool, span: Span, items: I },
     Footer { repeat: bool, span: Span, items: I },
     Item(ResolvableGridItem<T>),
@@ -749,7 +749,7 @@ impl<'a> CellGrid<'a> {
     /// must implement Default in order to fill positions in the grid which
     /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
-    pub fn resolve<T, C, I>(
+    fn resolve<T, C, I>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         locator: Locator<'a>,
