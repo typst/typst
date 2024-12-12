@@ -4,7 +4,7 @@ mod repeated;
 mod rowspans;
 
 pub use self::layouter::GridLayouter;
-pub use typst_library::layout::cellgrid::{
+pub use typst_library::layout::{
     grid_to_cellgrid, table_to_cellgrid, Cell, CellGrid, LinePosition, Repeatable,
 };
 

@@ -1,7 +1,7 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::layout::cellgrid::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
+use typst_library::layout::{Footer, Header, Repeatable};
 
 use super::layouter::GridLayouter;
 use super::rowspans::UnbreakableRowGroup;

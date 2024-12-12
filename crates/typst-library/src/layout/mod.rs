@@ -4,8 +4,7 @@ mod abs;
 mod align;
 mod angle;
 mod axes;
-// TODO!
-pub mod cellgrid;
+mod cellgrid;
 mod columns;
 mod container;
 mod corners;
@@ -39,6 +38,7 @@ pub use self::abs::*;
 pub use self::align::*;
 pub use self::angle::*;
 pub use self::axes::*;
+pub use self::cellgrid::*;
 pub use self::columns::*;
 pub use self::container::*;
 pub use self::corners::*;
