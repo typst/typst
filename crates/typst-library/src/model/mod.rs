@@ -1,8 +1,5 @@
 //! Structuring elements that define the document model.
 
-// TODO!
-pub mod grid;
-
 mod bibliography;
 mod cite;
 mod document;

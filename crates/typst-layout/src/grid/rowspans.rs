@@ -5,8 +5,7 @@ use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizi
 use typst_utils::MaybeReverseIter;
 
 use super::layouter::{in_last_with_offset, points, Row, RowPiece};
-use super::repeated::Repeatable;
-use super::{layout_cell, Cell, GridLayouter};
+use super::{layout_cell, Cell, GridLayouter, Repeatable};
 
 /// All information needed to layout a single rowspan.
 pub struct Rowspan {

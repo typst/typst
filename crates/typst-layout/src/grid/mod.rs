@@ -4,7 +4,9 @@ mod repeated;
 mod rowspans;
 
 pub use self::layouter::GridLayouter;
-pub use typst_library::model::grid::{Cell, CellGrid};
+pub use typst_library::layout::cellgrid::{
+    grid_to_cellgrid, table_to_cellgrid, Cell, CellGrid, LinePosition, Repeatable,
+};
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
@@ -17,9 +19,7 @@ use self::layouter::RowPiece;
 use self::lines::{
     generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LineSegment,
 };
-use self::repeated::Repeatable;
 use self::rowspans::{Rowspan, UnbreakableRowGroup};
-use typst_library::model::grid::{grid_to_cellgrid, table_to_cellgrid, LinePosition};
 
 /// Layout the cell into the given regions.
 ///
