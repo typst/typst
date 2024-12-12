@@ -638,6 +638,13 @@ pub struct CellGrid<'a> {
     pub has_gutter: bool,
 }
 
+/// Position of a cell inside a grid.
+///
+/// Given an index `i` and the number of columns `c`,
+/// the x-coordinate of `i` is `i % c` and
+/// the y-coordinate of `i` is `i / c`.
+type Idx = usize;
+
 #[derive(Default)]
 struct State<'a> {
     // We can't just use the cell's index in the 'cells' vector to
@@ -647,7 +654,7 @@ struct State<'a> {
     // Therefore, we use a counter, 'auto_index', to determine the position
     // of the next cell with (x: auto, y: auto). It is only stepped when
     // a cell with (x: auto, y: auto), usually the vast majority, is found.
-    auto_index: usize,
+    auto_index: Idx,
     resolved_cells: Vec<Option<Entry<'a>>>,
     // Lists of lines.
     // Horizontal lines are only pushed later to be able to check for row
@@ -684,8 +691,8 @@ fn resolve_breakable(
         .any(|row| row == &Sizing::Auto)
 }
 
-fn fix_header(cell: &Cell, header: &mut Header, i: Idx, c: usize) {
-    let y = i.xy(c).y;
+fn fix_header(cell: &Cell, header: &mut Header, index: Idx, c: usize) {
+    let y = index / c;
     if y < header.end {
         // Ensure the header expands enough such that
         // all cells inside it, even those added later,
@@ -703,10 +710,10 @@ fn fix_header(cell: &Cell, header: &mut Header, i: Idx, c: usize) {
 fn fix_footer(
     cell: &Cell,
     (end, footer_span, footer): &mut (usize, Span, Footer),
-    i: Idx,
+    index: Idx,
     c: usize,
 ) -> SourceResult<()> {
-    let Axes { x, y } = i.xy(c);
+    let (x, y) = (index % c, index / c);
     let cell_end = y + cell.rowspan.get();
     if y < footer.start && cell_end > footer.start {
         // Don't allow a cell before the footer to span
@@ -876,7 +883,7 @@ impl<'a> CellGrid<'a> {
                 // Calculate the cell's final position based on its requested position
                 let idx = resolve_cell_position(pos, spans, &mut s, c).at(cell.span())?;
                 reserve_space(idx, spans, c, &mut s, cell.span())?;
-                let Axes { x, y } = idx.xy(c);
+                let (x, y) = (idx % c, idx / c);
 
                 let cell_span = cell.span();
                 // Let's resolve the cell so it can determine its own fields
@@ -1022,7 +1029,6 @@ impl<'a> CellGrid<'a> {
         // 4. If any cells before the footer try to span it, error.
         let resolved_cells = s.resolved_cells.into_iter().chain(missing_cells);
         let resolved_cells = resolved_cells.enumerate().map(|(i, cell)| {
-            let i = Idx(i);
             if let Some(cell) = cell {
                 if let Some(parent_cell) = cell.as_cell() {
                     if let Some(header) = &mut header {
@@ -1034,7 +1040,7 @@ impl<'a> CellGrid<'a> {
                 }
                 Ok(cell)
             } else {
-                let Axes { x, y } = i.xy(c);
+                let (x, y) = (i % c, i / c);
 
                 // Ensure all absent entries are affected by show rules and
                 // grid styling by turning them into resolved empty cells.
@@ -1345,7 +1351,7 @@ fn resolve_cell_position(
     // Errors if the position would be too large.
     let cell_index = |x, y: usize| {
         y.checked_mul(columns)
-            .and_then(|row_index| row_index.checked_add(x).map(Idx))
+            .and_then(|row_index| row_index.checked_add(x))
             .ok_or_else(|| HintedString::from(eco_format!("cell position too large")))
     };
     match (cell_x, cell_y) {
@@ -1387,7 +1393,7 @@ fn resolve_cell_position(
                 resolved_index + colspan
             };
 
-            Ok(Idx(resolved_index))
+            Ok(resolved_index)
         }
         // Cell has chosen at least its column.
         (Smart::Custom(cell_x), cell_y) => {
@@ -1404,7 +1410,7 @@ fn resolve_cell_position(
                 // Let's find the first row which has that column available.
                 let mut resolved_y = 0;
                 while let Some(Some(_)) =
-                    s.resolved_cells.get(cell_index(cell_x, resolved_y)?.0)
+                    s.resolved_cells.get(cell_index(cell_x, resolved_y)?)
                 {
                     // Try each row until either we reach an absent position
                     // (`Some(None)`) or an out of bounds position (`None`),
@@ -1417,7 +1423,7 @@ fn resolve_cell_position(
         // Cell has only chosen its row, not its column.
         (Smart::Auto, Smart::Custom(cell_y)) => {
             // Let's find the first column which has that row available.
-            let first_row_pos = cell_index(0, cell_y)?.0;
+            let first_row_pos = cell_index(0, cell_y)?;
             let last_row_pos = first_row_pos
                 .checked_add(columns)
                 .ok_or_else(|| eco_format!("cell position too large"))?;
@@ -1432,7 +1438,6 @@ fn resolve_cell_position(
                     // position.
                     !matches!(s.resolved_cells.get(*possible_index), Some(Some(_)))
                 })
-                .map(Idx)
                 .ok_or_else(|| {
                     eco_format!(
                         "cell could not be placed in row {cell_y} because it was full"
@@ -1447,9 +1452,9 @@ fn resolve_cell_position(
 /// starting with the given initial index.
 fn find_next_empty_row(
     resolved_cells: &[Option<Entry>],
-    initial_index: usize,
+    initial_index: Idx,
     columns: usize,
-) -> usize {
+) -> Idx {
     let mut resolved_index = initial_index.next_multiple_of(columns);
     while resolved_cells
         .get(resolved_index..resolved_index + columns)
@@ -1596,7 +1601,7 @@ fn reserve_space(
     s: &mut State,
     span: Span,
 ) -> SourceResult<()> {
-    let x = i.xy(c).x;
+    let x = i % c;
     let (colspan, rowspan) = (spans.x.get(), spans.y.get());
 
     if colspan > c - x {
@@ -1609,7 +1614,7 @@ fn reserve_space(
 
     let Some(largest_index) = c
         .checked_mul(rowspan - 1)
-        .and_then(|full_rowspan_offset| i.0.checked_add(full_rowspan_offset))
+        .and_then(|full_rowspan_offset| i.checked_add(full_rowspan_offset))
         .and_then(|last_row_pos| last_row_pos.checked_add(colspan - 1))
     else {
         bail!(
@@ -1649,18 +1654,9 @@ fn reserve_space(
     Ok(())
 }
 
-#[derive(Copy, Clone)]
-struct Idx(usize);
-
-impl Idx {
-    fn xy(&self, columns: usize) -> Axes<usize> {
-        Axes::new(self.0 % columns, self.0 / columns)
-    }
-}
-
 fn insert_cell<'a>(
     cell: Cell<'a>,
-    resolved_index: Idx,
+    index: Idx,
     c: usize,
     s: &mut State<'a>,
     span: Span,
@@ -1668,13 +1664,13 @@ fn insert_cell<'a>(
     let rowspan = cell.rowspan.get();
     let colspan = cell.colspan.get();
 
-    let Axes { x, y } = resolved_index.xy(c);
+    let (x, y) = (index % c, index / c);
 
     // The vector is large enough to contain the cell, so we can
     // just index it directly to access the position it will be
     // placed in. However, we still need to ensure we won't try to
     // place a cell where there already is one.
-    let slot = &mut s.resolved_cells[resolved_index.0];
+    let slot = &mut s.resolved_cells[index];
     if slot.is_some() {
         bail!(
             span,
@@ -1690,7 +1686,7 @@ fn insert_cell<'a>(
     // pointing to the original cell as its parent.
     for rowspan_offset in 0..rowspan {
         let spanned_y = y + rowspan_offset;
-        let first_row_index = resolved_index.0 + c * rowspan_offset;
+        let first_row_index = index + c * rowspan_offset;
         for (colspan_offset, slot) in
             s.resolved_cells[first_row_index..][..colspan].iter_mut().enumerate()
         {
@@ -1706,7 +1702,7 @@ fn insert_cell<'a>(
                     hint: "try specifying your cells in a different order or reducing the cell's rowspan or colspan"
                 )
             }
-            *slot = Some(Entry::Merged { parent: resolved_index.0 });
+            *slot = Some(Entry::Merged { parent: index });
         }
     }
     Ok(())
