@@ -8,6 +8,73 @@ $ pi(a,) $
 $ pi(a,b) $
 $ pi(a,b,) $
 
+--- math-call-named-args ---
+#let func1(my: none) = my
+#let func2(_my: none) = _my
+#let func3(my-body: none) = my-body
+#let func4(_my-body: none) = _my-body
+#let func5(m: none) = m
+$ func1(my: a) $
+$ func2(_my: a) $
+$ func3(my-body: a) $
+$ func4(_my-body: a) $
+$ func5(m: a) $
+
+--- math-call-named-args-duplicate ---
+#let func(my: none) = my
+// Error: 15-17 duplicate argument: my
+$ func(my: a, my: b) $
+
+--- math-call-named-single-underscore ---
+#let func(x) = x
+// Error: 8-9 unexpected underscore
+$ func(_: a) $
+
+--- math-call-named-single-char-error ---
+#let func(m: none) = m
+// Error: 8-13 unexpected argument
+$ func(m : a) $
+
+--- math-call-named-args-repr ---
+#let args(..body) = body
+#let check(it, r) = test-repr(it.body.text, r)
+#check($args(_a: a)$, "(_a: [a])")
+#check($args(_a-b: a)$, "(_a-b: [a])")
+#check($args(a-b: a)$, "(a-b: [a])")
+#check($args(a-b-c: a)$, "(a-b-c: [a])")
+#check($args(a--c: a)$, "(a--c: [a])")
+#check($args(a: a-b)$, "(a: sequence([a], [−], [b]))")
+#check($args(a-b: a-b)$, "(a-b: sequence([a], [−], [b]))")
+#check($args(a-b)$, "(sequence([a], [−], [b]))")
+
+--- math-call-spread-content-error ---
+#let args(..body) = body
+// Error: 7-16 cannot spread content
+$args(..(a + b))$
+
+--- math-call-spread-multiple-exprs ---
+#let args(..body) = body
+// Error: 11-12 unexpected text
+$args(..a + b)$
+
+--- math-call-spread-unexpected-dots ---
+#let args(..body) = body
+// Error: 8-10 unexpected dots
+$args(#..range(1, 5).chunks(2))$
+
+--- math-call-spread-repr ---
+#let args(..body) = body
+#let check(it, r) = test-repr(it.body.text, r)
+#check($args(..#range(0, 4).chunks(2))$, "((0, 1), (2, 3))")
+#check($#args(range(1, 5).chunks(2))$, "(((1, 2), (3, 4)))")
+#check($#args(..range(1, 5).chunks(2))$, "((1, 2), (3, 4))")
+#check($args(#(..range(2, 6).chunks(2)))$, "(((2, 3), (4, 5)))")
+#let nums = range(0, 4).chunks(2)
+#check($args(..nums)$, "((0, 1), (2, 3))")
+#check($args(1, 2; 3, 4, ..#range(0, 4))$, "(([1], [2]), [3], [4], 0, 1, 2, 3)")
+#check($args(1, 2; 3, 4, ..#range(0, 4);)$, "(([1], [2]), [3], [4], 0, 1, 2, 3)")
+#check($args(1, 2; 3, 4, ..#range(0, 4),)$, "(([1], [2]), [3], [4], 0, 1, 2, 3)")
+
 --- math-call-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
@@ -34,6 +101,33 @@ $ mat(#"code"; "wins") $
 #check($args(a;b)$, "arguments(([a],), ([b],))")
 #check($args(a,b;c)$, "arguments(([a], [b]), ([c],))")
 #check($args(a,b;c,d;e,f)$, "arguments(([a], [b]), ([c], [d]), ([e], [f]))")
+
+--- math-call-2d-named-repr ---
+#let args(..body) = (body.pos(), body.named())
+#let check(it, r) = test-repr(it.body.text, r)
+#check($args(a: b)$, "((), (a: [b]))")
+#check($args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
+#check($args(a: b, 1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, a: b, 2; 3, 4)$, "(([1], ([2],), ([3], [4])), (a: [b]))")
+#check($args(1, 2, a: b; 3, 4)$, "(([1], [2], (), ([3], [4])), (a: [b]))")
+#check($args(1, 2; a: b, 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), [3], ([4],)), (a: [b]))")
+#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), [3], [4]), (a: [b]))")
+#check($args(a: b, 1, 2, 3, c: d)$, "(([1], [2], [3]), (a: [b], c: [d]))")
+#check($args(1, 2, 3; a: b)$, "((([1], [2], [3]),), (a: [b]))")
+#check($args(a-b: a,, e:f;; d)$, "(([], (), ([],), ([d],)), (a-b: [a], e: [f]))")
+#check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
+
+--- math-call-2d-escape-repr ---
+#let args(..body) = body
+#let check(it, r) = test-repr(it.body.text, r)
+#check($args(a\;b)$, "(sequence([a], [;], [b]))")
+#check($args(a\,b;c)$, "((sequence([a], [,], [b]),), ([c],))")
+#check($args(b\;c\,d;e)$, "((sequence([b], [;], [c], [,], [d]),), ([e],))")
+#check($args(a\: b)$, "(sequence([a], [:], [ ], [b]))")
+#check($args(a : b)$, "(sequence([a], [ ], [:], [ ], [b]))")
+#check($args(\..a)$, "(sequence([.], [.], [a]))")
+#check($args(.. a)$, "(sequence([.], [.], [ ], [a]))")
 
 --- math-call-2d-repr-structure ---
 #let args(..body) = body

@@ -54,6 +54,55 @@ $ a + mat(delim: #none, 1, 2; 3, 4) + b $
   $ mat(1, 2; 3, 4; delim: "[") $,
 )
 
+--- math-mat-spread ---
+// Test argument spreading in matrix.
+$ mat(..#range(1, 5).chunks(2))
+  mat(#(..range(2).map(_ => range(2)))) $
+
+#let nums = ((1,) * 5).intersperse(0).chunks(3)
+$ mat(..nums, delim: "[") $
+
+--- math-mat-spread-complex ---
+// Test argument spreading in matrix in complex situations.
+$ mat(delim: "|",
+  1, 2, ..., 10;
+  ..#range(0, 1).map(i => range(i, i + 4)),
+  ..#range(0, 1).map(i => range(i, i + 4)),
+  1, 2, ..., 10,
+) $
+
+--- math-mat-spread-expected-array-error-1 ---
+// Error: 13-14 expected array, found content
+$ mat(1, 2; 3, ..#range(0, 2)) $
+
+--- math-mat-spread-expected-array-error-2 ---
+#let nums = range(0, 2).map(i => (i, i+1))
+// Error: 20 expected array, found content
+$ mat(1, 2; ..nums;, delim: #none) $
+
+--- math-mat-spread-code-error ---
+// Error: 19-24 unexpected identifier
+$ mat(1, 2; ..#1; delim: "|") $
+
+--- math-mat-spread-edge-cases-1 ---
+// Test argument spreading in matrix edge cases.
+$ mat(..#range(0, 1).map(i => (i, i+1)), delim: "|",)
+  mat(..#range(0, 1).map(i => (i, i+1));,delim: "|",) $
+$ mat(..#range(0, 1).map(i => (i, i+1)))
+  mat(..#range(0, 1).map(i => (i, i+1));)
+  mat(..#range(0, 1).map(i => (i, i+1));,)
+  mat(..#range(0, 1).map(i => (i, i+1)),) $
+
+--- math-mat-spread-edge-cases-2 ---
+// Test argument spreading in matrix edge cases.
+#let nums = range(0, 2).map(i => (i, i+1))
+$ mat(..nums, delim: "|",)
+  mat(..nums; delim: "|",) $
+$ mat(..nums)
+  mat(..nums;)
+  mat(..nums;,)
+  mat(..nums,) $
+
 --- math-mat-gap ---
 #set math.mat(gap: 1em)
 $ mat(1, 2; 3, 4) $
@@ -61,6 +110,8 @@ $ mat(1, 2; 3, 4) $
 --- math-mat-gaps ---
 #set math.mat(row-gap: 1em, column-gap: 2em)
 $ mat(1, 2; 3, 4) $
+$ mat(column-gap: #1em, 1, 2; 3, 4)
+  mat(row-gap: #2em, 1, 2; 3, 4) $
 
 --- math-mat-augment ---
 // Test matrix line drawing (augmentation).

@@ -27,6 +27,8 @@ pub(super) enum LexMode {
     Markup,
     /// Math atoms, operators, etc.
     Math,
+    /// Math argument list.
+    MathArgs,
     /// Keywords, literals and operators.
     Code,
 }
@@ -113,10 +115,16 @@ impl Lexer<'_> {
                 );
                 kind
             }
-            Some('`') if self.mode != LexMode::Math => return self.raw(),
+            Some('`') if !matches!(self.mode, LexMode::Math | LexMode::MathArgs) => {
+                return self.raw()
+            }
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => match self.math(start, c) {
+                    (kind, None) => kind,
+                    (kind, Some(node)) => return (kind, node),
+                },
+                LexMode::MathArgs => match self.math_args(start, c) {
                     (kind, None) => kind,
                     (kind, Some(node)) => return (kind, node),
                 },
@@ -616,6 +624,10 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '*' | '-' | '~' => SyntaxKind::MathShorthand,
 
+            ',' => SyntaxKind::Comma,
+            ';' => SyntaxKind::Semicolon,
+            ')' => SyntaxKind::RightParen,
+
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
@@ -684,6 +696,46 @@ impl Lexer<'_> {
             self.s.jump(start + len);
         }
         SyntaxKind::Text
+    }
+}
+
+/// Math argument list.
+impl Lexer<'_> {
+    fn math_args(&mut self, start: usize, c: char) -> (SyntaxKind, Option<SyntaxNode>) {
+        match c {
+            c if self.is_math_named_arg(start, c) => (SyntaxKind::Ident, None),
+            '.' if self.is_math_spread_arg() => (SyntaxKind::Dots, None),
+            _ => self.math(start, c),
+        }
+    }
+
+    /// Handle named arguments in math function call.
+    fn is_math_named_arg(&mut self, start: usize, c: char) -> bool {
+        let cursor = self.s.cursor();
+        if is_id_start(c) {
+            self.s.eat_while(is_id_continue);
+            // Check that identifier is not just `_` and that a colon directly
+            // proceeds the identifier.
+            if self.s.from(start) != "_" && self.s.at(':') {
+                return true;
+            }
+            self.s.jump(cursor);
+        }
+        false
+    }
+
+    /// Handle spread arguments in math function call.
+    fn is_math_spread_arg(&mut self) -> bool {
+        let cursor = self.s.cursor();
+        if self.s.eat_if('.') {
+            // Check that neither a space nor a dot follows the spread syntax.
+            // A dot would clash with the `...` math shorthand.
+            if !self.space_or_end() && !self.s.at('.') {
+                return true;
+            }
+            self.s.jump(cursor);
+        }
+        false
     }
 }
 

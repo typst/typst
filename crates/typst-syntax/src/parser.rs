@@ -217,16 +217,20 @@ fn math(p: &mut Parser, stop_set: SyntaxSet) {
     p.wrap(m, SyntaxKind::Math);
 }
 
-/// Parses a sequence of math expressions.
-fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) {
+/// Parses a sequence of math expressions. Returns the number of expressions
+/// parsed.
+fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+    let mut count = 0;
     while !p.at_set(stop_set) {
         if p.at_set(set::MATH_EXPR) {
             math_expr(p);
+            count += 1;
         } else {
             p.unexpected();
         }
     }
+    count
 }
 
 /// Parses a single math expression: This includes math elements like
@@ -248,10 +252,21 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             // Parse a function call for an identifier or field access.
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
             {
-                math_args(p);
+                let m1 = p.marker();
+                p.enter_modes(LexMode::MathArgs, AtNewline::Continue, |p| {
+                    p.convert_and_eat(SyntaxKind::LeftParen);
+                    math_args(p);
+                    p.expect_closing_delimiter(m1, SyntaxKind::RightParen);
+                });
+                p.wrap(m1, SyntaxKind::Args);
+
                 p.wrap(m, SyntaxKind::FuncCall);
                 continuable = false;
             }
+        }
+
+        SyntaxKind::Comma | SyntaxKind::Semicolon | SyntaxKind::RightParen => {
+            p.convert_and_eat(SyntaxKind::Text);
         }
 
         SyntaxKind::Text | SyntaxKind::MathShorthand => {
@@ -398,6 +413,9 @@ fn math_delimited(p: &mut Parser) {
     while !p.at_set(syntax_set!(Dollar, End)) {
         if math_class(p.current_text()) == Some(MathClass::Closing) {
             p.wrap(m2, SyntaxKind::Math);
+            if p.at(SyntaxKind::RightParen) {
+                p.convert(SyntaxKind::Text);
+            }
             p.eat();
             p.wrap(m, SyntaxKind::MathDelimited);
             return;
@@ -452,87 +470,87 @@ fn math_class(text: &str) -> Option<MathClass> {
 
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
 fn math_args(p: &mut Parser) {
-    let m = p.marker();
-    p.convert_and_eat(SyntaxKind::LeftParen);
-
-    let mut namable = true;
-    let mut named = None;
+    let mut positional = true;
+    let mut array_last = true;
     let mut has_arrays = false;
-    let mut array = p.marker();
-    let mut arg = p.marker();
-    // The number of math expressions per argument.
-    let mut count = 0;
 
-    while !p.at_set(syntax_set!(Dollar, End)) {
-        if namable
-            && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
-            && p.text[p.current_end()..].starts_with(':')
-        {
-            p.convert_and_eat(SyntaxKind::Ident);
-            p.convert_and_eat(SyntaxKind::Colon);
-            named = Some(arg);
-            arg = p.marker();
-            array = p.marker();
-        }
+    let mut maybe_array_start = p.marker();
+    let mut seen = HashSet::new();
+    while !p.at_set(syntax_set!(End, Dollar, RightParen)) {
+        positional = math_arg(p, &mut seen);
 
-        match p.current_text() {
-            ")" => break,
-            ";" => {
-                maybe_wrap_in_math(p, arg, count, named);
-                p.wrap(array, SyntaxKind::Array);
-                p.convert_and_eat(SyntaxKind::Semicolon);
-                array = p.marker();
-                arg = p.marker();
-                count = 0;
-                namable = true;
-                named = None;
-                has_arrays = true;
-                continue;
-            }
-            "," => {
-                maybe_wrap_in_math(p, arg, count, named);
-                p.convert_and_eat(SyntaxKind::Comma);
-                arg = p.marker();
-                count = 0;
-                namable = true;
-                if named.is_some() {
-                    array = p.marker();
-                    named = None;
+        match p.current() {
+            SyntaxKind::Comma => {
+                p.eat();
+                if !positional {
+                    maybe_array_start = p.marker();
                 }
-                continue;
             }
-            _ => {}
-        }
+            SyntaxKind::Semicolon => {
+                if !positional {
+                    maybe_array_start = p.marker();
+                }
 
-        if p.at_set(set::MATH_EXPR) {
-            math_expr(p);
-            count += 1;
-        } else {
-            p.unexpected();
+                // Parses an array: `a, b, c;`.
+                // The semicolon merges preceding arguments separated by commas into an
+                // array argument.
+                p.wrap(maybe_array_start, SyntaxKind::Array);
+                p.eat();
+                maybe_array_start = p.marker();
+                has_arrays = true;
+            }
+            SyntaxKind::End | SyntaxKind::Dollar | SyntaxKind::RightParen => {
+                // Check if we have reached the end, after the last argument.
+                if has_arrays && positional {
+                    p.wrap(maybe_array_start, SyntaxKind::Array);
+                    // This is so we don't wrap as an array twice after the loop.
+                    array_last = false;
+                }
+            }
+            _ => p.unexpected(),
         }
-
-        namable = false;
     }
 
-    if arg != p.marker() {
-        maybe_wrap_in_math(p, arg, count, named);
-        if named.is_some() {
-            array = p.marker();
+    // Check if we need to wrap the preceding arguments in an array.
+    if array_last && maybe_array_start != p.marker() && has_arrays && positional {
+        p.wrap(maybe_array_start, SyntaxKind::Array);
+    }
+}
+
+/// Parses a single argument in a math argument list.
+///
+/// Returns whether the argument parsed was positional or not.
+fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
+    let m = p.marker();
+
+    // Parses a spread argument: `..args`.
+    if p.eat_if(SyntaxKind::Dots) {
+        math_expr(p);
+        p.wrap(m, SyntaxKind::Spread);
+        return false;
+    }
+
+    let mut positional = false;
+
+    // Parses a named argument: `thickness: #12pt`.
+    if p.at(SyntaxKind::Ident) {
+        let text = p.current_text();
+        p.eat();
+        p.convert_and_eat(SyntaxKind::Colon);
+        if !seen.insert(text) {
+            p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
         }
-    }
-
-    if has_arrays && array != p.marker() {
-        p.wrap(array, SyntaxKind::Array);
-    }
-
-    if p.at(SyntaxKind::Text) && p.current_text() == ")" {
-        p.convert_and_eat(SyntaxKind::RightParen);
     } else {
-        p.expected("closing paren");
-        p.balanced = false;
+        positional = true;
     }
 
-    p.wrap(m, SyntaxKind::Args);
+    // Parses a normal position argument.
+    let arg = p.marker();
+    let count = math_exprs(p, syntax_set!(End, Comma, Semicolon, RightParen));
+    let named = if positional { None } else { Some(m) };
+    maybe_wrap_in_math(p, arg, count, named);
+
+    positional
 }
 
 /// Wrap math function arguments to join adjacent math content or create an
@@ -1764,10 +1782,15 @@ impl<'s> Parser<'s> {
         self.eat();
     }
 
-    /// Convert the current token's [`SyntaxKind`] and eat it.
-    fn convert_and_eat(&mut self, kind: SyntaxKind) {
+    /// Convert the current token's [`SyntaxKind`].
+    fn convert(&mut self, kind: SyntaxKind) {
         // Only need to replace the node here.
         self.token.node.convert_to_kind(kind);
+    }
+
+    /// Convert the current token's [`SyntaxKind`] and eat it.
+    fn convert_and_eat(&mut self, kind: SyntaxKind) {
+        self.convert(kind);
         self.eat();
     }
 
