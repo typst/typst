@@ -493,7 +493,7 @@ impl<'a> Cell<'a> {
 
 /// Represents an explicit raster line (horizontal or vertical) specified by the
 /// user.
-pub struct RasterLine {
+pub struct Line {
     /// The index of the track after this line. This will be the index of the
     /// row a horizontal line is above of, or of the column right after a
     /// vertical line.
@@ -522,13 +522,13 @@ pub struct RasterLine {
 }
 
 /// A repeatable raster header. Starts at the first row.
-pub struct RasterHeader {
+pub struct Header {
     /// The index after the last row included in this header.
     pub end: usize,
 }
 
 /// A repeatable raster footer. Stops at the last row.
-pub struct RasterFooter {
+pub struct Footer {
     /// The first row included in this footer.
     pub start: usize,
 }
@@ -612,15 +612,15 @@ pub struct Raster<'a> {
     /// The vertical lines before each column, or on the end border.
     /// Gutter columns are not included.
     /// Contains up to 'cols_without_gutter.len() + 1' vectors of lines.
-    pub vlines: Vec<Vec<RasterLine>>,
+    pub vlines: Vec<Vec<Line>>,
     /// The horizontal lines on top of each row, or on the bottom border.
     /// Gutter rows are not included.
     /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
-    pub hlines: Vec<Vec<RasterLine>>,
+    pub hlines: Vec<Vec<Line>>,
     /// The repeatable header of this raster.
-    pub header: Option<Repeatable<RasterHeader>>,
+    pub header: Option<Repeatable<Header>>,
     /// The repeatable footer of this raster.
-    pub footer: Option<Repeatable<RasterFooter>>,
+    pub footer: Option<Repeatable<Footer>>,
     /// Whether this raster has gutters.
     pub has_gutter: bool,
 }
@@ -651,10 +651,10 @@ struct State<'a> {
     // The additional boolean indicates whether the hline had an automatic
     // 'y' index, and is used to change the index of hlines at the top of a
     // header or footer.
-    pending_hlines: Vec<(Span, RasterLine, bool)>,
+    pending_hlines: Vec<(Span, Line, bool)>,
 
     // For consistency, only push vertical lines later as well.
-    pending_vlines: Vec<(Span, RasterLine)>,
+    pending_vlines: Vec<(Span, Line)>,
 
     start_new_row: bool,
 }
@@ -678,7 +678,7 @@ fn resolve_breakable(
         .any(|row| row == &Sizing::Auto)
 }
 
-fn fix_header(cell: &Cell, header: &mut RasterHeader, index: Idx, c: usize) {
+fn fix_header(cell: &Cell, header: &mut Header, index: Idx, c: usize) {
     let y = index / c;
     if y < header.end {
         // Ensure the header expands enough such that
@@ -696,7 +696,7 @@ fn fix_header(cell: &Cell, header: &mut RasterHeader, index: Idx, c: usize) {
 
 fn fix_footer(
     cell: &Cell,
-    (end, footer_span, footer): &mut (usize, Span, RasterFooter),
+    (end, footer_span, footer): &mut (usize, Span, Footer),
     index: Idx,
     c: usize,
 ) -> SourceResult<()> {
@@ -771,12 +771,12 @@ impl<'a> Raster<'a> {
 
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
 
-        let mut header: Option<RasterHeader> = None;
+        let mut header: Option<Header> = None;
         let mut repeat_header = false;
 
         // Stores where the footer is supposed to end, its span, and the
         // actual footer structure.
-        let mut footer: Option<(usize, Span, RasterFooter)> = None;
+        let mut footer: Option<(usize, Span, Footer)> = None;
         let mut repeat_footer = false;
 
         // We have to rebuild the raster to account for arbitrary positions.
@@ -934,7 +934,7 @@ impl<'a> Raster<'a> {
                     );
                 }
 
-                header = Some(RasterHeader {
+                header = Some(Header {
                     // Later on, we have to correct this number in case there
                     // is gutter. But only once all cells have been analyzed
                     // and the header has fully expanded in the fixup loop
@@ -949,7 +949,7 @@ impl<'a> Raster<'a> {
                 footer = Some((
                     child_end,
                     child_span,
-                    RasterFooter {
+                    Footer {
                         // Later on, we have to correct this number in case there
                         // is gutter, but only once all cells have been analyzed
                         // and the header's and footer's exact boundaries are
@@ -1135,10 +1135,10 @@ impl<'a> Raster<'a> {
     pub fn new_internal(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        vlines: Vec<Vec<RasterLine>>,
-        hlines: Vec<Vec<RasterLine>>,
-        header: Option<Repeatable<RasterHeader>>,
-        footer: Option<Repeatable<RasterFooter>>,
+        vlines: Vec<Vec<Line>>,
+        hlines: Vec<Vec<Line>>,
+        header: Option<Repeatable<Header>>,
+        footer: Option<Repeatable<Footer>>,
         entries: Vec<Entry<'a>>,
     ) -> Self {
         let mut cols = vec![];
@@ -1521,7 +1521,7 @@ fn item_to_cell<T: ResolvableCell>(
             if end.is_some_and(|end| end.get() < start) {
                 bail!(span, "line cannot end before it starts");
             }
-            let line = RasterLine { index: y, start, end, stroke, position };
+            let line = Line { index: y, start, end, stroke, position };
 
             // Since the amount of rows is dynamic, delay placing
             // hlines until after all cells were placed so we can
@@ -1569,7 +1569,7 @@ fn item_to_cell<T: ResolvableCell>(
             if end.is_some_and(|end| end.get() < start) {
                 bail!(span, "line cannot end before it starts");
             }
-            let line = RasterLine { index: x, start, end, stroke, position };
+            let line = Line { index: x, start, end, stroke, position };
 
             // For consistency with hlines, we only push vlines to
             // the final vector of vlines after processing every
@@ -1695,20 +1695,20 @@ fn insert_cell<'a>(
     Ok(())
 }
 
-type HvLines = (Vec<Vec<RasterLine>>, Vec<Vec<RasterLine>>);
+type HvLines = (Vec<Vec<Line>>, Vec<Vec<Line>>);
 
 /// Populate the final lists of lines.
 fn populate(
     c: usize,
     row_amount: usize,
     has_gutter: bool,
-    pending_hlines: Vec<(Span, RasterLine, bool)>,
-    pending_vlines: Vec<(Span, RasterLine)>,
+    pending_hlines: Vec<(Span, Line, bool)>,
+    pending_vlines: Vec<(Span, Line)>,
 ) -> SourceResult<HvLines> {
     // For each line type (horizontal or vertical), we keep a vector for
     // every group of lines with the same index.
-    let mut hlines: Vec<Vec<RasterLine>> = vec![];
-    let mut vlines: Vec<Vec<RasterLine>> = vec![];
+    let mut hlines: Vec<Vec<Line>> = vec![];
+    let mut vlines: Vec<Vec<Line>> = vec![];
 
     for (line_span, line, _) in pending_hlines {
         let y = line.index;
@@ -1732,7 +1732,7 @@ fn populate(
             // Note that placing after the last row is also the same as
             // just placing on the raster's bottom border, even with
             // gutter.
-            RasterLine {
+            Line {
                 index: y + 1,
                 position: LinePosition::Before,
                 ..line
@@ -1769,7 +1769,7 @@ fn populate(
             // Note that placing after the last column is also the
             // same as just placing on the raster's end border, even
             // with gutter.
-            RasterLine {
+            Line {
                 index: x + 1,
                 position: LinePosition::Before,
                 ..line

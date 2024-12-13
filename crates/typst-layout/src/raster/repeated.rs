@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::layout::raster::{RasterFooter, RasterHeader, Repeatable};
+use typst_library::layout::raster::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
 use super::rowspans::UnbreakableRowGroup;
@@ -11,7 +11,7 @@ impl Layouter<'_> {
     /// Skips regions as necessary.
     pub fn layout_header(
         &mut self,
-        header: &RasterHeader,
+        header: &Header,
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
@@ -55,7 +55,7 @@ impl Layouter<'_> {
     /// Simulate the header's group of rows.
     pub fn simulate_header(
         &self,
-        header: &RasterHeader,
+        header: &Header,
         regions: &Regions<'_>,
         engine: &mut Engine,
         disambiguator: usize,
@@ -77,7 +77,7 @@ impl Layouter<'_> {
     /// Updates `self.footer_height` by simulating the footer, and skips to fitting region.
     pub fn prepare_footer(
         &mut self,
-        footer: &RasterFooter,
+        footer: &Footer,
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
@@ -111,7 +111,7 @@ impl Layouter<'_> {
     /// They are unbreakable.
     pub fn layout_footer(
         &mut self,
-        footer: &RasterFooter,
+        footer: &Footer,
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
@@ -132,7 +132,7 @@ impl Layouter<'_> {
     // Simulate the footer's group of rows.
     pub fn simulate_footer(
         &self,
-        footer: &RasterFooter,
+        footer: &Footer,
         regions: &Regions<'_>,
         engine: &mut Engine,
         disambiguator: usize,

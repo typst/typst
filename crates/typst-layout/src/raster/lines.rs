@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
-use typst_library::layout::raster::{Raster, RasterLine, Repeatable};
+use typst_library::layout::raster::{Line, Raster, Repeatable};
 use typst_library::layout::Abs;
 use typst_library::visualize::Stroke;
 
@@ -93,7 +93,7 @@ where
         + 'grid,
     I: IntoIterator<Item = (usize, Abs)>,
     I::IntoIter: 'grid,
-    L: IntoIterator<Item = &'grid RasterLine>,
+    L: IntoIterator<Item = &'grid Line>,
     L::IntoIter: Clone + 'grid,
 {
     // The segment currently being drawn.
@@ -1094,14 +1094,14 @@ mod test {
                     tracks,
                     x,
                     &[
-                        RasterLine {
+                        Line {
                             index: x,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
                             position: LinePosition::Before
                         },
-                        RasterLine {
+                        Line {
                             index: x,
                             start: 0,
                             end: None,
@@ -1442,14 +1442,14 @@ mod test {
                     tracks,
                     y,
                     &[
-                        RasterLine {
+                        Line {
                             index: y,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
                             position: LinePosition::Before
                         },
-                        RasterLine {
+                        Line {
                             index: y,
                             start: 0,
                             end: None,
