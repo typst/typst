@@ -20,8 +20,8 @@ use typst_utils::LazyHash;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, Dict, NativeElement, Packed, Show,
-    Smart, StyleChain,
+    cast, elem, func, scope, AutoValue, Bytes, Cast, Content, Dict, NativeElement,
+    Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
 use crate::loading::Readable;
@@ -103,6 +103,12 @@ pub struct ImageElem {
     /// output.
     #[default(false)]
     pub flatten_text: bool,
+
+    /// A hint to the viewer how it should scale the image.
+    ///
+    /// **Note:** This option may be ignored and results look different
+    /// depending on the format and viewer.
+    pub scaling: ImageScaling,
 }
 
 #[scope]
@@ -141,6 +147,12 @@ impl ImageElem {
         /// How the image should adjust itself to a given area.
         #[named]
         fit: Option<ImageFit>,
+        /// Whether text in SVG images should be converted into paths.
+        #[named]
+        flatten_text: Option<bool>,
+        /// How the image should be scaled by the viewer.
+        #[named]
+        scaling: Option<ImageScaling>,
     ) -> StrResult<Content> {
         let mut elem = ImageElem::new(EcoString::new(), source);
         if let Some(format) = format {
@@ -157,6 +169,15 @@ impl ImageElem {
         }
         if let Some(fit) = fit {
             elem.push_fit(fit);
+        }
+        if let Some(fit) = fit {
+            elem.push_fit(fit);
+        }
+        if let Some(flatten_text) = flatten_text {
+            elem.push_flatten_text(flatten_text);
+        }
+        if let Some(scaling) = scaling {
+            elem.push_scaling(scaling);
         }
         Ok(elem.pack().spanned(span))
     }
@@ -208,6 +229,8 @@ struct Repr {
     kind: ImageKind,
     /// A text describing the image.
     alt: Option<EcoString>,
+    /// The scaling algorithm to use.
+    scaling: ImageScaling,
 }
 
 impl Image {
@@ -247,7 +270,11 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt: options.alt.clone() }))))
+        Ok(Self(Arc::new(LazyHash::new(Repr {
+            kind,
+            alt: options.alt.clone(),
+            scaling: options.scaling,
+        }))))
     }
 
     /// The format of the image.
@@ -291,6 +318,11 @@ impl Image {
         self.0.alt.as_deref()
     }
 
+    /// The image scaling algorithm to use for this image.
+    pub fn scaling(&self) -> ImageScaling {
+        self.0.scaling
+    }
+
     /// The decoded image.
     pub fn kind(&self) -> &ImageKind {
         &self.0.kind
@@ -304,6 +336,7 @@ impl Debug for Image {
             .field("width", &self.width())
             .field("height", &self.height())
             .field("alt", &self.alt())
+            .field("scaling", &self.scaling())
             .finish()
     }
 }
@@ -384,6 +417,31 @@ cast! {
     v: PixmapFormat => Self::Pixmap(v),
 }
 
+/// The image scaling algorithm a viewer should use.
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ImageScaling {
+    /// Use the default scaling algorithm.
+    #[default]
+    Auto,
+    /// Scale photos with a smoothing algorithm such as bilinear interpolation.
+    Smooth,
+    /// Scale with nearest neighbor or similar to preserve the pixelated look
+    /// of the image.
+    Pixelated,
+}
+
+cast! {
+    ImageScaling,
+    self => match self {
+        ImageScaling::Auto => Value::Auto,
+        ImageScaling::Pixelated => "pixelated".into_value(),
+        ImageScaling::Smooth => "smooth".into_value(),
+    },
+    _: AutoValue => ImageScaling::Auto,
+    "pixelated" => ImageScaling::Pixelated,
+    "smooth" => ImageScaling::Smooth,
+}
+
 /// A kind of image.
 #[derive(Hash)]
 pub enum ImageKind {
@@ -397,6 +455,7 @@ pub enum ImageKind {
 
 pub struct ImageOptions<'a> {
     pub alt: Option<EcoString>,
+    pub scaling: ImageScaling,
     pub world: Option<Tracked<'a, dyn World + 'a>>,
     pub families: &'a [&'a str],
     pub flatten_text: bool,
@@ -406,6 +465,7 @@ impl Default for ImageOptions<'_> {
     fn default() -> Self {
         ImageOptions {
             alt: None,
+            scaling: ImageScaling::Auto,
             world: None,
             families: &[],
             flatten_text: false,
@@ -416,6 +476,7 @@ impl Default for ImageOptions<'_> {
 impl Hash for ImageOptions<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.alt.hash(state);
+        self.scaling.hash(state);
         self.families.hash(state);
         self.flatten_text.hash(state);
     }

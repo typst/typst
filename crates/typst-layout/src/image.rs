@@ -65,6 +65,7 @@ pub fn layout_image(
             world: Some(engine.world),
             families: &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
             flatten_text: elem.flatten_text(styles),
+            scaling: elem.scaling(styles),
         },
     )
     .at(span)?;

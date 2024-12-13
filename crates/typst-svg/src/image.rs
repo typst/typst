@@ -6,7 +6,7 @@ use image::error::UnsupportedError;
 use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
-    Image, ImageFormat, ImageKind, RasterFormat, VectorFormat,
+    Image, ImageFormat, ImageKind, ImageScaling, RasterFormat, VectorFormat,
 };
 
 use crate::SVGRenderer;
@@ -20,6 +20,17 @@ impl SVGRenderer {
         self.xml.write_attribute("width", &size.x.to_pt());
         self.xml.write_attribute("height", &size.y.to_pt());
         self.xml.write_attribute("preserveAspectRatio", "none");
+        match image.scaling() {
+            ImageScaling::Auto => {}
+            ImageScaling::Smooth => {
+                // This is still experimental and not implemented in all major browsers[^1].
+                // [^1]: https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering#browser_compatibility
+                self.xml.write_attribute("style", "image-rendering: smooth")
+            }
+            ImageScaling::Pixelated => {
+                self.xml.write_attribute("style", "image-rendering: pixelated")
+            }
+        }
         self.xml.end_element();
     }
 }

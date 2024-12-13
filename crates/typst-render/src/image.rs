@@ -4,7 +4,7 @@ use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use typst_library::layout::Size;
-use typst_library::visualize::{Image, ImageKind};
+use typst_library::visualize::{Image, ImageKind, ImageScaling};
 
 use crate::{AbsExt, State};
 
@@ -59,8 +59,10 @@ pub fn render_image(
 #[comemo::memoize]
 fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     match image.kind() {
-        ImageKind::Raster(raster) => scale_image(raster.dynamic(), w, h),
-        ImageKind::Pixmap(raster) => scale_image(&raster.to_image(), w, h),
+        ImageKind::Raster(raster) => scale_image(raster.dynamic(), image.scaling(), w, h),
+        ImageKind::Pixmap(raster) => {
+            scale_image(&raster.to_image(), image.scaling(), w, h)
+        }
         // Safety: We do not keep any references to tree nodes beyond the scope
         // of `with`.
         ImageKind::Svg(svg) => {
@@ -78,10 +80,20 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 
 /// Scale a rastered image to a given size and return texture.
 // TODO(frozolotl): optimize pixmap allocation
-fn scale_image(image: &image::DynamicImage, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
+fn scale_image(
+    image: &image::DynamicImage,
+    scaling: ImageScaling,
+    w: u32,
+    h: u32,
+) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    let downscale = w < image.width();
-    let filter = if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
+    let upscale = w > image.width();
+    let filter = match scaling {
+        ImageScaling::Auto if upscale => FilterType::CatmullRom,
+        ImageScaling::Smooth if upscale => FilterType::CatmullRom,
+        ImageScaling::Pixelated => FilterType::Nearest,
+        _ => FilterType::Lanczos3, // downscale
+    };
     let buf = image.resize(w, h, filter);
     for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
         let Rgba([r, g, b, a]) = src;

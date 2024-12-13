@@ -5,7 +5,9 @@ use ecow::eco_format;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
-use typst_library::visualize::{ColorSpace, Image, ImageKind, RasterFormat, SvgImage};
+use typst_library::visualize::{
+    ColorSpace, Image, ImageKind, ImageScaling, RasterFormat, SvgImage,
+};
 use typst_utils::Deferred;
 
 use crate::{color, deflate, PdfChunk, WithGlobalRefs};
@@ -36,6 +38,7 @@ pub fn write_images(
                     height,
                     icc_profile,
                     alpha,
+                    interpolate,
                 } => {
                     let image_ref = chunk.alloc();
                     out.insert(image.clone(), image_ref);
@@ -45,6 +48,7 @@ pub fn write_images(
                     image.width(*width as i32);
                     image.height(*height as i32);
                     image.bits_per_component(i32::from(*bits_per_component));
+                    image.interpolate(*interpolate);
 
                     let mut icc_ref = None;
                     let space = image.color_space();
@@ -73,6 +77,7 @@ pub fn write_images(
                         mask.height(*height as i32);
                         mask.color_space().device_gray();
                         mask.bits_per_component(i32::from(*bits_per_component));
+                        mask.interpolate(*interpolate);
                     } else {
                         image.finish();
                     }
@@ -127,6 +132,10 @@ pub fn deferred_image(
         _ => None,
     };
 
+    // PDF/A does not appear to allow interpolation[^1].
+    // [^1]: https://github.com/typst/typst/issues/2942
+    let interpolate = image.scaling() == ImageScaling::Smooth && !pdfa;
+
     let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
             let format = if raster.format() == RasterFormat::Jpg {
@@ -134,7 +143,12 @@ pub fn deferred_image(
             } else {
                 EncodeFormat::Flate
             };
-            Ok(encode_raster_image(&raster.dynamic(), raster.icc_profile(), format))
+            Ok(encode_raster_image(
+                raster.dynamic(),
+                raster.icc_profile(),
+                format,
+                interpolate,
+            ))
         }
         ImageKind::Svg(svg) => {
             let (chunk, id) = encode_svg(svg, pdfa)
@@ -145,6 +159,7 @@ pub fn deferred_image(
             &pixmap.to_image(),
             pixmap.icc_profile(),
             EncodeFormat::Flate,
+            interpolate,
         )),
     });
 
@@ -157,6 +172,7 @@ fn encode_raster_image(
     image: &DynamicImage,
     icc_profile: Option<&[u8]>,
     format: EncodeFormat,
+    interpolate: bool,
 ) -> EncodedImage {
     let color_space = to_color_space(image.color());
 
@@ -192,6 +208,7 @@ fn encode_raster_image(
         height: image.height(),
         icc_profile: compressed_icc,
         alpha,
+        interpolate,
     }
 }
 
@@ -248,6 +265,8 @@ pub enum EncodedImage {
         icc_profile: Option<Vec<u8>>,
         /// The alpha channel of the image, pre-deflated, if any.
         alpha: Option<(Vec<u8>, Filter)>,
+        /// Whether image interpolation should be enabled.
+        interpolate: bool,
     },
     /// A vector graphic.
     ///
