@@ -4,11 +4,12 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
 use typst_library::introspection::Locator;
+use typst_library::layout::raster::{Cell, Raster};
 use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem};
 use typst_library::text::TextElem;
 
-use crate::grid::{Cell, GridLayouter, Raster};
+use crate::grid::GridLayouter;
 
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]

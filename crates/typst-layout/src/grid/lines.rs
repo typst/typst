@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
+use typst_library::layout::raster::{Raster, RasterLine, Repeatable};
 use typst_library::layout::Abs;
-use typst_library::layout::{Raster, RasterLine, Repeatable};
 use typst_library::visualize::Stroke;
 
 use super::RowPiece;
@@ -561,8 +561,8 @@ mod test {
     use std::num::NonZeroUsize;
     use typst_library::foundations::Content;
     use typst_library::introspection::Locator;
+    use typst_library::layout::raster::{Cell, Entry, LinePosition};
     use typst_library::layout::{Axes, Sides, Sizing};
-    use typst_library::layout::{Cell, RasterEntry, RasterLinePosition};
     use typst_utils::NonZeroExt;
 
     use super::*;
@@ -598,35 +598,35 @@ mod test {
         const ROWS: usize = 6;
         let entries = vec![
             // row 0
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
-            RasterEntry::Merged { parent: 2 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
+            Entry::Merged { parent: 2 },
             // row 1
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(3, 1)),
-            RasterEntry::Merged { parent: 5 },
-            RasterEntry::Merged { parent: 5 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(3, 1)),
+            Entry::Merged { parent: 5 },
+            Entry::Merged { parent: 5 },
             // row 2
-            RasterEntry::Merged { parent: 4 },
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
-            RasterEntry::Merged { parent: 10 },
+            Entry::Merged { parent: 4 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
+            Entry::Merged { parent: 10 },
             // row 3
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(3, 2)),
-            RasterEntry::Merged { parent: 13 },
-            RasterEntry::Merged { parent: 13 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(3, 2)),
+            Entry::Merged { parent: 13 },
+            Entry::Merged { parent: 13 },
             // row 4
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Merged { parent: 13 },
-            RasterEntry::Merged { parent: 13 },
-            RasterEntry::Merged { parent: 13 },
+            Entry::Cell(sample_cell()),
+            Entry::Merged { parent: 13 },
+            Entry::Merged { parent: 13 },
+            Entry::Merged { parent: 13 },
             // row 5
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
-            RasterEntry::Merged { parent: 22 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
+            Entry::Merged { parent: 22 },
         ];
         Raster::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
@@ -1099,14 +1099,14 @@ mod test {
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: RasterLinePosition::Before
+                            position: LinePosition::Before
                         },
                         RasterLine {
                             index: x,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: RasterLinePosition::After
+                            position: LinePosition::After
                         },
                     ],
                     vline_stroke_at_row
@@ -1121,50 +1121,50 @@ mod test {
         const ROWS: usize = 9;
         let entries = vec![
             // row 0
-            RasterEntry::Cell(cell_with_colspan_rowspan(1, 2)),
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 2)),
-            RasterEntry::Merged { parent: 2 },
+            Entry::Cell(cell_with_colspan_rowspan(1, 2)),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
+            Entry::Merged { parent: 2 },
             // row 1
-            RasterEntry::Merged { parent: 0 },
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Merged { parent: 2 },
-            RasterEntry::Merged { parent: 2 },
+            Entry::Merged { parent: 0 },
+            Entry::Cell(sample_cell()),
+            Entry::Merged { parent: 2 },
+            Entry::Merged { parent: 2 },
             // row 2
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
             // row 3
-            RasterEntry::Cell(cell_with_colspan_rowspan(4, 2)),
-            RasterEntry::Merged { parent: 12 },
-            RasterEntry::Merged { parent: 12 },
-            RasterEntry::Merged { parent: 12 },
+            Entry::Cell(cell_with_colspan_rowspan(4, 2)),
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
             // row 4
-            RasterEntry::Merged { parent: 12 },
-            RasterEntry::Merged { parent: 12 },
-            RasterEntry::Merged { parent: 12 },
-            RasterEntry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
             // row 5
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(cell_with_colspan_rowspan(1, 2)),
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 1)),
-            RasterEntry::Merged { parent: 22 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(1, 2)),
+            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
+            Entry::Merged { parent: 22 },
             // row 6
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Merged { parent: 21 },
-            RasterEntry::Cell(sample_cell()),
-            RasterEntry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Merged { parent: 21 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
             // row 7 (adjacent rowspans covering the whole row)
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 2)),
-            RasterEntry::Merged { parent: 28 },
-            RasterEntry::Cell(cell_with_colspan_rowspan(2, 2)),
-            RasterEntry::Merged { parent: 30 },
+            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
+            Entry::Merged { parent: 28 },
+            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
+            Entry::Merged { parent: 30 },
             // row 8
-            RasterEntry::Merged { parent: 28 },
-            RasterEntry::Merged { parent: 28 },
-            RasterEntry::Merged { parent: 30 },
-            RasterEntry::Merged { parent: 30 },
+            Entry::Merged { parent: 28 },
+            Entry::Merged { parent: 28 },
+            Entry::Merged { parent: 30 },
+            Entry::Merged { parent: 30 },
         ];
         Raster::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
@@ -1447,14 +1447,14 @@ mod test {
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: RasterLinePosition::Before
+                            position: LinePosition::Before
                         },
                         RasterLine {
                             index: y,
                             start: 0,
                             end: None,
                             stroke: Some(stroke.clone()),
-                            position: RasterLinePosition::After
+                            position: LinePosition::After
                         },
                     ],
                     |grid, y, x, stroke| hline_stroke_at_column(

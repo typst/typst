@@ -135,8 +135,8 @@ fn grid_item_to_resolvable(
             stroke: hline.stroke(styles),
             span: hline.span(),
             position: match hline.position(styles) {
-                OuterVAlignment::Top => RasterLinePosition::Before,
-                OuterVAlignment::Bottom => RasterLinePosition::After,
+                OuterVAlignment::Top => LinePosition::Before,
+                OuterVAlignment::Bottom => LinePosition::After,
             },
         },
         GridItem::VLine(vline) => ResolvableRasterItem::VLine {
@@ -147,17 +147,13 @@ fn grid_item_to_resolvable(
             span: vline.span(),
             position: match vline.position(styles) {
                 OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
-                    RasterLinePosition::After
+                    LinePosition::After
                 }
                 OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
-                    RasterLinePosition::Before
+                    LinePosition::Before
                 }
-                OuterHAlignment::Start | OuterHAlignment::Left => {
-                    RasterLinePosition::Before
-                }
-                OuterHAlignment::End | OuterHAlignment::Right => {
-                    RasterLinePosition::After
-                }
+                OuterHAlignment::Start | OuterHAlignment::Left => LinePosition::Before,
+                OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
             },
         },
         GridItem::Cell(cell) => ResolvableRasterItem::Cell(cell.clone()),
@@ -176,8 +172,8 @@ fn table_item_to_resolvable(
             stroke: hline.stroke(styles),
             span: hline.span(),
             position: match hline.position(styles) {
-                OuterVAlignment::Top => RasterLinePosition::Before,
-                OuterVAlignment::Bottom => RasterLinePosition::After,
+                OuterVAlignment::Top => LinePosition::Before,
+                OuterVAlignment::Bottom => LinePosition::After,
             },
         },
         TableItem::VLine(vline) => ResolvableRasterItem::VLine {
@@ -188,17 +184,13 @@ fn table_item_to_resolvable(
             span: vline.span(),
             position: match vline.position(styles) {
                 OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
-                    RasterLinePosition::After
+                    LinePosition::After
                 }
                 OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
-                    RasterLinePosition::Before
+                    LinePosition::Before
                 }
-                OuterHAlignment::Start | OuterHAlignment::Left => {
-                    RasterLinePosition::Before
-                }
-                OuterHAlignment::End | OuterHAlignment::Right => {
-                    RasterLinePosition::After
-                }
+                OuterHAlignment::Start | OuterHAlignment::Left => LinePosition::Before,
+                OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
             },
         },
         TableItem::Cell(cell) => ResolvableRasterItem::Cell(cell.clone()),
@@ -433,7 +425,7 @@ enum ResolvableRasterItem<T: ResolvableCell> {
         span: Span,
         /// The line's position. "before" here means on top of row `y`, while
         /// "after" means below it.
-        position: RasterLinePosition,
+        position: LinePosition,
     },
     /// A vertical line in the raster.
     VLine {
@@ -446,7 +438,7 @@ enum ResolvableRasterItem<T: ResolvableCell> {
         span: Span,
         /// The line's position. "before" here means to the left of column `x`,
         /// while "after" means to its right (both considering LTR).
-        position: RasterLinePosition,
+        position: LinePosition,
     },
     /// A cell in the raster.
     Cell(T),
@@ -526,7 +518,7 @@ pub struct RasterLine {
     /// override a previously specified line.
     pub stroke: Option<Arc<Stroke<Abs>>>,
     /// The line's position in relation to the track with its index.
-    pub position: RasterLinePosition,
+    pub position: LinePosition,
 }
 
 /// A repeatable raster header. Starts at the first row.
@@ -574,7 +566,7 @@ impl<T> Repeatable<T> {
 /// the position after a track is not the same as before the next
 /// non-gutter track.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub enum RasterLinePosition {
+pub enum LinePosition {
     /// The line should be drawn before its track (e.g. hline on top of a row).
     Before,
     /// The line should be drawn after its track (e.g. hline below a row).
@@ -582,7 +574,7 @@ pub enum RasterLinePosition {
 }
 
 /// A raster entry.
-pub enum RasterEntry<'a> {
+pub enum Entry<'a> {
     /// An entry which holds a cell.
     Cell(Cell<'a>),
     /// An entry which is merged with another cell.
@@ -592,7 +584,7 @@ pub enum RasterEntry<'a> {
     },
 }
 
-impl<'a> RasterEntry<'a> {
+impl<'a> Entry<'a> {
     /// Obtains the cell inside this entry, if this is not a merged cell.
     fn as_cell(&self) -> Option<&Cell<'a>> {
         match self {
@@ -612,7 +604,7 @@ enum ResolvableRasterChild<T: ResolvableCell, I> {
 /// A raster of cells, including the columns, rows, and cell data.
 pub struct Raster<'a> {
     /// The raster cells.
-    pub entries: Vec<RasterEntry<'a>>,
+    pub entries: Vec<Entry<'a>>,
     /// The column tracks including gutter tracks.
     pub cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
@@ -650,7 +642,7 @@ struct State<'a> {
     // of the next cell with (x: auto, y: auto). It is only stepped when
     // a cell with (x: auto, y: auto), usually the vast majority, is found.
     auto_index: Idx,
-    resolved_cells: Vec<Option<RasterEntry<'a>>>,
+    resolved_cells: Vec<Option<Entry<'a>>>,
     // Lists of lines.
     // Horizontal lines are only pushed later to be able to check for row
     // validity, since the amount of rows isn't known until all items were
@@ -740,7 +732,7 @@ impl<'a> Raster<'a> {
         gutter: Axes<&[Sizing]>,
         cells: impl IntoIterator<Item = Cell<'a>>,
     ) -> Self {
-        let entries = cells.into_iter().map(RasterEntry::Cell).collect();
+        let entries = cells.into_iter().map(Entry::Cell).collect();
         Self::new_internal(tracks, gutter, vec![], vec![], None, None, entries)
     }
 
@@ -1050,11 +1042,10 @@ impl<'a> Raster<'a> {
                     locator.next(&()),
                     styles,
                 );
-                Ok(RasterEntry::Cell(new_cell))
+                Ok(Entry::Cell(new_cell))
             }
         });
-        let resolved_cells =
-            resolved_cells.collect::<SourceResult<Vec<RasterEntry>>>()?;
+        let resolved_cells = resolved_cells.collect::<SourceResult<Vec<Entry>>>()?;
 
         let row_amount = resolved_cells.len().div_ceil(c);
         let (hlines, vlines) =
@@ -1148,7 +1139,7 @@ impl<'a> Raster<'a> {
         hlines: Vec<Vec<RasterLine>>,
         header: Option<Repeatable<RasterHeader>>,
         footer: Option<Repeatable<RasterFooter>>,
-        entries: Vec<RasterEntry<'a>>,
+        entries: Vec<Entry<'a>>,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -1210,7 +1201,7 @@ impl<'a> Raster<'a> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    pub fn entry(&self, x: usize, y: usize) -> Option<&RasterEntry<'a>> {
+    pub fn entry(&self, x: usize, y: usize) -> Option<&Entry<'a>> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
@@ -1233,7 +1224,7 @@ impl<'a> Raster<'a> {
     /// Returns `None` if it's a gutter cell or merged position.
     #[track_caller]
     pub fn cell(&self, x: usize, y: usize) -> Option<&Cell<'a>> {
-        self.entry(x, y).and_then(RasterEntry::as_cell)
+        self.entry(x, y).and_then(Entry::as_cell)
     }
 
     /// Return the position of the parent cell of the raster entry at the given
@@ -1246,8 +1237,8 @@ impl<'a> Raster<'a> {
     #[track_caller]
     pub fn parent_cell_position(&self, x: usize, y: usize) -> Option<Axes<usize>> {
         self.entry(x, y).map(|entry| match entry {
-            RasterEntry::Cell(_) => Axes::new(x, y),
-            RasterEntry::Merged { parent } => {
+            Entry::Cell(_) => Axes::new(x, y),
+            Entry::Merged { parent } => {
                 let c = if self.has_gutter {
                     1 + self.cols.len() / 2
                 } else {
@@ -1447,7 +1438,7 @@ fn resolve_cell_position(
 /// Computes the index of the first cell in the next empty row in the raster,
 /// starting with the given initial index.
 fn find_next_empty_row(
-    resolved_cells: &[Option<RasterEntry>],
+    resolved_cells: &[Option<Entry>],
     initial_index: Idx,
     columns: usize,
 ) -> Idx {
@@ -1480,8 +1471,7 @@ fn skip_auto_index_through_fully_merged_rows(s: &mut State, columns: usize) {
             .resolved_cells
             .get(s.auto_index..s.auto_index + columns)
             .is_some_and(|row| {
-                row.iter()
-                    .all(|entry| matches!(entry, Some(RasterEntry::Merged { .. })))
+                row.iter().all(|entry| matches!(entry, Some(Entry::Merged { .. })))
             })
         {
             s.auto_index += columns;
@@ -1676,7 +1666,7 @@ fn insert_cell<'a>(
         );
     }
 
-    *slot = Some(RasterEntry::Cell(cell));
+    *slot = Some(Entry::Cell(cell));
 
     // Now, if the cell spans more than one row or column, we fill
     // the spanned positions in the raster with Entry::Merged
@@ -1699,7 +1689,7 @@ fn insert_cell<'a>(
                     hint: "try specifying your cells in a different order or reducing the cell's rowspan or colspan"
                 )
             }
-            *slot = Some(RasterEntry::Merged { parent: index });
+            *slot = Some(Entry::Merged { parent: index });
         }
     }
     Ok(())
@@ -1725,14 +1715,14 @@ fn populate(
         if y > row_amount {
             bail!(line_span, "cannot place horizontal line at invalid row {y}");
         }
-        if y == row_amount && line.position == RasterLinePosition::After {
+        if y == row_amount && line.position == LinePosition::After {
             bail!(
                 line_span,
                 "cannot place horizontal line at the 'bottom' position of the bottom border (y = {y})";
                 hint: "set the line's position to 'top' or place it at a smaller 'y' index"
             );
         }
-        let line = if line.position == RasterLinePosition::After
+        let line = if line.position == LinePosition::After
             && (!has_gutter || y + 1 == row_amount)
         {
             // Just place the line on top of the next row if
@@ -1744,7 +1734,7 @@ fn populate(
             // gutter.
             RasterLine {
                 index: y + 1,
-                position: RasterLinePosition::Before,
+                position: LinePosition::Before,
                 ..line
             }
         } else {
@@ -1763,15 +1753,14 @@ fn populate(
         if x > c {
             bail!(line_span, "cannot place vertical line at invalid column {x}");
         }
-        if x == c && line.position == RasterLinePosition::After {
+        if x == c && line.position == LinePosition::After {
             bail!(
                 line_span,
                 "cannot place vertical line at the 'end' position of the end border (x = {c})";
                 hint: "set the line's position to 'start' or place it at a smaller 'x' index"
             );
         }
-        let line = if line.position == RasterLinePosition::After
-            && (!has_gutter || x + 1 == c)
+        let line = if line.position == LinePosition::After && (!has_gutter || x + 1 == c)
         {
             // Just place the line before the next column if
             // there's no gutter and the line should be placed
@@ -1782,7 +1771,7 @@ fn populate(
             // with gutter.
             RasterLine {
                 index: x + 1,
-                position: RasterLinePosition::Before,
+                position: LinePosition::Before,
                 ..line
             }
         } else {

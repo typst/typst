@@ -3,18 +3,15 @@ mod lines;
 mod repeated;
 mod rowspans;
 
-pub use self::layouter::GridLayouter;
-pub use typst_library::layout::{
-    grid_to_raster, table_to_raster, Cell, Raster, RasterLinePosition, Repeatable,
-};
-
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
+use typst_library::layout::raster::{grid_to_raster, table_to_raster, Cell, Repeatable};
 use typst_library::layout::{Fragment, GridElem, Regions};
 use typst_library::model::TableElem;
 
+pub use self::layouter::GridLayouter;
 use self::layouter::RowPiece;
 use self::lines::{
     generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LineSegment,
@@ -27,7 +24,7 @@ use self::rowspans::{Rowspan, UnbreakableRowGroup};
 /// layouted as. For normal cells, it is always `0`, but for headers and
 /// footers, it indicates the index of the header/footer among all. See the
 /// [`Locator`] docs for more details on the concepts behind this.
-pub fn layout_cell(
+fn layout_cell(
     cell: &Cell,
     engine: &mut Engine,
     disambiguator: usize,
