@@ -22,7 +22,6 @@ typst-utils = { workspace = true }
 arrayvec = { workspace = true }
 base64 = { workspace = true }
 bytemuck = { workspace = true }
-chrono ={ workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
@@ -32,7 +31,6 @@ pdf-writer = { workspace = true }
 serde = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
-time = { workspace = true }
 ttf-parser = { workspace = true }
 xmp-writer = { workspace = true }
 

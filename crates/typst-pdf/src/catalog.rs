@@ -4,7 +4,6 @@ use ecow::eco_format;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use time::{PrimitiveDateTime, UtcOffset};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
@@ -88,11 +87,17 @@ pub fn write_catalog(
         xmp.pdf_keywords(&joined);
     }
 
+    // First, try to use the date from the document information, and it can
+    // be `none`. Second, try to use the date from the options. If neither is
+    // available, we don't write a date metadata.
     let (date, tz) = match (ctx.document.info.date, ctx.options.timestamp) {
         (Smart::Custom(date), _) => (date, None),
-        (Smart::Auto, Some(datetime)) => {
-            let (datetime, tz) = convert_utc_datetime_to_local(datetime);
-            (Some(datetime), Some(tz))
+        (Smart::Auto, Some(timestamp)) => {
+            let tz = match timestamp.timezone_offset {
+                None => Timezone::Utc,
+                Some((hour, minute)) => Timezone::Local { hour, minute },
+            };
+            (Some(timestamp.datetime), Some(tz))
         }
         _ => (None, None),
     };
@@ -338,28 +343,4 @@ fn xmp_date(datetime: Datetime, tz: Option<Timezone>) -> Option<xmp_writer::Date
         second: datetime.second(),
         timezone: tz,
     })
-}
-
-/// Converts a utc datetime to local datetime.
-fn convert_utc_datetime_to_local(datetime: Datetime) -> (Datetime, Timezone) {
-    // This should never fail if `time` and `chrono` both work correctly.
-    let current_local_offset =
-        UtcOffset::from_whole_seconds(chrono::Local::now().offset().local_minus_utc());
-
-    match (datetime, current_local_offset) {
-        (Datetime::Datetime(datetime), Ok(current_local_offset))
-            if !current_local_offset.is_utc() =>
-        // TODO: distinguish between GMT and UTC
-        {
-            let local = datetime.assume_utc().to_offset(current_local_offset);
-            (
-                Datetime::Datetime(PrimitiveDateTime::new(local.date(), local.time())),
-                Timezone::Local {
-                    hour: current_local_offset.whole_hours(),
-                    minute: current_local_offset.minutes_past_hour(),
-                },
-            )
-        }
-        _ => (datetime, Timezone::Utc),
-    }
 }

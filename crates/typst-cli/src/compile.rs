@@ -17,7 +17,7 @@ use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::{PdfOptions, PdfStandards};
+use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
@@ -55,7 +55,7 @@ pub struct CompileConfig {
     pub output_format: OutputFormat,
     /// Which pages to export.
     pub pages: Option<PageRanges>,
-    /// The document's creation date formatted as a UNIX timestamp.
+    /// The document's creation date formatted as a UNIX timestamp, with UTC suffix.
     pub creation_timestamp: Option<DateTime<Utc>>,
     /// The format to emit diagnostics in.
     pub diagnostic_format: DiagnosticFormat,
@@ -271,11 +271,20 @@ fn export_paged(document: &PagedDocument, config: &CompileConfig) -> SourceResul
 
 /// Export to a PDF.
 fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+    // If the timestamp is provided through the CLI, use UTC suffix,
+    // else, use the current local time and timezone.
+    let timestamp = match config.creation_timestamp {
+        Some(timestamp) => convert_datetime(timestamp).map(Timestamp::new_utc),
+        None => {
+            let local_datetime = chrono::Local::now();
+            convert_datetime(local_datetime).and_then(|datetime| {
+                Timestamp::new_local(datetime, local_datetime.offset().local_minus_utc())
+            })
+        }
+    };
     let options = PdfOptions {
         ident: Smart::Auto,
-        timestamp: convert_datetime(
-            config.creation_timestamp.unwrap_or_else(chrono::Utc::now),
-        ),
+        timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
     };
@@ -289,7 +298,9 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
 }
 
 /// Convert [`chrono::DateTime`] to [`Datetime`]
-fn convert_datetime(date_time: chrono::DateTime<chrono::Utc>) -> Option<Datetime> {
+fn convert_datetime<Tz: chrono::TimeZone>(
+    date_time: chrono::DateTime<Tz>,
+) -> Option<Datetime> {
     Datetime::from_ymd_hms(
         date_time.year(),
         date_time.month().try_into().ok()?,

@@ -91,12 +91,39 @@ pub struct PdfOptions<'a> {
     pub ident: Smart<&'a str>,
     /// If not `None`, shall be the creation date of the document as a UTC
     /// datetime. It will only be used if `set document(date: ..)` is `auto`.
-    pub timestamp: Option<Datetime>,
+    pub timestamp: Option<Timestamp>,
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
     pub page_ranges: Option<PageRanges>,
     /// A list of PDF standards that Typst will enforce conformance with.
     pub standards: PdfStandards,
+}
+
+/// A timestamp with timezone information.
+#[derive(Debug, Clone, Copy)]
+pub struct Timestamp {
+    /// The datetime of the timestamp.
+    pub(crate) datetime: Datetime,
+    /// If `Some`, the timezone offset from UTC in hours and minutes.
+    /// If `None`, the timestamp is in UTC.
+    pub(crate) timezone_offset: Option<(i8, i8)>,
+}
+
+impl Timestamp {
+    /// Create a new timestamp with a given datetime and UTC suffix.
+    pub fn new_utc(datetime: Datetime) -> Self {
+        Self { datetime, timezone_offset: None }
+    }
+
+    /// Create a new timestamp with a given datetime, and a local timezone offset.
+    pub fn new_local(datetime: Datetime, whole_seconds_offset: i32) -> Option<Self> {
+        let hour_offset = (whole_seconds_offset / 3600).try_into().ok()?;
+        let minute_offset = ((whole_seconds_offset % 3600) / 60).try_into().ok()?;
+        Some(Self {
+            datetime,
+            timezone_offset: Some((hour_offset, minute_offset)),
+        })
+    }
 }
 
 /// Encapsulates a list of compatible PDF standards.
