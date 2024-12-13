@@ -575,6 +575,10 @@ impl Str {
 
     /// Splits a string at matches of a specified pattern and returns an array
     /// of the resulting parts.
+    ///
+    /// When the empty string is used as a separator, it separates every
+    /// character in the string, along with the beginning and end of the
+    /// string.
     #[func]
     pub fn split(
         &self,
