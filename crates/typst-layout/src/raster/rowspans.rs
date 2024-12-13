@@ -5,7 +5,7 @@ use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizi
 use typst_utils::MaybeReverseIter;
 
 use super::layouter::{in_last_with_offset, points, Row, RowPiece};
-use super::{layout_cell, Cell, GridLayouter, Repeatable};
+use super::{layout_cell, Cell, Layouter, Repeatable};
 
 /// All information needed to layout a single rowspan.
 pub struct Rowspan {
@@ -84,7 +84,7 @@ pub struct CellMeasurementData<'layouter> {
     pub frames_in_previous_regions: usize,
 }
 
-impl GridLayouter<'_> {
+impl Layouter<'_> {
     /// Layout a rowspan over the already finished regions, plus the current
     /// region's frame and resolved rows, if it wasn't finished yet (because
     /// we're being called from `finish_region`, but note that this function is
@@ -118,7 +118,7 @@ impl GridLayouter<'_> {
             return Ok(());
         };
         let first_column = self.rcols[x];
-        let cell = self.grid.cell(x, y).unwrap();
+        let cell = self.raster.cell(x, y).unwrap();
         let width = self.cell_spanned_width(cell, x);
         let dx = if self.is_rtl { dx - width + first_column } else { dx };
 
@@ -128,7 +128,7 @@ impl GridLayouter<'_> {
         pod.backlog = backlog;
 
         if !is_effectively_unbreakable
-            && self.grid.rows[y..][..rowspan]
+            && self.raster.rows[y..][..rowspan]
                 .iter()
                 .any(|spanned_row| spanned_row == &Sizing::Auto)
         {
@@ -158,7 +158,7 @@ impl GridLayouter<'_> {
                 // The rowspan continuation starts after the header (thus,
                 // at a position after the sum of the laid out header
                 // rows).
-                if let Some(Repeatable::Repeated(header)) = &self.grid.header {
+                if let Some(Repeatable::Repeated(header)) = &self.raster.header {
                     let header_rows = self
                         .rrows
                         .get(i)
@@ -188,10 +188,10 @@ impl GridLayouter<'_> {
         // For that reason, we must reverse the column order when using RTL.
         let offsets = points(self.rcols.iter().copied().rev_if(self.is_rtl));
         for (x, dx) in (0..self.rcols.len()).rev_if(self.is_rtl).zip(offsets) {
-            let Some(cell) = self.grid.cell(x, y) else {
+            let Some(cell) = self.raster.cell(x, y) else {
                 continue;
             };
-            let rowspan = self.grid.effective_rowspan_of_cell(cell);
+            let rowspan = self.raster.effective_rowspan_of_cell(cell);
             if rowspan > 1 {
                 // Rowspan detected. We will lay it out later.
                 self.rowspans.push(Rowspan {
@@ -228,16 +228,16 @@ impl GridLayouter<'_> {
             // current row is dynamic and depends on the amount of upcoming
             // unbreakable cells (with or without a rowspan setting).
             let mut amount_unbreakable_rows = None;
-            if let Some(Repeatable::NotRepeated(header)) = &self.grid.header {
+            if let Some(Repeatable::NotRepeated(header)) = &self.raster.header {
                 if current_row < header.end {
                     // Non-repeated header, so keep it unbreakable.
                     amount_unbreakable_rows = Some(header.end);
                 }
             }
-            if let Some(Repeatable::NotRepeated(footer)) = &self.grid.footer {
+            if let Some(Repeatable::NotRepeated(footer)) = &self.raster.footer {
                 if current_row >= footer.start {
                     // Non-repeated footer, so keep it unbreakable.
-                    amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
+                    amount_unbreakable_rows = Some(self.raster.rows.len() - footer.start);
                 }
             }
 
@@ -301,7 +301,7 @@ impl GridLayouter<'_> {
     ) -> SourceResult<UnbreakableRowGroup> {
         let mut row_group = UnbreakableRowGroup::default();
         let mut unbreakable_rows_left = amount_unbreakable_rows.unwrap_or(0);
-        for (y, row) in self.grid.rows.iter().enumerate().skip(first_row) {
+        for (y, row) in self.raster.rows.iter().enumerate().skip(first_row) {
             if amount_unbreakable_rows.is_none() {
                 // When we don't set a fixed amount of unbreakable rows,
                 // determine the amount based on the rowspan of unbreakable
@@ -359,10 +359,10 @@ impl GridLayouter<'_> {
     /// If so, returns the largest rowspan among the unbreakable cells;
     /// the spanned rows must, as a result, be laid out in the same region.
     pub fn check_for_unbreakable_cells(&self, y: usize) -> usize {
-        (0..self.grid.cols.len())
-            .filter_map(|x| self.grid.cell(x, y))
+        (0..self.raster.cols.len())
+            .filter_map(|x| self.raster.cell(x, y))
             .filter(|cell| !cell.breakable)
-            .map(|cell| self.grid.effective_rowspan_of_cell(cell))
+            .map(|cell| self.raster.effective_rowspan_of_cell(cell))
             .max()
             .unwrap_or(0)
     }
@@ -375,7 +375,7 @@ impl GridLayouter<'_> {
         breakable: bool,
         row_group_data: Option<&UnbreakableRowGroup>,
     ) -> CellMeasurementData<'_> {
-        let rowspan = self.grid.effective_rowspan_of_cell(cell);
+        let rowspan = self.raster.effective_rowspan_of_cell(cell);
 
         // This variable is used to construct a custom backlog if the cell
         // is a rowspan, or if headers or footers are used. When measuring, we
@@ -393,8 +393,8 @@ impl GridLayouter<'_> {
             // auto rows don't depend on the backlog, as they only span one
             // region.
             if breakable
-                && (matches!(self.grid.header, Some(Repeatable::Repeated(_)))
-                    || matches!(self.grid.footer, Some(Repeatable::Repeated(_))))
+                && (matches!(self.raster.header, Some(Repeatable::Repeated(_)))
+                    || matches!(self.raster.footer, Some(Repeatable::Repeated(_))))
             {
                 // Subtract header and footer height from all upcoming regions
                 // when measuring the cell, including the last repeated region.
@@ -615,7 +615,7 @@ impl GridLayouter<'_> {
         let is_effectively_unbreakable_rowspan =
             !cell.breakable || auto_row_y + unbreakable_rows_left > last_spanned_row;
 
-        // If the rowspan doesn't end at this row and the grid has
+        // If the rowspan doesn't end at this row and the raster has
         // gutter, we will need to run a simulation to find out how
         // much to expand this row by later. This is because gutters
         // spanned by this rowspan might be removed if they appear
@@ -625,7 +625,7 @@ impl GridLayouter<'_> {
         // problem.
         if auto_row_y != last_spanned_row
             && !sizes.is_empty()
-            && self.grid.has_gutter
+            && self.raster.has_gutter
             && !is_effectively_unbreakable_rowspan
         {
             return true;
@@ -639,7 +639,7 @@ impl GridLayouter<'_> {
         // We can ignore auto rows since this is the last spanned auto
         // row.
         let will_be_covered_height: Abs = self
-            .grid
+            .raster
             .rows
             .iter()
             .skip(auto_row_y + 1)
@@ -769,13 +769,13 @@ impl GridLayouter<'_> {
             // row will expand more than it normally should, but there isn't
             // much we can do.
             let will_be_covered_height = self
-                .grid
+                .raster
                 .rows
                 .iter()
                 .enumerate()
                 .skip(y + 1)
                 .take(max_spanned_row - y)
-                .filter(|(y, _)| !self.grid.is_gutter_track(*y))
+                .filter(|(y, _)| !self.raster.is_gutter_track(*y))
                 .map(|(_, row)| match row {
                     Sizing::Rel(v) => {
                         v.resolve(self.styles).relative_to(self.regions.base().y)
@@ -1020,10 +1020,10 @@ impl<'a> RowspanSimulator<'a> {
         amount_to_grow: Abs,
         requested_rowspan_height: Abs,
         mut unbreakable_rows_left: usize,
-        layouter: &GridLayouter<'_>,
+        layouter: &Layouter<'_>,
         engine: &mut Engine,
     ) -> SourceResult<Abs> {
-        let spanned_rows = &layouter.grid.rows[y + 1..=max_spanned_row];
+        let spanned_rows = &layouter.raster.rows[y + 1..=max_spanned_row];
         for (offset, row) in spanned_rows.iter().enumerate() {
             if (self.total_spanned_height + amount_to_grow).fits(requested_rowspan_height)
             {
@@ -1034,7 +1034,7 @@ impl<'a> RowspanSimulator<'a> {
                 return Ok(self.total_spanned_height);
             }
             let spanned_y = y + 1 + offset;
-            let is_gutter = layouter.grid.is_gutter_track(spanned_y);
+            let is_gutter = layouter.raster.is_gutter_track(spanned_y);
 
             if unbreakable_rows_left == 0 {
                 // Simulate unbreakable row groups, and skip regions until
@@ -1112,7 +1112,7 @@ impl<'a> RowspanSimulator<'a> {
 
     fn simulate_header_footer_layout(
         &mut self,
-        layouter: &GridLayouter<'_>,
+        layouter: &Layouter<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         // We can't just use the initial header/footer height on each region,
@@ -1125,7 +1125,7 @@ impl<'a> RowspanSimulator<'a> {
         // just use the original backlog from `self.regions`.
         let disambiguator = self.finished;
         let header_height =
-            if let Some(Repeatable::Repeated(header)) = &layouter.grid.header {
+            if let Some(Repeatable::Repeated(header)) = &layouter.raster.header {
                 layouter
                     .simulate_header(header, &self.regions, engine, disambiguator)?
                     .height
@@ -1134,7 +1134,7 @@ impl<'a> RowspanSimulator<'a> {
             };
 
         let footer_height =
-            if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
+            if let Some(Repeatable::Repeated(footer)) = &layouter.raster.footer {
                 layouter
                     .simulate_footer(footer, &self.regions, engine, disambiguator)?
                     .height
@@ -1153,7 +1153,7 @@ impl<'a> RowspanSimulator<'a> {
             skipped_region = true;
         }
 
-        if let Some(Repeatable::Repeated(header)) = &layouter.grid.header {
+        if let Some(Repeatable::Repeated(header)) = &layouter.raster.header {
             self.header_height = if skipped_region {
                 // Simulate headers again, at the new region, as
                 // the full region height may change.
@@ -1165,7 +1165,7 @@ impl<'a> RowspanSimulator<'a> {
             };
         }
 
-        if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
+        if let Some(Repeatable::Repeated(footer)) = &layouter.raster.footer {
             self.footer_height = if skipped_region {
                 // Simulate footers again, at the new region, as
                 // the full region height may change.
@@ -1188,7 +1188,7 @@ impl<'a> RowspanSimulator<'a> {
 
     fn finish_region(
         &mut self,
-        layouter: &GridLayouter<'_>,
+        layouter: &Layouter<'_>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         // If a row was pushed to the next region, the immediately

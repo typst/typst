@@ -9,7 +9,7 @@ use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignm
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem};
 use typst_library::text::TextElem;
 
-use crate::grid::GridLayouter;
+use crate::raster::Layouter;
 
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]
@@ -50,7 +50,7 @@ pub fn layout_list(
         ));
     }
 
-    let grid = Raster::new(
+    let raster = Raster::new(
         Axes::with_x(&[
             Sizing::Rel(indent.into()),
             Sizing::Auto,
@@ -60,7 +60,7 @@ pub fn layout_list(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = Layouter::new(&raster, regions, styles, elem.span());
 
     layouter.layout(engine)
 }
@@ -131,7 +131,7 @@ pub fn layout_enum(
         number = number.saturating_add(1);
     }
 
-    let grid = Raster::new(
+    let raster = Raster::new(
         Axes::with_x(&[
             Sizing::Rel(indent.into()),
             Sizing::Auto,
@@ -141,7 +141,7 @@ pub fn layout_enum(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = Layouter::new(&raster, regions, styles, elem.span());
 
     layouter.layout(engine)
 }

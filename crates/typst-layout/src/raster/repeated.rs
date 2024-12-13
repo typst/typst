@@ -3,10 +3,10 @@ use typst_library::engine::Engine;
 use typst_library::layout::raster::{RasterFooter, RasterHeader, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::GridLayouter;
 use super::rowspans::UnbreakableRowGroup;
+use super::Layouter;
 
-impl GridLayouter<'_> {
+impl Layouter<'_> {
     /// Layouts the header's rows.
     /// Skips regions as necessary.
     pub fn layout_header(
@@ -32,7 +32,7 @@ impl GridLayouter<'_> {
         // It will be re-calculated when laying out each header row.
         self.header_height = Abs::zero();
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+        if let Some(Repeatable::Repeated(footer)) = &self.raster.footer {
             if skipped_region {
                 // Simulate the footer again; the region's 'full' might have
                 // changed.
@@ -120,9 +120,9 @@ impl GridLayouter<'_> {
         // anyway, so this is mostly for correctness.
         self.regions.size.y += self.footer_height;
 
-        let footer_len = self.grid.rows.len() - footer.start;
+        let footer_len = self.raster.rows.len() - footer.start;
         self.unbreakable_rows_left += footer_len;
-        for y in footer.start..self.grid.rows.len() {
+        for y in footer.start..self.raster.rows.len() {
             self.layout_row(y, engine, disambiguator)?;
         }
 
@@ -144,7 +144,7 @@ impl GridLayouter<'_> {
         // in the footer will be precisely the rows in the footer.
         self.simulate_unbreakable_row_group(
             footer.start,
-            Some(self.grid.rows.len() - footer.start),
+            Some(self.raster.rows.len() - footer.start),
             regions,
             engine,
             disambiguator,

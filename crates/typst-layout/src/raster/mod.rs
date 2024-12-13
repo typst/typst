@@ -11,7 +11,7 @@ use typst_library::layout::raster::{grid_to_raster, table_to_raster, Cell, Repea
 use typst_library::layout::{Fragment, GridElem, Regions};
 use typst_library::model::TableElem;
 
-pub use self::layouter::GridLayouter;
+pub use self::layouter::Layouter;
 use self::layouter::RowPiece;
 use self::lines::{
     generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LineSegment,
@@ -48,7 +48,7 @@ pub fn layout_grid(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let grid = grid_to_raster(elem, engine, locator, styles)?;
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = Layouter::new(&grid, regions, styles, elem.span());
 
     // Measure the columns and layout the grid row-by-row.
     layouter.layout(engine)
@@ -65,6 +65,6 @@ pub fn layout_table(
 ) -> SourceResult<Fragment> {
     let grid = table_to_raster(elem, engine, locator, styles)?;
 
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = Layouter::new(&grid, regions, styles, elem.span());
     layouter.layout(engine)
 }
