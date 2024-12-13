@@ -201,7 +201,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-png-but-pixmap-format ---
-// Error: 1:2-4:2 source must be pixmap
+// Error: 1:2-4:2 source must be a pixmap
 #image.decode(
   read("/assets/images/tiger.jpg", encoding: none),
   format: "rgba8",

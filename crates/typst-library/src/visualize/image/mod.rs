@@ -8,6 +8,7 @@ pub use self::raster::{RasterFormat, RasterImage};
 pub use self::svg::SvgImage;
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 use std::sync::Arc;
 
 use comemo::Tracked;
@@ -209,17 +210,6 @@ struct Repr {
     alt: Option<EcoString>,
 }
 
-/// A kind of image.
-#[derive(Hash)]
-pub enum ImageKind {
-    /// A raster image.
-    Raster(RasterImage),
-    /// An SVG image.
-    Svg(SvgImage),
-    /// An image constructed from a pixmap.
-    Pixmap(Pixmap),
-}
-
 impl Image {
     /// When scaling an image to it's natural size, we default to this DPI
     /// if the image doesn't contain DPI metadata.
@@ -234,7 +224,7 @@ impl Image {
     pub fn new(
         source: ImageSource,
         format: ImageFormat,
-        alt: Option<EcoString>,
+        options: &ImageOptions,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
@@ -247,7 +237,7 @@ impl Image {
                 let ImageSource::Readable(readable) = source else {
                     bail!("expected readable source for the given format (str or bytes)");
                 };
-                ImageKind::Svg(SvgImage::new(readable.into())?)
+                ImageKind::Svg(SvgImage::new(readable.into(), options)?)
             }
             ImageFormat::Pixmap(format) => {
                 let ImageSource::Pixmap(source) = source else {
@@ -257,47 +247,7 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
-    }
-
-    /// Create a possibly font-dependent image from a buffer and a format.
-    #[comemo::memoize]
-    #[typst_macros::time(name = "load image")]
-    pub fn with_fonts(
-        source: ImageSource,
-        format: ImageFormat,
-        alt: Option<EcoString>,
-        world: Tracked<dyn World + '_>,
-        families: &[&str],
-        flatten_text: bool,
-    ) -> StrResult<Image> {
-        let kind = match format {
-            ImageFormat::Raster(format) => {
-                let ImageSource::Readable(readable) = source else {
-                    bail!("expected readable source for the given format (str or bytes)");
-                };
-                ImageKind::Raster(RasterImage::new(readable.into(), format)?)
-            }
-            ImageFormat::Vector(VectorFormat::Svg) => {
-                let ImageSource::Readable(readable) = source else {
-                    bail!("expected readable source for the given format (str or bytes)");
-                };
-                ImageKind::Svg(SvgImage::with_fonts(
-                    readable.into(),
-                    world,
-                    flatten_text,
-                    families,
-                )?)
-            }
-            ImageFormat::Pixmap(format) => {
-                let ImageSource::Pixmap(source) = source else {
-                    bail!("source must be pixmap");
-                };
-                ImageKind::Pixmap(Pixmap::new(source, format)?)
-            }
-        };
-
-        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
+        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt: options.alt.clone() }))))
     }
 
     /// The format of the image.
@@ -432,4 +382,41 @@ cast! {
     v: RasterFormat => Self::Raster(v),
     v: VectorFormat => Self::Vector(v),
     v: PixmapFormat => Self::Pixmap(v),
+}
+
+/// A kind of image.
+#[derive(Hash)]
+pub enum ImageKind {
+    /// A raster image.
+    Raster(RasterImage),
+    /// An SVG image.
+    Svg(SvgImage),
+    /// An image constructed from a pixmap.
+    Pixmap(Pixmap),
+}
+
+pub struct ImageOptions<'a> {
+    pub alt: Option<EcoString>,
+    pub world: Option<Tracked<'a, dyn World + 'a>>,
+    pub families: &'a [&'a str],
+    pub flatten_text: bool,
+}
+
+impl Default for ImageOptions<'_> {
+    fn default() -> Self {
+        ImageOptions {
+            alt: None,
+            world: None,
+            families: &[],
+            flatten_text: false,
+        }
+    }
+}
+
+impl Hash for ImageOptions<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.alt.hash(state);
+        self.families.hash(state);
+        self.flatten_text.hash(state);
+    }
 }

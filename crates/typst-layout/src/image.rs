@@ -10,8 +10,8 @@ use typst_library::layout::{
 use typst_library::loading::Readable;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Curve, Image, ImageElem, ImageFit, ImageFormat, ImageSource, RasterFormat,
-    VectorFormat,
+    Curve, Image, ImageElem, ImageFit, ImageFormat, ImageOptions, ImageSource,
+    RasterFormat, VectorFormat,
 };
 
 /// Layout the image.
@@ -57,13 +57,15 @@ pub fn layout_image(
     }
 
     // Construct the image itself.
-    let image = Image::with_fonts(
+    let image = Image::new(
         source.clone(),
         format,
-        elem.alt(styles),
-        engine.world,
-        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-        elem.flatten_text(styles),
+        &ImageOptions {
+            alt: elem.alt(styles),
+            world: Some(engine.world),
+            families: &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+            flatten_text: elem.flatten_text(styles),
+        },
     )
     .at(span)?;
 

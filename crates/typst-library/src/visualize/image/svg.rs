@@ -14,6 +14,8 @@ use crate::text::{
 };
 use crate::World;
 
+use super::ImageOptions;
+
 /// A decoded SVG.
 #[derive(Clone, Hash)]
 pub struct SvgImage(Arc<Repr>);
@@ -28,51 +30,48 @@ struct Repr {
 }
 
 impl SvgImage {
-    /// Decode an SVG image without fonts.
+    /// Decode an SVG image.
     #[comemo::memoize]
-    pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let tree =
-            usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash: 0,
-            flatten_text: false,
-            tree,
-        })))
-    }
-
-    /// Decode an SVG image with access to fonts.
-    #[comemo::memoize]
-    pub fn with_fonts(
-        data: Bytes,
-        world: Tracked<dyn World + '_>,
-        flatten_text: bool,
-        families: &[&str],
-    ) -> StrResult<SvgImage> {
-        let book = world.book();
-        let resolver = Mutex::new(FontResolver::new(world, book, families));
-        let tree = usvg::Tree::from_data(
-            &data,
-            &usvg::Options {
-                font_resolver: usvg::FontResolver {
-                    select_font: Box::new(|font, db| {
-                        resolver.lock().unwrap().select_font(font, db)
-                    }),
-                    select_fallback: Box::new(|c, exclude_fonts, db| {
-                        resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
-                    }),
-                },
-                ..base_options()
-            },
-        )
-        .map_err(format_usvg_error)?;
-        let font_hash = resolver.into_inner().unwrap().finish();
+    pub fn new(data: Bytes, options: &ImageOptions) -> StrResult<SvgImage> {
+        let (tree, font_hash) = match options.world {
+            Some(world) => {
+                let book = world.book();
+                let resolver =
+                    Mutex::new(FontResolver::new(world, book, options.families));
+                let tree = usvg::Tree::from_data(
+                    &data,
+                    &usvg::Options {
+                        font_resolver: usvg::FontResolver {
+                            select_font: Box::new(|font, db| {
+                                resolver.lock().unwrap().select_font(font, db)
+                            }),
+                            select_fallback: Box::new(|c, exclude_fonts, db| {
+                                resolver.lock().unwrap().select_fallback(
+                                    c,
+                                    exclude_fonts,
+                                    db,
+                                )
+                            }),
+                        },
+                        ..base_options()
+                    },
+                )
+                .map_err(format_usvg_error)?;
+                let font_hash = resolver.into_inner().unwrap().finish();
+                (tree, font_hash)
+            }
+            None => {
+                let tree = usvg::Tree::from_data(&data, &base_options())
+                    .map_err(format_usvg_error)?;
+                let font_hash = 0;
+                (tree, font_hash)
+            }
+        };
         Ok(Self(Arc::new(Repr {
             data,
             size: tree_size(&tree),
             font_hash,
-            flatten_text,
+            flatten_text: options.flatten_text,
             tree,
         })))
     }

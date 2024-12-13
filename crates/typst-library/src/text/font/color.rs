@@ -105,9 +105,12 @@ fn draw_raster_glyph(
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<()> {
-    let image =
-        Image::new(Bytes::from(raster_image.data).into(), RasterFormat::Png.into(), None)
-            .ok()?;
+    let image = Image::new(
+        Bytes::from(raster_image.data).into(),
+        RasterFormat::Png.into(),
+        &Default::default(),
+    )
+    .ok()?;
 
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
@@ -180,8 +183,12 @@ fn draw_colr_glyph(
 
     let data = svg.end_document().into_bytes();
 
-    let image =
-        Image::new(Bytes::from(data).into(), VectorFormat::Svg.into(), None).ok()?;
+    let image = Image::new(
+        Bytes::from(data).into(),
+        VectorFormat::Svg.into(),
+        &Default::default(),
+    )
+    .ok()?;
 
     let y_shift = Abs::pt(upem.to_pt() - y_max);
     let position = Point::new(Abs::pt(x_min), y_shift);
@@ -257,7 +264,7 @@ fn draw_svg_glyph(
     );
 
     let source = ImageSource::Readable(Readable::Str(wrapper_svg.into()));
-    let image = Image::new(source, VectorFormat::Svg.into(), None).ok()?;
+    let image = Image::new(source, VectorFormat::Svg.into(), &Default::default()).ok()?;
 
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Size::new(Abs::pt(width), Abs::pt(height));
