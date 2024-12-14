@@ -25,8 +25,8 @@ use typst_library::visualize::{
 use typst_syntax::Span;
 use typst_utils::{Deferred, Numeric, SliceExt};
 
-use crate::color_old::PaintEncode;
 use crate::color_font::ColorFontMap;
+use crate::color_old::PaintEncode;
 use crate::extg_old::ExtGState;
 use crate::image_old::deferred_image;
 use crate::resources_old::Resources;

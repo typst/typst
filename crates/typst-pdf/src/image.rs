@@ -29,8 +29,8 @@ impl PdfImage {
 
 impl Hash for PdfImage {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        /// `alpha_channel` and `actual_dynamic` are generated from the underlying `RasterImage`,
-        /// so this is enough. Since `raster` is prehashed, this is also very cheap.
+        // `alpha_channel` and `actual_dynamic` are generated from the underlying `RasterImage`,
+        // so this is enough. Since `raster` is prehashed, this is also very cheap.
         self.raster.hash(state);
     }
 }

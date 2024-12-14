@@ -1,8 +1,8 @@
 //! Exporting of Typst documents into PDFs.
 
 mod catalog_old;
-mod color_old;
 mod color_font;
+mod color_old;
 mod content_old;
 mod extg_old;
 mod font_old;
@@ -35,8 +35,8 @@ use typst_syntax::Span;
 use typst_utils::Deferred;
 
 use crate::catalog_old::write_catalog;
-use crate::color_old::{alloc_color_functions_refs, ColorFunctionRefs};
 use crate::color_font::{write_color_fonts, ColorFontSlice};
+use crate::color_old::{alloc_color_functions_refs, ColorFunctionRefs};
 use crate::extg_old::{write_graphic_states, ExtGState};
 use crate::font_old::write_fonts;
 use crate::gradient_old::{write_gradients, PdfGradient};

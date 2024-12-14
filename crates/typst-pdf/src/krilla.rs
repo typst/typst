@@ -1,11 +1,12 @@
+use crate::content_old::Transforms;
+use crate::primitive::{PointExt, SizeExt, TransformExt};
 use crate::{paint, AbsExt};
 use bytemuck::TransparentWrapper;
-use image::{GenericImageView};
+use image::GenericImageView;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::font::{GlyphId, GlyphUnits};
-use krilla::geom::{Point, Transform};
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::validation::Validator;
@@ -16,49 +17,51 @@ use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 use svg2pdf::usvg::Rect;
-use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, PagedDocument, Size};
+use typst_library::layout::{
+    Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
+};
 use typst_library::model::Destination;
 use typst_library::text::{Font, Glyph, TextItem};
-use typst_library::visualize::{FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape};
-use crate::content_old::Transforms;
-use crate::primitive::{PointExt, SizeExt, TransformExt};
+use typst_library::visualize::{
+    FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
+};
 
 #[derive(Debug, Clone)]
 struct State {
     /// The transform of the current item.
-    transform: typst_library::layout::Transform,
+    transform: Transform,
     /// The transform of first hard frame in the hierarchy.
-    container_transform: typst_library::layout::Transform,
+    container_transform: Transform,
     /// The size of the first hard frame in the hierarchy.
     size: Size,
 }
 
 impl State {
     /// Creates a new, clean state for a given `size`.
-    pub fn new(size: Size) -> Self {
+    fn new(size: Size) -> Self {
         Self {
-            transform: typst_library::layout::Transform::identity(),
-            container_transform: typst_library::layout::Transform::identity(),
+            transform: Transform::identity(),
+            container_transform: Transform::identity(),
             size,
         }
     }
 
-    pub fn transform(&mut self, transform: typst_library::layout::Transform) {
-        self.transform = self.transform.pre_concat(transform);
-        if self.container_transform.is_identity() {
-            self.container_transform = self.transform;
-        }
+    pub fn size(&mut self, size: Size) {
+        self.size = size;
     }
 
-    fn group_transform(&mut self, transform: typst_library::layout::Transform) {
-        self.container_transform =
-            self.container_transform.pre_concat(transform);
+    pub fn transform(&mut self, transform: Transform) {
+        self.transform = self.transform.pre_concat(transform);
+    }
+
+    fn set_container_transform(&mut self) {
+        self.container_transform = self.transform;
     }
 
     /// Creates the [`Transforms`] structure for the current item.
-    pub fn transforms(&self, size: Size, pos: typst_library::layout::Point) -> Transforms {
+    pub fn transforms(&self, size: Size) -> Transforms {
         Transforms {
-            transform: self.transform.pre_concat(typst_library::layout::Transform::translate(pos.x, pos.y)),
+            transform: self.transform,
             container_transform: self.container_transform,
             container_size: self.size,
             size,
@@ -66,15 +69,13 @@ impl State {
     }
 }
 
-struct FrameContext {
-    states: Vec<State>
+pub(crate) struct FrameContext {
+    states: Vec<State>,
 }
 
 impl FrameContext {
     pub fn new(size: Size) -> Self {
-        Self {
-            states: vec![State::new(size)],
-        }
+        Self { states: vec![State::new(size)] }
     }
 
     pub fn push(&mut self) {
@@ -89,7 +90,7 @@ impl FrameContext {
         self.states.last().unwrap()
     }
 
-    pub fn state_mut(&mut self) -> &State {
+    pub fn state_mut(&mut self) -> &mut State {
         self.states.last_mut().unwrap()
     }
 }
@@ -126,17 +127,12 @@ impl krilla::font::Glyph for PdfGlyph {
 
 pub struct GlobalContext {
     fonts: HashMap<Font, krilla::font::Font>,
-    cur_transform: typst_library::layout::Transform,
     annotations: Vec<krilla::annotation::Annotation>,
 }
 
 impl GlobalContext {
     pub fn new() -> Self {
-        Self {
-            fonts: Default::default(),
-            cur_transform: typst_library::layout::Transform::identity(),
-            annotations: vec![],
-        }
+        Self { fonts: Default::default(), annotations: vec![] }
     }
 }
 
@@ -165,7 +161,15 @@ pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
         );
         let mut page = document.start_page_with(settings);
         let mut surface = page.surface();
-        process_frame(&typst_page.frame, &mut surface, &mut context);
+        let mut fc = FrameContext::new(typst_page.frame.size());
+        // println!("{:?}", &typst_page.frame);
+        process_frame(
+            &mut fc,
+            &typst_page.frame,
+            typst_page.fill_or_transparent(),
+            &mut surface,
+            &mut context,
+        );
         surface.finish();
 
         let annotations = std::mem::take(&mut context.annotations);
@@ -183,47 +187,66 @@ pub fn finish(document: krilla::Document) -> Vec<u8> {
     document.finish().unwrap()
 }
 
-pub fn process_frame(frame: &Frame, fill: Option<Paint>, surface: &mut Surface, gc: &mut GlobalContext) {
-    let mut fc = FrameContext::new(frame.size());
+pub fn process_frame(
+    fc: &mut FrameContext,
+    frame: &Frame,
+    fill: Option<Paint>,
+    surface: &mut Surface,
+    gc: &mut GlobalContext,
+) {
+    fc.push();
+
+    if frame.kind().is_hard() {
+        fc.state_mut().set_container_transform();
+        fc.state_mut().size(frame.size());
+    }
+
+    if let Some(fill) = fill {
+        let shape = Geometry::Rect(frame.size()).filled(fill);
+        handle_shape(fc, &shape, surface, gc);
+    }
 
     for (point, item) in frame.items() {
-        surface.push_transform(&Transform::from_translate(
-            point.x.to_f32(),
-            point.y.to_f32(),
-        ));
-
+        fc.push();
+        fc.state_mut().transform(Transform::translate(point.x, point.y));
         match item {
-            FrameItem::Group(g) => handle_group(g, surface, gc),
-            FrameItem::Text(t) => handle_text(t, surface, gc),
-            FrameItem::Shape(s, _) => handle_shape(s, surface),
+            FrameItem::Group(g) => handle_group(fc, g, surface, gc),
+            FrameItem::Text(t) => handle_text(fc, t, surface, gc),
+            FrameItem::Shape(s, _) => handle_shape(fc, s, surface, gc),
             FrameItem::Image(image, size, span) => {
-                handle_image(image, *size, surface, gc)
+                handle_image(fc, image, *size, surface)
             }
-            FrameItem::Link(d, s) => handle_link(*point, d, *s, gc, surface),
+            FrameItem::Link(d, s) => {}
             FrameItem::Tag(_) => {}
         }
 
-        surface.pop();
+        fc.pop();
     }
+
+    fc.pop();
 }
 
 pub fn handle_group(
+    fc: &mut FrameContext,
     group: &GroupItem,
     surface: &mut Surface,
     context: &mut GlobalContext,
 ) {
-    let old = context.cur_transform;
-    context.cur_transform = context.cur_transform.pre_concat(group.transform);
+    fc.push();
+    fc.state_mut().transform(group.transform);
 
-    surface.push_transform(&group.transform.as_krilla());
-    process_frame(&group.frame, surface, context);
+    process_frame(fc, &group.frame, None, surface, context);
 
-    context.cur_transform = old;
-    surface.pop();
+    fc.pop();
 }
 
-pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut GlobalContext) {
-    let font = context
+pub fn handle_text(
+    fc: &mut FrameContext,
+    t: &TextItem,
+    surface: &mut Surface,
+    gc: &mut GlobalContext,
+) {
+    let font = gc
         .fonts
         .entry(t.font.clone())
         .or_insert_with(|| {
@@ -232,14 +255,23 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut GlobalCont
                 .unwrap()
         })
         .clone();
-    let fill = paint::fill(&t.fill, FillRule::NonZero);
+    let fill = paint::fill(
+        gc,
+        &t.fill,
+        FillRule::NonZero,
+        true,
+        surface,
+        fc.state().transforms(Size::zero()),
+    );
     let text = t.text.as_str();
     let size = t.size;
 
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
+    surface.push_transform(&fc.state().transform.as_krilla());
+
     surface.fill_glyphs(
-        Point::from_xy(0.0, 0.0),
+        krilla::geom::Point::from_xy(0.0, 0.0),
         fill,
         &glyphs,
         font.clone(),
@@ -249,9 +281,13 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut GlobalCont
         false,
     );
 
-    if let Some(stroke) = t.stroke.as_ref().map(paint::stroke) {
+    if let Some(stroke) = t
+        .stroke
+        .as_ref()
+        .map(|s| paint::stroke(gc, s, true, surface, fc.state().transforms(Size::zero())))
+    {
         surface.stroke_glyphs(
-            Point::from_xy(0.0, 0.0),
+            krilla::geom::Point::from_xy(0.0, 0.0),
             stroke,
             &glyphs,
             font.clone(),
@@ -261,14 +297,18 @@ pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut GlobalCont
             true,
         );
     }
+
+    surface.pop();
 }
 
 pub fn handle_image(
+    fc: &mut FrameContext,
     image: &Image,
     size: Size,
     surface: &mut Surface,
-    _: &mut GlobalContext,
 ) {
+    surface.push_transform(&fc.state().transform.as_krilla());
+
     match image.kind() {
         ImageKind::Raster(raster) => {
             // TODO: Don't unwrap
@@ -276,12 +316,26 @@ pub fn handle_image(
             surface.draw_image(image, size.as_krilla());
         }
         ImageKind::Svg(svg) => {
-            surface.draw_svg(svg.tree(), size.as_krilla(), SvgSettings::default());
+            surface.draw_svg(
+                svg.tree(),
+                size.as_krilla(),
+                SvgSettings {
+                    embed_text: !svg.flatten_text(),
+                    ..Default::default()
+                },
+            );
         }
     }
+
+    surface.pop();
 }
 
-pub fn handle_shape(fc: &FrameContext, pos: Point, shape: &Shape, surface: &mut Surface) {
+pub fn handle_shape(
+    fc: &mut FrameContext,
+    shape: &Shape,
+    surface: &mut Surface,
+    gc: &mut GlobalContext,
+) {
     let mut path_builder = PathBuilder::new();
 
     match &shape.geometry {
@@ -300,11 +354,17 @@ pub fn handle_shape(fc: &FrameContext, pos: Point, shape: &Shape, surface: &mut 
     }
 
     surface.push_transform(&fc.state().transform.as_krilla());
-    surface.push_transform(&Transform::from_translate(pos.x, pos.y));
 
     if let Some(path) = path_builder.finish() {
         if let Some(paint) = &shape.fill {
-            let fill = paint::fill(paint, shape.fill_rule);
+            let fill = paint::fill(
+                gc,
+                &paint,
+                shape.fill_rule,
+                false,
+                surface,
+                fc.state().transforms(Size::zero()),
+            );
             surface.fill_path(&path, fill);
         }
 
@@ -317,12 +377,17 @@ pub fn handle_shape(fc: &FrameContext, pos: Point, shape: &Shape, surface: &mut 
         });
 
         if let Some(stroke) = &stroke {
-            let stroke = paint::stroke(stroke);
+            let stroke = paint::stroke(
+                gc,
+                stroke,
+                false,
+                surface,
+                fc.state().transforms(Size::zero()),
+            );
             surface.stroke_path(&path, stroke);
         }
     }
 
-    surface.pop();
     surface.pop();
 }
 
@@ -344,49 +409,49 @@ pub fn convert_path(path: &Path, builder: &mut PathBuilder) {
     }
 }
 
-fn handle_link(
-    pos: typst_library::layout::Point,
-    dest: &Destination,
-    size: typst_library::layout::Size,
-    ctx: &mut GlobalContext,
-    surface: &mut Surface,
-) {
-    let mut min_x = Abs::inf();
-    let mut min_y = Abs::inf();
-    let mut max_x = -Abs::inf();
-    let mut max_y = -Abs::inf();
-
-    // Compute the bounding box of the transformed link.
-    for point in [
-        pos,
-        pos + typst_library::layout::Point::with_x(size.x),
-        pos + typst_library::layout::Point::with_y(size.y),
-        pos + size.to_point(),
-    ] {
-        let t = point.transform(ctx.cur_transform);
-        min_x.set_min(t.x);
-        min_y.set_min(t.y);
-        max_x.set_max(t.x);
-        max_y.set_max(t.y);
-    }
-
-    let x1 = min_x.to_f32();
-    let x2 = max_x.to_f32();
-    let y1 = min_y.to_f32();
-    let y2 = max_y.to_f32();
-    let rect = krilla::geom::Rect::from_ltrb(x1, y1, x2, y2).unwrap();
-
-    let target = match dest {
-        Destination::Url(u) => {
-            Target::Action(Action::Link(LinkAction::new(u.to_string())))
-        }
-        Destination::Position(p) => {
-            Target::Destination(krilla::destination::Destination::Xyz(
-                XyzDestination::new(p.page.get() - 1, p.point.as_krilla()),
-            ))
-        }
-        Destination::Location(_) => return,
-    };
-
-    ctx.annotations.push(LinkAnnotation::new(rect, target).into());
-}
+// fn handle_link(
+//     pos: typst_library::layout::Point,
+//     dest: &Destination,
+//     size: typst_library::layout::Size,
+//     ctx: &mut GlobalContext,
+//     surface: &mut Surface,
+// ) {
+//     let mut min_x = Abs::inf();
+//     let mut min_y = Abs::inf();
+//     let mut max_x = -Abs::inf();
+//     let mut max_y = -Abs::inf();
+//
+//     // Compute the bounding box of the transformed link.
+//     for point in [
+//         pos,
+//         pos + Point::with_x(size.x),
+//         pos + Point::with_y(size.y),
+//         pos + size.to_point(),
+//     ] {
+//         let t = point.transform(ctx.cur_transform);
+//         min_x.set_min(t.x);
+//         min_y.set_min(t.y);
+//         max_x.set_max(t.x);
+//         max_y.set_max(t.y);
+//     }
+//
+//     let x1 = min_x.to_f32();
+//     let x2 = max_x.to_f32();
+//     let y1 = min_y.to_f32();
+//     let y2 = max_y.to_f32();
+//     let rect = krilla::geom::Rect::from_ltrb(x1, y1, x2, y2).unwrap();
+//
+//     let target = match dest {
+//         Destination::Url(u) => {
+//             Target::Action(Action::Link(LinkAction::new(u.to_string())))
+//         }
+//         Destination::Position(p) => {
+//             Target::Destination(krilla::destination::Destination::Xyz(
+//                 XyzDestination::new(p.page.get() - 1, p.point.as_krilla()),
+//             ))
+//         }
+//         Destination::Location(_) => return,
+//     };
+//
+//     ctx.annotations.push(LinkAnnotation::new(rect, target).into());
+// }

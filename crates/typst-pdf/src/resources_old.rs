@@ -18,8 +18,8 @@ use typst_library::visualize::Image;
 use typst_syntax::Span;
 use typst_utils::Deferred;
 
-use crate::color_old::ColorSpaces;
 use crate::color_font::ColorFontMap;
+use crate::color_old::ColorSpaces;
 use crate::extg_old::ExtGState;
 use crate::gradient_old::PdfGradient;
 use crate::image_old::EncodedImage;
