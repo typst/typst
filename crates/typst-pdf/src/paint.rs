@@ -8,12 +8,11 @@ use krilla::geom::NormalizedF32;
 use krilla::page::{NumberingStyle, PageLabel};
 use krilla::surface::Surface;
 use std::num::NonZeroUsize;
-use typst_library::layout::Abs;
+use typst_library::layout::{Abs, Angle, Ratio, Transform};
 use typst_library::model::Numbering;
-use typst_library::visualize::{
-    ColorSpace, DashPattern, FillRule, FixedStroke, Paint, Pattern, RelativeTo,
-};
+use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern, RelativeTo};
 use typst_utils::Numeric;
+use crate::gradient_old::PdfGradient;
 
 pub(crate) fn fill(
     gc: &mut GlobalContext,
@@ -180,55 +179,137 @@ pub(crate) fn convert_pattern(
 
 // TODO: Anti-aliasing
 
-// fn convert_gradient(
-//     gradient: &Gradient,
-//     on_text: bool,
-//     mut transforms: Transforms,
-// ) -> usize {
-//     // Edge cases for strokes.
-//     if transforms.size.x.is_zero() {
-//         transforms.size.x = Abs::pt(1.0);
-//     }
-//
-//     if transforms.size.y.is_zero() {
-//         transforms.size.y = Abs::pt(1.0);
-//     }
-//     let size = match gradient.unwrap_relative(on_text) {
-//         RelativeTo::Self_ => transforms.size,
-//         RelativeTo::Parent => transforms.container_size,
-//     };
-//
-//     let rotation = gradient.angle().unwrap_or_else(Angle::zero);
-//
-//     let transform = match gradient.unwrap_relative(on_text) {
-//         RelativeTo::Self_ => transforms.transform,
-//         RelativeTo::Parent => transforms.container_transform,
-//     };
-//
-//     let scale_offset = match gradient {
-//         Gradient::Conic(_) => 4.0_f64,
-//         _ => 1.0,
-//     };
-//
-//     let angle = Gradient::correct_aspect_ratio(rotation, size.aspect_ratio());
-//
-//     match &gradient {
-//         Gradient::Linear(_) => {
-//             let (mut sin, mut cos) = (angle.sin(), angle.cos());
-//
-//             // Scale to edges of unit square.
-//             let factor = cos.abs() + sin.abs();
-//             sin *= factor;
-//             cos *= factor;
-//
-//             let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
-//                 Quadrant::First => (0.0, 0.0, cos, sin),
-//                 Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
-//                 Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
-//                 Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
-//             };
-//         }
-//         Gradient::Radial(_) => {}
-//         Gradient::Conic(_) => {}
-//     }
-// }
+fn convert_gradient(
+    gradient: &Gradient,
+    on_text: bool,
+    mut transforms: Transforms,
+) -> (krilla::paint::Paint, u8) {
+    // Edge cases for strokes.
+    if transforms.size.x.is_zero() {
+        transforms.size.x = Abs::pt(1.0);
+    }
+
+    if transforms.size.y.is_zero() {
+        transforms.size.y = Abs::pt(1.0);
+    }
+    let size = match gradient.unwrap_relative(on_text) {
+        RelativeTo::Self_ => transforms.size,
+        RelativeTo::Parent => transforms.container_size,
+    };
+
+    let (offset_x, offset_y) = match gradient {
+        Gradient::Conic(conic) => (
+            -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
+            -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
+        ),
+        _ => (Abs::zero(), Abs::zero()),
+    };
+
+    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
+
+    let transform = match gradient.unwrap_relative(on_text) {
+        RelativeTo::Self_ => transforms.transform,
+        RelativeTo::Parent => transforms.container_transform,
+    };
+
+    let scale_offset = match gradient {
+        Gradient::Conic(_) => 4.0_f64,
+        _ => 1.0,
+    };
+
+    let pdf_gradient = PdfGradient {
+        aspect_ratio: size.aspect_ratio(),
+        transform: transform
+            .pre_concat(Transform::translate(
+                offset_x * scale_offset,
+                offset_y * scale_offset,
+            ))
+            .pre_concat(Transform::scale(
+                Ratio::new(size.x.to_pt() * scale_offset),
+                Ratio::new(size.y.to_pt() * scale_offset),
+            )),
+        gradient: gradient.clone(),
+        angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
+    };
+
+    match &gradient {
+        Gradient::Linear(_) => {
+            (krilla::color::rgb::Color::black().into(), 255)
+        }
+        Gradient::Radial(_) => {
+            (krilla::color::rgb::Color::black().into(), 255)
+        }
+        Gradient::Conic(conic) => {
+            // Correct the gradient's angle
+            let angle = Gradient::correct_aspect_ratio(conic.angle, pdf_gradient.aspect_ratio);
+
+            for window in conic.stops.windows(2) {
+                let ((c0, t0), (c1, t1)) = (window[0], window[1]);
+
+                // Precision:
+                // - On an even color, insert a stop every 90deg
+                // - For a hue-based color space, insert 200 stops minimum
+                // - On any other, insert 20 stops minimum
+                let max_dt = if c0 == c1 {
+                    0.25
+                } else if conic.space.hue_index().is_some() {
+                    0.005
+                } else {
+                    0.05
+                };
+                let encode_space = conic
+                    .space
+                    .hue_index()
+                    .map(|_| ColorSpace::Oklab)
+                    .unwrap_or(conic.space);
+                let mut t_x = t0.get();
+                let dt = (t1.get() - t0.get()).min(max_dt);
+
+                // Special casing for sharp gradients.
+                if t0 == t1 {
+                    write_patch(
+                        &mut vertices,
+                        t0.get() as f32,
+                        t1.get() as f32,
+                        &encode_space.convert(c0),
+                        &encode_space.convert(c1),
+                        angle,
+                    );
+                    continue;
+                }
+
+                while t_x < t1.get() {
+                    let t_next = (t_x + dt).min(t1.get());
+
+                    // The current progress in the current window.
+                    let t = |t| (t - t0.get()) / (t1.get() - t0.get());
+                    let c = Color::mix_iter(
+                        [WeightedColor::new(c0, 1.0 - t(t_x)), WeightedColor::new(c1, t(t_x))],
+                        conic.space,
+                    )
+                        .unwrap();
+
+                    let c_next = Color::mix_iter(
+                        [
+                            WeightedColor::new(c0, 1.0 - t(t_next)),
+                            WeightedColor::new(c1, t(t_next)),
+                        ],
+                        conic.space,
+                    )
+                        .unwrap();
+
+                    write_patch(
+                        &mut vertices,
+                        t_x as f32,
+                        t_next as f32,
+                        &encode_space.convert(c),
+                        &encode_space.convert(c_next),
+                        angle,
+                    );
+
+                    t_x = t_next;
+                }
+            }
+        }
+    }
+}
