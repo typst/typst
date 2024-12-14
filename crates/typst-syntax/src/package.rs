@@ -263,15 +263,36 @@ impl Display for VersionlessPackageSpec {
     }
 }
 
+fn is_namespace_valid(namespace: &str) -> bool {
+    if is_ident(namespace){
+        //standard namespace
+        return true
+    }
+
+    //if not ident, the namespace should be formed as @<package_remote_type>:<package_path>
+    let mut tokenized = namespace.splitn(2, ":");
+
+    //package type
+    if tokenized.next().is_none_or(|x| !is_ident(x)) {
+        return false
+    }
+
+    //the package_path parsing is left to the downloader implementation
+    true
+}
+
 fn parse_namespace<'s>(s: &mut Scanner<'s>) -> Result<&'s str, EcoString> {
     if !s.eat_if('@') {
         Err("package specification must start with '@'")?;
     }
 
+    //todo: allow for multiple slashes in the by eating until last slash
     let namespace = s.eat_until('/');
     if namespace.is_empty() {
         Err("package specification is missing namespace")?;
-    } else if !is_ident(namespace) {
+    }
+
+    if !is_namespace_valid(namespace) {
         Err(eco_format!("`{namespace}` is not a valid package namespace"))?;
     }
 

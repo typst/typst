@@ -20,7 +20,7 @@
 //!   `downloads` feature flag.
 
 #[cfg(feature = "downloads")]
-pub mod download;
+pub mod package_downloads;
 #[cfg(feature = "fonts")]
 pub mod fonts;
 #[cfg(feature = "packages")]

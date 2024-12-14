@@ -1,22 +1,13 @@
 //! Download and unpack packages and package indices.
-
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
-use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
+use typst_library::diag::{PackageError, PackageResult, StrResult};
 use typst_syntax::package::{
     PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
 };
-
-use crate::download::{Downloader, Progress};
-
-/// The default Typst registry.
-pub const DEFAULT_REGISTRY: &str = "https://packages.typst.org";
-
-/// The public namespace in the default Typst registry.
-pub const DEFAULT_NAMESPACE: &str = "preview";
+use crate::package_downloads::{Downloader, PackageDownloader, Progress};
 
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
@@ -74,25 +65,27 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
+        // check the package_path for the package directory.
         if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);
             if dir.exists() {
+                // no need to download, already in the path.
                 return Ok(dir);
             }
         }
 
+        // package was not in the package_path. check if it has been cached
         if let Some(cache_dir) = &self.package_cache_path {
             let dir = cache_dir.join(&subdir);
             if dir.exists() {
+                //package was cached, so return the cached directory
                 return Ok(dir);
             }
 
             // Download from network if it doesn't exist yet.
-            if spec.namespace == DEFAULT_NAMESPACE {
-                self.download_package(spec, &dir, progress)?;
-                if dir.exists() {
-                    return Ok(dir);
-                }
+            self.download_package(spec, &dir, progress)?;
+            if dir.exists() {
+                return Ok(dir);
             }
         }
 
@@ -104,47 +97,36 @@ impl PackageStorage {
         &self,
         spec: &VersionlessPackageSpec,
     ) -> StrResult<PackageVersion> {
-        if spec.namespace == DEFAULT_NAMESPACE {
-            // For `DEFAULT_NAMESPACE`, download the package index and find the latest
-            // version.
-            self.download_index()?
-                .iter()
-                .filter(|package| package.name == spec.name)
-                .map(|package| package.version)
-                .max()
-                .ok_or_else(|| eco_format!("failed to find package {spec}"))
-        } else {
-            // For other namespaces, search locally. We only search in the data
-            // directory and not the cache directory, because the latter is not
-            // intended for storage of local packages.
-            let subdir = format!("{}/{}", spec.namespace, spec.name);
-            self.package_path
-                .iter()
-                .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
-                .flatten()
-                .filter_map(|entry| entry.ok())
-                .map(|entry| entry.path())
-                .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
-                .max()
-                .ok_or_else(|| eco_format!("please specify the desired version"))
+
+        // Same logical flow as per package download. Check package path, then check online.
+        // Do not check in the data directory because the latter is not intended for storage
+        // of local packages.
+        let subdir = format!("{}/{}", spec.namespace, spec.name);
+        let res = self.package_path
+            .iter()
+            .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
+            .flatten()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
+            .max();
+
+        if let Some(version) = res {
+            return Ok(version);
         }
+
+        self.download_index(spec)?
+            .iter()
+            .filter(|package| package.name == spec.name)
+            .map(|package| package.version)
+            .max()
+            .ok_or_else(|| eco_format!("failed to find package {spec}"))
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&[PackageInfo]> {
+    pub fn download_index(&self, spec: &VersionlessPackageSpec) -> StrResult<&[PackageInfo]> {
         self.index
-            .get_or_try_init(|| {
-                let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
-                match self.downloader.download(&url) {
-                    Ok(response) => response.into_json().map_err(|err| {
-                        eco_format!("failed to parse package index: {err}")
-                    }),
-                    Err(ureq::Error::Status(404, _)) => {
-                        bail!("failed to fetch package index (not found)")
-                    }
-                    Err(err) => bail!("failed to fetch package index ({err})"),
-                }
-            })
+            .get_or_try_init(|| self.downloader.download_index(spec))
             .map(AsRef::as_ref)
     }
 
@@ -158,31 +140,15 @@ impl PackageStorage {
         package_dir: &Path,
         progress: &mut dyn Progress,
     ) -> PackageResult<()> {
-        assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
-
-        let url = format!(
-            "{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/{}-{}.tar.gz",
-            spec.name, spec.version
-        );
-
-        let data = match self.downloader.download_with_progress(&url, progress) {
-            Ok(data) => data,
-            Err(ureq::Error::Status(404, _)) => {
+        match self.downloader.download(spec, package_dir, progress) {
+            Err(PackageError::NotFound(spec)) => {
                 if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
-                    return Err(PackageError::VersionNotFound(spec.clone(), version));
+                    Err(PackageError::VersionNotFound(spec.clone(), version))
                 } else {
-                    return Err(PackageError::NotFound(spec.clone()));
+                    Err(PackageError::NotFound(spec.clone()))
                 }
-            }
-            Err(err) => {
-                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))))
-            }
-        };
-
-        let decompressed = flate2::read::GzDecoder::new(data.as_slice());
-        tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
-            fs::remove_dir_all(package_dir).ok();
-            PackageError::MalformedArchive(Some(eco_format!("{err}")))
-        })
+            },
+            val => val
+        }
     }
 }

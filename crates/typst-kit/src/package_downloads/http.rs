@@ -7,27 +7,23 @@
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
+use std::fs;
 use std::io::{self, ErrorKind, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::OnceCell;
 use ureq::Response;
+use typst_library::diag::{bail, PackageError, PackageResult};
+use typst_syntax::package::{PackageInfo, PackageSpec, VersionlessPackageSpec};
+use crate::package_downloads::{DownloadState, PackageDownloader, Progress, DEFAULT_NAMESPACE};
 
-/// Manages progress reporting for downloads.
-pub trait Progress {
-    /// Invoked when a download is started.
-    fn print_start(&mut self);
+/// The default Typst registry.
+pub const DEFAULT_REGISTRY: &str = "https://packages.typst.org";
 
-    /// Invoked repeatedly while a download is ongoing.
-    fn print_progress(&mut self, state: &DownloadState);
-
-    /// Invoked when a download is finished.
-    fn print_finish(&mut self, state: &DownloadState);
-}
 
 /// An implementation of [`Progress`] with no-op reporting, i.e., reporting
 /// events are swallowed.
@@ -39,28 +35,14 @@ impl Progress for ProgressSink {
     fn print_finish(&mut self, _: &DownloadState) {}
 }
 
-/// The current state of an in progress or finished download.
-#[derive(Debug)]
-pub struct DownloadState {
-    /// The expected amount of bytes to download, `None` if the response header
-    /// was not set.
-    pub content_len: Option<usize>,
-    /// The total amount of downloaded bytes until now.
-    pub total_downloaded: usize,
-    /// A backlog of the amount of downloaded bytes each second.
-    pub bytes_per_second: VecDeque<usize>,
-    /// The download starting instant.
-    pub start_time: Instant,
-}
-
 /// A minimal https client for downloading various resources.
-pub struct Downloader {
+pub struct HttpDownloader {
     user_agent: EcoString,
     cert_path: Option<PathBuf>,
     cert: OnceCell<Certificate>,
 }
 
-impl Downloader {
+impl HttpDownloader {
     /// Crates a new downloader with the given user agent and no certificate.
     pub fn new(user_agent: impl Into<EcoString>) -> Self {
         Self {
@@ -146,9 +128,28 @@ impl Downloader {
         let response = self.download(url)?;
         Ok(RemoteReader::from_response(response, progress).download()?)
     }
+
+    fn parse_namespace(ns: &str) -> Result<(String, String), EcoString> {
+        if ns.eq(DEFAULT_NAMESPACE) {
+            return Ok((DEFAULT_REGISTRY.to_string(), DEFAULT_NAMESPACE.to_string()))
+        }
+        let mut parts = ns.splitn(3, ":");
+
+        let schema = parts.next().ok_or_else(|| {
+            eco_format!("expected schema in {}", ns)
+        })?;
+        let registry = parts.next().ok_or_else(|| {
+            eco_format!("invalid package registry in namespace {}", ns)
+        })?;
+        let ns = parts.next().ok_or_else(|| {
+            eco_format!("invalid package namespace in {}", ns)
+        })?;
+
+        Ok((format!("{}://{}", schema, registry), ns.to_string()))
+    }
 }
 
-impl Debug for Downloader {
+impl Debug for HttpDownloader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Downloader")
             .field("user_agent", &self.user_agent)
@@ -255,5 +256,46 @@ impl<'p> RemoteReader<'p> {
         self.progress.print_finish(&self.state);
 
         Ok(data)
+    }
+}
+
+
+impl PackageDownloader for HttpDownloader {
+    fn download_index(&self, spec: &VersionlessPackageSpec) -> Result<Vec<PackageInfo>, EcoString> {
+        let (registry, namespace) = Self::parse_namespace(spec.namespace.as_str())?;
+        let url = format!("{registry}/{namespace}/index.json");
+        match self.download(&url) {
+            Ok(response) => response.into_json().map_err(|err| {
+                eco_format!("failed to parse package index: {err}")
+            }),
+            Err(ureq::Error::Status(404, _)) => {
+                bail!("failed to fetch package index (not found)")
+            }
+            Err(err) => bail!("failed to fetch package index ({err})"),
+        }
+    }
+
+    fn download(&self, spec: &PackageSpec, package_dir: &Path, progress: &mut dyn Progress) -> PackageResult<()> {
+        let (registry, namespace) = Self::parse_namespace(spec.namespace.as_str()).map_err(|x| PackageError::Other(Some(x)))?;
+
+        let url = format!(
+            "{}/{}/{}-{}.tar.gz",
+            registry, namespace, spec.name, spec.version
+        );
+        let data = match self.download_with_progress(&url, progress) {
+            Ok(data) => data,
+            Err(ureq::Error::Status(404, _)) => {
+                Err(PackageError::NotFound(spec.clone()))?
+            }
+            Err(err) => {
+                Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))))?
+            }
+        };
+
+        let decompressed = flate2::read::GzDecoder::new(data.as_slice());
+        tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
+            fs::remove_dir_all(package_dir).ok();
+            PackageError::MalformedArchive(Some(eco_format!("{err}")))
+        })
     }
 }
