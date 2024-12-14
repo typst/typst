@@ -63,15 +63,6 @@ impl HttpDownloader {
         }
     }
 
-    /// Crates a new downloader with the given user agent and certificate.
-    pub fn with_cert(user_agent: impl Into<EcoString>, cert: Certificate) -> Self {
-        Self {
-            user_agent: user_agent.into(),
-            cert_path: None,
-            cert: OnceCell::with_value(cert),
-        }
-    }
-
     /// Returns the certificate this client is using, if a custom certificate
     /// is used it is loaded on first access.
     ///

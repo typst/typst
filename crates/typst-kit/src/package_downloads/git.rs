@@ -1,24 +1,16 @@
-use std::cell::{RefCell, RefMut};
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::fs;
-use std::io::{self, ErrorKind, Read};
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::path::Path;
+use std::time::Instant;
 use auth_git2::GitAuthenticator;
 use crate::package_downloads::{
-    DownloadState, PackageDownloader, Progress, DEFAULT_NAMESPACE,
+    DownloadState, PackageDownloader, Progress,
 };
 use ecow::{eco_format, EcoString};
-use native_tls::{Certificate, TlsConnector};
-use once_cell::sync::OnceCell;
-use typst_library::diag::{bail, PackageError, PackageResult};
+use typst_library::diag::{PackageError, PackageResult};
 use typst_syntax::package::{PackageInfo, PackageSpec, VersionlessPackageSpec};
-use git2::{AutotagOption, FetchOptions, Progress as GitProgress, RemoteCallbacks};
-use git2::build::{CheckoutBuilder, RepoBuilder};
-use typst_library::html::tag::form;
+use git2::{FetchOptions, RemoteCallbacks};
+use git2::build::RepoBuilder;
 
 #[derive(Debug)]
 pub struct GitDownloader;
@@ -97,11 +89,9 @@ impl GitDownloader {
 impl PackageDownloader for GitDownloader {
     fn download_index(
         &self,
-        spec: &VersionlessPackageSpec,
+       _spec: &VersionlessPackageSpec,
     ) -> Result<Vec<PackageInfo>, EcoString> {
-
-        //todo ls-remote
-        todo!()
+        Err(eco_format!("Downloading index is not supported for git repositories"))
     }
 
     fn download(
