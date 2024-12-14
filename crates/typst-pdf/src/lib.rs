@@ -89,8 +89,8 @@ pub struct PdfOptions<'a> {
     /// `Auto`, a hash of the document's title and author is used instead (which
     /// is reasonably unique and stable).
     pub ident: Smart<&'a str>,
-    /// If not `None`, shall be the creation date of the document as a UTC
-    /// datetime. It will only be used if `set document(date: ..)` is `auto`.
+    /// If not `None`, shall be the creation timestamp of the document. It will
+    /// only be used if `set document(date: ..)` is `auto`.
     pub timestamp: Option<Timestamp>,
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
