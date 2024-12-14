@@ -235,7 +235,25 @@ pub fn handle_group(
     fc.push();
     fc.state_mut().transform(group.transform);
 
+    let clip_path = group
+        .clip_path
+        .as_ref()
+        .and_then(|p| {
+            let mut builder = PathBuilder::new();
+            convert_path(p, &mut builder);
+            builder.finish()
+        })
+        .and_then(|p| p.transform(fc.state().transform.as_krilla()));
+
+    if let Some(clip_path) = &clip_path {
+        surface.push_clip_path(clip_path, &krilla::path::FillRule::NonZero);
+    }
+
     process_frame(fc, &group.frame, None, surface, context);
+
+    if clip_path.is_some() {
+        surface.pop();
+    }
 
     fc.pop();
 }
