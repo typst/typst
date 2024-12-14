@@ -1,12 +1,11 @@
-use crate::{paint, primitive, AbsExt};
+use crate::{paint, AbsExt};
 use bytemuck::TransparentWrapper;
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{GenericImageView};
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::font::{GlyphId, GlyphUnits};
 use krilla::geom::{Point, Transform};
-use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::validation::Validator;
@@ -15,16 +14,85 @@ use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use svg2pdf::usvg::Rect;
-use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Page, Size};
-use typst_library::model::{Destination, Document};
+use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, PagedDocument, Size};
+use typst_library::model::Destination;
 use typst_library::text::{Font, Glyph, TextItem};
-use typst_library::visualize::{
-    FillRule, Geometry, Image, ImageKind, Path, PathItem, RasterFormat, RasterImage,
-    Shape,
-};
+use typst_library::visualize::{FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape};
+use crate::content_old::Transforms;
 use crate::primitive::{PointExt, SizeExt, TransformExt};
+
+#[derive(Debug, Clone)]
+struct State {
+    /// The transform of the current item.
+    transform: typst_library::layout::Transform,
+    /// The transform of first hard frame in the hierarchy.
+    container_transform: typst_library::layout::Transform,
+    /// The size of the first hard frame in the hierarchy.
+    size: Size,
+}
+
+impl State {
+    /// Creates a new, clean state for a given `size`.
+    pub fn new(size: Size) -> Self {
+        Self {
+            transform: typst_library::layout::Transform::identity(),
+            container_transform: typst_library::layout::Transform::identity(),
+            size,
+        }
+    }
+
+    pub fn transform(&mut self, transform: typst_library::layout::Transform) {
+        self.transform = self.transform.pre_concat(transform);
+        if self.container_transform.is_identity() {
+            self.container_transform = self.transform;
+        }
+    }
+
+    fn group_transform(&mut self, transform: typst_library::layout::Transform) {
+        self.container_transform =
+            self.container_transform.pre_concat(transform);
+    }
+
+    /// Creates the [`Transforms`] structure for the current item.
+    pub fn transforms(&self, size: Size, pos: typst_library::layout::Point) -> Transforms {
+        Transforms {
+            transform: self.transform.pre_concat(typst_library::layout::Transform::translate(pos.x, pos.y)),
+            container_transform: self.container_transform,
+            container_size: self.size,
+            size,
+        }
+    }
+}
+
+struct FrameContext {
+    states: Vec<State>
+}
+
+impl FrameContext {
+    pub fn new(size: Size) -> Self {
+        Self {
+            states: vec![State::new(size)],
+        }
+    }
+
+    pub fn push(&mut self) {
+        self.states.push(self.states.last().unwrap().clone());
+    }
+
+    pub fn pop(&mut self) {
+        self.states.pop();
+    }
+
+    pub fn state(&self) -> &State {
+        self.states.last().unwrap()
+    }
+
+    pub fn state_mut(&mut self) -> &State {
+        self.states.last_mut().unwrap()
+    }
+}
 
 #[derive(TransparentWrapper)]
 #[repr(transparent)]
@@ -56,13 +124,13 @@ impl krilla::font::Glyph for PdfGlyph {
     }
 }
 
-pub struct ExportContext {
+pub struct GlobalContext {
     fonts: HashMap<Font, krilla::font::Font>,
     cur_transform: typst_library::layout::Transform,
     annotations: Vec<krilla::annotation::Annotation>,
 }
 
-impl ExportContext {
+impl GlobalContext {
     pub fn new() -> Self {
         Self {
             fonts: Default::default(),
@@ -75,7 +143,7 @@ impl ExportContext {
 // TODO: Change rustybuzz cluster behavior so it works with ActualText
 
 #[typst_macros::time(name = "write pdf")]
-pub fn pdf(typst_document: &Document) -> Vec<u8> {
+pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: false,
@@ -88,7 +156,7 @@ pub fn pdf(typst_document: &Document) -> Vec<u8> {
     };
 
     let mut document = krilla::Document::new_with(settings);
-    let mut context = ExportContext::new();
+    let mut context = GlobalContext::new();
 
     for typst_page in &typst_document.pages {
         let settings = PageSettings::new(
@@ -115,10 +183,34 @@ pub fn finish(document: krilla::Document) -> Vec<u8> {
     document.finish().unwrap()
 }
 
+pub fn process_frame(frame: &Frame, fill: Option<Paint>, surface: &mut Surface, gc: &mut GlobalContext) {
+    let mut fc = FrameContext::new(frame.size());
+
+    for (point, item) in frame.items() {
+        surface.push_transform(&Transform::from_translate(
+            point.x.to_f32(),
+            point.y.to_f32(),
+        ));
+
+        match item {
+            FrameItem::Group(g) => handle_group(g, surface, gc),
+            FrameItem::Text(t) => handle_text(t, surface, gc),
+            FrameItem::Shape(s, _) => handle_shape(s, surface),
+            FrameItem::Image(image, size, span) => {
+                handle_image(image, *size, surface, gc)
+            }
+            FrameItem::Link(d, s) => handle_link(*point, d, *s, gc, surface),
+            FrameItem::Tag(_) => {}
+        }
+
+        surface.pop();
+    }
+}
+
 pub fn handle_group(
     group: &GroupItem,
     surface: &mut Surface,
-    context: &mut ExportContext,
+    context: &mut GlobalContext,
 ) {
     let old = context.cur_transform;
     context.cur_transform = context.cur_transform.pre_concat(group.transform);
@@ -130,7 +222,7 @@ pub fn handle_group(
     surface.pop();
 }
 
-pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut ExportContext) {
+pub fn handle_text(t: &TextItem, surface: &mut Surface, context: &mut GlobalContext) {
     let font = context
         .fonts
         .entry(t.font.clone())
@@ -175,7 +267,7 @@ pub fn handle_image(
     image: &Image,
     size: Size,
     surface: &mut Surface,
-    _: &mut ExportContext,
+    _: &mut GlobalContext,
 ) {
     match image.kind() {
         ImageKind::Raster(raster) => {
@@ -189,7 +281,7 @@ pub fn handle_image(
     }
 }
 
-pub fn handle_shape(shape: &Shape, surface: &mut Surface) {
+pub fn handle_shape(fc: &FrameContext, pos: Point, shape: &Shape, surface: &mut Surface) {
     let mut path_builder = PathBuilder::new();
 
     match &shape.geometry {
@@ -207,17 +299,31 @@ pub fn handle_shape(shape: &Shape, surface: &mut Surface) {
         }
     }
 
+    surface.push_transform(&fc.state().transform.as_krilla());
+    surface.push_transform(&Transform::from_translate(pos.x, pos.y));
+
     if let Some(path) = path_builder.finish() {
         if let Some(paint) = &shape.fill {
             let fill = paint::fill(paint, shape.fill_rule);
             surface.fill_path(&path, fill);
         }
 
-        if let Some(stroke) = &shape.stroke {
+        let stroke = shape.stroke.as_ref().and_then(|stroke| {
+            if stroke.thickness.to_f32() > 0.0 {
+                Some(stroke)
+            } else {
+                None
+            }
+        });
+
+        if let Some(stroke) = &stroke {
             let stroke = paint::stroke(stroke);
             surface.stroke_path(&path, stroke);
         }
     }
+
+    surface.pop();
+    surface.pop();
 }
 
 pub fn convert_path(path: &Path, builder: &mut PathBuilder) {
@@ -238,33 +344,11 @@ pub fn convert_path(path: &Path, builder: &mut PathBuilder) {
     }
 }
 
-pub fn process_frame(frame: &Frame, surface: &mut Surface, context: &mut ExportContext) {
-    for (point, item) in frame.items() {
-        surface.push_transform(&Transform::from_translate(
-            point.x.to_f32(),
-            point.y.to_f32(),
-        ));
-
-        match item {
-            FrameItem::Group(g) => handle_group(g, surface, context),
-            FrameItem::Text(t) => handle_text(t, surface, context),
-            FrameItem::Shape(s, _) => handle_shape(s, surface),
-            FrameItem::Image(image, size, span) => {
-                handle_image(image, *size, surface, context)
-            }
-            FrameItem::Link(d, s) => handle_link(*point, d, *s, context, surface),
-            FrameItem::Tag(_) => {}
-        }
-
-        surface.pop();
-    }
-}
-
 fn handle_link(
     pos: typst_library::layout::Point,
     dest: &Destination,
     size: typst_library::layout::Size,
-    ctx: &mut ExportContext,
+    ctx: &mut GlobalContext,
     surface: &mut Surface,
 ) {
     let mut min_x = Abs::inf();

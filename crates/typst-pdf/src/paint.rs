@@ -3,11 +3,13 @@
 use std::num::NonZeroUsize;
 use krilla::geom::NormalizedF32;
 use krilla::page::{NumberingStyle, PageLabel};
-use typst_library::layout::Abs;
+use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Transform};
 use typst_library::model::Numbering;
-use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Paint};
-
-use crate::AbsExt;
+use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RelativeTo};
+use typst_utils::Numeric;
+use crate::{content_old, AbsExt};
+use crate::content_old::Transforms;
+use crate::gradient_old::PdfGradient;
 use crate::primitive::{FillRuleExt, LineCapExt, LineJoinExt};
 
 pub(crate) fn fill(paint_: &Paint, fill_rule_: FillRule) -> krilla::path::Fill {
@@ -111,5 +113,70 @@ impl PageLabelExt for PageLabel {
     /// number 11.
     fn arabic(number: usize) -> PageLabel {
         PageLabel::new(Some(NumberingStyle::Arabic), None, NonZeroUsize::new(number))
+    }
+}
+
+// TODO: Anti-aliasing
+
+fn convert_gradient(
+    gradient: &Gradient,
+    on_text: bool,
+    mut transforms: Transforms,
+) -> usize {
+    // Edge cases for strokes.
+    if transforms.size.x.is_zero() {
+        transforms.size.x = Abs::pt(1.0);
+    }
+
+    if transforms.size.y.is_zero() {
+        transforms.size.y = Abs::pt(1.0);
+    }
+    let size = match gradient.unwrap_relative(on_text) {
+        RelativeTo::Self_ => transforms.size,
+        RelativeTo::Parent => transforms.container_size,
+    };
+
+    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
+
+    let transform = match gradient.unwrap_relative(on_text) {
+        RelativeTo::Self_ => transforms.transform,
+        RelativeTo::Parent => transforms.container_transform,
+    };
+
+    let scale_offset = match gradient {
+        Gradient::Conic(_) => 4.0_f64,
+        _ => 1.0,
+    };
+
+    let transform = transform
+        .pre_concat(Transform::translate(
+            offset_x * scale_offset,
+            offset_y * scale_offset,
+        ))
+        .pre_concat(Transform::scale(
+            Ratio::new(size.x.to_pt() * scale_offset),
+            Ratio::new(size.y.to_pt() * scale_offset),
+        ));
+
+    let angle = Gradient::correct_aspect_ratio(rotation, size.aspect_ratio());
+
+    match &gradient {
+        Gradient::Linear(_) => {
+            let (mut sin, mut cos) = (angle.sin(), angle.cos());
+
+            // Scale to edges of unit square.
+            let factor = cos.abs() + sin.abs();
+            sin *= factor;
+            cos *= factor;
+
+            let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
+                Quadrant::First => (0.0, 0.0, cos, sin),
+                Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
+                Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
+                Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
+            };
+        }
+        Gradient::Radial(_) => {}
+        Gradient::Conic(_) => {}
     }
 }

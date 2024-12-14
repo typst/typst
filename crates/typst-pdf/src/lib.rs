@@ -28,8 +28,7 @@ use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
 use serde::{Deserialize, Serialize};
 use typst_library::diag::{bail, SourceResult, StrResult};
 use typst_library::foundations::{Datetime, Smart};
-use typst_library::layout::{Abs, Em, PageRanges, Transform};
-use typst_library::model::Document;
+use typst_library::layout::{Abs, Em, PageRanges, PagedDocument, Transform};
 use typst_library::text::Font;
 use typst_library::visualize::Image;
 use typst_syntax::Span;
@@ -53,7 +52,7 @@ use crate::resources_old::{
 ///
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
-pub fn pdf(document: &Document, options: &PdfOptions) -> SourceResult<Vec<u8>> {
+pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
     return Ok(krilla::pdf(document));
     PdfBuilder::new(document, options)
         .phase(|builder| builder.run(traverse_pages))?
@@ -181,7 +180,7 @@ struct PdfBuilder<S> {
 /// this phase.
 struct WithDocument<'a> {
     /// The Typst document that is exported.
-    document: &'a Document,
+    document: &'a PagedDocument,
     /// Settings for PDF export.
     options: &'a PdfOptions<'a>,
 }
@@ -191,7 +190,7 @@ struct WithDocument<'a> {
 ///
 /// This phase allocates some global references.
 struct WithResources<'a> {
-    document: &'a Document,
+    document: &'a PagedDocument,
     options: &'a PdfOptions<'a>,
     /// The content of the pages encoded as PDF content streams.
     ///
@@ -240,7 +239,7 @@ impl<'a> From<(WithDocument<'a>, (Vec<Option<EncodedPage>>, Resources<()>))>
 /// We are now writing objects corresponding to resources, and giving them references,
 /// that will be collected in [`References`].
 struct WithGlobalRefs<'a> {
-    document: &'a Document,
+    document: &'a PagedDocument,
     options: &'a PdfOptions<'a>,
     pages: Vec<Option<EncodedPage>>,
     /// Resources are the same as in previous phases, but each dictionary now has a reference.
@@ -283,7 +282,7 @@ struct References {
 /// tree is going to be written, and given a reference. It is also at this point that
 /// the page contents is actually written.
 struct WithRefs<'a> {
-    document: &'a Document,
+    document: &'a PagedDocument,
     options: &'a PdfOptions<'a>,
     globals: GlobalRefs,
     pages: Vec<Option<EncodedPage>>,
@@ -309,7 +308,7 @@ impl<'a> From<(WithGlobalRefs<'a>, References)> for WithRefs<'a> {
 ///
 /// Each sub-resource gets its own isolated resource dictionary.
 struct WithEverything<'a> {
-    document: &'a Document,
+    document: &'a PagedDocument,
     options: &'a PdfOptions<'a>,
     globals: GlobalRefs,
     pages: Vec<Option<EncodedPage>>,
@@ -341,7 +340,7 @@ impl<'a> From<(WithRefs<'a>, Ref)> for WithEverything<'a> {
 
 impl<'a> PdfBuilder<WithDocument<'a>> {
     /// Start building a PDF for a Typst document.
-    fn new(document: &'a Document, options: &'a PdfOptions<'a>) -> Self {
+    fn new(document: &'a PagedDocument, options: &'a PdfOptions<'a>) -> Self {
         Self {
             alloc: Ref::new(1),
             pdf: Pdf::new(),
