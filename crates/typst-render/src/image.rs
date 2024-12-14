@@ -98,7 +98,7 @@ fn scale_image(
             ImageScaling::Pixelated => FilterType::Nearest,
             _ => FilterType::Lanczos3, // downscale
         };
-        buf = image.resize(w, h, filter);
+        buf = image.resize_exact(w, h, filter);
         &buf
     };
     for ((_, _, src), dest) in resized.pixels().zip(pixmap.pixels_mut()) {
