@@ -79,7 +79,6 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 }
 
 /// Scale a rastered image to a given size and return texture.
-// TODO(frozolotl): optimize pixmap allocation
 fn scale_image(
     image: &image::DynamicImage,
     scaling: ImageScaling,
@@ -87,15 +86,22 @@ fn scale_image(
     h: u32,
 ) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    let upscale = w > image.width();
-    let filter = match scaling {
-        ImageScaling::Auto if upscale => FilterType::CatmullRom,
-        ImageScaling::Smooth if upscale => FilterType::CatmullRom,
-        ImageScaling::Pixelated => FilterType::Nearest,
-        _ => FilterType::Lanczos3, // downscale
+    let buf;
+    let resized = if (w, h) == (image.width(), image.height()) {
+        // Small optimization to not allocate in case image is not resized.
+        image
+    } else {
+        let upscale = w > image.width();
+        let filter = match scaling {
+            ImageScaling::Auto if upscale => FilterType::CatmullRom,
+            ImageScaling::Smooth if upscale => FilterType::CatmullRom,
+            ImageScaling::Pixelated => FilterType::Nearest,
+            _ => FilterType::Lanczos3, // downscale
+        };
+        buf = image.resize(w, h, filter);
+        &buf
     };
-    let buf = image.resize(w, h, filter);
-    for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
+    for ((_, _, src), dest) in resized.pixels().zip(pixmap.pixels_mut()) {
         let Rgba([r, g, b, a]) = src;
         *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
     }
