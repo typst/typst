@@ -5,6 +5,7 @@ use std::time::Instant;
 use ecow::{eco_format, EcoString};
 use typst_library::diag::{PackageError, PackageResult};
 use typst_syntax::package::{PackageInfo, PackageSpec, VersionlessPackageSpec};
+use crate::package_downloads::git::GitDownloader;
 
 /// The public namespace in the default Typst registry.
 pub const DEFAULT_NAMESPACE: &str = "preview";
@@ -76,12 +77,12 @@ impl Downloader {
     }
 
     fn make_git_downloader(_cert: Option<PathBuf>) -> Option<Box<dyn PackageDownloader>>{
-        #[cfg(not(feature = "downloads_http"))]
+        #[cfg(not(feature = "downloads_git"))]
         { None }
 
-        #[cfg(feature = "downloads_http")]
+        #[cfg(feature = "downloads_git")]
         {
-            None
+            Some(Box::new(GitDownloader::new()))
         }
     }
 

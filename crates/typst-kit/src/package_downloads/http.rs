@@ -89,7 +89,7 @@ impl HttpDownloader {
 
     /// Download binary data from the given url.
     #[allow(clippy::result_large_err)]
-    pub fn download(&self, url: &str) -> Result<ureq::Response, ureq::Error> {
+    pub fn perform_download(&self, url: &str) -> Result<ureq::Response, ureq::Error> {
         let mut builder = ureq::AgentBuilder::new();
         let mut tls = TlsConnector::builder();
 
@@ -125,7 +125,7 @@ impl HttpDownloader {
         progress: &mut dyn Progress,
     ) -> Result<Vec<u8>, ureq::Error> {
         progress.print_start();
-        let response = self.download(url)?;
+        let response = self.perform_download(url)?;
         Ok(RemoteReader::from_response(response, progress).download()?)
     }
 
@@ -144,6 +144,10 @@ impl HttpDownloader {
         let ns = parts.next().ok_or_else(|| {
             eco_format!("invalid package namespace in {}", ns)
         })?;
+
+        if !schema.eq("http") && !schema.eq("https") {
+            Err(eco_format!("invalid schema in {}", ns))?
+        }
 
         Ok((format!("{}://{}", schema, registry), ns.to_string()))
     }
@@ -264,7 +268,7 @@ impl PackageDownloader for HttpDownloader {
     fn download_index(&self, spec: &VersionlessPackageSpec) -> Result<Vec<PackageInfo>, EcoString> {
         let (registry, namespace) = Self::parse_namespace(spec.namespace.as_str())?;
         let url = format!("{registry}/{namespace}/index.json");
-        match self.download(&url) {
+        match self.perform_download(&url) {
             Ok(response) => response.into_json().map_err(|err| {
                 eco_format!("failed to parse package index: {err}")
             }),
