@@ -31,6 +31,7 @@ use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
+use unicode_math_class::MathClass;
 
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
@@ -128,6 +129,20 @@ pub trait SliceExt<T> {
     where
         F: FnMut(&T) -> K,
         K: PartialEq;
+
+    /// Computes two indices which split a slice into three parts.
+    ///
+    /// - A prefix which matches `f`
+    /// - An inner portion
+    /// - A suffix which matches `f` and does not overlap with the prefix
+    ///
+    /// If all elements match `f`, the prefix becomes `self` and the suffix
+    /// will be empty.
+    ///
+    /// Returns the indices at which the inner portion and the suffix start.
+    fn split_prefix_suffix<F>(&self, f: F) -> (usize, usize)
+    where
+        F: FnMut(&T) -> bool;
 }
 
 impl<T> SliceExt<T> for [T] {
@@ -156,6 +171,19 @@ impl<T> SliceExt<T> for [T] {
 
     fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F> {
         GroupByKey { slice: self, f }
+    }
+
+    fn split_prefix_suffix<F>(&self, mut f: F) -> (usize, usize)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let start = self.iter().position(|v| !f(v)).unwrap_or(self.len());
+        let end = self
+            .iter()
+            .skip(start)
+            .rposition(|v| !f(v))
+            .map_or(start, |i| start + i + 1);
+        (start, end)
     }
 }
 
@@ -309,4 +337,29 @@ pub trait Numeric:
 
     /// Whether `self` consists only of finite parts.
     fn is_finite(self) -> bool;
+}
+
+/// Returns the default math class of a character in Typst, if it has one.
+///
+/// This is determined by the Unicode math class, with some manual overrides.
+pub fn default_math_class(c: char) -> Option<MathClass> {
+    match c {
+        // Better spacing.
+        // https://github.com/typst/typst/commit/2e039cb052fcb768027053cbf02ce396f6d7a6be
+        ':' => Some(MathClass::Relation),
+
+        // Better spacing when used alongside + PLUS SIGN.
+        // https://github.com/typst/typst/pull/1726
+        '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
+
+        // Better spacing.
+        // https://github.com/typst/typst/pull/1855
+        '.' | '/' => Some(MathClass::Normal),
+
+        // ⊥ UP TACK should not be a relation, contrary to ⟂ PERPENDICULAR.
+        // https://github.com/typst/typst/pull/5714
+        '\u{22A5}' => Some(MathClass::Normal),
+
+        c => unicode_math_class::class(c),
+    }
 }

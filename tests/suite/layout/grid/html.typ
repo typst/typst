@@ -30,3 +30,30 @@
     [row],
   ),
 )
+
+--- col-gutter-table html ---
+#table(
+  columns: 3,
+  column-gutter: 3pt,
+  [a], [b], [c],
+  [d], [e], [f],
+  [g], [h], [i]
+)
+
+--- row-gutter-table html ---
+#table(
+  columns: 3,
+  row-gutter: 3pt,
+  [a], [b], [c],
+  [d], [e], [f],
+  [g], [h], [i]
+)
+
+--- col-row-gutter-table html ---
+#table(
+  columns: 3,
+  gutter: 3pt,
+  [a], [b], [c],
+  [d], [e], [f],
+  [g], [h], [i]
+)

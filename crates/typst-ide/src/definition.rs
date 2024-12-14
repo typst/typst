@@ -55,8 +55,8 @@ pub fn definition(
                 }
             }
 
-            if let Some(value) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(value.clone()));
+            if let Some(binding) = globals(world, &leaf).get(&name) {
+                return Some(Definition::Std(binding.read().clone()));
             }
         }
 

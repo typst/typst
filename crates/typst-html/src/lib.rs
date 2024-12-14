@@ -14,9 +14,9 @@ use typst_library::html::{
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, SplitLocator, TagElem,
 };
-use typst_library::layout::{Abs, Axes, BoxElem, Region, Size};
+use typst_library::layout::{Abs, Axes, BlockBody, BlockElem, BoxElem, Region, Size};
 use typst_library::model::{DocumentInfo, ParElem};
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_library::World;
 use typst_syntax::Span;
@@ -83,8 +83,8 @@ fn html_document_impl(
     )?;
 
     let output = handle_list(&mut engine, &mut locator, children.iter().copied())?;
+    let introspector = Introspector::html(&output);
     let root = root_element(output, &info)?;
-    let introspector = Introspector::html(&root);
 
     Ok(HtmlDocument { info, root, introspector })
 }
@@ -139,7 +139,9 @@ fn html_fragment_impl(
 
     let arenas = Arenas::default();
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlFragment,
+        // No need to know about the `FragmentKind` because we handle both
+        // uniformly.
+        RealizationKind::HtmlFragment(&mut FragmentKind::Block),
         &mut engine,
         &mut locator,
         &arenas,
@@ -189,7 +191,8 @@ fn handle(
         };
         output.push(element.into());
     } else if let Some(elem) = child.to_packed::<ParElem>() {
-        let children = handle_list(engine, locator, elem.children.iter(&styles))?;
+        let children =
+            html_fragment(engine, &elem.body, locator.next(&elem.span()), styles)?;
         output.push(
             HtmlElement::new(tag::p)
                 .with_children(children)
@@ -197,13 +200,34 @@ fn handle(
                 .into(),
         );
     } else if let Some(elem) = child.to_packed::<BoxElem>() {
-        // FIXME: Very incomplete and hacky, but makes boxes kind fulfill their
-        // purpose for now.
+        // TODO: This is rather incomplete.
         if let Some(body) = elem.body(styles) {
             let children =
                 html_fragment(engine, body, locator.next(&elem.span()), styles)?;
-            output.extend(children);
+            output.push(
+                HtmlElement::new(tag::span)
+                    .with_attr(attr::style, "display: inline-block;")
+                    .with_children(children)
+                    .spanned(elem.span())
+                    .into(),
+            )
         }
+    } else if let Some((elem, body)) =
+        child
+            .to_packed::<BlockElem>()
+            .and_then(|elem| match elem.body(styles) {
+                Some(BlockBody::Content(body)) => Some((elem, body)),
+                _ => None,
+            })
+    {
+        // TODO: This is rather incomplete.
+        let children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
+        output.push(
+            HtmlElement::new(tag::div)
+                .with_children(children)
+                .spanned(elem.span())
+                .into(),
+        );
     } else if child.is::<SpaceElem>() {
         output.push(HtmlNode::text(' ', child.span()));
     } else if let Some(elem) = child.to_packed::<TextElem>() {
@@ -283,18 +307,18 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 
 /// Determine which kind of output the user generated.
 fn classify_output(mut output: Vec<HtmlNode>) -> SourceResult<OutputKind> {
-    let len = output.len();
+    let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
     for node in &mut output {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         let mut take = || std::mem::replace(elem, HtmlElement::new(tag::html));
-        match (tag, len) {
+        match (tag, count) {
             (tag::html, 1) => return Ok(OutputKind::Html(take())),
             (tag::body, 1) => return Ok(OutputKind::Body(take())),
             (tag::html | tag::body, _) => bail!(
                 elem.span,
                 "`{}` element must be the only element in the document",
-                elem.tag
+                elem.tag,
             ),
             _ => {}
         }

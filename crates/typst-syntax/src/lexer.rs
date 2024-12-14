@@ -685,6 +685,7 @@ impl Lexer<'_> {
             if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
                 self.s = s;
             }
+            SyntaxKind::MathText
         } else {
             let len = self
                 .s
@@ -693,8 +694,14 @@ impl Lexer<'_> {
                 .next()
                 .map_or(0, str::len);
             self.s.jump(start + len);
+            if len > c.len_utf8() {
+                // Grapheme clusters are treated as normal text and stay grouped
+                // This may need to change in the future.
+                SyntaxKind::Text
+            } else {
+                SyntaxKind::MathText
+            }
         }
-        SyntaxKind::Text
     }
 
     /// Handle named arguments in math function call.

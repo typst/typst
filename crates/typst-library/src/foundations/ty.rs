@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use ecow::{eco_format, EcoString};
 use typst_utils::Static;
 
-use crate::diag::StrResult;
+use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{
     cast, func, AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value,
 };
@@ -44,6 +44,16 @@ use crate::foundations::{
 /// #type(int) \
 /// #type(type)
 /// ```
+///
+/// # Compatibility
+/// In Typst 0.7 and lower, the `type` function returned a string instead of a
+/// type. Compatibility with the old way will remain until Typst 0.14 to give
+/// package authors time to upgrade.
+///
+/// - Checks like `{int == "integer"}` evaluate to `{true}`
+/// - Adding/joining a type and string will yield a string
+/// - The `{in}` operator on a type and a dictionary will evaluate to `{true}`
+///   if the dictionary has a string key matching the type's name
 #[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
@@ -94,10 +104,23 @@ impl Type {
     }
 
     /// Get a field from this type's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
-        self.scope()
-            .get(field)
-            .ok_or_else(|| eco_format!("type {self} does not contain field `{field}`"))
+    pub fn field(
+        &self,
+        field: &str,
+        sink: impl DeprecationSink,
+    ) -> StrResult<&'static Value> {
+        match self.scope().get(field) {
+            Some(binding) => Ok(binding.read_checked(sink)),
+            None => bail!("type {self} does not contain field `{field}`"),
+        }
+    }
+}
+
+// Type compatibility.
+impl Type {
+    /// The type's backward-compatible name.
+    pub fn compat_name(&self) -> &str {
+        self.long_name()
     }
 }
 
@@ -136,7 +159,7 @@ impl Repr for Type {
         } else if *self == Type::of::<NoneValue>() {
             "type(none)"
         } else {
-            self.long_name()
+            self.short_name()
         }
         .into()
     }

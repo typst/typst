@@ -20,7 +20,9 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 
 /// A mathematical equation.
 ///
-/// Can be displayed inline with text or as a separate block.
+/// Can be displayed inline with text or as a separate block. An equation
+/// becomes block-level through the presence of at least one space after the
+/// opening dollar sign and one space before the closing dollar sign.
 ///
 /// # Example
 /// ```example

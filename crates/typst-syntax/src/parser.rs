@@ -3,6 +3,7 @@ use std::mem;
 use std::ops::{Index, IndexMut, Range};
 
 use ecow::{eco_format, EcoString};
+use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use crate::set::{syntax_set, SyntaxSet};
@@ -252,7 +253,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
-            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
+            if min_prec < 3
+                && p.directly_at(SyntaxKind::MathText)
+                && p.current_text() == "("
             {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
@@ -264,10 +267,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
         | SyntaxKind::RightParen => {
-            p.convert_and_eat(SyntaxKind::Text);
+            p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathShorthand => {
+        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
             continuable = matches!(
                 math_class(p.current_text()),
                 None | Some(MathClass::Alphabetic)
@@ -316,7 +319,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut primed = false;
 
     while !p.end() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
+        if p.directly_at(SyntaxKind::MathText) && p.current_text() == "!" {
             p.eat();
             p.wrap(m, SyntaxKind::Math);
             continue;
@@ -414,7 +417,7 @@ fn math_delimited(p: &mut Parser) {
             // We could be at the shorthand `|]`, which shouldn't be converted
             // to a `Text` kind.
             if p.at(SyntaxKind::RightParen) {
-                p.convert_and_eat(SyntaxKind::Text);
+                p.convert_and_eat(SyntaxKind::MathText);
             } else {
                 p.eat();
             }
@@ -466,7 +469,7 @@ fn math_class(text: &str) -> Option<MathClass> {
     chars
         .next()
         .filter(|_| chars.next().is_none())
-        .and_then(unicode_math_class::class)
+        .and_then(default_math_class)
 }
 
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
@@ -535,7 +538,7 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
     }
 
     let mut positional = true;
-    if p.at_set(syntax_set!(Text, MathIdent, Underscore)) {
+    if p.at_set(syntax_set!(MathText, MathIdent, Underscore)) {
         // Parses a named argument: `thickness: #12pt`.
         if let Some(named) = p.lexer.maybe_math_named_arg(start) {
             p.token.node = named;

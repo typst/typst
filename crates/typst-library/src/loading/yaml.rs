@@ -41,9 +41,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "YAML")]
 pub fn yaml(
     engine: &mut Engine,
-    /// A path to a YAML file or raw YAML bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
@@ -55,10 +53,8 @@ pub fn yaml(
 #[scope]
 impl yaml {
     /// Reads structured data from a YAML string/bytes.
-    ///
-    /// This function is deprecated. The [`yaml`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode YAML")]
+    #[deprecated = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// YAML data.

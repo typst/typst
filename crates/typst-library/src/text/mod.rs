@@ -45,25 +45,18 @@ use typst_utils::singleton;
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr,
-    Resolve, Scope, Set, Smart, StyleChain,
+    cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
+    NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set,
+    Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
-use crate::model::ParElem;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 use crate::World;
 
-/// Text styling.
-///
-/// The [text function]($text) is of particular interest.
-#[category]
-pub static TEXT: Category;
-
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(TEXT);
+    global.start_category(crate::Category::Text);
     global.define_elem::<TextElem>();
     global.define_elem::<LinebreakElem>();
     global.define_elem::<SmartQuoteElem>();
@@ -78,6 +71,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<lower>();
     global.define_func::<upper>();
     global.define_func::<lorem>();
+    global.reset_category();
 }
 
 /// Customizes the look and layout of text in a variety of ways.
@@ -509,9 +503,8 @@ pub struct TextElem {
     /// enabling hyphenation can
     /// improve justification.
     /// ```
-    #[resolve]
     #[ghost]
-    pub hyphenate: Hyphenate,
+    pub hyphenate: Smart<bool>,
 
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
@@ -755,11 +748,10 @@ pub struct TextElem {
     #[ghost]
     pub case: Option<Case>,
 
-    /// Whether small capital glyphs should be used. ("smcp")
+    /// Whether small capital glyphs should be used. ("smcp", "c2sc")
     #[internal]
-    #[default(false)]
     #[ghost]
-    pub smallcaps: bool,
+    pub smallcaps: Option<Smallcaps>,
 }
 
 impl TextElem {
@@ -1116,27 +1108,6 @@ impl Resolve for TextDir {
     }
 }
 
-/// Whether to hyphenate text.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Hyphenate(pub Smart<bool>);
-
-cast! {
-    Hyphenate,
-    self => self.0.into_value(),
-    v: Smart<bool> => Self(v),
-}
-
-impl Resolve for Hyphenate {
-    type Output = bool;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        match self.0 {
-            Smart::Auto => ParElem::justify_in(styles),
-            Smart::Custom(v) => v,
-        }
-    }
-}
-
 /// A set of stylistic sets to enable.
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
@@ -1249,8 +1220,11 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     // Features that are off by default in Harfbuzz are only added if enabled.
-    if TextElem::smallcaps_in(styles) {
+    if let Some(sc) = TextElem::smallcaps_in(styles) {
         feat(b"smcp", 1);
+        if sc == Smallcaps::All {
+            feat(b"c2sc", 1);
+        }
     }
 
     if TextElem::alternates_in(styles) {
@@ -1406,24 +1380,7 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        let found = book.contains_family(family.as_str());
-        if family.as_str() == "linux libertine" {
-            let mut warning = warning!(
-                list.span,
-                "Typst's default font has changed from Linux Libertine to its successor Libertinus Serif";
-                hint: "please set the font to `\"Libertinus Serif\"` instead"
-            );
-
-            if found {
-                warning.hint(
-                    "Linux Libertine is available on your system - \
-                     you can ignore this warning if you are sure you want to use it",
-                );
-                warning.hint("this warning will be removed in Typst 0.13");
-            }
-
-            engine.sink.warn(warning);
-        } else if !found {
+        if !book.contains_family(family.as_str()) {
             engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",

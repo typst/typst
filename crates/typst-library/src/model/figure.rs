@@ -19,7 +19,9 @@ use crate::layout::{
     AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
     PlaceElem, PlacementScope, VAlignment, VElem,
 };
-use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
+use crate::model::{
+    Numbering, NumberingPattern, Outlinable, ParbreakElem, Refable, Supplement,
+};
 use crate::text::{Lang, Region, TextElem};
 use crate::visualize::ImageElem;
 
@@ -328,6 +330,7 @@ impl Synthesize for Packed<FigureElem> {
 impl Show for Packed<FigureElem> {
     #[typst_macros::time(name = "figure", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let target = TargetElem::target_in(styles);
         let mut realized = self.body.clone();
 
@@ -341,24 +344,27 @@ impl Show for Packed<FigureElem> {
             seq.push(first);
             if !target.is_html() {
                 let v = VElem::new(self.gap(styles).into()).with_weak(true);
-                seq.push(v.pack().spanned(self.span()))
+                seq.push(v.pack().spanned(span))
             }
             seq.push(second);
             realized = Content::sequence(seq)
         }
 
+        // Ensure that the body is considered a paragraph.
+        realized += ParbreakElem::shared().clone().spanned(span);
+
         if target.is_html() {
             return Ok(HtmlElem::new(tag::figure)
                 .with_body(Some(realized))
                 .pack()
-                .spanned(self.span()));
+                .spanned(span));
         }
 
         // Wrap the contents in a block.
         realized = BlockElem::new()
             .with_body(Some(BlockBody::Content(realized)))
             .pack()
-            .spanned(self.span());
+            .spanned(span);
 
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
@@ -367,10 +373,10 @@ impl Show for Packed<FigureElem> {
                 .with_scope(self.scope(styles))
                 .with_float(true)
                 .pack()
-                .spanned(self.span());
+                .spanned(span);
         } else if self.scope(styles) == PlacementScope::Parent {
             bail!(
-                self.span(),
+                span,
                 "parent-scoped placement is only available for floating figures";
                 hint: "you can enable floating placement with `figure(placement: auto, ..)`"
             );
@@ -604,14 +610,17 @@ impl Show for Packed<FigureCaption> {
             realized = supplement + numbers + self.get_separator(styles) + realized;
         }
 
-        if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::figcaption)
+        Ok(if TargetElem::target_in(styles).is_html() {
+            HtmlElem::new(tag::figcaption)
                 .with_body(Some(realized))
                 .pack()
-                .spanned(self.span()));
-        }
-
-        Ok(realized)
+                .spanned(self.span())
+        } else {
+            BlockElem::new()
+                .with_body(Some(BlockBody::Content(realized)))
+                .pack()
+                .spanned(self.span())
+        })
     }
 }
 

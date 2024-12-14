@@ -264,6 +264,13 @@ First!
   image("/assets/images/rhino.png", width: 30pt)
 )
 
+--- box-html html ---
+Text #box[Span].
+
+--- block-html html ---
+Paragraph
+#block[Div]
+
 --- container-layoutable-child ---
 // Test box/block sizing with directly layoutable child.
 //

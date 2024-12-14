@@ -17,7 +17,7 @@ use hayagriva::{
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
 use typst_syntax::{Span, Spanned};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -29,7 +29,7 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
-    Sizing, TrackSizings, VElem,
+    Sides, Sizing, TrackSizings,
 };
 use crate::loading::{DataSource, Load};
 use crate::model::{
@@ -38,7 +38,8 @@ use crate::model::{
 };
 use crate::routines::{EvalMode, Routines};
 use crate::text::{
-    FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
+    FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
+    WeightDelta,
 };
 use crate::World;
 
@@ -205,19 +206,20 @@ impl Show for Packed<BibliographyElem> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
+        let span = self.span();
+
         let mut seq = vec![];
         if let Some(title) = self.title(styles).unwrap_or_else(|| {
-            Some(TextElem::packed(Self::local_name_in(styles)).spanned(self.span()))
+            Some(TextElem::packed(Self::local_name_in(styles)).spanned(span))
         }) {
             seq.push(
                 HeadingElem::new(title)
                     .with_depth(NonZeroUsize::ONE)
                     .pack()
-                    .spanned(self.span()),
+                    .spanned(span),
             );
         }
 
-        let span = self.span();
         let works = Works::generate(engine).at(span)?;
         let references = works
             .references
@@ -225,10 +227,9 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        let row_gutter = ParElem::spacing_in(styles);
-        let row_gutter_elem = VElem::new(row_gutter.into()).with_weak(true).pack();
-
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
+            let row_gutter = ParElem::spacing_in(styles);
+
             let mut cells = vec![];
             for (prefix, reference) in references {
                 cells.push(GridChild::Item(GridItem::Cell(
@@ -245,23 +246,27 @@ impl Show for Packed<BibliographyElem> {
                     .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                     .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
                     .pack()
-                    .spanned(self.span()),
+                    .spanned(span),
             );
         } else {
-            for (i, (_, reference)) in references.iter().enumerate() {
-                if i > 0 {
-                    seq.push(row_gutter_elem.clone());
-                }
-                seq.push(reference.clone());
+            for (_, reference) in references {
+                let realized = reference.clone();
+                let block = if works.hanging_indent {
+                    let body = HElem::new((-INDENT).into()).pack() + realized;
+                    let inset = Sides::default()
+                        .with(TextElem::dir_in(styles).start(), Some(INDENT.into()));
+                    BlockElem::new()
+                        .with_body(Some(BlockBody::Content(body)))
+                        .with_inset(inset)
+                } else {
+                    BlockElem::new().with_body(Some(BlockBody::Content(realized)))
+                };
+
+                seq.push(block.pack().spanned(span));
             }
         }
 
-        let mut content = Content::sequence(seq);
-        if works.hanging_indent {
-            content = content.styled(ParElem::set_hanging_indent(INDENT.into()));
-        }
-
-        Ok(content)
+        Ok(Content::sequence(seq))
     }
 }
 
@@ -1046,7 +1051,8 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
     match format.font_variant {
         citationberg::FontVariant::Normal => {}
         citationberg::FontVariant::SmallCaps => {
-            content = content.styled(TextElem::set_smallcaps(true));
+            content =
+                content.styled(TextElem::set_smallcaps(Some(Smallcaps::Minuscules)));
         }
     }
 

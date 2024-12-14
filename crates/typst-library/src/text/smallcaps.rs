@@ -12,11 +12,11 @@ use crate::text::TextElem;
 /// ```
 ///
 /// # Smallcaps fonts
-/// By default, this enables the OpenType `smcp` feature for the font. Not all
-/// fonts support this feature. Sometimes smallcaps are part of a dedicated
-/// font. This is, for example, the case for the _Latin Modern_ family of fonts.
-/// In those cases, you can use a show-set rule to customize the appearance of
-/// the text in smallcaps:
+/// By default, this uses the `smcp` and `c2sc` OpenType features on the font.
+/// Not all fonts support these features. Sometimes, smallcaps are part of a
+/// dedicated font. This is, for example, the case for the _Latin Modern_ family
+/// of fonts. In those cases, you can use a show-set rule to customize the
+/// appearance of the text in smallcaps:
 ///
 /// ```typ
 /// #show smallcaps: set text(font: "Latin Modern Roman Caps")
@@ -45,6 +45,17 @@ use crate::text::TextElem;
 /// ```
 #[elem(title = "Small Capitals", Show)]
 pub struct SmallcapsElem {
+    /// Whether to turn uppercase letters into small capitals as well.
+    ///
+    /// Unless overridden by a show rule, this enables the `c2sc` OpenType
+    /// feature.
+    ///
+    /// ```example
+    /// #smallcaps(all: true)[UNICEF] is an
+    /// agency of #smallcaps(all: true)[UN].
+    /// ```
+    #[default(false)]
+    pub all: bool,
     /// The content to display in small capitals.
     #[required]
     pub body: Content,
@@ -52,7 +63,17 @@ pub struct SmallcapsElem {
 
 impl Show for Packed<SmallcapsElem> {
     #[typst_macros::time(name = "smallcaps", span = self.span())]
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().styled(TextElem::set_smallcaps(true)))
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let sc = if self.all(styles) { Smallcaps::All } else { Smallcaps::Minuscules };
+        Ok(self.body.clone().styled(TextElem::set_smallcaps(Some(sc))))
     }
+}
+
+/// What becomes small capitals.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Smallcaps {
+    /// Minuscules become small capitals.
+    Minuscules,
+    /// All letters become small capitals.
+    All,
 }

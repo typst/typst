@@ -25,7 +25,7 @@ use typst_library::layout::{
     Regions, Rel, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::TextElem;
 use typst_library::World;
 use typst_utils::{NonZeroExt, Numeric};
@@ -140,9 +140,10 @@ fn layout_fragment_impl(
 
     engine.route.check_layout_depth().at(content.span())?;
 
+    let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
     let children = (engine.routines.realize)(
-        RealizationKind::LayoutFragment,
+        RealizationKind::LayoutFragment(&mut kind),
         &mut engine,
         &mut locator,
         &arenas,
@@ -158,62 +159,45 @@ fn layout_fragment_impl(
         regions,
         columns,
         column_gutter,
-        false,
+        kind.into(),
     )
+}
+
+/// The mode a flow can be laid out in.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum FlowMode {
+    /// A root flow with block-level elements. Like `FlowMode::Block`, but can
+    /// additionally host footnotes and line numbers.
+    Root,
+    /// A flow whose children are block-level elements.
+    Block,
+    /// A flow whose children are inline-level elements.
+    Inline,
+}
+
+impl From<FragmentKind> for FlowMode {
+    fn from(value: FragmentKind) -> Self {
+        match value {
+            FragmentKind::Inline => Self::Inline,
+            FragmentKind::Block => Self::Block,
+        }
+    }
 }
 
 /// Lays out realized content into regions, potentially with columns.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn layout_flow(
+pub fn layout_flow<'a>(
     engine: &mut Engine,
-    children: &[Pair],
-    locator: &mut SplitLocator,
-    shared: StyleChain,
+    children: &[Pair<'a>],
+    locator: &mut SplitLocator<'a>,
+    shared: StyleChain<'a>,
     mut regions: Regions,
     columns: NonZeroUsize,
     column_gutter: Rel<Abs>,
-    root: bool,
+    mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = Config {
-        root,
-        shared,
-        columns: {
-            let mut count = columns.get();
-            if !regions.size.x.is_finite() {
-                count = 1;
-            }
-
-            let gutter = column_gutter.relative_to(regions.base().x);
-            let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
-            let dir = TextElem::dir_in(shared);
-            ColumnConfig { count, width, gutter, dir }
-        },
-        footnote: FootnoteConfig {
-            separator: FootnoteEntry::separator_in(shared),
-            clearance: FootnoteEntry::clearance_in(shared),
-            gap: FootnoteEntry::gap_in(shared),
-            expand: regions.expand.x,
-        },
-        line_numbers: root.then(|| LineNumberConfig {
-            scope: ParLine::numbering_scope_in(shared),
-            default_clearance: {
-                let width = if PageElem::flipped_in(shared) {
-                    PageElem::height_in(shared)
-                } else {
-                    PageElem::width_in(shared)
-                };
-
-                // Clamp below is safe (min <= max): if the font size is
-                // negative, we set min = max = 0; otherwise,
-                // `0.75 * size <= 2.5 * size` for zero and positive sizes.
-                (0.026 * width.unwrap_or_default()).clamp(
-                    Em::new(0.75).resolve(shared).max(Abs::zero()),
-                    Em::new(2.5).resolve(shared).max(Abs::zero()),
-                )
-            },
-        }),
-    };
+    let config = configuration(shared, regions, columns, column_gutter, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -225,6 +209,7 @@ pub(crate) fn layout_flow(
         locator.next(&()),
         Size::new(config.columns.width, regions.full),
         regions.expand.x,
+        mode,
     )?;
 
     let mut work = Work::new(&children);
@@ -245,6 +230,55 @@ pub(crate) fn layout_flow(
     }
 
     Ok(Fragment::frames(finished))
+}
+
+/// Determine the flow's configuration.
+fn configuration<'x>(
+    shared: StyleChain<'x>,
+    regions: Regions,
+    columns: NonZeroUsize,
+    column_gutter: Rel<Abs>,
+    mode: FlowMode,
+) -> Config<'x> {
+    Config {
+        mode,
+        shared,
+        columns: {
+            let mut count = columns.get();
+            if !regions.size.x.is_finite() {
+                count = 1;
+            }
+
+            let gutter = column_gutter.relative_to(regions.base().x);
+            let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
+            let dir = TextElem::dir_in(shared);
+            ColumnConfig { count, width, gutter, dir }
+        },
+        footnote: FootnoteConfig {
+            separator: FootnoteEntry::separator_in(shared),
+            clearance: FootnoteEntry::clearance_in(shared),
+            gap: FootnoteEntry::gap_in(shared),
+            expand: regions.expand.x,
+        },
+        line_numbers: (mode == FlowMode::Root).then(|| LineNumberConfig {
+            scope: ParLine::numbering_scope_in(shared),
+            default_clearance: {
+                let width = if PageElem::flipped_in(shared) {
+                    PageElem::height_in(shared)
+                } else {
+                    PageElem::width_in(shared)
+                };
+
+                // Clamp below is safe (min <= max): if the font size is
+                // negative, we set min = max = 0; otherwise,
+                // `0.75 * size <= 2.5 * size` for zero and positive sizes.
+                (0.026 * width.unwrap_or_default()).clamp(
+                    Em::new(0.75).resolve(shared).max(Abs::zero()),
+                    Em::new(2.5).resolve(shared).max(Abs::zero()),
+                )
+            },
+        }),
+    }
 }
 
 /// The work that is left to do by flow layout.
@@ -318,7 +352,7 @@ impl<'a, 'b> Work<'a, 'b> {
 struct Config<'x> {
     /// Whether this is the root flow, which can host footnotes and line
     /// numbers.
-    root: bool,
+    mode: FlowMode,
     /// The styles shared by the whole flow. This is used for footnotes and line
     /// numbers.
     shared: StyleChain<'x>,

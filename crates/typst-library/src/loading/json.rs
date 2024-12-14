@@ -51,9 +51,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "JSON")]
 pub fn json(
     engine: &mut Engine,
-    /// Path to a JSON file or raw JSON bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
@@ -65,10 +63,8 @@ pub fn json(
 #[scope]
 impl json {
     /// Reads structured data from a JSON string/bytes.
-    ///
-    /// This function is deprecated. The [`json`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode JSON")]
+    #[deprecated = "`json.decode` is deprecated, directly pass bytes to `json` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// JSON data.

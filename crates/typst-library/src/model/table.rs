@@ -9,7 +9,7 @@ use crate::foundations::{
     cast, elem, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
     TargetElem,
 };
-use crate::html::{tag, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag};
+use crate::html::{attr, tag, HtmlAttrs, HtmlElem, HtmlTag};
 use crate::introspection::Locator;
 use crate::layout::grid::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
 use crate::layout::{
@@ -268,10 +268,10 @@ fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
     let mut attrs = HtmlAttrs::default();
     let span = |n: NonZeroUsize| (n != NonZeroUsize::MIN).then(|| n.to_string());
     if let Some(colspan) = span(cell.colspan(styles)) {
-        attrs.push(HtmlAttr::constant("colspan"), colspan);
+        attrs.push(attr::colspan, colspan);
     }
     if let Some(rowspan) = span(cell.rowspan(styles)) {
-        attrs.push(HtmlAttr::constant("rowspan"), rowspan);
+        attrs.push(attr::rowspan, rowspan);
     }
     HtmlElem::new(tag)
         .with_body(Some(cell.body.clone()))
@@ -282,7 +282,7 @@ fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
 
 fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
     let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
-    let mut rows: Vec<_> = grid.entries.chunks(grid.cols.len()).collect();
+    let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
 
     let tr = |tag, row: &[Entry]| {
         let row = row

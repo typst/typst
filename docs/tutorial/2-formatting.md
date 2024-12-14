@@ -13,11 +13,11 @@ your report using Typst's styling system.
 As we have seen in the previous chapter, Typst has functions that _insert_
 content (e.g. the [`image`] function) and others that _manipulate_ content that
 they received as arguments (e.g. the [`align`] function). The first impulse you
-might have when you want, for example, to justify the report, could be to look
+might have when you want, for example, to change the font, could be to look
 for a function that does that and wrap the complete document in it.
 
 ```example
-#par(justify: true)[
+#text(font: "New Computer Modern")[
   = Background
   In the case of glaciers, fluid
   dynamics principles can be used
@@ -37,9 +37,9 @@ do in Typst, there is special syntax for it: Instead of putting the content
 inside of the argument list, you can write it in square brackets directly after
 the normal arguments, saving on punctuation.
 
-As seen above, that works. The [`par`] function justifies all paragraphs within
-it. However, wrapping the document in countless functions and applying styles
-selectively and in-situ can quickly become cumbersome.
+As seen above, that works. With the [`text`] function, we can adjust the font
+for all text within it. However, wrapping the document in countless functions
+and applying styles selectively and in-situ can quickly become cumbersome.
 
 Fortunately, Typst has a more elegant solution. With _set rules,_ you can apply
 style properties to all occurrences of some kind of content. You write a set
@@ -47,7 +47,9 @@ rule by entering the `{set}` keyword, followed by the name of the function whose
 properties you want to set, and a list of arguments in parentheses.
 
 ```example
-#set par(justify: true)
+#set text(
+  font: "New Computer Modern"
+)
 
 = Background
 In the case of glaciers, fluid

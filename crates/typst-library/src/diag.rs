@@ -11,6 +11,7 @@ use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Span, Spanned, SyntaxError};
 
+use crate::engine::Engine;
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -225,6 +226,47 @@ impl From<SyntaxError> for SourceDiagnostic {
             trace: eco_vec![],
             hints: error.hints,
         }
+    }
+}
+
+/// Destination for a deprecation message when accessing a deprecated value.
+pub trait DeprecationSink {
+    /// Emits the given deprecation message into this sink.
+    fn emit(&mut self, message: &str);
+
+    /// Emits the given deprecation message into this sink, with the given
+    /// hints.
+    fn emit_with_hints(&mut self, message: &str, hints: &[&str]);
+}
+
+impl DeprecationSink for () {
+    fn emit(&mut self, _: &str) {}
+    fn emit_with_hints(&mut self, _: &str, _: &[&str]) {}
+}
+
+impl DeprecationSink for (&mut Vec<SourceDiagnostic>, Span) {
+    fn emit(&mut self, message: &str) {
+        self.0.push(SourceDiagnostic::warning(self.1, message));
+    }
+
+    fn emit_with_hints(&mut self, message: &str, hints: &[&str]) {
+        self.0.push(
+            SourceDiagnostic::warning(self.1, message)
+                .with_hints(hints.iter().copied().map(Into::into)),
+        );
+    }
+}
+
+impl DeprecationSink for (&mut Engine<'_>, Span) {
+    fn emit(&mut self, message: &str) {
+        self.0.sink.warn(SourceDiagnostic::warning(self.1, message));
+    }
+
+    fn emit_with_hints(&mut self, message: &str, hints: &[&str]) {
+        self.0.sink.warn(
+            SourceDiagnostic::warning(self.1, message)
+                .with_hints(hints.iter().copied().map(Into::into)),
+        );
     }
 }
 

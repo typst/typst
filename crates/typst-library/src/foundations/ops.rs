@@ -5,8 +5,10 @@ use std::cmp::Ordering;
 use ecow::eco_format;
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
-use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
+use crate::diag::{bail, DeprecationSink, HintedStrResult, StrResult};
+use crate::foundations::{
+    format_str, Datetime, IntoValue, Regex, Repr, SymbolElem, Value,
+};
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
 use crate::visualize::Stroke;
@@ -19,7 +21,7 @@ macro_rules! mismatch {
 }
 
 /// Join a value with another value.
-pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn join(lhs: Value, rhs: Value, sink: &mut dyn DeprecationSink) -> StrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (a, None) => a,
@@ -30,13 +32,24 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
         (Bytes(a), Bytes(b)) => Bytes(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + TextElem::packed(b.get())),
+        (Content(a), Symbol(b)) => Content(a + SymbolElem::packed(b.get())),
         (Content(a), Str(b)) => Content(a + TextElem::packed(b)),
         (Str(a), Content(b)) => Content(TextElem::packed(a) + b),
-        (Symbol(a), Content(b)) => Content(TextElem::packed(a.get()) + b),
+        (Symbol(a), Content(b)) => Content(SymbolElem::packed(a.get()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
         (Args(a), Args(b)) => Args(a + b),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => {
+            warn_type_str_join(sink);
+            Str(format_str!("{a}{b}"))
+        }
+        (Str(a), Type(b)) => {
+            warn_type_str_join(sink);
+            Str(format_str!("{a}{b}"))
+        }
+
         (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }
@@ -86,7 +99,11 @@ pub fn neg(value: Value) -> HintedStrResult<Value> {
 }
 
 /// Compute the sum of two values.
-pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
+pub fn add(
+    lhs: Value,
+    rhs: Value,
+    sink: &mut dyn DeprecationSink,
+) -> HintedStrResult<Value> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (a, None) => a,
@@ -130,10 +147,10 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
         (Bytes(a), Bytes(b)) => Bytes(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + TextElem::packed(b.get())),
+        (Content(a), Symbol(b)) => Content(a + SymbolElem::packed(b.get())),
         (Content(a), Str(b)) => Content(a + TextElem::packed(b)),
         (Str(a), Content(b)) => Content(TextElem::packed(a) + b),
-        (Symbol(a), Content(b)) => Content(TextElem::packed(a.get()) + b),
+        (Symbol(a), Content(b)) => Content(SymbolElem::packed(a.get()) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -153,6 +170,16 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Duration(a), Duration(b)) => Duration(a + b),
         (Datetime(a), Duration(b)) => Datetime(a + b),
         (Duration(a), Datetime(b)) => Datetime(b + a),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => {
+            warn_type_str_add(sink);
+            Str(format_str!("{a}{b}"))
+        }
+        (Str(a), Type(b)) => {
+            warn_type_str_add(sink);
+            Str(format_str!("{a}{b}"))
+        }
 
         (Dyn(a), Dyn(b)) => {
             // Alignments can be summed.
@@ -392,13 +419,21 @@ pub fn or(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 }
 
 /// Compute whether two values are equal.
-pub fn eq(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
-    Ok(Value::Bool(equal(&lhs, &rhs)))
+pub fn eq(
+    lhs: Value,
+    rhs: Value,
+    sink: &mut dyn DeprecationSink,
+) -> HintedStrResult<Value> {
+    Ok(Value::Bool(equal(&lhs, &rhs, sink)))
 }
 
 /// Compute whether two values are unequal.
-pub fn neq(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
-    Ok(Value::Bool(!equal(&lhs, &rhs)))
+pub fn neq(
+    lhs: Value,
+    rhs: Value,
+    sink: &mut dyn DeprecationSink,
+) -> HintedStrResult<Value> {
+    Ok(Value::Bool(!equal(&lhs, &rhs, sink)))
 }
 
 macro_rules! comparison {
@@ -417,7 +452,7 @@ comparison!(gt, ">", Ordering::Greater);
 comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
-pub fn equal(lhs: &Value, rhs: &Value) -> bool {
+pub fn equal(lhs: &Value, rhs: &Value, sink: &mut dyn DeprecationSink) -> bool {
     use Value::*;
     match (lhs, rhs) {
         // Compare reflexively.
@@ -445,7 +480,6 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Args(a), Args(b)) => a == b,
         (Type(a), Type(b)) => a == b,
         (Module(a), Module(b)) => a == b,
-        (Plugin(a), Plugin(b)) => a == b,
         (Datetime(a), Datetime(b)) => a == b,
         (Duration(a), Duration(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
@@ -460,6 +494,12 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         }
         (&Ratio(rat), &Relative(rel)) | (&Relative(rel), &Ratio(rat)) => {
             rat == rel.rel && rel.abs.is_zero()
+        }
+
+        // Type compatibility.
+        (Type(ty), Str(str)) | (Str(str), Type(ty)) => {
+            warn_type_str_equal(sink, str);
+            ty.compat_name() == str.as_str()
         }
 
         _ => false,
@@ -533,8 +573,12 @@ fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
 }
 
 /// Test whether one value is "in" another one.
-pub fn in_(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
-    if let Some(b) = contains(&lhs, &rhs) {
+pub fn in_(
+    lhs: Value,
+    rhs: Value,
+    sink: &mut dyn DeprecationSink,
+) -> HintedStrResult<Value> {
+    if let Some(b) = contains(&lhs, &rhs, sink) {
         Ok(Value::Bool(b))
     } else {
         mismatch!("cannot apply 'in' to {} and {}", lhs, rhs)
@@ -542,8 +586,12 @@ pub fn in_(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 }
 
 /// Test whether one value is "not in" another one.
-pub fn not_in(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
-    if let Some(b) = contains(&lhs, &rhs) {
+pub fn not_in(
+    lhs: Value,
+    rhs: Value,
+    sink: &mut dyn DeprecationSink,
+) -> HintedStrResult<Value> {
+    if let Some(b) = contains(&lhs, &rhs, sink) {
         Ok(Value::Bool(!b))
     } else {
         mismatch!("cannot apply 'not in' to {} and {}", lhs, rhs)
@@ -551,13 +599,27 @@ pub fn not_in(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 }
 
 /// Test for containment.
-pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
+pub fn contains(
+    lhs: &Value,
+    rhs: &Value,
+    sink: &mut dyn DeprecationSink,
+) -> Option<bool> {
     use Value::*;
     match (lhs, rhs) {
         (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
-        (a, Array(b)) => Some(b.contains(a.clone())),
+        (a, Array(b)) => Some(b.contains_impl(a, sink)),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => {
+            warn_type_in_str(sink);
+            Some(b.as_str().contains(a.compat_name()))
+        }
+        (Type(a), Dict(b)) => {
+            warn_type_in_dict(sink);
+            Some(b.contains(a.compat_name()))
+        }
 
         _ => Option::None,
     }
@@ -566,4 +628,91 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
 #[cold]
 fn too_large() -> &'static str {
     "value is too large"
+}
+
+#[cold]
+fn warn_type_str_add(sink: &mut dyn DeprecationSink) {
+    sink.emit_with_hints(
+        "adding strings and types is deprecated",
+        &["convert the type to a string with `str` first"],
+    );
+}
+
+#[cold]
+fn warn_type_str_join(sink: &mut dyn DeprecationSink) {
+    sink.emit_with_hints(
+        "joining strings and types is deprecated",
+        &["convert the type to a string with `str` first"],
+    );
+}
+
+#[cold]
+fn warn_type_str_equal(sink: &mut dyn DeprecationSink, s: &str) {
+    // Only warn if `s` looks like a type name to prevent false positives.
+    if is_compat_type_name(s) {
+        sink.emit_with_hints(
+            "comparing strings with types is deprecated",
+            &[
+                "compare with the literal type instead",
+                "this comparison will always return `false` in future Typst releases",
+            ],
+        );
+    }
+}
+
+#[cold]
+fn warn_type_in_str(sink: &mut dyn DeprecationSink) {
+    sink.emit_with_hints(
+        "checking whether a type is contained in a string is deprecated",
+        &["this compatibility behavior only exists because `type` used to return a string"],
+    );
+}
+
+#[cold]
+fn warn_type_in_dict(sink: &mut dyn DeprecationSink) {
+    sink.emit_with_hints(
+        "checking whether a type is contained in a dictionary is deprecated",
+        &["this compatibility behavior only exists because `type` used to return a string"],
+    );
+}
+
+fn is_compat_type_name(s: &str) -> bool {
+    matches!(
+        s,
+        "boolean"
+            | "alignment"
+            | "angle"
+            | "arguments"
+            | "array"
+            | "bytes"
+            | "color"
+            | "content"
+            | "counter"
+            | "datetime"
+            | "decimal"
+            | "dictionary"
+            | "direction"
+            | "duration"
+            | "float"
+            | "fraction"
+            | "function"
+            | "gradient"
+            | "integer"
+            | "label"
+            | "length"
+            | "location"
+            | "module"
+            | "pattern"
+            | "ratio"
+            | "regex"
+            | "relative length"
+            | "selector"
+            | "state"
+            | "string"
+            | "stroke"
+            | "symbol"
+            | "tiling"
+            | "type"
+            | "version"
+    )
 }

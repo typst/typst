@@ -5,7 +5,6 @@ extern crate proc_macro;
 #[macro_use]
 mod util;
 mod cast;
-mod category;
 mod elem;
 mod func;
 mod scope;
@@ -262,15 +261,6 @@ pub fn elem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 pub fn scope(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::Item);
     scope::scope(stream.into(), item)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-/// Defines a category of definitions.
-#[proc_macro_attribute]
-pub fn category(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
-    let item = syn::parse_macro_input!(item as syn::Item);
-    category::category(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

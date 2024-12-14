@@ -25,7 +25,8 @@ mod int;
 mod label;
 mod module;
 mod none;
-mod plugin;
+#[path = "plugin.rs"]
+mod plugin_;
 mod scope;
 mod selector;
 mod str;
@@ -56,7 +57,7 @@ pub use self::int::*;
 pub use self::label::*;
 pub use self::module::*;
 pub use self::none::*;
-pub use self::plugin::*;
+pub use self::plugin_::*;
 pub use self::repr::Repr;
 pub use self::scope::*;
 pub use self::selector::*;
@@ -84,16 +85,9 @@ use crate::engine::Engine;
 use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
-/// Foundational types and functions.
-///
-/// Here, you'll find documentation for basic data types like [integers]($int)
-/// and [strings]($str) as well as details about core computational functions.
-#[category]
-pub static FOUNDATIONS: Category;
-
 /// Hook up all `foundations` definitions.
 pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
-    global.category(FOUNDATIONS);
+    global.start_category(crate::Category::Foundations);
     global.define_type::<bool>();
     global.define_type::<i64>();
     global.define_type::<f64>();
@@ -114,16 +108,17 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Symbol>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
-    global.define_type::<Plugin>();
     global.define_func::<repr::repr>();
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
+    global.define_func::<plugin>();
     if features.is_enabled(Feature::Html) {
         global.define_func::<target>();
     }
-    global.define_module(calc::module());
-    global.define_module(sys::module(inputs));
+    global.define("calc", calc::module());
+    global.define("sys", sys::module(inputs));
+    global.reset_category();
 }
 
 /// Fails with an error.
@@ -300,7 +295,7 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define_spanned(key, value, span);
+        scope.bind(key.into(), Binding::new(value, span));
     }
     (engine.routines.eval_string)(engine.routines, engine.world, &text, span, mode, scope)
 }

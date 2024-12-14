@@ -4,7 +4,7 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles, TargetElem,
 };
-use crate::html::{tag, HtmlAttr, HtmlElem};
+use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,
@@ -194,10 +194,7 @@ impl Show for Packed<QuoteElem> {
                 if let Some(Attribution::Content(attribution)) = attribution {
                     if let Some(link) = attribution.to_packed::<LinkElem>() {
                         if let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
-                            elem = elem.with_attr(
-                                HtmlAttr::constant("cite"),
-                                url.clone().into_inner(),
-                            );
+                            elem = elem.with_attr(attr::cite, url.clone().into_inner());
                         }
                     }
                 }
@@ -215,17 +212,24 @@ impl Show for Packed<QuoteElem> {
                         .pack()
                         .spanned(self.span()),
                 };
-                let attribution =
-                    [TextElem::packed('—'), SpaceElem::shared().clone(), attribution];
+                let attribution = Content::sequence([
+                    TextElem::packed('—'),
+                    SpaceElem::shared().clone(),
+                    attribution,
+                ]);
 
-                if !html {
-                    // Use v(0.9em, weak: true) to bring the attribution closer
-                    // to the quote.
+                if html {
+                    realized += attribution;
+                } else {
+                    // Bring the attribution a bit closer to the quote.
                     let gap = Spacing::Rel(Em::new(0.9).into());
                     let v = VElem::new(gap).with_weak(true).pack();
                     realized += v;
+                    realized += BlockElem::new()
+                        .with_body(Some(BlockBody::Content(attribution)))
+                        .pack()
+                        .aligned(Alignment::END);
                 }
-                realized += Content::sequence(attribution).aligned(Alignment::END);
             }
 
             if !html {

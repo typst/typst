@@ -1,9 +1,12 @@
 use ecow::EcoString;
+use typst_library::foundations::Target;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{warning, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain};
+use crate::foundations::{
+    elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain, TargetElem,
+};
 use crate::introspection::Locatable;
 use crate::World;
 
@@ -32,12 +35,10 @@ use crate::World;
 ///   embedded file conforms to PDF/A-1 or PDF/A-2.
 #[elem(Show, Locatable)]
 pub struct EmbedElem {
-    /// Path of the file to be embedded.
+    /// The [path]($syntax/#paths) of the file to be embedded.
     ///
     /// Must always be specified, but is only read from if no data is provided
     /// in the following argument.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
         let Spanned { v: path, span } =
@@ -80,7 +81,12 @@ pub struct EmbedElem {
 }
 
 impl Show for Packed<EmbedElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles) == Target::Html {
+            engine
+                .sink
+                .warn(warning!(self.span(), "embed was ignored during HTML export"));
+        }
         Ok(Content::empty())
     }
 }

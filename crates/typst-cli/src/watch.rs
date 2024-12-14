@@ -204,6 +204,10 @@ impl Watcher {
                 let event = event
                     .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
 
+                if !is_relevant_event_kind(&event.kind) {
+                    continue;
+                }
+
                 // Workaround for notify-rs' implicit unwatch on remove/rename
                 // (triggered by some editors when saving files) with the
                 // inotify backend. By keeping track of the potentially
@@ -224,7 +228,17 @@ impl Watcher {
                     }
                 }
 
-                relevant |= self.is_event_relevant(&event);
+                // Don't recompile because the output file changed.
+                // FIXME: This doesn't work properly for multifile image export.
+                if event
+                    .paths
+                    .iter()
+                    .all(|path| is_same_file(path, &self.output).unwrap_or(false))
+                {
+                    continue;
+                }
+
+                relevant = true;
             }
 
             // If we found a relevant event or if any of the missing files now
@@ -234,32 +248,23 @@ impl Watcher {
             }
         }
     }
+}
 
-    /// Whether a watch event is relevant for compilation.
-    fn is_event_relevant(&self, event: &notify::Event) -> bool {
-        // Never recompile because the output file changed.
-        if event
-            .paths
-            .iter()
-            .all(|path| is_same_file(path, &self.output).unwrap_or(false))
-        {
-            return false;
-        }
-
-        match &event.kind {
-            notify::EventKind::Any => true,
-            notify::EventKind::Access(_) => false,
-            notify::EventKind::Create(_) => true,
-            notify::EventKind::Modify(kind) => match kind {
-                notify::event::ModifyKind::Any => true,
-                notify::event::ModifyKind::Data(_) => true,
-                notify::event::ModifyKind::Metadata(_) => false,
-                notify::event::ModifyKind::Name(_) => true,
-                notify::event::ModifyKind::Other => false,
-            },
-            notify::EventKind::Remove(_) => true,
-            notify::EventKind::Other => false,
-        }
+/// Whether a kind of watch event is relevant for compilation.
+fn is_relevant_event_kind(kind: &notify::EventKind) -> bool {
+    match kind {
+        notify::EventKind::Any => true,
+        notify::EventKind::Access(_) => false,
+        notify::EventKind::Create(_) => true,
+        notify::EventKind::Modify(kind) => match kind {
+            notify::event::ModifyKind::Any => true,
+            notify::event::ModifyKind::Data(_) => true,
+            notify::event::ModifyKind::Metadata(_) => false,
+            notify::event::ModifyKind::Name(_) => true,
+            notify::event::ModifyKind::Other => false,
+        },
+        notify::EventKind::Remove(_) => true,
+        notify::EventKind::Other => false,
     }
 }
 

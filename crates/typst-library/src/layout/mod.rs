@@ -64,17 +64,11 @@ pub use self::spacing::*;
 pub use self::stack::*;
 pub use self::transform::*;
 
-use crate::foundations::{category, Category, Scope};
-
-/// Arranging elements on the page in different ways.
-///
-/// By combining layout functions, you can create complex and automatic layouts.
-#[category]
-pub static LAYOUT: Category;
+use crate::foundations::Scope;
 
 /// Hook up all `layout` definitions.
 pub fn define(global: &mut Scope) {
-    global.category(LAYOUT);
+    global.start_category(crate::Category::Layout);
     global.define_type::<Length>();
     global.define_type::<Angle>();
     global.define_type::<Ratio>();
@@ -103,4 +97,5 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<HideElem>();
     global.define_func::<measure>();
     global.define_func::<layout>();
+    global.reset_category();
 }

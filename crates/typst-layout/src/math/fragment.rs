@@ -13,6 +13,7 @@ use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
+use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use super::{stretch_glyph, MathContext, Scaled};
@@ -275,11 +276,7 @@ impl GlyphFragment {
         span: Span,
     ) -> Self {
         let class = EquationElem::class_in(styles)
-            .or_else(|| match c {
-                ':' => Some(MathClass::Relation),
-                '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
-                _ => unicode_math_class::class(c),
-            })
+            .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
         let mut fragment = Self {
@@ -629,7 +626,7 @@ pub enum Limits {
 impl Limits {
     /// The default limit configuration if the given character is the base.
     pub fn for_char(c: char) -> Self {
-        match unicode_math_class::class(c) {
+        match default_math_class(c) {
             Some(MathClass::Large) => {
                 if is_integral_char(c) {
                     Limits::Never

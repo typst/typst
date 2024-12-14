@@ -242,6 +242,15 @@ A
 #outline(target: metadata)
 #metadata("hello")
 
+--- outline-par ---
+// Ensure that an outline does not produce paragraphs.
+#show par: highlight
+
+#outline()
+
+= A
+= B
+= C
 
 --- issue-2048-outline-multiline ---
 // Without the word joiner between the dots and the page number,
