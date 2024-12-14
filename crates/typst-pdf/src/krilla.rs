@@ -142,7 +142,7 @@ impl GlobalContext {
 pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
     let settings = SerializeSettings {
         compress_content_streams: true,
-        no_device_cs: false,
+        no_device_cs: true,
         ascii_compatible: false,
         xmp_metadata: true,
         cmyk_profile: None,
