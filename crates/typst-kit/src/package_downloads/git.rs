@@ -68,6 +68,21 @@ impl GitDownloader {
         Ok(())
     }
 
+    /// Parses the namespace of the package into the correct registry and namespace.
+    /// The namespace format is the following:
+    ///
+    /// @git:<git host and user>
+    ///
+    /// The final repository cloned will be formed by the git host and the repository name
+    /// with the adequate extension, checking out to the tag specified by the version in the format
+    /// v<major>.<minor>.<patch>
+    ///
+    /// For example, the package
+    /// @git:git@github.com:typst/package:0.1.0
+    /// will result in the cloning of the repository git@github.com:typst/package.git
+    /// and the checkout and detached head state at tag v0.1.0
+    ///
+    /// NOTE: no index download is possible.
     fn parse_namespace(ns: &str, name: &str) -> Result<String, EcoString> {
 
         let mut parts = ns.splitn(2, ":");

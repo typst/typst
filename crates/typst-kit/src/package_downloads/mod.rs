@@ -10,15 +10,23 @@ use crate::package_downloads::git::GitDownloader;
 /// The public namespace in the default Typst registry.
 pub const DEFAULT_NAMESPACE: &str = "preview";
 
+/*========BEGIN DOWNLOAD METHODS DECLARATION=========*/
 #[cfg(feature = "downloads_http")]
 mod http;
 
 #[cfg(feature = "downloads_git")]
 mod git;
+/*========END DOWNLOAD METHODS DECLARATION===========*/
 
+/// Trait abstraction for package a downloader.
 pub trait PackageDownloader : Debug + Sync + Send {
+
+    /// Download the repository index and returns the
+    /// list of PackageInfo elements contained in it.
     fn download_index(&self, spec: &VersionlessPackageSpec) -> Result<Vec<PackageInfo>, EcoString>;
 
+    /// Download a package from a remote repository/registry
+    /// and writes it in the file system cache directory
     fn download(&self, spec: &PackageSpec, package_dir: &Path, progress: &mut dyn Progress) -> PackageResult<()>;
 }
 
@@ -48,13 +56,18 @@ pub trait Progress {
     fn print_finish(&mut self, state: &DownloadState);
 }
 
+/// The downloader object used for downloading packages
 #[derive(Debug)]
 pub struct Downloader{
+    ///List of all available downloaders which can be instantiated at runtime
     http_downloader: Option<Box<dyn PackageDownloader>>,
     git_downloader: Option<Box<dyn PackageDownloader>>,
 }
 
+
 impl Downloader {
+    /// Construct the Downloader object instantiating all the available methods.
+    /// The methods can be compile-time selected by features.
     pub fn new(cert: Option<PathBuf>) -> Self {
         Self {
             http_downloader: Self::make_http_downloader(cert.clone()),
@@ -62,6 +75,7 @@ impl Downloader {
         }
     }
 
+    /// Creation function for the HTTP(S) download method
     fn make_http_downloader(cert: Option<PathBuf>) -> Option<Box<dyn PackageDownloader>>{
         #[cfg(not(feature = "downloads_http"))]
         { None }
@@ -76,6 +90,7 @@ impl Downloader {
         }
     }
 
+    /// Creation function for the GIT clone method
     fn make_git_downloader(_cert: Option<PathBuf>) -> Option<Box<dyn PackageDownloader>>{
         #[cfg(not(feature = "downloads_git"))]
         { None }
@@ -86,6 +101,13 @@ impl Downloader {
         }
     }
 
+    /// Returns the correct downloader in function of the package namespace.
+    /// The remote location of a package is encoded in its namespace in the form
+    /// @<source type>:<source path>
+    ///
+    /// It's the downloader instance's job to parse the source path in any substructure.
+    ///
+    /// NOTE: Treating @preview as a special case of the https downloader.
     fn get_downloader(&self, ns: &str) -> Result<&Box<dyn PackageDownloader>, PackageError> {
         let download_type = ns.splitn(2, ":").next();
 

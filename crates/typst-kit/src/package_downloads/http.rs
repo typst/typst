@@ -120,6 +120,19 @@ impl HttpDownloader {
         Ok(RemoteReader::from_response(response, progress).download()?)
     }
 
+    /// Parses the namespace of the package into the correct registry and namespace.
+    /// The namespace format is the following:
+    ///
+    /// @http[s]:<registry host>:<namespace>/package-name>:package-version
+    ///
+    /// resulting in the package location to be resolved as
+    /// http[s]://<registry host>/<namespace>/<package-name>-<package-version>.tar.gz
+    ///
+    /// and the index to be resolved as
+    /// http[s]://<registry host>/<namespace>/index.json
+    ///
+    /// NOTE: preview namespace is treated as the namespace formed as
+    /// @https:packages.typst.org:preview/package-name>:package-version
     fn parse_namespace(ns: &str) -> Result<(String, String), EcoString> {
         if ns.eq(DEFAULT_NAMESPACE) {
             return Ok((DEFAULT_REGISTRY.to_string(), DEFAULT_NAMESPACE.to_string()))
