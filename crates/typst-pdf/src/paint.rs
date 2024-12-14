@@ -8,10 +8,11 @@ use krilla::geom::NormalizedF32;
 use krilla::page::{NumberingStyle, PageLabel};
 use krilla::surface::Surface;
 use std::num::NonZeroUsize;
-use typst_library::layout::{Abs, Angle, Ratio, Transform};
+use typst_library::layout::{Abs, Angle, AngleUnit, Ratio, Transform};
 use typst_library::model::Numbering;
-use typst_library::visualize::{ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern, RelativeTo};
+use typst_library::visualize::{Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern, RelativeTo, WeightedColor};
 use typst_utils::Numeric;
+use crate::color_old::ColorSpaceExt;
 use crate::gradient_old::PdfGradient;
 
 pub(crate) fn fill(
@@ -57,6 +58,19 @@ fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
     }
 }
 
+fn convert_color(color: &Color) -> (krilla::color::rgb::Color, u8) {
+    let components = color.to_space(ColorSpace::Srgb).to_vec4_u8();
+    (
+        krilla::color::rgb::Color::new(
+            components[0],
+            components[1],
+            components[2],
+        )
+            .into(),
+        components[3],
+    )
+}
+
 fn paint(
     gc: &mut GlobalContext,
     paint: &Paint,
@@ -66,18 +80,10 @@ fn paint(
 ) -> (krilla::paint::Paint, u8) {
     match paint {
         Paint::Solid(c) => {
-            let components = c.to_space(ColorSpace::Srgb).to_vec4_u8();
-            (
-                krilla::color::rgb::Color::new(
-                    components[0],
-                    components[1],
-                    components[2],
-                )
-                .into(),
-                components[3],
-            )
-        }
-        Paint::Gradient(_) => (krilla::color::rgb::Color::black().into(), 255),
+            let (c, alpha) = convert_color(c);
+            (c.into(), alpha)
+        },
+        Paint::Gradient(g) => convert_gradient(g, on_text, transforms),
         Paint::Pattern(p) => convert_pattern(gc, p, on_text, surface, transforms),
     }
 }
@@ -196,15 +202,6 @@ fn convert_gradient(
         RelativeTo::Self_ => transforms.size,
         RelativeTo::Parent => transforms.container_size,
     };
-
-    let (offset_x, offset_y) = match gradient {
-        Gradient::Conic(conic) => (
-            -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
-            -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
-        ),
-        _ => (Abs::zero(), Abs::zero()),
-    };
-
     let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
     let transform = match gradient.unwrap_relative(on_text) {
@@ -212,25 +209,16 @@ fn convert_gradient(
         RelativeTo::Parent => transforms.container_transform,
     };
 
-    let scale_offset = match gradient {
-        Gradient::Conic(_) => 4.0_f64,
-        _ => 1.0,
-    };
-
     let pdf_gradient = PdfGradient {
         aspect_ratio: size.aspect_ratio(),
-        transform: transform
-            .pre_concat(Transform::translate(
-                offset_x * scale_offset,
-                offset_y * scale_offset,
-            ))
-            .pre_concat(Transform::scale(
-                Ratio::new(size.x.to_pt() * scale_offset),
-                Ratio::new(size.y.to_pt() * scale_offset),
-            )),
+        transform,
         gradient: gradient.clone(),
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
+
+    let actual_transform = transforms.transform.invert().unwrap().pre_concat(transform)
+        .pre_concat(Transform::scale(-Ratio::one(), Ratio::one()))
+        .pre_concat(Transform::rotate(-pdf_gradient.angle));
 
     match &gradient {
         Gradient::Linear(_) => {
@@ -242,6 +230,29 @@ fn convert_gradient(
         Gradient::Conic(conic) => {
             // Correct the gradient's angle
             let angle = Gradient::correct_aspect_ratio(conic.angle, pdf_gradient.aspect_ratio);
+            let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
+
+            let mut add_single = |color: &Color, offset: Ratio| {
+                let (color, opacity) = convert_color(color);
+                let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
+                let offset = NormalizedF32::new(offset.get() as f32).unwrap();
+                let stop = krilla::paint::Stop {
+                    offset,
+                    color,
+                    opacity,
+                };
+                stops.push(stop);
+            };
+
+            let encode_space = conic
+                .space
+                .hue_index()
+                .map(|_| ColorSpace::Oklab)
+                .unwrap_or(conic.space);
+
+            if let Some((c, t)) = conic.stops.first() {
+                add_single(c, *t);
+            }
 
             for window in conic.stops.windows(2) {
                 let ((c0, t0), (c1, t1)) = (window[0], window[1]);
@@ -257,24 +268,13 @@ fn convert_gradient(
                 } else {
                     0.05
                 };
-                let encode_space = conic
-                    .space
-                    .hue_index()
-                    .map(|_| ColorSpace::Oklab)
-                    .unwrap_or(conic.space);
+
                 let mut t_x = t0.get();
                 let dt = (t1.get() - t0.get()).min(max_dt);
 
                 // Special casing for sharp gradients.
                 if t0 == t1 {
-                    write_patch(
-                        &mut vertices,
-                        t0.get() as f32,
-                        t1.get() as f32,
-                        &encode_space.convert(c0),
-                        &encode_space.convert(c1),
-                        angle,
-                    );
+                    add_single(&c1, t1);
                     continue;
                 }
 
@@ -283,33 +283,38 @@ fn convert_gradient(
 
                     // The current progress in the current window.
                     let t = |t| (t - t0.get()) / (t1.get() - t0.get());
-                    let c = Color::mix_iter(
-                        [WeightedColor::new(c0, 1.0 - t(t_x)), WeightedColor::new(c1, t(t_x))],
-                        conic.space,
-                    )
-                        .unwrap();
 
                     let c_next = Color::mix_iter(
                         [
                             WeightedColor::new(c0, 1.0 - t(t_next)),
                             WeightedColor::new(c1, t(t_next)),
                         ],
-                        conic.space,
+                        encode_space,
                     )
                         .unwrap();
 
-                    write_patch(
-                        &mut vertices,
-                        t_x as f32,
-                        t_next as f32,
-                        &encode_space.convert(c),
-                        &encode_space.convert(c_next),
-                        angle,
-                    );
-
+                    add_single(&c_next, Ratio::new(t_next));
                     t_x = t_next;
                 }
+
+                add_single(&c1, t1);
             }
+
+            println!("{:?}, {:?}", size.x.to_f32(), size.y.to_f32());
+            println!("{:?}, {:?}", conic.center.x.get(),  conic.center.y.get());
+
+            let sweep = krilla::paint::SweepGradient {
+                cx: size.x.to_f32() * conic.center.x.get() as f32,
+                cy: size.y.to_f32() * conic.center.y.get() as f32,
+                start_angle: 0.0,
+                end_angle: 360.0,
+                transform: actual_transform.as_krilla(),
+                spread_method: Default::default(),
+                stops: stops.into(),
+                anti_alias: gradient.anti_alias(),
+            };
+
+            (sweep.into(), 255)
         }
     }
 }
