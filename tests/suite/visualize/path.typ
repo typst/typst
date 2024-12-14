@@ -71,6 +71,10 @@
 // Error: 7-31 point array must contain exactly two entries
 #path(((0%, 0%), (0%, 0%, 0%)))
 
+--- path-infinite-length ---
+// Error: 2-42 cannot create path with infinite length
+#path((0pt, 0pt), (float.inf * 1pt, 0pt))
+
 --- issue-path-in-sized-container ---
 // Paths used to implement `LayoutMultiple` rather than `LayoutSingle` without
 // fulfilling the necessary contract of respecting region expansion.

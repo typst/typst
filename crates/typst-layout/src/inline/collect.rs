@@ -256,8 +256,7 @@ impl<'a> Collector<'a> {
     }
 
     fn push_text(&mut self, text: &str, styles: StyleChain<'a>) {
-        self.full.push_str(text);
-        self.push_segment(Segment::Text(text.len(), styles));
+        self.build_text(styles, |full| full.push_str(text));
     }
 
     fn build_text<F>(&mut self, styles: StyleChain<'a>, f: F)
@@ -266,33 +265,33 @@ impl<'a> Collector<'a> {
     {
         let prev = self.full.len();
         f(&mut self.full);
-        let len = self.full.len() - prev;
-        self.push_segment(Segment::Text(len, styles));
+        let segment_len = self.full.len() - prev;
+
+        // Merge adjacent text segments with the same styles.
+        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut() {
+            if *last_styles == styles {
+                *last_len += segment_len;
+                return;
+            }
+        }
+
+        self.segments.push(Segment::Text(segment_len, styles));
     }
 
     fn push_item(&mut self, item: Item<'a>) {
-        self.full.push_str(item.textual());
-        self.push_segment(Segment::Item(item));
-    }
-
-    fn push_segment(&mut self, segment: Segment<'a>) {
-        match (self.segments.last_mut(), &segment) {
-            // Merge adjacent text segments with the same styles.
-            (Some(Segment::Text(last_len, last_styles)), Segment::Text(len, styles))
-                if *last_styles == *styles =>
-            {
-                *last_len += *len;
-            }
-
+        match (self.segments.last_mut(), &item) {
             // Merge adjacent weak spacing by taking the maximum.
             (
                 Some(Segment::Item(Item::Absolute(prev_amount, true))),
-                Segment::Item(Item::Absolute(amount, true)),
+                Item::Absolute(amount, true),
             ) => {
                 *prev_amount = (*prev_amount).max(*amount);
             }
 
-            _ => self.segments.push(segment),
+            _ => {
+                self.full.push_str(item.textual());
+                self.segments.push(Segment::Item(item));
+            }
         }
     }
 }

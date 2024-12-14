@@ -9,8 +9,7 @@ use typst::foundations::{
     fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
     StyleChain, Styles, Type, Value,
 };
-use typst::layout::{Alignment, Dir};
-use typst::model::Document;
+use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
@@ -38,7 +37,7 @@ use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld}
 /// when the document is available.
 pub fn autocomplete(
     world: &dyn IdeWorld,
-    document: Option<&Document>,
+    document: Option<&PagedDocument>,
     source: &Source,
     cursor: usize,
     explicit: bool,
@@ -1063,7 +1062,7 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
-    document: Option<&'a Document>,
+    document: Option<&'a PagedDocument>,
     text: &'a str,
     before: &'a str,
     after: &'a str,
@@ -1079,7 +1078,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn IdeWorld + 'a),
-        document: Option<&'a Document>,
+        document: Option<&'a PagedDocument>,
         source: &'a Source,
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
@@ -1254,11 +1253,11 @@ impl<'a> CompletionContext<'a> {
                     eco_format!(
                         "{}{}{}",
                         if open { "<" } else { "" },
-                        label.as_str(),
+                        label.resolve(),
                         if close { ">" } else { "" }
                     )
                 }),
-                label: label.as_str().into(),
+                label: label.resolve().as_str().into(),
                 detail,
             });
         }
@@ -1507,7 +1506,7 @@ impl BracketMode {
 mod tests {
     use std::collections::BTreeSet;
 
-    use typst::model::Document;
+    use typst::layout::PagedDocument;
     use typst::syntax::{FileId, Source, VirtualPath};
     use typst::World;
 
@@ -1607,7 +1606,7 @@ mod tests {
     fn test_full(
         world: &TestWorld,
         source: &Source,
-        doc: Option<&Document>,
+        doc: Option<&PagedDocument>,
         cursor: isize,
     ) -> Response {
         autocomplete(world, doc, source, source.cursor(cursor), true)

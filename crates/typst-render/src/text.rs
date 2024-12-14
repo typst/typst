@@ -164,29 +164,41 @@ fn write_bitmap<S: PaintSampler>(
     // If we have a clip mask we first render to a pixmap that we then blend
     // with our canvas
     if state.mask.is_some() {
+        let cw = canvas.width() as i32;
+        let ch = canvas.height() as i32;
         let mw = bitmap.width;
         let mh = bitmap.height;
+
+        let left = bitmap.left;
+        let top = bitmap.top;
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
         // not get any problem with floating point errors along their border
         let mut pixmap = sk::Pixmap::new(mw + 2, mh + 2)?;
+        let pixels = bytemuck::cast_slice_mut::<u8, u32>(pixmap.data_mut());
         for x in 0..mw {
             for y in 0..mh {
                 let alpha = bitmap.coverage[(y * mw + x) as usize];
-                let color = sampler.sample((x, y));
-                pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] =
-                    sk::ColorU8::from_rgba(
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                        alpha,
-                    )
-                    .premultiply();
+
+                // To sample at the correct position, we need to convert each
+                // pixel's position in the bitmap (x and y) to its final
+                // expected position in the canvas. Due to padding, this
+                // pixel's position in the pixmap will be (x + 1, y + 1).
+                // Then, when drawing the pixmap to the canvas, we place its
+                // top-left corner at position (left - 1, top - 1). Therefore,
+                // the final position of this pixel in the canvas is given by
+                // (left - 1 + x + 1, top - 1 + y + 1) = (left + x, top + y).
+                let sample_pos = (
+                    (left + x as i32).clamp(0, cw) as u32,
+                    (top + y as i32).clamp(0, ch) as u32,
+                );
+                let color = sampler.sample(sample_pos);
+                let color = bytemuck::cast(color);
+
+                let applied = alpha_mul(color, alpha as u32);
+                pixels[((y + 1) * (mw + 2) + (x + 1)) as usize] = applied;
             }
         }
-
-        let left = bitmap.left;
-        let top = bitmap.top;
 
         canvas.draw_pixmap(
             left - 1,

@@ -48,6 +48,11 @@ pub fn write_catalog(
         xmp.title([(None, title.as_str())]);
     }
 
+    if let Some(description) = &ctx.document.info.description {
+        info.subject(TextStr::trimmed(description));
+        xmp.description([(None, description.as_str())]);
+    }
+
     let authors = &ctx.document.info.author;
     if !authors.is_empty() {
         // Turns out that if the authors are given in both the document
@@ -174,7 +179,7 @@ pub fn write_catalog(
         let mut dests_name_tree = name_dict.destinations();
         let mut names = dests_name_tree.names();
         for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
-            names.insert(Str(name.as_str().as_bytes()), dest_ref);
+            names.insert(Str(name.resolve().as_bytes()), dest_ref);
         }
     }
 

@@ -128,16 +128,21 @@ impl f64 {
         #[default(Endianness::Little)]
         endian: Endianness,
     ) -> StrResult<f64> {
-        // Convert slice to an array of length 8.
-        let buf: [u8; 8] = match bytes.as_ref().try_into() {
-            Ok(buffer) => buffer,
-            Err(_) => bail!("bytes must have a length of exactly 8"),
+        // Convert slice to an array of length 4 or 8.
+        if let Ok(buffer) = <[u8; 8]>::try_from(bytes.as_ref()) {
+            return Ok(match endian {
+                Endianness::Little => f64::from_le_bytes(buffer),
+                Endianness::Big => f64::from_be_bytes(buffer),
+            });
+        };
+        if let Ok(buffer) = <[u8; 4]>::try_from(bytes.as_ref()) {
+            return Ok(match endian {
+                Endianness::Little => f32::from_le_bytes(buffer),
+                Endianness::Big => f32::from_be_bytes(buffer),
+            } as f64);
         };
 
-        Ok(match endian {
-            Endianness::Little => f64::from_le_bytes(buf),
-            Endianness::Big => f64::from_be_bytes(buf),
-        })
+        bail!("bytes must have a length of 4 or 8");
     }
 
     /// Converts a float to bytes.
@@ -153,13 +158,25 @@ impl f64 {
         #[named]
         #[default(Endianness::Little)]
         endian: Endianness,
-    ) -> Bytes {
-        match endian {
-            Endianness::Little => self.to_le_bytes(),
-            Endianness::Big => self.to_be_bytes(),
-        }
-        .as_slice()
-        .into()
+        #[named]
+        #[default(8)]
+        size: u32,
+    ) -> StrResult<Bytes> {
+        Ok(match size {
+            8 => match endian {
+                Endianness::Little => self.to_le_bytes(),
+                Endianness::Big => self.to_be_bytes(),
+            }
+            .as_slice()
+            .into(),
+            4 => match endian {
+                Endianness::Little => (self as f32).to_le_bytes(),
+                Endianness::Big => (self as f32).to_be_bytes(),
+            }
+            .as_slice()
+            .into(),
+            _ => bail!("size must be either 4 or 8"),
+        })
     }
 }
 

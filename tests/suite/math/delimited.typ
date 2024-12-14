@@ -87,6 +87,7 @@ $ 1/(2 y (x) (2(3)) $
 // Test ignoring weak spacing immediately after the opening
 // and immediately before the closing.
 $ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $
+$ lr(\[#h(1em, weak: true)lr(A dif x, f(x) dif x\))sum#h(1em, weak:true)a) $
 
 --- math-lr-nested ---
 // Test nested lr calls.
@@ -97,6 +98,29 @@ $lr(|, size: #2em)$
 $lr(lr(|, size: #4em), size: #50%)$
 $lr(body1, size: #50%)$
 $lr(body2, size: #50%)$
+
+--- math-lr-ignore-ignorant ---
+// Test ignoring leading and trailing ignorant fragments.
+#box($ (1 / 2) $)
+#box({
+  show "(": it => context it
+  $ (1 / 2) $
+})
+#box({
+  show ")": it => context it
+  $ (1 / 2) $
+})
+#box({
+  show "(": it => context it
+  show ")": it => context it
+  $ (1 / 2) $
+})
+
+--- math-lr-scripts ---
+// Test interactions with script attachments.
+$ lr(size: #3em, |)_a^b lr(size: #3em, zws|)_a^b
+  lr(size: #3em, [x])_0^1 [x]_0^1
+  lr(size: #1em, lr(size: #10em, [x]))_0^1 $
 
 --- issue-4188-lr-corner-brackets ---
 // Test positioning of U+231C to U+231F

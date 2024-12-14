@@ -51,3 +51,7 @@
 --- polygon-bad-point-array ---
 // Error: 10-17 point array must contain exactly two entries
 #polygon((50pt,))
+
+--- polygon-infinite-size ---
+// Error: 2-57 cannot create polygon with infinite size
+#polygon((0pt, 0pt), (0pt, 1pt), (float.inf * 1pt, 0pt))

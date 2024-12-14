@@ -6,8 +6,6 @@ use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Fields, Smart, StyleChain,
     Styles, Value,
 };
-use crate::introspection::Introspector;
-use crate::layout::Page;
 
 /// The root element of a document and its metadata.
 ///
@@ -38,6 +36,10 @@ pub struct DocumentElem {
     /// The document's authors.
     #[ghost]
     pub author: Author,
+
+    /// The document's description.
+    #[ghost]
+    pub description: Option<Content>,
 
     /// The document's keywords.
     #[ghost]
@@ -86,17 +88,6 @@ cast! {
     v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
-/// A finished document with metadata and page frames.
-#[derive(Debug, Default, Clone)]
-pub struct Document {
-    /// The document's finished pages.
-    pub pages: Vec<Page>,
-    /// Details about the document.
-    pub info: DocumentInfo,
-    /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
-}
-
 /// Details about the document.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct DocumentInfo {
@@ -104,6 +95,8 @@ pub struct DocumentInfo {
     pub title: Option<EcoString>,
     /// The document's author.
     pub author: Vec<EcoString>,
+    /// The document's description.
+    pub description: Option<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
@@ -124,22 +117,15 @@ impl DocumentInfo {
         if has(<DocumentElem as Fields>::Enum::Author) {
             self.author = DocumentElem::author_in(chain).0;
         }
+        if has(<DocumentElem as Fields>::Enum::Description) {
+            self.description =
+                DocumentElem::description_in(chain).map(|content| content.plain_text());
+        }
         if has(<DocumentElem as Fields>::Enum::Keywords) {
             self.keywords = DocumentElem::keywords_in(chain).0;
         }
         if has(<DocumentElem as Fields>::Enum::Date) {
             self.date = DocumentElem::date_in(chain);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_document_is_send_and_sync() {
-        fn ensure_send_and_sync<T: Send + Sync>() {}
-        ensure_send_and_sync::<Document>();
     }
 }

@@ -543,7 +543,12 @@ fn raw_ratio(
 ) -> f64 {
     // Determine how much the line's spaces would need to be stretched
     // to make it the desired width.
-    let delta = available_width - line_width;
+    let mut delta = available_width - line_width;
+
+    // Avoid possible floating point errors in previous calculation.
+    if delta.approx_eq(Abs::zero()) {
+        delta = Abs::zero();
+    }
 
     // Determine how much stretch or shrink is natural.
     let adjustability = if delta >= Abs::zero() { stretchability } else { shrinkability };
@@ -966,11 +971,13 @@ where
     }
 
     /// Estimates the metrics for the line spanned by the range.
+    #[track_caller]
     fn estimate(&self, range: Range) -> T {
         self.get(range.end) - self.get(range.start)
     }
 
     /// Get the metric at the given byte position.
+    #[track_caller]
     fn get(&self, index: usize) -> T {
         match index.checked_sub(1) {
             None => T::default(),

@@ -46,7 +46,7 @@ use crate::World;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file
+    /// Path to an image file.
     ///
     /// For more details, see the [Paths section]($syntax/#paths).
     #[required]
@@ -94,6 +94,12 @@ pub struct ImageElem {
     /// ```
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
+
+    /// Whether text in SVG images should be converted into paths before
+    /// embedding. This will result in the text becoming unselectable in
+    /// the output.
+    #[default(false)]
+    pub flatten_text: bool,
 }
 
 #[scope]
@@ -246,13 +252,14 @@ impl Image {
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
         families: &[&str],
+        flatten_text: bool,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
                 ImageKind::Raster(RasterImage::new(data, format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, families)?)
+                ImageKind::Svg(SvgImage::with_fonts(data, world, flatten_text, families)?)
             }
         };
 

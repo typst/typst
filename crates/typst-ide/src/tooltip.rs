@@ -4,8 +4,7 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::engine::Sink;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
-use typst::layout::Length;
-use typst::model::Document;
+use typst::layout::{Length, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
 use typst::utils::{round_with_precision, Numeric};
@@ -21,7 +20,7 @@ use crate::{analyze_expr, analyze_import, analyze_labels, IdeWorld};
 /// document is available.
 pub fn tooltip(
     world: &dyn IdeWorld,
-    document: Option<&Document>,
+    document: Option<&PagedDocument>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -173,7 +172,7 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
+fn label_tooltip(document: &PagedDocument, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
@@ -181,7 +180,7 @@ fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
     };
 
     for (label, detail) in analyze_labels(document).0 {
-        if label.as_str() == target {
+        if label.resolve().as_str() == target {
             return Some(Tooltip::Text(detail?));
         }
     }
@@ -338,6 +337,21 @@ mod tests {
     fn test_tooltip_closure() {
         test("#let f(x) = x + y", 11, Side::Before)
             .must_be_text("This closure captures `y`");
+        // Same tooltip if `y` is defined first.
+        test("#let y = 10; #let f(x) = x + y", 24, Side::Before)
+            .must_be_text("This closure captures `y`");
+        // Names are sorted.
+        test("#let f(x) = x + y + z + a", 11, Side::Before)
+            .must_be_text("This closure captures `a`, `y`, and `z`");
+        // Names are de-duplicated.
+        test("#let f(x) = x + y + z + y", 11, Side::Before)
+            .must_be_text("This closure captures `y` and `z`");
+        // With arrow syntax.
+        test("#let f = (x) => x + y", 15, Side::Before)
+            .must_be_text("This closure captures `y`");
+        // No recursion with arrow syntax.
+        test("#let f = (x) => x + y + f", 13, Side::After)
+            .must_be_text("This closure captures `f` and `y`");
     }
 
     #[test]

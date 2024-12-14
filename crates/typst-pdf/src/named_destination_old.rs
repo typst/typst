@@ -53,12 +53,12 @@ pub fn write_named_destinations(
         .collect();
 
     // Named destinations must be sorted by key.
-    matches.sort_by_key(|&(_, label)| label);
+    matches.sort_by_key(|&(_, label)| label.resolve());
 
     for (loc, label) in matches {
         // Don't encode named destinations that would exceed the limit. Those
         // will instead be encoded as normal links.
-        if label.as_str().len() > Str::PDFA_LIMIT {
+        if label.resolve().len() > Str::PDFA_LIMIT {
             continue;
         }
 

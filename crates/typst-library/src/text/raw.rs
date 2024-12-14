@@ -14,8 +14,9 @@ use crate::diag::{At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
-    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
+    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem, Value,
 };
+use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
 use crate::model::{Figurable, ParElem};
 use crate::text::{
@@ -451,6 +452,14 @@ impl Show for Packed<RawElem> {
         }
 
         let mut realized = Content::sequence(seq);
+
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::pre)
+                .with_body(Some(realized))
+                .pack()
+                .spanned(self.span()));
+        }
+
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());

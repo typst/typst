@@ -35,6 +35,15 @@ Empty \
 +Nope \
 a + 0.
 
+--- enum-syntax-number-length ---
+// Ensure that indentation works from the beginning of a number, not the end.
+
+10. a
+   11. b
+ 12. c // same level as b
+  13. d // indented past c
+14. e
+
 --- enum-number-override ---
 // Test item number overriding.
 1. first
@@ -154,3 +163,15 @@ a + 0.
 // Enum item (pre-emptive)
 #enum.item(none)[Hello]
 #enum.item(17)[Hello]
+
+--- issue-5503-enum-interrupted-by-par-align ---
+// `align` is block-level and should interrupt an enum
+// but not a `par`
++ a
++ b
+#par(leading: 5em)[+ par]
++ d
+#par[+ par]
++ f
+#align(right)[+ align]
++ h

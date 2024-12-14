@@ -1,7 +1,8 @@
 use std::fmt::Write;
 
 use typst::foundations::Smart;
-use typst::model::{Document, DocumentInfo};
+use typst::layout::PagedDocument;
+use typst::model::DocumentInfo;
 use typst::World;
 
 use crate::collect::Test;
@@ -18,7 +19,7 @@ macro_rules! test_eq {
 
 /// Run special checks for specific tests for which it is not worth it to create
 /// custom annotations.
-pub fn check(test: &Test, world: &TestWorld, doc: Option<&Document>) -> String {
+pub fn check(test: &Test, world: &TestWorld, doc: Option<&PagedDocument>) -> String {
     let mut sink = String::new();
     match test.name.as_str() {
         "document-set-author-date" => {
@@ -41,6 +42,6 @@ pub fn check(test: &Test, world: &TestWorld, doc: Option<&Document>) -> String {
 }
 
 /// Extract the document information.
-fn info(doc: Option<&Document>) -> DocumentInfo {
+fn info(doc: Option<&PagedDocument>) -> DocumentInfo {
     doc.map(|doc| doc.info.clone()).unwrap_or_default()
 }

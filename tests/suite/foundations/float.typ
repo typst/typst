@@ -53,8 +53,13 @@
 #test(1.0.to-bytes(), bytes((0, 0, 0, 0, 0, 0, 240, 63)))
 #test(1.0.to-bytes(endian: "big"), bytes((63, 240, 0, 0, 0, 0, 0, 0)))
 
+#test(float.from-bytes(bytes((0, 0, 32, 64))), 2.5)
+#test(float.from-bytes(bytes((64, 32, 0, 0)), endian: "big"), 2.5)
+#test(2.5.to-bytes(size: 4), bytes((0, 0, 32, 64)))
+#test(2.5.to-bytes(size: 4, endian: "big"), bytes((64, 32, 0, 0)))
+
 --- float-from-bytes-bad-length ---
-// Error: 2-54 bytes must have a length of exactly 8
+// Error: 2-54 bytes must have a length of 4 or 8
 #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1, 0)))
 
 --- float-repr ---
@@ -90,3 +95,23 @@
 #float.inf \
 #(-float.inf) \
 #float.nan
+
+--- float-syntax-edge-cases ---
+// Test float syntax edge cases and which spans of text are highlighted. Valid
+// items are those not annotated with an error comment since syntax is handled
+// at parse time.
+
+#123.456e+789
+#000.000E-000
+#.9e0
+#123.E // this is a field access, so is fine syntactically
+#0.e
+#1.E+020
+// Error: 2-10 invalid number: 123.456e
+#123.456e
+// Error: 2-11 invalid number: 123.456e+
+#123.456e+
+// Error: 2-6 invalid number: .1E-
+#.1E-
+// Error: 2-4 invalid number: 0e
+#0e
