@@ -1,4 +1,3 @@
-use crate::content_old::Transforms;
 use crate::primitive::{PointExt, SizeExt, TransformExt};
 use crate::{paint, AbsExt};
 use bytemuck::TransparentWrapper;
@@ -26,20 +25,23 @@ use typst_library::visualize::{
 
 #[derive(Debug, Clone)]
 struct State {
+    /// The full transform chain
+    transform_chain: Transform,
     /// The transform of the current item.
     transform: Transform,
     /// The transform of first hard frame in the hierarchy.
-    container_transform: Transform,
+    container_transform_chain: Transform,
     /// The size of the first hard frame in the hierarchy.
     size: Size,
 }
 
 impl State {
     /// Creates a new, clean state for a given `size`.
-    fn new(size: Size) -> Self {
+    fn new(size: Size, transform_chain: Transform, container_transform_chain: Transform) -> Self {
         Self {
+            transform_chain,
             transform: Transform::identity(),
-            container_transform: Transform::identity(),
+            container_transform_chain,
             size,
         }
     }
@@ -50,17 +52,19 @@ impl State {
 
     pub fn transform(&mut self, transform: Transform) {
         self.transform = self.transform.pre_concat(transform);
+        self.transform_chain = self.transform_chain.pre_concat(transform);
     }
 
     fn set_container_transform(&mut self) {
-        self.container_transform = self.transform;
+        self.container_transform_chain = self.transform_chain;
     }
 
     /// Creates the [`Transforms`] structure for the current item.
     pub fn transforms(&self, size: Size) -> Transforms {
         Transforms {
-            transform: self.transform,
-            container_transform: self.container_transform,
+            transform_chain_: self.transform_chain,
+            transform_: self.transform,
+            container_transform_chain: self.container_transform_chain,
             container_size: self.size,
             size,
         }
@@ -73,7 +77,11 @@ pub(crate) struct FrameContext {
 
 impl FrameContext {
     pub fn new(size: Size) -> Self {
-        Self { states: vec![State::new(size)] }
+        Self { states: vec![State::new(size, Transform::identity(), Transform::identity())] }
+    }
+
+    pub fn derive_new(&self, size: Size) -> Self {
+        Self { states: vec![State::new(size, self.state().transform_chain, self.state().container_transform_chain)] }
     }
 
     pub fn push(&mut self) {
@@ -91,6 +99,21 @@ impl FrameContext {
     pub fn state_mut(&mut self) -> &mut State {
         self.states.last_mut().unwrap()
     }
+}
+
+/// Subset of the state used to calculate the transform of gradients and patterns.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Transforms {
+    /// The full transform chain.
+    pub transform_chain_: Transform,
+    /// The transform of the current item.
+    pub transform_: Transform,
+    /// The transform of first hard frame in the hierarchy.
+    pub container_transform_chain: Transform,
+    /// The size of the first hard frame in the hierarchy.
+    pub container_size: Size,
+    /// The size of the item.
+    pub size: Size,
 }
 
 #[derive(TransparentWrapper)]

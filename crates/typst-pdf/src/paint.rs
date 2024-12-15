@@ -1,7 +1,6 @@
 //! Convert paint types from typst to krilla.
 
-use crate::content_old::Transforms;
-use crate::krilla::{process_frame, FrameContext, GlobalContext};
+use crate::krilla::{process_frame, FrameContext, GlobalContext, Transforms};
 use crate::primitive::{FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use crate::AbsExt;
 use krilla::geom::NormalizedF32;
@@ -157,13 +156,10 @@ pub(crate) fn convert_pattern(
         transforms.size.y = Abs::pt(1.0);
     }
 
-    let transform = surface.ctm().invert().unwrap().pre_concat(
-        match pattern.unwrap_relative(on_text) {
-            RelativeTo::Self_ => transforms.transform,
-            RelativeTo::Parent => transforms.container_transform,
-        }
-        .as_krilla(),
-    );
+    let transform = match pattern.unwrap_relative(on_text) {
+        RelativeTo::Self_ => Transform::identity(),
+        RelativeTo::Parent => transforms.transform_chain_.invert().unwrap().pre_concat(transforms.container_transform_chain)
+    }.as_krilla();
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
@@ -201,8 +197,8 @@ fn convert_gradient(
     let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
     let transform = match gradient.unwrap_relative(on_text) {
-        RelativeTo::Self_ => transforms.transform,
-        RelativeTo::Parent => transforms.container_transform,
+        RelativeTo::Self_ => transforms.transform_chain_,
+        RelativeTo::Parent => transforms.container_transform_chain,
     };
 
     let angle = rotation;
@@ -220,7 +216,7 @@ fn convert_gradient(
     match &gradient {
         Gradient::Linear(linear) => {
             let actual_transform =
-                transforms.transform.invert().unwrap().pre_concat(transform);
+                transforms.transform_chain_.invert().unwrap().pre_concat(transform);
 
             if let Some((c, t)) = linear.stops.first() {
                 add_single(c, *t);
@@ -280,7 +276,7 @@ fn convert_gradient(
         }
         Gradient::Radial(radial) => {
             let actual_transform =
-                transforms.transform.invert().unwrap().pre_concat(transform);
+                transforms.transform_chain_.invert().unwrap().pre_concat(transform);
 
             if let Some((c, t)) = radial.stops.first() {
                 add_single(c, *t);
@@ -331,7 +327,7 @@ fn convert_gradient(
             let cx = size.x.to_f32() * conic.center.x.get() as f32;
             let cy = size.y.to_f32() * conic.center.y.get() as f32;
             let actual_transform = transforms
-                .transform
+                .transform_chain_
                 .invert()
                 .unwrap()
                 .pre_concat(transform)
