@@ -162,7 +162,7 @@ pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
         let mut page = document.start_page_with(settings);
         let mut surface = page.surface();
         let mut fc = FrameContext::new(typst_page.frame.size());
-        println!("{:?}", &typst_page.frame);
+        // println!("{:?}", &typst_page.frame);
         process_frame(
             &mut fc,
             &typst_page.frame,

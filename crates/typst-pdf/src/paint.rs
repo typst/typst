@@ -244,11 +244,6 @@ fn convert_gradient(
                 stops.push(stop);
             };
 
-            let encode_space = conic
-                .space
-                .hue_index()
-                .map(|_| ColorSpace::Oklab)
-                .unwrap_or(conic.space);
 
             if let Some((c, t)) = conic.stops.first() {
                 add_single(c, *t);
@@ -259,12 +254,12 @@ fn convert_gradient(
 
                 // Precision:
                 // - On an even color, insert a stop every 90deg
-                // - For a hue-based color space, insert 200 stops minimum
+                // - For a hue-based color space, insert 50 stops minimum
                 // - On any other, insert 20 stops minimum
                 let max_dt = if c0 == c1 {
                     0.25
                 } else if conic.space.hue_index().is_some() {
-                    0.005
+                    0.02
                 } else {
                     0.05
                 };
@@ -289,7 +284,7 @@ fn convert_gradient(
                             WeightedColor::new(c0, 1.0 - t(t_next)),
                             WeightedColor::new(c1, t(t_next)),
                         ],
-                        encode_space,
+                        conic.space,
                     )
                         .unwrap();
 
@@ -299,9 +294,6 @@ fn convert_gradient(
 
                 add_single(&c1, t1);
             }
-
-            println!("{:?}, {:?}", size.x.to_f32(), size.y.to_f32());
-            println!("{:?}, {:?}", conic.center.x.get(),  conic.center.y.get());
 
             let sweep = krilla::paint::SweepGradient {
                 cx: size.x.to_f32() * conic.center.x.get() as f32,
