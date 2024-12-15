@@ -13,6 +13,12 @@ use typst_syntax::package::{PackageInfo, PackageSpec, VersionlessPackageSpec};
 #[derive(Debug)]
 pub struct GitDownloader;
 
+impl Default for GitDownloader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GitDownloader {
     pub fn new() -> Self {
         Self {}
