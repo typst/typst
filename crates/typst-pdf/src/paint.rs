@@ -358,12 +358,12 @@ fn convert_gradient(
 
                 // Precision:
                 // - On an even color, insert a stop every 90deg
-                // - For a hue-based color space, insert 50 stops minimum
+                // - For a hue-based color space, insert 200 stops minimum
                 // - On any other, insert 20 stops minimum
                 let max_dt = if c0 == c1 {
                     0.25
                 } else if conic.space.hue_index().is_some() {
-                    0.02
+                    0.005
                 } else {
                     0.05
                 };
