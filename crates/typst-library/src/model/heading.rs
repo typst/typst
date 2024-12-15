@@ -180,7 +180,6 @@ pub struct HeadingElem {
     pub hanging_indent: Smart<Length>,
 
     /// The gap between the numbering and the start of the heading.
-    /// Default value is `{0.3em}`.
     ///
     /// ```example
     /// #set heading(gap: 1.5em)
