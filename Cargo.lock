@@ -3103,6 +3103,23 @@ dependencies = [
 name = "typst-pdf"
 version = "0.12.0"
 dependencies = [
+ "bytemuck",
+ "comemo",
+ "ecow",
+ "image",
+ "krilla",
+ "typst-assets",
+ "typst-library",
+ "typst-macros",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+]
+
+[[package]]
+name = "typst-pdf-old"
+version = "0.12.0"
+dependencies = [
  "arrayvec",
  "base64",
  "bytemuck",
@@ -3110,7 +3127,6 @@ dependencies = [
  "ecow",
  "image",
  "indexmap 2.6.0",
- "krilla",
  "miniz_oxide",
  "pdf-writer 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",

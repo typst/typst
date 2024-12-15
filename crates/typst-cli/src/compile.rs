@@ -17,7 +17,7 @@ use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::{PdfOptions, PdfStandards, Validator};
+use typst_pdf::{PdfOptions, Validator};
 
 use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,

@@ -1,21 +1,18 @@
 use crate::primitive::{PointExt, SizeExt, TransformExt};
 use crate::{paint, AbsExt, PdfOptions};
 use bytemuck::TransparentWrapper;
-use ecow::{eco_format, EcoString};
+use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::font::{GlyphId, GlyphUnits};
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
-use krilla::validation::Validator;
-use krilla::version::PdfVersion;
 use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::{BTreeMap, HashMap};
-use std::fs::metadata;
 use std::ops::Range;
 use std::sync::Arc;
-use svg2pdf::usvg::Rect;
+use krilla::geom::Rect;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::Datetime;
 use typst_library::layout::{
