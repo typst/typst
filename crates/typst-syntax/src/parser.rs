@@ -252,20 +252,16 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             // Parse a function call for an identifier or field access.
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
             {
-                let m1 = p.marker();
-                p.enter_modes(LexMode::MathArgs, AtNewline::Continue, |p| {
-                    p.convert_and_eat(SyntaxKind::LeftParen);
-                    math_args(p);
-                    p.expect_closing_delimiter(m1, SyntaxKind::RightParen);
-                });
-                p.wrap(m1, SyntaxKind::Args);
-
+                math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
                 continuable = false;
             }
         }
 
-        SyntaxKind::Comma | SyntaxKind::Semicolon | SyntaxKind::RightParen => {
+        SyntaxKind::Dot
+        | SyntaxKind::Comma
+        | SyntaxKind::Semicolon
+        | SyntaxKind::RightParen => {
             p.convert_and_eat(SyntaxKind::Text);
         }
 
@@ -470,6 +466,9 @@ fn math_class(text: &str) -> Option<MathClass> {
 
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
 fn math_args(p: &mut Parser) {
+    let m = p.marker();
+    p.convert_and_eat(SyntaxKind::LeftParen);
+
     let mut positional = true;
     let mut array_last = true;
     let mut has_arrays = false;
@@ -515,6 +514,9 @@ fn math_args(p: &mut Parser) {
     if array_last && maybe_array_start != p.marker() && has_arrays && positional {
         p.wrap(maybe_array_start, SyntaxKind::Array);
     }
+
+    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
+    p.wrap(m, SyntaxKind::Args);
 }
 
 /// Parses a single argument in a math argument list.
@@ -522,26 +524,32 @@ fn math_args(p: &mut Parser) {
 /// Returns whether the argument parsed was positional or not.
 fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
     let m = p.marker();
+    let start = p.current_start();
 
-    // Parses a spread argument: `..args`.
-    if p.eat_if(SyntaxKind::Dots) {
-        math_expr(p);
-        p.wrap(m, SyntaxKind::Spread);
-        return false;
+    if p.at(SyntaxKind::Dot) {
+        // Parses a spread argument: `..args`.
+        if let Some(spread) = p.lexer.is_math_spread_arg(start) {
+            p.token.node = spread;
+            p.eat();
+            math_expr(p);
+            p.wrap(m, SyntaxKind::Spread);
+            return false;
+        }
     }
 
-    let mut positional = false;
-
-    // Parses a named argument: `thickness: #12pt`.
-    if p.at(SyntaxKind::Ident) {
-        let text = p.current_text();
-        p.eat();
-        p.convert_and_eat(SyntaxKind::Colon);
-        if !seen.insert(text) {
-            p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
+    let mut positional = true;
+    if p.at_set(syntax_set!(Text, MathIdent, Underscore)) {
+        // Parses a named argument: `thickness: #12pt`.
+        if let Some(named) = p.lexer.is_math_named_arg(start) {
+            p.token.node = named;
+            let text = p.current_text();
+            p.eat();
+            p.convert_and_eat(SyntaxKind::Colon);
+            if !seen.insert(text) {
+                p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
+            }
+            positional = false;
         }
-    } else {
-        positional = true;
     }
 
     // Parses a normal position argument.

@@ -19,6 +19,8 @@ $ func2(_my: a) $
 $ func3(my-body: a) $
 $ func4(_my-body: a) $
 $ func5(m: a) $
+$ func5(m: sigma : f) $
+$ func5(m: sigma:pi) $
 
 --- math-call-named-args-duplicate ---
 #let func(my: none) = my
@@ -128,6 +130,7 @@ $ mat(#"code"; "wins") $
 #check($args(a : b)$, "(sequence([a], [ ], [:], [ ], [b]))")
 #check($args(\..a)$, "(sequence([.], [.], [a]))")
 #check($args(.. a)$, "(sequence([.], [.], [ ], [a]))")
+#check($args(a..b)$, "(sequence([a], [.], [.], [b]))")
 
 --- math-call-2d-repr-structure ---
 #let args(..body) = body

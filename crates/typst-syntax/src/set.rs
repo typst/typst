@@ -59,6 +59,7 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
     MathIdent,
     FieldAccess,
+    Dot,
     Comma,
     Semicolon,
     RightParen,
