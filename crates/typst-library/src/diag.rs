@@ -604,7 +604,7 @@ impl DeprecationStatus {
     }
 }
 
-/// A value, together with a [`DeprecationStatus`].
+/// A value, together with a deprecation status.
 #[derive(Debug, Default, Clone, Hash)]
 pub struct MaybeDeprecated<T> {
     value: T,
