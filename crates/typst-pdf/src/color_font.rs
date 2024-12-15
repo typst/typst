@@ -244,9 +244,9 @@ impl ColorFontMap<()> {
             }
 
             let (frame, tofu) = glyph_frame(font, glyph.id);
-            if options.standards.pdfa && tofu {
-                bail!(failed_to_convert(text, glyph));
-            }
+            // if options.standards.pdfa && tofu {
+            //     bail!(failed_to_convert(text, glyph));
+            // }
 
             let width = font.advance(glyph.id).unwrap_or(Em::new(0.0)).get()
                 * font.units_per_em();

@@ -18,14 +18,13 @@ mod pattern_old;
 mod primitive;
 mod resources_old;
 
+use base64::Engine;
+use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
-
-use base64::Engine;
-use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
-use serde::{Deserialize, Serialize};
 use typst_library::diag::{bail, SourceResult, StrResult};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::{Abs, Em, PageRanges, PagedDocument, Transform};
@@ -79,6 +78,9 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
     //     .export_with(write_catalog)
 }
 
+pub use ::krilla::validation::Validator;
+pub use ::krilla::version::PdfVersion;
+
 /// Settings for PDF export.
 #[derive(Debug, Default)]
 pub struct PdfOptions<'a> {
@@ -100,8 +102,10 @@ pub struct PdfOptions<'a> {
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
     pub page_ranges: Option<PageRanges>,
-    /// A list of PDF standards that Typst will enforce conformance with.
-    pub standards: PdfStandards,
+    /// The version that should be used to export the PDF.
+    pub pdf_version: Option<PdfVersion>,
+    /// A standard the PDF should conform to.
+    pub validator: Validator,
 }
 
 /// Encapsulates a list of compatible PDF standards.

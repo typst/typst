@@ -17,11 +17,11 @@ use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::{PdfOptions, PdfStandards};
+use typst_pdf::{PdfOptions, PdfStandards, Validator};
 
 use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
-    PdfStandard, WatchCommand,
+    PdfStandard, PdfVersion, WatchCommand,
 };
 #[cfg(feature = "http-server")]
 use crate::server::HtmlServer;
@@ -62,9 +62,10 @@ pub struct CompileConfig {
     /// Opens the output file with the default viewer or a specific program after
     /// compilation.
     pub open: Option<Option<String>>,
-    /// One (or multiple comma-separated) PDF standards that Typst will enforce
-    /// conformance with.
-    pub pdf_standards: PdfStandards,
+    /// The version that should be used to export the PDF.
+    pub pdf_version: Option<PdfVersion>,
+    /// A standard the PDF should conform to.
+    pub pdf_standard: Option<PdfStandard>,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
@@ -129,18 +130,6 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let pdf_standards = {
-            let list = args
-                .pdf_standard
-                .iter()
-                .map(|standard| match standard {
-                    PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-                    PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-                })
-                .collect::<Vec<_>>();
-            PdfStandards::new(&list)?
-        };
-
         #[cfg(feature = "http-server")]
         let server = match watch {
             Some(command)
@@ -157,15 +146,16 @@ impl CompileConfig {
             output,
             output_format,
             pages,
-            pdf_standards,
             creation_timestamp: args.world.creation_timestamp,
             make_deps: args.make_deps.clone(),
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
+            pdf_version: args.pdf_version,
             export_cache: ExportCache::new(),
             #[cfg(feature = "http-server")]
             server,
+            pdf_standard: args.pdf_standard,
         })
     }
 }
@@ -277,7 +267,22 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
             config.creation_timestamp.unwrap_or_else(chrono::Utc::now),
         ),
         page_ranges: config.pages.clone(),
-        standards: config.pdf_standards.clone(),
+        pdf_version: config.pdf_version.map(|v| match v {
+            PdfVersion::V_1_4 => typst_pdf::PdfVersion::Pdf14,
+            PdfVersion::V_1_5 => typst_pdf::PdfVersion::Pdf15,
+            PdfVersion::V_1_6 => typst_pdf::PdfVersion::Pdf16,
+            PdfVersion::V_1_7 => typst_pdf::PdfVersion::Pdf17,
+        }),
+        validator: config
+            .pdf_standard
+            .map(|s| match s {
+                PdfStandard::A_1b => Validator::A1_B,
+                PdfStandard::A_2b => Validator::A2_B,
+                PdfStandard::A_2u => Validator::A2_U,
+                PdfStandard::A_3b => Validator::A3_B,
+                PdfStandard::A_3u => Validator::A3_U,
+            })
+            .unwrap_or(Validator::None),
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config

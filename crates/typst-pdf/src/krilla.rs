@@ -1,7 +1,7 @@
 use crate::primitive::{PointExt, SizeExt, TransformExt};
 use crate::{paint, AbsExt, PdfOptions};
 use bytemuck::TransparentWrapper;
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
@@ -178,15 +178,32 @@ pub fn pdf(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
+    let version = match options.pdf_version {
+        None => options.validator.recommended_version(),
+        Some(v) => {
+            if !options.validator.compatible_with_version(v) {
+                let v_string = v.as_str();
+                let s_string = options.validator.as_str();
+                let h_message = format!(
+                    "export using {} instead",
+                    options.validator.recommended_version().as_str()
+                );
+                bail!(Span::detached(), "{v_string} is not compatible with standard {s_string}"; hint: "{h_message}");
+            } else {
+                v
+            }
+        }
+    };
+
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
         ascii_compatible: false,
         xmp_metadata: true,
         cmyk_profile: None,
-        validator: Validator::None,
+        validator: options.validator,
         enable_tagging: false,
-        pdf_version: PdfVersion::Pdf17,
+        pdf_version: version,
     };
 
     let mut document = krilla::Document::new_with(settings);

@@ -4,11 +4,10 @@ use ecow::eco_format;
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::SourceResult;
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
 use typst_library::text::Lang;
-use typst_syntax::Span;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use crate::page_old::PdfPageLabel;
@@ -128,34 +127,34 @@ pub fn write_catalog(
         xmp.create_date(xmp_date);
         xmp.modify_date(xmp_date);
 
-        if ctx.options.standards.pdfa {
-            let mut history = xmp.history();
-            history
-                .add_event()
-                .action(xmp_writer::ResourceEventAction::Saved)
-                .when(xmp_date)
-                .instance_id(&eco_format!("{instance_id}_source"));
-            history
-                .add_event()
-                .action(xmp_writer::ResourceEventAction::Converted)
-                .when(xmp_date)
-                .instance_id(&instance_id)
-                .software_agent(&creator);
-        }
+        // if ctx.options.standards.pdfa {
+        //     let mut history = xmp.history();
+        //     history
+        //         .add_event()
+        //         .action(xmp_writer::ResourceEventAction::Saved)
+        //         .when(xmp_date)
+        //         .instance_id(&eco_format!("{instance_id}_source"));
+        //     history
+        //         .add_event()
+        //         .action(xmp_writer::ResourceEventAction::Converted)
+        //         .when(xmp_date)
+        //         .instance_id(&instance_id)
+        //         .software_agent(&creator);
+        // }
     }
 
-    // Assert dominance.
-    if ctx.options.standards.pdfa {
-        let mut extension_schemas = xmp.extension_schemas();
-        extension_schemas
-            .xmp_media_management()
-            .properties()
-            .describe_instance_id();
-        extension_schemas.pdf().properties().describe_all();
-        extension_schemas.finish();
-        xmp.pdfa_part(2);
-        xmp.pdfa_conformance("B");
-    }
+    // // Assert dominance.
+    // if ctx.options.standards.pdfa {
+    //     let mut extension_schemas = xmp.extension_schemas();
+    //     extension_schemas
+    //         .xmp_media_management()
+    //         .properties()
+    //         .describe_instance_id();
+    //     extension_schemas.pdf().properties().describe_all();
+    //     extension_schemas.finish();
+    //     xmp.pdfa_part(2);
+    //     xmp.pdfa_conformance("B");
+    // }
 
     let xmp_buf = xmp.finish(None);
     let meta_ref = alloc.bump();
@@ -200,22 +199,22 @@ pub fn write_catalog(
         catalog.lang(TextStr(lang.as_str()));
     }
 
-    if ctx.options.standards.pdfa {
-        catalog
-            .output_intents()
-            .push()
-            .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
-            .output_condition(TextStr("sRGB"))
-            .output_condition_identifier(TextStr("Custom"))
-            .info(TextStr("sRGB IEC61966-2.1"))
-            .dest_output_profile(ctx.globals.color_functions.srgb.unwrap());
-    }
+    // if ctx.options.standards.pdfa {
+    //     catalog
+    //         .output_intents()
+    //         .push()
+    //         .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
+    //         .output_condition(TextStr("sRGB"))
+    //         .output_condition_identifier(TextStr("Custom"))
+    //         .info(TextStr("sRGB IEC61966-2.1"))
+    //         .dest_output_profile(ctx.globals.color_functions.srgb.unwrap());
+    // }
 
     catalog.finish();
 
-    if ctx.options.standards.pdfa && pdf.refs().count() > 8388607 {
-        bail!(Span::detached(), "too many PDF objects");
-    }
+    // if ctx.options.standards.pdfa && pdf.refs().count() > 8388607 {
+    //     bail!(Span::detached(), "too many PDF objects");
+    // }
 
     Ok(())
 }

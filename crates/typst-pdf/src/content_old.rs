@@ -418,13 +418,13 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult
 
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut Builder, pos: Point, text: &TextItem) -> SourceResult<()> {
-    if ctx.options.standards.pdfa && text.font.info().is_last_resort() {
-        bail!(
-            Span::find(text.glyphs.iter().map(|g| g.span.0)),
-            "the text {} could not be displayed with any font",
-            &text.text,
-        );
-    }
+    // if ctx.options.standards.pdfa && text.font.info().is_last_resort() {
+    //     bail!(
+    //         Span::find(text.glyphs.iter().map(|g| g.span.0)),
+    //         "the text {} could not be displayed with any font",
+    //         &text.text,
+    //     );
+    // }
 
     let outline_glyphs =
         text.glyphs.iter().filter(|g| should_outline(&text.font, g)).count();
@@ -516,9 +516,9 @@ fn write_normal_text(
 
     // Write the glyphs with kerning adjustments.
     for glyph in text.glyphs() {
-        if ctx.options.standards.pdfa && glyph.id == 0 {
-            bail!(tofu(&text, glyph));
-        }
+        // if ctx.options.standards.pdfa && glyph.id == 0 {
+        //     bail!(tofu(&text, glyph));
+        // }
 
         adjustment += glyph.x_offset;
 
@@ -607,9 +607,9 @@ fn write_complex_glyphs(
         .or_default();
 
     for glyph in text.glyphs() {
-        if ctx.options.standards.pdfa && glyph.id == 0 {
-            bail!(tofu(&text, glyph));
-        }
+        // if ctx.options.standards.pdfa && glyph.id == 0 {
+        //     bail!(tofu(&text, glyph));
+        // }
 
         // Retrieve the Type3 font reference and the glyph index in the font.
         let color_fonts = ctx
@@ -732,8 +732,7 @@ fn write_image(
 ) -> SourceResult<()> {
     let index = ctx.resources.images.insert(image.clone());
     ctx.resources.deferred_images.entry(index).or_insert_with(|| {
-        let (image, color_space) =
-            deferred_image(image.clone(), ctx.options.standards.pdfa);
+        let (image, color_space) = deferred_image(image.clone(), false);
         if let Some(color_space) = color_space {
             ctx.resources.colors.mark_as_used(color_space);
         }
@@ -749,9 +748,9 @@ fn write_image(
     ctx.content.transform([w, 0.0, 0.0, -h, x, y + h]);
 
     if let Some(alt) = image.alt() {
-        if ctx.options.standards.pdfa && alt.len() > Str::PDFA_LIMIT {
-            bail!(span, "the image's alt text is too long");
-        }
+        // if ctx.options.standards.pdfa && alt.len() > Str::PDFA_LIMIT {
+        //     bail!(span, "the image's alt text is too long");
+        // }
 
         let mut image_span =
             ctx.content.begin_marked_content_with_properties(Name(b"Span"));
