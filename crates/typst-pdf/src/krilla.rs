@@ -17,9 +17,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 use svg2pdf::usvg::Rect;
-use typst_library::layout::{
-    Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
-};
+use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Ratio, Size, Transform};
 use typst_library::model::Destination;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::{
@@ -361,10 +359,22 @@ pub fn handle_shape(
             path_builder.move_to(0.0, 0.0);
             path_builder.line_to(l.x.to_f32(), l.y.to_f32());
         }
-        Geometry::Rect(r) => {
-            println!("{:?}", r);
-            if let Some(r) = Rect::from_xywh(0.0, 0.0, r.x.to_f32(), r.y.to_f32()) {
-                path_builder.push_rect(r);
+        Geometry::Rect(size) => {
+            let w = size.x.to_f32();
+            let h = size.y.to_f32();
+            let rect = if w < 0.0 || h < 0.0 {
+                // Skia doesn't normally allow for negative dimensions, but
+                // Typst supports them, so we apply a transform if needed
+                // Because this operation is expensive according to tiny-skia's
+                // docs, we prefer to not apply it if not needed
+                let transform = krilla::geom::Transform::from_scale(w.signum(), h.signum());
+                Rect::from_xywh(0.0, 0.0, w.abs(), h.abs()).and_then(|rect| rect.transform(transform))
+            } else {
+                Rect::from_xywh(0.0, 0.0, w, h)
+            };
+
+            if let Some(rect) = rect {
+                path_builder.push_rect(rect);
             }
         }
         Geometry::Path(p) => {
