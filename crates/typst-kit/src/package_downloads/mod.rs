@@ -1,3 +1,25 @@
+//! This module provides the package downloader abstraction needed
+//! for remote package handling.
+//!
+//! # Content
+//!
+//! ## Traits
+//! The [PackageDownloader] trait provides the abstraction needed to implement
+//! multiple download method handlers.
+//! Each method must allow for a package download to the local filesystem and it should provide a
+//! method for downloading the repository index if it exists.
+//!
+//! The [Progress] trait allows for the implementation of a progress reporting struct.
+//!
+//! ## Module
+//! [http] contains functionality for making simple web requests with status reporting,
+//! useful for downloading packages from package registries.
+//! It is enabled by the `downloads_http` feature flag.
+//! Additionally the `vendor-openssl` can be used on operating systems other than macOS
+//! and Windows to vendor OpenSSL when building.
+//!
+//! [git] contains functionality for handling package downloads through git repositories.
+
 use ecow::{eco_format, EcoString};
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -14,7 +36,7 @@ pub const DEFAULT_NAMESPACE: &str = "preview";
 pub mod http;
 
 #[cfg(feature = "downloads_git")]
-mod git;
+pub mod git;
 /*========END DOWNLOAD METHODS DECLARATION===========*/
 
 /// Trait abstraction for package a downloader.
