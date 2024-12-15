@@ -158,8 +158,13 @@ pub(crate) fn convert_pattern(
 
     let transform = match pattern.unwrap_relative(on_text) {
         RelativeTo::Self_ => Transform::identity(),
-        RelativeTo::Parent => transforms.transform_chain_.invert().unwrap().pre_concat(transforms.container_transform_chain)
-    }.as_krilla();
+        RelativeTo::Parent => transforms
+            .transform_chain_
+            .invert()
+            .unwrap()
+            .pre_concat(transforms.container_transform_chain),
+    }
+    .as_krilla();
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();

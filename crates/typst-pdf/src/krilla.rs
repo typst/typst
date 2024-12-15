@@ -1,3 +1,4 @@
+use crate::content_old::Builder;
 use crate::primitive::{PointExt, SizeExt, TransformExt};
 use crate::{paint, AbsExt};
 use bytemuck::TransparentWrapper;
@@ -16,7 +17,9 @@ use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 use svg2pdf::usvg::Rect;
-use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Ratio, Size, Transform};
+use typst_library::layout::{
+    Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
+};
 use typst_library::model::Destination;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::{
@@ -37,7 +40,11 @@ struct State {
 
 impl State {
     /// Creates a new, clean state for a given `size`.
-    fn new(size: Size, transform_chain: Transform, container_transform_chain: Transform) -> Self {
+    fn new(
+        size: Size,
+        transform_chain: Transform,
+        container_transform_chain: Transform,
+    ) -> Self {
         Self {
             transform_chain,
             transform: Transform::identity(),
@@ -73,15 +80,15 @@ impl State {
 
 pub(crate) struct FrameContext {
     states: Vec<State>,
+    annotations: Vec<krilla::annotation::Annotation>,
 }
 
 impl FrameContext {
     pub fn new(size: Size) -> Self {
-        Self { states: vec![State::new(size, Transform::identity(), Transform::identity())] }
-    }
-
-    pub fn derive_new(&self, size: Size) -> Self {
-        Self { states: vec![State::new(size, self.state().transform_chain, self.state().container_transform_chain)] }
+        Self {
+            states: vec![State::new(size, Transform::identity(), Transform::identity())],
+            annotations: vec![],
+        }
     }
 
     pub fn push(&mut self) {
@@ -148,12 +155,11 @@ impl krilla::font::Glyph for PdfGlyph {
 
 pub struct GlobalContext {
     fonts: HashMap<Font, krilla::font::Font>,
-    annotations: Vec<krilla::annotation::Annotation>,
 }
 
 impl GlobalContext {
     pub fn new() -> Self {
-        Self { fonts: Default::default(), annotations: vec![] }
+        Self { fonts: Default::default() }
     }
 }
 
@@ -193,8 +199,7 @@ pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
         );
         surface.finish();
 
-        let annotations = std::mem::take(&mut context.annotations);
-        for annotation in annotations {
+        for annotation in fc.annotations {
             page.add_annotation(annotation);
         }
     }
@@ -237,7 +242,7 @@ pub fn process_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(fc, image, *size, surface)
             }
-            FrameItem::Link(d, s) => {}
+            FrameItem::Link(d, s) => write_link(fc, d, *s),
             FrameItem::Tag(_) => {}
         }
 
@@ -245,6 +250,53 @@ pub fn process_frame(
     }
 
     fc.pop();
+}
+
+/// Save a link for later writing in the annotations dictionary.
+fn write_link(fc: &mut FrameContext, dest: &Destination, size: Size) {
+    let mut min_x = Abs::inf();
+    let mut min_y = Abs::inf();
+    let mut max_x = -Abs::inf();
+    let mut max_y = -Abs::inf();
+
+    let pos = Point::zero();
+
+    // Compute the bounding box of the transformed link.
+    for point in [
+        pos,
+        pos + Point::with_x(size.x),
+        pos + Point::with_y(size.y),
+        pos + size.to_point(),
+    ] {
+        let t = point.transform(fc.state().transform);
+        min_x.set_min(t.x);
+        min_y.set_min(t.y);
+        max_x.set_max(t.x);
+        max_y.set_max(t.y);
+    }
+
+    let x1 = min_x.to_f32();
+    let x2 = max_x.to_f32();
+    let y1 = min_y.to_f32();
+    let y2 = max_y.to_f32();
+
+    let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
+
+    let target = match dest {
+        Destination::Url(u) => {
+            Target::Action(Action::Link(LinkAction::new(u.to_string())))
+        }
+        Destination::Position(p) => {
+            // TODO: Ignore non-exported destinations
+            Target::Destination(krilla::destination::Destination::Xyz(
+                XyzDestination::new(p.page.get() - 1, p.point.as_krilla()),
+            ))
+        }
+        // TODO: Implement
+        Destination::Location(_) => return,
+    };
+
+    fc.annotations.push(LinkAnnotation::new(rect, target).into());
 }
 
 pub fn handle_group(
@@ -390,8 +442,10 @@ pub fn handle_shape(
                 // Typst supports them, so we apply a transform if needed
                 // Because this operation is expensive according to tiny-skia's
                 // docs, we prefer to not apply it if not needed
-                let transform = krilla::geom::Transform::from_scale(w.signum(), h.signum());
-                Rect::from_xywh(0.0, 0.0, w.abs(), h.abs()).and_then(|rect| rect.transform(transform))
+                let transform =
+                    krilla::geom::Transform::from_scale(w.signum(), h.signum());
+                Rect::from_xywh(0.0, 0.0, w.abs(), h.abs())
+                    .and_then(|rect| rect.transform(transform))
             } else {
                 Rect::from_xywh(0.0, 0.0, w, h)
             };
@@ -460,50 +514,3 @@ pub fn convert_path(path: &Path, builder: &mut PathBuilder) {
         }
     }
 }
-
-// fn handle_link(
-//     pos: typst_library::layout::Point,
-//     dest: &Destination,
-//     size: typst_library::layout::Size,
-//     ctx: &mut GlobalContext,
-//     surface: &mut Surface,
-// ) {
-//     let mut min_x = Abs::inf();
-//     let mut min_y = Abs::inf();
-//     let mut max_x = -Abs::inf();
-//     let mut max_y = -Abs::inf();
-//
-//     // Compute the bounding box of the transformed link.
-//     for point in [
-//         pos,
-//         pos + Point::with_x(size.x),
-//         pos + Point::with_y(size.y),
-//         pos + size.to_point(),
-//     ] {
-//         let t = point.transform(ctx.cur_transform);
-//         min_x.set_min(t.x);
-//         min_y.set_min(t.y);
-//         max_x.set_max(t.x);
-//         max_y.set_max(t.y);
-//     }
-//
-//     let x1 = min_x.to_f32();
-//     let x2 = max_x.to_f32();
-//     let y1 = min_y.to_f32();
-//     let y2 = max_y.to_f32();
-//     let rect = krilla::geom::Rect::from_ltrb(x1, y1, x2, y2).unwrap();
-//
-//     let target = match dest {
-//         Destination::Url(u) => {
-//             Target::Action(Action::Link(LinkAction::new(u.to_string())))
-//         }
-//         Destination::Position(p) => {
-//             Target::Destination(krilla::destination::Destination::Xyz(
-//                 XyzDestination::new(p.page.get() - 1, p.point.as_krilla()),
-//             ))
-//         }
-//         Destination::Location(_) => return,
-//     };
-//
-//     ctx.annotations.push(LinkAnnotation::new(rect, target).into());
-// }

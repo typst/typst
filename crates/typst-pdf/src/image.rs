@@ -111,7 +111,7 @@ pub(crate) fn raster(raster: RasterImage) -> Option<krilla::image::Image> {
         RasterFormat::Jpg => {
             if !raster.is_rotated() {
                 krilla::image::Image::from_jpeg(Arc::new(raster.data().clone()))
-            }   else {
+            } else {
                 // Can't embed original JPEG data if it needed to be rotated.
                 krilla::image::Image::from_custom(PdfImage::new(raster))
             }

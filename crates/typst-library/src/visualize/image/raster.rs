@@ -62,7 +62,14 @@ impl RasterImage {
         // Extract pixel density.
         let dpi = determine_dpi(&data, exif.as_ref());
 
-        Ok(Self(Arc::new(Repr { data, format, is_rotated, dynamic: Arc::new(dynamic), icc, dpi })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            format,
+            is_rotated,
+            dynamic: Arc::new(dynamic),
+            icc,
+            dpi,
+        })))
     }
 
     /// The raw image data.

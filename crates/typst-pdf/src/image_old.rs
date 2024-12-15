@@ -1,13 +1,9 @@
-use std::collections::HashMap;
-use std::io::Cursor;
-
 use ecow::eco_format;
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
+use std::collections::HashMap;
 use typst_library::diag::{At, SourceResult, StrResult};
-use typst_library::visualize::{
-    ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
-};
+use typst_library::visualize::{ColorSpace, Image, ImageKind, RasterImage, SvgImage};
 use typst_utils::Deferred;
 
 use crate::{color_old, deflate, PdfChunk, WithGlobalRefs};
