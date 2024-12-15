@@ -81,7 +81,7 @@ $ mat(1, 2; 3, ..#range(0, 2)) $
 $ mat(1, 2; ..nums;, delim: #none) $
 
 --- math-mat-spread-code-error ---
-// Error: 19-24 unexpected identifier
+// Error: 19-24 unexpected math identifier
 $ mat(1, 2; ..#1; delim: "|") $
 
 --- math-mat-spread-edge-cases-1 ---
