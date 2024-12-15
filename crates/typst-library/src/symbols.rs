@@ -28,12 +28,15 @@ impl From<codex::Symbol> for Symbol {
 }
 
 fn extend_scope_from_codex_module(scope: &mut Scope, module: codex::Module) {
-    for (name, definition) in module.iter() {
-        let value = match definition {
+    for (name, entry) in module.iter() {
+        let value = match entry.definition {
             codex::Def::Symbol(s) => Value::Symbol(s.into()),
             codex::Def::Module(m) => Value::Module(Module::new(name, m.into())),
         };
-        scope.define(name, value);
+        match entry.deprecated {
+            None => scope.define(name, value),
+            Some(message) => scope.define_deprecated(name, value, message),
+        }
     }
 }
 
