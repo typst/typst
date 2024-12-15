@@ -296,7 +296,7 @@ pub fn pdf(
             }
             KrillaError::ValidationError(ve) => {
                 // We can only produce 1 error, so just take the first one.
-                let prefix = "validated export failed:";
+                let prefix = format!("validated export for {} failed:", options.validator.as_str());
                 match &ve[0] {
                     ValidationError::TooLongString => {
                         bail!(Span::detached(), "{prefix} a PDF string longer than 32767 characters";
@@ -323,6 +323,7 @@ pub fn pdf(
                         bail!(Span::detached(), "{prefix} the PDF has too many indirect objects";
                             hint: "reduce the size of your document");
                     }
+                    // Can only occur if we have 27+ nested clip paths
                     ValidationError::TooHighQNestingLevel => {
                         bail!(Span::detached(), "{prefix} the PDF has too high q nesting";
                             hint: "reduce the number of nested containers");
@@ -337,11 +338,11 @@ pub fn pdf(
                     }
                     ValidationError::ContainsNotDefGlyph => {
                         bail!(Span::detached(), "{prefix} the PDF contains the .notdef glyph";
-                            hint: "ensure all text can be displayed using a font");
+                            hint: "ensure all text can be displayed using an available font");
                     }
                     ValidationError::InvalidCodepointMapping(_, _) => {
                         bail!(Span::detached(), "{prefix} the PDF contains the disallowed codepoints";
-                            hint: "make sure you don't use the Unicode characters 0x0, 0xFEFF or 0xFFFE");
+                            hint: "make sure to not use the Unicode characters 0x0, 0xFEFF or 0xFFFE");
                     }
                     ValidationError::UnicodePrivateArea(_, _) => {
                         bail!(Span::detached(), "{prefix} the PDF contains characters from the Unicode private area";
@@ -349,11 +350,15 @@ pub fn pdf(
                     }
                     ValidationError::Transparency => {
                         bail!(Span::detached(), "{prefix} document contains transparency";
-                            hint: "remove any transparency in your document and your SVGs";
+                            hint: "remove any transparency from your document (e.g. fills with opacity)";
+                            hint: "you might have to convert certain SVGs into a bitmap image if they contain transparency";
                             hint: "export using a different standard that supports transparency"
                         );
                     }
-                    // The below errors cannot occur yet, only once Typst supports PDF/A and PDF/UA.
+
+                    // The below errors cannot occur yet, only once Typst supports full PDF/A
+                    // and PDF/UA.
+                    // But let's still add a message just to be on the safe side.
                     ValidationError::MissingAnnotationAltText => {
                         bail!(Span::detached(), "{prefix} missing annotation alt text";
                             hint: "please report this as a bug");

@@ -57,7 +57,7 @@ fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
     }
 }
 
-fn convert_color(color: &Color) -> (krilla::color::rgb::Color, u8) {
+fn convert_to_rgb_color(color: &Color) -> (krilla::color::rgb::Color, u8) {
     let components = color.to_space(ColorSpace::Srgb).to_vec4_u8();
     (
         krilla::color::rgb::Color::new(components[0], components[1], components[2])
@@ -75,8 +75,31 @@ fn paint(
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
     match paint {
         Paint::Solid(c) => {
-            let (c, alpha) = convert_color(c);
-            Ok((c.into(), alpha))
+            let (p, alpha) = match c.space() {
+                ColorSpace::D65Gray => {
+                    let components = c.to_vec4_u8();
+                    (
+                        krilla::color::luma::Color::new(components[0])
+                            .into(),
+                        components[3],
+                    )
+                }
+                ColorSpace::Cmyk => {
+                    let components = c.to_vec4_u8();
+                    (
+                        krilla::color::cmyk::Color::new(components[0], components[1], components[2], components[3])
+                            .into(),
+                        // Typst doesn't support alpha on CMYK colors.
+                        255,
+                    )
+                }
+                _ => {
+                    let (c, a) = convert_to_rgb_color(c);
+                    (c.into(), a)
+                }
+            };
+
+            Ok((p, alpha))
         }
         Paint::Gradient(g) => Ok(convert_gradient(g, on_text, transforms)),
         Paint::Pattern(p) => convert_pattern(gc, p, on_text, surface, transforms),
@@ -154,7 +177,7 @@ fn convert_gradient(
     let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
 
     let mut add_single = |color: &Color, offset: Ratio| {
-        let (color, opacity) = convert_color(color);
+        let (color, opacity) = convert_to_rgb_color(color);
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
         let stop = krilla::paint::Stop { offset, color, opacity };
