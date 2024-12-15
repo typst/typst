@@ -5,12 +5,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
+use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Span, Spanned, SyntaxError};
 
+use crate::engine::Engine;
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -576,5 +578,108 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
             eco_format!("failed to parse {format} (missing root node)")
         }
         err => eco_format!("failed to parse {format} ({err})"),
+    }
+}
+
+/// A deprecation status: either not deprecated, or deprecated with a
+/// deprecation message.
+#[derive(Debug, Default, Clone, Hash)]
+enum DeprecationStatus {
+    /// Not deprecated.
+    #[default]
+    Ok,
+    /// Deprecated, with a deprecation message for the warning.
+    Deprecated(Arc<EcoString>),
+}
+
+impl DeprecationStatus {
+    /// If deprecated, crates a [`SourceDiagnostic`] with a corresponding warning.
+    fn into_warning(self, span: Span) -> Option<SourceDiagnostic> {
+        match self {
+            Self::Ok => None,
+            Self::Deprecated(message) => {
+                Some(SourceDiagnostic::warning(span, Arc::unwrap_or_clone(message)))
+            }
+        }
+    }
+}
+
+/// A value, together with a [`DeprecationStatus`].
+#[derive(Debug, Default, Clone, Hash)]
+pub struct MaybeDeprecated<T> {
+    value: T,
+    deprecation: DeprecationStatus,
+}
+
+impl<T> MaybeDeprecated<T> {
+    /// Wraps a value, marking it as not deprecated.
+    pub const fn ok(value: T) -> Self {
+        Self { value, deprecation: DeprecationStatus::Ok }
+    }
+
+    /// Wraps a value, marking it as deprecated, with the specified message.
+    pub fn deprecated(value: T, message: impl Into<EcoString>) -> Self {
+        Self {
+            value,
+            deprecation: DeprecationStatus::Deprecated(Arc::new(message.into())),
+        }
+    }
+
+    /// Returns the wrapped value. If it is deprecated, emits a warning.
+    pub fn access(self, engine: &mut Engine, span: Span) -> T {
+        if let Some(warning) = self.deprecation.into_warning(span) {
+            engine.sink.warn(warning)
+        }
+        self.value
+    }
+
+    /// Returns the wrapped value, regardless of its deprecation status.
+    pub fn into_inner(self) -> T {
+        self.value
+    }
+
+    /// Returns a reference to the wrapped value.
+    pub const fn value(&self) -> &T {
+        &self.value
+    }
+
+    /// Returns a mutable reference to the wrapped value.
+    pub fn value_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+
+    /// Converts a `&MaybeDeprecated<T>` to a `MaybeDeprecated<&T>`.
+    pub fn as_ref(&self) -> MaybeDeprecated<&T> {
+        MaybeDeprecated {
+            value: &self.value,
+            deprecation: self.deprecation.clone(),
+        }
+    }
+
+    /// Converts a `&mut MaybeDeprecated<T>` to a `MaybeDeprecated<&mut T>`.
+    pub fn as_mut(&mut self) -> MaybeDeprecated<&mut T> {
+        MaybeDeprecated {
+            value: &mut self.value,
+            deprecation: self.deprecation.clone(),
+        }
+    }
+}
+
+impl<T> MaybeDeprecated<&T> {
+    pub fn copied(self) -> MaybeDeprecated<T>
+    where
+        T: Copy,
+    {
+        MaybeDeprecated { value: *self.value, deprecation: self.deprecation }
+    }
+
+    pub fn cloned(self) -> MaybeDeprecated<T>
+    where
+        T: Clone,
+    {
+        MaybeDeprecated {
+            value: self.value.clone(),
+            deprecation: self.deprecation,
+        }
     }
 }

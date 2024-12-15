@@ -171,7 +171,7 @@ where
                 self.find_iter(content.fields().iter().map(|(_, v)| v))?;
             }
             Value::Module(module) => {
-                self.find_iter(module.scope().iter().map(|(_, v, _)| v))?;
+                self.find_iter(module.scope().iter().map(|(_, v, _)| v.into_inner()))?;
             }
             _ => {}
         }

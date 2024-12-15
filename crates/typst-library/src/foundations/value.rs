@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{ast, Span};
 use typst_utils::ArcExt;
 
-use crate::diag::{HintedStrResult, HintedString, StrResult};
+use crate::diag::{HintedStrResult, HintedString, MaybeDeprecated, StrResult};
 use crate::foundations::{
     fields, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime,
     Decimal, Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module,
@@ -158,15 +158,23 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str) -> StrResult<Value> {
+    pub fn field(&self, field: &str) -> StrResult<MaybeDeprecated<Value>> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
-            Self::Version(version) => version.component(field).map(Self::Int),
-            Self::Dict(dict) => dict.get(field).cloned(),
-            Self::Content(content) => content.field_by_name(field),
-            Self::Type(ty) => ty.field(field).cloned(),
-            Self::Func(func) => func.field(field).cloned(),
-            Self::Module(module) => module.field(field).cloned(),
+            Self::Symbol(symbol) => symbol
+                .clone()
+                .modified(field)
+                .map(Self::Symbol)
+                .map(MaybeDeprecated::ok),
+            Self::Version(version) => {
+                version.component(field).map(Self::Int).map(MaybeDeprecated::ok)
+            }
+            Self::Dict(dict) => dict.get(field).cloned().map(MaybeDeprecated::ok),
+            Self::Content(content) => {
+                content.field_by_name(field).map(MaybeDeprecated::ok)
+            }
+            Self::Type(ty) => ty.field(field).map(MaybeDeprecated::cloned),
+            Self::Func(func) => func.field(field).map(MaybeDeprecated::cloned),
+            Self::Module(module) => module.field(field).map(MaybeDeprecated::cloned),
             _ => fields::field(self, field),
         }
     }

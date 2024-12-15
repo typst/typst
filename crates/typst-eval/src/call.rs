@@ -1,8 +1,8 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString, EcoVec};
 use typst_library::diag::{
-    bail, error, At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
-    Trace, Tracepoint,
+    bail, error, At, HintedStrResult, HintedString, MaybeDeprecated, SourceDiagnostic,
+    SourceResult, Trace, Tracepoint,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -324,7 +324,7 @@ fn eval_field_call(
         Ok(FieldCall::Resolved(value))
     } else if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
-        Ok(FieldCall::Normal(callee.clone(), args))
+        Ok(FieldCall::Normal(callee.access(&mut vm.engine, field.span()).clone(), args))
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
@@ -332,7 +332,7 @@ fn eval_field_call(
         // Certain value types may have their own ways to access method fields.
         // e.g. `$arrow.r(v)$`, `table.cell[..]`
         let value = target.field(&field).at(field.span())?;
-        Ok(FieldCall::Normal(value, args))
+        Ok(FieldCall::Normal(value.access(&mut vm.engine, field.span()), args))
     } else {
         // Otherwise we cannot call this field.
         bail!(missing_field_call_error(target, field))
@@ -565,20 +565,23 @@ impl<'a> CapturesVisitor<'a> {
         &mut self,
         ident: &EcoString,
         span: Span,
-        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
+        getter: impl FnOnce(
+            &'a Scopes<'a>,
+            &str,
+        ) -> HintedStrResult<MaybeDeprecated<&'a Value>>,
     ) {
         if self.internal.get(ident).is_err() {
             let Some(value) = self
                 .external
                 .map(|external| getter(external, ident).ok())
-                .unwrap_or(Some(&Value::None))
+                .unwrap_or(Some(MaybeDeprecated::ok(&Value::None)))
             else {
                 return;
             };
 
             self.captures.define_captured(
                 ident.clone(),
-                value.clone(),
+                value.cloned(),
                 self.capturer,
                 span,
             );

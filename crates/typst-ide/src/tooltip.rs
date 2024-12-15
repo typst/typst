@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
+use typst::diag::MaybeDeprecated;
 use typst::engine::Sink;
 use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::{Length, PagedDocument};
@@ -206,7 +207,12 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
         };
 
         // Find metadata about the function.
-        if let Some(Value::Func(func)) = world.library().global.scope().get(&callee);
+        if let Some(Value::Func(func)) = world
+            .library()
+            .global
+            .scope()
+            .get(&callee)
+            .map(MaybeDeprecated::into_inner);
         then { (func, named) }
         else { return None; }
     };

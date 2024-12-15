@@ -30,8 +30,9 @@ impl Access for ast::Ident<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
         if vm.inspected == Some(span) {
-            if let Ok(value) = vm.scopes.get(&self).cloned() {
-                vm.trace(value);
+            if let Ok(value) = vm.scopes.get(&self) {
+                let v = value.access(&mut vm.engine, span).clone();
+                vm.trace(v);
             }
         }
         let value = vm.scopes.get_mut(&self).at(span)?;
