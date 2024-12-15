@@ -211,14 +211,10 @@ fn convert_gradient(
 
     let pdf_gradient = PdfGradient {
         aspect_ratio: size.aspect_ratio(),
-        transform,
+        transform: Transform::identity(),
         gradient: gradient.clone(),
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
-
-    let actual_transform = transforms.transform.invert().unwrap().pre_concat(transform)
-        .pre_concat(Transform::scale(-Ratio::one(), Ratio::one()))
-        .pre_concat(Transform::rotate(-pdf_gradient.angle));
 
     match &gradient {
         Gradient::Linear(_) => {
@@ -229,7 +225,11 @@ fn convert_gradient(
         }
         Gradient::Conic(conic) => {
             // Correct the gradient's angle
-            let angle = Gradient::correct_aspect_ratio(conic.angle, pdf_gradient.aspect_ratio);
+            let cx = size.x.to_f32() * conic.center.x.get() as f32;
+            let cy = size.y.to_f32() * conic.center.y.get() as f32;
+            let actual_transform = transforms.transform.invert().unwrap().pre_concat(transform)
+                .pre_concat(Transform::scale_at(-Ratio::one(), Ratio::one(), Abs::pt(cx as f64), Abs::pt(cy as f64)))
+                .pre_concat(Transform::rotate_at(-pdf_gradient.angle, Abs::pt(cx as f64), Abs::pt(cy as f64)));
             let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
 
             let mut add_single = |color: &Color, offset: Ratio| {
@@ -296,8 +296,8 @@ fn convert_gradient(
             }
 
             let sweep = krilla::paint::SweepGradient {
-                cx: size.x.to_f32() * conic.center.x.get() as f32,
-                cy: size.y.to_f32() * conic.center.y.get() as f32,
+                cx,
+                cy,
                 start_angle: 0.0,
                 end_angle: 360.0,
                 transform: actual_transform.as_krilla(),
