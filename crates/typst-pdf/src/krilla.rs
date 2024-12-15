@@ -362,6 +362,7 @@ pub fn handle_shape(
             path_builder.line_to(l.x.to_f32(), l.y.to_f32());
         }
         Geometry::Rect(r) => {
+            println!("{:?}", r);
             if let Some(r) = Rect::from_xywh(0.0, 0.0, r.x.to_f32(), r.y.to_f32()) {
                 path_builder.push_rect(r);
             }

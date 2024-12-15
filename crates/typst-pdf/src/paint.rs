@@ -6,12 +6,15 @@ use crate::primitive::{FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use crate::AbsExt;
 use krilla::geom::NormalizedF32;
 use krilla::page::{NumberingStyle, PageLabel};
+use krilla::paint::SpreadMethod;
 use krilla::surface::Surface;
 use std::num::NonZeroUsize;
-use krilla::paint::SpreadMethod;
 use typst_library::layout::{Abs, Angle, AngleUnit, Quadrant, Ratio, Size, Transform};
 use typst_library::model::Numbering;
-use typst_library::visualize::{Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern, RatioOrAngle, RelativeTo, WeightedColor};
+use typst_library::visualize::{
+    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern,
+    RatioOrAngle, RelativeTo, WeightedColor,
+};
 use typst_utils::Numeric;
 
 pub(crate) fn fill(
@@ -60,11 +63,7 @@ fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
 fn convert_color(color: &Color) -> (krilla::color::rgb::Color, u8) {
     let components = color.to_space(ColorSpace::Srgb).to_vec4_u8();
     (
-        krilla::color::rgb::Color::new(
-            components[0],
-            components[1],
-            components[2],
-        )
+        krilla::color::rgb::Color::new(components[0], components[1], components[2])
             .into(),
         components[3],
     )
@@ -81,7 +80,7 @@ fn paint(
         Paint::Solid(c) => {
             let (c, alpha) = convert_color(c);
             (c.into(), alpha)
-        },
+        }
         Paint::Gradient(g) => convert_gradient(g, on_text, transforms),
         Paint::Pattern(p) => convert_pattern(gc, p, on_text, surface, transforms),
     }
@@ -208,7 +207,8 @@ fn convert_gradient(
         RelativeTo::Parent => transforms.container_transform,
     };
 
-    let angle = Gradient::correct_aspect_ratio(rotation, size.aspect_ratio());
+    let angle = rotation;
+    println!("angle: {:?}", angle);
 
     let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
 
@@ -216,18 +216,14 @@ fn convert_gradient(
         let (color, opacity) = convert_color(color);
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
-        let stop = krilla::paint::Stop {
-            offset,
-            color,
-            opacity,
-        };
+        let stop = krilla::paint::Stop { offset, color, opacity };
         stops.push(stop);
     };
 
     match &gradient {
         Gradient::Linear(linear) => {
-            let actual_transform = transforms.transform.invert().unwrap()
-                .pre_concat(transform);
+            let actual_transform =
+                transforms.transform.invert().unwrap().pre_concat(transform);
 
             if let Some((c, t)) = linear.stops.first() {
                 add_single(c, *t);
@@ -244,7 +240,8 @@ fn convert_gradient(
                 if gradient.space().hue_index().is_some() {
                     for i in 0..=32 {
                         let t = i as f64 / 32.0;
-                        let real_t = Ratio::new(first.1.get() * (1.0 - t) + second.1.get() * t);
+                        let real_t =
+                            Ratio::new(first.1.get() * (1.0 - t) + second.1.get() * t);
 
                         let c = gradient.sample(RatioOrAngle::Ratio(real_t));
                         add_single(&c, real_t);
@@ -274,7 +271,9 @@ fn convert_gradient(
                 y1,
                 x2,
                 y2,
-                transform: actual_transform.as_krilla().pre_concat(krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32())),
+                transform: actual_transform.as_krilla().pre_concat(
+                    krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
+                ),
                 spread_method: SpreadMethod::Pad,
                 stops: stops.into(),
                 anti_alias: gradient.anti_alias(),
@@ -282,16 +281,74 @@ fn convert_gradient(
 
             (linear.into(), 255)
         }
-        Gradient::Radial(_) => {
-            (krilla::color::rgb::Color::black().into(), 255)
+        Gradient::Radial(radial) => {
+            let actual_transform =
+                transforms.transform.invert().unwrap().pre_concat(transform);
+
+            if let Some((c, t)) = radial.stops.first() {
+                add_single(c, *t);
+            }
+
+            // Create the individual gradient functions for each pair of stops.
+            for window in radial.stops.windows(2) {
+                let (first, second) = (window[0], window[1]);
+
+                // If we have a hue index or are using Oklab, we will create several
+                // stops in-between to make the gradient smoother without interpolation
+                // issues with native color spaces.
+                let mut last_c = first.0;
+                if gradient.space().hue_index().is_some() {
+                    for i in 0..=32 {
+                        let t = i as f64 / 32.0;
+                        let real_t =
+                            Ratio::new(first.1.get() * (1.0 - t) + second.1.get() * t);
+
+                        let c = gradient.sample(RatioOrAngle::Ratio(real_t));
+                        add_single(&c, real_t);
+                        last_c = c;
+                    }
+                }
+
+                add_single(&second.0, second.1);
+            }
+
+            let radial = krilla::paint::RadialGradient {
+                fx: radial.focal_center.x.get() as f32,
+                fy: radial.focal_center.y.get() as f32,
+                fr: radial.focal_radius.get() as f32,
+                cx: radial.center.x.get() as f32,
+                cy: radial.center.y.get() as f32,
+                cr: radial.radius.get() as f32,
+                transform: actual_transform.as_krilla().pre_concat(
+                    krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
+                ),
+                spread_method: SpreadMethod::Pad,
+                stops: stops.into(),
+                anti_alias: gradient.anti_alias(),
+            };
+
+            (radial.into(), 255)
         }
         Gradient::Conic(conic) => {
             // Correct the gradient's angle
             let cx = size.x.to_f32() * conic.center.x.get() as f32;
             let cy = size.y.to_f32() * conic.center.y.get() as f32;
-            let actual_transform = transforms.transform.invert().unwrap().pre_concat(transform)
-                .pre_concat(Transform::scale_at(-Ratio::one(), Ratio::one(), Abs::pt(cx as f64), Abs::pt(cy as f64)))
-                .pre_concat(Transform::rotate_at(-angle, Abs::pt(cx as f64), Abs::pt(cy as f64)));
+            let actual_transform = transforms
+                .transform
+                .invert()
+                .unwrap()
+                .pre_concat(transform)
+                .pre_concat(Transform::rotate_at(
+                    angle,
+                    Abs::pt(cx as f64),
+                    Abs::pt(cy as f64),
+                ))
+                .pre_concat(Transform::scale_at(
+                    -Ratio::one(),
+                    Ratio::one(),
+                    Abs::pt(cx as f64),
+                    Abs::pt(cy as f64),
+                ));
 
             if let Some((c, t)) = conic.stops.first() {
                 add_single(c, *t);
@@ -334,7 +391,7 @@ fn convert_gradient(
                         ],
                         conic.space,
                     )
-                        .unwrap();
+                    .unwrap();
 
                     add_single(&c_next, Ratio::new(t_next));
                     t_x = t_next;
