@@ -179,6 +179,16 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
 
+    /// The gap between the numbering and the start of the heading.
+    /// Default value is `{0.3em}`.
+    ///
+    /// ```example
+    /// #set heading(gap: 1.5em)
+    /// = A big gap between numbering and body
+    /// ```
+    #[default(Em::new(0.3).into())]
+    pub gap: Length,
+
     /// The heading's title.
     #[required]
     pub body: Content,
@@ -219,11 +229,10 @@ impl Show for Packed<HeadingElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let html = TargetElem::target_in(styles).is_html();
 
-        const SPACING_TO_NUMBERING: Em = Em::new(0.3);
-
         let span = self.span();
         let mut realized = self.body().clone();
 
+        let gap = self.gap(styles);
         let hanging_indent = self.hanging_indent(styles);
         let mut indent = match hanging_indent {
             Smart::Custom(length) => length.resolve(styles),
@@ -251,13 +260,13 @@ impl Show for Packed<HeadingElem> {
                 )?
                 .size();
 
-                indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
+                indent = size.x + gap.resolve(styles);
             }
 
             let spacing = if html {
                 SpaceElem::shared().clone()
             } else {
-                HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack()
+                HElem::new(gap.into()).with_weak(true).pack()
             };
 
             realized = numbering + spacing + realized;

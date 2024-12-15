@@ -102,6 +102,11 @@ comment spans lines
 #set heading(numbering: "1.1", offset: 1)
 #heading(level: 1)[Still level 1]
 
+--- heading-big-gap ---
+// Test the gap between the numbering and the heading
+#set heading(numbering: "1.1", gap: 1em)
+= #lorem(3)
+
 --- heading-syntax-edge-cases ---
 // Edge cases.
 #set heading(numbering: "1.")
