@@ -1,8 +1,7 @@
 //! Convert paint types from typst to krilla.
 
 use crate::krilla::{process_frame, FrameContext, GlobalContext, Transforms};
-use crate::primitive::{FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
-use crate::AbsExt;
+use crate::primitive::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use krilla::geom::NormalizedF32;
 use krilla::page::{NumberingStyle, PageLabel};
 use krilla::paint::SpreadMethod;

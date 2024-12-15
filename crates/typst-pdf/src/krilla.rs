@@ -1,5 +1,5 @@
-use crate::primitive::{PointExt, SizeExt, TransformExt};
-use crate::{paint, AbsExt, PdfOptions};
+use crate::primitive::{AbsExt, PointExt, SizeExt, TransformExt};
+use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
 use ecow::EcoString;
 use krilla::action::{Action, LinkAction};

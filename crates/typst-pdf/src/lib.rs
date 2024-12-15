@@ -50,15 +50,3 @@ pub struct PdfOptions<'a> {
     /// A standard the PDF should conform to.
     pub validator: Validator,
 }
-
-/// Additional methods for [`Abs`].
-trait AbsExt {
-    /// Convert an to a number of points.
-    fn to_f32(self) -> f32;
-}
-
-impl AbsExt for Abs {
-    fn to_f32(self) -> f32 {
-        self.to_pt() as f32
-    }
-}

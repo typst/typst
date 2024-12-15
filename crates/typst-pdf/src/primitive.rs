@@ -1,9 +1,8 @@
 //! Convert basic primitive types from typst to krilla.
 
-use typst_library::layout::{Point, Size, Transform};
+use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::visualize::{FillRule, LineCap, LineJoin};
 
-use crate::AbsExt;
 
 pub(crate) trait SizeExt {
     fn as_krilla(&self) -> krilla::geom::Size;
@@ -80,5 +79,17 @@ impl FillRuleExt for FillRule {
             FillRule::NonZero => krilla::path::FillRule::NonZero,
             FillRule::EvenOdd => krilla::path::FillRule::EvenOdd,
         }
+    }
+}
+
+/// Additional methods for [`Abs`].
+pub(crate) trait AbsExt {
+    /// Convert an to a number of points.
+    fn to_f32(self) -> f32;
+}
+
+impl AbsExt for Abs {
+    fn to_f32(self) -> f32 {
+        self.to_pt() as f32
     }
 }
