@@ -1,13 +1,13 @@
 //! Download and unpack packages and package indices.
 use std::path::{Path, PathBuf};
 
+use crate::package_downloads::{Downloader, PackageDownloader, Progress};
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use typst_library::diag::{PackageError, PackageResult, StrResult};
 use typst_syntax::package::{
     PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
 };
-use crate::package_downloads::{Downloader, PackageDownloader, Progress};
 
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
@@ -97,12 +97,12 @@ impl PackageStorage {
         &self,
         spec: &VersionlessPackageSpec,
     ) -> StrResult<PackageVersion> {
-
         // Same logical flow as per package download. Check package path, then check online.
         // Do not check in the data directory because the latter is not intended for storage
         // of local packages.
         let subdir = format!("{}/{}", spec.namespace, spec.name);
-        let res = self.package_path
+        let res = self
+            .package_path
             .iter()
             .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
             .flatten()
@@ -124,7 +124,10 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self, spec: &VersionlessPackageSpec) -> StrResult<&[PackageInfo]> {
+    pub fn download_index(
+        &self,
+        spec: &VersionlessPackageSpec,
+    ) -> StrResult<&[PackageInfo]> {
         self.index
             .get_or_try_init(|| self.downloader.download_index(spec))
             .map(AsRef::as_ref)
@@ -147,8 +150,8 @@ impl PackageStorage {
                 } else {
                     Err(PackageError::NotFound(spec.clone()))
                 }
-            },
-            val => val
+            }
+            val => val,
         }
     }
 }

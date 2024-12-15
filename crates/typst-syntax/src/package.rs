@@ -264,17 +264,18 @@ impl Display for VersionlessPackageSpec {
 }
 
 fn is_namespace_valid(namespace: &str) -> bool {
-    if is_ident(namespace){
+    if is_ident(namespace) {
         //standard namespace
-        return true
+        return true;
     }
 
     //if not ident, the namespace should be formed as @<package_remote_type>:<package_path>
     let mut tokenized = namespace.splitn(2, ":");
 
     //package type
-    if tokenized.next().is_none_or(|x| !is_ident(x)) {
-        return false
+    let package_remote_type = tokenized.next();
+    if package_remote_type.is_none() || !is_ident(package_remote_type.unwrap()) {
+        return false;
     }
 
     //the package_path parsing is left to the downloader implementation

@@ -19,9 +19,9 @@
 //!   [download]. It is enabled by the `packages` feature flag and implies the
 //!   `downloads` feature flag.
 
-#[cfg(feature = "downloads")]
-pub mod package_downloads;
 #[cfg(feature = "fonts")]
 pub mod fonts;
 #[cfg(feature = "packages")]
 pub mod package;
+#[cfg(feature = "downloads")]
+pub mod package_downloads;
