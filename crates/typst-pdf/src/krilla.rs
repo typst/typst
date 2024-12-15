@@ -1,8 +1,6 @@
-use crate::content_old::Builder;
 use crate::primitive::{PointExt, SizeExt, TransformExt};
 use crate::{paint, AbsExt};
 use bytemuck::TransparentWrapper;
-use image::GenericImageView;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
@@ -13,10 +11,10 @@ use krilla::validation::Validator;
 use krilla::version::PdfVersion;
 use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 use svg2pdf::usvg::Rect;
+use typst_library::diag::{bail, SourceResult};
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
 };
@@ -25,9 +23,10 @@ use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::{
     FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
 };
+use typst_syntax::Span;
 
 #[derive(Debug, Clone)]
-struct State {
+pub(crate) struct State {
     /// The full transform chain
     transform_chain: Transform,
     /// The transform of the current item.
@@ -70,7 +69,6 @@ impl State {
     pub fn transforms(&self, size: Size) -> Transforms {
         Transforms {
             transform_chain_: self.transform_chain,
-            transform_: self.transform,
             container_transform_chain: self.container_transform_chain,
             container_size: self.size,
             size,
@@ -113,8 +111,6 @@ impl FrameContext {
 pub(super) struct Transforms {
     /// The full transform chain.
     pub transform_chain_: Transform,
-    /// The transform of the current item.
-    pub transform_: Transform,
     /// The transform of first hard frame in the hierarchy.
     pub container_transform_chain: Transform,
     /// The size of the first hard frame in the hierarchy.
@@ -155,18 +151,22 @@ impl krilla::font::Glyph for PdfGlyph {
 
 pub struct GlobalContext {
     fonts: HashMap<Font, krilla::font::Font>,
+    // Note: In theory, the same image can have multiple spans
+    // if it appears in the document multiple times. We just store the
+    // first appearance, though.
+    image_spans: HashMap<krilla::image::Image, Span>,
 }
 
 impl GlobalContext {
     pub fn new() -> Self {
-        Self { fonts: Default::default() }
+        Self { fonts: HashMap::new(), image_spans: HashMap::new() }
     }
 }
 
 // TODO: Change rustybuzz cluster behavior so it works with ActualText
 
 #[typst_macros::time(name = "write pdf")]
-pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
+pub fn pdf(typst_document: &PagedDocument) -> SourceResult<Vec<u8>> {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -196,7 +196,7 @@ pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
             typst_page.fill_or_transparent(),
             &mut surface,
             &mut context,
-        );
+        )?;
         surface.finish();
 
         for annotation in fc.annotations {
@@ -204,13 +204,7 @@ pub fn pdf(typst_document: &PagedDocument) -> Vec<u8> {
         }
     }
 
-    finish(document)
-}
-
-#[typst_macros::time(name = "finish document")]
-pub fn finish(document: krilla::Document) -> Vec<u8> {
-    // TODO: Don't unwrap
-    document.finish().unwrap()
+    Ok(document.finish().unwrap())
 }
 
 pub fn process_frame(
@@ -219,7 +213,7 @@ pub fn process_frame(
     fill: Option<Paint>,
     surface: &mut Surface,
     gc: &mut GlobalContext,
-) {
+) -> SourceResult<()> {
     fc.push();
 
     if frame.kind().is_hard() {
@@ -229,18 +223,18 @@ pub fn process_frame(
 
     if let Some(fill) = fill {
         let shape = Geometry::Rect(frame.size()).filled(fill);
-        handle_shape(fc, &shape, surface, gc);
+        handle_shape(fc, &shape, surface, gc)?;
     }
 
     for (point, item) in frame.items() {
         fc.push();
         fc.state_mut().transform(Transform::translate(point.x, point.y));
         match item {
-            FrameItem::Group(g) => handle_group(fc, g, surface, gc),
-            FrameItem::Text(t) => handle_text(fc, t, surface, gc),
-            FrameItem::Shape(s, _) => handle_shape(fc, s, surface, gc),
+            FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
+            FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
+            FrameItem::Shape(s, _) => handle_shape(fc, s, surface, gc)?,
             FrameItem::Image(image, size, span) => {
-                handle_image(fc, image, *size, surface)
+                handle_image(gc, fc, image, *size, surface, *span)?
             }
             FrameItem::Link(d, s) => write_link(fc, d, *s),
             FrameItem::Tag(_) => {}
@@ -250,6 +244,8 @@ pub fn process_frame(
     }
 
     fc.pop();
+
+    Ok(())
 }
 
 /// Save a link for later writing in the annotations dictionary.
@@ -304,7 +300,7 @@ pub fn handle_group(
     group: &GroupItem,
     surface: &mut Surface,
     context: &mut GlobalContext,
-) {
+) -> SourceResult<()> {
     fc.push();
     fc.state_mut().transform(group.transform);
 
@@ -322,13 +318,15 @@ pub fn handle_group(
         surface.push_clip_path(clip_path, &krilla::path::FillRule::NonZero);
     }
 
-    process_frame(fc, &group.frame, None, surface, context);
+    process_frame(fc, &group.frame, None, surface, context)?;
 
     if clip_path.is_some() {
         surface.pop();
     }
 
     fc.pop();
+
+    Ok(())
 }
 
 pub fn handle_text(
@@ -336,7 +334,7 @@ pub fn handle_text(
     t: &TextItem,
     surface: &mut Surface,
     gc: &mut GlobalContext,
-) {
+) -> SourceResult<()> {
     let font = gc
         .fonts
         .entry(t.font.clone())
@@ -353,7 +351,7 @@ pub fn handle_text(
         true,
         surface,
         fc.state().transforms(Size::zero()),
-    );
+    )?;
     let text = t.text.as_str();
     let size = t.size;
 
@@ -377,6 +375,8 @@ pub fn handle_text(
         .as_ref()
         .map(|s| paint::stroke(gc, s, true, surface, fc.state().transforms(Size::zero())))
     {
+        let stroke = stroke?;
+
         surface.stroke_glyphs(
             krilla::geom::Point::from_xy(0.0, 0.0),
             stroke,
@@ -390,20 +390,31 @@ pub fn handle_text(
     }
 
     surface.pop();
+
+    Ok(())
 }
 
 pub fn handle_image(
+    gc: &mut GlobalContext,
     fc: &mut FrameContext,
     image: &Image,
     size: Size,
     surface: &mut Surface,
-) {
+    span: Span,
+) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform.as_krilla());
 
     match image.kind() {
         ImageKind::Raster(raster) => {
-            // TODO: Don't unwrap
-            let image = crate::image::raster(raster.clone()).unwrap();
+            let image = match crate::image::raster(raster.clone()) {
+                None => bail!(span, "failed to process image"),
+                Some(i) => i,
+            };
+
+            if gc.image_spans.contains_key(&image) {
+                gc.image_spans.insert(image.clone(), span);
+            }
+
             surface.draw_image(image, size.as_krilla());
         }
         ImageKind::Svg(svg) => {
@@ -419,6 +430,8 @@ pub fn handle_image(
     }
 
     surface.pop();
+
+    Ok(())
 }
 
 pub fn handle_shape(
@@ -426,7 +439,7 @@ pub fn handle_shape(
     shape: &Shape,
     surface: &mut Surface,
     gc: &mut GlobalContext,
-) {
+) -> SourceResult<()> {
     let mut path_builder = PathBuilder::new();
 
     match &shape.geometry {
@@ -470,7 +483,7 @@ pub fn handle_shape(
                 false,
                 surface,
                 fc.state().transforms(shape.geometry.bbox_size()),
-            );
+            )?;
             surface.fill_path(&path, fill);
         }
 
@@ -489,12 +502,14 @@ pub fn handle_shape(
                 false,
                 surface,
                 fc.state().transforms(shape.geometry.bbox_size()),
-            );
+            )?;
             surface.stroke_path(&path, stroke);
         }
     }
 
     surface.pop();
+
+    Ok(())
 }
 
 pub fn convert_path(path: &Path, builder: &mut PathBuilder) {

@@ -8,7 +8,8 @@ use krilla::page::{NumberingStyle, PageLabel};
 use krilla::paint::SpreadMethod;
 use krilla::surface::Surface;
 use std::num::NonZeroUsize;
-use typst_library::layout::{Abs, Angle, AngleUnit, Quadrant, Ratio, Size, Transform};
+use typst_library::diag::SourceResult;
+use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Transform};
 use typst_library::model::Numbering;
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern,
@@ -23,14 +24,14 @@ pub(crate) fn fill(
     on_text: bool,
     surface: &mut Surface,
     transforms: Transforms,
-) -> krilla::path::Fill {
-    let (paint, opacity) = paint(gc, paint_, on_text, surface, transforms);
+) -> SourceResult<krilla::path::Fill> {
+    let (paint, opacity) = paint(gc, paint_, on_text, surface, transforms)?;
 
-    krilla::path::Fill {
+    Ok(krilla::path::Fill {
         paint,
         rule: fill_rule_.as_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
-    }
+    })
 }
 
 pub(crate) fn stroke(
@@ -39,9 +40,10 @@ pub(crate) fn stroke(
     on_text: bool,
     surface: &mut Surface,
     transforms: Transforms,
-) -> krilla::path::Stroke {
-    let (paint, opacity) = paint(fc, &stroke.paint, on_text, surface, transforms);
-    krilla::path::Stroke {
+) -> SourceResult<krilla::path::Stroke> {
+    let (paint, opacity) = paint(fc, &stroke.paint, on_text, surface, transforms)?;
+
+    Ok(krilla::path::Stroke {
         paint,
         width: stroke.thickness.to_f32(),
         miter_limit: stroke.miter_limit.get() as f32,
@@ -49,7 +51,7 @@ pub(crate) fn stroke(
         line_cap: stroke.cap.as_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
         dash: stroke.dash.as_ref().map(|d| dash(d)),
-    }
+    })
 }
 
 fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
@@ -74,13 +76,13 @@ fn paint(
     on_text: bool,
     surface: &mut Surface,
     transforms: Transforms,
-) -> (krilla::paint::Paint, u8) {
+) -> SourceResult<(krilla::paint::Paint, u8)> {
     match paint {
         Paint::Solid(c) => {
             let (c, alpha) = convert_color(c);
-            (c.into(), alpha)
+            Ok((c.into(), alpha))
         }
-        Paint::Gradient(g) => convert_gradient(g, on_text, transforms),
+        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, transforms)),
         Paint::Pattern(p) => convert_pattern(gc, p, on_text, surface, transforms),
     }
 }
@@ -146,7 +148,7 @@ pub(crate) fn convert_pattern(
     on_text: bool,
     surface: &mut Surface,
     mut transforms: Transforms,
-) -> (krilla::paint::Paint, u8) {
+) -> SourceResult<(krilla::paint::Paint, u8)> {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
         transforms.size.x = Abs::pt(1.0);
@@ -169,7 +171,7 @@ pub(crate) fn convert_pattern(
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
     let mut fc = FrameContext::new(pattern.frame().size());
-    process_frame(&mut fc, pattern.frame(), None, &mut surface, gc);
+    process_frame(&mut fc, pattern.frame(), None, &mut surface, gc)?;
     surface.finish();
     let stream = stream_builder.finish();
     let pattern = krilla::paint::Pattern {
@@ -179,7 +181,7 @@ pub(crate) fn convert_pattern(
         height: (pattern.size().y + pattern.spacing().y).to_pt() as _,
     };
 
-    (pattern.into(), 255)
+    Ok((pattern.into(), 255))
 }
 
 fn convert_gradient(
@@ -234,7 +236,6 @@ fn convert_gradient(
                 // If we have a hue index or are using Oklab, we will create several
                 // stops in-between to make the gradient smoother without interpolation
                 // issues with native color spaces.
-                let mut last_c = first.0;
                 if gradient.space().hue_index().is_some() {
                     for i in 0..=32 {
                         let t = i as f64 / 32.0;
@@ -243,7 +244,6 @@ fn convert_gradient(
 
                         let c = gradient.sample(RatioOrAngle::Ratio(real_t));
                         add_single(&c, real_t);
-                        last_c = c;
                     }
                 }
 
