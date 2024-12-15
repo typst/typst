@@ -25,8 +25,7 @@ native-tls = { workspace = true, optional = true }
 once_cell = { workspace = true }
 tar = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
-git2 = { workspace = true, optional = true }
-auth-git2 = { workspace = true, optional = true }
+gix = { workspace = true, optional = true, features = ["worktree-mutation", "blocking-network-client"] }
 
 # Explicitly depend on OpenSSL if applicable, so that we can add the
 # `openssl/vendored` feature to it if `vendor-openssl` is enabled.
@@ -42,7 +41,7 @@ fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 # Add generic downloading utilities
 downloads = ["downloads_http", "downloads_git"]
 downloads_http = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
-downloads_git = ["git2", "auth-git2"]
+downloads_git = ["gix"]
 
 # Add package downloading utilities, implies `downloads`
 packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]

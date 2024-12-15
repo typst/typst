@@ -1,10 +1,8 @@
 use crate::package_downloads::{DownloadState, PackageDownloader, Progress};
-use auth_git2::GitAuthenticator;
 use ecow::{eco_format, EcoString};
-use git2::build::RepoBuilder;
-use git2::{FetchOptions, RemoteCallbacks};
-use std::collections::VecDeque;
+use gix::remote::fetch::Shallow;
 use std::fmt::Debug;
+use std::num::NonZero;
 use std::path::Path;
 use std::time::Instant;
 use typst_library::diag::{PackageError, PackageResult};
@@ -32,45 +30,34 @@ impl GitDownloader {
         progress: &mut dyn Progress,
     ) -> Result<(), EcoString> {
         progress.print_start();
-
-        eprintln!("{} {} {}", repo, tag, dest.display());
-
         let state = DownloadState {
             content_len: None,
             total_downloaded: 0,
-            bytes_per_second: VecDeque::from(vec![0; 5]),
+            bytes_per_second: Default::default(),
             start_time: Instant::now(),
         };
 
-        let auth = GitAuthenticator::default();
-        let git_config = git2::Config::open_default()
-            .map_err(|err| EcoString::from(format!("{err}")))?;
+        std::fs::create_dir_all(dest).map_err(|x| eco_format!("{x}"))?;
+        let url = gix::url::parse(repo.into()).map_err(|x| eco_format!("{x}"))?;
+        let mut prepare_fetch =
+            gix::prepare_clone(url, dest).map_err(|x| eco_format!("{x}"))?;
+        prepare_fetch = prepare_fetch
+            .with_shallow(Shallow::DepthAtRemote(NonZero::new(1).unwrap()))
+            .with_ref_name(Some(tag))
+            .map_err(|x| eco_format!("{x}"))?;
 
-        let mut fetch_options = FetchOptions::new();
-        let mut remote_callbacks = RemoteCallbacks::new();
-
-        remote_callbacks.credentials(auth.credentials(&git_config));
-        fetch_options.remote_callbacks(remote_callbacks);
-
-        let repo = RepoBuilder::new()
-            .fetch_options(fetch_options)
-            .clone(repo, dest)
-            .map_err(|err| EcoString::from(format!("{err}")))?;
-
-        let (object, reference) = repo
-            .revparse_ext(tag)
-            .map_err(|err| EcoString::from(format!("{err}")))?;
-        repo.checkout_tree(&object, None)
-            .map_err(|err| EcoString::from(format!("{err}")))?;
-
-        match reference {
-            // gref is an actual reference like branches or tags
-            Some(gref) => repo.set_head(gref.name().unwrap()),
-            // this is a commit, not a reference
-            None => repo.set_head_detached(object.id()),
+        let (mut prepare_checkout, _) = prepare_fetch
+            .fetch_then_checkout(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+            .map_err(|x| eco_format!("{x}"))?;
+        if prepare_checkout.repo().work_dir().is_none() {
+            return Err(eco_format!(
+                "Cloned git repository but files are not available."
+            ))?;
         }
-        .map_err(|err| EcoString::from(format!("{err}")))?;
 
+        prepare_checkout
+            .main_worktree(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+            .map_err(|x| eco_format!("{x}"))?;
         progress.print_finish(&state);
         Ok(())
     }
@@ -122,7 +109,7 @@ impl PackageDownloader for GitDownloader {
     ) -> PackageResult<()> {
         let repo = Self::parse_namespace(spec.namespace.as_str(), spec.name.as_str())
             .map_err(|x| PackageError::Other(Some(x)))?;
-        let tag = format!("v{}", spec.version);
+        let tag = format!("refs/tags/v{}", spec.version);
         self.download_with_progress(repo.as_str(), tag.as_str(), package_dir, progress)
             .map_err(|x| PackageError::Other(Some(x)))
     }
