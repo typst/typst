@@ -181,8 +181,6 @@ pub(crate) fn convert_pattern(
     (pattern.into(), 255)
 }
 
-// TODO: Anti-aliasing
-
 fn convert_gradient(
     gradient: &Gradient,
     on_text: bool,
