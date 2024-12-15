@@ -68,7 +68,11 @@ impl Eval for ast::ModuleImport<'_> {
             }
             Some(ast::Imports::Wildcard) => {
                 for (var, value, span) in scope.iter() {
-                    vm.scopes.top.define_spanned(var.clone(), value.clone(), span);
+                    vm.scopes.top.define_spanned_maybe_deprecated(
+                        var.clone(),
+                        value.cloned(),
+                        span,
+                    );
                 }
             }
             Some(ast::Imports::Items(items)) => {
@@ -86,6 +90,7 @@ impl Eval for ast::ModuleImport<'_> {
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.
                             // This must be a submodule.
+                            let value = value.access(&mut vm.engine, component.span());
                             let Some(submodule) = value.scope() else {
                                 let error = if matches!(value, Value::Func(function) if function.scope().is_none())
                                 {
@@ -128,7 +133,7 @@ impl Eval for ast::ModuleImport<'_> {
                                 }
                             }
 
-                            vm.define(item.bound_name(), value.clone());
+                            vm.import(item.bound_name(), value.cloned());
                         }
                     }
                 }

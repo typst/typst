@@ -399,12 +399,12 @@ fn field_access_completions(
     styles: &Option<Styles>,
 ) {
     for (name, value, _) in value.ty().scope().iter() {
-        ctx.call_completion(name.clone(), value);
+        ctx.call_completion(name.clone(), value.into_inner());
     }
 
     if let Some(scope) = value.scope() {
         for (name, value, _) in scope.iter() {
-            ctx.call_completion(name.clone(), value);
+            ctx.call_completion(name.clone(), value.into_inner());
         }
     }
 
@@ -414,7 +414,7 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(field, &value.field(field).unwrap());
+        ctx.value_completion(field, &value.field(field).unwrap().into_inner());
     }
 
     match value {
@@ -553,7 +553,7 @@ fn import_item_completions<'a>(
 
     for (name, value, _) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(name.clone(), value);
+            ctx.value_completion(name.clone(), value.into_inner());
         }
     }
 }
@@ -847,7 +847,7 @@ fn resolve_global_callee<'a>(
     let value = match callee {
         ast::Expr::Ident(ident) => globals.get(&ident)?,
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match globals.get(&target)? {
+            ast::Expr::Ident(target) => match globals.get(&target)?.into_inner() {
                 Value::Module(module) => module.field(&access.field()).ok()?,
                 Value::Func(func) => func.field(&access.field()).ok()?,
                 _ => return None,
@@ -855,7 +855,8 @@ fn resolve_global_callee<'a>(
             _ => return None,
         },
         _ => return None,
-    };
+    }
+    .into_inner();
 
     match value {
         Value::Func(func) => Some(func),
@@ -1464,6 +1465,7 @@ impl<'a> CompletionContext<'a> {
         }
 
         for (name, value, _) in globals(self.world, self.leaf).iter() {
+            let value = value.into_inner();
             if filter(value) && !defined.contains_key(name) {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }

@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use ecow::{eco_format, EcoString};
 use typst_utils::Static;
 
-use crate::diag::StrResult;
+use crate::diag::{MaybeDeprecated, StrResult};
 use crate::foundations::{
     cast, func, AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value,
 };
@@ -94,7 +94,7 @@ impl Type {
     }
 
     /// Get a field from this type's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
+    pub fn field(&self, field: &str) -> StrResult<MaybeDeprecated<&'static Value>> {
         self.scope()
             .get(field)
             .ok_or_else(|| eco_format!("type {self} does not contain field `{field}`"))

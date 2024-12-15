@@ -69,7 +69,7 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
     let Some(category) = category else { bail!("{head} has no category") };
 
     let name = parts.next().ok_or("link is missing first part")?;
-    let value = focus.field(name)?;
+    let value = focus.field(name)?.into_inner();
 
     // Handle grouped functions.
     if let Some(group) = GROUPS.iter().find(|group| {
@@ -92,7 +92,11 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
             route.push_str("/#definitions-");
             route.push_str(next);
             if let Some(next) = parts.next() {
-                if field.cast::<Func>().is_ok_and(|func| func.param(next).is_some()) {
+                if field
+                    .into_inner()
+                    .cast::<Func>()
+                    .is_ok_and(|func| func.param(next).is_some())
+                {
                     route.push('-');
                     route.push_str(next);
                 }

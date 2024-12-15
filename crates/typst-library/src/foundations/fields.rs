@@ -2,7 +2,7 @@
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::StrResult;
+use crate::diag::{MaybeDeprecated, StrResult};
 use crate::foundations::{IntoValue, Type, Value, Version};
 use crate::layout::{Alignment, Length, Rel};
 use crate::visualize::Stroke;
@@ -11,7 +11,7 @@ use crate::visualize::Stroke;
 ///
 /// This function is exclusively for types which have predefined fields, such as
 /// stroke and length.
-pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
+pub(crate) fn field(value: &Value, field: &str) -> StrResult<MaybeDeprecated<Value>> {
     let ty = value.ty();
     let nope = || Err(no_fields(ty));
     let missing = || Err(missing_field(ty, field));
@@ -58,7 +58,7 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
         _ => return nope(),
     };
 
-    Ok(result)
+    Ok(MaybeDeprecated::ok(result))
 }
 
 /// The error message for a type not supporting field access.

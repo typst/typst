@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use typst_syntax::FileId;
 
-use crate::diag::StrResult;
+use crate::diag::{MaybeDeprecated, StrResult};
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
 /// An evaluated module, either built-in or resulting from a file.
@@ -104,7 +104,7 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, name: &str) -> StrResult<&Value> {
+    pub fn field(&self, name: &str) -> StrResult<MaybeDeprecated<&Value>> {
         self.scope().get(name).ok_or_else(|| {
             eco_format!("module `{}` does not contain `{name}`", self.name())
         })

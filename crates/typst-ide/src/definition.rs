@@ -56,11 +56,11 @@ pub fn definition(
             }
 
             if let Some(value) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(value.clone()));
+                return Some(Definition::Std(value.into_inner().clone()));
             }
         }
 
-        // Try to jump to the an imported file or package.
+        // Try to jump to an imported file or package.
         DerefTarget::ImportPath(node) | DerefTarget::IncludePath(node) => {
             let Some(Value::Module(module)) = analyze_import(world, &node) else {
                 return None;
