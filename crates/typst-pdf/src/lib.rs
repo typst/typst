@@ -53,7 +53,7 @@ use crate::resources_old::{
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    krilla::pdf(document)
+    krilla::pdf(document, options)
     // PdfBuilder::new(document, options)
     //     .phase(|builder| builder.run(traverse_pages))?
     //     .phase(|builder| {

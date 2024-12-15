@@ -1,6 +1,7 @@
 use crate::primitive::{PointExt, SizeExt, TransformExt};
-use crate::{paint, AbsExt};
+use crate::{paint, AbsExt, PdfOptions};
 use bytemuck::TransparentWrapper;
+use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
@@ -10,16 +11,18 @@ use krilla::surface::Surface;
 use krilla::validation::Validator;
 use krilla::version::PdfVersion;
 use krilla::{PageSettings, SerializeSettings, SvgSettings};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fs::metadata;
 use std::ops::Range;
 use std::sync::Arc;
 use svg2pdf::usvg::Rect;
 use typst_library::diag::{bail, SourceResult};
+use typst_library::foundations::Datetime;
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
 };
 use typst_library::model::Destination;
-use typst_library::text::{Font, Glyph, TextItem};
+use typst_library::text::{Font, Glyph, Lang, TextItem};
 use typst_library::visualize::{
     FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
 };
@@ -155,18 +158,26 @@ pub struct GlobalContext {
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
     image_spans: HashMap<krilla::image::Image, Span>,
+    languages: BTreeMap<Lang, usize>,
 }
 
 impl GlobalContext {
     pub fn new() -> Self {
-        Self { fonts: HashMap::new(), image_spans: HashMap::new() }
+        Self {
+            fonts: HashMap::new(),
+            image_spans: HashMap::new(),
+            languages: BTreeMap::new(),
+        }
     }
 }
 
 // TODO: Change rustybuzz cluster behavior so it works with ActualText
 
 #[typst_macros::time(name = "write pdf")]
-pub fn pdf(typst_document: &PagedDocument) -> SourceResult<Vec<u8>> {
+pub fn pdf(
+    typst_document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<Vec<u8>> {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -179,7 +190,7 @@ pub fn pdf(typst_document: &PagedDocument) -> SourceResult<Vec<u8>> {
     };
 
     let mut document = krilla::Document::new_with(settings);
-    let mut context = GlobalContext::new();
+    let mut gc = GlobalContext::new();
 
     for typst_page in &typst_document.pages {
         let settings = PageSettings::new(
@@ -195,7 +206,7 @@ pub fn pdf(typst_document: &PagedDocument) -> SourceResult<Vec<u8>> {
             &typst_page.frame,
             typst_page.fill_or_transparent(),
             &mut surface,
-            &mut context,
+            &mut gc,
         )?;
         surface.finish();
 
@@ -204,7 +215,89 @@ pub fn pdf(typst_document: &PagedDocument) -> SourceResult<Vec<u8>> {
         }
     }
 
+    let metadata = {
+        let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
+
+        let mut metadata = krilla::metadata::Metadata::new()
+            .creator(creator)
+            .keywords(
+                typst_document
+                    .info
+                    .keywords
+                    .iter()
+                    .map(EcoString::to_string)
+                    .collect(),
+            )
+            .authors(
+                typst_document.info.author.iter().map(EcoString::to_string).collect(),
+            );
+
+        let lang = gc.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
+
+        if let Some(lang) = lang {
+            metadata = metadata.language(lang.as_str().to_string());
+        }
+
+        if let Some(title) = &typst_document.info.title {
+            metadata = metadata.title(title.to_string());
+        }
+
+        if let Some(subject) = &typst_document.info.description {
+            metadata = metadata.subject(subject.to_string());
+        }
+
+        if let Some(ident) = options.ident.custom() {
+            metadata = metadata.subject(ident.to_string());
+        }
+
+        let tz = typst_document.info.date.is_auto();
+        if let Some(date) = typst_document
+            .info
+            .date
+            .unwrap_or(options.timestamp)
+            .and_then(|d| krilla_date(d, tz))
+        {
+            metadata = metadata.modification_date(date).creation_date(date);
+        }
+
+        metadata
+    };
+
+    document.set_metadata(metadata);
+
     Ok(document.finish().unwrap())
+}
+
+fn krilla_date(datetime: Datetime, tz: bool) -> Option<krilla::metadata::DateTime> {
+    let year = datetime.year().filter(|&y| y >= 0)? as u16;
+
+    let mut krilla_date = krilla::metadata::DateTime::new(year);
+
+    if let Some(month) = datetime.month() {
+        krilla_date = krilla_date.month(month);
+    }
+
+    if let Some(day) = datetime.day() {
+        krilla_date = krilla_date.day(day);
+    }
+
+    if let Some(h) = datetime.hour() {
+        krilla_date = krilla_date.hour(h);
+    }
+
+    if let Some(m) = datetime.minute() {
+        krilla_date = krilla_date.minute(m);
+    }
+
+    if let Some(s) = datetime.second() {
+        krilla_date = krilla_date.second(s);
+    }
+
+    if tz {
+        krilla_date = krilla_date.utc_offset_hour(0).utc_offset_minute(0);
+    }
+
+    Some(krilla_date)
 }
 
 pub fn process_frame(
@@ -344,6 +437,9 @@ pub fn handle_text(
                 .unwrap()
         })
         .clone();
+
+    *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
+
     let fill = paint::fill(
         gc,
         &t.fill,
