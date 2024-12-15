@@ -9,7 +9,7 @@ use krilla::page::{NumberingStyle, PageLabel};
 use krilla::surface::Surface;
 use std::num::NonZeroUsize;
 use krilla::paint::SpreadMethod;
-use typst_library::layout::{Abs, Angle, AngleUnit, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, AngleUnit, Quadrant, Ratio, Size, Transform};
 use typst_library::model::Numbering;
 use typst_library::visualize::{Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern, RatioOrAngle, RelativeTo, WeightedColor};
 use typst_utils::Numeric;
@@ -226,7 +226,8 @@ fn convert_gradient(
 
     match &gradient {
         Gradient::Linear(linear) => {
-            let actual_transform = transforms.transform.invert().unwrap().pre_concat(transform);
+            let actual_transform = transforms.transform.invert().unwrap()
+                .pre_concat(transform);
 
             if let Some((c, t)) = linear.stops.first() {
                 add_single(c, *t);
@@ -254,12 +255,26 @@ fn convert_gradient(
                 add_single(&second.0, second.1);
             }
 
+            let (mut sin, mut cos) = (angle.sin(), angle.cos());
+
+            // Scale to edges of unit square.
+            let factor = cos.abs() + sin.abs();
+            sin *= factor;
+            cos *= factor;
+
+            let (x1, y1, x2, y2): (f32, f32, f32, f32) = match angle.quadrant() {
+                Quadrant::First => (0.0, 0.0, cos as f32, sin as f32),
+                Quadrant::Second => (1.0, 0.0, cos as f32 + 1.0, sin as f32),
+                Quadrant::Third => (1.0, 1.0, cos as f32 + 1.0, sin as f32 + 1.0),
+                Quadrant::Fourth => (0.0, 1.0, cos as f32, sin as f32 + 1.0),
+            };
+
             let linear = krilla::paint::LinearGradient {
-                x1: 0.0,
-                y1: 0.0,
-                x2: size.x.to_f32(),
-                y2: 0.0,
-                transform: actual_transform.as_krilla(),
+                x1,
+                y1,
+                x2,
+                y2,
+                transform: actual_transform.as_krilla().pre_concat(krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32())),
                 spread_method: SpreadMethod::Pad,
                 stops: stops.into(),
                 anti_alias: gradient.anti_alias(),
