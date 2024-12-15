@@ -1,4 +1,4 @@
-use crate::primitive::{AbsExt, PointExt, SizeExt, TransformExt};
+use crate::util::{font_to_str, AbsExt, PointExt, SizeExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
 use ecow::EcoString;
@@ -12,7 +12,9 @@ use krilla::{PageSettings, SerializeSettings, SvgSettings};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
 use std::sync::Arc;
+use krilla::error::KrillaError;
 use krilla::geom::Rect;
+use krilla::validation::ValidationError;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::Datetime;
 use typst_library::layout::{
@@ -150,7 +152,8 @@ impl krilla::font::Glyph for PdfGlyph {
 }
 
 pub struct GlobalContext {
-    fonts: HashMap<Font, krilla::font::Font>,
+    fonts_forward: HashMap<Font, krilla::font::Font>,
+    fonts_backward: HashMap<krilla::font::Font, Font>,
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
@@ -161,7 +164,8 @@ pub struct GlobalContext {
 impl GlobalContext {
     pub fn new() -> Self {
         Self {
-            fonts: HashMap::new(),
+            fonts_forward: HashMap::new(),
+            fonts_backward: HashMap::new(),
             image_spans: HashMap::new(),
             languages: BTreeMap::new(),
         }
@@ -279,7 +283,111 @@ pub fn pdf(
 
     document.set_metadata(metadata);
 
-    Ok(document.finish().unwrap())
+    match document.finish() {
+        Ok(r) => Ok(r),
+        Err(e) => match e {
+            KrillaError::FontError(f, s) => {
+                let font_str = font_to_str(gc.fonts_backward.get(&f).unwrap());
+                bail!(Span::detached(), "failed to process font {font_str} ({s})");
+            }
+            KrillaError::UserError(u) => {
+                // This is an error which indicates misuse on the typst-pdf side.
+                bail!(Span::detached(), "internal error ({u})"; hint: "please report this as a bug")
+            }
+            KrillaError::ValidationError(ve) => {
+                // We can only produce 1 error, so just take the first one.
+                let prefix = "validated export failed:";
+                match &ve[0] {
+                    ValidationError::TooLongString => {
+                        bail!(Span::detached(), "{prefix} a PDF string longer than 32767 characters";
+                            hint: "make sure title and author names are short enough");
+                    }
+                    // Should in theory never occur, as krilla always trims font names
+                    ValidationError::TooLongName => {
+                        bail!(Span::detached(), "{prefix} a PDF name longer than 127 characters";
+                            hint: "perhaps a font name is too long");
+                    }
+                    ValidationError::TooLongArray => {
+                        bail!(Span::detached(), "{prefix} a PDF array longer than 8191 elements";
+                            hint: "this can happen if you have a very long text in a single line");
+                    }
+                    ValidationError::TooLongDictionary => {
+                        bail!(Span::detached(), "{prefix} a PDF dictionary had more than 4095 entries";
+                            hint: "try reducing the complexity of your document");
+                    }
+                    ValidationError::TooLargeFloat => {
+                        bail!(Span::detached(), "{prefix} a PDF float was larger than the allowed limit";
+                            hint: "try exporting using a higher PDF version");
+                    }
+                    ValidationError::TooManyIndirectObjects => {
+                        bail!(Span::detached(), "{prefix} the PDF has too many indirect objects";
+                            hint: "reduce the size of your document");
+                    }
+                    ValidationError::TooHighQNestingLevel => {
+                        bail!(Span::detached(), "{prefix} the PDF has too high q nesting";
+                            hint: "reduce the number of nested containers");
+                    }
+                    ValidationError::ContainsPostScript => {
+                        bail!(Span::detached(), "{prefix} the PDF contains PostScript code";
+                            hint: "sweep gradients are not supported in this PDF standard");
+                    }
+                    ValidationError::MissingCMYKProfile => {
+                        bail!(Span::detached(), "{prefix} the PDF is missing a CMYK profile";
+                            hint: "CMYK colors are not yet supported in this export mode");
+                    }
+                    ValidationError::ContainsNotDefGlyph => {
+                        bail!(Span::detached(), "{prefix} the PDF contains the .notdef glyph";
+                            hint: "ensure all text can be displayed using a font");
+                    }
+                    ValidationError::InvalidCodepointMapping(_, _) => {
+                        bail!(Span::detached(), "{prefix} the PDF contains the disallowed codepoints";
+                            hint: "make sure you don't use the Unicode characters 0x0, 0xFEFF or 0xFFFE");
+                    }
+                    ValidationError::UnicodePrivateArea(_, _) => {
+                        bail!(Span::detached(), "{prefix} the PDF contains characters from the Unicode private area";
+                            hint: "remove the text containing codepoints from the Unicode private area");
+                    }
+                    ValidationError::Transparency => {
+                        bail!(Span::detached(), "{prefix} document contains transparency";
+                            hint: "remove any transparency in your document and your SVGs";
+                            hint: "export using a different standard that supports transparency"
+                        );
+                    }
+                    // The below errors cannot occur yet, only once Typst supports PDF/A and PDF/UA.
+                    ValidationError::MissingAnnotationAltText => {
+                        bail!(Span::detached(), "{prefix} missing annotation alt text";
+                            hint: "please report this as a bug");
+                    }
+                    ValidationError::MissingAltText => {
+                        bail!(Span::detached(), "{prefix} missing alt text";
+                            hint: "make sure your images and formulas have alt text");
+                    }
+                    ValidationError::NoDocumentLanguage => {
+                        bail!(Span::detached(), "{prefix} missing document language";
+                            hint: "set the language of the document");
+                    }
+                    // Needs to be set by Typst.
+                    ValidationError::MissingHeadingTitle => {
+                        bail!(Span::detached(), "{prefix} missing heading title";
+                            hint: "please report this as a bug");
+                    }
+                    // Needs to be set by Typst.
+                    ValidationError::MissingDocumentOutline => {
+                        bail!(Span::detached(), "{prefix} missing document outline";
+                            hint: "please report this as a bug");
+                    }
+                    ValidationError::NoDocumentTitle => {
+                        bail!(Span::detached(), "{prefix} missing document title";
+                            hint: "set the title of the document");
+                    }
+                }
+            }
+            KrillaError::ImageError(i) => {
+                let span = gc.image_spans.get(&i).unwrap();
+                bail!(*span, "failed to process image");
+            }
+        }
+    }
 }
 
 fn krilla_date(datetime: Datetime, tz: bool) -> Option<krilla::metadata::DateTime> {
@@ -442,15 +550,24 @@ pub fn handle_text(
     surface: &mut Surface,
     gc: &mut GlobalContext,
 ) -> SourceResult<()> {
-    let font = gc
-        .fonts
-        .entry(t.font.clone())
-        .or_insert_with(|| {
-            krilla::font::Font::new(Arc::new(t.font.data().clone()), t.font.index(), true)
-                // TODO: DOn't unwrap
-                .unwrap()
-        })
-        .clone();
+    let typst_font = t.font.clone();
+
+    let krilla_font = if let Some(font) = gc.fonts_forward.get(&typst_font) {
+        font.clone()
+    }   else {
+        let font = match krilla::font::Font::new(Arc::new(typst_font.data().clone()), typst_font.index(), true) {
+            None => {
+                let font_str = font_to_str(&typst_font);
+                bail!(Span::detached(), "failed to process font {font_str}");
+            }
+            Some(f) => f
+        };
+
+        gc.fonts_forward.insert(typst_font.clone(), font.clone());
+        gc.fonts_backward.insert(font.clone(), typst_font.clone());
+
+        font
+    };
 
     *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
 
@@ -473,7 +590,7 @@ pub fn handle_text(
         krilla::geom::Point::from_xy(0.0, 0.0),
         fill,
         &glyphs,
-        font.clone(),
+        krilla_font.clone(),
         text,
         size.to_f32(),
         GlyphUnits::Normalized,
@@ -491,7 +608,7 @@ pub fn handle_text(
             krilla::geom::Point::from_xy(0.0, 0.0),
             stroke,
             &glyphs,
-            font.clone(),
+            krilla_font.clone(),
             text,
             size.to_f32(),
             GlyphUnits::Normalized,

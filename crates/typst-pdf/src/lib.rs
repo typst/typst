@@ -4,14 +4,11 @@
 mod image;
 mod krilla;
 mod paint;
-mod primitive;
+mod util;
 
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::ops::{Deref, DerefMut};
-use typst_library::diag::{bail, SourceResult, StrResult};
+use typst_library::diag::{SourceResult};
 use typst_library::foundations::{Datetime, Smart};
-use typst_library::layout::{Abs, Em, PageRanges, PagedDocument, Transform};
+use typst_library::layout::{PageRanges, PagedDocument};
 
 /// Export a document into a PDF file.
 ///

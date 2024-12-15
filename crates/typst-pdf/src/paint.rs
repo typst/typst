@@ -1,15 +1,12 @@
 //! Convert paint types from typst to krilla.
 
 use crate::krilla::{process_frame, FrameContext, GlobalContext, Transforms};
-use crate::primitive::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
+use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use krilla::geom::NormalizedF32;
-use krilla::page::{NumberingStyle, PageLabel};
 use krilla::paint::SpreadMethod;
 use krilla::surface::Surface;
-use std::num::NonZeroUsize;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Transform};
-use typst_library::model::Numbering;
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern,
     RatioOrAngle, RelativeTo, WeightedColor,
@@ -83,61 +80,6 @@ fn paint(
         }
         Paint::Gradient(g) => Ok(convert_gradient(g, on_text, transforms)),
         Paint::Pattern(p) => convert_pattern(gc, p, on_text, surface, transforms),
-    }
-}
-
-pub(crate) trait PageLabelExt {
-    fn generate(numbering: &Numbering, number: usize) -> Option<PageLabel>;
-    fn arabic(number: usize) -> PageLabel;
-}
-
-impl PageLabelExt for PageLabel {
-    /// Create a new `PageLabel` from a `Numbering` applied to a page
-    /// number.
-    fn generate(numbering: &Numbering, number: usize) -> Option<PageLabel> {
-        {
-            let Numbering::Pattern(pat) = numbering else {
-                return None;
-            };
-
-            let (prefix, kind) = pat.pieces.first()?;
-
-            // If there is a suffix, we cannot use the common style optimisation,
-            // since PDF does not provide a suffix field.
-            let style = if pat.suffix.is_empty() {
-                use krilla::page::NumberingStyle as Style;
-                use typst_library::model::NumberingKind as Kind;
-                match kind {
-                    Kind::Arabic => Some(Style::Arabic),
-                    Kind::LowerRoman => Some(Style::LowerRoman),
-                    Kind::UpperRoman => Some(Style::UpperRoman),
-                    Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
-                    Kind::LowerLatin if number <= 26 => Some(Style::UpperAlpha),
-                    _ => None,
-                }
-            } else {
-                None
-            };
-
-            // Prefix and offset depend on the style: If it is supported by the PDF
-            // spec, we use the given prefix and an offset. Otherwise, everything
-            // goes into prefix.
-            let prefix = if style.is_none() {
-                Some(pat.apply(&[number]))
-            } else {
-                (!prefix.is_empty()).then(|| prefix.clone())
-            };
-
-            let offset = style.and(NonZeroUsize::new(number));
-            Some(PageLabel::new(style, prefix.map(|s| s.to_string()), offset))
-        }
-    }
-
-    /// Creates an arabic page label with the specified page number.
-    /// For example, this will display page label `11` when given the page
-    /// number 11.
-    fn arabic(number: usize) -> PageLabel {
-        PageLabel::new(Some(NumberingStyle::Arabic), None, NonZeroUsize::new(number))
     }
 }
 
@@ -293,7 +235,6 @@ fn convert_gradient(
                 // If we have a hue index or are using Oklab, we will create several
                 // stops in-between to make the gradient smoother without interpolation
                 // issues with native color spaces.
-                let mut last_c = first.0;
                 if gradient.space().hue_index().is_some() {
                     for i in 0..=32 {
                         let t = i as f64 / 32.0;
@@ -302,7 +243,6 @@ fn convert_gradient(
 
                         let c = gradient.sample(RatioOrAngle::Ratio(real_t));
                         add_single(&c, real_t);
-                        last_c = c;
                     }
                 }
 
