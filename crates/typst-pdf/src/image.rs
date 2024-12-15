@@ -109,7 +109,12 @@ impl CustomImage for PdfImage {
 pub(crate) fn raster(raster: RasterImage) -> Option<krilla::image::Image> {
     match raster.format() {
         RasterFormat::Jpg => {
-            krilla::image::Image::from_jpeg(Arc::new(raster.data().clone()))
+            if !raster.is_rotated() {
+                krilla::image::Image::from_jpeg(Arc::new(raster.data().clone()))
+            }   else {
+                // Can't embed original JPEG data if it needed to be rotated.
+                krilla::image::Image::from_custom(PdfImage::new(raster))
+            }
         }
         _ => krilla::image::Image::from_custom(PdfImage::new(raster)),
     }

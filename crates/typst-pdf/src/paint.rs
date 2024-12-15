@@ -208,7 +208,6 @@ fn convert_gradient(
     };
 
     let angle = rotation;
-    println!("angle: {:?}", angle);
 
     let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
 
