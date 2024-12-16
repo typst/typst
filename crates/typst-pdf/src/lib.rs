@@ -104,26 +104,40 @@ pub struct PdfOptions<'a> {
 pub struct Timestamp {
     /// The datetime of the timestamp.
     pub(crate) datetime: Datetime,
-    /// If `Some`, the timezone offset from UTC in hours and minutes.
-    /// If `None`, the timestamp is in UTC.
-    pub(crate) timezone_offset: Option<(i8, i8)>,
+    /// The timezone of the timestamp.
+    pub(crate) timezone: Timezone,
 }
 
 impl Timestamp {
     /// Create a new timestamp with a given datetime and UTC suffix.
     pub fn new_utc(datetime: Datetime) -> Self {
-        Self { datetime, timezone_offset: None }
+        Self { datetime, timezone: Timezone::UTC }
     }
 
     /// Create a new timestamp with a given datetime, and a local timezone offset.
-    pub fn new_local(datetime: Datetime, whole_seconds_offset: i32) -> Option<Self> {
-        let hour_offset = (whole_seconds_offset / 3600).try_into().ok()?;
-        let minute_offset = ((whole_seconds_offset % 3600) / 60).try_into().ok()?;
-        Some(Self {
-            datetime,
-            timezone_offset: Some((hour_offset, minute_offset)),
-        })
+    pub fn new_local(datetime: Datetime, whole_minute_offset: i32) -> Option<Self> {
+        let hour_offset = (whole_minute_offset / 60).try_into().ok()?;
+        let minute_offset = whole_minute_offset.rem_euclid(60).try_into().ok()?;
+        match (hour_offset, minute_offset) {
+            // Only accept valid timezone offsets with `-23 <= hours <= 23`,
+            // and `0 <= minutes <= 59`.
+            (-23..=23, 0..=59) => Some(Self {
+                datetime,
+                timezone: Timezone::Local { hour_offset, minute_offset },
+            }),
+            _ => None,
+        }
     }
+}
+
+/// A timezone.
+#[derive(Debug, Clone, Copy)]
+pub enum Timezone {
+    /// The UTC timezone.
+    UTC,
+    /// The local timezone offset from UTC. And the `minute_offset` will have
+    /// same sign as `hour_offset`.
+    Local { hour_offset: i8, minute_offset: u8 },
 }
 
 /// Encapsulates a list of compatible PDF standards.

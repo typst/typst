@@ -278,7 +278,10 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         None => {
             let local_datetime = chrono::Local::now();
             convert_datetime(local_datetime).and_then(|datetime| {
-                Timestamp::new_local(datetime, local_datetime.offset().local_minus_utc())
+                Timestamp::new_local(
+                    datetime,
+                    local_datetime.offset().local_minus_utc() / 60,
+                )
             })
         }
     };
