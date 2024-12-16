@@ -11,8 +11,8 @@ mod image;
 mod named_destination;
 mod outline;
 mod page;
-mod pattern;
 mod resources;
+mod tiling;
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -39,10 +39,10 @@ use crate::gradient::{write_gradients, PdfGradient};
 use crate::image::write_images;
 use crate::named_destination::{write_named_destinations, NamedDestinations};
 use crate::page::{alloc_page_refs, traverse_pages, write_page_tree, EncodedPage};
-use crate::pattern::{write_patterns, PdfPattern};
 use crate::resources::{
     alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
 };
+use crate::tiling::{write_tilings, PdfTiling};
 
 /// Export a document into a PDF file.
 ///
@@ -65,7 +65,7 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
                 color_fonts: builder.run(write_color_fonts)?,
                 images: builder.run(write_images)?,
                 gradients: builder.run(write_gradients)?,
-                patterns: builder.run(write_patterns)?,
+                tilings: builder.run(write_tilings)?,
                 ext_gs: builder.run(write_graphic_states)?,
             })
         })?
@@ -267,8 +267,8 @@ struct References {
     images: HashMap<Image, Ref>,
     /// The IDs of written gradients.
     gradients: HashMap<PdfGradient, Ref>,
-    /// The IDs of written patterns.
-    patterns: HashMap<PdfPattern, Ref>,
+    /// The IDs of written tilings.
+    tilings: HashMap<PdfTiling, Ref>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
 }

@@ -1077,7 +1077,7 @@ fn expr_with_paren(p: &mut Parser, atomic: bool) {
 /// Parses either
 /// - a parenthesized expression: `(1 + 2)`, or
 /// - an array: `(1, "hi", 12cm)`, or
-/// - a dictionary: `(thickness: 3pt, pattern: dashed)`.
+/// - a dictionary: `(thickness: 3pt, dash: "solid")`.
 fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
     let mut state = GroupState {
         count: 0,
