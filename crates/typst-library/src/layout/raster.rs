@@ -586,7 +586,7 @@ pub enum Entry<'a> {
 
 impl<'a> Entry<'a> {
     /// Obtains the cell inside this entry, if this is not a merged cell.
-    fn as_cell(&self) -> Option<&Cell<'a>> {
+    pub fn as_cell(&self) -> Option<&Cell<'a>> {
         match self {
             Self::Cell(cell) => Some(cell),
             Self::Merged { .. } => None,

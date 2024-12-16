@@ -7,7 +7,11 @@ use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    TargetElem,
 };
+use crate::html::{tag, HtmlAttr, HtmlElem};
+use crate::introspection::Locator;
+use crate::layout::raster::table_to_raster;
 use crate::layout::{
     show_grid_cell, Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine,
     GridHeader, GridVLine, Length, OuterHAlignment, OuterVAlignment, Rel, Sides,
@@ -259,10 +263,42 @@ impl TableElem {
 }
 
 impl Show for Packed<TableElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_table)
-            .pack()
-            .spanned(self.span()))
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let html = TargetElem::target_in(styles).is_html();
+
+        if html {
+            // TODO: This is a hack, it is not clear whether the locator is actually used by HTML.
+            // How can we find out whether locator is actually used?
+            let locator = Locator::root();
+            let raster = table_to_raster(self, engine, locator, styles)?;
+            // TODO: Is it efficient to clone a `Content`?
+            let rows = raster.entries.chunks(raster.cols.len()).map(|row| {
+                let row = row.iter().flat_map(|entry| {
+                    let cell = entry.as_cell()?;
+                    let mut elem =
+                        HtmlElem::new(tag::td).with_body(Some(cell.body.clone()));
+                    //dbg!(&cell.body);
+                    let attr = HtmlAttr::constant;
+                    if cell.colspan != NonZeroUsize::MIN {
+                        elem = elem.with_attr(attr("colspan"), cell.colspan.to_string());
+                    }
+                    if cell.rowspan != NonZeroUsize::MIN {
+                        elem = elem.with_attr(attr("rowspan"), cell.rowspan.to_string());
+                    }
+                    Some(elem.pack())
+                });
+                HtmlElem::new(tag::tr).with_body(Some(Content::sequence(row))).pack()
+            });
+            let content = Content::sequence(rows);
+            Ok(HtmlElem::new(tag::table)
+                .with_body(Some(content))
+                .pack()
+                .spanned(self.span()))
+        } else {
+            Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_table)
+                .pack()
+                .spanned(self.span()))
+        }
     }
 }
 
@@ -706,7 +742,11 @@ cast! {
 
 impl Show for Packed<TableCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+        if TargetElem::target_in(styles).is_html() {
+            Ok(self.body.clone())
+        } else {
+            show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+        }
     }
 }
 
