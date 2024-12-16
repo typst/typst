@@ -29,6 +29,7 @@ use typst_library::visualize::{
     FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
 };
 use typst_syntax::Span;
+use crate::outline::build_outline;
 
 #[derive(Debug, Clone)]
 pub(crate) struct State {
@@ -161,8 +162,8 @@ pub struct GlobalContext<'a> {
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
     image_spans: HashMap<krilla::image::Image, Span>,
-    document: &'a PagedDocument,
-    options: &'a PdfOptions<'a>,
+    pub(crate) document: &'a PagedDocument,
+    pub(crate) options: &'a PdfOptions<'a>,
     loc_to_named: HashMap<Location, NamedDestination>,
     languages: BTreeMap<Lang, usize>,
 }
@@ -376,6 +377,7 @@ pub fn pdf(
         metadata
     };
 
+    document.set_outline(build_outline(&gc));
     document.set_metadata(metadata);
 
     match document.finish() {

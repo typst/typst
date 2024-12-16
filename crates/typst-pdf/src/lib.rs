@@ -4,6 +4,7 @@ mod image;
 mod krilla;
 mod paint;
 mod util;
+mod outline;
 
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Datetime, Smart};
