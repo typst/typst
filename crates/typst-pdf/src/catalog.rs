@@ -89,7 +89,7 @@ pub fn write_catalog(
 
     // First, try to use the date from the document information, and it can
     // be `none`. Second, try to use the date from the options. If neither is
-    // available, we don't write a date metadata.
+    // available, we don't write date metadata.
     let (date, tz) = match (ctx.document.info.date, ctx.options.timestamp) {
         (Smart::Custom(date), _) => (date, None),
         (Smart::Auto, Some(timestamp)) => {
@@ -332,7 +332,7 @@ fn pdf_date(datetime: Datetime, tz: Option<Timezone>) -> Option<pdf_writer::Date
 }
 
 /// Converts a datetime to an xmp-writer datetime.
-fn xmp_date(datetime: Datetime, tz: Option<Timezone>) -> Option<xmp_writer::DateTime> {
+fn xmp_date(datetime: Datetime, timezone: Option<Timezone>) -> Option<xmp_writer::DateTime> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
     Some(DateTime {
         year,
@@ -341,6 +341,6 @@ fn xmp_date(datetime: Datetime, tz: Option<Timezone>) -> Option<xmp_writer::Date
         hour: datetime.hour(),
         minute: datetime.minute(),
         second: datetime.second(),
-        timezone: tz,
+        timezone,
     })
 }
