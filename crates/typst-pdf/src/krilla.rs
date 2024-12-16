@@ -1,26 +1,29 @@
-use crate::util::{font_to_str, AbsExt, PointExt, SizeExt, TransformExt};
+use crate::util::{font_to_str, AbsExt, PageLabelExt, PointExt, SizeExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
 use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
-use krilla::destination::XyzDestination;
+use krilla::destination::{NamedDestination, XyzDestination};
+use krilla::error::KrillaError;
 use krilla::font::{GlyphId, GlyphUnits};
+use krilla::geom::Rect;
+use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
+use krilla::validation::ValidationError;
+use krilla::version::PdfVersion;
 use krilla::{PageSettings, SerializeSettings, SvgSettings};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
-use krilla::error::KrillaError;
-use krilla::geom::Rect;
-use krilla::validation::ValidationError;
 use typst_library::diag::{bail, SourceResult};
-use typst_library::foundations::Datetime;
+use typst_library::foundations::{Datetime, NativeElement};
+use typst_library::introspection::Location;
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
 };
-use typst_library::model::Destination;
+use typst_library::model::{Destination, HeadingElem};
 use typst_library::text::{Font, Glyph, Lang, TextItem};
 use typst_library::visualize::{
     FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
@@ -151,36 +154,49 @@ impl krilla::font::Glyph for PdfGlyph {
     }
 }
 
-pub struct GlobalContext {
+pub struct GlobalContext<'a> {
     fonts_forward: HashMap<Font, krilla::font::Font>,
     fonts_backward: HashMap<krilla::font::Font, Font>,
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
     image_spans: HashMap<krilla::image::Image, Span>,
+    document: &'a PagedDocument,
+    options: &'a PdfOptions<'a>,
+    loc_to_named: HashMap<Location, NamedDestination>,
     languages: BTreeMap<Lang, usize>,
 }
 
-impl GlobalContext {
-    pub fn new() -> Self {
+impl<'a> GlobalContext<'a> {
+    pub fn new(
+        document: &'a PagedDocument,
+        options: &'a PdfOptions,
+        loc_to_named: HashMap<Location, NamedDestination>,
+    ) -> GlobalContext<'a> {
         Self {
             fonts_forward: HashMap::new(),
             fonts_backward: HashMap::new(),
+            document,
+            options,
+            loc_to_named,
             image_spans: HashMap::new(),
             languages: BTreeMap::new(),
         }
+    }
+
+    pub(crate) fn page_excluded(&self, page_index: usize) -> bool {
+        self.options
+            .page_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.includes_page_index(page_index))
     }
 }
 
 // TODO: Change rustybuzz cluster behavior so it works with ActualText
 
-#[typst_macros::time(name = "write pdf")]
-pub fn pdf(
-    typst_document: &PagedDocument,
-    options: &PdfOptions,
-) -> SourceResult<Vec<u8>> {
-    let version = match options.pdf_version {
-        None => options.validator.recommended_version(),
+fn get_version(options: &PdfOptions) -> SourceResult<PdfVersion> {
+    match options.pdf_version {
+        None => Ok(options.validator.recommended_version()),
         Some(v) => {
             if !options.validator.compatible_with_version(v) {
                 let v_string = v.as_str();
@@ -191,10 +207,18 @@ pub fn pdf(
                 );
                 bail!(Span::detached(), "{v_string} is not compatible with standard {s_string}"; hint: "{h_message}");
             } else {
-                v
+                Ok(v)
             }
         }
-    };
+    }
+}
+
+#[typst_macros::time(name = "write pdf")]
+pub fn pdf(
+    typst_document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<Vec<u8>> {
+    let version = get_version(options)?;
 
     let settings = SerializeSettings {
         compress_content_streams: true,
@@ -207,29 +231,100 @@ pub fn pdf(
         pdf_version: version,
     };
 
+    let mut locs_to_names = HashMap::new();
+    let mut seen = HashSet::new();
+
+    // Find all headings that have a label and are the first among other
+    // headings with the same label.
+    let mut matches: Vec<_> = typst_document
+        .introspector
+        .query(&HeadingElem::elem().select())
+        .iter()
+        .filter_map(|elem| elem.location().zip(elem.label()))
+        .filter(|&(_, label)| seen.insert(label))
+        .collect();
+
+    // Named destinations must be sorted by key.
+    matches.sort_by_key(|&(_, label)| label.resolve());
+
+    for (loc, label) in matches {
+        let pos = typst_document.introspector.position(loc);
+        let index = pos.page.get() - 1;
+        // We are subtracting 10 because the position of links e.g. to headings is always at the
+        // baseline and if you link directly to it, the text will not be visible
+        // because it is right above.
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
+        // Only add named destination if page belonging to the position is exported.
+        if options
+            .page_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.includes_page_index(index))
+        {
+            let named = NamedDestination::new(
+                label.resolve().to_string(),
+                XyzDestination::new(
+                    index,
+                    krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
+                ),
+            );
+            locs_to_names.insert(loc, named);
+        }
+    }
+
     let mut document = krilla::Document::new_with(settings);
-    let mut gc = GlobalContext::new();
+    let mut gc = GlobalContext::new(&typst_document, options, locs_to_names);
 
-    for typst_page in &typst_document.pages {
-        let settings = PageSettings::new(
-            typst_page.frame.width().to_f32(),
-            typst_page.frame.height().to_f32(),
-        );
-        let mut page = document.start_page_with(settings);
-        let mut surface = page.surface();
-        let mut fc = FrameContext::new(typst_page.frame.size());
-        // println!("{:?}", &typst_page.frame);
-        process_frame(
-            &mut fc,
-            &typst_page.frame,
-            typst_page.fill_or_transparent(),
-            &mut surface,
-            &mut gc,
-        )?;
-        surface.finish();
+    let mut skipped_pages = 0;
 
-        for annotation in fc.annotations {
-            page.add_annotation(annotation);
+    for (i, typst_page) in typst_document.pages.iter().enumerate() {
+        if options
+            .page_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.includes_page_index(i))
+        {
+            // Don't export this page.
+            skipped_pages += 1;
+            continue;
+        } else {
+            let mut settings = PageSettings::new(
+                typst_page.frame.width().to_f32(),
+                typst_page.frame.height().to_f32(),
+            );
+
+            if let Some(label) = typst_page
+                .numbering
+                .as_ref()
+                .and_then(|num| PageLabel::generate(num, typst_page.number))
+                .or_else(|| {
+                    // When some pages were ignored from export, we show a page label with
+                    // the correct real (not logical) page number.
+                    // This is for consistency with normal output when pages have no numbering
+                    // and all are exported: the final PDF page numbers always correspond to
+                    // the real (not logical) page numbers. Here, the final PDF page number
+                    // will differ, but we can at least use labels to indicate what was
+                    // the corresponding real page number in the Typst document.
+                    (skipped_pages > 0).then(|| PageLabel::arabic(i + 1))
+                })
+            {
+                settings = settings.with_page_label(label);
+            }
+
+            let mut page = document.start_page_with(settings);
+            let mut surface = page.surface();
+            let mut fc = FrameContext::new(typst_page.frame.size());
+            process_frame(
+                &mut fc,
+                &typst_page.frame,
+                typst_page.fill_or_transparent(),
+                &mut surface,
+                &mut gc,
+            )?;
+            surface.finish();
+
+            for annotation in fc.annotations {
+                page.add_annotation(annotation);
+            }
         }
     }
 
@@ -296,7 +391,10 @@ pub fn pdf(
             }
             KrillaError::ValidationError(ve) => {
                 // We can only produce 1 error, so just take the first one.
-                let prefix = format!("validated export for {} failed:", options.validator.as_str());
+                let prefix = format!(
+                    "validated export for {} failed:",
+                    options.validator.as_str()
+                );
                 match &ve[0] {
                     ValidationError::TooLongString => {
                         bail!(Span::detached(), "{prefix} a PDF string longer than 32767 characters";
@@ -391,7 +489,7 @@ pub fn pdf(
                 let span = gc.image_spans.get(&i).unwrap();
                 bail!(*span, "failed to process image");
             }
-        }
+        },
     }
 }
 
@@ -456,7 +554,7 @@ pub fn process_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(d, s) => write_link(fc, d, *s),
+            FrameItem::Link(d, s) => write_link(fc, gc, d, *s),
             FrameItem::Tag(_) => {}
         }
 
@@ -469,7 +567,12 @@ pub fn process_frame(
 }
 
 /// Save a link for later writing in the annotations dictionary.
-fn write_link(fc: &mut FrameContext, dest: &Destination, size: Size) {
+fn write_link(
+    fc: &mut FrameContext,
+    gc: &mut GlobalContext,
+    dest: &Destination,
+    size: Size,
+) {
     let mut min_x = Abs::inf();
     let mut min_y = Abs::inf();
     let mut max_x = -Abs::inf();
@@ -498,21 +601,48 @@ fn write_link(fc: &mut FrameContext, dest: &Destination, size: Size) {
 
     let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
 
-    let target = match dest {
+    let pos = match dest {
         Destination::Url(u) => {
-            Target::Action(Action::Link(LinkAction::new(u.to_string())))
+            fc.annotations.push(
+                LinkAnnotation::new(
+                    rect,
+                    Target::Action(Action::Link(LinkAction::new(u.to_string()))),
+                )
+                .into(),
+            );
+            return;
         }
-        Destination::Position(p) => {
-            // TODO: Ignore non-exported destinations
-            Target::Destination(krilla::destination::Destination::Xyz(
-                XyzDestination::new(p.page.get() - 1, p.point.as_krilla()),
-            ))
+        Destination::Position(p) => *p,
+        Destination::Location(loc) => {
+            if let Some(named_dest) = gc.loc_to_named.get(loc) {
+                fc.annotations.push(
+                    LinkAnnotation::new(
+                        rect,
+                        Target::Destination(krilla::destination::Destination::Named(
+                            named_dest.clone(),
+                        )),
+                    )
+                    .into(),
+                );
+                return;
+            } else {
+                gc.document.introspector.position(*loc)
+            }
         }
-        // TODO: Implement
-        Destination::Location(_) => return,
     };
 
-    fc.annotations.push(LinkAnnotation::new(rect, target).into());
+    let page_index = pos.page.get() - 1;
+    if !gc.page_excluded(page_index) {
+        fc.annotations.push(
+            LinkAnnotation::new(
+                rect,
+                Target::Destination(krilla::destination::Destination::Xyz(
+                    XyzDestination::new(page_index, pos.point.as_krilla()),
+                )),
+            )
+            .into(),
+        );
+    }
 }
 
 pub fn handle_group(
@@ -559,13 +689,17 @@ pub fn handle_text(
 
     let krilla_font = if let Some(font) = gc.fonts_forward.get(&typst_font) {
         font.clone()
-    }   else {
-        let font = match krilla::font::Font::new(Arc::new(typst_font.data().clone()), typst_font.index(), true) {
+    } else {
+        let font = match krilla::font::Font::new(
+            Arc::new(typst_font.data().clone()),
+            typst_font.index(),
+            true,
+        ) {
             None => {
                 let font_str = font_to_str(&typst_font);
                 bail!(Span::detached(), "failed to process font {font_str}");
             }
-            Some(f) => f
+            Some(f) => f,
         };
 
         gc.fonts_forward.insert(typst_font.clone(), font.clone());

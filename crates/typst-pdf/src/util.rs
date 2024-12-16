@@ -1,12 +1,11 @@
 //! Convert basic primitive types from typst to krilla.
 
-use std::num::NonZeroUsize;
 use krilla::page::{NumberingStyle, PageLabel};
+use std::num::NonZeroUsize;
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::model::Numbering;
 use typst_library::text::Font;
 use typst_library::visualize::{FillRule, LineCap, LineJoin};
-
 
 pub(crate) trait SizeExt {
     fn as_krilla(&self) -> krilla::geom::Size;

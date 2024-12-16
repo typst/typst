@@ -1,12 +1,11 @@
 //! Exporting of Typst documents into PDFs.
 
-
 mod image;
 mod krilla;
 mod paint;
 mod util;
 
-use typst_library::diag::{SourceResult};
+use typst_library::diag::SourceResult;
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::{PageRanges, PagedDocument};
 

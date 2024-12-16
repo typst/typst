@@ -78,17 +78,18 @@ fn paint(
             let (p, alpha) = match c.space() {
                 ColorSpace::D65Gray => {
                     let components = c.to_vec4_u8();
-                    (
-                        krilla::color::luma::Color::new(components[0])
-                            .into(),
-                        components[3],
-                    )
+                    (krilla::color::luma::Color::new(components[0]).into(), components[3])
                 }
                 ColorSpace::Cmyk => {
                     let components = c.to_vec4_u8();
                     (
-                        krilla::color::cmyk::Color::new(components[0], components[1], components[2], components[3])
-                            .into(),
+                        krilla::color::cmyk::Color::new(
+                            components[0],
+                            components[1],
+                            components[2],
+                            components[3],
+                        )
+                        .into(),
                         // Typst doesn't support alpha on CMYK colors.
                         255,
                     )
