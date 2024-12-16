@@ -94,6 +94,10 @@ use crate::World;
 ///   contains the shape. This includes the boxes and blocks that are implicitly
 ///   created by show rules and elements. For example, a [`rotate`] will not
 ///   affect the parent of a gradient, but a [`grid`] will.
+///
+/// # Compatibility
+/// This type used to be called `pattern`. The name remains as an alias, but is
+/// deprecated since Typst 0.13.
 #[ty(scope, cast, keywords = ["pattern"])]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Tiling(Arc<Repr>);
