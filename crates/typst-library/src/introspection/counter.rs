@@ -7,7 +7,7 @@ use smallvec::{smallvec, SmallVec};
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, warning, At, HintedStrResult, SourceResult};
+use crate::diag::{bail, At, HintedStrResult, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
@@ -353,7 +353,7 @@ impl Counter {
     }
 
     /// Shared implementation of displaying between `counter.display` and
-    /// `DisplayElem`, which will be deprecated.
+    /// `CounterDisplayElem`.
     fn display_impl(
         &self,
         engine: &mut Engine,
@@ -441,11 +441,6 @@ impl Counter {
 
     /// Displays the current value of the counter with a numbering and returns
     /// the formatted output.
-    ///
-    /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
-    /// function also works without an established context. Then, it will create
-    /// opaque contextual content rather than directly returning the output of
-    /// the numbering. This behaviour will be removed in a future release.
     #[func(contextual)]
     pub fn display(
         self,
@@ -474,19 +469,8 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> SourceResult<Value> {
-        if let Ok(loc) = context.location() {
-            self.display_impl(engine, loc, numbering, both, context.styles().ok())
-        } else {
-            engine.sink.warn(warning!(
-                span, "`counter.display` without context is deprecated";
-                hint: "use it in a `context` expression instead"
-            ));
-
-            Ok(CounterDisplayElem::new(self, numbering, both)
-                .pack()
-                .spanned(span)
-                .into_value())
-        }
+        let loc = context.location().at(span)?;
+        self.display_impl(engine, loc, numbering, both, context.styles().ok())
     }
 
     /// Retrieves the value of the counter at the given location. Always returns
@@ -495,10 +479,6 @@ impl Counter {
     /// The `selector` must match exactly one element in the document. The most
     /// useful kinds of selectors for this are [labels]($label) and
     /// [locations]($location).
-    ///
-    /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
-    /// function also works without a known context if the `selector` is a
-    /// location. This behaviour will be removed in a future release.
     #[func(contextual)]
     pub fn at(
         &self,
@@ -526,21 +506,8 @@ impl Counter {
         context: Tracked<Context>,
         /// The callsite span.
         span: Span,
-        /// _Compatibility:_ This argument is deprecated. It only exists for
-        /// compatibility with Typst 0.10 and lower and shouldn't be used
-        /// anymore.
-        #[default]
-        location: Option<Location>,
     ) -> SourceResult<CounterState> {
-        if location.is_none() {
-            context.location().at(span)?;
-        } else {
-            engine.sink.warn(warning!(
-                span, "calling `counter.final` with a location is deprecated";
-                hint: "try removing the location argument"
-            ));
-        }
-
+        context.introspect().at(span)?;
         let sequence = self.sequence(engine)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
@@ -761,8 +728,6 @@ impl Count for Packed<CounterUpdateElem> {
 }
 
 /// Executes a display of a counter.
-///
-/// **Deprecation planned.**
 #[elem(Construct, Locatable, Show)]
 pub struct CounterDisplayElem {
     /// The counter.
@@ -788,7 +753,6 @@ impl Construct for CounterDisplayElem {
 }
 
 impl Show for Packed<CounterDisplayElem> {
-    #[typst_macros::time(name = "counter.display", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .counter
