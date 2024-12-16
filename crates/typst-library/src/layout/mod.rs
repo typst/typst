@@ -4,6 +4,7 @@ mod abs;
 mod align;
 mod angle;
 mod axes;
+pub mod cellgrid;
 mod columns;
 mod container;
 mod corners;

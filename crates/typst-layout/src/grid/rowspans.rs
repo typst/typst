@@ -1,12 +1,12 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
+use typst_library::layout::cellgrid::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 use typst_utils::MaybeReverseIter;
 
 use super::layouter::{in_last_with_offset, points, Row, RowPiece};
-use super::repeated::Repeatable;
-use super::{Cell, GridLayouter};
+use super::{layout_cell, Cell, GridLayouter};
 
 /// All information needed to layout a single rowspan.
 pub struct Rowspan {
@@ -141,7 +141,7 @@ impl GridLayouter<'_> {
         }
 
         // Push the layouted frames directly into the finished frames.
-        let fragment = cell.layout(engine, disambiguator, self.styles, pod)?;
+        let fragment = layout_cell(cell, engine, disambiguator, self.styles, pod)?;
         let (current_region, current_rrows) = current_region_data.unzip();
         for ((i, finished), frame) in self
             .finished
