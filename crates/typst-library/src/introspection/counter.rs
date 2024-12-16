@@ -366,20 +366,22 @@ impl Counter {
             .custom()
             .or_else(|| {
                 let styles = styles?;
-                let CounterKey::Selector(Selector::Elem(func, _)) = self.0 else {
-                    return None;
-                };
-
-                if func == HeadingElem::elem() {
-                    HeadingElem::numbering_in(styles).clone()
-                } else if func == FigureElem::elem() {
-                    FigureElem::numbering_in(styles).clone()
-                } else if func == EquationElem::elem() {
-                    EquationElem::numbering_in(styles).clone()
-                } else if func == FootnoteElem::elem() {
-                    Some(FootnoteElem::numbering_in(styles).clone())
-                } else {
-                    None
+                match self.0 {
+                    CounterKey::Page => PageElem::numbering_in(styles).clone(),
+                    CounterKey::Selector(Selector::Elem(func, _)) => {
+                        if func == HeadingElem::elem() {
+                            HeadingElem::numbering_in(styles).clone()
+                        } else if func == FigureElem::elem() {
+                            FigureElem::numbering_in(styles).clone()
+                        } else if func == EquationElem::elem() {
+                            EquationElem::numbering_in(styles).clone()
+                        } else if func == FootnoteElem::elem() {
+                            Some(FootnoteElem::numbering_in(styles).clone())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
                 }
             })
             .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
