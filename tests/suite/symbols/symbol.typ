@@ -40,17 +40,26 @@
 )
 
 --- symbol-constructor-duplicate-variant ---
-// Error: 3:3-3:29 duplicate variant
+// Error: 3:3-3:29 duplicate variant: "duplicate.variant"
 #symbol(
   ("duplicate.variant", "x"),
   ("duplicate.variant", "y"),
 )
 
 --- symbol-constructor-duplicate-variant-different-order ---
-// Error: 3:3-3:29 duplicate variant
+// Error: 3:3-3:29 duplicate variant: "variant.duplicate"
+// Hint: 3:3-3:29 modifiers are a set, meaning order and repetition do not matter
 #symbol(
   ("duplicate.variant", "x"),
   ("variant.duplicate", "y"),
+)
+
+--- symbol-constructor-duplicate-variant-duplicate-modifier ---
+// Error: 3:3-3:31 duplicate variant: "duplicate.duplicate"
+// Hint: 3:3-3:31 modifiers are a set, meaning order and repetition do not matter
+#symbol(
+  ("duplicate", "x"),
+  ("duplicate.duplicate", "y"),
 )
 
 --- symbol-unknown-modifier ---

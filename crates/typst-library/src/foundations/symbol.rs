@@ -203,8 +203,17 @@ impl Symbol {
             bail!(span, "expected at least one variant");
         }
         for Spanned { v, span } in variants {
-            if list.iter().any(|(prev, _)| same_modifiers(&v.0, prev)) {
-                bail!(span, "duplicate variant");
+            if let Some((prev, _)) =
+                list.iter().find(|(prev, _)| same_modifiers(&v.0, prev))
+            {
+                if &v.0 == prev {
+                    bail!(span, "duplicate variant: {:?}", v.0);
+                } else {
+                    bail!(
+                        span, "duplicate variant: {:?}", v.0;
+                        hint: "modifiers are a set, meaning order and repetition do not matter"
+                    )
+                }
             }
             if !v.0.is_empty() {
                 for modifier in v.0.split('.') {
