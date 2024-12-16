@@ -300,6 +300,17 @@ mod tests {
     }
 
     #[test]
+    fn test_param_named_items() {
+        // Has named items
+        assert!(has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 12, "a"));
+        assert!(has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "a"));
+
+        // Doesn't have named items
+        assert!(!has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 19, "a"));
+        assert!(!has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "b"));
+    }
+
+    #[test]
     fn test_import_named_items() {
         // Cannot test much.
         assert!(has_named_items(r#"#import "foo.typ": a; #(a);"#, 24, "a"));
