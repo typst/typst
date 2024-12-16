@@ -536,7 +536,7 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
             p.eat();
             math_expr(p);
             p.wrap(m, SyntaxKind::Spread);
-            return false;
+            return true;
         }
     }
 
