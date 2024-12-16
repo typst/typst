@@ -74,6 +74,7 @@ pub fn layout_enum(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let numbering = elem.numbering(styles);
+    let reversed = elem.reversed(styles);
     let indent = elem.indent(styles);
     let body_indent = elem.body_indent(styles);
     let gutter = elem.spacing(styles).unwrap_or_else(|| {
@@ -86,7 +87,9 @@ pub fn layout_enum(
 
     let mut cells = vec![];
     let mut locator = locator.split();
-    let mut number = elem.start(styles);
+    let mut number =
+        elem.start(styles)
+            .unwrap_or_else(|| if reversed { elem.children.len() } else { 1 });
     let mut parents = EnumElem::parents_in(styles);
 
     let full = elem.full(styles);
@@ -127,7 +130,8 @@ pub fn layout_enum(
             item.body.clone().styled(EnumElem::set_parents(smallvec![number])),
             locator.next(&item.body.span()),
         ));
-        number = number.saturating_add(1);
+        number =
+            if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
 
     let grid = CellGrid::new(
