@@ -198,12 +198,12 @@ impl Symbol {
         #[variadic]
         variants: Vec<Spanned<SymbolVariant>>,
     ) -> SourceResult<Symbol> {
-        let mut list = Vec::new();
+        let mut list = Vec::<(EcoString, _)>::new();
         if variants.is_empty() {
             bail!(span, "expected at least one variant");
         }
         for Spanned { v, span } in variants {
-            if list.iter().any(|(prev, _)| &v.0 == prev) {
+            if list.iter().any(|(prev, _)| same_modifiers(&v.0, prev)) {
                 bail!(span, "duplicate variant");
             }
             if !v.0.is_empty() {
@@ -386,4 +386,10 @@ fn parts(modifiers: &str) -> impl Iterator<Item = &str> {
 /// Whether the modifier string contains the modifier `m`.
 fn contained(modifiers: &str, m: &str) -> bool {
     parts(modifiers).any(|part| part == m)
+}
+
+/// Tests whether two variants contain the same modifiers.
+fn same_modifiers(left: &str, right: &str) -> bool {
+    // Variants typically contain few modifiers, so the quadratic complexity is fine.
+    parts(left).all(|m| contained(right, m)) && parts(right).all(|m| contained(left, m))
 }
