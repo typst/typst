@@ -298,3 +298,12 @@ First!
 #block(sticky: true)[*A*]
 
 b
+
+--- issue-5296-block-sticky-weakly-spaced-from-top-of-page ---
+
+#set page(height: 3cm)
+#v(2cm, weak: true)
+
+#block(sticky: true)[*A*]
+
+b
