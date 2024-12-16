@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+use ecow::eco_format;
 use typst_utils::NonZeroExt;
 
 use crate::diag::{warning, SourceResult};
@@ -277,7 +278,7 @@ impl Show for Packed<HeadingElem> {
                 engine.sink.warn(warning!(span,
                     "heading of level {} was transformed to \
                     <div role=\"heading\" aria-level=\"{}\">, which is not \
-                    supported by all screen readers",
+                    supported by all assistive technology",
                     level, level + 1;
                     hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
                     hint: "you may want to restructure your document so that \
@@ -285,7 +286,7 @@ impl Show for Packed<HeadingElem> {
                 HtmlElem::new(tag::div)
                     .with_body(Some(realized))
                     .with_attr(attr::role, "heading")
-                    .with_attr(attr::aria_level, (level + 1).to_string())
+                    .with_attr(attr::aria_level, eco_format!("{}", level + 1))
                     .pack()
                     .spanned(span)
             } else {
