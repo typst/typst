@@ -697,10 +697,15 @@ impl Lexer<'_> {
         self.s.jump(start);
         if self.s.eat_if(is_id_start) {
             self.s.eat_while(is_id_continue);
-            // Check that identifier is not just `_` and that a colon directly
-            // proceeds the identifier.
-            if self.s.from(start) != "_" && self.s.at(':') {
-                let node = SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start));
+            // Check that a colon directly proceeds the identifier.
+            if self.s.at(':') {
+                // Check that the identifier is not just `_`.
+                let node = if self.s.from(start) != "_" {
+                    SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start))
+                } else {
+                    let msg = SyntaxError::new("expected identifier, got underscore");
+                    SyntaxNode::error(msg, self.s.from(start))
+                };
                 return Some(node);
             }
         }

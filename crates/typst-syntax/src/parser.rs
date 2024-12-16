@@ -409,10 +409,13 @@ fn math_delimited(p: &mut Parser) {
     while !p.at_set(syntax_set!(Dollar, End)) {
         if math_class(p.current_text()) == Some(MathClass::Closing) {
             p.wrap(m2, SyntaxKind::Math);
+            // We could be at the shorthand `|]`, which shouldn't be converted
+            // to a `Text` kind.
             if p.at(SyntaxKind::RightParen) {
-                p.convert(SyntaxKind::Text);
+                p.convert_and_eat(SyntaxKind::Text);
+            } else {
+                p.eat();
             }
-            p.eat();
             p.wrap(m, SyntaxKind::MathDelimited);
             return;
         }
@@ -491,8 +494,8 @@ fn math_args(p: &mut Parser) {
                 }
 
                 // Parses an array: `a, b, c;`.
-                // The semicolon merges preceding arguments separated by commas into an
-                // array argument.
+                // The semicolon merges preceding arguments separated by commas
+                // into an array argument.
                 p.wrap(maybe_array_start, SyntaxKind::Array);
                 p.eat();
                 maybe_array_start = p.marker();
@@ -502,7 +505,7 @@ fn math_args(p: &mut Parser) {
                 // Check if we have reached the end, after the last argument.
                 if has_arrays && positional {
                     p.wrap(maybe_array_start, SyntaxKind::Array);
-                    // This is so we don't wrap as an array twice after the loop.
+                    // So we don't wrap as an array twice after the loop.
                     array_last = false;
                 }
             }
@@ -1790,15 +1793,10 @@ impl<'s> Parser<'s> {
         self.eat();
     }
 
-    /// Convert the current token's [`SyntaxKind`].
-    fn convert(&mut self, kind: SyntaxKind) {
-        // Only need to replace the node here.
-        self.token.node.convert_to_kind(kind);
-    }
-
     /// Convert the current token's [`SyntaxKind`] and eat it.
     fn convert_and_eat(&mut self, kind: SyntaxKind) {
-        self.convert(kind);
+        // Only need to replace the node here.
+        self.token.node.convert_to_kind(kind);
         self.eat();
     }
 
