@@ -39,6 +39,34 @@
   ("invalid. id!", "x")
 )
 
+--- symbol-constructor-duplicate-modifier ---
+// Error: 2:3-2:31 duplicate modifier within variant: "duplicate"
+// Hint: 2:3-2:31 the modifiers of a variant constitute a set, meaning repetition does not matter
+#symbol(
+  ("duplicate.duplicate", "x"),
+)
+
+--- symbol-constructor-duplicate-default-variant ---
+// Error: 3:3-3:6 duplicate default variant
+#symbol(
+  "x",
+  "y",
+)
+
+--- symbol-constructor-duplicate-empty-variant ---
+// Error: 3:3-3:12 duplicate default variant
+#symbol(
+  ("", "x"),
+  ("", "y"),
+)
+
+--- symbol-constructor-default-and-empty-variants ---
+// Error: 3:3-3:12 duplicate default variant
+#symbol(
+  "x",
+  ("", "y"),
+)
+
 --- symbol-constructor-duplicate-variant ---
 // Error: 3:3-3:29 duplicate variant: "duplicate.variant"
 #symbol(
@@ -48,18 +76,10 @@
 
 --- symbol-constructor-duplicate-variant-different-order ---
 // Error: 3:3-3:29 duplicate variant: "variant.duplicate"
-// Hint: 3:3-3:29 modifiers are a set, meaning order and repetition do not matter
+// Hint: 3:3-3:29 the modifiers of a variant constitute a set, meaning order does not matter
 #symbol(
   ("duplicate.variant", "x"),
   ("variant.duplicate", "y"),
-)
-
---- symbol-constructor-duplicate-variant-duplicate-modifier ---
-// Error: 3:3-3:31 duplicate variant: "duplicate.duplicate"
-// Hint: 3:3-3:31 modifiers are a set, meaning order and repetition do not matter
-#symbol(
-  ("duplicate", "x"),
-  ("duplicate.duplicate", "y"),
 )
 
 --- symbol-unknown-modifier ---

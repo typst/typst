@@ -1,14 +1,13 @@
+use crate::diag::{bail, SourceResult, StrResult};
+use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
+use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
-
-use ecow::{eco_format, EcoString};
-use serde::{Serialize, Serializer};
 use typst_syntax::{is_ident, Span, Spanned};
-
-use crate::diag::{bail, SourceResult, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
+use typst_utils::hash128;
 
 /// A Unicode symbol.
 ///
@@ -199,22 +198,13 @@ impl Symbol {
         variants: Vec<Spanned<SymbolVariant>>,
     ) -> SourceResult<Symbol> {
         let mut list = Vec::<(EcoString, _)>::new();
+        // A list of all previous variants. Each variant is represented by a
+        // sorted list of unique modifiers.
+        let mut previous = Vec::<u128>::new();
         if variants.is_empty() {
             bail!(span, "expected at least one variant");
         }
         for Spanned { v, span } in variants {
-            if let Some((prev, _)) =
-                list.iter().find(|(prev, _)| same_modifiers(&v.0, prev))
-            {
-                if &v.0 == prev {
-                    bail!(span, "duplicate variant: {:?}", v.0);
-                } else {
-                    bail!(
-                        span, "duplicate variant: {:?}", v.0;
-                        hint: "modifiers are a set, meaning order and repetition do not matter"
-                    )
-                }
-            }
             if !v.0.is_empty() {
                 for modifier in v.0.split('.') {
                     if !is_ident(modifier) {
@@ -222,7 +212,33 @@ impl Symbol {
                     }
                 }
             }
+            let mut unique_modifiers = parts(&v.0).collect::<Vec<_>>();
+            unique_modifiers.sort();
+            if let Some(ms) = unique_modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
+                bail!(
+                    span, "duplicate modifier within variant: {}", ms[0].repr();
+                    hint: "the modifiers of a variant constitute a set, meaning repetition does not matter"
+                )
+            }
+            unique_modifiers.dedup();
+            let h = hash128(&unique_modifiers);
+            if let Some(i) = previous.iter().position(|prev| prev == &h) {
+                let (prev, _) = &list[i];
+                if same_modifiers(prev, &v.0) {
+                    if v.0.is_empty() {
+                        bail!(span, "duplicate default variant");
+                    } else if &v.0 == prev {
+                        bail!(span, "duplicate variant: {}", v.0.repr());
+                    } else {
+                        bail!(
+                            span, "duplicate variant: {}", v.0.repr();
+                            hint: "the modifiers of a variant constitute a set, meaning order does not matter"
+                        )
+                    }
+                }
+            }
             list.push((v.0, v.1));
+            previous.push(h);
         }
         Ok(Symbol::runtime(list.into_boxed_slice()))
     }
@@ -398,7 +414,9 @@ fn contained(modifiers: &str, m: &str) -> bool {
 }
 
 /// Tests whether two variants contain the same modifiers.
+///
+/// This function has a quadratic complexity, and should therefore be used as a
+/// last resort.
 fn same_modifiers(left: &str, right: &str) -> bool {
-    // Variants typically contain few modifiers, so the quadratic complexity is fine.
     parts(left).all(|m| contained(right, m)) && parts(right).all(|m| contained(left, m))
 }
