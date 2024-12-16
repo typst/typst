@@ -42,22 +42,25 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
     /// the next region.
     sticky: Option<DistributionSnapshot<'a, 'b>>,
-    /// Whether sticky blocks are enabled and may migrate with the next frame,
-    /// as the migration would make a difference in the lack of space
-    /// (otherwise, we should not migrate to avoid an infinite loop). This
-    /// begins as `None` as that is unknown until the first sticky block in a
-    /// sequence of sticky blocks. At the first sticky block where `stickable`
-    /// is `None`, this value will be set to `Some(true)` if that and upcoming
-    /// sticky blocks can migrate, or `Some(false)` otherwise. This is then
-    /// reset to `None` on the first proper (non-sticky) block, prompting
-    /// upcoming sticky blocks to reevaluate.
+    /// Whether the current group of consecutive sticky blocks are still sticky
+    /// and may migrate with the attached frame. This is `None` while we aren't
+    /// processing sticky blocks. On the first sticky block, this will become
+    /// `Some(true)` if migrating sticky blocks as usual would make a
+    /// difference - this is given by `regions.may_progress()`. Otherwise, it
+    /// is set to `Some(false)`, which is usually the case when the first
+    /// sticky block in the group is at the very top of the page (then,
+    /// migrating it would just lead us back to the top of the page, leading
+    /// to an infinite loop). In that case, all sticky blocks of the group are
+    /// also disabled, until this is reset to `None` on the first non-sticky
+    /// frame we find.
     ///
-    /// The idea is that, if the first sticky block in a sequence of
-    /// consecutive sticky blocks is disabled, all the remaining blocks also
-    /// are, so we don't get into a situation where they never fit but the
-    /// first one in each page keeps getting disabled, resulting in multiple
-    /// empty pages with just one (disabled) sticky block at the top, when they
-    /// could all have fit together in the same, original page.
+    /// While this behavior of disabling stickiness of sticky blocks at the
+    /// very top of the page may seem non-ideal, it is only problematic (that
+    /// is, may lead to orphaned sticky blocks / headings) if the combination
+    /// of 'sticky blocks + attached frame' doesn't fit in one page, in which
+    /// case there is nothing Typst can do to improve the situation, as sticky
+    /// blocks are supposed to always be in the same page as the subsequent
+    /// frame, but that is impossible in that case, which is thus pathological.
     stickable: Option<bool>,
 }
 
@@ -342,11 +345,16 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                         // start of the region, then we don't do so, and
                         // stickiness is disabled (at least, for this region).
                         // Otherwise, migration is allowed.
+                        //
+                        // Note that, since the whole region is checked, this
+                        // ensures sticky blocks at the top of a block - but
+                        // not necessarily of the page - can still be migrated.
                         let can_stick = self.regions.may_progress();
                         self.stickable = Some(can_stick);
                         can_stick
                     }
                 };
+
                 if stickable {
                     self.sticky = Some(self.snapshot());
                 }
