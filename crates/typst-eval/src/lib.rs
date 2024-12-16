@@ -148,7 +148,8 @@ pub fn eval_string(
         EvalMode::Math => Value::Content(
             EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
                 .with_block(false)
-                .pack(),
+                .pack()
+                .spanned(span),
         ),
     };
 

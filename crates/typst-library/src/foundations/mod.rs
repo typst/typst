@@ -31,6 +31,8 @@ mod selector;
 mod str;
 mod styles;
 mod symbol;
+#[path = "target.rs"]
+mod target_;
 mod ty;
 mod value;
 mod version;
@@ -61,6 +63,7 @@ pub use self::selector::*;
 pub use self::str::*;
 pub use self::styles::*;
 pub use self::symbol::*;
+pub use self::target_::*;
 pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
@@ -79,6 +82,7 @@ use typst_syntax::Spanned;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::routines::EvalMode;
+use crate::{Feature, Features};
 
 /// Foundational types and functions.
 ///
@@ -88,7 +92,7 @@ use crate::routines::EvalMode;
 pub static FOUNDATIONS: Category;
 
 /// Hook up all `foundations` definitions.
-pub(super) fn define(global: &mut Scope, inputs: Dict) {
+pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.category(FOUNDATIONS);
     global.define_type::<bool>();
     global.define_type::<i64>();
@@ -116,6 +120,9 @@ pub(super) fn define(global: &mut Scope, inputs: Dict) {
     global.define_func::<assert>();
     global.define_func::<eval>();
     global.define_func::<style>();
+    if features.is_enabled(Feature::Html) {
+        global.define_func::<target>();
+    }
     global.define_module(calc::module());
     global.define_module(sys::module(inputs));
 }

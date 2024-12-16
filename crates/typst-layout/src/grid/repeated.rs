@@ -45,7 +45,7 @@ impl<T> Repeatable<T> {
     }
 }
 
-impl<'a> GridLayouter<'a> {
+impl GridLayouter<'_> {
     /// Layouts the header's rows.
     /// Skips regions as necessary.
     pub fn layout_header(

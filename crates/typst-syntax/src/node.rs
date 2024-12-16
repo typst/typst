@@ -767,7 +767,7 @@ impl<'a> LinkedNode<'a> {
 }
 
 /// Access to parents and siblings.
-impl<'a> LinkedNode<'a> {
+impl LinkedNode<'_> {
     /// Get this node's parent.
     pub fn parent(&self) -> Option<&Self> {
         self.parent.as_deref()
@@ -825,7 +825,7 @@ pub enum Side {
 }
 
 /// Access to leaves.
-impl<'a> LinkedNode<'a> {
+impl LinkedNode<'_> {
     /// Get the rightmost non-trivia leaf before this node.
     pub fn prev_leaf(&self) -> Option<Self> {
         let mut node = self.clone();

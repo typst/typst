@@ -121,7 +121,6 @@ pub fn stack(
     alternator: LeftRightAlternator,
     minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
-    let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()

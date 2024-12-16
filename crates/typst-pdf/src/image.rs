@@ -208,7 +208,11 @@ fn encode_svg(
 ) -> Result<(Chunk, Ref), svg2pdf::ConversionError> {
     svg2pdf::to_chunk(
         svg.tree(),
-        svg2pdf::ConversionOptions { pdfa, ..Default::default() },
+        svg2pdf::ConversionOptions {
+            pdfa,
+            embed_text: !svg.flatten_text(),
+            ..Default::default()
+        },
     )
 }
 

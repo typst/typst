@@ -199,6 +199,7 @@ pub trait NativeType {
 pub struct NativeTypeData {
     /// The type's normal name (e.g. `str`), as exposed to Typst.
     pub name: &'static str,
+    /// The type's long name (e.g. `string`), for error messages.
     pub long_name: &'static str,
     /// The function's title case name (e.g. `String`).
     pub title: &'static str,
@@ -208,6 +209,7 @@ pub struct NativeTypeData {
     pub keywords: &'static [&'static str],
     /// The constructor for this type.
     pub constructor: LazyLock<Option<&'static NativeFuncData>>,
+    /// Definitions in the scope of the type.
     pub scope: LazyLock<Scope>,
 }
 

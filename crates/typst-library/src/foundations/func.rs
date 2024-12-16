@@ -443,7 +443,7 @@ pub trait NativeFunc {
         Func::from(Self::data())
     }
 
-    /// Get the function data for the native Rust type.
+    /// Get the function data for the native Rust function.
     fn data() -> &'static NativeFuncData;
 }
 
@@ -462,6 +462,7 @@ pub struct NativeFuncData {
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
     pub contextual: bool,
+    /// Definitions in the scope of the function.
     pub scope: LazyLock<Scope>,
     /// A list of parameter information for each parameter.
     pub params: LazyLock<Vec<ParamInfo>>,

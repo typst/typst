@@ -211,7 +211,7 @@ impl<'s> SmartQuotes<'s> {
     /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin,
     /// Lithuanian, Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish,
     /// Swedish, French, Swiss French, Hungarian, Polish, Romanian, Japanese,
-    /// Traditional Chinese, Russian, Norwegian, and Hebrew.
+    /// Traditional Chinese, Russian, Norwegian, Hebrew and Croatian.
     ///
     /// For unknown languages, the English quotes are used as fallback.
     pub fn get(
@@ -250,6 +250,7 @@ impl<'s> SmartQuotes<'s> {
             "ru" | "no" | "nb" | "nn" | "uk" => ("’", "’", "«", "»"),
             "el" => ("‘", "’", "«", "»"),
             "he" => ("’", "’", "”", "”"),
+            "hr" => ("‘", "’", "„", "”"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };

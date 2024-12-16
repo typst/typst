@@ -45,3 +45,10 @@ $A_2 != overline(A)_2 != underline(A)_2 != underline(overline(A))_2 \
 $J^b != overline(J)^b != underline(J)^b != underline(overline(J))^b \
  K^3 != overline(K)^3 != underline(K)^3 != underline(overline(K))^3 \
  T^i != overline(T)^i != underline(T)^i != underline(overline(T))^i$
+
+--- math-underover-multiline-annotation ---
+// Test that multiline annotations do not change the baseline.
+$ S = overbrace(beta (alpha) S I, "one line")
+    - overbrace(mu (N), "two" \  "line") $
+$ S = underbrace(beta (alpha) S I, "one line")
+    - underbrace(mu (N), "two" \  "line") $
