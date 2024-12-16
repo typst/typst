@@ -46,6 +46,13 @@
   ("duplicate.variant", "y"),
 )
 
+--- symbol-constructor-duplicate-variant-different-order ---
+// Error: 3:3-3:29 duplicate variant
+#symbol(
+  ("duplicate.variant", "x"),
+  ("variant.duplicate", "y"),
+)
+
 --- symbol-unknown-modifier ---
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
