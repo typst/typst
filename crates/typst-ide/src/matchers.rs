@@ -279,5 +279,6 @@ mod tests {
     fn test_import_named_items() {
         // Cannot test much.
         assert!(has_named_items(r#"#import "foo.typ": a; #(a);"#, 24, "a"));
+        assert!(has_named_items(r#"#import "foo.typ": a.b; #(b);"#, 26, "b"));
     }
 }
