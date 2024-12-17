@@ -29,6 +29,7 @@ pub struct CancelElem {
     /// $ a + cancel(x, length: #200%)
     ///     - cancel(x, length: #200%) $
     /// ```
+    #[resolve]
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
 

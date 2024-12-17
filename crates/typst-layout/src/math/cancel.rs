@@ -1,6 +1,6 @@
 use comemo::Track;
 use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Context, Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Context, Packed, Smart, StyleChain};
 use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Transform};
 use typst_library::math::{CancelAngle, CancelElem};
 use typst_library::text::TextElem;
@@ -27,7 +27,7 @@ pub fn layout_cancel(
     let mut body = body.into_frame();
     let body_size = body.size();
     let span = elem.span();
-    let length = elem.length(styles).resolve(styles);
+    let length = elem.length(styles);
 
     let stroke = elem.stroke(styles).unwrap_or(FixedStroke {
         paint: TextElem::fill_in(styles).as_decoration(),
