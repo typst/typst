@@ -909,7 +909,7 @@ pub fn odd(
 /// #calc.rem(-7, -3) \
 /// #calc.rem(1.75, 0.5)
 /// ```
-#[func(title = "Remainder")]
+#[func(title = "Remainder", keywords = ["modulo", "modulus"])]
 pub fn rem(
     /// The span of the function call.
     span: Span,
