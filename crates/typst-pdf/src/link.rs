@@ -28,7 +28,7 @@ pub(crate) fn handle_link(
         pos + Point::with_y(size.y),
         pos + size.to_point(),
     ] {
-        let t = point.transform(fc.state().transform);
+        let t = point.transform(fc.state().transform());
         min_x.set_min(t.x);
         min_y.set_min(t.y);
         max_x.set_max(t.x);

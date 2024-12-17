@@ -13,7 +13,7 @@ pub(crate) fn handle_shape(
     surface: &mut Surface,
     gc: &mut GlobalContext,
 ) -> SourceResult<()> {
-    surface.push_transform(&fc.state().transform.to_krilla());
+    surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {
         if let Some(paint) = &shape.fill {

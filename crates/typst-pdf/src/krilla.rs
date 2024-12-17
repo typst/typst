@@ -31,7 +31,7 @@ use typst_syntax::Span;
 /// which is mainly needed to resolve gradients and patterns correctly.
 #[derive(Debug, Clone)]
 pub(crate) struct State {
-    pub(crate) transform: Transform,
+    transform: Transform,
     /// The transform of first hard frame in the hierarchy.
     container_transform: Transform,
     /// The size of the first hard frame in the hierarchy.

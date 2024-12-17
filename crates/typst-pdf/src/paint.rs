@@ -119,15 +119,7 @@ fn convert_pattern(
     surface: &mut Surface,
     state: &State,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    let transform = match pattern.unwrap_relative(on_text) {
-        RelativeTo::Self_ => Transform::identity(),
-        RelativeTo::Parent => state
-            .transform
-            .invert()
-            .unwrap()
-            .pre_concat(state.container_transform()),
-    }
-    .to_krilla();
+    let transform = correct_transform(state, pattern.unwrap_relative(on_text));
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
@@ -137,7 +129,7 @@ fn convert_pattern(
     let stream = stream_builder.finish();
     let pattern = krilla::paint::Pattern {
         stream,
-        transform,
+        transform: transform.to_krilla(),
         width: (pattern.size().x + pattern.spacing().x).to_pt() as _,
         height: (pattern.size().y + pattern.spacing().y).to_pt() as _,
     };
@@ -155,12 +147,9 @@ fn convert_gradient(
         RelativeTo::Self_ => size,
         RelativeTo::Parent => state.container_size(),
     };
-    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
-    let transform = match gradient.unwrap_relative(on_text) {
-        RelativeTo::Self_ => state.transform,
-        RelativeTo::Parent => state.container_transform(),
-    };
+    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
+    let base_transform = correct_transform(state, gradient.unwrap_relative(on_text));
 
     let angle = rotation;
 
@@ -176,9 +165,6 @@ fn convert_gradient(
 
     match &gradient {
         Gradient::Linear(linear) => {
-            let actual_transform =
-                state.transform().invert().unwrap().pre_concat(transform);
-
             if let Some((c, t)) = linear.stops.first() {
                 add_single(c, *t);
             }
@@ -223,7 +209,7 @@ fn convert_gradient(
                 y1,
                 x2,
                 y2,
-                transform: actual_transform.to_krilla().pre_concat(
+                transform: base_transform.to_krilla().pre_concat(
                     krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
                 ),
                 spread_method: SpreadMethod::Pad,
@@ -234,9 +220,6 @@ fn convert_gradient(
             (linear.into(), 255)
         }
         Gradient::Radial(radial) => {
-            let actual_transform =
-                state.transform.invert().unwrap().pre_concat(transform);
-
             if let Some((c, t)) = radial.stops.first() {
                 add_single(c, *t);
             }
@@ -269,7 +252,7 @@ fn convert_gradient(
                 cx: radial.center.x.get() as f32,
                 cy: radial.center.y.get() as f32,
                 cr: radial.radius.get() as f32,
-                transform: actual_transform.to_krilla().pre_concat(
+                transform: base_transform.to_krilla().pre_concat(
                     krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
                 ),
                 spread_method: SpreadMethod::Pad,
@@ -283,11 +266,7 @@ fn convert_gradient(
             // Correct the gradient's angle
             let cx = size.x.to_f32() * conic.center.x.get() as f32;
             let cy = size.y.to_f32() * conic.center.y.get() as f32;
-            let actual_transform = state
-                .transform
-                .invert()
-                .unwrap()
-                .pre_concat(transform)
+            let actual_transform = base_transform
                 .pre_concat(Transform::rotate_at(
                     angle,
                     Abs::pt(cx as f64),
@@ -363,5 +342,22 @@ fn convert_gradient(
 
             (sweep.into(), 255)
         }
+    }
+}
+
+fn correct_transform(state: &State, relative: RelativeTo) -> Transform {
+    // In krilla, if we have a shape with a transform and a complex paint,
+    // then the paint will inherit the transform of the shape.
+    match relative {
+        // Because of the above, we don't need to apply an additional transform here.
+        RelativeTo::Self_ => Transform::identity(),
+        // Because of the above, we need to first reverse the transform that will be
+        // applied from the shape, and then re-apply the transform that is used for
+        // the next parent container.
+        RelativeTo::Parent => state
+            .transform()
+            .invert()
+            .unwrap()
+            .pre_concat(state.container_transform()),
     }
 }

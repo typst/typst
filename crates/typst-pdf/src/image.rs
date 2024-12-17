@@ -21,7 +21,7 @@ pub(crate) fn handle_image(
     surface: &mut Surface,
     span: Span,
 ) -> SourceResult<()> {
-    surface.push_transform(&fc.state().transform.to_krilla());
+    surface.push_transform(&fc.state().transform().to_krilla());
 
     match image.kind() {
         ImageKind::Raster(raster) => {

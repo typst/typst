@@ -34,7 +34,7 @@ pub(crate) fn handle_text(
     let size = t.size;
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
-    surface.push_transform(&fc.state().transform.to_krilla());
+    surface.push_transform(&fc.state().transform().to_krilla());
     surface.fill_glyphs(
         krilla::geom::Point::from_xy(0.0, 0.0),
         fill,
