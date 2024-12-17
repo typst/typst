@@ -15,7 +15,7 @@ use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::validation::ValidationError;
 use krilla::version::PdfVersion;
-use krilla::{PageSettings, SerializeSettings, SvgSettings};
+use krilla::{Document, PageSettings, SerializeSettings, SvgSettings};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
@@ -337,6 +337,10 @@ pub fn pdf(
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
 
+    finish(document, gc)
+}
+
+fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -352,7 +356,7 @@ pub fn pdf(
                 // We can only produce 1 error, so just take the first one.
                 let prefix = format!(
                     "validated export for {} failed:",
-                    options.validator.as_str()
+                    gc.options.validator.as_str()
                 );
                 match &ve[0] {
                     ValidationError::TooLongString => {
