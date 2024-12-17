@@ -170,14 +170,20 @@ impl Stroke {
         /// If set to `{auto}`, the value is inherited, defaulting to `{4.0}`.
         ///
         /// ```example
-        /// #let points = ((15pt, 0pt), (0pt, 30pt), (30pt, 30pt), (10pt, 20pt))
-        /// #set path(stroke: 6pt + blue)
+        /// #let items = (
+        ///   curve.move((15pt, 0pt)),
+        ///   curve.line((0pt, 30pt)),
+        ///   curve.line((30pt, 30pt)),
+        ///   curve.line((10pt, 20pt)),
+        /// )
+        ///
+        /// #set curve(stroke: 6pt + blue)
         /// #stack(
-        ///     dir: ltr,
-        ///     spacing: 1cm,
-        ///     path(stroke: (miter-limit: 1), ..points),
-        ///     path(stroke: (miter-limit: 4), ..points),
-        ///     path(stroke: (miter-limit: 5), ..points),
+        ///   dir: ltr,
+        ///   spacing: 1cm,
+        ///   curve(stroke: (miter-limit: 1), ..items),
+        ///   curve(stroke: (miter-limit: 4), ..items),
+        ///   curve(stroke: (miter-limit: 5), ..items),
         /// )
         /// ```
         #[external]

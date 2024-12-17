@@ -93,12 +93,12 @@
 )
 
 --- curve-infinite-length ---
-// Error: 2-67 cannot create path with infinite length
+// Error: 2-67 cannot create curve with infinite length
 #curve(curve.move((0pt, 0pt)), curve.line((float.inf * 1pt, 0pt)))
 
 --- issue-curve-in-sized-container ---
-// Paths used to implement `LayoutMultiple` rather than `LayoutSingle` without
-// fulfilling the necessary contract of respecting region expansion.
+// Curves/Paths used to implement `LayoutMultiple` rather than `LayoutSingle`
+// without fulfilling the necessary contract of respecting region expansion.
 #block(
   fill: aqua,
   width: 20pt,

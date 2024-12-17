@@ -15,7 +15,7 @@ use crate::layout::{
 };
 use crate::model::{Destination, LinkElem};
 use crate::text::TextItem;
-use crate::visualize::{Color, FixedStroke, Geometry, Image, Paint, Path, Shape};
+use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
 
 /// A finished layout with items at fixed positions.
 #[derive(Default, Clone, Hash)]
@@ -374,14 +374,14 @@ impl Frame {
         }
     }
 
-    /// Clip the contents of a frame to a clip path.
+    /// Clip the contents of a frame to a clip curve.
     ///
-    /// The clip path can be the size of the frame in the case of a
-    /// rectangular frame. In the case of a frame with rounded corner,
-    /// this should be a path that matches the frame's outline.
-    pub fn clip(&mut self, clip_path: Path) {
+    /// The clip curve can be the size of the frame in the case of a rectangular
+    /// frame. In the case of a frame with rounded corner, this should be a
+    /// curve that matches the frame's outline.
+    pub fn clip(&mut self, clip_curve: Curve) {
         if !self.is_empty() {
-            self.group(|g| g.clip_path = Some(clip_path));
+            self.group(|g| g.clip = Some(clip_curve));
         }
     }
 
@@ -447,7 +447,7 @@ impl Frame {
         self.push(
             pos - Point::splat(radius),
             FrameItem::Shape(
-                Geometry::Path(Path::ellipse(Size::splat(2.0 * radius)))
+                Geometry::Curve(Curve::ellipse(Size::splat(2.0 * radius)))
                     .filled(Color::GREEN),
                 Span::detached(),
             ),
@@ -544,8 +544,8 @@ pub struct GroupItem {
     pub frame: Frame,
     /// A transformation to apply to the group.
     pub transform: Transform,
-    /// Whether the frame should be a clipping boundary.
-    pub clip_path: Option<Path>,
+    /// A curve which should be used to clip the group.
+    pub clip: Option<Curve>,
     /// The group's label.
     pub label: Option<Label>,
     /// The group's logical parent. All elements in this group are logically
@@ -559,7 +559,7 @@ impl GroupItem {
         Self {
             frame,
             transform: Transform::identity(),
-            clip_path: None,
+            clip: None,
             label: None,
             parent: None,
         }

@@ -19,7 +19,7 @@ use typst_library::model::Destination;
 use typst_library::text::color::should_outline;
 use typst_library::text::{Font, Glyph, TextItem, TextItemView};
 use typst_library::visualize::{
-    FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem,
+    Curve, CurveItem, FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint,
     Shape,
 };
 use typst_syntax::Span;
@@ -404,8 +404,8 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult
     }
 
     ctx.transform(translation.pre_concat(group.transform));
-    if let Some(clip_path) = &group.clip_path {
-        write_path(ctx, 0.0, 0.0, clip_path);
+    if let Some(clip_curve) = &group.clip {
+        write_curve(ctx, 0.0, 0.0, clip_curve);
         ctx.content.clip_nonzero();
         ctx.content.end_path();
     }
@@ -667,7 +667,7 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()>
 
     ctx.set_opacities(stroke, shape.fill.as_ref());
 
-    match shape.geometry {
+    match &shape.geometry {
         Geometry::Line(target) => {
             let dx = target.x.to_f32();
             let dy = target.y.to_f32();
@@ -681,8 +681,8 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()>
                 ctx.content.rect(x, y, w, h);
             }
         }
-        Geometry::Path(ref path) => {
-            write_path(ctx, x, y, path);
+        Geometry::Curve(curve) => {
+            write_curve(ctx, x, y, curve);
         }
     }
 
@@ -698,17 +698,13 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()>
     Ok(())
 }
 
-/// Encode a bezier path into the content stream.
-fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
-    for elem in &path.0 {
+/// Encode a curve into the content stream.
+fn write_curve(ctx: &mut Builder, x: f32, y: f32, curve: &Curve) {
+    for elem in &curve.0 {
         match elem {
-            PathItem::MoveTo(p) => {
-                ctx.content.move_to(x + p.x.to_f32(), y + p.y.to_f32())
-            }
-            PathItem::LineTo(p) => {
-                ctx.content.line_to(x + p.x.to_f32(), y + p.y.to_f32())
-            }
-            PathItem::CubicTo(p1, p2, p3) => ctx.content.cubic_to(
+            CurveItem::Move(p) => ctx.content.move_to(x + p.x.to_f32(), y + p.y.to_f32()),
+            CurveItem::Line(p) => ctx.content.line_to(x + p.x.to_f32(), y + p.y.to_f32()),
+            CurveItem::Cubic(p1, p2, p3) => ctx.content.cubic_to(
                 x + p1.x.to_f32(),
                 y + p1.y.to_f32(),
                 x + p2.x.to_f32(),
@@ -716,7 +712,7 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
                 x + p3.x.to_f32(),
                 y + p3.y.to_f32(),
             ),
-            PathItem::ClosePath => ctx.content.close_path(),
+            CurveItem::Close => ctx.content.close_path(),
         };
     }
 }

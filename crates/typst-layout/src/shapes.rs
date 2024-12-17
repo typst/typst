@@ -10,9 +10,9 @@ use typst_library::layout::{
     Sides, Size,
 };
 use typst_library::visualize::{
-    CircleElem, CloseMode, CurveComponent, CurveElem, EllipseElem, FillRule, FixedStroke,
-    Geometry, LineElem, Paint, Path, PathElem, PathVertex, PolygonElem, RectElem, Shape,
-    SquareElem, Stroke,
+    CircleElem, CloseMode, Curve, CurveComponent, CurveElem, EllipseElem, FillRule,
+    FixedStroke, Geometry, LineElem, Paint, PathElem, PathVertex, PolygonElem, RectElem,
+    Shape, SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -72,8 +72,8 @@ pub fn layout_path(
 
     // Only create a path if there are more than zero points.
     // Construct a closed path given all points.
-    let mut path = Path::new();
-    path.move_to(points[0]);
+    let mut curve = Curve::new();
+    curve.move_(points[0]);
 
     let mut add_cubic = |from_point: Point,
                          to_point: Point,
@@ -81,7 +81,7 @@ pub fn layout_path(
                          to: PathVertex| {
         let from_control_point = resolve(from.control_point_from()) + from_point;
         let to_control_point = resolve(to.control_point_to()) + to_point;
-        path.cubic_to(from_control_point, to_control_point, to_point);
+        curve.cubic(from_control_point, to_control_point, to_point);
 
         let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
         let p1 = kurbo::Point::new(
@@ -112,7 +112,7 @@ pub fn layout_path(
         let to_point = points[0];
 
         add_cubic(from_point, to_point, from, to);
-        path.close_path();
+        curve.close();
     }
 
     if !size.is_finite() {
@@ -130,7 +130,7 @@ pub fn layout_path(
 
     let mut frame = Frame::soft(size);
     let shape = Shape {
-        geometry: Geometry::Path(path),
+        geometry: Geometry::Curve(curve),
         stroke,
         fill,
         fill_rule,
@@ -139,8 +139,8 @@ pub fn layout_path(
     Ok(frame)
 }
 
-struct PathBuilder {
-    path: Path,
+struct CurveBuilder {
+    curve: Curve,
     size: Size,
     region: Region,
     start_point: Point,
@@ -148,16 +148,16 @@ struct PathBuilder {
     last_point: Point,
     last_control_from: Point, // cubic
     /// Has a new component be started?
-    /// This does not mean that something has been added to self.path yet.
+    /// This does not mean that something has been added to self.curve yet.
     is_started: bool,
-    /// Has anything actually be added to self.path for the current component?
+    /// Has anything actually be added to self.curve for the current component?
     is_empty: bool,
 }
 
-impl PathBuilder {
+impl CurveBuilder {
     fn new(region: Region) -> Self {
         Self {
-            path: Path::new(),
+            curve: Curve::new(),
             size: Size::zero(),
             region,
             start_point: Default::default(),
@@ -183,15 +183,15 @@ impl PathBuilder {
         p
     }
 
-    /// Push the initial move of a new component to self.path.
+    /// Push the initial move of a new component to self.curve.
     fn start_component(&mut self) {
-        self.path.move_to(self.start_point);
+        self.curve.move_(self.start_point);
         self.is_empty = false;
         self.is_started = true;
     }
 
-    fn move_to(&mut self, point: Point) {
-        // Delay calling path.move_to in case there is another move_to element
+    fn move_(&mut self, point: Point) {
+        // Delay calling curve.move in case there is another move element
         // before any actual drawing.
         self.adjust_bounds(point);
         self.start_point = point;
@@ -201,29 +201,29 @@ impl PathBuilder {
         self.is_started = true;
     }
 
-    fn line_to(&mut self, point: Point) {
+    fn line(&mut self, point: Point) {
         if self.is_empty {
             self.start_component();
             self.start_control_into = self.start_point;
         }
-        self.path.line_to(point);
+        self.curve.line(point);
         self.adjust_bounds(point);
         self.last_point = point;
         self.last_control_from = point;
     }
 
-    fn quadratic_to(&mut self, control: Point, end: Point) {
+    fn quad(&mut self, control: Point, end: Point) {
         let c1 = control_q2c(self.last_point, control);
         let c2 = control_q2c(end, control);
-        self.cubic_to(c1, c2, end);
+        self.cubic(c1, c2, end);
     }
 
-    fn cubic_to(&mut self, c1: Point, c2: Point, end: Point) {
+    fn cubic(&mut self, c1: Point, c2: Point, end: Point) {
         if self.is_empty {
             self.start_component();
             self.start_control_into = mirror_c(self.start_point, c1);
         }
-        self.path.cubic_to(c1, c2, end);
+        self.curve.cubic(c1, c2, end);
 
         fn to_kurbo(point: Point) -> kurbo::Point {
             kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
@@ -243,13 +243,13 @@ impl PathBuilder {
     fn close(&mut self, mode: CloseMode) {
         if self.is_started && !self.is_empty {
             if mode == CloseMode::Curve {
-                self.cubic_to(
+                self.cubic(
                     self.last_control_from,
                     self.start_control_into,
                     self.start_point,
                 );
             }
-            self.path.close_path();
+            self.curve.close();
             self.last_point = self.start_point;
             self.last_control_from = self.start_point;
         }
@@ -257,8 +257,8 @@ impl PathBuilder {
         self.is_empty = true;
     }
 
-    fn build(self) -> (Path, Size) {
-        (self.path, self.size)
+    fn build(self) -> (Curve, Size) {
+        (self.curve, self.size)
     }
 }
 
@@ -277,7 +277,7 @@ fn mirror_c(p: Point, c: Point) -> Point {
     2. * p - c
 }
 
-/// Layout the path.
+/// Layout the curve.
 #[typst_macros::time(span = elem.span())]
 pub fn layout_curve(
     elem: &Packed<CurveElem>,
@@ -286,20 +286,20 @@ pub fn layout_curve(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let mut builder = PathBuilder::new(region);
+    let mut builder = CurveBuilder::new(region);
 
     for item in elem.components() {
         match item {
             CurveComponent::Move(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.start(styles), relative);
-                builder.move_to(point);
+                builder.move_(point);
             }
 
             CurveComponent::Line(element) => {
                 let relative = element.relative(styles);
                 let point = builder.resolve_point(element.end(styles), relative);
-                builder.line_to(point);
+                builder.line(point);
             }
 
             CurveComponent::Quad(element) => {
@@ -312,7 +312,7 @@ pub fn layout_curve(
                     Smart::Custom(Some(p)) => builder.resolve_point(p, relative),
                     Smart::Custom(None) => end,
                 };
-                builder.quadratic_to(control, end);
+                builder.quad(control, end);
             }
 
             CurveComponent::Cubic(element) => {
@@ -327,7 +327,7 @@ pub fn layout_curve(
                     Some(p) => builder.resolve_point(p, relative),
                     None => end,
                 };
-                builder.cubic_to(c1, c2, end);
+                builder.cubic(c1, c2, end);
             }
 
             CurveComponent::Close(element) => {
@@ -336,14 +336,13 @@ pub fn layout_curve(
         }
     }
 
-    let (path, size) = builder.build();
-
-    if path.is_empty() {
+    let (curve, size) = builder.build();
+    if curve.is_empty() {
         return Ok(Frame::soft(size));
     }
 
     if !size.is_finite() {
-        bail!(elem.span(), "cannot create path with infinite length");
+        bail!(elem.span(), "cannot create curve with infinite length");
     }
 
     // Prepare fill and stroke.
@@ -357,7 +356,7 @@ pub fn layout_curve(
 
     let mut frame = Frame::soft(size);
     let shape = Shape {
-        geometry: Geometry::Path(path),
+        geometry: Geometry::Curve(curve),
         stroke,
         fill,
         fill_rule,
@@ -388,7 +387,7 @@ pub fn layout_polygon(
 
     let mut frame = Frame::hard(size);
 
-    // Only create a path if there are more than zero points.
+    // Only create a curve if there are more than zero points.
     if points.is_empty() {
         return Ok(frame);
     }
@@ -402,16 +401,16 @@ pub fn layout_polygon(
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
     };
 
-    // Construct a closed path given all points.
-    let mut path = Path::new();
-    path.move_to(points[0]);
+    // Construct a closed curve given all points.
+    let mut curve = Curve::new();
+    curve.move_(points[0]);
     for &point in &points[1..] {
-        path.line_to(point);
+        curve.line(point);
     }
-    path.close_path();
+    curve.close();
 
     let shape = Shape {
-        geometry: Geometry::Path(path),
+        geometry: Geometry::Curve(curve),
         stroke,
         fill,
         fill_rule,
@@ -637,7 +636,7 @@ fn layout_shape(
             let size = frame.size() + outset.sum_by_axis();
             let pos = Point::new(-outset.left, -outset.top);
             let shape = Shape {
-                geometry: Geometry::Path(Path::ellipse(size)),
+                geometry: Geometry::Curve(Curve::ellipse(size)),
                 fill,
                 stroke: stroke.left,
                 fill_rule: FillRule::default(),
@@ -676,13 +675,13 @@ fn quadratic_size(region: Region) -> Option<Abs> {
     }
 }
 
-/// Creates a new rectangle as a path.
+/// Creates a new rectangle as a curve.
 pub fn clip_rect(
     size: Size,
     radius: &Corners<Rel<Abs>>,
     stroke: &Sides<Option<FixedStroke>>,
     outset: &Sides<Rel<Abs>>,
-) -> Path {
+) -> Curve {
     let outset = outset.relative_to(size);
     let size = size + outset.sum_by_axis();
 
@@ -696,26 +695,30 @@ pub fn clip_rect(
     let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
     let corners = corners_control_points(size, &radius, stroke, &stroke_widths);
 
-    let mut path = Path::new();
+    let mut curve = Curve::new();
     if corners.top_left.arc_inner() {
-        path.arc_move(
+        curve.arc_move(
             corners.top_left.start_inner(),
             corners.top_left.center_inner(),
             corners.top_left.end_inner(),
         );
     } else {
-        path.move_to(corners.top_left.center_inner());
+        curve.move_(corners.top_left.center_inner());
     }
     for corner in [&corners.top_right, &corners.bottom_right, &corners.bottom_left] {
         if corner.arc_inner() {
-            path.arc_line(corner.start_inner(), corner.center_inner(), corner.end_inner())
+            curve.arc_line(
+                corner.start_inner(),
+                corner.center_inner(),
+                corner.end_inner(),
+            )
         } else {
-            path.line_to(corner.center_inner());
+            curve.line(corner.center_inner());
         }
     }
-    path.close_path();
-    path.translate(Point::new(-outset.left, -outset.top));
-    path
+    curve.close();
+    curve.translate(Point::new(-outset.left, -outset.top));
+    curve
 }
 
 /// Add a fill and stroke with optional radius and outset to the frame.
@@ -820,25 +823,25 @@ fn segmented_rect(
 
     // fill shape with inner curve
     if let Some(fill) = fill {
-        let mut path = Path::new();
+        let mut curve = Curve::new();
         let c = corners.get_ref(Corner::TopLeft);
         if c.arc() {
-            path.arc_move(c.start(), c.center(), c.end());
+            curve.arc_move(c.start(), c.center(), c.end());
         } else {
-            path.move_to(c.center());
+            curve.move_(c.center());
         };
 
         for corner in [Corner::TopRight, Corner::BottomRight, Corner::BottomLeft] {
             let c = corners.get_ref(corner);
             if c.arc() {
-                path.arc_line(c.start(), c.center(), c.end());
+                curve.arc_line(c.start(), c.center(), c.end());
             } else {
-                path.line_to(c.center());
+                curve.line(c.center());
             }
         }
-        path.close_path();
+        curve.close();
         res.push(Shape {
-            geometry: Geometry::Path(path),
+            geometry: Geometry::Curve(curve),
             fill: Some(fill),
             fill_rule: FillRule::default(),
             stroke: None,
@@ -877,18 +880,18 @@ fn segmented_rect(
     res
 }
 
-fn path_segment(
+fn curve_segment(
     start: Corner,
     end: Corner,
     corners: &Corners<ControlPoints>,
-    path: &mut Path,
+    curve: &mut Curve,
 ) {
     // create start corner
     let c = corners.get_ref(start);
     if start == end || !c.arc() {
-        path.move_to(c.end());
+        curve.move_(c.end());
     } else {
-        path.arc_move(c.mid(), c.center(), c.end());
+        curve.arc_move(c.mid(), c.center(), c.end());
     }
 
     // create corners between start and end
@@ -896,9 +899,9 @@ fn path_segment(
     while current != end {
         let c = corners.get_ref(current);
         if c.arc() {
-            path.arc_line(c.start(), c.center(), c.end());
+            curve.arc_line(c.start(), c.center(), c.end());
         } else {
-            path.line_to(c.end());
+            curve.line(c.end());
         }
         current = current.next_cw();
     }
@@ -906,11 +909,11 @@ fn path_segment(
     // create end corner
     let c = corners.get_ref(end);
     if !c.arc() {
-        path.line_to(c.start());
+        curve.line(c.start());
     } else if start == end {
-        path.arc_line(c.start(), c.center(), c.end());
+        curve.arc_line(c.start(), c.center(), c.end());
     } else {
-        path.arc_line(c.start(), c.center(), c.mid());
+        curve.arc_line(c.start(), c.center(), c.mid());
     }
 }
 
@@ -971,11 +974,11 @@ fn stroke_segment(
     stroke: FixedStroke,
 ) -> Shape {
     // Create start corner.
-    let mut path = Path::new();
-    path_segment(start, end, corners, &mut path);
+    let mut curve = Curve::new();
+    curve_segment(start, end, corners, &mut curve);
 
     Shape {
-        geometry: Geometry::Path(path),
+        geometry: Geometry::Curve(curve),
         stroke: Some(stroke),
         fill: None,
         fill_rule: FillRule::default(),
@@ -989,7 +992,7 @@ fn fill_segment(
     corners: &Corners<ControlPoints>,
     stroke: &FixedStroke,
 ) -> Shape {
-    let mut path = Path::new();
+    let mut curve = Curve::new();
 
     // create the start corner
     // begin on the inside and finish on the outside
@@ -997,33 +1000,33 @@ fn fill_segment(
     // half corner if different
     if start == end {
         let c = corners.get_ref(start);
-        path.move_to(c.end_inner());
-        path.line_to(c.end_outer());
+        curve.move_(c.end_inner());
+        curve.line(c.end_outer());
     } else {
         let c = corners.get_ref(start);
 
         if c.arc_inner() {
-            path.arc_move(c.end_inner(), c.center_inner(), c.mid_inner());
+            curve.arc_move(c.end_inner(), c.center_inner(), c.mid_inner());
         } else {
-            path.move_to(c.end_inner());
+            curve.move_(c.end_inner());
         }
 
         if c.arc_outer() {
-            path.arc_line(c.mid_outer(), c.center_outer(), c.end_outer());
+            curve.arc_line(c.mid_outer(), c.center_outer(), c.end_outer());
         } else {
-            path.line_to(c.outer());
-            path.line_to(c.end_outer());
+            curve.line(c.outer());
+            curve.line(c.end_outer());
         }
     }
 
-    // create the clockwise outside path for the corners between start and end
+    // create the clockwise outside curve for the corners between start and end
     let mut current = start.next_cw();
     while current != end {
         let c = corners.get_ref(current);
         if c.arc_outer() {
-            path.arc_line(c.start_outer(), c.center_outer(), c.end_outer());
+            curve.arc_line(c.start_outer(), c.center_outer(), c.end_outer());
         } else {
-            path.line_to(c.outer());
+            curve.line(c.outer());
         }
         current = current.next_cw();
     }
@@ -1035,46 +1038,46 @@ fn fill_segment(
     if start == end {
         let c = corners.get_ref(end);
         if c.arc_outer() {
-            path.arc_line(c.start_outer(), c.center_outer(), c.end_outer());
+            curve.arc_line(c.start_outer(), c.center_outer(), c.end_outer());
         } else {
-            path.line_to(c.outer());
-            path.line_to(c.end_outer());
+            curve.line(c.outer());
+            curve.line(c.end_outer());
         }
         if c.arc_inner() {
-            path.arc_line(c.end_inner(), c.center_inner(), c.start_inner());
+            curve.arc_line(c.end_inner(), c.center_inner(), c.start_inner());
         } else {
-            path.line_to(c.center_inner());
+            curve.line(c.center_inner());
         }
     } else {
         let c = corners.get_ref(end);
         if c.arc_outer() {
-            path.arc_line(c.start_outer(), c.center_outer(), c.mid_outer());
+            curve.arc_line(c.start_outer(), c.center_outer(), c.mid_outer());
         } else {
-            path.line_to(c.outer());
+            curve.line(c.outer());
         }
         if c.arc_inner() {
-            path.arc_line(c.mid_inner(), c.center_inner(), c.start_inner());
+            curve.arc_line(c.mid_inner(), c.center_inner(), c.start_inner());
         } else {
-            path.line_to(c.center_inner());
+            curve.line(c.center_inner());
         }
     }
 
-    // create the counterclockwise inside path for the corners between start and end
+    // create the counterclockwise inside curve for the corners between start and end
     let mut current = end.next_ccw();
     while current != start {
         let c = corners.get_ref(current);
         if c.arc_inner() {
-            path.arc_line(c.end_inner(), c.center_inner(), c.start_inner());
+            curve.arc_line(c.end_inner(), c.center_inner(), c.start_inner());
         } else {
-            path.line_to(c.center_inner());
+            curve.line(c.center_inner());
         }
         current = current.next_ccw();
     }
 
-    path.close_path();
+    curve.close();
 
     Shape {
-        geometry: Geometry::Path(path),
+        geometry: Geometry::Curve(curve),
         stroke: None,
         fill: Some(stroke.paint.clone()),
         fill_rule: FillRule::default(),
@@ -1259,25 +1262,25 @@ impl ControlPoints {
 }
 
 /// Helper to draw arcs with bezier curves.
-trait PathExt {
+trait CurveExt {
     fn arc(&mut self, start: Point, center: Point, end: Point);
     fn arc_move(&mut self, start: Point, center: Point, end: Point);
     fn arc_line(&mut self, start: Point, center: Point, end: Point);
 }
 
-impl PathExt for Path {
+impl CurveExt for Curve {
     fn arc(&mut self, start: Point, center: Point, end: Point) {
         let arc = bezier_arc_control(start, center, end);
-        self.cubic_to(arc[0], arc[1], end);
+        self.cubic(arc[0], arc[1], end);
     }
 
     fn arc_move(&mut self, start: Point, center: Point, end: Point) {
-        self.move_to(start);
+        self.move_(start);
         self.arc(start, center, end);
     }
 
     fn arc_line(&mut self, start: Point, center: Point, end: Point) {
-        self.line_to(start);
+        self.line(start);
         self.arc(start, center, end);
     }
 }

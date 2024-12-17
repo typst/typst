@@ -61,9 +61,9 @@
 )
 
 --- pattern-zero-sized ---
-// Error: 15-52 pattern tile size must be non-zero
-// Hint: 15-52 try setting the size manually
-#line(stroke: pattern(path((0pt, 0pt), (1em, 0pt))))
+// Error: 15-53 pattern tile size must be non-zero
+// Hint: 15-53 try setting the size manually
+#line(stroke: pattern(curve(curve.move((1em, 0pt)))))
 
 --- pattern-spacing-negative ---
 // Test with spacing set to `(-10pt, -10pt)`
