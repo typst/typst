@@ -104,8 +104,8 @@ pub struct TextElem {
     /// - `covers` (optional): A [regex] that defines the Unicode codepoints
     ///   supported by the font. Unicode codepoints that match this regex are
     ///   considered within the range and will be rendered using this font.
-    ///   A special `"latin-in-cjk"` value can also be specified to cover all
-    ///   codepoints except that both used in Latin and CJK fonts.
+    ///   Alternatively, a built-in `"latin-in-cjk"` value can be specified to cover all
+    ///   codepoints except those used both in Latin and CJK fonts.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
