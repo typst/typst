@@ -117,6 +117,10 @@ impl Timestamp {
     /// Create a new timestamp with a given datetime, and a local timezone offset.
     pub fn new_local(datetime: Datetime, whole_minute_offset: i32) -> Option<Self> {
         let hour_offset = (whole_minute_offset / 60).try_into().ok()?;
+        // Note: the `%` operator in Rust is the remainder operator, not the
+        // modulo operator. The remainder operator can return negative results.
+        // We can simply apply `abs` here because we assume the `minute_offset`
+        // will have the same sign as `hour_offset`.
         let minute_offset = (whole_minute_offset % 60).abs().try_into().ok()?;
         match (hour_offset, minute_offset) {
             // Only accept valid timezone offsets with `-23 <= hours <= 23`,
