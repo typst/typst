@@ -9,9 +9,9 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, delimiter_alignment, scaled_font_size, stack, style_for_denominator,
-    AlignmentResult, FrameFragment, GlyphFragment, LeftRightAlternator, MathContext,
-    Scaled, DELIM_SHORT_FALL,
+    alignments, delimiter_alignment, stack, style_for_denominator, AlignmentResult,
+    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, Scaled,
+    DELIM_SHORT_FALL,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -30,7 +30,7 @@ pub fn layout_vec(
         styles,
         elem.children(),
         elem.align(styles),
-        elem.gap(styles).at(scaled_font_size(ctx, styles)),
+        elem.gap(styles).at(TextElem::size_in(styles)),
         LeftRightAlternator::Right,
     )?;
 
@@ -73,7 +73,7 @@ pub fn layout_mat(
         }
     }
 
-    let font_size = scaled_font_size(ctx, styles);
+    let font_size = TextElem::size_in(styles);
     let column_gap = elem.column_gap(styles).at(font_size);
     let row_gap = elem.row_gap(styles).at(font_size);
     let delim = elem.delim(styles);
@@ -103,7 +103,7 @@ pub fn layout_cases(
         styles,
         elem.children(),
         FixedAlignment::Start,
-        elem.gap(styles).at(scaled_font_size(ctx, styles)),
+        elem.gap(styles).at(TextElem::size_in(styles)),
         LeftRightAlternator::None,
     )?;
 
@@ -162,7 +162,7 @@ fn layout_mat_body(
     // with font size to ensure that augmentation lines
     // look correct by default at all matrix sizes.
     // The line cap is also set to square because it looks more "correct".
-    let font_size = scaled_font_size(ctx, styles);
+    let font_size = TextElem::size_in(styles);
     let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.at(font_size);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
@@ -308,7 +308,7 @@ fn layout_delimiters(
     right: Option<char>,
     span: Span,
 ) -> SourceResult<()> {
-    let font_size = scaled_font_size(ctx, styles);
+    let font_size = TextElem::size_in(styles);
     let short_fall = DELIM_SHORT_FALL.at(font_size);
     let axis = ctx.constants.axis_height().scaled(ctx, font_size);
     let height = frame.height();
@@ -322,7 +322,7 @@ fn layout_delimiters(
         ctx.push(left);
     }
 
-    ctx.push(FrameFragment::new(ctx, styles, frame));
+    ctx.push(FrameFragment::new(styles, frame));
 
     if let Some(right) = right {
         let mut right = GlyphFragment::new(ctx, styles, right, span)

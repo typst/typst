@@ -4,11 +4,12 @@ use typst_library::diag::{warning, SourceResult};
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::layout::{Abs, Axis, Frame, Length, Point, Rel, Size};
 use typst_library::math::StretchElem;
+use typst_library::text::TextElem;
 use typst_utils::Get;
 
 use super::{
-    delimiter_alignment, scaled_font_size, GlyphFragment, MathContext, MathFragment,
-    Scaled, VariantFragment,
+    delimiter_alignment, GlyphFragment, MathContext, MathFragment, Scaled,
+    VariantFragment,
 };
 
 /// Maximum number of times extenders can be repeated.
@@ -68,7 +69,7 @@ pub fn stretch_fragment(
         glyph,
         stretch
             .unwrap_or(Rel::one())
-            .at(scaled_font_size(ctx, styles))
+            .at(TextElem::size_in(styles))
             .relative_to(relative_to_size),
         short_fall,
         axis,

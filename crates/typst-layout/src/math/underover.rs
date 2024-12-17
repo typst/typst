@@ -10,8 +10,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    scaled_font_size, stack, style_cramped, style_for_subscript, style_for_superscript,
-    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, MathRun,
+    stack, style_cramped, style_for_subscript, style_for_superscript, FrameFragment,
+    GlyphFragment, LeftRightAlternator, MathContext, MathRun,
 };
 
 const BRACE_GAP: Em = Em::new(0.25);
@@ -260,7 +260,7 @@ fn layout_underoverline(
     );
 
     ctx.push(
-        FrameFragment::new(ctx, styles, frame)
+        FrameFragment::new(styles, frame)
             .with_class(content_class)
             .with_text_like(content_is_text_like)
             .with_italics_correction(content_italics_correction),
@@ -281,11 +281,10 @@ fn layout_underoverspreader(
     position: Position,
     span: Span,
 ) -> SourceResult<()> {
-    let font_size = scaled_font_size(ctx, styles);
-    let gap = gap.at(font_size);
+    let gap = gap.at(TextElem::size_in(styles));
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
-    let body = body.into_fragment(ctx, styles);
+    let body = body.into_fragment(styles);
     let glyph = GlyphFragment::new(ctx, styles, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
@@ -321,7 +320,7 @@ fn layout_underoverspreader(
         LeftRightAlternator::Right,
         None,
     );
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
+    ctx.push(FrameFragment::new(styles, frame).with_class(body_class));
 
     Ok(())
 }

@@ -121,7 +121,7 @@ pub fn layout_primes(
                     prime.clone(),
                 )
             }
-            ctx.push(FrameFragment::new(ctx, styles, frame).with_text_like(true));
+            ctx.push(FrameFragment::new(styles, frame).with_text_like(true));
         }
     }
     Ok(())
@@ -277,7 +277,7 @@ fn layout_attachments(
     layout!(b, b_x, b_y); // lower-limit
 
     // Done! Note that we retain the class of the base.
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
+    ctx.push(FrameFragment::new(styles, frame).with_class(base_class));
 
     Ok(())
 }
