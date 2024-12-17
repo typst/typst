@@ -52,5 +52,9 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<PathElem>();
 
     // Compatibility.
-    global.define("pattern", Type::of::<Tiling>());
+    global.define_deprecated(
+        "pattern",
+        Type::of::<Tiling>(),
+        "the name `pattern` is deprecated, use `tiling` instead",
+    );
 }
