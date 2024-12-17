@@ -1,3 +1,6 @@
+use crate::metadata::build_metadata;
+use crate::outline::build_outline;
+use crate::page::PageLabelExt;
 use crate::util::{display_font, AbsExt, PointExt, SizeExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
@@ -29,8 +32,6 @@ use typst_library::visualize::{
     FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
 };
 use typst_syntax::Span;
-use crate::outline::build_outline;
-use crate::page::PageLabelExt;
 
 #[derive(Debug, Clone)]
 pub(crate) struct State {
@@ -170,7 +171,7 @@ pub struct GlobalContext<'a> {
     /// Mapping between locations in the document and named destinations.
     loc_to_named: HashMap<Location, NamedDestination>,
     /// The languages used throughout the document.
-    languages: BTreeMap<Lang, usize>,
+    pub(crate) languages: BTreeMap<Lang, usize>,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -334,56 +335,8 @@ pub fn pdf(
         }
     }
 
-    let metadata = {
-        let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
-
-        let mut metadata = krilla::metadata::Metadata::new()
-            .creator(creator)
-            .keywords(
-                typst_document
-                    .info
-                    .keywords
-                    .iter()
-                    .map(EcoString::to_string)
-                    .collect(),
-            )
-            .authors(
-                typst_document.info.author.iter().map(EcoString::to_string).collect(),
-            );
-
-        let lang = gc.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
-
-        if let Some(lang) = lang {
-            metadata = metadata.language(lang.as_str().to_string());
-        }
-
-        if let Some(title) = &typst_document.info.title {
-            metadata = metadata.title(title.to_string());
-        }
-
-        if let Some(subject) = &typst_document.info.description {
-            metadata = metadata.subject(subject.to_string());
-        }
-
-        if let Some(ident) = options.ident.custom() {
-            metadata = metadata.subject(ident.to_string());
-        }
-
-        let tz = typst_document.info.date.is_auto();
-        if let Some(date) = typst_document
-            .info
-            .date
-            .unwrap_or(options.timestamp)
-            .and_then(|d| krilla_date(d, tz))
-        {
-            metadata = metadata.modification_date(date).creation_date(date);
-        }
-
-        metadata
-    };
-
     document.set_outline(build_outline(&gc));
-    document.set_metadata(metadata);
+    document.set_metadata(build_metadata(&gc));
 
     match document.finish() {
         Ok(r) => Ok(r),
@@ -498,38 +451,6 @@ pub fn pdf(
             }
         },
     }
-}
-
-fn krilla_date(datetime: Datetime, tz: bool) -> Option<krilla::metadata::DateTime> {
-    let year = datetime.year().filter(|&y| y >= 0)? as u16;
-
-    let mut krilla_date = krilla::metadata::DateTime::new(year);
-
-    if let Some(month) = datetime.month() {
-        krilla_date = krilla_date.month(month);
-    }
-
-    if let Some(day) = datetime.day() {
-        krilla_date = krilla_date.day(day);
-    }
-
-    if let Some(h) = datetime.hour() {
-        krilla_date = krilla_date.hour(h);
-    }
-
-    if let Some(m) = datetime.minute() {
-        krilla_date = krilla_date.minute(m);
-    }
-
-    if let Some(s) = datetime.second() {
-        krilla_date = krilla_date.second(s);
-    }
-
-    if tz {
-        krilla_date = krilla_date.utc_offset_hour(0).utc_offset_minute(0);
-    }
-
-    Some(krilla_date)
 }
 
 pub fn process_frame(

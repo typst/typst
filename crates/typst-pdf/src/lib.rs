@@ -2,10 +2,11 @@
 
 mod image;
 mod krilla;
-mod paint;
-mod page;
-mod util;
+mod metadata;
 mod outline;
+mod page;
+mod paint;
+mod util;
 
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Datetime, Smart};

@@ -1,8 +1,8 @@
 //! Basic utilities for converting typst types to krilla.
 
+use krilla::color::rgb as kr;
 use krilla::geom as kg;
 use krilla::path as kp;
-use krilla::color::rgb as kr;
 
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;
@@ -105,8 +105,7 @@ impl ColorExt for Color {
     fn to_krilla_rgb(&self) -> (kr::Color, u8) {
         let components = self.to_space(ColorSpace::Srgb).to_vec4_u8();
         (
-            kr::Color::new(components[0], components[1], components[2])
-                .into(),
+            kr::Color::new(components[0], components[1], components[2]).into(),
             components[3],
         )
     }
