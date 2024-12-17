@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Resolve, StyleChain};
-use typst_library::layout::{Em, Frame, Point, Rel, Size};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::layout::{Em, Frame, Point, Size};
 use typst_library::math::{Accent, AccentElem};
 
 use super::{style_cramped, FrameFragment, GlyphFragment, MathContext, MathFragment};
@@ -27,11 +27,7 @@ pub fn layout_accent(
     let base_class = base.class();
     let base_attach = base.accent_attach();
 
-    let width = elem
-        .size(styles)
-        .unwrap_or(Rel::one())
-        .resolve(styles)
-        .relative_to(base.width());
+    let width = elem.size(styles).relative_to(base.width());
 
     let Accent(c) = elem.accent();
     let mut glyph = GlyphFragment::new(ctx, styles, *c, elem.span());
