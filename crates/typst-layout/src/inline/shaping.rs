@@ -803,13 +803,14 @@ fn shape_segment<'a>(
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
 
-    let char_in_coverage = |char_start| {
-        let char_end = text[char_start..]
+    // Whether the character at the given offset is covered by the coverage.
+    let is_covered = |offset| {
+        let end = text[offset..]
             .char_indices()
             .nth(1)
-            .map(|(offset, _)| offset + char_start)
+            .map(|(i, _)| offset + i)
             .unwrap_or(text.len());
-        covers.map_or(true, |cov| cov.is_match(&text[char_start..char_end]))
+        covers.map_or(true, |cov| cov.is_match(&text[offset..end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
@@ -820,7 +821,7 @@ fn shape_segment<'a>(
         let cluster = info.cluster as usize;
 
         // Add the glyph to the shaped output.
-        if info.glyph_id != 0 && char_in_coverage(cluster) {
+        if info.glyph_id != 0 && is_covered(cluster) {
             // Determine the text range of the glyph.
             let start = base + cluster;
             let end = base
@@ -829,7 +830,6 @@ fn shape_segment<'a>(
                     .map_or(text.len(), |info| info.cluster as usize);
 
             let c = text[cluster..].chars().next().unwrap();
-
             let script = c.script();
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
@@ -855,7 +855,7 @@ fn shape_segment<'a>(
             // First, search for the end of the tofu sequence.
             let k = i;
             while infos.get(i + 1).is_some_and(|info| {
-                info.glyph_id == 0 || !char_in_coverage(info.cluster as _)
+                info.glyph_id == 0 || !is_covered(info.cluster as usize)
             }) {
                 i += 1;
             }

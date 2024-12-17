@@ -98,15 +98,19 @@ pub(super) fn define(global: &mut Scope) {
 pub struct TextElem {
     /// A font family descriptor or priority list of font family descriptor.
     ///
-    /// The font family descriptor can be a string representing the family name
-    /// or a dictionary with the following keys:
+    /// A font family descriptor can be a plain string representing the family
+    /// name or a dictionary with the following keys:
     ///
     /// - `name` (required): The font family name.
-    /// - `covers` (optional): A [regex] that defines the Unicode codepoints
-    ///   supported by the font. Unicode codepoints that match this regex are
-    ///   considered within the range and will be rendered using this font.
-    ///   Alternatively, a built-in `"latin-in-cjk"` value can be specified to cover all
-    ///   codepoints except those used both in Latin and CJK fonts.
+    /// - `covers` (optional): Defines the Unicode codepoints for which the
+    ///   family shall be used. This can be:
+    ///   - A predefined coverage set:
+    ///     - `{"latin-in-cjk"}` covers all codepoints except for those which
+    ///       exist in Latin fonts, but should preferrably be taken from CJK
+    ///       fonts.
+    ///   - A [regular expression][regex] that defines exactly which codepoints
+    ///     shall be covered. Accepts only the subset of regular expressions
+    ///     which consist of exactly one dot, letter, or character class.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
@@ -144,11 +148,11 @@ pub struct TextElem {
     ///
     /// // Change font only for numbers.
     /// #set text(font: (
-    ///   (name: "New Computer Modern", covers: regex("[0-9]")),
-    ///   "Linbertinus Serif"
+    ///   (name: "PT Sans", covers: regex("[0-9]")),
+    ///   "Libertinus Serif"
     /// ))
     ///
-    /// This text contains 123.
+    /// The number 123.
     ///
     /// // Mix Latin and CJK fonts.
     /// #set text(font: (
@@ -792,66 +796,24 @@ impl PlainText for Packed<TextElem> {
     }
 }
 
-#[derive(Debug)]
-pub enum Covers {
-    LatinInCjk,
-    Regex(Regex),
-}
-
-cast! {
-    Covers,
-    self => self.into_value(),
-    string: EcoString => match &*string {
-        "latin-in-cjk" => Covers::LatinInCjk,
-        _ => bail!("unknown character set"),
-    },
-    regex: Regex => Covers::Regex(regex),
-}
-
 /// A lowercased font family like "arial".
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FontFamily {
     // The name of the font family
     name: EcoString,
     // A regex that defines the Unicode codepoints supported by the font.
-    covers: Option<Regex>,
+    covers: Option<Covers>,
 }
 
 impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self::new_with_coverage(string, None).unwrap()
+        Self::with_coverage(string, None)
     }
 
-    /// Create a font family by name and optionally unicode coverage
-    pub fn new_with_coverage(
-        string: &str,
-        covers: Option<Covers>,
-    ) -> HintedStrResult<Self> {
-        let covers = match covers {
-            Some(Covers::LatinInCjk) => {
-                let latin_in_cjk_regex = singleton!(Regex, {
-                    Regex::new("[^\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
-                });
-                Some(latin_in_cjk_regex.clone())
-            }
-            Some(Covers::Regex(regex)) => {
-                let ast = regex_syntax::ast::parse::Parser::new()
-                    .parse(regex.as_str())
-                    .unwrap();
-                match ast {
-                    regex_syntax::ast::Ast::ClassBracketed(..)
-                    | regex_syntax::ast::Ast::ClassUnicode(..)
-                    | regex_syntax::ast::Ast::ClassPerl(..)
-                    | regex_syntax::ast::Ast::Dot(..)
-                    | regex_syntax::ast::Ast::Literal(..) => (),
-                    _ => bail!("invalid regex in font coverage"),
-                }
-                Some(regex)
-            }
-            None => None,
-        };
-        Ok(Self { name: string.to_lowercase().into(), covers })
+    /// Create a font family by name and optional Unicode coverage.
+    pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
+        Self { name: string.to_lowercase().into(), covers }
     }
 
     /// The lowercased family name.
@@ -861,7 +823,7 @@ impl FontFamily {
 
     /// The user-set coverage of the font family.
     pub fn covers(&self) -> Option<&Regex> {
-        self.covers.as_ref()
+        self.covers.as_ref().map(|covers| covers.as_regex())
     }
 }
 
@@ -870,12 +832,67 @@ cast! {
     self => self.name.into_value(),
     string: EcoString => Self::new(&string),
     mut v: Dict => {
-        let ret = Self::new_with_coverage(
-            &v.take("name")?.cast::<String>()?,
+        let ret = Self::with_coverage(
+            &v.take("name")?.cast::<EcoString>()?,
             v.take("covers").ok().map(|v| v.cast()).transpose()?
-        )?;
+        );
         v.finish(&["name", "covers"])?;
         ret
+    },
+}
+
+/// Defines which codepoints a font family will be used for.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Covers {
+    /// Covers all codepoints except those used both in Latin and CJK fonts.
+    LatinInCjk,
+    /// Covers the set of codepoints for which the regex matches.
+    Regex(Regex),
+}
+
+impl Covers {
+    /// Retrieve the regex for the coverage.
+    pub fn as_regex(&self) -> &Regex {
+        match self {
+            Self::LatinInCjk => singleton!(
+                Regex,
+                Regex::new(
+                    "[^\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\
+                       \u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]"
+                )
+                .unwrap()
+            ),
+            Self::Regex(regex) => regex,
+        }
+    }
+}
+
+cast! {
+    Covers,
+    self => match self {
+        Self::LatinInCjk => "latin-in-cjk".into_value(),
+        Self::Regex(regex) => regex.into_value(),
+    },
+
+    /// Covers all codepoints except those used both in Latin and CJK fonts.
+    "latin-in-cjk" => Covers::LatinInCjk,
+
+    regex: Regex => {
+        let ast = regex_syntax::ast::parse::Parser::new().parse(regex.as_str());
+        match ast {
+            Ok(
+                regex_syntax::ast::Ast::ClassBracketed(..)
+                | regex_syntax::ast::Ast::ClassUnicode(..)
+                | regex_syntax::ast::Ast::ClassPerl(..)
+                | regex_syntax::ast::Ast::Dot(..)
+                | regex_syntax::ast::Ast::Literal(..),
+            ) => {}
+            _ => bail!(
+                "coverage regex may only use dot, letters, and character classes";
+                hint: "the regex is applied to each letter individually"
+            ),
+        }
+        Covers::Regex(regex)
     },
 }
 
