@@ -1,5 +1,3 @@
-use crate::krilla::{FrameContext, GlobalContext};
-use crate::util::{AbsExt, PointExt};
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
@@ -7,7 +5,9 @@ use krilla::geom::Rect;
 use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 
-/// Save a link for later writing in the annotations dictionary.
+use crate::krilla::{FrameContext, GlobalContext};
+use crate::util::{AbsExt, PointExt};
+
 pub(crate) fn handle_link(
     fc: &mut FrameContext,
     gc: &mut GlobalContext,
@@ -55,14 +55,14 @@ pub(crate) fn handle_link(
         }
         Destination::Position(p) => *p,
         Destination::Location(loc) => {
-            if let Some(named_dest) = gc.loc_to_named.get(loc) {
+            if let Some(nd) = gc.loc_to_named.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
                 fc.annotations.push(
                     LinkAnnotation::new(
                         rect,
                         Target::Destination(krilla::destination::Destination::Named(
-                            named_dest.clone(),
+                            nd.clone(),
                         )),
                     )
                     .into(),

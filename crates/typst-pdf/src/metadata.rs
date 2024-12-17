@@ -56,39 +56,35 @@ fn convert_date(
 ) -> Option<krilla::metadata::DateTime> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
-    let mut krilla_date = krilla::metadata::DateTime::new(year);
+    let mut kd = krilla::metadata::DateTime::new(year);
 
     if let Some(month) = datetime.month() {
-        krilla_date = krilla_date.month(month);
+        kd = kd.month(month);
     }
 
     if let Some(day) = datetime.day() {
-        krilla_date = krilla_date.day(day);
+        kd = kd.day(day);
     }
 
     if let Some(h) = datetime.hour() {
-        krilla_date = krilla_date.hour(h);
+        kd = kd.hour(h);
     }
 
     if let Some(m) = datetime.minute() {
-        krilla_date = krilla_date.minute(m);
+        kd = kd.minute(m);
     }
 
     if let Some(s) = datetime.second() {
-        krilla_date = krilla_date.second(s);
+        kd = kd.second(s);
     }
 
     match tz {
-        Some(Timezone::UTC) => {
-            krilla_date = krilla_date.utc_offset_hour(0).utc_offset_minute(0)
-        }
+        Some(Timezone::UTC) => kd = kd.utc_offset_hour(0).utc_offset_minute(0),
         Some(Timezone::Local { hour_offset, minute_offset }) => {
-            krilla_date = krilla_date
-                .utc_offset_hour(hour_offset)
-                .utc_offset_minute(minute_offset)
+            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset)
         }
         None => {}
     }
 
-    Some(krilla_date)
+    Some(kd)
 }

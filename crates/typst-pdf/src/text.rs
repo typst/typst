@@ -1,16 +1,18 @@
-use crate::krilla::{FrameContext, GlobalContext};
-use crate::paint;
-use crate::util::{display_font, AbsExt, TransformExt};
+use std::ops::Range;
+use std::sync::Arc;
+
 use bytemuck::TransparentWrapper;
 use krilla::font::{GlyphId, GlyphUnits};
 use krilla::surface::Surface;
-use std::ops::Range;
-use std::sync::Arc;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::layout::Size;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
+
+use crate::krilla::{FrameContext, GlobalContext};
+use crate::paint;
+use crate::util::{display_font, AbsExt, TransformExt};
 
 pub(crate) fn handle_text(
     fc: &mut FrameContext,

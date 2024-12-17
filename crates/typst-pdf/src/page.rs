@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use krilla::page::{NumberingStyle, PageLabel};
 use typst_library::model::Numbering;
 
-pub trait PageLabelExt {
+pub(crate) trait PageLabelExt {
     /// Create a new `PageLabel` from a `Numbering` applied to a page
     /// number.
     fn generate(numbering: &Numbering, number: usize) -> Option<PageLabel>;
