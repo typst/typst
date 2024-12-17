@@ -640,7 +640,7 @@ fn write_link(
             LinkAnnotation::new(
                 rect,
                 Target::Destination(krilla::destination::Destination::Xyz(
-                    XyzDestination::new(page_index, pos.point.as_krilla()),
+                    XyzDestination::new(page_index, pos.point.to_krilla()),
                 )),
             )
             .into(),
@@ -665,7 +665,7 @@ pub fn handle_group(
             convert_path(p, &mut builder);
             builder.finish()
         })
-        .and_then(|p| p.transform(fc.state().transform.as_krilla()));
+        .and_then(|p| p.transform(fc.state().transform.to_krilla()));
 
     if let Some(clip_path) = &clip_path {
         surface.push_clip_path(clip_path, &krilla::path::FillRule::NonZero);
@@ -726,7 +726,7 @@ pub fn handle_text(
 
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
-    surface.push_transform(&fc.state().transform.as_krilla());
+    surface.push_transform(&fc.state().transform.to_krilla());
 
     surface.fill_glyphs(
         krilla::geom::Point::from_xy(0.0, 0.0),
@@ -771,7 +771,7 @@ pub fn handle_image(
     surface: &mut Surface,
     span: Span,
 ) -> SourceResult<()> {
-    surface.push_transform(&fc.state().transform.as_krilla());
+    surface.push_transform(&fc.state().transform.to_krilla());
 
     match image.kind() {
         ImageKind::Raster(raster) => {
@@ -784,12 +784,12 @@ pub fn handle_image(
                 gc.image_spans.insert(image.clone(), span);
             }
 
-            surface.draw_image(image, size.as_krilla());
+            surface.draw_image(image, size.to_krilla());
         }
         ImageKind::Svg(svg) => {
             surface.draw_svg(
                 svg.tree(),
-                size.as_krilla(),
+                size.to_krilla(),
                 SvgSettings {
                     embed_text: !svg.flatten_text(),
                     ..Default::default()
@@ -841,7 +841,7 @@ pub fn handle_shape(
         }
     }
 
-    surface.push_transform(&fc.state().transform.as_krilla());
+    surface.push_transform(&fc.state().transform.to_krilla());
 
     if let Some(path) = path_builder.finish() {
         if let Some(paint) = &shape.fill {

@@ -1,7 +1,7 @@
 //! Convert paint types from typst to krilla.
 
 use crate::krilla::{process_frame, FrameContext, GlobalContext, Transforms};
-use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
+use crate::util::{AbsExt, ColorExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use krilla::geom::NormalizedF32;
 use krilla::paint::SpreadMethod;
 use krilla::surface::Surface;
@@ -25,7 +25,7 @@ pub(crate) fn fill(
 
     Ok(krilla::path::Fill {
         paint,
-        rule: fill_rule_.as_krilla(),
+        rule: fill_rule_.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
     })
 }
@@ -43,8 +43,8 @@ pub(crate) fn stroke(
         paint,
         width: stroke.thickness.to_f32(),
         miter_limit: stroke.miter_limit.get() as f32,
-        line_join: stroke.join.as_krilla(),
-        line_cap: stroke.cap.as_krilla(),
+        line_join: stroke.join.to_krilla(),
+        line_cap: stroke.cap.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
         dash: stroke.dash.as_ref().map(|d| dash(d)),
     })
@@ -55,15 +55,6 @@ fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
         array: dash.array.iter().map(|e| e.to_f32()).collect(),
         offset: dash.phase.to_f32(),
     }
-}
-
-fn convert_to_rgb_color(color: &Color) -> (krilla::color::rgb::Color, u8) {
-    let components = color.to_space(ColorSpace::Srgb).to_vec4_u8();
-    (
-        krilla::color::rgb::Color::new(components[0], components[1], components[2])
-            .into(),
-        components[3],
-    )
 }
 
 fn paint(
@@ -95,7 +86,7 @@ fn paint(
                     )
                 }
                 _ => {
-                    let (c, a) = convert_to_rgb_color(c);
+                    let (c, a) = c.to_krilla_rgb();
                     (c.into(), a)
                 }
             };
@@ -131,7 +122,7 @@ pub(crate) fn convert_pattern(
             .unwrap()
             .pre_concat(transforms.container_transform_chain),
     }
-    .as_krilla();
+    .to_krilla();
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
@@ -178,7 +169,7 @@ fn convert_gradient(
     let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
 
     let mut add_single = |color: &Color, offset: Ratio| {
-        let (color, opacity) = convert_to_rgb_color(color);
+        let (color, opacity) = color.to_krilla_rgb();
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
         let stop = krilla::paint::Stop { offset, color, opacity };
@@ -234,7 +225,7 @@ fn convert_gradient(
                 y1,
                 x2,
                 y2,
-                transform: actual_transform.as_krilla().pre_concat(
+                transform: actual_transform.to_krilla().pre_concat(
                     krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
                 ),
                 spread_method: SpreadMethod::Pad,
@@ -280,7 +271,7 @@ fn convert_gradient(
                 cx: radial.center.x.get() as f32,
                 cy: radial.center.y.get() as f32,
                 cr: radial.radius.get() as f32,
-                transform: actual_transform.as_krilla().pre_concat(
+                transform: actual_transform.to_krilla().pre_concat(
                     krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
                 ),
                 spread_method: SpreadMethod::Pad,
@@ -366,7 +357,7 @@ fn convert_gradient(
                 cy,
                 start_angle: 0.0,
                 end_angle: 360.0,
-                transform: actual_transform.as_krilla(),
+                transform: actual_transform.to_krilla(),
                 spread_method: SpreadMethod::Pad,
                 stops: stops.into(),
                 anti_alias: gradient.anti_alias(),

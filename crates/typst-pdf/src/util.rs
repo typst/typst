@@ -1,64 +1,68 @@
 //! Basic utilities for converting typst types to krilla.
 
+use krilla::geom as kg;
+use krilla::path as kp;
+use krilla::color::rgb as kr;
+
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;
-use typst_library::visualize::{FillRule, LineCap, LineJoin};
+use typst_library::visualize::{Color, ColorSpace, FillRule, LineCap, LineJoin};
 
 pub(crate) trait SizeExt {
-    fn as_krilla(&self) -> krilla::geom::Size;
+    fn to_krilla(&self) -> kg::Size;
 }
 
 impl SizeExt for Size {
-    fn as_krilla(&self) -> krilla::geom::Size {
-        krilla::geom::Size::from_wh(self.x.to_f32(), self.y.to_f32()).unwrap()
+    fn to_krilla(&self) -> kg::Size {
+        kg::Size::from_wh(self.x.to_f32(), self.y.to_f32()).unwrap()
     }
 }
 
 pub(crate) trait PointExt {
-    fn as_krilla(&self) -> krilla::geom::Point;
+    fn to_krilla(&self) -> kg::Point;
 }
 
 impl PointExt for Point {
-    fn as_krilla(&self) -> krilla::geom::Point {
-        krilla::geom::Point::from_xy(self.x.to_f32(), self.y.to_f32())
+    fn to_krilla(&self) -> kg::Point {
+        kg::Point::from_xy(self.x.to_f32(), self.y.to_f32())
     }
 }
 
 pub(crate) trait LineCapExt {
-    fn as_krilla(&self) -> krilla::path::LineCap;
+    fn to_krilla(&self) -> kp::LineCap;
 }
 
 impl LineCapExt for LineCap {
-    fn as_krilla(&self) -> krilla::path::LineCap {
+    fn to_krilla(&self) -> kp::LineCap {
         match self {
-            LineCap::Butt => krilla::path::LineCap::Butt,
-            LineCap::Round => krilla::path::LineCap::Round,
-            LineCap::Square => krilla::path::LineCap::Square,
+            LineCap::Butt => kp::LineCap::Butt,
+            LineCap::Round => kp::LineCap::Round,
+            LineCap::Square => kp::LineCap::Square,
         }
     }
 }
 
 pub(crate) trait LineJoinExt {
-    fn as_krilla(&self) -> krilla::path::LineJoin;
+    fn to_krilla(&self) -> kp::LineJoin;
 }
 
 impl LineJoinExt for LineJoin {
-    fn as_krilla(&self) -> krilla::path::LineJoin {
+    fn to_krilla(&self) -> kp::LineJoin {
         match self {
-            LineJoin::Miter => krilla::path::LineJoin::Miter,
-            LineJoin::Round => krilla::path::LineJoin::Round,
-            LineJoin::Bevel => krilla::path::LineJoin::Bevel,
+            LineJoin::Miter => kp::LineJoin::Miter,
+            LineJoin::Round => kp::LineJoin::Round,
+            LineJoin::Bevel => kp::LineJoin::Bevel,
         }
     }
 }
 
 pub(crate) trait TransformExt {
-    fn as_krilla(&self) -> krilla::geom::Transform;
+    fn to_krilla(&self) -> kg::Transform;
 }
 
 impl TransformExt for Transform {
-    fn as_krilla(&self) -> krilla::geom::Transform {
-        krilla::geom::Transform::from_row(
+    fn to_krilla(&self) -> kg::Transform {
+        kg::Transform::from_row(
             self.sx.get() as f32,
             self.ky.get() as f32,
             self.kx.get() as f32,
@@ -70,14 +74,14 @@ impl TransformExt for Transform {
 }
 
 pub(crate) trait FillRuleExt {
-    fn as_krilla(&self) -> krilla::path::FillRule;
+    fn to_krilla(&self) -> kp::FillRule;
 }
 
 impl FillRuleExt for FillRule {
-    fn as_krilla(&self) -> krilla::path::FillRule {
+    fn to_krilla(&self) -> kp::FillRule {
         match self {
-            FillRule::NonZero => krilla::path::FillRule::NonZero,
-            FillRule::EvenOdd => krilla::path::FillRule::EvenOdd,
+            FillRule::NonZero => kp::FillRule::NonZero,
+            FillRule::EvenOdd => kp::FillRule::EvenOdd,
         }
     }
 }
@@ -89,6 +93,22 @@ pub(crate) trait AbsExt {
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
+    }
+}
+
+pub(crate) trait ColorExt {
+    fn to_krilla_rgb(&self) -> (kr::Color, u8);
+}
+
+impl ColorExt for Color {
+    /// Convert a color into a krilla RGB color and an alpha value.
+    fn to_krilla_rgb(&self) -> (kr::Color, u8) {
+        let components = self.to_space(ColorSpace::Srgb).to_vec4_u8();
+        (
+            kr::Color::new(components[0], components[1], components[2])
+                .into(),
+            components[3],
+        )
     }
 }
 
