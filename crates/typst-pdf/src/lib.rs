@@ -117,7 +117,7 @@ impl Timestamp {
     /// Create a new timestamp with a given datetime, and a local timezone offset.
     pub fn new_local(datetime: Datetime, whole_minute_offset: i32) -> Option<Self> {
         let hour_offset = (whole_minute_offset / 60).try_into().ok()?;
-        let minute_offset = whole_minute_offset.rem_euclid(60).try_into().ok()?;
+        let minute_offset = (whole_minute_offset % 60).abs().try_into().ok()?;
         match (hour_offset, minute_offset) {
             // Only accept valid timezone offsets with `-23 <= hours <= 23`,
             // and `0 <= minutes <= 59`.
@@ -131,7 +131,7 @@ impl Timestamp {
 }
 
 /// A timezone.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Timezone {
     /// The UTC timezone.
     UTC,
@@ -652,4 +652,44 @@ fn transform_to_array(ts: Transform) -> [f32; 6] {
         ts.tx.to_f32(),
         ts.ty.to_f32(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use std::i32;
+
+    use super::*;
+
+    #[test]
+    fn test_timestamp_new_local() {
+        let dummy_datetime = Datetime::from_ymd_hms(2024, 12, 17, 10, 10, 10).unwrap();
+        let test = |whole_minute_offset, expect_timezone| {
+            assert_eq!(
+                Timestamp::new_local(dummy_datetime, whole_minute_offset)
+                    .unwrap()
+                    .timezone,
+                expect_timezone
+            );
+        };
+
+        // Valid timezone offsets
+        test(0, Timezone::Local { hour_offset: 0, minute_offset: 0 });
+        test(480, Timezone::Local { hour_offset: 8, minute_offset: 0 });
+        test(-480, Timezone::Local { hour_offset: -8, minute_offset: 0 });
+        test(330, Timezone::Local { hour_offset: 5, minute_offset: 30 });
+        test(-210, Timezone::Local { hour_offset: -3, minute_offset: 30 });
+        test(-720, Timezone::Local { hour_offset: -12, minute_offset: 0 }); // AoE
+
+        // Corner cases
+        test(315, Timezone::Local { hour_offset: 5, minute_offset: 15 });
+        test(-225, Timezone::Local { hour_offset: -3, minute_offset: 45 });
+        test(1439, Timezone::Local { hour_offset: 23, minute_offset: 59 });
+        test(-1439, Timezone::Local { hour_offset: -23, minute_offset: 59 });
+
+        // Invalid timezone offsets
+        assert!(Timestamp::new_local(dummy_datetime, 1440).is_none());
+        assert!(Timestamp::new_local(dummy_datetime, -1440).is_none());
+        assert!(Timestamp::new_local(dummy_datetime, i32::MAX).is_none());
+        assert!(Timestamp::new_local(dummy_datetime, i32::MIN).is_none());
+    }
 }
