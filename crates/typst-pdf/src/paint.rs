@@ -163,14 +163,15 @@ fn convert_gradient(
         stops.push(stop);
     };
 
+    // Convert stops.
     match &gradient {
-        Gradient::Linear(linear) => {
-            if let Some((c, t)) = linear.stops.first() {
-                add_single(c, *t);
+        Gradient::Linear(_) | Gradient::Radial(_) => {
+            if let Some(s) = gradient.stops().first() {
+                add_single(&s.color, s.offset.unwrap());
             }
 
             // Create the individual gradient functions for each pair of stops.
-            for window in linear.stops.windows(2) {
+            for window in gradient.stops().windows(2) {
                 let (first, second) = (window[0], window[1]);
 
                 // If we have a hue index or are using Oklab, we will create several
@@ -179,106 +180,20 @@ fn convert_gradient(
                 if gradient.space().hue_index().is_some() {
                     for i in 0..=32 {
                         let t = i as f64 / 32.0;
-                        let real_t =
-                            Ratio::new(first.1.get() * (1.0 - t) + second.1.get() * t);
+                        let real_t = Ratio::new(
+                            first.offset.unwrap().get() * (1.0 - t)
+                                + second.offset.unwrap().get() * t,
+                        );
 
                         let c = gradient.sample(RatioOrAngle::Ratio(real_t));
                         add_single(&c, real_t);
                     }
                 }
 
-                add_single(&second.0, second.1);
+                add_single(&second.color, second.offset.unwrap());
             }
-
-            let (mut sin, mut cos) = (angle.sin(), angle.cos());
-
-            // Scale to edges of unit square.
-            let factor = cos.abs() + sin.abs();
-            sin *= factor;
-            cos *= factor;
-
-            let (x1, y1, x2, y2): (f32, f32, f32, f32) = match angle.quadrant() {
-                Quadrant::First => (0.0, 0.0, cos as f32, sin as f32),
-                Quadrant::Second => (1.0, 0.0, cos as f32 + 1.0, sin as f32),
-                Quadrant::Third => (1.0, 1.0, cos as f32 + 1.0, sin as f32 + 1.0),
-                Quadrant::Fourth => (0.0, 1.0, cos as f32, sin as f32 + 1.0),
-            };
-
-            let linear = krilla::paint::LinearGradient {
-                x1,
-                y1,
-                x2,
-                y2,
-                transform: base_transform.to_krilla().pre_concat(
-                    krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
-                ),
-                spread_method: SpreadMethod::Pad,
-                stops: stops.into(),
-                anti_alias: gradient.anti_alias(),
-            };
-
-            (linear.into(), 255)
-        }
-        Gradient::Radial(radial) => {
-            if let Some((c, t)) = radial.stops.first() {
-                add_single(c, *t);
-            }
-
-            // Create the individual gradient functions for each pair of stops.
-            for window in radial.stops.windows(2) {
-                let (first, second) = (window[0], window[1]);
-
-                // If we have a hue index or are using Oklab, we will create several
-                // stops in-between to make the gradient smoother without interpolation
-                // issues with native color spaces.
-                if gradient.space().hue_index().is_some() {
-                    for i in 0..=32 {
-                        let t = i as f64 / 32.0;
-                        let real_t =
-                            Ratio::new(first.1.get() * (1.0 - t) + second.1.get() * t);
-
-                        let c = gradient.sample(RatioOrAngle::Ratio(real_t));
-                        add_single(&c, real_t);
-                    }
-                }
-
-                add_single(&second.0, second.1);
-            }
-
-            let radial = krilla::paint::RadialGradient {
-                fx: radial.focal_center.x.get() as f32,
-                fy: radial.focal_center.y.get() as f32,
-                fr: radial.focal_radius.get() as f32,
-                cx: radial.center.x.get() as f32,
-                cy: radial.center.y.get() as f32,
-                cr: radial.radius.get() as f32,
-                transform: base_transform.to_krilla().pre_concat(
-                    krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
-                ),
-                spread_method: SpreadMethod::Pad,
-                stops: stops.into(),
-                anti_alias: gradient.anti_alias(),
-            };
-
-            (radial.into(), 255)
         }
         Gradient::Conic(conic) => {
-            // Correct the gradient's angle
-            let cx = size.x.to_f32() * conic.center.x.get() as f32;
-            let cy = size.y.to_f32() * conic.center.y.get() as f32;
-            let actual_transform = base_transform
-                .pre_concat(Transform::rotate_at(
-                    angle,
-                    Abs::pt(cx as f64),
-                    Abs::pt(cy as f64),
-                ))
-                .pre_concat(Transform::scale_at(
-                    -Ratio::one(),
-                    Ratio::one(),
-                    Abs::pt(cx as f64),
-                    Abs::pt(cy as f64),
-                ));
-
             if let Some((c, t)) = conic.stops.first() {
                 add_single(c, *t);
             }
@@ -328,6 +243,83 @@ fn convert_gradient(
 
                 add_single(&c1, t1);
             }
+        }
+    }
+
+    match &gradient {
+        Gradient::Linear(_) => {
+            let (x1, y1, x2, y2) = {
+                let (mut sin, mut cos) = (angle.sin(), angle.cos());
+
+                // Scale to edges of unit square.
+                let factor = cos.abs() + sin.abs();
+                sin *= factor;
+                cos *= factor;
+
+                match angle.quadrant() {
+                    Quadrant::First => (0.0, 0.0, cos as f32, sin as f32),
+                    Quadrant::Second => (1.0, 0.0, cos as f32 + 1.0, sin as f32),
+                    Quadrant::Third => (1.0, 1.0, cos as f32 + 1.0, sin as f32 + 1.0),
+                    Quadrant::Fourth => (0.0, 1.0, cos as f32, sin as f32 + 1.0),
+                }
+            };
+
+            let linear = krilla::paint::LinearGradient {
+                x1,
+                y1,
+                x2,
+                y2,
+                // x and y coordinates are normalized, so need to scale by the size.
+                transform: base_transform
+                    .pre_concat(Transform::scale(
+                        Ratio::new(size.x.to_f32() as f64),
+                        Ratio::new(size.y.to_f32() as f64),
+                    ))
+                    .to_krilla(),
+                spread_method: SpreadMethod::Pad,
+                stops: stops.into(),
+                anti_alias: gradient.anti_alias(),
+            };
+
+            (linear.into(), 255)
+        }
+        Gradient::Radial(radial) => {
+            let radial = krilla::paint::RadialGradient {
+                fx: radial.focal_center.x.get() as f32,
+                fy: radial.focal_center.y.get() as f32,
+                fr: radial.focal_radius.get() as f32,
+                cx: radial.center.x.get() as f32,
+                cy: radial.center.y.get() as f32,
+                cr: radial.radius.get() as f32,
+                transform: base_transform.to_krilla().pre_concat(
+                    krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
+                ),
+                spread_method: SpreadMethod::Pad,
+                stops: stops.into(),
+                anti_alias: gradient.anti_alias(),
+            };
+
+            (radial.into(), 255)
+        }
+        Gradient::Conic(conic) => {
+            // Correct the gradient's angle
+            let cx = size.x.to_f32() * conic.center.x.get() as f32;
+            let cy = size.y.to_f32() * conic.center.y.get() as f32;
+            let actual_transform = base_transform
+                // Adjust for the angle
+                .pre_concat(Transform::rotate_at(
+                    angle,
+                    Abs::pt(cx as f64),
+                    Abs::pt(cy as f64),
+                ))
+                // Default start point in krilla and typst are at the opposite side, so we need
+                // to flip it horizontally.
+                .pre_concat(Transform::scale_at(
+                    -Ratio::one(),
+                    Ratio::one(),
+                    Abs::pt(cx as f64),
+                    Abs::pt(cy as f64),
+                ));
 
             let sweep = krilla::paint::SweepGradient {
                 cx,
