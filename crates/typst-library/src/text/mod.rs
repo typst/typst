@@ -108,7 +108,7 @@ pub struct TextElem {
     ///     - `{"latin-in-cjk"}` covers all codepoints except for those which
     ///       exist in Latin fonts, but should preferrably be taken from CJK
     ///       fonts.
-    ///   - A [regular expression][regex] that defines exactly which codepoints
+    ///   - A [regular expression]($regex) that defines exactly which codepoints
     ///     shall be covered. Accepts only the subset of regular expressions
     ///     which consist of exactly one dot, letter, or character class.
     ///
