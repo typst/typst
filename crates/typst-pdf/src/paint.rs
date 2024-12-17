@@ -1,12 +1,12 @@
 //! Convert paint types from typst to krilla.
 
-use crate::krilla::{handle_frame, FrameContext, GlobalContext, Transforms};
+use crate::krilla::{handle_frame, FrameContext, GlobalContext, State};
 use crate::util::{AbsExt, ColorExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use krilla::geom::NormalizedF32;
 use krilla::paint::SpreadMethod;
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Transform};
+use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RatioOrAngle,
     RelativeTo, Tiling, WeightedColor,
@@ -19,9 +19,10 @@ pub(crate) fn convert_fill(
     fill_rule_: FillRule,
     on_text: bool,
     surface: &mut Surface,
-    transforms: Transforms,
+    state: &State,
+    size: Size,
 ) -> SourceResult<krilla::path::Fill> {
-    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, transforms)?;
+    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, state, size)?;
 
     Ok(krilla::path::Fill {
         paint,
@@ -35,9 +36,11 @@ pub(crate) fn convert_stroke(
     stroke: &FixedStroke,
     on_text: bool,
     surface: &mut Surface,
-    transforms: Transforms,
+    state: &State,
+    size: Size,
 ) -> SourceResult<krilla::path::Stroke> {
-    let (paint, opacity) = convert_paint(fc, &stroke.paint, on_text, surface, transforms)?;
+    let (paint, opacity) =
+        convert_paint(fc, &stroke.paint, on_text, surface, state, size)?;
 
     Ok(krilla::path::Stroke {
         paint,
@@ -62,12 +65,22 @@ fn convert_paint(
     paint: &Paint,
     on_text: bool,
     surface: &mut Surface,
-    transforms: Transforms,
+    state: &State,
+    mut size: Size,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
+    // Edge cases for strokes.
+    if size.x.is_zero() {
+        size.x = Abs::pt(1.0);
+    }
+
+    if size.y.is_zero() {
+        size.y = Abs::pt(1.0);
+    }
+
     match paint {
         Paint::Solid(c) => Ok(convert_solid(c)),
-        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, transforms)),
-        Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, transforms),
+        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size)),
+        Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
     }
 }
 
@@ -86,7 +99,7 @@ fn convert_solid(color: &Color) -> (krilla::paint::Paint, u8) {
                     components[2],
                     components[3],
                 )
-                    .into(),
+                .into(),
                 // Typst doesn't support alpha on CMYK colors.
                 255,
             )
@@ -104,24 +117,15 @@ fn convert_pattern(
     pattern: &Tiling,
     on_text: bool,
     surface: &mut Surface,
-    mut transforms: Transforms,
+    state: &State,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    // Edge cases for strokes.
-    if transforms.size.x.is_zero() {
-        transforms.size.x = Abs::pt(1.0);
-    }
-
-    if transforms.size.y.is_zero() {
-        transforms.size.y = Abs::pt(1.0);
-    }
-
     let transform = match pattern.unwrap_relative(on_text) {
         RelativeTo::Self_ => Transform::identity(),
-        RelativeTo::Parent => transforms
-            .transform_chain_
+        RelativeTo::Parent => state
+            .transform
             .invert()
             .unwrap()
-            .pre_concat(transforms.container_transform_chain),
+            .pre_concat(state.container_transform()),
     }
     .to_krilla();
 
@@ -144,25 +148,18 @@ fn convert_pattern(
 fn convert_gradient(
     gradient: &Gradient,
     on_text: bool,
-    mut transforms: Transforms,
+    state: &State,
+    size: Size,
 ) -> (krilla::paint::Paint, u8) {
-    // Edge cases for strokes.
-    if transforms.size.x.is_zero() {
-        transforms.size.x = Abs::pt(1.0);
-    }
-
-    if transforms.size.y.is_zero() {
-        transforms.size.y = Abs::pt(1.0);
-    }
     let size = match gradient.unwrap_relative(on_text) {
-        RelativeTo::Self_ => transforms.size,
-        RelativeTo::Parent => transforms.container_size,
+        RelativeTo::Self_ => size,
+        RelativeTo::Parent => state.container_size(),
     };
     let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
     let transform = match gradient.unwrap_relative(on_text) {
-        RelativeTo::Self_ => transforms.transform_chain_,
-        RelativeTo::Parent => transforms.container_transform_chain,
+        RelativeTo::Self_ => state.transform,
+        RelativeTo::Parent => state.container_transform(),
     };
 
     let angle = rotation;
@@ -180,7 +177,7 @@ fn convert_gradient(
     match &gradient {
         Gradient::Linear(linear) => {
             let actual_transform =
-                transforms.transform_chain_.invert().unwrap().pre_concat(transform);
+                state.transform().invert().unwrap().pre_concat(transform);
 
             if let Some((c, t)) = linear.stops.first() {
                 add_single(c, *t);
@@ -238,7 +235,7 @@ fn convert_gradient(
         }
         Gradient::Radial(radial) => {
             let actual_transform =
-                transforms.transform_chain_.invert().unwrap().pre_concat(transform);
+                state.transform.invert().unwrap().pre_concat(transform);
 
             if let Some((c, t)) = radial.stops.first() {
                 add_single(c, *t);
@@ -286,8 +283,8 @@ fn convert_gradient(
             // Correct the gradient's angle
             let cx = size.x.to_f32() * conic.center.x.get() as f32;
             let cy = size.y.to_f32() * conic.center.y.get() as f32;
-            let actual_transform = transforms
-                .transform_chain_
+            let actual_transform = state
+                .transform
                 .invert()
                 .unwrap()
                 .pre_concat(transform)

@@ -40,9 +40,7 @@ pub(crate) struct State {
 
 impl State {
     /// Creates a new, clean state for a given `size`.
-    fn new(
-        size: Size,
-    ) -> Self {
+    fn new(size: Size) -> Self {
         Self {
             transform: Transform::identity(),
             container_transform: Transform::identity(),
@@ -59,14 +57,16 @@ impl State {
         self.transform = self.transform.pre_concat(transform);
     }
 
-    /// Creates the [`Transforms`] structure for the current item.
-    pub(crate) fn transforms(&self, size: Size) -> Transforms {
-        Transforms {
-            transform_chain_: self.transform,
-            container_transform_chain: self.container_transform,
-            container_size: self.container_size,
-            size,
-        }
+    pub(crate) fn transform(&self) -> Transform {
+        self.transform
+    }
+
+    pub(crate) fn container_transform(&self) -> Transform {
+        self.container_transform
+    }
+
+    pub(crate) fn container_size(&self) -> Size {
+        self.container_size
     }
 }
 
@@ -98,19 +98,6 @@ impl FrameContext {
     pub(crate) fn state_mut(&mut self) -> &mut State {
         self.states.last_mut().unwrap()
     }
-}
-
-/// Subset of the state used to calculate the transform of gradients and patterns.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Transforms {
-    /// The full transform chain.
-    pub(crate) transform_chain_: Transform,
-    /// The transform of first hard frame in the hierarchy.
-    pub(crate) container_transform_chain: Transform,
-    /// The size of the first hard frame in the hierarchy.
-    pub(crate) container_size: Size,
-    /// The size of the item.
-    pub(crate) size: Size,
 }
 
 pub(crate) struct GlobalContext<'a> {

@@ -27,7 +27,8 @@ pub(crate) fn handle_text(
         FillRule::NonZero,
         true,
         surface,
-        fc.state().transforms(Size::zero()),
+        fc.state(),
+        Size::zero(),
     )?;
     let text = t.text.as_str();
     let size = t.size;
@@ -48,7 +49,7 @@ pub(crate) fn handle_text(
     if let Some(stroke) = t
         .stroke
         .as_ref()
-        .map(|s| paint::convert_stroke(gc, s, true, surface, fc.state().transforms(Size::zero())))
+        .map(|s| paint::convert_stroke(gc, s, true, surface, fc.state(), Size::zero()))
     {
         let stroke = stroke?;
 

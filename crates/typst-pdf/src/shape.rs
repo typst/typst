@@ -23,7 +23,8 @@ pub(crate) fn handle_shape(
                 shape.fill_rule,
                 false,
                 surface,
-                fc.state().transforms(shape.geometry.bbox_size()),
+                fc.state(),
+                shape.geometry.bbox_size(),
             )?;
 
             surface.fill_path(&path, fill);
@@ -43,7 +44,8 @@ pub(crate) fn handle_shape(
                 stroke,
                 false,
                 surface,
-                fc.state().transforms(shape.geometry.bbox_size()),
+                fc.state(),
+                shape.geometry.bbox_size(),
             )?;
 
             surface.stroke_path(&path, stroke);
