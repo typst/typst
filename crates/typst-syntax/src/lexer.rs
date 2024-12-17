@@ -1039,8 +1039,7 @@ fn count_newlines(text: &str) -> usize {
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
 /// - `_` as a starting character,
-/// - `-` as a continuing character. (`_` is already defined as a continuing
-///   character.)
+/// - `_` and `-` as continuing characters.
 ///
 /// [uax31]: http://www.unicode.org/reports/tr31/
 #[inline]
@@ -1060,7 +1059,7 @@ pub fn is_id_start(c: char) -> bool {
 /// Whether a character can continue an identifier.
 #[inline]
 pub fn is_id_continue(c: char) -> bool {
-    is_xid_continue(c) || c == '-'
+    is_xid_continue(c) || c == '_' || c == '-'
 }
 
 /// Whether a character can start an identifier in math.
