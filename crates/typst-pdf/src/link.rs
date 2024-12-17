@@ -56,6 +56,8 @@ pub(crate) fn handle_link(
         Destination::Position(p) => *p,
         Destination::Location(loc) => {
             if let Some(named_dest) = gc.loc_to_named.get(loc) {
+                // If a named destination has been registered, it's already guaranteed to
+                // not point to an excluded page.
                 fc.annotations.push(
                     LinkAnnotation::new(
                         rect,
