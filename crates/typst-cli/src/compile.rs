@@ -64,8 +64,8 @@ pub struct CompileConfig {
     pub open: Option<Option<String>>,
     /// The version that should be used to export the PDF.
     pub pdf_version: Option<PdfVersion>,
-    /// A standard the PDF should conform to.
-    pub pdf_standard: Option<PdfStandard>,
+    /// A list of standards the PDF should conform to.
+    pub pdf_standard: Vec<PdfStandard>,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
@@ -155,7 +155,7 @@ impl CompileConfig {
             export_cache: ExportCache::new(),
             #[cfg(feature = "http-server")]
             server,
-            pdf_standard: args.pdf_standard,
+            pdf_standard: args.pdf_standard.clone(),
         })
     }
 }
@@ -276,6 +276,25 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         }
     };
 
+    let validator = match config.pdf_standard.first() {
+        None => Validator::None,
+        Some(s) => {
+            if config.pdf_standard.len() > 1 {
+                bail!(Span::detached(), "cannot export using more than one PDF standard";
+                    hint: "typst currently only supports export using \
+                    one standard at the same time");
+            } else {
+                match s {
+                    PdfStandard::A_1b => Validator::A1_B,
+                    PdfStandard::A_2b => Validator::A2_B,
+                    PdfStandard::A_2u => Validator::A2_U,
+                    PdfStandard::A_3b => Validator::A3_B,
+                    PdfStandard::A_3u => Validator::A3_U,
+                }
+            }
+        }
+    };
+
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
@@ -286,16 +305,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
             PdfVersion::V_1_6 => typst_pdf::PdfVersion::Pdf16,
             PdfVersion::V_1_7 => typst_pdf::PdfVersion::Pdf17,
         }),
-        validator: config
-            .pdf_standard
-            .map(|s| match s {
-                PdfStandard::A_1b => Validator::A1_B,
-                PdfStandard::A_2b => Validator::A2_B,
-                PdfStandard::A_2u => Validator::A2_U,
-                PdfStandard::A_3b => Validator::A3_B,
-                PdfStandard::A_3u => Validator::A3_U,
-            })
-            .unwrap_or(Validator::None),
+        validator,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config

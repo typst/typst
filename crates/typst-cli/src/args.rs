@@ -245,10 +245,11 @@ pub struct CompileArgs {
     #[arg(long = "pdf-version")]
     pub pdf_version: Option<PdfVersion>,
 
-    /// A PDF standard that Typst will enforce
-    /// conformance with.
-    #[arg(long = "pdf-standard")]
-    pub pdf_standard: Option<PdfStandard>,
+    /// A number of PDF standards that Typst will enforce
+    /// conformance with (currently, only one standard at a time
+    /// is supported).
+    #[arg(long = "pdf-standard", value_delimiter = ',')]
+    pub pdf_standard: Vec<PdfStandard>,
 
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
