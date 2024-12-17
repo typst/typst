@@ -1,8 +1,8 @@
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::LazyArray16;
 use typst_library::diag::{warning, SourceResult};
-use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
-use typst_library::layout::{Abs, Axis, Frame, Length, Point, Rel, Size};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::layout::{Abs, Axis, Frame, Point, Rel, Size};
 use typst_library::math::StretchElem;
 use typst_utils::Get;
 
@@ -42,7 +42,7 @@ pub fn stretch_fragment(
     fragment: &mut MathFragment,
     axis: Option<Axis>,
     relative_to: Option<Abs>,
-    stretch: Smart<Rel<Length>>,
+    stretch: Rel<Abs>,
     short_fall: Abs,
 ) {
     let glyph = match fragment {
@@ -66,10 +66,7 @@ pub fn stretch_fragment(
     let mut variant = stretch_glyph(
         ctx,
         glyph,
-        stretch
-            .unwrap_or(Rel::one())
-            .resolve(styles)
-            .relative_to(relative_to_size),
+        stretch.relative_to(relative_to_size),
         short_fall,
         axis,
     );
