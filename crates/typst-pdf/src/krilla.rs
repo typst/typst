@@ -3,11 +3,9 @@ use crate::link::handle_link;
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
-use crate::util::{build_path, display_font, AbsExt, PointExt, SizeExt, TransformExt};
+use crate::util::{build_path, display_font, AbsExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
-use krilla::action::{Action, LinkAction};
-use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
 use krilla::font::{GlyphId, GlyphUnits};
@@ -17,7 +15,7 @@ use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::validation::ValidationError;
 use krilla::version::PdfVersion;
-use krilla::{Document, PageSettings, SerializeSettings, SvgSettings};
+use krilla::{Document, PageSettings, SerializeSettings};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
@@ -25,12 +23,12 @@ use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
 use typst_library::layout::{
-    Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,
+    Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
-use typst_library::model::{Destination, HeadingElem};
+use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Glyph, Lang, TextItem};
 use typst_library::visualize::{
-    FillRule, Geometry, Image, ImageKind, Paint, Path, PathItem, Shape,
+    FillRule, Geometry, Paint, Shape,
 };
 use typst_syntax::Span;
 
