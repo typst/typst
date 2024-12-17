@@ -2,7 +2,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use typst_syntax::Span;
 
-use crate::diag::{bail, warning, At, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
@@ -305,10 +305,6 @@ impl State {
     /// The `selector` must match exactly one element in the document. The most
     /// useful kinds of selectors for this are [labels]($label) and
     /// [locations]($location).
-    ///
-    /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
-    /// function also works without a known context if the `selector` is a
-    /// location. This behaviour will be removed in a future release.
     #[typst_macros::time(name = "state.at", span = span)]
     #[func(contextual)]
     pub fn at(
@@ -336,21 +332,8 @@ impl State {
         context: Tracked<Context>,
         /// The callsite span.
         span: Span,
-        /// _Compatibility:_ This argument is deprecated. It only exists for
-        /// compatibility with Typst 0.10 and lower and shouldn't be used
-        /// anymore.
-        #[default]
-        location: Option<Location>,
     ) -> SourceResult<Value> {
-        if location.is_none() {
-            context.location().at(span)?;
-        } else {
-            engine.sink.warn(warning!(
-                span, "calling `state.final` with a location is deprecated";
-                hint: "try removing the location argument"
-            ));
-        }
-
+        context.introspect().at(span)?;
         let sequence = self.sequence(engine)?;
         Ok(sequence.last().unwrap().clone())
     }
@@ -374,30 +357,6 @@ impl State {
         update: StateUpdate,
     ) -> Content {
         StateUpdateElem::new(self.key, update).pack().spanned(span)
-    }
-
-    /// Displays the current value of the state.
-    ///
-    /// **Deprecation planned:** Use [`get`]($state.get) instead.
-    #[func]
-    pub fn display(
-        self,
-        /// The engine.
-        engine: &mut Engine,
-        /// The span of the `display` call.
-        span: Span,
-        /// A function which receives the value of the state and can return
-        /// arbitrary content which is then displayed. If this is omitted, the
-        /// value is directly displayed.
-        #[default]
-        func: Option<Func>,
-    ) -> Content {
-        engine.sink.warn(warning!(
-            span, "`state.display` is deprecated";
-            hint: "use `state.get` in a `context` expression instead"
-        ));
-
-        StateDisplayElem::new(self, func).pack().spanned(span)
     }
 }
 
@@ -444,40 +403,5 @@ impl Construct for StateUpdateElem {
 impl Show for Packed<StateUpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
-    }
-}
-
-/// Executes a display of a state.
-///
-/// **Deprecation planned.**
-#[elem(Construct, Locatable, Show)]
-struct StateDisplayElem {
-    /// The state.
-    #[required]
-    #[internal]
-    state: State,
-
-    /// The function to display the state with.
-    #[required]
-    #[internal]
-    func: Option<Func>,
-}
-
-impl Show for Packed<StateDisplayElem> {
-    #[typst_macros::time(name = "state.display", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let location = self.location().unwrap();
-        let context = Context::new(Some(location), Some(styles));
-        let value = self.state().at_loc(engine, location)?;
-        Ok(match self.func() {
-            Some(func) => func.call(engine, context.track(), [value])?.display(),
-            None => value.display(),
-        })
-    }
-}
-
-impl Construct for StateDisplayElem {
-    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
-        bail!(args.span, "cannot be constructed manually");
     }
 }
