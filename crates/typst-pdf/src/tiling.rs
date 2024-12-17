@@ -5,7 +5,7 @@ use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
 use pdf_writer::{Filter, Name, Rect, Ref};
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Ratio, Transform};
-use typst_library::visualize::{Pattern, RelativeTo};
+use typst_library::visualize::{RelativeTo, Tiling};
 use typst_utils::Numeric;
 
 use crate::color::PaintEncode;
@@ -14,18 +14,18 @@ use crate::{content, transform_to_array, PdfChunk, Resources, WithGlobalRefs};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_patterns(
+pub fn write_tilings(
     context: &WithGlobalRefs,
-) -> SourceResult<(PdfChunk, HashMap<PdfPattern, Ref>)> {
+) -> SourceResult<(PdfChunk, HashMap<PdfTiling, Ref>)> {
     let mut chunk = PdfChunk::new();
     let mut out = HashMap::new();
     context.resources.traverse(&mut |resources| {
-        let Some(patterns) = &resources.patterns else {
+        let Some(patterns) = &resources.tilings else {
             return Ok(());
         };
 
         for pdf_pattern in patterns.remapper.items() {
-            let PdfPattern { transform, pattern, content, .. } = pdf_pattern;
+            let PdfTiling { transform, pattern, content, .. } = pdf_pattern;
             if out.contains_key(pdf_pattern) {
                 continue;
             }
@@ -69,11 +69,11 @@ pub fn write_patterns(
 
 /// A pattern and its transform.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct PdfPattern {
+pub struct PdfTiling {
     /// The transform to apply to the pattern.
     pub transform: Transform,
     /// The pattern to paint.
-    pub pattern: Pattern,
+    pub pattern: Tiling,
     /// The rendered pattern.
     pub content: Vec<u8>,
 }
@@ -81,14 +81,14 @@ pub struct PdfPattern {
 /// Registers a pattern with the PDF.
 fn register_pattern(
     ctx: &mut content::Builder,
-    pattern: &Pattern,
+    pattern: &Tiling,
     on_text: bool,
     mut transforms: content::Transforms,
 ) -> SourceResult<usize> {
     let patterns = ctx
         .resources
-        .patterns
-        .get_or_insert_with(|| Box::new(PatternRemapper::new()));
+        .tilings
+        .get_or_insert_with(|| Box::new(TilingRemapper::new()));
 
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
@@ -113,7 +113,7 @@ fn register_pattern(
         None,
     )?;
 
-    let pdf_pattern = PdfPattern {
+    let pdf_pattern = PdfTiling {
         transform,
         pattern: pattern.clone(),
         content: content.content.wait().clone(),
@@ -122,7 +122,7 @@ fn register_pattern(
     Ok(patterns.remapper.insert(pdf_pattern))
 }
 
-impl PaintEncode for Pattern {
+impl PaintEncode for Tiling {
     fn set_as_fill(
         &self,
         ctx: &mut content::Builder,
@@ -159,14 +159,14 @@ impl PaintEncode for Pattern {
 }
 
 /// De-duplicate patterns and the resources they require to be drawn.
-pub struct PatternRemapper<R> {
+pub struct TilingRemapper<R> {
     /// Pattern de-duplicator.
-    pub remapper: Remapper<PdfPattern>,
+    pub remapper: Remapper<PdfTiling>,
     /// PDF resources that are used by these patterns.
     pub resources: Resources<R>,
 }
 
-impl PatternRemapper<()> {
+impl TilingRemapper<()> {
     pub fn new() -> Self {
         Self {
             remapper: Remapper::new("P"),
@@ -175,8 +175,8 @@ impl PatternRemapper<()> {
     }
 
     /// Allocate a reference to the resource dictionary of these patterns.
-    pub fn with_refs(self, refs: &ResourcesRefs) -> PatternRemapper<Ref> {
-        PatternRemapper {
+    pub fn with_refs(self, refs: &ResourcesRefs) -> TilingRemapper<Ref> {
+        TilingRemapper {
             remapper: self.remapper,
             resources: self.resources.with_refs(refs),
         }

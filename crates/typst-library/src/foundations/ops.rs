@@ -144,8 +144,8 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         | (Length(thickness), Gradient(gradient)) => {
             Stroke::from_pair(gradient, thickness).into_value()
         }
-        (Pattern(pattern), Length(thickness)) | (Length(thickness), Pattern(pattern)) => {
-            Stroke::from_pair(pattern, thickness).into_value()
+        (Tiling(tiling), Length(thickness)) | (Length(thickness), Tiling(tiling)) => {
+            Stroke::from_pair(tiling, thickness).into_value()
         }
 
         (Duration(a), Duration(b)) => Duration(a + b),
