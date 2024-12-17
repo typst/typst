@@ -5,6 +5,7 @@ use std::path::Path;
 use ecow::eco_vec;
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, Warned};
+use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, Page, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst::WorldExt;
@@ -62,6 +63,22 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
+        let html = self.test.attrs.contains(&Attr::Html);
+        let render = !html || self.test.attrs.contains(&Attr::Render);
+        if html {
+            self.run_html();
+        }
+        if render {
+            self.run_render();
+        }
+
+        self.handle_not_emitted();
+        self.handle_not_annotated();
+
+        self.result
+    }
+
+    fn run_render(&mut self) {
         let Warned { output, warnings } = typst::compile(&self.world);
         let (doc, errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
@@ -82,11 +99,28 @@ impl<'a> Runner<'a> {
         for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning);
         }
+    }
 
-        self.handle_not_emitted();
-        self.handle_not_annotated();
+    fn run_html(&mut self) {
+        let Warned { output, warnings } = typst::compile(&self.world);
+        let (doc, errors) = match output {
+            Ok(doc) => (Some(doc), eco_vec![]),
+            Err(errors) => (None, errors),
+        };
 
-        self.result
+        if doc.is_none() && errors.is_empty() {
+            log!(self, "no document, but also no errors");
+        }
+
+        self.check_html(doc.as_ref());
+
+        for error in &errors {
+            self.check_diagnostic(NoteKind::Error, error);
+        }
+
+        for warning in &warnings {
+            self.check_diagnostic(NoteKind::Warning, warning);
+        }
     }
 
     /// Handle errors that weren't annotated.
@@ -121,6 +155,70 @@ impl<'a> Runner<'a> {
             log!(self, "custom check failed");
             for line in errors.lines() {
                 log!(self, "  {line}");
+            }
+        }
+    }
+
+    /// Check that the document output is correct.
+    fn check_html(&mut self, document: Option<&HtmlDocument>) {
+        let live_path = format!("{}/html/{}.html", crate::STORE_PATH, self.test.name);
+        let ref_path = format!("{}/html/{}.html", crate::REF_PATH, self.test.name);
+        let has_ref = Path::new(&ref_path).exists();
+
+        let Some(document) = document else {
+            if has_ref {
+                log!(self, "missing document");
+                log!(self, "  ref       | {ref_path}");
+            }
+            return;
+        };
+
+        let data = typst_html::html(document).unwrap();
+        dbg!(&live_path);
+        std::fs::write(&live_path, &data).unwrap();
+
+        // Compare against reference if available.
+        let equal = has_ref && {
+            let ref_data = std::fs::read_to_string(&ref_path).unwrap();
+            data == ref_data
+        };
+
+        // Test that is ok doesn't need to be updated.
+        if equal {
+            return;
+        }
+
+        if crate::ARGS.update {
+            let ref_data = data;
+            if !self.test.attrs.contains(&Attr::Large)
+                && ref_data.len() > crate::REF_LIMIT
+            {
+                log!(self, "reference HTML would exceed maximum size");
+                log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
+                log!(self, "  size      | {}", FileSize(ref_data.len()));
+                log!(
+                    self,
+                    "please try to minimize the size of the test (less text, etc.)"
+                );
+                log!(self, "if you think the test cannot be reasonably minimized, mark it as `large`");
+                return;
+            }
+            std::fs::write(&ref_path, &ref_data).unwrap();
+            log!(
+                into: self.result.infos,
+                "updated reference HTML ({ref_path}, {})",
+                FileSize(ref_data.len()),
+            );
+        } else {
+            // TODO: rename to `mismatched`
+            self.result.mismatched_image = true;
+            if has_ref {
+                log!(self, "mismatched rendering");
+                log!(self, "  live      | {live_path}");
+                log!(self, "  ref       | {ref_path}");
+            } else {
+                log!(self, "missing reference image");
+                log!(self, "  live      | {live_path}");
             }
         }
     }
@@ -214,7 +312,7 @@ impl<'a> Runner<'a> {
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
                     log!(self, "please try to minimize the size of the test (smaller pages, less text, etc.)");
-                    log!(self, "if you think the test cannot be reasonably minimized, mark it as `// LARGE`");
+                    log!(self, "if you think the test cannot be reasonably minimized, mark it as `large`");
                     return;
                 }
                 std::fs::write(&ref_path, &ref_data).unwrap();
