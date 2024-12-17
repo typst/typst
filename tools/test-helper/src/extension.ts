@@ -121,7 +121,7 @@ class TestHelper {
     const lenses = [];
     for (let nr = 0; nr < document.lineCount; nr++) {
       const line = document.lineAt(nr);
-      const re = /^--- ([\d\w-]+) ---$/;
+      const re = /^--- ([\d\w-]+)( [\d\w-]+)* ---$/;
       const m = line.text.match(re);
       if (!m) {
         continue;
