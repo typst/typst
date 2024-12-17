@@ -76,7 +76,6 @@ pub fn layout_text(
         let local = [
             TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
             TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-            TextElem::set_size(TextSize(scaled_font_size(ctx, styles).into())),
         ]
         .map(|p| p.wrap());
 

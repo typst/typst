@@ -57,12 +57,12 @@ impl Scaled for MathValue<'_> {
 
 /// Get the font size scaled with the `MathSize`.
 pub fn scaled_font_size(ctx: &MathContext, styles: StyleChain) -> Abs {
-    let factor = match EquationElem::size_in(styles) {
-        MathSize::Display | MathSize::Text => 1.0,
-        MathSize::Script => percent!(ctx, script_percent_scale_down),
-        MathSize::ScriptScript => percent!(ctx, script_script_percent_scale_down),
-    };
-    factor * TextElem::size_in(styles)
+    // let factor = match EquationElem::size_in(styles) {
+    //     MathSize::Display | MathSize::Text => 1.0,
+    //     MathSize::Script => percent!(ctx, script_percent_scale_down),
+    //     MathSize::ScriptScript => percent!(ctx, script_script_percent_scale_down),
+    // };
+    TextElem::size_in(styles)
 }
 
 /// Styles something as cramped.
